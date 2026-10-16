@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 36 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, o projeto Supabase `qixocgetiwlrsbadpbvh` contém a migration de stories de 24 horas; `looply-admin` e `looply-chat` estavam nas versões 7 e 3 na última verificação. O acervo de cartas permanece no banco e os arquivos antigos ainda dependem de importação. O commit `65d3c05` passou no GitHub Actions com 37 testes; a revisão seguinte acrescenta a validação do limite de validade das URLs assinadas e seu check ainda está pendente. Não houve teste completo de stories com duas contas nem expiração real no navegador. Build e testes automatizados não comprovam integração ponta a ponta.
+Este roteiro registra 37 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, o projeto Supabase `qixocgetiwlrsbadpbvh` contém a migration de stories de 24 horas e a publicação Realtime de metadados de mídia; `looply-admin` e `looply-chat` estavam nas versões 7 e 3 na última verificação. O acervo de cartas permanece no banco e os arquivos antigos ainda dependem de importação. O commit `65d3c05` passou no GitHub Actions com 37 testes e a atualização `823ba8a` passou com 38; esta revisão inclui a publicação Realtime de metadados de mídia e aguarda o novo check. Não houve teste completo de stories com duas contas nem expiração real no navegador. Build e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
@@ -51,6 +51,8 @@ Este roteiro registra 36 fluxos para validar a aplicação completa. Em 16 de ou
 | 34 | Publique um story público e abra-o com outra conta autenticada; confira foto, vídeo, texto e lista de stories. | O conteúdo aparece apenas para membros autenticados, o player permanece dentro do app e a posição segue a ordem dos stories. | Não executado |
 | 35 | Publique stories privados e para pessoas escolhidas; tente acessar como remetente, destinatário permitido e uma terceira conta. | O autor e os destinatários permitidos veem o conteúdo; terceiros não obtêm metadados, URL assinada nem arquivo direto. | Não executado |
 | 36 | Confira Home, Cartas e Galeria com o acervo já existente. | Home contém boas-vindas, stories e feed; Cartas continua exibindo cartas arquivadas; Galeria contém o acervo e comentários, sem duplicar publicações do feed. | Teste estrutural automatizado; validação visual pendente |
+
+| 37 | Publique uma foto/vídeo em post e Story e observe a outra conta autorizada sem atualizar manualmente. | A publicação e o metadado de mídia acionam refresh Realtime; RLS continua impedindo metadados de audiências sem acesso. | Não executado |
 
 ## Registro e critério de conclusão
 

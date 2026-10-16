@@ -458,6 +458,7 @@ export function setupSocialRealtime(client, userId, root) {
   realtimeChannel = client
     .channel(`looply-social-${userId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => scheduleRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {

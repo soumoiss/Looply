@@ -632,3 +632,13 @@ test("24-hour stories use authenticated RLS and private Storage object authoriza
   assert.match(moduleSource, /looply-stories-cleanup/);
   assert.match(edgeConfig, /\[functions\.looply-stories-cleanup\][\s\S]*?verify_jwt = true/);
 });
+test("post and story media metadata changes trigger realtime refreshes", async () => {
+  const [social, stories, migration] = await Promise.all([
+    read("src/social.js"), read("src/stories.js"),
+    read("supabase/migrations/20261016122215_realtime_post_story_media.sql")
+  ]);
+  assert.match(social, /table: "post_media"/);
+  assert.match(stories, /table: "story_media"/);
+  assert.match(migration, /alter publication supabase_realtime add table public\.post_media/i);
+  assert.match(migration, /alter publication supabase_realtime add table public\.story_media/i);
+});

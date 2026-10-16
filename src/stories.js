@@ -6,6 +6,7 @@ const storyMimeTypes = new Map([
   ["video/mp4", "mp4"], ["video/webm", "webm"]
 ]);
 let storiesChannel = null;
+let storyRefreshTimer = null;
 const refreshers = new WeakMap();
 
 function escapeHtml(value) {
@@ -567,10 +568,16 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 export function setupStoriesRealtime(client, userId, root) {
   const refresh = refreshers.get(root);
   if (!client || !refresh) return;
-  storiesChannel = client.channel("looply-stories-" + userId)
-    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+  const scheduleRefresh = () => {
+    clearTimeout(storyRefreshTimer);
+    storyRefreshTimer = setTimeout(() => {
+      storyRefreshTimer = null;
       void refresh();
-    })
+    }, 350);
+  };
+  storiesChannel = client.channel("looply-stories-" + userId)
+    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, scheduleRefresh)
+    .on("postgres_changes", { event: "*", schema: "public", table: "story_media" }, scheduleRefresh)
     .subscribe((status) => {
       const state = root.querySelector("[data-story-feed-status]");
       if (state && status === "SUBSCRIBED") state.textContent = state.textContent || "Atualizações em tempo real ativas.";
@@ -578,6 +585,8 @@ export function setupStoriesRealtime(client, userId, root) {
 }
 
 export function disposeStoriesRealtime(client, root) {
+  clearTimeout(storyRefreshTimer);
+  storyRefreshTimer = null;
   if (storiesChannel && client) void client.removeChannel(storiesChannel);
   storiesChannel = null;
   if (root) {
