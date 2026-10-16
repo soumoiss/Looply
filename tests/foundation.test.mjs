@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
-import { groupActiveStories, storyMediaUrlTtl } from "../src/stories.js";
+import { groupActiveStories, storiesMarkup, storyMediaUrlTtl } from "../src/stories.js";
+import { profileAreaMarkup } from "../src/profiles.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -618,6 +619,44 @@ test("story media signed URLs never outlive their story", () => {
   assert.equal(storyMediaUrlTtl("2026-10-17T12:00:00.000Z", now), 1800);
   assert.equal(storyMediaUrlTtl("2026-10-16T12:00:20.000Z", now), 0);
   assert.equal(storyMediaUrlTtl("not-a-date", now), 0);
+});
+
+test("stories expose private replies, likes, camera capture, viewer history, and swipe navigation", async () => {
+  const markup = storiesMarkup([], null, [], null, "viewer", { id: "viewer", username: "viewer", display_name: "Viewer" });
+  const source = await read("src/stories.js");
+  assert.match(markup, /data-story-camera-open/);
+  assert.match(markup, /data-story-capture-photo/);
+  assert.match(markup, /data-story-record-toggle/);
+  assert.match(markup, /data-story-like/);
+  assert.match(markup, /data-story-reply/);
+  assert.match(markup, /data-story-insights-open/);
+  assert.match(source, /send_story_reply/);
+  assert.match(source, /record_story_view/);
+  assert.match(source, /pointerup/);
+  assert.match(source, /ArrowRight/);
+  assert.match(source, /timeLabels.exact/);
+  assert.doesNotMatch(source, /if (!await refresh()) return;/);
+
+  const profile = profileAreaMarkup({ id: "viewer", username: "viewer", display_name: "Viewer", bio: "About me", profile_visibility: "members" });
+  assert.match(profile, /profile-editor-card/);
+  assert.match(profile, /data-avatar-preview/);
+  assert.match(profile, /capture="user"/);
+  assert.match(profile, /data-avatar-remove/);
+});
+
+test("story engagement tables reveal views only to the viewer and story author", async () => {
+  const names = await readdir(resolve(projectRoot, "supabase/migrations"));
+  const migrationName = names.find((name) => name.endsWith("_story_engagement_private_replies.sql"));
+  assert.ok(migrationName);
+  const migration = await read("supabase/migrations/" + migrationName);
+  assert.match(migration, /alter table public\.story_views enable row level security/i);
+  assert.match(migration, /story_views_select_viewer_or_author[\s\S]*?viewer_id = \(select auth\.uid\(\)\)[\s\S]*?s\.author_id = \(select auth\.uid\(\)\)/i);
+  assert.match(migration, /private\.can_view_story\(p_story_id\)/i);
+  assert.match(migration, /create or replace function public\.record_story_view\(p_story_id uuid\)/i);
+  assert.match(migration, /create or replace function public\.send_story_reply\(p_story_id uuid, p_body text\)/i);
+  assert.match(migration, /create_direct_conversation\(actor_id, story_author_id\)/i);
+  assert.match(migration, /grant execute on function public\.send_story_reply\(uuid, text\) to authenticated/i);
+  assert.match(migration, /alter publication supabase_realtime add table public\.story_views/i);
 });
 
 test("Home, Galeria, and Cartas have separate page responsibilities", async () => {
