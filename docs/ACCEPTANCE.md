@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, as migrações aditivas de preferências/notificações e conversas em grupo foram aplicadas no Supabase; `looply-admin` e `looply-chat` estavam nas versões 7 e 3. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. O GitHub Actions para o commit `9abaf80` passou e os quatro checks Vercel reportaram sucesso; a inspeção direta do deployment não ficou disponível nesta sessão. Build verde e testes automatizados não comprovam integração ponta a ponta.
+Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, as migrações aditivas de preferências/notificações e conversas em grupo foram aplicadas no Supabase; `looply-admin` e `looply-chat` estavam nas versões 7 e 3. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. O GitHub Actions para o código do commit `b2e5204` passou com 34 testes; os quatro checks Vercel também reportaram sucesso para `9abaf80`. A checagem visual da prévia em 390 px confirmou as seis abas, o menu da conta e o formulário de grupo. O último commit documental `b56d8d7` ainda estava com checks pendentes na última consulta. Build verde e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
@@ -27,7 +27,7 @@ Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de ou
 | 11 | Publique comentário de texto e comentário com foto/vídeo pelo seletor do celular. | Comentários persistem uma vez, anexo respeita a visibilidade do post e apresenta estados de envio/erro. | Não executado |
 | 12 | Responda a um comentário, recarregue e tente anexar arquivos acima do limite. | Resposta mantém relação com o comentário/post; arquivo inválido é recusado e não deixa registro órfão. | Não executado |
 | 13 | Abra comentário e anexo de post privado com outra conta sem permissão. | Post, comentários, respostas e arquivos ficam inacessíveis pela UI, API e URL direta. | Não executado |
-| 14 | Abra a playlist atribuída ao usuário, use a busca/player e reproduza um item da biblioteca. | Playlist do YouTube, incluindo a de Peixinho, abre; itens pessoais vêm do perfil autenticado. | Player incorporado; ainda não executado no navegador |
+| 14 | Abra a playlist atribuída ao usuário, use a busca/player e reproduza um item da biblioteca. | Playlist do YouTube, incluindo a de Peixinho, abre; itens pessoais vêm do perfil autenticado. | Prévia conferida: `looply` não tem `LOOPLY_YOUTUBE_API_KEY`; player incorporado aparece, mas a lista da API falha |
 | 15 | Envie uma dedicatória musical para outra pessoa e abra-a nas duas contas. | Remetente/destinatário veem a dedicatória conforme a política; terceiros não a veem. | Não executado |
 | 16 | Comente uma dedicatória como privado e depois compartilhe com os participantes. | Comentário privado começa visível só ao autor; compartilhamento persiste apenas para participantes. | Não executado |
 | 17 | Inicie conversa privada entre duas contas, envie texto, recarregue e consulte histórico. | Conversa única, participantes corretos e mensagens persistentes. | Não executado |
@@ -46,7 +46,7 @@ Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de ou
 | 30 | Acesse diretamente cada URL nova, atualize a página e use voltar, navegação principal e barra móvel. | Rotas de conversa, cartas, notificações, usuários e configurações carregam sob sessão e mantêm a navegação global. | Build/testes estáticos passaram; navegador pendente |
 | 31 | Abra uma conversa em desktop e celular e confira avatar, nome, prévia, horário, não lidas e mensagens antigas. | Lista e rota individual distinguem conversas, protegem IDs inválidos e preservam a rolagem no histórico paginado. | Implementado no branch; navegador pendente |
 |32 | Crie um grupo com nome e pelo menos duas outras contas; abra-o nas duas sessões e envie texto e anexo. | Cada integrante autorizado vê o título, os participantes, as mensagens, os anexos e as notificações; contas fora do grupo não conseguem ler nenhum desses dados. | Formulário conferido na prévia; criação, isolamento e teste entre sessões pendentes |
-|33 | No menu do avatar, abra Perfil, Pessoas e Configurações e use a navegação principal em celular. | As seis abas principais permanecem visíveis e o perfil, a busca de pessoas, as configurações e a administração ficam acessíveis no menu da conta. | Navegação e menu conferidos na prévia em 390 px; os demais fluxos seguem pendentes |
+|33 | No menu do avatar, abra Perfil, Pessoas e Configurações e use a navegação principal em celular. | As seis abas principais permanecem visíveis e o perfil, a busca de pessoas, as configurações e a administração ficam acessíveis no menu da conta. | Passou para navegação/menu em 390 px, sem overflow horizontal; demais fluxos pendentes |
 
 ## Registro e critério de conclusão
 
