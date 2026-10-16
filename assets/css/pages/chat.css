@@ -89,3 +89,9 @@
 
 :is(.page-chat,.page-conversation) .chat-delete-button { color: var(--danger, #a33); }
 :is(.page-chat,.page-conversation) .chat-message-actions-inline button:disabled { opacity: .55; cursor: wait; }
+
+:is(.page-chat,.page-conversation) .chat-emoji-toggle { min-height: 36px; }
+:is(.page-chat,.page-conversation) .chat-emoji-picker { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+:is(.page-chat,.page-conversation) .chat-emoji-picker[hidden] { display: none; }
+:is(.page-chat,.page-conversation) .chat-emoji-picker button { width: 36px; height: 36px; border: 0; border-radius: 9px; background: var(--surface-soft); font-size: 19px; cursor: pointer; }
+:is(.page-chat,.page-conversation) .chat-emoji-picker button:hover, :is(.page-chat,.page-conversation) .chat-emoji-picker button:focus-visible { background: var(--lilac); }
