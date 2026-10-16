@@ -829,7 +829,7 @@ export function bindChatEvents(root, client, getUserId) {
         await openConversation(root, client, data.conversationId, userId);
       } else {
         const conversationId = form.dataset.conversationId;
-        if (!conversationId || conversationId !== activeConversationId) throw new Error("conversation not selected");
+        if (!conversationId) throw new Error("conversation not selected");
         const files = selectedFiles(values);
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
@@ -876,7 +876,6 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
       else if (/conversation not selected/.test(String(error?.message || ""))) message = "Escolha uma conversa antes de enviar a mensagem. Seu texto continua no campo.";
-      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Abra uma conversa antes de enviar a mensagem.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
