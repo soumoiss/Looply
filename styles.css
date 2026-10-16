@@ -645,6 +645,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .archive-viewer-header { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border-bottom: 1px solid var(--line); }
 .archive-viewer-header h2 { max-width: 52vw; margin: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .archive-viewer-header span { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; }
+.archive-viewer-description { max-height: 6rem; margin: 0; padding: 9px 13px; overflow: auto; border-bottom: 1px solid var(--line); font-size: 10px; line-height: 1.5; white-space: pre-wrap; }
+.archive-viewer-description[hidden] { display: none; }
 .archive-viewer-actions { display: flex; align-items: center; gap: 5px; }
 .archive-viewer-actions button, .archive-viewer-controls button { min-width: 32px; min-height: 31px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-soft); cursor: pointer; font: inherit; font-size: 9px; }
 .archive-viewer-actions button:disabled { opacity: .45; cursor: default; }
@@ -683,5 +685,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .archive-viewer-actions { gap: 3px; }
   .archive-viewer-actions button { min-width: 28px; min-height: 29px; padding: 3px 6px; font-size: 8px; }
 }
-
 
