@@ -768,6 +768,8 @@ test("community gallery and letters use RLS, encryption and receipt-aware chat",
 test("chat realtime refresh keeps the active draft and avoids delivery-triggered refresh loops", async () => {
   const chat = await read("src/chat.js");
   assert.ok(chat.includes("loadChatData(client, userId, { markDelivered: false })"));
+  assert.ok(chat.includes('payload?.eventType === "INSERT"'));
+  assert.ok(chat.includes('mark_conversations_delivered", { p_conversation_ids: [payload.new.conversation_id] }'));
   assert.ok(chat.includes('form.dataset.sending = "true"'));
   assert.ok(chat.includes("data-chat-messages"));
   assert.ok(chat.includes('composer?.dataset.sending === "true"'));

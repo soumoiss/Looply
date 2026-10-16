@@ -590,7 +590,14 @@ export function setupChatRealtime(client, userId, root) {
   if (realtimeChannel) client.removeChannel(realtimeChannel);
   realtimeUserId = userId;
   realtimeChannel = client.channel(`looply-chat-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => scheduleRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, (payload) => {
+      const incoming = payload?.eventType === "INSERT" && payload.new?.sender_id !== userId && payload.new?.conversation_id;
+      if (!incoming) { scheduleRefresh(root, client, userId); return; }
+      void client.rpc("mark_conversations_delivered", { p_conversation_ids: [payload.new.conversation_id] })
+        .then(({ error }) => { if (error) console.warn("Looply delivery receipt update failed", error); })
+        .catch((error) => console.warn("Looply delivery receipt update failed", error))
+        .finally(() => scheduleRefresh(root, client, userId));
+    })
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {
