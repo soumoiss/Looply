@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,13 +16,7 @@ for (const file of ["index.html", "login.html", "home.html", "galeria.html", "mu
   await cp(path.join(projectRoot, file), path.join(outputDirectory, file));
 }
 
-const publicConfig = await readFile(path.join(projectRoot, "config.js"), "utf8");
-const youtubeApiKey = JSON.stringify(process.env.LOOPLY_YOUTUBE_API_KEY || "");
-const injectedConfig = publicConfig.replace('youtubeApiKey: ""', `youtubeApiKey: ${youtubeApiKey}`);
-if (injectedConfig === publicConfig && !publicConfig.includes(`youtubeApiKey: ${youtubeApiKey}`)) {
-  throw new Error("Could not prepare the YouTube playlist API configuration.");
-}
-await writeFile(path.join(outputDirectory, "config.js"), injectedConfig, "utf8");
+await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config.js"));
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
