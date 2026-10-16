@@ -18,7 +18,7 @@ function escapeHtml(value) {
 export function archiveImportMarkup() {
   return `<section class="archive-import panel" aria-labelledby="archiveImportTitle">
     <div class="admin-heading"><div><span class="section-kicker">Migração privada</span><h2 id="archiveImportTitle">Importar cartas e mídias antigas</h2></div></div>
-    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. Os arquivos serão enviados para o Supabase privado. Textos das cartas e senhas protegidas não entram no GitHub.</p>
+    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o Supabase privado; textos MSG associados às mídias também serão preservados.</p>
     <form data-archive-import-form>
       <div class="field"><label for="archiveSourceFolder">Pasta Loooply-main</label><input id="archiveSourceFolder" type="file" webkitdirectory directory multiple required><small class="field-hint">Selecione a pasta que contém data/midia-index.json, midia/ e as cartas .txt.</small></div>
       <div class="field"><label for="archiveImportPurpose">Motivo desta importação</label><textarea id="archiveImportPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva o motivo da importação para a auditoria."></textarea></div>
@@ -127,6 +127,7 @@ export function makeMediaCatalog(index, fileMap) {
     items.set(keyPath(sourcePath), {
       source_path: sourcePath,
       file_name: fileNameFromPath(sourcePath),
+      description: String(entry.description || ""),
       kind: entryKind,
       mime_type: mediaTypes.get(extension)[1],
       visibility: exclusive ? "exclusive" : "members",
@@ -236,10 +237,16 @@ export function bindArchiveImport(root, client) {
           && !indexedPaths.has(keyPath(normalized));
       }).length;
       const media = [];
+      let missingMediaCount = 0;
       for (const item of catalog) {
         const fileEntry = fileMap.get(keyPath(item.source_path));
-        if (!fileEntry) { errors.push(`${item.source_path}: arquivo não encontrado na pasta selecionada.`); continue; }
+        if (!fileEntry) { missingMediaCount += 1; continue; }
         if (fileEntry.file.size < 1 || fileEntry.file.size > maxFileBytes) { errors.push(`${item.source_path}: tamanho fora do limite permitido.`); continue; }
+        const folder = item.source_path.slice(0, item.source_path.lastIndexOf("/"));
+        const sidecarName = `MSG_${fileNameFromPath(item.source_path)}.txt`;
+        const sidecar = fileMap.get(keyPath(`${folder}/${sidecarName}`));
+        if (sidecar) item.description = (await readCardText(sidecar.file)).trim() || item.description;
+        if (item.description.length > 10_000) { errors.push(`${item.source_path}: a descrição associada excede 10.000 caracteres.`); continue; }
         const recipientIds = item.recipient_names.map((username) => profileByName.get(username)).filter(Boolean);
         if (item.visibility === "exclusive" && recipientIds.length !== 1) { errors.push(`${item.source_path}: não foi possível associar o destinatário exclusivo.`); continue; }
         if (item.source_date && Number.isNaN(new Date(item.source_date).valueOf())) { errors.push(`${item.source_path}: data original inválida.`); continue; }
@@ -250,7 +257,7 @@ export function bindArchiveImport(root, client) {
           recipient_ids: recipientIds
         });
       }
-      if (errors.length) throw new Error("Corrija os arquivos de mídia ausentes ou inválidos antes de iniciar a importação.");
+      if (errors.length) throw new Error("Corrija os arquivos de mídia inválidos antes de iniciar a importação.");
 
       let cardsImported = 0;
       const cardBatches = [];
@@ -295,7 +302,7 @@ export function bindArchiveImport(root, client) {
         }
       });
       await Promise.all(workers);
-      status.textContent = `Importação concluída: ${cardsImported} cartas · ${completed} de ${media.length} mídias registradas · ${errors.length} falha(s) · ${unindexedCount} arquivo(s) de mídia fora do catálogo ignorado(s). Repetir a importação é seguro.`;
+      status.textContent = `Importação concluída: ${cardsImported} cartas · ${completed} de ${media.length} mídias registradas · ${missingMediaCount} item(ns) catalogado(s) ausente(s) ignorado(s) · ${errors.length} falha(s) · ${unindexedCount} arquivo(s) fora do catálogo ignorado(s). Repetir a importação é seguro.`;
       if (errors.length) {
         errorsList.hidden = false;
         for (const message of errors.slice(0, 100)) {
@@ -320,4 +327,3 @@ export function bindArchiveImport(root, client) {
     }
   });
 }
-
