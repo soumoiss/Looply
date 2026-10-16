@@ -774,6 +774,11 @@ test("chat realtime refresh keeps the active draft and avoids delivery-triggered
   assert.ok(chat.includes("data-chat-messages"));
   assert.ok(chat.includes('composer?.dataset.sending === "true"'));
   assert.ok(chat.includes('if (!conversationId) throw new Error("conversation not selected")'));
+  const submit = chat.slice(chat.indexOf('root.addEventListener("submit"'));
+  assert.ok(submit.indexOf("event.preventDefault()") < submit.indexOf('form.dataset.sending === "true"'),
+    "duplicate chat submits must not fall through to native page navigation");
+  assert.match(submit, /form\.dataset\.conversationId \|\| routeConversationId \|\| activeConversationId/);
+  assert.match(submit, /form\.dataset\.conversationId = conversationId/);
   assert.ok(!chat.includes('if (!conversationId || conversationId !== activeConversationId)'));
   assert.equal(chat.split("else if (/conversation not selected").length - 1, 1);
   assert.ok(!chat.includes("area.replaceWith("));
