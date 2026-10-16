@@ -775,11 +775,12 @@ test("chat realtime refresh keeps the active draft and avoids delivery-triggered
 });
 
 test("gallery access, comment audiences and swipeable responsive viewer are wired end to end", async () => {
-  const [gallery, entry, migration, accessRpc, css] = await Promise.all([
+  const [gallery, entry, migration, accessRpc, realtimeMigration, css] = await Promise.all([
     read("src/gallery-experience.js"),
     read("assets/js/gallery.js"),
     read("supabase/migrations/20261016152935_gallery_private_audiences.sql"),
     read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql"),
+    read("supabase/migrations/20261016200337_gallery_comment_audience_realtime.sql"),
     read("assets/css/pages/gallery.css")
   ]);
   assert.ok(entry.includes("bindGalleryExperience"));
@@ -792,5 +793,8 @@ test("gallery access, comment audiences and swipeable responsive viewer are wire
   assert.ok(migration.includes("community_gallery_comment_recipients"));
   assert.ok(migration.includes("audience = 'selected'"));
   assert.ok(accessRpc.includes("grant execute on function public.set_gallery_media_permissions"));
+  assert.ok(realtimeMigration.includes("archive_media_comment_recipients"));
+  assert.ok(realtimeMigration.includes("community_gallery_comment_recipients"));
+  assert.ok(gallery.includes("scheduleGalleryRefresh"));
   assert.ok(css.includes("gallery-viewer-content img") && css.includes("object-fit:contain"));
 });
