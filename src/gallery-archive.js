@@ -43,8 +43,11 @@ export function archiveGalleryMarkup(media) {
     const preview = item.kind === "image" && item.signedUrl && !item.mime_type.includes("heic")
       ? `<img src="${url}" alt="${title}" loading="lazy" referrerpolicy="no-referrer">`
       : `<span class="archive-media-placeholder">${item.kind === "video" ? "Vídeo" : item.kind === "audio" ? "Áudio" : "Imagem"}</span>`;
-    return `<button class="archive-media-tile" type="button" data-open-archive-media="${escapeHtml(item.id)}" aria-label="Abrir ${title}">
-      ${preview}<span class="archive-media-caption"><strong>${title}</strong><small>${escapeHtml(item.kind)} · ${escapeHtml(formatDate(item.created_at))}</small></span></button>`;
+    const legacyComment = item.description && item.kind === "image"
+      ? `<button class="media-comment-toggle" type="button" data-open-archive-description="${escapeHtml(item.id)}" aria-label="Ver comentário de ${title}" title="Ver comentário"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></button>`
+      : "";
+    return `<article class="archive-media-tile">
+      <button class="archive-media-open" type="button" data-open-archive-media="${escapeHtml(item.id)}" aria-label="Abrir ${title}">${preview}<span class="archive-media-caption"><strong>${title}</strong><small>${escapeHtml(item.kind)} · ${escapeHtml(formatDate(item.created_at))}</small></span></button>${legacyComment}</article>`;
   }).join("");
   return `<section class="archive-media-library" aria-labelledby="archiveMediaTitle">
     <div class="archive-media-heading"><div><span class="section-kicker">Acervo</span><h2 id="archiveMediaTitle">Mídias antigas</h2></div><span data-archive-media-count>${media.length} arquivo(s)</span></div>
@@ -96,6 +99,48 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
   const viewerContent = root.querySelector("[data-archive-viewer-content]");
   const stage = root.querySelector("[data-archive-viewer-stage]");
   const current = () => state.media.find((item) => item.id === state.activeId);
+
+  function openLegacyDescription(item) {
+    if (!item?.description) return;
+    document.querySelector(".media-comment-overlay")?.remove();
+    const overlay = document.createElement("div");
+    overlay.className = "media-comment-overlay";
+    overlay.setAttribute("role", "presentation");
+    const panel = document.createElement("section");
+    panel.className = "media-comment-window";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "archiveLegacyCommentTitle");
+    const header = document.createElement("header");
+    header.className = "media-comment-window-head";
+    const title = document.createElement("h2");
+    title.id = "archiveLegacyCommentTitle";
+    title.textContent = "Comentário da fotografia";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "icon-action";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Fechar comentário");
+    header.append(title, close);
+    const subtitle = document.createElement("p");
+    subtitle.className = "media-comment-window-subtitle";
+    subtitle.textContent = item.file_name || item.source_path || "Fotografia";
+    const content = document.createElement("div");
+    content.className = "media-comment-window-content";
+    content.textContent = item.description;
+    panel.append(header, subtitle, content);
+    overlay.append(panel);
+    (document.fullscreenElement || document.body).append(overlay);
+    const dismiss = () => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (event) => { if (event.key === "Escape") dismiss(); };
+    close.addEventListener("click", dismiss);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) dismiss(); });
+    document.addEventListener("keydown", onKey);
+    close.focus();
+  }
 
   function applyZoom() {
     const image = viewerContent?.querySelector("[data-zoom-image]");
@@ -177,6 +222,8 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
   }
 
   root.addEventListener("click", (event) => {
+    const description = event.target.closest("[data-open-archive-description]");
+    if (description) { event.preventDefault(); event.stopPropagation(); openLegacyDescription(state.media.find((item) => item.id === description.dataset.openArchiveDescription)); return; }
     const open = event.target.closest("[data-open-archive-media]");
     if (open) { show(state.media.find((item) => item.id === open.dataset.openArchiveMedia)); return; }
     if (event.target.closest("[data-archive-viewer-close]")) { close(); return; }
