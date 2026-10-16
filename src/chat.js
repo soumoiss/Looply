@@ -56,7 +56,7 @@ export async function loadChatData(client, userId) {
     if (error) throw error;
     conversations = data || [];
     const { data: latest, error: messagesError } = await client.from("chat_messages")
-      .select("conversation_id,body,created_at,sender_id")
+      .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
       .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
     if (messagesError) throw messagesError;
     latestMessages = latest || [];
@@ -97,12 +97,14 @@ export async function loadChatData(client, userId) {
 
 function conversationLabel(conversation, userId) {
   if (conversation.kind === "letter") return `Carta · ${conversation.subject || "para Peixinho"}`;
+  if (conversation.kind === "group") return conversation.subject || "Grupo";
   const other = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   return other ? `${other.display_name || other.username} · @${other.username}` : "Conversa privada";
 }
 
 function conversationAvatar(conversation, userId) {
   if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
+  if (conversation.kind === "group") return `<span class="chat-conversation-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span>`;
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   return profile?.avatarUrl
@@ -113,7 +115,8 @@ function conversationAvatar(conversation, userId) {
 function conversationPreview(conversation, userId) {
   const message = conversation.lastMessage;
   if (!message) return conversation.kind === "letter" ? "Carta privada" : "Nenhuma mensagem";
-  const author = message.sender_id === userId ? "Você: " : "";
+  const authorName = message.sender_id === userId ? "Você" : conversation.kind === "group" ? (message.author?.display_name || message.author?.username || "Membro") : "";
+  const author = authorName ? `${authorName}: ` : "";
   const text = String(message.body || "").trim();
   return `${author}${text || "Mídia"}`.slice(0, 68);
 }
@@ -151,6 +154,23 @@ export function chatMarkup(data, userId) {
   const searchMessage = data.profilesError
     ? `<p class="chat-empty" role="alert">Não foi possível carregar os perfis para iniciar uma conversa.</p>`
     : `<div class="chat-people-list" data-chat-people>${people || `<p class="chat-empty">Nenhum outro perfil está visível agora.</p>`}</div>`;
+  const groupProfiles = (data.profiles || []).filter((profile) => profile.id !== userId);
+  const groupOptions = groupProfiles.map((profile) => {
+    const name = profile.display_name || profile.username;
+    const initial = String(name || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+    const avatar = profile.avatarUrl
+      ? `<img class="chat-group-option-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="chat-group-option-avatar" aria-hidden="true">${escapeHtml(initial)}</span>`;
+    return `<label class="chat-group-option">${avatar}<span><strong>${escapeHtml(name)}</strong><small>@${escapeHtml(profile.username)}</small></span><input type="checkbox" name="memberIds" value="${escapeHtml(profile.id)}" aria-label="Adicionar ${escapeHtml(name)} ao grupo"></label>`;
+  }).join("");
+  const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
+    <form class="chat-group-form" data-chat-group-create>
+      <div class="field"><label for="chatGroupSubject">Nome do grupo</label><input id="chatGroupSubject" name="subject" type="text" maxlength="120" required placeholder="Ex.: Amigos"></div>
+      <fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
+      <button class="primary-button compact-button" type="submit"${groupProfiles.length < 2 ? " disabled" : ""}>Criar grupo</button>
+      <span class="form-status" data-status role="status" aria-live="polite"></span>
+    </form>
+  </details>`;
   return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle">
     <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
     <div class="chat-layout">
@@ -160,6 +180,7 @@ export function chatMarkup(data, userId) {
           <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Username</label><input id="chatSearch" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar pelo username"><button class="text-button" type="submit">Buscar</button></form>
           ${searchMessage}
         </details>
+        ${groupCompose}
         <details class="chat-panel letter-compose-panel"><summary>Escrever uma carta para Peixinho</summary>
           <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
             <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
@@ -358,29 +379,32 @@ function renderMedia(media) {
 
 async function loadThread(client, conversationId, before = null) {
   let messageQuery = client.from("chat_messages")
-    .select("id,conversation_id,sender_id,reply_to,body,created_at,author:profiles!chat_messages_sender_id_fkey(username,display_name),media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)")
+    .select("id,conversation_id,sender_id,reply_to,body,created_at,author:profiles!chat_messages_sender_id_fkey(id,username,display_name,avatar_path),media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)")
     .eq("conversation_id", conversationId);
   if (before) messageQuery = messageQuery.lt("created_at", before);
-  const [messageResult, participantResult] = await Promise.all([
+  const [messageResult, participantResult, conversationResult] = await Promise.all([
     messageQuery.order("created_at", { ascending: false }).limit(100),
-    client.from("conversation_participants").select("user_id,last_read_at,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path)").eq("conversation_id", conversationId)
+    client.from("conversation_participants").select("user_id,last_read_at,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path)").eq("conversation_id", conversationId),
+    client.from("conversations").select("id,kind,subject").eq("id", conversationId).maybeSingle()
   ]);
   if (messageResult.error) throw messageResult.error;
   if (participantResult.error) throw participantResult.error;
+  if (conversationResult.error) throw conversationResult.error;
+  if (!conversationResult.data) throw new Error("Conversation unavailable");
   const messages = (messageResult.data || []).reverse();
   const media = messages.flatMap((message) => message.media || []);
   if (media.length) {
     const { data: signed, error: signedError } = await client.storage.from("looply-chat").createSignedUrls(media.map((item) => item.storage_path), 1800);
     if (!signedError && signed) media.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
   }
-  return { messages, participants: participantResult.data || [] };
+  return { messages, participants: participantResult.data || [], conversation: conversationResult.data };
 }
 
 function olderMessagesButton(conversationId, oldestMessage) {
   return `<button class="chat-load-older" type="button" data-chat-load-older data-conversation-id="${escapeHtml(conversationId)}" data-before="${escapeHtml(oldestMessage.created_at)}">Carregar mensagens anteriores</button>`;
 }
 
-function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null) {
+function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, participants = [], isGroup = false) {
   if (!messages.length) return `<div class="chat-empty"><strong>Esta conversa está pronta.</strong><span>Envie a primeira mensagem.</span></div>`;
   const byId = new Map(messages.map((message) => [message.id, message]));
   let lastDay = "";
@@ -391,13 +415,18 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null) {
     const parent = message.reply_to ? byId.get(message.reply_to) : null;
     const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? (parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
     const isMine = message.sender_id === userId;
-    const avatarLabel = (peerProfile?.display_name || peerProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
-    const avatar = !isMine ? (peerProfile?.avatarUrl
-      ? `<img class="chat-message-avatar" src="${escapeHtml(peerProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
+    const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+    const avatar = !isMine && authorProfile ? (authorProfile.avatarUrl
+      ? `<img class="chat-message-avatar" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
       : `<span class="chat-message-avatar" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
+    const readCount = isGroup ? participants.filter((participant) => participant.user_id !== userId && participant.last_read_at && new Date(participant.last_read_at) >= new Date(message.created_at)).length : 0;
+    const readTotal = Math.max(0, participants.length - 1);
+    const groupReadText = readCount === readTotal && readTotal ? "Lida por todos" : readCount ? `Lida por ${readCount} de ${readTotal}` : "Enviada";
+    const delivery = isMine ? `<small class="chat-delivery">${isGroup ? groupReadText : peerReadAt && new Date(peerReadAt) >= new Date(message.created_at) ? "Lida" : "Enviada"}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
-    <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : message.author?.display_name || message.author?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${message.sender_id === userId ? `<small class="chat-delivery">${peerReadAt && new Date(peerReadAt) >= new Date(message.created_at) ? "Lida" : "Enviada"}</small>` : ""}
+    <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
+    ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
     <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
   </article></div>`;
   }).join("");
@@ -417,7 +446,11 @@ function messageComposerMarkup(conversationId) {
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
 }
 
-function threadHeadingMarkup(root, participants, userId) {
+function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
+  if (conversationInfo?.kind === "group") {
+    const memberCount = participants.length;
+    return `<header class="chat-thread-heading"><span class="chat-thread-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><a href="chat.html">Todas as conversas</a></header>`;
+  }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   const conversation = [...root.querySelectorAll("[data-chat-open]")].find((item) => item.dataset.chatOpen === activeConversationId);
@@ -430,12 +463,11 @@ function threadHeadingMarkup(root, participants, userId) {
   return `<header class="chat-thread-heading">${avatar}<strong>${escapeHtml(name)}</strong><a href="chat.html">Todas as conversas</a></header>`;
 }
 
-async function signThreadAvatar(client, participants, userId) {
-  const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
-  if (peer?.avatar_path) {
-    const { data } = await client.storage.from("looply-avatars").createSignedUrl(peer.avatar_path, 1800);
-    if (data?.signedUrl) peer.avatarUrl = data.signedUrl;
-  }
+async function signThreadAvatar(client, participants) {
+  const profiles = participants.map((participant) => participant.profile).filter((profile) => profile?.avatar_path);
+  if (!profiles.length) return;
+  const { data } = await client.storage.from("looply-avatars").createSignedUrls(profiles.map((profile) => profile.avatar_path), 1800);
+  if (data) profiles.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
 }
 
 async function openConversation(root, client, conversationId, userId) {
@@ -444,11 +476,12 @@ async function openConversation(root, client, conversationId, userId) {
   if (!thread) return;
   thread.innerHTML = `<p class="chat-empty" role="status">Carregando mensagens...</p>`;
   try {
-    const { messages, participants } = await loadThread(client, conversationId);
+    const { messages, participants, conversation } = await loadThread(client, conversationId);
     if (activeConversationId !== conversationId || !root.querySelector("[data-chat-thread]")) return;
-    await signThreadAvatar(client, participants, userId);
+    await signThreadAvatar(client, participants);
     const peer = peerParticipantFor(participants, userId);
-    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}${messageComposerMarkup(conversationId)}`;
+    const isGroup = conversation.kind === "group";
+    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
     await Promise.all([
       client.from("conversation_participants").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", conversationId).eq("user_id", userId),
@@ -470,11 +503,12 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     area.outerHTML = chatMarkup(data, userId);
     applyConversationFilter(root);
     if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
-      const { messages, participants } = await loadThread(client, activeConversationId);
-      await signThreadAvatar(client, participants, userId);
+      const { messages, participants, conversation } = await loadThread(client, activeConversationId);
+      await signThreadAvatar(client, participants);
       const peer = peerParticipantFor(participants, userId);
+      const isGroup = conversation.kind === "group";
       const thread = root.querySelector("[data-chat-thread]");
-      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}${messageComposerMarkup(activeConversationId)}`;
+      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(activeConversationId)}`;
     } else activeConversationId = null;
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
@@ -500,7 +534,7 @@ export function setupChatRealtime(client, userId, root) {
   realtimeChannel = client.channel(`looply-chat-${userId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_participants" }, () => scheduleRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {
       const status = root.querySelector("[data-chat-live]");
       if (status) status.textContent = state === "SUBSCRIBED" ? "Atualizações ao vivo" : "Reconectando...";
@@ -581,14 +615,15 @@ export function bindChatEvents(root, client, getUserId) {
       const before = olderButton.dataset.before;
       olderButton.disabled = true;
       try {
-        const { messages, participants } = await loadThread(client, conversationId, before);
+        const { messages, participants, conversation } = await loadThread(client, conversationId, before);
+        await signThreadAvatar(client, participants);
         const thread = root.querySelector("[data-chat-thread]");
         if (!thread || activeConversationId !== conversationId) return;
         const scrollHeight = thread.scrollHeight;
         olderButton.remove();
         const nextButton = messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "";
         const peer = peerParticipantFor(participants, userId);
-        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}`);
+        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
         thread.scrollTop += thread.scrollHeight - scrollHeight;
       } catch (error) {
         console.error("Looply older messages failed", error);
@@ -662,7 +697,7 @@ export function bindChatEvents(root, client, getUserId) {
   });
 
   root.addEventListener("submit", async (event) => {
-    const form = event.target.closest("form[data-chat-search], form[data-letter-send], form[data-chat-send]");
+    const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
     const userId = getUserId?.();
     if (!form || !client || !userId) return;
     event.preventDefault();
@@ -670,7 +705,23 @@ export function bindChatEvents(root, client, getUserId) {
     if (button) button.disabled = true;
     try {
       const values = new FormData(form);
-      if (form.matches("[data-chat-search]")) {
+      if (form.matches("[data-chat-group-create]")) {
+        const subject = String(values.get("subject") || "").trim();
+        const targetIds = values.getAll("memberIds").map((value) => String(value));
+        if (!subject || subject.length > 120 || targetIds.length < 2 || targetIds.length > 49 || new Set(targetIds).size !== targetIds.length) throw new Error("invalid group");
+        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_group", subject, targetIds } });
+        if (error) throw error;
+        if (!data?.conversationId) throw new Error(data?.errorCode || "group unavailable");
+        form.reset();
+        activeConversationId = data.conversationId;
+        setStatus(form, "Grupo criado.");
+        await refreshChat(root, client, userId);
+        if (root.dataset.conversationPage !== "true") {
+          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+          return;
+        }
+        await openConversation(root, client, data.conversationId, userId);
+      } else if (form.matches("[data-chat-search]")) {
         const query = String(values.get("query") || "").trim().toLowerCase();
         if (!/^[a-z0-9_]{3,30}$/.test(query)) throw new Error("invalid query");
         const { data, error } = await client.from("profiles").select("id,username,display_name").ilike("username", `${query}%`).neq("id", userId).order("username").limit(20);
@@ -728,13 +779,13 @@ export function bindChatEvents(root, client, getUserId) {
       }
     } catch (error) {
       console.error("Looply chat action failed", error);
-      const message = /unsupported attachment/.test(String(error?.message || ""))
-        ? "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos."
-        : /empty message/.test(String(error?.message || ""))
-          ? "Escreva uma mensagem ou escolha ao menos um arquivo."
-          : /peixinho_admin_not_ready/i.test(String(error?.message || ""))
-            ? "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa."
-            : "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
+      let message;
+      if (/invalid group/.test(String(error?.message || ""))) message = "Informe um nome e selecione de duas a 49 pessoas para o grupo.";
+      else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
+      else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
+      else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
+      else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
+      else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
     } finally {
       if (button) button.disabled = false;

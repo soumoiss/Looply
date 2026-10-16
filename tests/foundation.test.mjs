@@ -548,3 +548,34 @@ test("all resumable uploads include the publishable key and archive retries use 
   assert.match(admin, /payload\.action === "verify_archive_media_upload"/);
   assert.match(admin, /service\.storage\.from\("looply-media"\)\.list\(folder/);
 });
+
+
+test("group conversations are created through the authenticated server path with participant RLS", async () => {
+  const [chat, edge, migration] = await Promise.all([
+    read("src/chat.js"),
+    read("supabase/functions/looply-chat/index.ts"),
+    read("supabase/migrations/20261016113000_group_conversations.sql")
+  ]);
+  assert.match(migration, /kind in \('direct', 'letter', 'group'\)/i);
+  assert.match(migration, /create or replace function public\.create_group_conversation/i);
+  assert.match(migration, /revoke all on function public\.create_group_conversation\(uuid, uuid\[\], text\) from public, anon, authenticated, service_role/i);
+  assert.match(migration, /grant execute on function public\.create_group_conversation\(uuid, uuid\[\], text\) to service_role/i);
+  assert.match(edge, /payload\.action === "create_group"/);
+  assert.match(edge, /service\.rpc\("create_group_conversation"/);
+  assert.match(chat, /data-chat-group-create/);
+  assert.match(chat, /conversation\.kind === "group"/);
+  assert.match(chat, /targetIds\.length < 2/);
+  assert.match(chat, /user_id=eq\.\$\{userId\}/);
+  assert.match(chat, /Lida por todos/);
+});
+
+test("global navigation keeps the six core pages and puts profile tools in the account menu", async () => {
+  const [runtime, shared] = await Promise.all([read("src/page-runtime.js"), read("assets/css/pages/shared.css")]);
+  const primaryNavigation = runtime.slice(runtime.indexOf("const navigation = ["), runtime.indexOf("const navigationIcons = {"));
+  assert.match(primaryNavigation, /"letters", "Cartas"/);
+  assert.match(primaryNavigation, /"notifications", "Notificações"/);
+  assert.doesNotMatch(primaryNavigation, /"users"|"profile"|"settings"/);
+  assert.match(runtime, /class="account-menu-link" href="usuarios\.html"/);
+  assert.match(runtime, /data-sign-out/);
+  assert.match(shared, /\.account-menu-popover/);
+});

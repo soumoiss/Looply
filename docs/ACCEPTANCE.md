@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 31 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, a migração de preferências/notificações foi aplicada no Supabase; `looply-admin` e `looply-chat` estavam nas versões 6 e 2. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. Build verde e testes automatizados não comprovam integração ponta a ponta.
+Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, as migrações aditivas de preferências/notificações e conversas em grupo foram aplicadas no Supabase; `looply-admin` e `looply-chat` estavam nas versões 7 e 3. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. Build verde e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
@@ -45,6 +45,9 @@ Este roteiro registra 31 fluxos para validar a aplicação completa. Em 16 de ou
 | 29 | Altere tema, fonte e tamanho em uma conta e entre na mesma conta em outro dispositivo. | Preferências são salvas no perfil, reaplicadas em cada página e sincronizadas sem depender só do armazenamento local. | Migração e UI implementadas; fluxo integrado não executado |
 | 30 | Acesse diretamente cada URL nova, atualize a página e use voltar, navegação principal e barra móvel. | Rotas de conversa, cartas, notificações, usuários e configurações carregam sob sessão e mantêm a navegação global. | Build/testes estáticos passaram; navegador pendente |
 | 31 | Abra uma conversa em desktop e celular e confira avatar, nome, prévia, horário, não lidas e mensagens antigas. | Lista e rota individual distinguem conversas, protegem IDs inválidos e preservam a rolagem no histórico paginado. | Implementação local; navegador pendente |
+
+|32 | Crie um grupo com nome e pelo menos duas outras contas; abra-o nas duas sessões e envie texto e anexo. | Cada integrante autorizado vê o título, os participantes, as mensagens, os anexos e as notificações; contas fora do grupo não conseguem ler nenhum desses dados. | Pendente: teste ponta a ponta com sessões independentes |
+|33 | No menu do avatar, abra Perfil, Pessoas e Configurações e use a navegação principal em celular. | As seis abas principais permanecem visíveis e o perfil, a busca de pessoas, as configurações e a administração ficam acessíveis no menu da conta. | Implementado no branch; validação visual pendente |
 
 ## Registro e critério de conclusão
 

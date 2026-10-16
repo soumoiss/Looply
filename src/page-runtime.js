@@ -4,16 +4,13 @@ import { applyProfilePreferences } from "./theme.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
+  ["letters", "Cartas", "cartas.html"],
   ["gallery", "Galeria", "galeria.html"],
   ["music", "Músicas", "musicas.html"],
   ["chat", "Chat", "chat.html"],
-  ["letters", "Cartas", "cartas.html"],
-  ["notifications", "Notificações", "notificacoes.html"],
-  ["users", "Pessoas", "usuarios.html"],
-  ["profile", "Perfil", "perfil.html"],
-  ["settings", "Configurações", "configuracoes.html"]
+  ["notifications", "Notificações", "notificacoes.html"]
 ];
-const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", users: "Pessoas", profile: "Perfil", settings: "Ajustes", gallery: "Galeria", music: "Músicas", home: "Início" };
+const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", gallery: "Galeria", music: "Músicas", home: "Início" };
 const navigationIcons = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
   gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
@@ -45,10 +42,13 @@ function headerMarkup(page, profile, admin, unreadCount) {
     : `<span class="looply-user-initial" aria-hidden="true">${escapeHtml(name.slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`;
   const activePage = page === "conversation" ? "chat" : page;
   const links = navigation.map(([key, label, href]) => `<a class="header-action" href="${href}" aria-label="${label}"${key === activePage ? ' aria-current="page"' : ""}><span class="page-navigation-icon" aria-hidden="true">${navigationIcons[key]}</span><span class="page-navigation-label" data-short-label="${navigationShortLabels[key] || label}">${label}</span>${key === "notifications" && unreadCount ? `<span class="navigation-badge" aria-label="${unreadCount} não lidas">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}</a>`).join("");
+  const profileCurrent = page === "profile" ? " aria-current=\"page\"" : "";
+  const settingsCurrent = page === "settings" ? " aria-current=\"page\"" : "";
+  const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">Meu perfil</a><a class="account-menu-link" href="usuarios.html">Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">Configurações</a>${admin ? `<a class="account-menu-link" href="admin.html">Administração</a>` : ""}`;
   return `<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7"/></svg></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
-    <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}${admin ? '<a class="header-action admin-nav-link" href="admin.html" aria-label="Administração"' + (page === "admin" ? ' aria-current="page"' : "") + '><span class="page-navigation-icon" aria-hidden="true">' + navigationIcons.admin + '</span><span class="page-navigation-label" data-short-label="Admin">Administração</span></a>' : ""}</nav>
-    <div class="looply-account">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span>
-      <button class="header-action" type="button" data-sign-out>Sair</button></div>`;
+    <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav>
+    <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">⌄</span></summary>
+      <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out>Sair</button></div></details>`;
 }
 
 async function loadProfile(userId) {

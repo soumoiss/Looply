@@ -13,6 +13,16 @@
 .looply-account strong { font-size: 12px; }
 .looply-account small { color: var(--muted); font-size: 10px; }
 .looply-account .header-action { min-height: 38px; }
+
+.looply-account-menu { position: relative; z-index: 1200; flex: 0 0 auto; margin-left: auto; }
+.looply-account-menu > summary { list-style: none; cursor: pointer; }
+.looply-account-menu > summary::-webkit-details-marker { display: none; }
+.looply-account-menu[open] > summary { color: var(--primary); }
+.account-menu-caret { color: var(--muted); font-size: 16px; line-height: 1; }
+.account-menu-popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 1300; display: grid; min-width: 190px; gap: 4px; padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-strong); box-shadow: var(--shadow-md); }
+.account-menu-link { display: block; padding: 10px 12px; border-radius: 10px; color: var(--text); font-size: 13px; text-decoration: none; }
+.account-menu-link:hover, .account-menu-link[aria-current=\"page\"] { color: var(--primary); background: var(--surface-soft); }
+.account-menu-popover .header-action { width: 100%; min-height: 38px; margin-top: 4px; }
 .theme-picker select { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); background: var(--surface-strong); }
 .looply-footer { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .page-notice { padding: 20px; }

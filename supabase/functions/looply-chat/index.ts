@@ -63,6 +63,27 @@ Deno.serve(async (request: Request) => {
       return respond(200, { conversationId: data });
     }
 
+    if (payload.action === "create_group") {
+      const subject = String(payload.subject || "").trim();
+      const targetIds = Array.isArray(payload.targetIds) ? payload.targetIds.map((id: unknown) => String(id)) : [];
+      if (!subject || subject.length > 120 || targetIds.length < 2 || targetIds.length > 49
+          || new Set(targetIds).size !== targetIds.length || targetIds.some((id: string) => !uuidPattern.test(id) || id === authData.user.id)) {
+        return respond(400, { errorCode: "invalid_group" });
+      }
+      const { data, error } = await service.rpc("create_group_conversation", {
+        p_actor_id: authData.user.id,
+        p_target_ids: targetIds,
+        p_subject: subject
+      });
+      if (error) {
+        if (error.code === "42501") return respond(200, { errorCode: "profile_unavailable" });
+        if (error.code === "22023") return respond(400, { errorCode: "invalid_group" });
+        console.error("Looply group creation failed", error);
+        return respond(500, { errorCode: "group_unavailable" });
+      }
+      return respond(200, { conversationId: data });
+    }
+
     if (payload.action === "create_letter") {
       const subject = String(payload.subject || "").trim();
       const body = String(payload.body || "").trim();

@@ -68,3 +68,13 @@
   .page-conversation .chat-thread { min-height: calc(100dvh - 205px); max-height: calc(100dvh - 150px); }
 }
 
+
+:is(.page-chat, .page-conversation) .group-member-options { display: grid; gap: 5px; margin: 12px 0; padding: 10px; border: 1px solid var(--line); border-radius: 15px; }
+:is(.page-chat, .page-conversation) .group-member-options legend { padding: 0 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+:is(.page-chat, .page-conversation) .chat-group-option { display: flex; align-items: center; gap: 9px; padding: 7px; border-radius: 12px; background: var(--surface-soft); cursor: pointer; }
+:is(.page-chat, .page-conversation) .chat-group-option > span:not(.chat-group-option-avatar) { display: grid; flex: 1; min-width: 0; gap: 2px; }
+:is(.page-chat, .page-conversation) .chat-group-option small, :is(.page-chat, .page-conversation) .chat-thread-heading small { color: var(--muted); font-size: 11px; }
+:is(.page-chat, .page-conversation) .chat-group-option-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; object-fit: cover; color: var(--primary); background: var(--lilac); font-size: 13px; font-weight: 800; }
+:is(.page-chat, .page-conversation) .chat-group-option input { width: 18px; height: 18px; accent-color: var(--primary); }
+:is(.page-chat, .page-conversation) .chat-group-avatar { display: grid; place-items: center; color: var(--primary); background: var(--lilac); font-size: 22px; }
+:is(.page-chat, .page-conversation) .chat-thread-heading > div { display: grid; gap: 2px; }
