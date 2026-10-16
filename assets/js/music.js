@@ -5,7 +5,7 @@ import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.
 await mountAppPage({ page: "music", render: async ({ root, client, user, profile }) => {
   const data = await loadMusicData(client, user.id);
   root.innerHTML = playlistMarkup(profile) + musicMarkup(data, user.id);
-  await bindYouTubePlaylist(root);
+  await bindYouTubePlaylist(root, client);
   bindMusicEvents(root, client, () => user.id);
   setupMusicRealtime(client, user.id, root);
   window.addEventListener("pagehide", () => disposeMusicRealtime(client), { once: true });
