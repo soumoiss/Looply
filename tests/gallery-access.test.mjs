@@ -62,21 +62,23 @@ test("viewer navigation supports touch swipes, keyboard arrows, responsive conta
   assert.ok(css.includes(".archive-viewer-stage { touch-action: pan-y;"));
 });
 
-test("media visibility and comment recipients are separately scoped and saved through audited APIs", async () => {
-  const [manager, edge, migration] = await Promise.all([
-    read("src/archive-audience-manager.js"),
+test("gallery permissions use the active atomic authenticated API", async () => {
+  const [manager, edge, migration, audiences] = await Promise.all([
+    read("src/gallery-experience.js"),
     read("supabase/functions/looply-admin/index.ts"),
-    read("supabase/migrations/20261016171658_archive_media_access_private_comments.sql")
+    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql"),
+    read("supabase/migrations/20261016152935_gallery_private_audiences.sql")
   ]);
-  assert.match(manager, /multiple[^>]*data-audience-viewers/);
-  assert.match(manager, /multiple[^>]*data-audience-commenters/);
-  assert.match(manager, /set_archive_media_access/);
-  assert.ok(edge.includes('recordAccess(service, authData.user.id, "write_requested", "archive_media",'));
-  assert.match(edge, /set_looply_archive_media_access/);
-  assert.ok(/grant execute on function public\.set_looply_archive_media_access[\s\S]*?to service_role/i.test(migration));
-  assert.ok(migration.includes("create or replace function public.create_archive_media_comment"));
-  assert.ok(migration.includes("insert into public.archive_media_comment_recipients"));
-  assert.ok(migration.includes("archive_media_commenters_self_or_admin_read"));
+  assert.match(manager, /set_gallery_media_permissions/);
+  assert.match(manager, /data-comment-audience/);
+  assert.match(manager, /data-comment-recipients/);
+  assert.match(edge, /userClient\.rpc\("set_gallery_media_permissions"/);
+  assert.match(edge, /p_source: "archive"/);
+  assert.doesNotMatch(edge, /set_looply_archive_media_access/);
+  assert.match(migration, /create or replace function public\.set_gallery_media_permissions/);
+  assert.match(migration, /grant execute on function public\.set_gallery_media_permissions[\s\S]*?to authenticated/i);
+  assert.ok(audiences.includes("archive_media_comment_recipients"));
+  assert.ok(audiences.includes("archive_media_commenters"));
 });
 
 test("the page runtime renders before refreshing unread counts and prefetches navigation on intent", async () => {
