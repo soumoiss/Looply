@@ -774,7 +774,7 @@ test("chat realtime refresh keeps the active draft and avoids delivery-triggered
   assert.ok(chat.includes("data-chat-messages"));
   assert.ok(chat.includes('composer?.dataset.sending === "true"'));
   assert.ok(chat.includes('if (!conversationId) throw new Error("conversation not selected")'));
-  assert.ok(!chat.includes("conversationId !== activeConversationId"));
+  assert.ok(!chat.includes('if (!conversationId || conversationId !== activeConversationId)'));
   assert.equal(chat.split("else if (/conversation not selected").length - 1, 1);
   assert.ok(!chat.includes("area.replaceWith("));
 });
