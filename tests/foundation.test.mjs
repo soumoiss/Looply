@@ -427,7 +427,7 @@ test("owners can remove their own feed posts and profile pages render authorized
 
 test("the legacy archive migration keeps letters private and all media objects behind RLS", async () => {
   const [migration, cards, importer, edge] = await Promise.all([
-    read("supabase/migrations/20261016041000_legacy_archive.sql"),
+    read("supabase/migrations/20261016042907_legacy_archive.sql"),
     read("src/archived-cards.js"),
     read("src/archive-import.js"),
     read("supabase/functions/looply-admin/index.ts")
@@ -555,7 +555,7 @@ test("group conversations are created through the authenticated server path with
   const [chat, edge, migration] = await Promise.all([
     read("src/chat.js"),
     read("supabase/functions/looply-chat/index.ts"),
-    read("supabase/migrations/20261016113000_group_conversations.sql")
+    read("supabase/migrations/20261016113305_group_conversations.sql")
   ]);
   assert.match(migration, /kind in \('direct', 'letter', 'group'\)/i);
   assert.match(migration, /create or replace function public\.create_group_conversation/i);
