@@ -57,11 +57,14 @@ async function loadProfile(userId) {
     .eq("id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("O perfil desta conta não foi encontrado.");
-  if (data.avatar_path) {
-    const { data: signed } = await supabase.storage.from("looply-avatars").createSignedUrl(data.avatar_path, 1800);
-    data.avatarUrl = signed?.signedUrl || "";
-  }
   return data;
+}
+
+async function loadProfileAvatar(profile) {
+  if (!profile?.avatar_path) return "";
+  const { data, error } = await supabase.storage.from("looply-avatars").createSignedUrl(profile.avatar_path, 1800);
+  if (error) throw error;
+  return data?.signedUrl || "";
 }
 
 async function loadUnreadNotifications(client) {
@@ -90,6 +93,24 @@ async function refreshUnreadBadge(header, client) {
   badge.setAttribute("aria-label", `${count} não lidas`);
 }
 
+function prefetchNavigation(header) {
+  const requested = new Set();
+  const prefetch = (event) => {
+    const link = event.target.closest?.("a[href]");
+    if (!link || !header.contains(link) || link.target || link.hasAttribute("download")) return;
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin || !url.pathname.endsWith(".html") || requested.has(url.href)) return;
+    requested.add(url.href);
+    const hint = document.createElement("link");
+    hint.rel = "prefetch";
+    hint.as = "document";
+    hint.href = url.href;
+    document.head.append(hint);
+  };
+  header.addEventListener("pointerover", prefetch, { passive: true });
+  header.addEventListener("focusin", prefetch);
+}
+
 export async function mountAppPage({ page, adminOnly = false, render }) {
   const root = document.getElementById("pageContent");
   const header = document.querySelector("[data-site-header]");
@@ -100,11 +121,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData.session) {
-    window.location.replace("login.html");
-    return;
-  }
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) {
     await supabase.auth.signOut();
@@ -114,21 +130,27 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   const user = userData.user;
   let profile;
+  let isAdmin = false;
   try {
-    profile = await loadProfile(user.id);
+    const [profileResult, adminResult] = await Promise.allSettled([
+      loadProfile(user.id), checkAdminAccess(supabase)
+    ]);
+    if (profileResult.status === "rejected") throw profileResult.reason;
+    profile = profileResult.value;
+    isAdmin = adminResult.status === "fulfilled" && Boolean(adminResult.value);
   } catch (error) {
     notice(root, error?.message || "Não foi possível carregar o perfil.", "error");
     return;
   }
 
-  const [isAdmin, unreadCount] = await Promise.all([checkAdminAccess(supabase), loadUnreadNotifications(supabase)]);
   if (adminOnly && !isAdmin) {
     window.location.replace("home.html");
     return;
   }
 
   applyProfilePreferences(profile);
-  header.innerHTML = headerMarkup(page, profile, isAdmin, unreadCount);
+  header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
+  prefetchNavigation(header);
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
   });
@@ -137,6 +159,20 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     const { error } = await supabase.auth.signOut();
     if (error) event.currentTarget.disabled = false;
   });
+
+  void refreshUnreadBadge(header, supabase).catch((error) => console.warn("Looply unread count refresh failed", error));
+  void loadProfileAvatar(profile).then((avatarUrl) => {
+    if (!avatarUrl) return;
+    profile.avatarUrl = avatarUrl;
+    const current = header.querySelector(".looply-user-avatar, .looply-user-initial");
+    if (!current) return;
+    const image = document.createElement("img");
+    image.className = "looply-user-avatar";
+    image.src = avatarUrl;
+    image.alt = "";
+    image.referrerPolicy = "no-referrer";
+    current.replaceWith(image);
+  }).catch((error) => console.warn("Looply profile avatar load failed", error));
 
   const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT" || !session) window.location.replace("login.html");
@@ -164,3 +200,4 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 }
 
 export { notice };
+

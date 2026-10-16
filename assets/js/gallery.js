@@ -1,17 +1,18 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { archiveGalleryMarkup, bindArchiveGallery, loadArchiveMedia } from "../../src/gallery-archive.js";
 import { bindCommunityGallery, communityGalleryMarkup, loadCommunityGallery } from "../../src/community-gallery.js";
+import { bindArchiveGalleryControls, bindArchiveAudienceManager } from "../../src/archive-audience-manager.js";
 
 await mountAppPage({ page: "gallery", render: async ({ root, client, user, profile, isAdmin }) => {
   const [archiveResult, communityResult] = await Promise.allSettled([
-    loadArchiveMedia(client), loadCommunityGallery(client)
+    loadArchiveMedia(client, user.id), loadCommunityGallery(client)
   ]);
   const archiveMedia = archiveResult.status === "fulfilled" ? archiveResult.value : [];
   const communityMedia = communityResult.status === "fulfilled" ? communityResult.value : [];
-  root.innerHTML = communityGalleryMarkup(communityMedia, user.id, isAdmin) + archiveGalleryMarkup(archiveMedia);
+  root.innerHTML = archiveGalleryMarkup(archiveMedia, isAdmin) + communityGalleryMarkup(communityMedia, user.id, isAdmin);
   if (archiveResult.status === "rejected") {
     console.error("Looply archive gallery load failed", archiveResult.reason);
-    const message = root.querySelector(".archive-media-empty");
+    const message = root.querySelector("[data-archive-media-empty]");
     if (message) { message.textContent = "Não foi possível carregar o acervo de mídias."; message.setAttribute("role", "alert"); }
   }
   if (communityResult.status === "rejected") {
@@ -20,5 +21,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (message) message.innerHTML = "<p class=\"community-gallery-empty\" role=\"alert\">Não foi possível carregar a galeria da comunidade.</p>";
   }
   bindCommunityGallery(root, client, user, isAdmin, communityMedia);
-  bindArchiveGallery(root, client, user, archiveMedia, profile);
+  bindArchiveGallery(root, client, user, archiveMedia, profile, isAdmin);
+  bindArchiveGalleryControls(root);
+  bindArchiveAudienceManager(root, client, isAdmin);
 } });
+
+
+

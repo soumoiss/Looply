@@ -471,7 +471,7 @@ test("the legacy archive migration keeps letters private and all media objects b
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "read_completed", media\.bucket_id === "looply-chat" \? "chat_media" : media\.audit_resource_type \|\| "post_media"/);
 });
 
-test("the archive importer uses the media index and preserves exclusive audiences", async () => {
+test("the archive importer indexes legacy media but leaves audience decisions to the gallery administrator", async () => {
   const { findMediaIndexEntry, makeMediaCatalog } = await import("../src/archive-import.js");
   const rootIndex = { file: { name: "midia-index.json" }, path: "midia-index.json" };
   const dataIndex = { file: { name: "midia-index.json" }, path: "data/midia-index.json" };
@@ -497,8 +497,10 @@ test("the archive importer uses the media index and preserves exclusive audience
   const catalog = makeMediaCatalog(index, fileMap);
   assert.equal(catalog.length, 4);
   assert.equal(catalog.find((item) => item.source_path === "midia/comum.jpg").visibility, "members");
-  assert.deepEqual(catalog.find((item) => item.source_path === "midia/Misol/restrita.jpg").recipient_names, ["misol"]);
-  assert.deepEqual(catalog.find((item) => item.source_path === "midia/YARA/foto.heic").recipient_names, ["yara"]);
+  assert.equal(catalog.find((item) => item.source_path === "midia/Misol/restrita.jpg").visibility, "members");
+  assert.equal(catalog.find((item) => item.source_path === "midia/YARA/foto.heic").visibility, "members");
+  assert.deepEqual(catalog.find((item) => item.source_path === "midia/Misol/restrita.jpg").recipient_names, []);
+  assert.deepEqual(catalog.find((item) => item.source_path === "midia/YARA/foto.heic").recipient_names, []);
   assert.equal(catalog.find((item) => item.source_path === "midia/YARA/foto.heic").mime_type, "image/heic");
   assert.equal(catalog.some((item) => item.source_path.includes("fora-da-audiencia")), false);
 });
@@ -719,3 +721,5 @@ test("community gallery and letters use RLS, encryption and receipt-aware chat",
   assert.match(css, /--looply-visible-height/);
   assert.match(adminFunction, /expectedSize > 209_715_200/);
 });
+
+
