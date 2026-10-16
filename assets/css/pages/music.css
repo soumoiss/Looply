@@ -1,5 +1,29 @@
 .page-title-panel { margin-bottom: 16px; }
 .youtube-playlist { margin: 0 0 24px; padding: 18px; }
 .youtube-playlist h2 { margin: 4px 0 12px; font-size: 22px; }
-.youtube-playlist iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 14px; background: #17131b; }
+.youtube-playlist-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .85fr); gap: 16px; align-items: stretch; }
+.youtube-playlist-player { display: block; width: 100%; min-height: 360px; aspect-ratio: 16 / 10; border: 0; border-radius: 14px; background: #17131b; }
+.youtube-track-panel { min-width: 0; max-height: 480px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface, rgba(255,255,255,.58)); }
+.youtube-track-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.youtube-track-heading h3 { margin: 2px 0 10px; font-size: 17px; }
+.youtube-track-heading span { color: var(--muted); font-size: 12px; }
+.youtube-track-search { width: 100%; margin-bottom: 8px; }
+.youtube-track-status { margin: 4px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.youtube-track-list { display: grid; gap: 4px; max-height: 358px; margin: 0; padding: 0 4px 0 0; overflow: auto; list-style: none; }
+.youtube-track { display: grid; width: 100%; grid-template-columns: 22px 70px minmax(0, 1fr) 18px; gap: 9px; align-items: center; padding: 6px; border: 0; border-radius: 9px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.youtube-track:hover, .youtube-track[aria-pressed="true"] { background: var(--surface-raised, rgba(122, 84, 150, .12)); }
+.youtube-track-number { color: var(--muted); font-size: 12px; text-align: center; }
+.youtube-track img { width: 70px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; background: #17131b; }
+.youtube-track-copy { display: grid; min-width: 0; gap: 3px; }
+.youtube-track-copy strong, .youtube-track-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.youtube-track-copy strong { font-size: 12px; line-height: 1.35; }
+.youtube-track-copy small { color: var(--muted); font-size: 11px; }
+.youtube-track-play { color: var(--primary); font-size: 12px; }
 .youtube-playlist-link { display: inline-flex; margin-top: 10px; color: var(--primary); font-size: 13px; font-weight: 700; }
+
+@media (max-width: 780px) {
+  .youtube-playlist-layout { grid-template-columns: minmax(0, 1fr); }
+  .youtube-playlist-player { min-height: 220px; aspect-ratio: 16 / 9; }
+  .youtube-track-panel { max-height: none; }
+  .youtube-track-list { max-height: 350px; }
+}
