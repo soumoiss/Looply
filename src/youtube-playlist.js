@@ -7,6 +7,18 @@ const playlists = Object.freeze({
 const fallbackPlaylist = "PLMeQ_QyqhY7s";
 const playlistApiEndpoint = "/api/youtube-playlist";
 
+function playlistApiUrl() {
+  const configured = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiUrl || "").trim();
+  if (!configured) return playlistApiEndpoint;
+  try {
+    const base = new URL(configured, globalThis.window?.location?.origin || "https://looply.invalid");
+    if (base.protocol !== "https:" || base.pathname !== "/api/youtube-playlist") return playlistApiEndpoint;
+    return base.toString();
+  } catch {
+    return playlistApiEndpoint;
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -96,8 +108,8 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
     const timeout = setTimeout(() => controller.abort(), 15000);
     let response;
     try {
-      response = await fetchImpl(playlistApiEndpoint + "?" + params, {
-        credentials: "same-origin",
+      response = await fetchImpl(playlistApiUrl() + "?" + params, {
+        credentials: "omit",
         headers: { accept: "application/json", authorization: "Bearer " + accessToken },
         signal: controller.signal
       });
