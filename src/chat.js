@@ -621,7 +621,26 @@ export function disposeChatRealtime(client) {
   for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
 
+function prefetchConversationPage(root) {
+  const prefetched = new Set();
+  const prefetch = (event) => {
+    const link = event.target.closest?.("a[data-chat-open]");
+    if (!link || !root.contains(link) || link.target || link.hasAttribute("download")) return;
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin || !url.pathname.endsWith("conversa.html") || prefetched.has(url.href)) return;
+    prefetched.add(url.href);
+    const hint = document.createElement("link");
+    hint.rel = "prefetch";
+    hint.as = "document";
+    hint.href = url.href;
+    document.head.append(hint);
+  };
+  root.addEventListener("pointerover", prefetch, { passive: true });
+  root.addEventListener("focusin", prefetch);
+}
+
 export function bindChatEvents(root, client, getUserId) {
+  prefetchConversationPage(root);
   if (root.dataset.conversationPage === "true" && window.visualViewport) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
