@@ -762,3 +762,34 @@ test("community gallery and letters use RLS, encryption and receipt-aware chat",
 });
 
 
+
+
+test("chat realtime refresh keeps the active draft and avoids delivery-triggered refresh loops", async () => {
+  const chat = await read("src/chat.js");
+  assert.match(chat, /loadChatData\\(client, userId, \\{ markDelivered: false \\}\\)/);
+  assert.match(chat, /form\\.dataset\\.sending = "true"/);
+  assert.match(chat, /data-chat-messages/);
+  assert.match(chat, /composer\\?\\.dataset\\.sending === "true"/);
+  assert.doesNotMatch(chat, /area\\.replaceWith\\(/);
+});
+
+test("gallery access, comment audiences and swipeable responsive viewer are wired end to end", async () => {
+  const [gallery, entry, migration, accessRpc, css] = await Promise.all([
+    read("src/gallery-experience.js"),
+    read("assets/js/gallery.js"),
+    read("supabase/migrations/20261016152935_gallery_private_audiences.sql"),
+    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql"),
+    read("assets/css/pages/gallery.css")
+  ]);
+  assert.match(entry, /bindGalleryExperience/);
+  assert.match(gallery, /set_gallery_media_permissions/);
+  assert.match(gallery, /loadSharedGalleryComments/);
+  assert.match(gallery, /data-comment-audience/);
+  assert.match(gallery, /pointerup/);
+  assert.match(gallery, /pinch/);
+  assert.match(migration, /archive_media_comment_recipients/);
+  assert.match(migration, /community_gallery_comment_recipients/);
+  assert.match(migration, /audience = 'selected'/);
+  assert.match(accessRpc, /grant execute on function public\\.set_gallery_media_permissions/);
+  assert.match(css, /gallery-viewer-content img,[\\s\\S]*?object-fit:contain/);
+});

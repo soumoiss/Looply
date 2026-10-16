@@ -1,30 +1,24 @@
 import { mountAppPage } from "../../src/page-runtime.js";
-import { archiveGalleryMarkup, bindArchiveGallery, loadArchiveMedia } from "../../src/gallery-archive.js";
-import { bindCommunityGallery, communityGalleryMarkup, loadCommunityGallery } from "../../src/community-gallery.js";
-import { bindArchiveGalleryControls, bindArchiveAudienceManager } from "../../src/archive-audience-manager.js";
+import { bindCommunityGallery, communityGalleryMarkup } from "../../src/community-gallery.js";
+import { bindGalleryExperience, galleryExperienceMarkup, loadGalleryMedia } from "../../src/gallery-experience.js";
 
 await mountAppPage({ page: "gallery", render: async ({ root, client, user, profile, isAdmin }) => {
-  const [archiveResult, communityResult] = await Promise.allSettled([
-    loadArchiveMedia(client, user.id), loadCommunityGallery(client)
-  ]);
-  const archiveMedia = archiveResult.status === "fulfilled" ? archiveResult.value : [];
-  const communityMedia = communityResult.status === "fulfilled" ? communityResult.value : [];
-  root.innerHTML = archiveGalleryMarkup(archiveMedia, isAdmin) + communityGalleryMarkup(communityMedia, user.id, isAdmin);
-  if (archiveResult.status === "rejected") {
-    console.error("Looply archive gallery load failed", archiveResult.reason);
-    const message = root.querySelector("[data-archive-media-empty]");
-    if (message) { message.textContent = "Não foi possível carregar o acervo de mídias."; message.setAttribute("role", "alert"); }
+  root.innerHTML = galleryExperienceMarkup();
+  const uploadSlot = root.querySelector("[data-gallery-upload-slot]");
+  uploadSlot.innerHTML = communityGalleryMarkup([], user.id, isAdmin);
+  uploadSlot.querySelector("[data-community-gallery-grid]")?.remove();
+
+  let media;
+  let loadError = "";
+  try {
+    media = await loadGalleryMedia(client);
+  } catch (error) {
+    console.error("Looply gallery load failed", error);
+    loadError = "Não foi possível carregar as mídias. Confira sua conexão e tente novamente.";
+    media = [];
   }
-  if (communityResult.status === "rejected") {
-    console.error("Looply community gallery load failed", communityResult.reason);
-    const message = root.querySelector(".community-gallery-grid");
-    if (message) message.innerHTML = "<p class=\"community-gallery-empty\" role=\"alert\">Não foi possível carregar a galeria da comunidade.</p>";
-  }
-  bindCommunityGallery(root, client, user, isAdmin, communityMedia);
-  bindArchiveGallery(root, client, user, archiveMedia, profile, isAdmin);
-  bindArchiveGalleryControls(root);
-  bindArchiveAudienceManager(root, client, isAdmin);
+
+  if (loadError) { const note = document.createElement("p"); note.className = "gallery-load-error"; note.setAttribute("role", "alert"); note.textContent = loadError; root.querySelector(".gallery-controls").after(note); }
+  bindCommunityGallery(root, client, user, isAdmin, []);
+  bindGalleryExperience(root, client, user, profile, isAdmin, media);
 } });
-
-
-

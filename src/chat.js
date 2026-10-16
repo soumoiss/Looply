@@ -11,6 +11,7 @@ let activeConversationId = null;
 let realtimeChannel = null;
 let realtimeUserId = null;
 let refreshTimer = null;
+let refreshVersion = 0;
 let conversationSearch = "";
 let conversationFilter = "all";
 const voiceRecordings = new Map();
@@ -38,7 +39,7 @@ function formatMessageDay(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(date);
 }
 
-export async function loadChatData(client, userId) {
+export async function loadChatData(client, userId, { markDelivered = true } = {}) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").order("created_at", { ascending: false }).limit(50),
@@ -47,7 +48,7 @@ export async function loadChatData(client, userId) {
   if (participantResult.error) throw participantResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
-  if (ids.length) {
+  if (markDelivered && ids.length) {
     const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids });
     if (deliveredError) console.warn("Looply delivery receipt update failed", deliveredError);
   }
@@ -486,48 +487,100 @@ async function openConversation(root, client, conversationId, userId) {
     await signThreadAvatar(client, participants);
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
+    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-message-history" data-chat-messages>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
     const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
     if (readError) console.warn("Looply read receipt update failed", readError);
     await refreshChat(root, client, userId, { keepThread: true });
   } catch (error) {
     console.error("Looply conversation load failed", error);
-    if (thread.isConnected) thread.innerHTML = `<p class="chat-empty" role="alert">Não foi possível carregar esta conversa. Confira o acesso e tente novamente.</p>`;
+    const composer = thread.querySelector("[data-chat-send]");
+    if (composer) setStatus(composer, "Conexão instável. Sua mensagem ainda não foi enviada; tente novamente.", "error");
+    else if (thread.isConnected) thread.innerHTML = `<p class="chat-empty" role="alert">Não foi possível carregar esta conversa. Confira o acesso e tente novamente.</p>`;
   }
 }
 
+async function refreshActiveThread(root, client, userId, { refreshReadState = false } = {}) {
+  const conversationId = activeConversationId;
+  const thread = root.querySelector("[data-chat-thread]");
+  if (!conversationId || !thread) return;
+  const composer = thread.querySelector("[data-chat-send]");
+  if (composer?.dataset.sending === "true") return;
+  const focused = composer?.contains(document.activeElement);
+  const scrollTop = thread.scrollTop;
+  try {
+    const { messages, participants, conversation } = await loadThread(client, conversationId);
+    if (conversationId !== activeConversationId || !thread.isConnected) return;
+    await signThreadAvatar(client, participants);
+    const peer = peerParticipantFor(participants, userId);
+    const nextHeading = document.createElement("div");
+    nextHeading.innerHTML = threadHeadingMarkup(root, participants, userId, conversation);
+    const currentHeading = thread.querySelector(".chat-thread-heading");
+    const heading = nextHeading.firstElementChild;
+    if (currentHeading && heading) currentHeading.replaceWith(heading);
+    else if (heading) thread.prepend(heading);
+    const history = thread.querySelector("[data-chat-messages]");
+    const historyHtml = (messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "") +
+      threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation.kind === "group");
+    if (history) history.innerHTML = historyHtml;
+    else {
+      const wrapper = document.createElement("div");
+      wrapper.className = "chat-message-history";
+      wrapper.dataset.chatMessages = "";
+      wrapper.innerHTML = historyHtml;
+      const composerForm = thread.querySelector("[data-chat-send]");
+      if (composerForm) composerForm.before(wrapper);
+      else thread.append(wrapper);
+    }
+    if (refreshReadState) {
+      const { error } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
+      if (error) console.warn("Looply read receipt update failed", error);
+    }
+    thread.scrollTop = focused ? scrollTop : thread.scrollHeight;
+  } catch (error) {
+    console.warn("Looply active thread refresh failed", error);
+    const live = root.querySelector("[data-chat-live]");
+    if (live) live.textContent = "Conexão instável · tentando novamente";
+  }
+}
 async function refreshChat(root, client, userId, { keepThread = false } = {}) {
   const area = root.querySelector("[data-chat-area]");
   if (!area) return;
+  const version = ++refreshVersion;
   try {
-    const data = await loadChatData(client, userId);
-    if (!root.querySelector("[data-chat-area]")) return;
-    area.outerHTML = chatMarkup(data, userId);
+    const data = await loadChatData(client, userId, { markDelivered: false });
+    if (version !== refreshVersion || !area.isConnected) return;
+    const replacement = document.createElement("div");
+    replacement.innerHTML = chatMarkup(data, userId);
+    const fresh = replacement.firstElementChild;
+    if (!fresh?.querySelector("[data-chat-thread]")) throw new Error("Conversation list refresh returned invalid markup");
+    const currentList = area.querySelector("[data-chat-conversations]");
+    const newList = fresh.querySelector("[data-chat-conversations]");
+    if (currentList && newList) currentList.innerHTML = newList.innerHTML;
+    const currentCount = currentList?.closest(".chat-panel")?.querySelector(".chat-panel-heading span");
+    const newCount = newList?.closest(".chat-panel")?.querySelector(".chat-panel-heading span");
+    if (currentCount && newCount) currentCount.textContent = newCount.textContent;
+    const currentNotifications = area.querySelector(".chat-notifications-panel");
+    const newNotifications = fresh.querySelector(".chat-notifications-panel");
+    if (currentNotifications && newNotifications) currentNotifications.innerHTML = newNotifications.innerHTML;
     applyConversationFilter(root);
-    if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
-      const { messages, participants, conversation } = await loadThread(client, activeConversationId);
-      const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: activeConversationId });
-      if (readError) console.warn("Looply read receipt update failed", readError);
-      await signThreadAvatar(client, participants);
-      const peer = peerParticipantFor(participants, userId);
-      const isGroup = conversation.kind === "group";
-      const thread = root.querySelector("[data-chat-thread]");
-      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(activeConversationId)}`;
-    } else activeConversationId = null;
+    const composer = area.querySelector("[data-chat-send]");
+    if (keepThread && activeConversationId && composer?.dataset.sending !== "true") {
+      await refreshActiveThread(root, client, userId);
+    }
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
-    area.innerHTML = `<div class="chat-empty" role="alert">Não foi possível atualizar as conversas agora.</div>`;
+    const live = root.querySelector("[data-chat-live]");
+    if (live) live.textContent = "Conexão instável · tentando novamente";
   }
 }
-
 function scheduleRefresh(root, client, userId) {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(async () => {
     await refreshChat(root, client, userId, { keepThread: Boolean(activeConversationId) });
     if (activeConversationId && root.querySelector("[data-chat-thread]")) {
       const thread = root.querySelector("[data-chat-thread]");
-      thread.scrollTop = thread.scrollHeight;
+      if (thread && !thread.querySelector("[data-chat-send] [name=body]:focus")) thread.scrollTop = thread.scrollHeight;
     }
   }, 400);
 }
@@ -554,6 +607,7 @@ export function disposeChatRealtime(client) {
   conversationSearch = "";
   conversationFilter = "all";
   clearTimeout(refreshTimer);
+  refreshVersion += 1;
   for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
 
@@ -648,7 +702,7 @@ export function bindChatEvents(root, client, getUserId) {
         olderButton.remove();
         const nextButton = messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "";
         const peer = peerParticipantFor(participants, userId);
-        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
+        history.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
         thread.scrollTop += thread.scrollHeight - scrollHeight;
       } catch (error) {
         console.error("Looply older messages failed", error);
@@ -724,8 +778,9 @@ export function bindChatEvents(root, client, getUserId) {
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
     const userId = getUserId?.();
-    if (!form || !client || !userId) return;
+    if (!form || !client || !userId || form.dataset.sending === "true") return;
     event.preventDefault();
+    form.dataset.sending = "true";
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
     try {
@@ -767,6 +822,7 @@ export function bindChatEvents(root, client, getUserId) {
         await openConversation(root, client, data.conversationId, userId);
       } else {
         const conversationId = form.dataset.conversationId;
+        if (!conversationId || conversationId !== activeConversationId) throw new Error("conversation not selected");
         const files = selectedFiles(values);
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
@@ -780,8 +836,8 @@ export function bindChatEvents(root, client, getUserId) {
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "arquivo";
             const path = `conversations/${conversationId}/${message.id}/${crypto.randomUUID()}.${fileExtensions.get(file.type.split(";")[0])}`;
             setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: 0%`);
-            await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
             uploadedPaths.push(path);
+            await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
             const { error: mediaError } = await client.from("chat_media").insert({
               conversation_id: conversationId, message_id: message.id, storage_path: path,
               mime_type: file.type.split(";")[0], byte_size: file.size, file_name: safeName
@@ -798,9 +854,12 @@ export function bindChatEvents(root, client, getUserId) {
           if (preview?.src?.startsWith("blob:")) URL.revokeObjectURL(preview.src);
           delete form._looplyRecordedFile;
         }
-        form.reset();
-        setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
-        await openConversation(root, client, conversationId, userId);
+        if (form.isConnected) {
+          form.reset();
+          setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
+        }
+        delete form.dataset.sending;
+        await refreshActiveThread(root, client, userId);
       }
     } catch (error) {
       console.error("Looply chat action failed", error);
@@ -809,10 +868,13 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
       else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
+      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Escolha uma conversa antes de enviar a mensagem. Seu texto continua no campo.";
+      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Abra uma conversa antes de enviar a mensagem.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
     } finally {
+      delete form.dataset.sending;
       if (button) button.disabled = false;
     }
   });
