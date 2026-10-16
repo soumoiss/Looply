@@ -439,7 +439,7 @@ test("the legacy archive migration keeps letters private and all media objects b
   assert.match(migration, /grant execute on function public\.read_looply_archived_card_secret\(uuid, uuid\) to service_role/i);
   assert.match(migration, /grant execute on function public\.consume_looply_archived_card_unlock\(uuid, uuid\) to service_role/i);
   assert.match(migration, /attempts between 0 and 8/i);
-  const denyPolicies = await read("supabase/migrations/20261016043000_archive_secret_deny_policies.sql");
+  const denyPolicies = await read("supabase/migrations/20261016042944_archive_secret_deny_policies.sql");
   assert.match(denyPolicies, /archived_card_secrets_deny_direct_access[\s\S]*?using \(false\)[\s\S]*?with check \(false\)/i);
   assert.match(denyPolicies, /archived_card_unlock_attempts_deny_direct_access[\s\S]*?using \(false\)[\s\S]*?with check \(false\)/i);
   assert.match(migration, /create table public\.archive_media[\s\S]*?visibility text not null[\s\S]*?enable row level security/i);
