@@ -836,3 +836,15 @@ test("chat editing and deletion use the authenticated author's existing RLS and 
   assert.match(migration, /chat_messages_delete_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /looply_chat_delete_own_message[\s\S]*?message\.sender_id = \(select auth\.uid\(\)\)/i);
 });
+
+
+test("chat composer uses Enter to send, Shift+Enter for a newline, and valid CSS rules", async () => {
+  const [chat, css] = await Promise.all([
+    read("src/chat.js"), read("assets/css/pages/chat.css")
+  ]);
+  assert.match(chat, /root\\.addEventListener\\("keydown"/);
+  assert.match(chat, /event\\.key !== "Enter" \\|\\| event\\.shiftKey \\|\\| event\\.isComposing/);
+  assert.match(chat, /form\\.requestSubmit\\(\\)/);
+  assert.ok(chat.indexOf('root.addEventListener("keydown"') < chat.indexOf('root.addEventListener("submit"'));
+  assert.doesNotMatch(css, /\\\\n/);
+});
