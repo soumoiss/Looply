@@ -115,14 +115,11 @@ async function parseCard(file, profileByName) {
 
 export function makeMediaCatalog(index, fileMap) {
   const items = new Map();
-  const upsert = (entry, forcedVisibility = null, forcedUsername = null) => {
+  const upsert = (entry) => {
     const sourcePath = normalizedPath(entry.path);
     if (!/^midia\/(?:[^/]+|misol\/[^/]+|yara\/[^/]+)$/i.test(sourcePath)) return;
     const extension = sourcePath.split(".").at(-1).toLowerCase();
     if (!mediaTypes.has(extension)) return;
-    const current = items.get(keyPath(sourcePath));
-    const owner = forcedUsername || (/^midia\/misol\//i.test(sourcePath) ? "misol" : /^midia\/yara\//i.test(sourcePath) ? "yara" : null);
-    const exclusive = forcedVisibility === "exclusive" || Boolean(owner);
     const entryKind = mediaTypes.get(extension)[0];
     items.set(keyPath(sourcePath), {
       source_path: sourcePath,
@@ -130,25 +127,24 @@ export function makeMediaCatalog(index, fileMap) {
       description: String(entry.description || ""),
       kind: entryKind,
       mime_type: mediaTypes.get(extension)[1],
-      visibility: exclusive ? "exclusive" : "members",
-      recipient_names: exclusive ? [owner] : [],
+      // Audience is assigned per media in the gallery after import, never from a folder name.
+      visibility: "members",
+      recipient_names: [],
       source_date: entry.uploadedAt || entry.modified || ""
     });
-    if (current?.visibility === "exclusive" && !exclusive) items.set(keyPath(sourcePath), current);
   };
 
   for (const type of ["fotos", "videos", "audios"]) {
     for (const entry of Array.isArray(index[type]) ? index[type] : []) upsert(entry);
   }
-  for (const [owner, entries] of Object.entries(index.exclusivo || {})) {
-    const username = String(owner).toLocaleLowerCase("pt-BR");
-    if (!["misol", "yara"].includes(username)) continue;
-    for (const entry of Array.isArray(entries) ? entries : []) upsert(entry, "exclusive", username);
+  // Keep legacy exclusive-index entries in the catalog, but require the administrator
+  // to assign a recipient explicitly after import.
+  for (const entries of Object.values(index.exclusivo || {})) {
+    for (const entry of Array.isArray(entries) ? entries : []) upsert(entry);
   }
 
   return [...items.values()];
 }
-
 export function findMediaIndexEntry(fileMap) {
   return fileMap.get(keyPath("data/midia-index.json")) || fileMap.get(keyPath("midia-index.json")) || null;
 }
@@ -395,4 +391,5 @@ export function bindArchiveImport(root, client) {
     }
   });
 }
+
 
