@@ -842,9 +842,9 @@ test("chat composer uses Enter to send, Shift+Enter for a newline, and valid CSS
   const [chat, css] = await Promise.all([
     read("src/chat.js"), read("assets/css/pages/chat.css")
   ]);
-  assert.match(chat, /root\\.addEventListener\\("keydown"/);
-  assert.match(chat, /event\\.key !== "Enter" \\|\\| event\\.shiftKey \\|\\| event\\.isComposing/);
-  assert.match(chat, /form\\.requestSubmit\\(\\)/);
+  assert.match(chat, /root\.addEventListener\("keydown"/);
+  assert.match(chat, /event\.key !== "Enter" \|\| event\.shiftKey \|\| event\.isComposing/);
+  assert.match(chat, /form\.requestSubmit\(\)/);
   assert.ok(chat.indexOf('root.addEventListener("keydown"') < chat.indexOf('root.addEventListener("submit"'));
-  assert.doesNotMatch(css, /\\\\n/);
+  assert.doesNotMatch(css, /\\n/);
 });
