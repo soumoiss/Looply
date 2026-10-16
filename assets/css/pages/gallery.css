@@ -1,3 +1,23 @@
 .page-title-panel { margin-bottom: 16px; }
 .page-content > .social-area { margin-top: 0; }
 .page-gallery .post-media-grid img, .page-gallery .post-media-grid video { max-height: 72vh; }
+
+.community-gallery-panel { margin:0 0 16px; padding:clamp(15px,3vw,24px); }
+.community-gallery-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+.community-gallery-heading h2 { margin:4px 0 0; font-size:1.25rem; }
+.community-gallery-heading > span, .community-gallery-upload small { color:var(--muted); font-size:.86rem; }
+.community-gallery-upload { display:grid; gap:11px; margin:0 0 18px; padding:14px; border:1px solid var(--line); border-radius:15px; background:var(--surface-soft); }
+.community-gallery-upload label { display:grid; gap:6px; font-size:.9rem; font-weight:700; }
+.community-gallery-upload input { width:100%; min-height:40px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--surface); color:var(--text); font:inherit; }
+.community-gallery-upload input[type=file] { padding:6px; font-size:.82rem; }
+.community-gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); gap:12px; }
+.community-gallery-card { min-width:0; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:var(--surface); }
+.community-gallery-visual { display:grid; min-height:100px; place-items:center; overflow:hidden; background:var(--surface-soft); }
+.community-gallery-visual img, .community-gallery-visual video { display:block; width:100%; max-height:420px; object-fit:contain; background:#17131b; }
+.community-gallery-visual audio { width:calc(100% - 20px); margin:18px 10px; }
+.community-gallery-visual a, .community-gallery-unavailable { padding:18px; color:var(--primary); overflow-wrap:anywhere; }
+.community-gallery-card-copy { display:grid; gap:4px; padding:11px 12px; }
+.community-gallery-card-copy strong, .community-gallery-card-copy span { overflow-wrap:anywhere; }
+.community-gallery-card-copy span, .community-gallery-empty { color:var(--muted); font-size:.85rem; }
+.community-gallery-delete { margin:0 12px 12px; padding:6px 10px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:var(--surface); cursor:pointer; }
+.community-gallery-empty { margin:0; padding:22px 4px; text-align:center; }

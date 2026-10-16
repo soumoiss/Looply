@@ -45,7 +45,7 @@ function headerMarkup(page, profile, admin, unreadCount) {
   const profileCurrent = page === "profile" ? " aria-current=\"page\"" : "";
   const settingsCurrent = page === "settings" ? " aria-current=\"page\"" : "";
   const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">Meu perfil</a><a class="account-menu-link" href="usuarios.html">Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">Configurações</a>${admin ? `<a class="account-menu-link" href="admin.html">Administração</a>` : ""}`;
-  return `<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7"/></svg></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
+  return `<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav>
     <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">⌄</span></summary>
       <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out>Sair</button></div></details>`;

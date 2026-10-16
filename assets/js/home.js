@@ -1,4 +1,5 @@
 import { mountAppPage } from "../../src/page-runtime.js";
+import { welcomeGreeting } from "../../src/welcome.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
 
@@ -13,7 +14,7 @@ function renderWelcome(profile) {
   const template = document.createElement("template");
   template.innerHTML = markup;
   const welcome = template.content.firstElementChild;
-  welcome.querySelector("[data-home-welcome-title]").textContent = `Bem-vindo, ${name}`;
+  welcome.querySelector("[data-home-welcome-title]").textContent = welcomeGreeting(profile.username) + ", " + name;
   const fallback = welcome.querySelector("[data-home-avatar-initial]");
   fallback.textContent = Array.from(name.trim())[0]?.toLocaleUpperCase("pt-BR") || "?";
   if (avatar) {

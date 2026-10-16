@@ -298,7 +298,7 @@ Deno.serve(async (request: Request) => {
       const storagePath = String(media.storage_path || "");
       const expectedSize = Number(media.byte_size);
       if (!/^legacy-archive\/midia\/(?:[^/]+|misol\/[^/]+|yara\/[^/]+)$/i.test(storagePath)
-          || !Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > 104_857_600) {
+          || !Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > 209_715_200) {
         return respond(400, { error: "invalid_archive_media_upload_check" });
       }
 

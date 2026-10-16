@@ -1,6 +1,6 @@
 import { extractDate, toISO } from "./date-parser.js";
 
-const maxFileBytes = 100 * 1024 * 1024;
+const maxFileBytes = 200 * 1024 * 1024;
 const passwordIterations = 210_000;
 const mediaTypes = new Map([
   ["jpg", ["image", "image/jpeg"]], ["jpeg", ["image", "image/jpeg"]],

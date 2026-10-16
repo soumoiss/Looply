@@ -675,3 +675,47 @@ test("feed media paths are registered for rollback before upload starts", async 
   assert.equal(uploads.length, 2);
   paths.forEach((position, index) => assert.ok(position < uploads[index] && uploads[index] - position < 100));
 });
+
+import { welcomeGreeting } from "../src/welcome.js";
+import { openProtectedLetter, sealLetter } from "../src/letters-community.js";
+
+test("home greeting follows the confirmed account usernames", () => {
+  assert.equal(welcomeGreeting("misol"), "Bem-vinda");
+  assert.equal(welcomeGreeting("YARA"), "Bem-vinda");
+  assert.equal(welcomeGreeting("patati"), "Bem-vindo");
+  assert.equal(welcomeGreeting("peixinho"), "Bem-vindo");
+});
+
+test("password-protected letters encrypt content and reject a wrong password", async () => {
+  const sealed = await sealLetter("Texto confidencial", "senha-longa-123", "Assunto");
+  assert.equal(sealed.body, null);
+  assert.doesNotMatch(JSON.stringify(sealed), /Texto confidencial|senha-longa-123/);
+  const letter = { subject: "Assunto", ...sealed };
+  assert.equal(await openProtectedLetter(letter, "senha-longa-123"), "Texto confidencial");
+  await assert.rejects(openProtectedLetter(letter, "senha-incorreta"), /Senha incorreta/);
+});
+
+test("community gallery and letters use RLS, encryption and receipt-aware chat", async () => {
+  const names = await readdir(resolve(projectRoot, "supabase/migrations"));
+  const migrationName = names.find((name) => name.endsWith("_community_letters_gallery_receipts.sql"));
+  assert.ok(migrationName);
+  const [sql, gallery, letters, chat, css, adminFunction] = await Promise.all([
+    read("supabase/migrations/" + migrationName), read("src/community-gallery.js"),
+    read("src/letters-community.js"), read("src/chat.js"), read("assets/css/pages/chat.css"),
+    read("supabase/functions/looply-admin/index.ts")
+  ]);
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /sender_id = \(select auth\.uid\(\)\)/i);
+  assert.match(sql, /is_protected = true and body is null[\s\S]*password_ciphertext/);
+  assert.match(sql, /looply-gallery[\s\S]*209715200/i);
+  assert.match(sql, /209715200 else 104857600/i);
+  assert.match(sql, /archive_media_byte_size_check[\s\S]*209715200/i);
+  assert.match(gallery, /looply-gallery/);
+  assert.match(gallery, /tus-js-client/);
+  assert.match(letters, /crypto\.subtle\.encrypt/);
+  assert.doesNotMatch(letters, /password:\s*String\(values\.get/);
+  assert.match(chat, /mark_conversations_delivered/);
+  assert.match(chat, /message\.read_at \? "Lida" : message\.delivered_at \? "Entregue"/);
+  assert.match(css, /--looply-visible-height/);
+  assert.match(adminFunction, /expectedSize > 209_715_200/);
+});

@@ -47,6 +47,10 @@ export async function loadChatData(client, userId) {
   if (participantResult.error) throw participantResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
+  if (ids.length) {
+    const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids });
+    if (deliveredError) console.warn("Looply delivery receipt update failed", deliveredError);
+  }
   let conversations = [];
   let latestMessages = [];
   if (ids.length) {
@@ -379,7 +383,7 @@ function renderMedia(media) {
 
 async function loadThread(client, conversationId, before = null) {
   let messageQuery = client.from("chat_messages")
-    .select("id,conversation_id,sender_id,reply_to,body,created_at,author:profiles!chat_messages_sender_id_fkey(id,username,display_name,avatar_path),media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)")
+    .select("id,conversation_id,sender_id,reply_to,body,created_at,delivered_at,read_at,author:profiles!chat_messages_sender_id_fkey(id,username,display_name,avatar_path),media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)")
     .eq("conversation_id", conversationId);
   if (before) messageQuery = messageQuery.lt("created_at", before);
   const [messageResult, participantResult, conversationResult] = await Promise.all([
@@ -423,7 +427,8 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const readCount = isGroup ? participants.filter((participant) => participant.user_id !== userId && participant.last_read_at && new Date(participant.last_read_at) >= new Date(message.created_at)).length : 0;
     const readTotal = Math.max(0, participants.length - 1);
     const groupReadText = readCount === readTotal && readTotal ? "Lida por todos" : readCount ? `Lida por ${readCount} de ${readTotal}` : "Enviada";
-    const delivery = isMine ? `<small class="chat-delivery">${isGroup ? groupReadText : peerReadAt && new Date(peerReadAt) >= new Date(message.created_at) ? "Lida" : "Enviada"}</small>` : "";
+    const deliveryLabel = isGroup ? groupReadText : message.read_at ? "Lida" : message.delivered_at ? "Entregue" : "Enviada";
+    const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
@@ -483,10 +488,8 @@ async function openConversation(root, client, conversationId, userId) {
     const isGroup = conversation.kind === "group";
     thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
-    await Promise.all([
-      client.from("conversation_participants").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", conversationId).eq("user_id", userId),
-      client.from("chat_notifications").update({ read_at: new Date().toISOString() }).eq("conversation_id", conversationId).is("read_at", null)
-    ]);
+    const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
+    if (readError) console.warn("Looply read receipt update failed", readError);
     await refreshChat(root, client, userId, { keepThread: true });
   } catch (error) {
     console.error("Looply conversation load failed", error);
@@ -504,6 +507,8 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     applyConversationFilter(root);
     if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
       const { messages, participants, conversation } = await loadThread(client, activeConversationId);
+      const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: activeConversationId });
+      if (readError) console.warn("Looply read receipt update failed", readError);
       await signThreadAvatar(client, participants);
       const peer = peerParticipantFor(participants, userId);
       const isGroup = conversation.kind === "group";
@@ -553,6 +558,26 @@ export function disposeChatRealtime(client) {
 }
 
 export function bindChatEvents(root, client, getUserId) {
+  if (root.dataset.conversationPage === "true" && window.visualViewport) {
+    const viewport = window.visualViewport;
+    const updateViewport = () => {
+      root.style.setProperty("--looply-visible-height", viewport.height + "px");
+      const thread = root.querySelector("[data-chat-thread]");
+      if (document.activeElement?.matches(".chat-message-form textarea") && thread) requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+    };
+    viewport.addEventListener("resize", updateViewport);
+    viewport.addEventListener("scroll", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    updateViewport();
+    window.addEventListener("pagehide", () => {
+      viewport.removeEventListener("resize", updateViewport);
+      viewport.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    }, { once: true });
+    root.addEventListener("focusin", (event) => {
+      if (event.target.matches(".chat-message-form textarea")) window.setTimeout(updateViewport, 80);
+    });
+  }
   root.addEventListener("looply:open-conversation", async (event) => {
     const conversationId = event.detail?.conversationId;
     const userId = getUserId?.();

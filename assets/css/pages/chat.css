@@ -78,3 +78,9 @@
 :is(.page-chat, .page-conversation) .chat-group-option input { width: 18px; height: 18px; accent-color: var(--primary); }
 :is(.page-chat, .page-conversation) .chat-group-avatar { display: grid; place-items: center; color: var(--primary); background: var(--lilac); font-size: 22px; }
 :is(.page-chat, .page-conversation) .chat-thread-heading > div { display: grid; gap: 2px; }
+
+@media (max-width:680px) {
+  .page-conversation .chat-thread-panel { height:max(220px, calc(var(--looply-visible-height, 100dvh) - 170px)); min-height:0; }
+  .page-conversation .chat-thread { height:100%; min-height:0; max-height:none; overscroll-behavior:contain; }
+  .page-conversation .chat-message-form { position:sticky; bottom:-14px; z-index:3; flex:0 0 auto; }
+}
