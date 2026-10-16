@@ -835,6 +835,14 @@ export function bindChatEvents(root, client, getUserId) {
     if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, Number(select.value) || 1));
   });
 
+  root.addEventListener("keydown", (event) => {
+    const textarea = event.target.closest?.(".chat-message-form textarea");
+    if (!textarea || event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    const form = textarea.closest("form[data-chat-send]");
+    if (form && form.dataset.sending !== "true") form.requestSubmit();
+  });
+
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
     if (!form) return;
