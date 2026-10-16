@@ -76,6 +76,13 @@ export function groupActiveStories(stories, now = Date.now()) {
   );
 }
 
+export function storyMediaUrlTtl(expiresAt, now = Date.now()) {
+  const expiry = Date.parse(expiresAt || "");
+  if (!Number.isFinite(expiry)) return 0;
+  const secondsBeforeExpiry = Math.floor((expiry - now - 5000) / 1000);
+  return Math.max(0, Math.min(1800, Math.floor(secondsBeforeExpiry / 30) * 30));
+}
+
 export async function loadStories(client) {
   const { data, error } = await client.from("stories")
     .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,alt_text,created_at)")
@@ -87,15 +94,25 @@ export async function loadStories(client) {
   const rows = data || [];
   const mediaItems = rows.flatMap((story) => {
     const media = Array.isArray(story.media) ? story.media : story.media ? [story.media] : [];
-    return media.map((item) => ({ ...item, storyId: story.id }));
+    return media.map((item) => ({ ...item, storyId: story.id, storyExpiresAt: story.expires_at }));
   });
-  if (mediaItems.length) {
+  const signedAt = Date.now();
+  const signGroups = new Map();
+  for (const item of mediaItems) {
+    item.signedUrl = null;
+    const ttl = storyMediaUrlTtl(item.storyExpiresAt, signedAt);
+    if (!ttl) continue;
+    const group = signGroups.get(ttl) || [];
+    group.push(item);
+    signGroups.set(ttl, group);
+  }
+  await Promise.all([...signGroups].map(async ([ttl, items]) => {
     const { data: signed, error: signedError } = await client.storage.from("looply-media")
-      .createSignedUrls(mediaItems.map((item) => item.storage_path), 1800);
-    mediaItems.forEach((item, index) => {
+      .createSignedUrls(items.map((item) => item.storage_path), ttl);
+    items.forEach((item, index) => {
       item.signedUrl = signedError ? null : signed?.[index]?.signedUrl || null;
     });
-  }
+  }));
 
   const avatarPaths = [...new Set(rows.map((story) => story.author?.avatar_path).filter(Boolean))];
   const avatarUrls = new Map();
@@ -348,9 +365,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         }
       }
       scheduleNextExpiry();
+      return true;
     } catch (error) {
       console.error("Looply stories refresh failed.", error);
       showStatus("Não foi possível atualizar os stories.", true);
+      return false;
     }
   };
   const scheduleNextExpiry = () => {
@@ -417,6 +436,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     const storyButton = event.target.closest("[data-story-open]");
     if (storyButton) {
+      showStatus("Carregando story…");
+      if (!await refresh()) return;
       const group = state.groups.find((item) => item.author_id === storyButton.dataset.storyOpen);
       if (!group) return;
       state.active = { ...group, stories: activeStoriesFor(group) };

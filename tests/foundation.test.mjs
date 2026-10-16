@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
-import { groupActiveStories } from "../src/stories.js";
+import { groupActiveStories, storyMediaUrlTtl } from "../src/stories.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -594,6 +594,14 @@ test("stories are grouped by author, sorted in sequence, and hidden at expiry", 
   assert.deepEqual(groups.map((group) => group.author_id), ["b", "c", "a"]);
   assert.deepEqual(groups.find((group) => group.author_id === "a").stories.map((story) => story.id), ["a-first", "a-later"]);
   assert.equal(groups.find((group) => group.author_id === "c").stories[0].expires_at, "2026-10-17T11:30:00.000Z");
+});
+
+test("story media signed URLs never outlive their story", () => {
+  const now = Date.parse("2026-10-16T12:00:00.000Z");
+  assert.equal(storyMediaUrlTtl("2026-10-16T12:03:00.000Z", now), 150);
+  assert.equal(storyMediaUrlTtl("2026-10-17T12:00:00.000Z", now), 1800);
+  assert.equal(storyMediaUrlTtl("2026-10-16T12:00:20.000Z", now), 0);
+  assert.equal(storyMediaUrlTtl("not-a-date", now), 0);
 });
 
 test("Home, Galeria, and Cartas have separate page responsibilities", async () => {

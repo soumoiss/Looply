@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 36 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, o projeto Supabase `qixocgetiwlrsbadpbvh` contém a migration de stories de 24 horas; `looply-admin` e `looply-chat` estavam nas versões 7 e 3 na última verificação. O acervo de cartas permanece no banco e os arquivos antigos ainda dependem de importação. O commit anterior passou no GitHub Actions com 34 testes; esta revisão acrescenta três testes e seu resultado será confirmado no check do novo commit. Não houve teste completo de stories com duas contas nem expiração real no navegador. Build e testes automatizados não comprovam integração ponta a ponta.
+Este roteiro registra 36 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, o projeto Supabase `qixocgetiwlrsbadpbvh` contém a migration de stories de 24 horas; `looply-admin` e `looply-chat` estavam nas versões 7 e 3 na última verificação. O acervo de cartas permanece no banco e os arquivos antigos ainda dependem de importação. O commit `65d3c05` passou no GitHub Actions com 37 testes; a revisão seguinte acrescenta a validação do limite de validade das URLs assinadas e seu check ainda está pendente. Não houve teste completo de stories com duas contas nem expiração real no navegador. Build e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
