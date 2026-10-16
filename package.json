@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node scripts/build.mjs && node --test tests/foundation.test.mjs"
+    "test": "node scripts/build.mjs && node --test tests/foundation.test.mjs tests/youtube-api.test.mjs"
   }
 }
