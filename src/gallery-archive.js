@@ -11,8 +11,8 @@ function formatDate(value) {
 
 export async function loadArchiveMedia(client) {
   const { data: media, error } = await client.from("archive_media")
-    .select("id,original_path,file_name,storage_path,kind,mime_type,byte_size,visibility,created_at")
-    .order("original_path", { ascending: true }).limit(500);
+    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,created_at")
+    .order("source_path", { ascending: true }).limit(500);
   if (error) throw error;
   const rows = media || [];
   if (!rows.length) return [];
@@ -38,7 +38,7 @@ export async function loadArchiveMedia(client) {
 
 export function archiveGalleryMarkup(media) {
   const tiles = media.map((item) => {
-    const title = escapeHtml(item.file_name || item.original_path);
+    const title = escapeHtml(item.file_name || item.source_path);
     const url = escapeHtml(item.signedUrl || "");
     const preview = item.kind === "image" && item.signedUrl && !item.mime_type.includes("heic")
       ? `<img src="${url}" alt="${title}" loading="lazy" referrerpolicy="no-referrer">`
@@ -55,7 +55,8 @@ export function archiveGalleryMarkup(media) {
         <header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>
           <div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>
         </header>
-        <div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>
+      <p class="archive-viewer-description" data-archive-viewer-description hidden></p>
+      <div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>
           <div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>
           <div class="archive-viewer-content" data-archive-viewer-content></div>
         </div>
@@ -75,7 +76,7 @@ function commentsMarkup(comments) {
 function mediaContent(item) {
   if (!item.signedUrl) return `<p class="archive-media-unavailable">Arquivo temporariamente indisponível.</p>`;
   const url = escapeHtml(item.signedUrl);
-  const title = escapeHtml(item.file_name || item.original_path);
+  const title = escapeHtml(item.file_name || item.source_path);
   if (item.kind === "video") return `<video src="${url}" controls playsinline preload="metadata" aria-label="${title}"></video>`;
   if (item.kind === "audio") return `<div class="archive-audio-player"><span>${title}</span><audio src="${url}" controls preload="metadata" aria-label="${title}"></audio></div>`;
   if (item.mime_type.includes("heic")) return `<a class="archive-heic-link" href="${url}" target="_blank" rel="noopener noreferrer">Abrir ou baixar ${title}</a>`;
@@ -114,8 +115,13 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     if (!item || !viewer) return;
     state.activeId = item.id;
     state.zoom = 1; state.panX = 0; state.panY = 0; state.dragging = null;
-    root.querySelector("[data-archive-viewer-title]").textContent = item.file_name || item.original_path;
+    root.querySelector("[data-archive-viewer-title]").textContent = item.file_name || item.source_path;
     root.querySelector("[data-archive-viewer-meta]").textContent = `${item.kind} · ${formatDate(item.created_at)}`;
+    const description = root.querySelector("[data-archive-viewer-description]");
+    if (description) {
+      description.textContent = item.description || "";
+      description.hidden = !item.description;
+    }
     if (viewerContent) viewerContent.innerHTML = mediaContent(item);
     renderComments(item);
     const commentForm = root.querySelector("[data-archive-media-comment]");
@@ -267,4 +273,3 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     .subscribe();
   window.addEventListener("pagehide", () => { if (state.channel) client.removeChannel(state.channel); }, { once: true });
 }
-
