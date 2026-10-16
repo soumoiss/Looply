@@ -1,5 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+// These server-only RPCs are maintained in SQL migrations rather than a generated Database type.
+type UntypedServiceClient = Omit<SupabaseClient<any, any, any, any, any>, "rpc"> & {
+  rpc: (...args: any[]) => Promise<any>;
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +18,14 @@ const allowedResources = new Set([
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return fallback;
+}
 
 function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
@@ -44,7 +57,7 @@ async function verifyArchivedCardPassword(password: string, saltText: string, ha
   return difference === 0;
 }
 
-async function recordAccess(service: ReturnType<typeof createClient>, actorId: string, event: string, resourceType: string, resourceId: string | null, purpose: string, requestId: string, metadata: Record<string, unknown> = {}) {
+async function recordAccess(service: UntypedServiceClient, actorId: string, event: string, resourceType: string, resourceId: string | null, purpose: string, requestId: string, metadata: Record<string, unknown> = {}) {
   const { error } = await service.rpc("record_looply_admin_access", {
     p_actor_id: actorId,
     p_event: event,
@@ -57,7 +70,7 @@ async function recordAccess(service: ReturnType<typeof createClient>, actorId: s
   if (error) throw error;
 }
 
-async function loadResource(service: ReturnType<typeof createClient>, actorId: string, resourceType: string, resourceId: string | null, offset = 0) {
+async function loadResource(service: UntypedServiceClient, actorId: string, resourceType: string, resourceId: string | null, offset = 0) {
   if (resourceType === "audit") {
     const { data, error } = await service.rpc("read_looply_admin_audit", { p_actor_id: actorId, p_limit: 100 });
     if (error) throw error;
@@ -203,7 +216,7 @@ Deno.serve(async (request: Request) => {
     const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData.user) return respond(401, { error: "The session is invalid or expired." });
 
-    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } }) as UntypedServiceClient;
     const payload = await request.json().catch(() => ({}));
     const requestId = crypto.randomUUID();
 
@@ -275,7 +288,7 @@ Deno.serve(async (request: Request) => {
         return respond(200, { requestId, importedCount: Number(data || 0) });
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "archived_cards", null, purpose, requestId,
-          { reason: String(error?.message || "Card import failed.").slice(0, 200) });
+          { reason: errorMessage(error, "Card import failed.").slice(0, 200) });
         throw error;
       }
     }
@@ -305,7 +318,7 @@ Deno.serve(async (request: Request) => {
         return respond(200, { requestId, mediaId: data });
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "archive_media", null, purpose, requestId,
-          { reason: String(error?.message || "Media registration failed.").slice(0, 200) });
+          { reason: errorMessage(error, "Media registration failed.").slice(0, 200) });
         throw error;
       }
     }
@@ -331,7 +344,7 @@ Deno.serve(async (request: Request) => {
         return respond(200, { requestId, comment });
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "archive_media_comments", mediaId, purpose, requestId,
-          { action: "admin_comment", reason: String(error?.message || "Media comment failed.").slice(0, 200) });
+          { action: "admin_comment", reason: errorMessage(error, "Media comment failed.").slice(0, 200) });
         throw error;
       }
     }
@@ -356,7 +369,7 @@ Deno.serve(async (request: Request) => {
         return respond(200, { requestId, comment });
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "posts", postId, purpose, requestId,
-          { action: "admin_comment", reason: String(error?.message || "Comment failed.").slice(0, 200) });
+          { action: "admin_comment", reason: errorMessage(error, "Comment failed.").slice(0, 200) });
         throw error;
       }
     }
@@ -395,7 +408,7 @@ Deno.serve(async (request: Request) => {
       return respond(200, { requestId, resourceType: requestedType, data });
     } catch (error) {
       await recordAccess(service, authData.user.id, "read_failed", requestedType, resourceId, purpose, requestId,
-        { message: String(error?.message || "Administrative read failed.").slice(0, 200) });
+        { message: errorMessage(error, "Administrative read failed.").slice(0, 200) });
       throw error;
     }
   } catch (error) {
@@ -403,4 +416,3 @@ Deno.serve(async (request: Request) => {
     return respond(500, { error: "Administrative request could not be completed." });
   }
 });
-
