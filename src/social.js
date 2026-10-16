@@ -52,7 +52,7 @@ function commentMarkup(comment, canReply) {
       </details>`
     : "";
 
-  return `<article class="comment-item${canReply ? "" : " comment-reply"}">
+  return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}">
     <div class="comment-meta"><strong>${profileLabel(comment.author)}</strong><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time></div>
     <p>${escapeHtml(comment.body)}</p>${commentMediaMarkup(comment.media)}${replyForm}
   </article>`;
@@ -83,7 +83,7 @@ function postMarkup(post, userId) {
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
-  return `<article class="post-card" data-post-card="${escapeHtml(post.id)}">
+  return `<article class="post-card" id="post-${escapeHtml(post.id)}" data-post-card="${escapeHtml(post.id)}">
     <header class="post-header">
       <div class="post-author"><span class="post-avatar" aria-hidden="true">${escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div>

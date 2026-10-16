@@ -8,11 +8,15 @@ Reconstrução independente do Looply com uma página HTML por área e Supabase 
 - `home.html`: coleção de cartas antigas, leitura, filtros, calendário e feed social.
 - `galeria.html`: acervo antigo privado, visualizador de fotos/vídeos/áudio, comentários e feed social.
 - `musicas.html`: playlist do YouTube conforme o usuário, dedicatórias e comentários.
-- `chat.html`: conversas em tempo real, anexos e cartas privadas para Peixinho.
-- `perfil.html`: edição do nome de exibição, foto, biografia e privacidade.
+- `chat.html` e `conversa.html`: lista de conversas e uma rota própria por conversa; anexos e gravação de áudio.
+- `cartas.html`: coleção de cartas arquivadas e lista de cartas privadas trocadas com Peixinho.
+- `notificacoes.html`: atividade persistente de posts, comentários, respostas, dedicatórias, mensagens e cartas.
+- `usuarios.html`: busca de perfis visíveis e acesso ao perfil ou chat.
+- `perfil.html`: edição do nome de exibição, foto, biografia e privacidade; consulta de outros perfis.
+- `configuracoes.html`: tema, fonte e tamanho de texto sincronizados no perfil do Supabase.
 - `admin.html`: consultas administrativas auditadas e importação do acervo antigo, somente para Peixinho.
 
-As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML e JavaScript de entrada em `assets/js/`; os estilos de página ficam em `assets/css/pages/`. O player de cada playlist funciona sem chave da API. Para exibir também a relação pesquisável de faixas ao lado do player, configure `LOOPLY_YOUTUBE_API_KEY` no ambiente de build. O script injeta essa chave pública no bundle do navegador; restrinja-a à YouTube Data API v3 e aos domínios do app. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
+As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML, JavaScript de entrada e folha CSS em `assets/css/pages/`. O player de cada playlist funciona sem chave da API. Para exibir também a relação pesquisável de faixas ao lado do player, configure `LOOPLY_YOUTUBE_API_KEY` no ambiente de build. O script injeta essa chave pública no bundle do navegador; restrinja-a à YouTube Data API v3 e aos domínios do app. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
 
 ## Configuração e execução
 
@@ -37,6 +41,6 @@ A cópia local de referência contém 97 cartas (47 Misol, 42 Patati e 8 Yara) e
 
 Para importar o acervo, extraia `Loooply-main.zip` em uma pasta local. Depois que a atualização do branch estiver na prévia Vercel, entre como Peixinho, abra Administração, informe um motivo com pelo menos 20 caracteres, escolha a pasta extraída completa `Loooply-main` e inicie a importação. O processo lê as cartas e o catálogo local no navegador e envia os arquivos ao bucket privado. Ele usa somente os caminhos catalogados, preserva as audiências exclusivas e as descrições `MSG_*.txt` junto às mídias; mídias catalogadas que não estiverem na pasta selecionada são ignoradas, sem bloquear as cartas e demais arquivos disponíveis. Nenhuma senha de conta, carta ou chave privada entra no repositório. Repita a importação para retomar falhas.
 
-O build e 24 testes estáticos passaram nesta revisão. Ainda faltam a importação real das cartas/mídias, testes de navegador com as quatro contas (incluindo duas sessões e isolamento de acesso), validação visual por screenshots, testes móveis e confirmação de todos os fluxos na prévia. Build e testes estáticos não comprovam a operação ponta a ponta.
+O build e 26 testes automatizados passaram nesta revisão. Ainda faltam a importação real das cartas/mídias, testes de navegador com as quatro contas (incluindo duas sessões e isolamento de acesso), validação visual por screenshots, testes móveis e confirmação de todos os fluxos na prévia. A prévia Vercel estava bloqueada por `build-rate-limit` na última verificação. Build e testes automatizados não comprovam a operação ponta a ponta.
 
 Para a publicação, use o branch/PR de trabalho no repositório `soumoiss/Looply`. Configure no Vercel Build Command `npm run build` e Output Directory `dist`. A prévia da PR deve ser validada antes de qualquer publicação em produção.

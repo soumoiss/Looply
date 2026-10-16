@@ -73,7 +73,7 @@ function dedicationMarkup(item, userId) {
       </article>`).join("")
     : `<p class="music-empty">Ainda não há comentários nesta dedicatória.</p>`;
 
-  return `<article class="music-card" data-dedication="${escapeHtml(item.id)}">
+  return `<article class="music-card" id="dedication-${escapeHtml(item.id)}" data-dedication="${escapeHtml(item.id)}">
     <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(item.created_at)))}</span></div>
     <p class="music-direction">${direction}</p>
     <h3>${escapeHtml(item.title)}</h3>

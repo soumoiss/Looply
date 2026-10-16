@@ -1,21 +1,29 @@
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { checkAdminAccess } from "./admin.js";
-import { applyTheme, getSavedTheme } from "./theme.js";
+import { applyProfilePreferences } from "./theme.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
   ["gallery", "Galeria", "galeria.html"],
   ["music", "Músicas", "musicas.html"],
-  ["chat", "Chat e cartas", "chat.html"],
-  ["profile", "Perfil", "perfil.html"]
+  ["chat", "Chat", "chat.html"],
+  ["letters", "Cartas", "cartas.html"],
+  ["notifications", "Notificações", "notificacoes.html"],
+  ["users", "Pessoas", "usuarios.html"],
+  ["profile", "Perfil", "perfil.html"],
+  ["settings", "Configurações", "configuracoes.html"]
 ];
-const navigationShortLabels = { chat: "Chat", profile: "Perfil", gallery: "Galeria", music: "Músicas", home: "Início" };
+const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", users: "Pessoas", profile: "Perfil", settings: "Ajustes", gallery: "Galeria", music: "Músicas", home: "Início" };
 const navigationIcons = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
   gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
   music: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg>',
   profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>',
+  letters: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
+  notifications: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.5a3.5 3.5 0 0 1 0 6.8M17 14a5.5 5.5 0 0 1 4.5 5.5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1 0 2Z"/></svg>',
   admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 19 6v5c0 5-3.2 8.3-7 10-3.8-1.7-7-5-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>'
 };
 
@@ -29,23 +37,23 @@ function notice(root, text, kind = "info") {
   root.innerHTML = `<section class="panel page-notice" role="${kind === "error" ? "alert" : "status"}">${escapeHtml(text)}</section>`;
 }
 
-function headerMarkup(page, profile, admin) {
+function headerMarkup(page, profile, admin, unreadCount) {
   const username = escapeHtml(profile.username);
   const name = escapeHtml(profile.display_name || profile.username);
   const avatar = profile.avatarUrl
     ? `<img class="looply-user-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="looply-user-initial" aria-hidden="true">${escapeHtml(name.slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`;
-  const links = navigation.map(([key, label, href]) => `<a class="header-action" href="${href}" aria-label="${label}"${key === page ? ' aria-current="page"' : ""}><span class="page-navigation-icon" aria-hidden="true">${navigationIcons[key]}</span><span class="page-navigation-label" data-short-label="${navigationShortLabels[key] || label}">${label}</span></a>`).join("");
+  const activePage = page === "conversation" ? "chat" : page;
+  const links = navigation.map(([key, label, href]) => `<a class="header-action" href="${href}" aria-label="${label}"${key === activePage ? ' aria-current="page"' : ""}><span class="page-navigation-icon" aria-hidden="true">${navigationIcons[key]}</span><span class="page-navigation-label" data-short-label="${navigationShortLabels[key] || label}">${label}</span>${key === "notifications" && unreadCount ? `<span class="navigation-badge" aria-label="${unreadCount} não lidas">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}</a>`).join("");
   return `<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7"/></svg></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}${admin ? '<a class="header-action admin-nav-link" href="admin.html" aria-label="Administração"' + (page === "admin" ? ' aria-current="page"' : "") + '><span class="page-navigation-icon" aria-hidden="true">' + navigationIcons.admin + '</span><span class="page-navigation-label" data-short-label="Admin">Administração</span></a>' : ""}</nav>
     <div class="looply-account">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span>
-      <label class="theme-picker"><span class="visually-hidden">Tema</span><select id="themeSelect" class="input" aria-label="Tema"><option value="lilas">Lilás</option><option value="noite">Noite</option><option value="oceano">Oceano</option><option value="rosa">Rosa</option><option value="floresta">Floresta</option></select></label>
       <button class="header-action" type="button" data-sign-out>Sair</button></div>`;
 }
 
 async function loadProfile(userId) {
   const { data, error } = await supabase.from("profiles")
-    .select("id,username,display_name,bio,profile_visibility,avatar_path")
+    .select("id,username,display_name,bio,profile_visibility,avatar_path,theme,font_family,font_size")
     .eq("id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("O perfil desta conta não foi encontrado.");
@@ -54,6 +62,32 @@ async function loadProfile(userId) {
     data.avatarUrl = signed?.signedUrl || "";
   }
   return data;
+}
+
+async function loadUnreadNotifications(client) {
+  const [notifications, chats] = await Promise.all([
+    client.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null)
+  ]);
+  return (notifications.error ? 0 : notifications.count || 0) + (chats.error ? 0 : chats.count || 0);
+}
+
+async function refreshUnreadBadge(header, client) {
+  const count = await loadUnreadNotifications(client);
+  const link = header.querySelector('.page-navigation a[href="notificacoes.html"]');
+  if (!link) return;
+  let badge = link.querySelector(".navigation-badge");
+  if (!count) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "navigation-badge";
+    link.append(badge);
+  }
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.setAttribute("aria-label", `${count} não lidas`);
 }
 
 export async function mountAppPage({ page, adminOnly = false, render }) {
@@ -87,19 +121,17 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  const isAdmin = await checkAdminAccess(supabase);
+  const [isAdmin, unreadCount] = await Promise.all([checkAdminAccess(supabase), loadUnreadNotifications(supabase)]);
   if (adminOnly && !isAdmin) {
     window.location.replace("home.html");
     return;
   }
 
-  header.innerHTML = headerMarkup(page, profile, isAdmin);
+  applyProfilePreferences(profile);
+  header.innerHTML = headerMarkup(page, profile, isAdmin, unreadCount);
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
   });
-  const themePicker = header.querySelector("#themeSelect");
-  themePicker.value = applyTheme(getSavedTheme());
-  themePicker.addEventListener("change", () => applyTheme(themePicker.value));
   header.querySelector("[data-sign-out]").addEventListener("click", async (event) => {
     event.currentTarget.disabled = true;
     const { error } = await supabase.auth.signOut();
@@ -110,6 +142,14 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     if (event === "SIGNED_OUT" || !session) window.location.replace("login.html");
   });
 
+  const activityChannel = supabase.channel(`looply-activity-${user.id}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, () => refreshUnreadBadge(header, supabase))
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, () => refreshUnreadBadge(header, supabase))
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, ({ new: updated }) => {
+      if (updated) applyProfilePreferences(updated);
+    })
+    .subscribe();
+
   try {
     await render({ root, client: supabase, user, profile, isAdmin });
   } catch (error) {
@@ -117,7 +157,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     notice(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.", "error");
   }
 
-  window.addEventListener("pagehide", () => authListener.subscription.unsubscribe(), { once: true });
+  window.addEventListener("pagehide", () => {
+    authListener.subscription.unsubscribe();
+    supabase.removeChannel(activityChannel);
+  }, { once: true });
 }
 
 export { notice };

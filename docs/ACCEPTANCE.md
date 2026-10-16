@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 26 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, a migração do acervo foi aplicada no Supabase, a Edge Function `looply-admin` está na versão 5 e a interface de importação está no código local. Ainda não houve importação de conteúdo nem testes de navegador com contas reais. Build verde e testes estáticos não comprovam integração ponta a ponta.
+Este roteiro registra 31 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, a migração de preferências/notificações foi aplicada no Supabase; `looply-admin` e `looply-chat` estavam nas versões 6 e 2. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. Build verde e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
@@ -40,10 +40,14 @@ Este roteiro registra 26 fluxos para validar a aplicação completa. Em 16 de ou
 | 24 | Desconecte a rede durante upload, comentário e envio de mensagem; reconecte e tente novamente. | A UI não mostra sucesso falso, explica a falha e a repetição segura não cria duplicatas. | Não executado |
 | 25 | Capture e compare todas as páginas em desktop e em 390 px; repita fluxos principais depois das correções. | Layout, textos, temas e interações permanecem fiéis ao ZIP, sem corte, rolagem horizontal ou regressões. | Pendente de screenshots/teste móvel |
 | 26 | No painel de Peixinho, selecione a pasta extraída, informe um motivo e execute a importação; repita após interromper a rede. | Importa 97 cartas e 256 arquivos indexados, mostra erros por arquivo, retoma sem duplicatas e mantém o bucket privado. | Pendente: ação do usuário no navegador |
+| 27 | Grave uma mensagem de voz no chat, teste duração, cancelar, pré-visualizar, enviar e ouvir em outra sessão. | O microfone só é pedido por ação explícita, áudio é anexado ao registro correto e o Storage continua privado aos participantes. | Não executado em navegador |
+| 28 | Gere comentário, resposta, post público/selecionado e dedicatória; confira a central em duas contas. | Notificações sociais persistem, só chegam às pessoas previstas por RLS, abrem o destino correto e sincronizam leitura. | Migração e UI implementadas; fluxo integrado não executado |
+| 29 | Altere tema, fonte e tamanho em uma conta e entre na mesma conta em outro dispositivo. | Preferências são salvas no perfil, reaplicadas em cada página e sincronizadas sem depender só do armazenamento local. | Migração e UI implementadas; fluxo integrado não executado |
+| 30 | Acesse diretamente cada URL nova, atualize a página e use voltar, navegação principal e barra móvel. | Rotas de conversa, cartas, notificações, usuários e configurações carregam sob sessão e mantêm a navegação global. | Build/testes estáticos passaram; navegador pendente |
+| 31 | Abra uma conversa em desktop e celular e confira avatar, nome, prévia, horário, não lidas e mensagens antigas. | Lista e rota individual distinguem conversas, protegem IDs inválidos e preservam a rolagem no histórico paginado. | Implementação local; navegador pendente |
 
 ## Registro e critério de conclusão
 
 Marque cada fluxo `Passou` somente depois de executá-lo. Registre data, username de teste e evidência sanitizada (por exemplo, screenshot sem conteúdo íntimo). Em falha, registre o resultado observado, corrija a causa e repita os fluxos relacionados. Nunca registre e-mail pessoal adicional, senha, OTP, token de sessão, conteúdo de carta privada ou URL assinada.
 
-O PR permanece em rascunho até os 25 fluxos relevantes terem evidência, a identidade administrativa estar verificada, a comparação de telas estar aprovada e as lacunas de dados terem sido explicitadas.
-
+O PR permanece em rascunho até os fluxos relevantes terem evidência, a identidade administrativa estar verificada, a comparação de telas estar aprovada e as lacunas de dados terem sido explicitadas.

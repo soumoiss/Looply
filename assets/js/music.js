@@ -10,3 +10,10 @@ await mountAppPage({ page: "music", render: async ({ root, client, user, profile
   setupMusicRealtime(client, user.id, root);
   window.addEventListener("pagehide", () => disposeMusicRealtime(client), { once: true });
 } });
+
+if (window.location.hash) {
+  requestAnimationFrame(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}

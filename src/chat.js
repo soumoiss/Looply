@@ -11,6 +11,7 @@ let activeConversationId = null;
 let realtimeChannel = null;
 let realtimeUserId = null;
 let refreshTimer = null;
+const voiceRecordings = new Map();
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -27,32 +28,55 @@ export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").order("created_at", { ascending: false }).limit(50),
-    client.from("profiles").select("id,username,display_name").order("username").limit(100)
+    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
   if (participantResult.error) throw participantResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
   let conversations = [];
+  let latestMessages = [];
   if (ids.length) {
     const { data, error } = await client.from("conversations")
-      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name))")
+      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
       .in("id", ids).order("updated_at", { ascending: false }).limit(50);
     if (error) throw error;
     conversations = data || [];
+    const { data: latest, error: messagesError } = await client.from("chat_messages")
+      .select("conversation_id,body,created_at,sender_id")
+      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
+    if (messagesError) throw messagesError;
+    latestMessages = latest || [];
   }
+  const latestByConversation = new Map();
+  for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const unreadByConversation = new Map();
   for (const notification of notificationResult.data || []) {
     if (!notification.read_at) unreadByConversation.set(notification.conversation_id, (unreadByConversation.get(notification.conversation_id) || 0) + 1);
   }
+  const profiles = profilesResult.data || [];
+  const avatarProfiles = new Map();
+  for (const profile of profiles) if (profile.avatar_path) avatarProfiles.set(profile.id, profile);
+  for (const conversation of conversations) {
+    for (const participant of conversation.participants || []) {
+      if (participant.profile?.avatar_path) avatarProfiles.set(participant.profile.id, participant.profile);
+    }
+  }
+  const avatarList = [...avatarProfiles.values()];
+  if (avatarList.length) {
+    const { data: signed } = await client.storage.from("looply-avatars")
+      .createSignedUrls(avatarList.map((profile) => profile.avatar_path), 1800);
+    if (signed) avatarList.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+  }
   return {
     conversations: conversations.map((conversation) => ({
       ...conversation,
+      lastMessage: latestByConversation.get(conversation.id) || null,
       lastReadAt: readByConversation.get(conversation.id),
       unreadCount: unreadByConversation.get(conversation.id) || 0
     })),
     notifications: notificationResult.data || [],
-    profiles: profilesResult.data || [],
+    profiles,
     profilesError: profilesResult.error
   };
 }
@@ -63,24 +87,42 @@ function conversationLabel(conversation, userId) {
   return other ? `${other.display_name || other.username} · @${other.username}` : "Conversa privada";
 }
 
+function conversationAvatar(conversation, userId) {
+  if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
+  const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
+  const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+  return profile?.avatarUrl
+    ? `<img class="chat-conversation-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : `<span class="chat-conversation-avatar" aria-hidden="true">${escapeHtml(initial)}</span>`;
+}
+
+function conversationPreview(conversation, userId) {
+  const message = conversation.lastMessage;
+  if (!message) return conversation.kind === "letter" ? "Carta privada" : "Nenhuma mensagem";
+  const author = message.sender_id === userId ? "Você: " : "";
+  const text = String(message.body || "").trim();
+  return `${author}${text || "Mídia"}`.slice(0, 68);
+}
+
 function notificationsMarkup(notifications) {
   const unread = notifications.filter((item) => !item.read_at).length;
-  if (!notifications.length) return `<p class="chat-empty">Suas notificações de conversas aparecerão aqui.</p>`;
-  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<button type="button" class="chat-notification ${item.read_at ? "is-read" : ""}" data-chat-open="${escapeHtml(item.conversation_id)}">
+  if (!notifications.length) return `<p class="chat-empty">Nenhuma notificação</p>`;
+  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="conversa.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
     <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(item.preview)}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
-  </button>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
+  </a>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
 }
 
 export function chatMarkup(data, userId) {
   if (data.error) return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div></div><div class="chat-empty" role="alert">Não foi possível carregar as conversas. Atualize a página e tente novamente.</div></section>`;
   const conversations = data.conversations.length
-    ? data.conversations.map((conversation) => `<button type="button" class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" data-chat-open="${escapeHtml(conversation.id)}">
-        <span class="chat-conversation-avatar" aria-hidden="true">${conversation.kind === "letter" ? "✉" : "↗"}</span>
-        <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${conversation.kind === "letter" ? "Carta privada" : "Conversa privada"} · ${escapeHtml(formatDate(conversation.updated_at))}</small></span>
+    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
+        ${conversationAvatar(conversation, userId)}
+        <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
-      </button>`).join("")
+      </a>`).join("")
     : `<p class="chat-empty">Nenhuma conversa. Inicie uma conversa ou escreva uma carta.</p>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
+    ${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}
     <span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span>
     <button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button>
   </article>`).join("");
@@ -119,10 +161,129 @@ function setStatus(form, message, kind = "success") {
 
 function selectedFiles(formData) {
   const files = formData.getAll("files").filter((file) => file instanceof File && file.size > 0);
-  if (files.length > maxFilesPerMessage || files.some((file) => !fileExtensions.has(file.type) || file.size > maxFileSize)) {
+  if (files.length > maxFilesPerMessage || files.some((file) => !fileExtensions.has(file.type.split(";")[0]) || file.size > maxFileSize)) {
     throw new Error("unsupported attachment");
   }
   return files;
+}
+
+function formatRecordingTime(milliseconds) {
+  const total = Math.floor(milliseconds / 1000);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function setRecordingFile(form, file, remove = false) {
+  const input = form.querySelector('input[name="files"]');
+  if (!input) return;
+  const transfer = new DataTransfer();
+  for (const existing of input.files) {
+    const isRecorded = existing.name === file?.name && existing.lastModified === file?.lastModified && existing.size === file?.size;
+    if (!isRecorded) transfer.items.add(existing);
+  }
+  if (file && !remove) transfer.items.add(file);
+  input.files = transfer.files;
+}
+
+function cancelVoiceRecording(form) {
+  const state = voiceRecordings.get(form);
+  if (state) {
+    state.cancelled = true;
+    if (state.timer) clearInterval(state.timer);
+    if (state.recorder.state !== "inactive") state.recorder.stop();
+    state.stream.getTracks().forEach((track) => track.stop());
+    voiceRecordings.delete(form);
+  }
+  const recordedFile = form._looplyRecordedFile;
+  if (recordedFile) {
+    setRecordingFile(form, recordedFile, true);
+    delete form._looplyRecordedFile;
+  }
+  const preview = form.querySelector("[data-chat-record-preview]");
+  if (preview?.src?.startsWith("blob:")) URL.revokeObjectURL(preview.src);
+  if (preview) preview.removeAttribute("src");
+  form.querySelector("[data-chat-recording]").hidden = true;
+  form.querySelector("[data-chat-record-ready]").hidden = true;
+  const startButton = form.querySelector("[data-chat-record-start]");
+  startButton.hidden = false;
+  startButton.textContent = "Gravar áudio";
+  setStatus(form, "Gravação descartada.");
+}
+
+async function startVoiceRecording(form) {
+  const startButton = form.querySelector("[data-chat-record-start]");
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setStatus(form, "Gravação de áudio indisponível neste navegador.", "error");
+    return;
+  }
+  if (!window.isSecureContext) {
+    setStatus(form, "A gravação exige uma conexão HTTPS.", "error");
+    return;
+  }
+  const ready = form.querySelector("[data-chat-record-ready]");
+  const oldPreview = form.querySelector("[data-chat-record-preview]");
+  if (form._looplyRecordedFile) {
+    setRecordingFile(form, form._looplyRecordedFile, true);
+    delete form._looplyRecordedFile;
+  }
+  if (oldPreview?.src?.startsWith("blob:")) URL.revokeObjectURL(oldPreview.src);
+  oldPreview?.removeAttribute("src");
+  ready.hidden = true;
+  startButton.disabled = true;
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const supportedTypes = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
+    const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported?.(type));
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    const state = { stream, recorder, chunks: [], startedAt: Date.now(), timer: null, cancelled: false };
+    voiceRecordings.set(form, state);
+    recorder.addEventListener("dataavailable", (event) => { if (event.data?.size) state.chunks.push(event.data); });
+    recorder.addEventListener("error", () => {
+      cancelVoiceRecording(form);
+      setStatus(form, "Não foi possível gravar o áudio.", "error");
+    }, { once: true });
+    recorder.addEventListener("stop", () => {
+      if (state.cancelled) return;
+      const actualType = (recorder.mimeType || mimeType || "audio/webm").split(";")[0];
+      const extension = fileExtensions.get(actualType);
+      const blob = new Blob(state.chunks, { type: actualType });
+      if (!extension || !blob.size || blob.size > maxFileSize) {
+        cancelVoiceRecording(form);
+        setStatus(form, "O formato ou tamanho do áudio não é compatível.", "error");
+        return;
+      }
+      const file = new File([blob], `gravacao-${Date.now()}.${extension}`, { type: actualType, lastModified: Date.now() });
+      form._looplyRecordedFile = file;
+      setRecordingFile(form, file);
+      const preview = form.querySelector("[data-chat-record-preview]");
+      preview.src = URL.createObjectURL(blob);
+      form.querySelector("[data-chat-recording]").hidden = true;
+      ready.hidden = false;
+      startButton.hidden = false;
+      startButton.textContent = "Gravar outro áudio";
+      if (state.timer) clearInterval(state.timer);
+      state.stream.getTracks().forEach((track) => track.stop());
+      voiceRecordings.delete(form);
+      setStatus(form, "Áudio pronto para enviar.");
+    }, { once: true });
+    recorder.start();
+    form.querySelector("[data-chat-recording]").hidden = false;
+    form.querySelector("[data-chat-record-time]").textContent = "00:00";
+    startButton.hidden = true;
+    state.timer = setInterval(() => {
+      const time = form.querySelector("[data-chat-record-time]");
+      if (time) time.textContent = formatRecordingTime(Date.now() - state.startedAt);
+    }, 250);
+    setStatus(form, "Gravando áudio…", "info");
+  } catch (error) {
+    stream?.getTracks().forEach((track) => track.stop());
+    console.error("Looply microphone access failed", error);
+    setStatus(form, error?.name === "NotAllowedError"
+      ? "Permita o uso do microfone para gravar áudio."
+      : "Microfone indisponível. Verifique as permissões do navegador.", "error");
+  } finally {
+    startButton.disabled = false;
+  }
 }
 
 async function uploadResumable(client, path, file, onProgress) {
@@ -168,7 +329,7 @@ async function loadThread(client, conversationId, before = null) {
   if (before) messageQuery = messageQuery.lt("created_at", before);
   const [messageResult, participantResult] = await Promise.all([
     messageQuery.order("created_at", { ascending: false }).limit(100),
-    client.from("conversation_participants").select("user_id,last_read_at").eq("conversation_id", conversationId)
+    client.from("conversation_participants").select("user_id,last_read_at,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path)").eq("conversation_id", conversationId)
   ]);
   if (messageResult.error) throw messageResult.error;
   if (participantResult.error) throw participantResult.error;
@@ -203,8 +364,31 @@ function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">×</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><span class="field-hint">Até 8 arquivos, 100 MiB cada.</span><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="text-button chat-record-start" type="button" data-chat-record-start>Gravar áudio</button><span class="field-hint">Até 8 arquivos, 100 MiB cada.</span><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+    <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
+    <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
+}
+
+function threadHeadingMarkup(root, participants, userId) {
+  const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
+  const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+  const conversation = [...root.querySelectorAll("[data-chat-open]")].find((item) => item.dataset.chatOpen === activeConversationId);
+  const image = conversation?.querySelector(".chat-conversation-avatar[src]");
+  const avatarUrl = image?.src || peer?.avatarUrl;
+  const avatar = avatarUrl
+    ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
+    : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
+  const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
+  return `<header class="chat-thread-heading">${avatar}<strong>${escapeHtml(name)}</strong><a href="chat.html">Todas as conversas</a></header>`;
+}
+
+async function signThreadAvatar(client, participants, userId) {
+  const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
+  if (peer?.avatar_path) {
+    const { data } = await client.storage.from("looply-avatars").createSignedUrl(peer.avatar_path, 1800);
+    if (data?.signedUrl) peer.avatarUrl = data.signedUrl;
+  }
 }
 
 async function openConversation(root, client, conversationId, userId) {
@@ -215,8 +399,9 @@ async function openConversation(root, client, conversationId, userId) {
   try {
     const { messages, participants } = await loadThread(client, conversationId);
     if (activeConversationId !== conversationId || !root.querySelector("[data-chat-thread]")) return;
+    await signThreadAvatar(client, participants, userId);
     const peerReadAt = participants.find((participant) => participant.user_id !== userId)?.last_read_at || null;
-    thread.innerHTML = `${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(conversationId)}`;
+    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
     await Promise.all([
       client.from("conversation_participants").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", conversationId).eq("user_id", userId),
@@ -238,9 +423,10 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     area.outerHTML = chatMarkup(data, userId);
     if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
       const { messages, participants } = await loadThread(client, activeConversationId);
+      await signThreadAvatar(client, participants, userId);
       const peerReadAt = participants.find((participant) => participant.user_id !== userId)?.last_read_at || null;
       const thread = root.querySelector("[data-chat-thread]");
-      if (thread) thread.innerHTML = `${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(activeConversationId)}`;
+      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(activeConversationId)}`;
     } else activeConversationId = null;
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
@@ -279,6 +465,7 @@ export function disposeChatRealtime(client) {
   realtimeUserId = null;
   activeConversationId = null;
   clearTimeout(refreshTimer);
+  for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
 
 export function bindChatEvents(root, client, getUserId) {
@@ -297,8 +484,27 @@ export function bindChatEvents(root, client, getUserId) {
     const replyButton = event.target.closest("[data-chat-reply]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
+    const recordStartButton = event.target.closest("[data-chat-record-start]");
+    const recordStopButton = event.target.closest("[data-chat-record-stop]");
+    const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
+    if (recordStartButton) {
+      const form = recordStartButton.closest("[data-chat-send]");
+      if (form) await startVoiceRecording(form);
+      return;
+    }
+    if (recordStopButton) {
+      const form = recordStopButton.closest("[data-chat-send]");
+      const state = voiceRecordings.get(form);
+      if (state?.recorder.state === "recording") state.recorder.stop();
+      return;
+    }
+    if (recordCancelButton) {
+      const form = recordCancelButton.closest("[data-chat-send]");
+      if (form) cancelVoiceRecording(form);
+      return;
+    }
     if (olderButton) {
       const conversationId = olderButton.dataset.conversationId;
       const before = olderButton.dataset.before;
@@ -341,13 +547,26 @@ export function bindChatEvents(root, client, getUserId) {
       }
       return;
     }
-    if (openButton) await openConversation(root, client, openButton.dataset.chatOpen, userId);
+    if (openButton) {
+      event.preventDefault();
+      const conversationId = openButton.dataset.chatOpen;
+      if (root.dataset.conversationPage !== "true") {
+        window.location.assign(`conversa.html?id=${encodeURIComponent(conversationId)}`);
+        return;
+      }
+      await openConversation(root, client, conversationId, userId);
+      return;
+    }
     if (startButton) {
       startButton.disabled = true;
       try {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: startButton.dataset.chatStart } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
+        if (root.dataset.conversationPage !== "true") {
+          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+          return;
+        }
         activeConversationId = data.conversationId;
         await refreshChat(root, client, userId);
         await openConversation(root, client, data.conversationId, userId);
@@ -399,13 +618,13 @@ export function bindChatEvents(root, client, getUserId) {
         try {
           for (const [index, file] of files.entries()) {
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "arquivo";
-            const path = `conversations/${conversationId}/${message.id}/${crypto.randomUUID()}.${fileExtensions.get(file.type)}`;
+            const path = `conversations/${conversationId}/${message.id}/${crypto.randomUUID()}.${fileExtensions.get(file.type.split(";")[0])}`;
             setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: 0%`);
             await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
             uploadedPaths.push(path);
             const { error: mediaError } = await client.from("chat_media").insert({
               conversation_id: conversationId, message_id: message.id, storage_path: path,
-              mime_type: file.type, byte_size: file.size, file_name: safeName
+              mime_type: file.type.split(";")[0], byte_size: file.size, file_name: safeName
             });
             if (mediaError) throw mediaError;
           }
@@ -413,6 +632,11 @@ export function bindChatEvents(root, client, getUserId) {
           if (uploadedPaths.length) await client.storage.from("looply-chat").remove(uploadedPaths);
           await client.from("chat_messages").delete().eq("id", message.id);
           throw error;
+        }
+        if (form._looplyRecordedFile) {
+          const preview = form.querySelector("[data-chat-record-preview]");
+          if (preview?.src?.startsWith("blob:")) URL.revokeObjectURL(preview.src);
+          delete form._looplyRecordedFile;
         }
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");

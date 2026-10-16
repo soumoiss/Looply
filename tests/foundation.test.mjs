@@ -113,7 +113,7 @@ test("the account-specific YouTube playlists include the Peixinho playlist", asy
 });
 
 test("the removed account is absent from active frontend code and page copy", async () => {
-  const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/gallery.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "galeria.html", "musicas.html", "chat.html", "perfil.html", "admin.html"];
+  const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/gallery.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/conversation.js", "assets/js/letters.js", "assets/js/notifications.js", "assets/js/users.js", "assets/js/settings.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "galeria.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html"];
   const contents = await Promise.all(files.map(read));
   const removedUsername = ["li", "li", "ka"].join("");
   assert.doesNotMatch(contents.join("\n"), new RegExp(removedUsername, "i"));
@@ -121,9 +121,47 @@ test("the removed account is absent from active frontend code and page copy", as
 
 test("the build emits all independent pages and their assets", async () => {
   const { access } = await import("node:fs/promises");
-  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
+  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
     await access(resolve(projectRoot, path));
   }
+});
+
+test("the activity center and profile preferences are persisted with recipient-only access", async () => {
+  const [runtime, settings, notificationPage, migration, build] = await Promise.all([
+    read("src/page-runtime.js"), read("assets/js/settings.js"), read("assets/js/notifications.js"),
+    read("supabase/migrations/20261016061021_user_preferences_and_notifications.sql"), read("scripts/build.mjs")
+  ]);
+  assert.match(runtime, /from\("notifications"\)/);
+  assert.match(runtime, /table: "profiles"[\s\S]*?applyProfilePreferences/);
+  assert.match(settings, /from\("profiles"\)\.update\(updates\)/);
+  assert.match(settings, /font_family/);
+  assert.match(settings, /font_size/);
+  assert.match(notificationPage, /from\("notifications"\)/);
+  assert.match(notificationPage, /from\("chat_notifications"\)/);
+  assert.match(notificationPage, /Marcar todas como lidas/);
+  assert.match(migration, /alter table public\.notifications enable row level security/i);
+  assert.match(migration, /notifications_select_recipient[\s\S]*?recipient_id = \(select auth\.uid\(\)\)/i);
+  assert.match(migration, /notifications_update_read_recipient[\s\S]*?with check \(recipient_id = \(select auth\.uid\(\)\)\)/i);
+  assert.match(migration, /create trigger notifications_on_comment/i);
+  assert.match(migration, /create trigger notifications_on_music_dedication/i);
+  assert.match(migration, /create trigger notifications_on_selected_post_recipient/i);
+  assert.match(migration, /alter publication supabase_realtime add table public\.notifications/i);
+  assert.match(build, /notificacoes\.html/);
+});
+
+test("conversations have their own route and real microphone recording flow", async () => {
+  const [chat, conversation, page, css] = await Promise.all([
+    read("src/chat.js"), read("assets/js/conversation.js"), read("conversa.html"), read("assets/css/pages/conversation.css")
+  ]);
+  assert.match(page, /assets\/js\/conversation\.js/);
+  assert.match(conversation, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(chat, /navigator\.mediaDevices\?\.getUserMedia/);
+  assert.match(chat, /new MediaRecorder/);
+  assert.match(chat, /data-chat-record-cancel/);
+  assert.match(chat, /data-chat-record-stop/);
+  assert.match(chat, /bucketName: "looply-chat"/);
+  assert.match(chat, /data-chat-open/);
+  assert.match(css, /page-conversation/);
 });
 
 test("the social schema scopes posts and comments to the post audience", async () => {
@@ -413,5 +451,4 @@ test("the admin screen connects the archive importer and audited archive comment
   assert.match(entry, /bindArchiveImport\(root, client\)/);
   assert.match(css, /archive-import-errors/);
 });
-
 

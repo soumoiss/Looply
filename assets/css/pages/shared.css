@@ -1,7 +1,10 @@
 .looply-page .page-header { position: sticky; top: 8px; z-index: 700; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--bg) 82%, white); box-shadow: var(--shadow-sm); backdrop-filter: blur(18px); }
-.looply-page .page-navigation { flex: 1 1 380px; justify-content: center; }
+.looply-page .page-navigation { flex: 1 1 240px; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+.looply-page .page-navigation::-webkit-scrollbar { display: none; }
+.looply-page .page-navigation .header-action { position: relative; flex: 0 0 auto; }
 .looply-page .page-navigation [aria-current="page"] { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 32%, var(--line)); background: var(--surface-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent); }
 .page-navigation-icon { width: 17px; height: 17px; flex: 0 0 auto; }
+.navigation-badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--surface-strong); border-radius: 999px; color: #fff; background: #cf3154; font-size: 9px; font-weight: 800; line-height: 1; }
 .page-navigation-label { white-space: nowrap; }
 .looply-account { display: flex; align-items: center; gap: 9px; }
 .looply-user-avatar, .looply-user-initial { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
@@ -14,7 +17,7 @@
 .looply-footer { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .page-notice { padding: 20px; }
 @media (max-width: 760px) {
-  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: flex; width: min(calc(100% - 14px), 680px); flex: none; justify-content: space-around; gap: 3px; padding: 6px; overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 91%, transparent); box-shadow: 0 12px 36px rgba(35, 20, 50, .2); backdrop-filter: blur(22px); transform: translateX(-50%); scrollbar-width: none; }
+  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: flex; width: min(calc(100% - 14px), 900px); flex: none; justify-content: flex-start; gap: 3px; padding: 6px; overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 91%, transparent); box-shadow: 0 12px 36px rgba(35, 20, 50, .2); backdrop-filter: blur(22px); transform: translateX(-50%); scrollbar-width: none; }
   .looply-page .page-navigation::-webkit-scrollbar { display: none; }
   .looply-page .page-navigation .header-action { flex: 1 0 52px; min-width: 52px; min-height: 52px; flex-direction: column; gap: 3px; padding: 5px 6px; border-color: transparent; border-radius: 13px; background: transparent; box-shadow: none; font-size: 10px; }
   .looply-page .page-navigation [aria-current="page"] { background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong)); }

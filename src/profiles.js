@@ -54,7 +54,7 @@ function setStatus(form, message, kind = "success") {
   target.dataset.kind = kind;
 }
 
-async function signProfileAvatars(client, profiles) {
+export async function signProfileAvatars(client, profiles) {
   const withUrls = (profiles || []).map((profile) => ({ ...profile, avatarUrl: "" }));
   const withAvatars = withUrls.filter((profile) => profile.avatar_path);
   if (!withAvatars.length) return withUrls;
@@ -68,7 +68,7 @@ async function signProfileAvatars(client, profiles) {
   return withUrls;
 }
 
-function renderSearchResults(container, profiles) {
+export function renderSearchResults(container, profiles) {
   if (!profiles.length) {
     container.innerHTML = `<p class="search-empty">Nenhum perfil visível foi encontrado.</p>`;
     return;
@@ -78,11 +78,11 @@ function renderSearchResults(container, profiles) {
       ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
       : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
     <div><strong>${escapeHtml(profile.display_name || profile.username)}</strong><span>@${escapeHtml(profile.username)}</span></div>
-    <button class="text-button" type="button" data-profile-open="${escapeHtml(profile.id)}">Abrir perfil</button>
+    <div class="person-result-actions"><button class="text-button" type="button" data-profile-open="${escapeHtml(profile.id)}">Abrir perfil</button><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></div>
   </article>`).join("");
 }
 
-function renderOpenedProfile(container, profile, posts, postsError) {
+function renderOpenedProfile(container, profile, posts, postsError, showBack = true) {
   const mediaMarkup = (post) => (post.media || []).map((media) => {
     if (!media.signedUrl) return `<span class="media-unavailable">Mídia temporariamente indisponível.</span>`;
     const url = escapeHtml(media.signedUrl);
@@ -100,13 +100,36 @@ function renderOpenedProfile(container, profile, posts, postsError) {
     ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
     : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"));
   container.innerHTML = `<section class="opened-profile" aria-label="Perfil de ${escapeHtml(profile.username)}">
-    <button class="text-button" type="button" data-profile-close>← Voltar aos resultados</button>
+    ${showBack ? `<button class="text-button" type="button" data-profile-close>← Voltar aos resultados</button>` : `<a class="text-button" href="usuarios.html">← Pessoas</a>`}
     <div class="opened-profile-heading"><span class="person-result-avatar" aria-hidden="true">${avatar}</span>
       <div><h3>${escapeHtml(profile.display_name || profile.username)}</h3><span>@${escapeHtml(profile.username)}</span></div>
     </div>
     ${profile.bio ? `<p class="opened-profile-bio">${escapeHtml(profile.bio)}</p>` : ""}
     <h4>Publicações visíveis</h4><div class="profile-post-list">${postList}</div>
   </section>`;
+}
+
+export async function showProfileInContainer(client, profileId, container, { showBack = true } = {}) {
+  container.innerHTML = `<p class="search-empty" role="status">Carregando perfil...</p>`;
+  const { data: profile, error } = await client.from("profiles").select("id,username,display_name,bio,avatar_path").eq("id", profileId).maybeSingle();
+  if (error || !profile) {
+    container.innerHTML = `<p class="search-empty" role="alert">Este perfil não está disponível para sua conta.</p>`;
+    return;
+  }
+  if (profile.avatar_path) {
+    const { data: signedAvatar } = await client.storage.from("looply-avatars").createSignedUrl(profile.avatar_path, 1800);
+    profile.avatarUrl = signedAvatar?.signedUrl || "";
+  }
+  const { data: posts, error: postsError } = await client.from("posts")
+    .select("id,body,created_at,media:post_media(id,storage_path,kind,mime_type,alt_text)")
+    .eq("author_id", profileId).order("created_at", { ascending: false }).limit(12);
+  const visiblePosts = posts || [];
+  const media = visiblePosts.flatMap((post) => (post.media || []).map((item) => item));
+  if (!postsError && media.length) {
+    const { data: signed, error: signedError } = await client.storage.from("looply-media").createSignedUrls(media.map((item) => item.storage_path), 1800);
+    if (!signedError && signed) media.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
+  }
+  renderOpenedProfile(container, profile, visiblePosts, postsError, showBack);
 }
 
 export function bindProfileEvents(root, client, onProfileUpdated) {
@@ -178,7 +201,22 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
   root.addEventListener("click", async (event) => {
     const openButton = event.target.closest("[data-profile-open]");
     const closeButton = event.target.closest("[data-profile-close]");
+    const chatButton = event.target.closest("[data-chat-start]");
     const container = root.querySelector("[data-profile-results]");
+    if (chatButton && client) {
+      chatButton.disabled = true;
+      try {
+        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: chatButton.dataset.chatStart } });
+        if (error) throw error;
+        if (!data?.conversationId) throw new Error("conversation unavailable");
+        window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+      } catch (error) {
+        console.error("Looply profile conversation failed", error);
+        chatButton.disabled = false;
+        chatButton.textContent = "Tentar novamente";
+      }
+      return;
+    }
     if (closeButton && container) {
       const query = root.querySelector("#peopleQuery")?.value || "";
       if (query.length >= 3) {
@@ -187,27 +225,6 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
       }
     }
     if (!openButton || !client || !container) return;
-    const profileId = openButton.dataset.profileOpen;
-    container.innerHTML = `<p class="search-empty" role="status">Carregando perfil...</p>`;
-    const { data: profile, error } = await client.from("profiles").select("id,username,display_name,bio,avatar_path").eq("id", profileId).maybeSingle();
-    if (error || !profile) {
-      container.innerHTML = `<p class="search-empty" role="alert">Este perfil não está disponível para sua conta.</p>`;
-      return;
-    }
-    if (profile.avatar_path) {
-      const { data: signedAvatar } = await client.storage.from("looply-avatars").createSignedUrl(profile.avatar_path, 1800);
-      profile.avatarUrl = signedAvatar?.signedUrl || "";
-    }
-    const { data: posts, error: postsError } = await client.from("posts")
-      .select("id,body,created_at,media:post_media(id,storage_path,kind,mime_type,alt_text)")
-      .eq("author_id", profileId).order("created_at", { ascending: false }).limit(12);
-    const visiblePosts = posts || [];
-    const media = visiblePosts.flatMap((post) => (post.media || []).map((item) => item));
-    if (!postsError && media.length) {
-      const { data: signed, error: signedError } = await client.storage.from("looply-media").createSignedUrls(media.map((item) => item.storage_path), 1800);
-      if (!signedError && signed) media.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
-    }
-    renderOpenedProfile(container, profile, visiblePosts, postsError);
+    await showProfileInContainer(client, openButton.dataset.profileOpen, container);
   });
 }
-

@@ -28,13 +28,27 @@ function renderWelcome(root, profile) {
 }
 
 await mountAppPage({ page: "home", render: async ({ root, client, user, profile }) => {
-  const [data, archive] = await Promise.all([
-    loadSocialData(client),
-    loadArchivedCards(client, user.id)
+  const [socialResult, archiveResult] = await Promise.allSettled([
+    loadSocialData(client), loadArchivedCards(client, user.id)
   ]);
+  const data = socialResult.status === "fulfilled"
+    ? socialResult.value
+    : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
   root.innerHTML = `${renderWelcome(root, profile)}${archivedCardsMarkup()}${socialMarkup(data, user.id)}`;
   bindSocialEvents(root, client, () => user.id);
-  bindArchivedCards(root, client, user.id, archive);
+  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value);
+  else {
+    console.error("Looply archive cards load failed", archiveResult.reason);
+    root.querySelector("[data-archived-cards]").innerHTML = `<p class="empty-state" role="alert">Não foi possível carregar as cartas agora.</p>`;
+    root.querySelector("[data-card-collection-note]").textContent = "Coleção indisponível";
+  }
   setupSocialRealtime(client, user.id, root);
   window.addEventListener("pagehide", () => disposeSocialRealtime(client), { once: true });
 } });
+
+if (window.location.hash) {
+  requestAnimationFrame(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}

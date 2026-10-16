@@ -1,0 +1,9 @@
+.page-letters .written-letters-panel { margin-bottom: 18px; padding: clamp(15px, 3vw, 24px); }
+.written-letters-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.written-letters-heading h2 { margin: 0; font-size: 1.15rem; }
+.written-letters-list { display: grid; }
+.written-letter-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--line); }
+.written-letter-row > div { display: grid; gap: 4px; min-width: 0; }
+.written-letter-row span, .written-letters-empty { color: var(--muted); font-size: .9rem; }
+.written-letters-empty { margin: 0; padding: 12px 2px; }
+@media (max-width: 520px) { .written-letter-row { align-items: flex-start; } }
