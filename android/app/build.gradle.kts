@@ -28,7 +28,7 @@ val buildLooplyWeb by tasks.registering(Exec::class) {
 
 android {
     namespace = "com.soumoiss.looply"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.soumoiss.looply"
@@ -58,4 +58,3 @@ dependencies {
 tasks.named("preBuild").configure {
     dependsOn(buildLooplyWeb)
 }
-
