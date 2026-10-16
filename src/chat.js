@@ -433,7 +433,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
-    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
+    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button chat-delete-button" type="button" data-chat-delete="${escapeHtml(message.id)}">Apagar</button>` : ""}</div>
   </article></div>`;
   }).join("");
 }
@@ -653,6 +653,8 @@ export function bindChatEvents(root, client, getUserId) {
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
     const copyButton = event.target.closest("[data-chat-copy]");
+    const editButton = event.target.closest("[data-chat-edit]");
+    const deleteButton = event.target.closest("[data-chat-delete]");
     const conversationFilterButton = event.target.closest("[data-chat-filter]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
@@ -665,6 +667,57 @@ export function bindChatEvents(root, client, getUserId) {
       conversationFilter = conversationFilterButton.dataset.chatFilter === "unread" ? "unread" : "all";
       root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
       applyConversationFilter(root);
+      return;
+    }
+    if (editButton) {
+      const messageId = editButton.dataset.chatEdit;
+      const messageNode = editButton.closest(".chat-message");
+      const currentBody = messageNode?.querySelector("p")?.textContent || "";
+      const body = window.prompt("Editar mensagem", currentBody);
+      if (body === null) return;
+      const nextBody = body.trim();
+      if (!nextBody || nextBody.length > 5000) {
+        const composer = root.querySelector("[data-chat-send]");
+        if (composer) setStatus(composer, "A mensagem precisa ter entre 1 e 5.000 caracteres.", "error");
+        return;
+      }
+      editButton.disabled = true;
+      try {
+        const { data, error } = await client.from("chat_messages")
+          .update({ body: nextBody }).eq("id", messageId).eq("sender_id", userId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data?.id) throw new Error("message unavailable");
+        await refreshActiveThread(root, client, userId);
+      } catch (error) {
+        console.error("Looply message edit failed", error);
+        const composer = root.querySelector("[data-chat-send]");
+        if (composer) setStatus(composer, "Não foi possível editar esta mensagem. Confira se ela ainda pertence a você.", "error");
+      }
+      return;
+    }
+    if (deleteButton) {
+      const messageId = deleteButton.dataset.chatDelete;
+      if (!window.confirm("Apagar esta mensagem e os anexos enviados com ela?")) return;
+      deleteButton.disabled = true;
+      try {
+        const { data: media, error: mediaError } = await client.from("chat_media")
+          .select("storage_path").eq("message_id", messageId);
+        if (mediaError) throw mediaError;
+        const paths = (media || []).map((item) => item.storage_path).filter(Boolean);
+        if (paths.length) {
+          const { error: storageError } = await client.storage.from("looply-chat").remove(paths);
+          if (storageError) throw storageError;
+        }
+        const { data, error } = await client.from("chat_messages")
+          .delete().eq("id", messageId).eq("sender_id", userId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data?.id) throw new Error("message unavailable");
+        await refreshChat(root, client, userId, { keepThread: true });
+      } catch (error) {
+        console.error("Looply message deletion failed", error);
+        const composer = root.querySelector("[data-chat-send]");
+        if (composer) setStatus(composer, "Não foi possível apagar a mensagem ou seus anexos. A mensagem foi mantida.", "error");
+      }
       return;
     }
     if (copyButton) {
