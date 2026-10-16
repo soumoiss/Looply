@@ -74,8 +74,10 @@ function audienceItemMarkup(item, profiles) {
   const id = escapeHtml(item.id);
   const recipients = Array.isArray(item.recipients) ? item.recipients : [];
   const selectedId = item.visibility === "exclusive" && recipients.length === 1 ? String(recipients[0].user_id) : "";
-  const multipleOption = item.visibility === "exclusive" && recipients.length !== 1
-    ? '<option value="__existing__" selected disabled>Exclusivo para ' + recipients.length + ' usuários — escolha um destino</option>'
+  const needsChoice = item.visibility === "exclusive"
+    && (!selectedId || !profiles.some((person) => String(person.id) === selectedId));
+  const existingOption = needsChoice
+    ? '<option value="__existing__" selected disabled>Exclusivo — escolha um destino</option>'
     : "";
   const people = profiles.map((person) => {
     const personId = escapeHtml(person.id);
@@ -84,7 +86,7 @@ function audienceItemMarkup(item, profiles) {
     return '<option value="' + personId + '"' + (person.id === selectedId ? " selected" : "") + '>' + display + (username ? " · @" + username : "") + '</option>';
   }).join("");
   const options = '<option value=""' + (item.visibility === "exclusive" ? "" : " selected") + '>Todos os membros</option>' +
-    multipleOption + '<optgroup label="Exclusivo para">' + people + '</optgroup>';
+    existingOption + '<optgroup label="Exclusivo para">' + people + '</optgroup>';
   return '<article class="archive-audience-item" data-audience-item="' + id + '">' +
     '<div class="archive-audience-preview">' + mediaPreview(item) + '</div>' +
     '<div class="archive-audience-fields"><strong>' + escapeHtml(item.file_name || item.source_path) + '</strong>' +
