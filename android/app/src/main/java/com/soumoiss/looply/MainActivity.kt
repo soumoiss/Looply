@@ -27,6 +27,7 @@ import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebChromeClient.FileChooserParams
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -41,6 +42,13 @@ import android.webkit.URLUtil
 import androidx.webkit.WebViewAssetLoader
 
 class MainActivity : Activity() {
+    private data class PendingDownload(
+        val url: String,
+        val userAgent: String?,
+        val disposition: String?,
+        val mimeType: String?
+    )
+
     private lateinit var root: FrameLayout
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
@@ -49,6 +57,7 @@ class MainActivity : Activity() {
     private lateinit var errorMessage: TextView
 
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingDownload: PendingDownload? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var pendingWebResources: Array<String> = emptyArray()
     private var networkCallbackRegistered = false
@@ -527,38 +536,65 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_WEB_MEDIA) return
-
-        val request = pendingWebPermission
-        pendingWebPermission = null
-        if (request == null) return
-        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            request.grant(pendingWebResources)
-        } else {
-            request.deny()
+        when (requestCode) {
+            REQUEST_WEB_MEDIA -> {
+                val request = pendingWebPermission
+                pendingWebPermission = null
+                if (request == null) return
+                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                    request.grant(pendingWebResources)
+                } else {
+                    request.deny()
+                }
+                pendingWebResources = emptyArray()
+            }
+            REQUEST_DOWNLOAD_STORAGE -> {
+                val download = pendingDownload
+                pendingDownload = null
+                if (download != null && grantResults.any { it == PackageManager.PERMISSION_GRANTED }) {
+                    enqueueDownload(download)
+                } else {
+                    Toast.makeText(this, "Permita o acesso para salvar o download.", Toast.LENGTH_LONG).show()
+                }
+            }
         }
-        pendingWebResources = emptyArray()
     }
 
     private fun startDownload(url: String, userAgent: String?, disposition: String?, mimeType: String?) {
-        val uri = Uri.parse(url)
-        if (!uri.scheme.equals("https", ignoreCase = true)) {
+        if (!Uri.parse(url).scheme.equals("https", ignoreCase = true)) {
             Toast.makeText(this, "Por segurança, só é possível baixar arquivos por HTTPS.", Toast.LENGTH_LONG).show()
             return
         }
+        val download = PendingDownload(url, userAgent, disposition, mimeType)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingDownload = download
+            requestPermissions(
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                REQUEST_DOWNLOAD_STORAGE
+            )
+            return
+        }
+        enqueueDownload(download)
+    }
+
+    private fun enqueueDownload(download: PendingDownload) {
+        val uri = Uri.parse(download.url)
         try {
             val request = DownloadManager.Request(uri).apply {
-                setTitle(URLUtil.guessFileName(url, disposition, mimeType))
+                val fileName = URLUtil.guessFileName(download.url, download.disposition, download.mimeType)
+                setTitle(fileName)
                 setDescription("Baixando arquivo do Looply")
-                setMimeType(mimeType)
+                setMimeType(download.mimeType)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationInExternalPublicDir(
                     Environment.DIRECTORY_DOWNLOADS,
-                    URLUtil.guessFileName(url, disposition, mimeType)
+                    fileName
                 )
                 allowScanningByMediaScanner()
-                userAgent?.let { addRequestHeader("User-Agent", it) }
-                CookieManager.getInstance().getCookie(url)?.let { addRequestHeader("Cookie", it) }
+                download.userAgent?.let { addRequestHeader("User-Agent", it) }
+                CookieManager.getInstance().getCookie(download.url)?.let { addRequestHeader("Cookie", it) }
             }
             getSystemService(DownloadManager::class.java).enqueue(request)
             Toast.makeText(this, "Download iniciado.", Toast.LENGTH_SHORT).show()
@@ -610,6 +646,7 @@ class MainActivity : Activity() {
         unregisterNetworkCallback()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
+        pendingDownload = null
         pendingWebPermission?.deny()
         pendingWebPermission = null
         if (Build.VERSION.SDK_INT >= 33) {
@@ -632,6 +669,8 @@ class MainActivity : Activity() {
         private const val LOCAL_START_URL = "https://appassets.androidplatform.net/index.html"
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702
+        private const val REQUEST_DOWNLOAD_STORAGE = 703
     }
 }
+
 
