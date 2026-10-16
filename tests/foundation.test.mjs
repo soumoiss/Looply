@@ -848,3 +848,14 @@ test("chat composer uses Enter to send, Shift+Enter for a newline, and valid CSS
   assert.ok(chat.indexOf('root.addEventListener("keydown"') < chat.indexOf('root.addEventListener("submit"'));
   assert.doesNotMatch(css, /\\n/);
 });
+
+test("chat composer inserts selected emojis at the cursor", async () => {
+  const [chat, css] = await Promise.all([
+    read("src/chat.js"), read("assets/css/pages/chat.css")
+  ]);
+  assert.match(chat, /data-chat-emoji-toggle/);
+  assert.match(chat, /data-chat-emoji-picker/);
+  assert.match(chat, /textarea\.setRangeText\(emoji, start, end, "end"\)/);
+  assert.match(chat, /emojiButton\.closest\("\[data-chat-send\]"\)/);
+  assert.match(css, /\.chat-emoji-picker\[hidden\] \{ display: none; \}/);
+});
