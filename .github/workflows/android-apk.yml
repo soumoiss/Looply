@@ -1,0 +1,63 @@
+name: Build Looply Android APK
+
+on:
+  push:
+    branches:
+      - codex/android-3.0.1
+    paths:
+      - "android/**"
+      - "assets/**"
+      - "src/**"
+      - "*.html"
+      - "styles.css"
+      - "config.js"
+      - "scripts/build.mjs"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Looply
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the bundled web application
+        run: npm run build
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 37 and Build Tools 36
+        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Verify package, version, and APK signature
+        run: |
+          BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
+          printf '%s\n' "$BADGING" | head -n 5
+          printf '%s\n' "$BADGING" | grep -Fq "name='com.soumoiss.looply'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='301'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.1'"
+          printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
+          printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Looply-3.0.1-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
