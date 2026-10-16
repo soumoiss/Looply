@@ -216,7 +216,7 @@ Deno.serve(async (request: Request) => {
     const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData.user) return respond(401, { error: "The session is invalid or expired." });
 
-    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } }) as UntypedServiceClient;
+    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } }) as unknown as UntypedServiceClient;
     const payload = await request.json().catch(() => ({}));
     const requestId = crypto.randomUUID();
 
