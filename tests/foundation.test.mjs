@@ -803,3 +803,15 @@ test("gallery access, comment audiences and swipeable responsive viewer are wire
   assert.ok(gallery.includes("scheduleGalleryRefresh"));
   assert.ok(css.includes("gallery-viewer-content img") && css.includes("object-fit:contain"));
 });
+
+test("archive permission administration uses the active authenticated atomic RPC", async () => {
+  const [edge, migration] = await Promise.all([
+    read("supabase/functions/looply-admin/index.ts"),
+    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql")
+  ]);
+  assert.match(edge, /userClient\.rpc\("set_gallery_media_permissions"/);
+  assert.match(edge, /p_source: "archive"/);
+  assert.match(edge, /viewerIds\.length > 100/);
+  assert.doesNotMatch(edge, /set_looply_archive_media_access/);
+  assert.match(migration, /grant execute on function public\.set_gallery_media_permissions[\s\S]*?to authenticated/i);
+});
