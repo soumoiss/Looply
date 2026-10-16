@@ -95,7 +95,7 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
 
   if (resourceType === "archive_media") {
     let query = service.from("archive_media")
-      .select("id,source_path,file_name,storage_path,kind,mime_type,byte_size,visibility,source_date,created_at,recipients:archive_media_recipients(user_id,profile:profiles!archive_media_recipients_user_id_fkey(username,display_name)),comments:archive_media_comments(id,author_id,body,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name))")
+      .select("id,source_path,file_name,storage_path,kind,mime_type,byte_size,visibility,source_date,created_at,recipients:archive_media_recipients(user_id,profile:profiles!archive_media_recipients_user_id_fkey(username,display_name)),comments:archive_media_comments(id,author_id,body,visibility,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name))")
       .order("source_path");
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 99);
@@ -105,7 +105,7 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
 
   if (resourceType === "archive_media_comments") {
     let query = service.from("archive_media_comments")
-      .select("id,media_id,author_id,body,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name),media:archive_media!archive_media_comments_media_id_fkey(id,source_path,file_name,visibility)")
+      .select("id,media_id,author_id,body,visibility,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name),media:archive_media!archive_media_comments_media_id_fkey(id,source_path,file_name,visibility)")
       .order("created_at", { ascending: false }).limit(resourceId ? 1 : 100);
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
@@ -146,7 +146,7 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
   if (resourceType === "profiles") {
     let query = service.from("profiles")
       .select("id,username,display_name,bio,profile_visibility,created_at,updated_at")
-      .order("username").limit(resourceId ? 1 : 50);
+      .order("username").range(offset, offset + 99);
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
@@ -272,6 +272,31 @@ Deno.serve(async (request: Request) => {
     const offset = Number(payload.offset ?? 0);
     if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) return respond(400, { error: "Archive media position is invalid." });
 
+    if (payload.action === "set_archive_media_audience") {
+      const mediaId = String(payload.mediaId || "");
+      const rawRecipientId = payload.recipientId == null || payload.recipientId === "" ? null : String(payload.recipientId);
+      if (requestedType !== "archive_media" || !uuidPattern.test(mediaId) || (rawRecipientId && !uuidPattern.test(rawRecipientId))) {
+        return respond(400, { error: "invalid_archive_media_audience" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "archive_media", mediaId, purpose, requestId,
+        { action: "set_audience", recipient_id: rawRecipientId });
+      try {
+        const { data: visibility, error } = await service.rpc("set_looply_archive_media_audience", {
+          p_actor_id: authData.user.id,
+          p_media_id: mediaId,
+          p_recipient_id: rawRecipientId
+        });
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "archive_media", mediaId, purpose, requestId,
+          { action: "set_audience", recipient_id: rawRecipientId, visibility });
+        return respond(200, { requestId, mediaId, recipientId: rawRecipientId, visibility });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "archive_media", mediaId, purpose, requestId,
+          { action: "set_audience", recipient_id: rawRecipientId, reason: errorMessage(error, "Audience update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (payload.action === "import_archived_cards") {
       const cards = payload.cards;
       if (!Array.isArray(cards) || cards.length < 1 || cards.length > 25) {
@@ -366,8 +391,8 @@ Deno.serve(async (request: Request) => {
         if (mediaError) throw mediaError;
         if (!media) throw new Error("Media is no longer available.");
         const { data: comment, error: commentError } = await service.from("archive_media_comments")
-          .insert({ media_id: mediaId, author_id: authData.user.id, body })
-          .select("id,media_id,author_id,body,created_at").single();
+          .insert({ media_id: mediaId, author_id: authData.user.id, body, visibility: "participants" })
+          .select("id,media_id,author_id,body,visibility,created_at").single();
         if (commentError) throw commentError;
         await recordAccess(service, authData.user.id, "write_completed", "archive_media_comments", comment.id, purpose, requestId,
           { action: "admin_comment", media_id: mediaId });
@@ -427,9 +452,17 @@ Deno.serve(async (request: Request) => {
         for (const bucketId of ["looply-media", "looply-chat"]) {
           const bucketMedia = mediaRows.filter((media: any) => media.bucket_id === bucketId);
           if (!bucketMedia.length) continue;
-          const { data: signed, error: signedError } = await service.storage.from(bucketId).createSignedUrls(bucketMedia.map((media: any) => media.storage_path), 1800);
+          const expiresIn = requestedType === "archive_media" ? 300 : 1800;
+          const { data: signed, error: signedError } = await service.storage.from(bucketId).createSignedUrls(bucketMedia.map((media: any) => media.storage_path), expiresIn);
           if (signedError) throw signedError;
-          bucketMedia.forEach((media: any, index: number) => { media.signed_url = signed?.[index]?.signedUrl || null; });
+          bucketMedia.forEach((media: any, index: number) => {
+            const signedUrl = signed?.[index]?.signedUrl || null;
+            media.signed_url = signedUrl;
+            if (requestedType === "archive_media") {
+              const archiveRow = rows.find((row: any) => row.id === media.id);
+              if (archiveRow) archiveRow.signed_url = signedUrl;
+            }
+          });
         }
       }
 
@@ -446,3 +479,4 @@ Deno.serve(async (request: Request) => {
     return respond(500, { error: "Administrative request could not be completed." });
   }
 });
+

@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { archiveGalleryMarkup, bindArchiveGallery, loadArchiveMedia } from "../../src/gallery-archive.js";
 import { bindCommunityGallery, communityGalleryMarkup, loadCommunityGallery } from "../../src/community-gallery.js";
+import { bindArchiveGalleryControls, bindArchiveAudienceManager } from "../../src/archive-audience-manager.js";
 
 await mountAppPage({ page: "gallery", render: async ({ root, client, user, profile, isAdmin }) => {
   const [archiveResult, communityResult] = await Promise.allSettled([
@@ -20,5 +21,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (message) message.innerHTML = "<p class=\"community-gallery-empty\" role=\"alert\">Não foi possível carregar a galeria da comunidade.</p>";
   }
   bindCommunityGallery(root, client, user, isAdmin, communityMedia);
-  bindArchiveGallery(root, client, user, archiveMedia, profile);
+  bindArchiveGallery(root, client, user, archiveMedia, profile, isAdmin);
+  bindArchiveGalleryControls(root);
+  bindArchiveAudienceManager(root, client, isAdmin);
 } });
+

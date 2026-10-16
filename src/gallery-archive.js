@@ -18,9 +18,9 @@ export async function loadArchiveMedia(client) {
   if (!rows.length) return [];
   const [{ data: comments, error: commentError }, { data: signed, error: signedError }] = await Promise.all([
     client.from("archive_media_comments")
-      .select("id,media_id,author_id,body,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name)")
+      .select("id,media_id,author_id,body,visibility,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name)")
       .in("media_id", rows.map((item) => item.id)).order("created_at", { ascending: true }).limit(1000),
-    client.storage.from("looply-media").createSignedUrls(rows.map((item) => item.storage_path), 1800)
+    client.storage.from("looply-media").createSignedUrls(rows.map((item) => item.storage_path), 300)
   ]);
   if (commentError) throw commentError;
   const commentMap = new Map();
@@ -36,45 +36,71 @@ export async function loadArchiveMedia(client) {
   }));
 }
 
-export function archiveGalleryMarkup(media) {
+export function archiveGalleryMarkup(media, isAdmin = false) {
   const tiles = media.map((item) => {
     const title = escapeHtml(item.file_name || item.source_path);
     const url = escapeHtml(item.signedUrl || "");
-    const preview = item.kind === "image" && item.signedUrl && !item.mime_type.includes("heic")
-      ? `<img src="${url}" alt="${title}" loading="lazy" referrerpolicy="no-referrer">`
-      : `<span class="archive-media-placeholder">${item.kind === "video" ? "Vídeo" : item.kind === "audio" ? "Áudio" : "Imagem"}</span>`;
+    const kind = escapeHtml(item.kind);
+    const access = item.visibility === "exclusive" ? "exclusive" : "members";
+    const searchText = escapeHtml([item.file_name, item.source_path, item.description].join(" ").toLocaleLowerCase("pt-BR"));
+    const preview = item.kind === "image" && item.signedUrl && !String(item.mime_type || "").toLowerCase().includes("heic")
+      ? '<img src="' + url + '" alt="' + title + '" loading="lazy" referrerpolicy="no-referrer">'
+      : '<span class="archive-media-placeholder">' + (item.kind === "video" ? "Vídeo" : item.kind === "audio" ? "Áudio" : "Imagem") + '</span>';
     const legacyComment = item.description && item.kind === "image"
-      ? `<button class="media-comment-toggle" type="button" data-open-archive-description="${escapeHtml(item.id)}" aria-label="Ver comentário de ${title}" title="Ver comentário"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></button>`
+      ? '<button class="media-comment-toggle" type="button" data-open-archive-description="' + escapeHtml(item.id) + '" aria-label="Ver comentário de ' + title + '" title="Ver comentário"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></button>'
       : "";
-    return `<article class="archive-media-tile">
-      <button class="archive-media-open" type="button" data-open-archive-media="${escapeHtml(item.id)}" aria-label="Abrir ${title}">${preview}<span class="archive-media-caption"><strong>${title}</strong><small>${escapeHtml(item.kind)} · ${escapeHtml(formatDate(item.created_at))}</small></span></button>${legacyComment}</article>`;
+    return '<article class="archive-media-tile" data-kind="' + kind + '" data-access="' + access + '" data-search="' + searchText + '">' +
+      '<button class="archive-media-open" type="button" data-open-archive-media="' + escapeHtml(item.id) + '" aria-label="Abrir ' + title + '">' + preview +
+      '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + '</article>';
   }).join("");
-  return `<section class="archive-media-library" aria-labelledby="archiveMediaTitle">
-    <div class="archive-media-heading"><div><span class="section-kicker">Acervo</span><h2 id="archiveMediaTitle">Mídias antigas</h2></div><span data-archive-media-count>${media.length} arquivo(s)</span></div>
-    ${media.length ? `<div class="archive-media-grid" data-archive-media-grid>${tiles}</div>` : `<p class="archive-media-empty">O acervo ainda não foi importado.</p>`}
-    <div class="archive-viewer" data-archive-viewer aria-hidden="true" inert>
-      <div class="archive-viewer-backdrop" data-archive-viewer-close></div>
-      <section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">
-        <header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>
-          <div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>
-        </header>
-      <p class="archive-viewer-description" data-archive-viewer-description hidden></p>
-      <div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>
-          <div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>
-          <div class="archive-viewer-content" data-archive-viewer-content></div>
-        </div>
-        <aside class="archive-viewer-comments"><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>
-          <form class="archive-media-comment-form" data-archive-media-comment><label for="archiveMediaCommentBody">Adicionar comentário</label><textarea id="archiveMediaCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário"></textarea><button class="primary-button compact-button" type="submit">Comentar</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
-        </aside></div>
-      </section>
-    </div>
-  </section>`;
+  const emptyMessage = media.length ? "" : '<p class="archive-media-empty" data-archive-media-empty>O acervo ainda não foi importado.</p>';
+  const grid = '<div class="archive-media-grid" data-archive-media-grid data-view="grid">' + tiles + '</div>';
+  return '<section class="archive-media-library" aria-labelledby="archiveMediaTitle">' +
+    '<div class="archive-media-heading"><div><span class="section-kicker">Acervo</span><h2 id="archiveMediaTitle">Mídias antigas</h2></div><span data-archive-media-count>' + media.length + ' arquivo(s)</span></div>' +
+    '<div class="archive-gallery-toolbar">' +
+      '<label>Buscar<input type="search" data-archive-gallery-search placeholder="Nome ou descrição" autocomplete="off"></label>' +
+      '<label>Tipo<select data-archive-gallery-type><option value="all">Todos</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="audio">Áudios</option></select></label>' +
+      '<label>Acesso<select data-archive-gallery-access><option value="all">Todos</option><option value="members">Para todos</option><option value="exclusive">Exclusivos</option></select></label>' +
+      '<div class="archive-gallery-view-controls" role="group" aria-label="Forma de exibição">' +
+        '<button type="button" data-archive-gallery-view="grid" aria-pressed="true">Grade</button>' +
+        '<button type="button" data-archive-gallery-view="list" aria-pressed="false">Lista</button>' +
+      '<button type="button" data-archive-gallery-view="masonry" aria-pressed="false" title="Mosaico estilo Pinterest">Mosaico</button>' +
+      '</div>' +
+    '</div>' +
+    '<p class="archive-gallery-filter-empty" data-archive-gallery-empty hidden>Nenhuma mídia corresponde aos filtros.</p>' +
+    emptyMessage + grid +
+    '<div class="archive-viewer" data-archive-viewer aria-hidden="true" inert>' +
+      '<div class="archive-viewer-backdrop" data-archive-viewer-close></div>' +
+      '<section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">' +
+        '<header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>' +
+          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
+        '</header>' +
+        '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
+        '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
+          '<div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>' +
+          '<div class="archive-viewer-content" data-archive-viewer-content></div>' +
+        '</div>' +
+        '<aside class="archive-viewer-comments"><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
+          '<form class="archive-media-comment-form" data-archive-media-comment><label for="archiveMediaCommentBody">Adicionar comentário</label><textarea id="archiveMediaCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário"></textarea>' +
+            '<label for="archiveMediaCommentVisibility">Visibilidade</label><select id="archiveMediaCommentVisibility" name="visibility"><option value="participants">Pessoas com acesso à mídia</option><option value="private">Privado · só você</option></select>' +
+            '<button class="primary-button compact-button" type="submit">Comentar</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>' +
+        '</aside></div>' +
+      '</section>' +
+    '</div>' +
+  '</section>';
 }
 
+
 function commentsMarkup(comments) {
-  if (!comments.length) return `<p class="archive-media-empty">Ainda não há comentários.</p>`;
-  return comments.map((item) => `<article class="archive-media-comment"><div><strong>${escapeHtml(item.author?.display_name || item.author?.username || "Membro")}</strong><time datetime="${escapeHtml(item.created_at)}">${escapeHtml(formatDate(item.created_at))}</time></div><p>${escapeHtml(item.body)}</p></article>`).join("");
+  if (!comments.length) return '<p class="archive-media-empty">Ainda não há comentários.</p>';
+  return comments.map((item) => {
+    const visibility = item.visibility === "private" ? "Privado · só você" : "Compartilhado com quem pode ver a mídia";
+    return '<article class="archive-media-comment"><div><strong>' + escapeHtml(item.author?.display_name || item.author?.username || "Membro") +
+      '</strong><span class="archive-comment-visibility">' + visibility + '</span><time datetime="' + escapeHtml(item.created_at) + '">' +
+      escapeHtml(formatDate(item.created_at)) + '</time></div><p>' + escapeHtml(item.body) + '</p></article>';
+  }).join("");
 }
+
 
 function mediaContent(item) {
   if (!item.signedUrl) return `<p class="archive-media-unavailable">Arquivo temporariamente indisponível.</p>`;
@@ -93,12 +119,15 @@ function setCommentStatus(form, message, kind = "") {
   status.dataset.kind = kind;
 }
 
-export function bindArchiveGallery(root, client, user, media, profile = user) {
+export function bindArchiveGallery(root, client, user, media, profile = user, isAdmin = false) {
   const state = { media: [...media], activeId: null, zoom: 1, panX: 0, panY: 0, dragging: null, channel: null };
   const viewer = root.querySelector("[data-archive-viewer]");
   const viewerContent = root.querySelector("[data-archive-viewer-content]");
   const stage = root.querySelector("[data-archive-viewer-stage]");
   const current = () => state.media.find((item) => item.id === state.activeId);
+  const visibleMedia = () => [...root.querySelectorAll("[data-open-archive-media]")]
+    .filter((button) => !button.closest(".archive-media-tile")?.hidden)
+    .map((button) => state.media.find((item) => item.id === button.dataset.openArchiveMedia)).filter(Boolean);
 
   function openLegacyDescription(item) {
     if (!item?.description) return;
@@ -175,8 +204,10 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     viewer.setAttribute("aria-hidden", "false");
     viewer.removeAttribute("inert");
     document.body.classList.add("modal-open");
-    root.querySelector("[data-viewer-previous]").disabled = state.media.findIndex((entry) => entry.id === item.id) <= 0;
-    root.querySelector("[data-viewer-next]").disabled = state.media.findIndex((entry) => entry.id === item.id) >= state.media.length - 1;
+    root.querySelector("[data-viewer-previous]").disabled = visibleMedia().findIndex((entry) => entry.id === item.id) <= 0;
+    const visible = visibleMedia();
+    const visibleIndex = visible.findIndex((entry) => entry.id === item.id);
+    root.querySelector("[data-viewer-next]").disabled = visibleIndex < 0 || visibleIndex >= visible.length - 1;
     applyZoom();
   }
 
@@ -193,15 +224,15 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     const activeId = state.activeId;
     state.media = [...nextMedia];
     const replacement = document.createElement("div");
-    replacement.innerHTML = archiveGalleryMarkup(state.media);
+    replacement.innerHTML = archiveGalleryMarkup(state.media, isAdmin);
     const nextLibrary = replacement.firstElementChild;
     const currentLibrary = root.querySelector(".archive-media-library");
     const currentGrid = currentLibrary?.querySelector("[data-archive-media-grid]");
     const nextGrid = nextLibrary?.querySelector("[data-archive-media-grid]");
 
     if (currentGrid && nextGrid) currentGrid.replaceWith(nextGrid);
-    else if (currentGrid && !nextGrid) currentGrid.replaceWith(nextLibrary.querySelector(".archive-media-empty"));
-    else if (!currentGrid && nextGrid) currentLibrary?.querySelector(".archive-media-empty")?.replaceWith(nextGrid);
+    const emptyMessage = currentLibrary?.querySelector("[data-archive-media-empty]");
+    if (emptyMessage) emptyMessage.hidden = state.media.length > 0;
 
     const count = currentLibrary?.querySelector("[data-archive-media-count]");
     if (count) count.textContent = `${state.media.length} arquivo(s)`;
@@ -214,11 +245,14 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
         content.load?.();
         applyZoom();
       }
-      root.querySelector("[data-viewer-previous]").disabled = state.media.findIndex((entry) => entry.id === active.id) <= 0;
-      root.querySelector("[data-viewer-next]").disabled = state.media.findIndex((entry) => entry.id === active.id) >= state.media.length - 1;
+      root.querySelector("[data-viewer-previous]").disabled = visibleMedia().findIndex((entry) => entry.id === active.id) <= 0;
+      const visible = visibleMedia();
+      const visibleIndex = visible.findIndex((entry) => entry.id === active.id);
+      root.querySelector("[data-viewer-next]").disabled = visibleIndex < 0 || visibleIndex >= visible.length - 1;
     } else if (activeId) {
       close();
     }
+    root.dispatchEvent(new CustomEvent("archive-gallery-refresh"));
   }
 
   root.addEventListener("click", (event) => {
@@ -241,8 +275,20 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     }
     const nav = event.target.closest("[data-viewer-previous], [data-viewer-next]");
     if (nav) {
-      const index = state.media.findIndex((item) => item.id === state.activeId);
-      show(state.media[index + (nav.matches("[data-viewer-previous]") ? -1 : 1)]);
+      const visible = visibleMedia();
+      const index = visible.findIndex((item) => item.id === state.activeId);
+      if (index >= 0) show(visible[index + (nav.matches("[data-viewer-previous]") ? -1 : 1)]);
+    }
+  });
+
+  root.addEventListener("archive-gallery-filter", () => {
+    const visible = visibleMedia();
+    const active = current();
+    if (active && !visible.some((item) => item.id === active.id)) { close(); return; }
+    if (active) {
+      const index = visible.findIndex((item) => item.id === active.id);
+      root.querySelector("[data-viewer-previous]").disabled = index <= 0;
+      root.querySelector("[data-viewer-next]").disabled = index < 0 || index >= visible.length - 1;
     }
   });
 
@@ -277,14 +323,17 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     const form = event.target.closest("[data-archive-media-comment]");
     if (!form) return;
     event.preventDefault();
-    const body = String(new FormData(form).get("body") || "").trim();
+    const commentFormData = new FormData(form);
+    const body = String(commentFormData.get("body") || "").trim();
+    const visibility = String(commentFormData.get("visibility") || "participants");
+    if (!["private", "participants"].includes(visibility)) { setCommentStatus(form, "Escolha uma visibilidade válida.", "error"); return; }
     const button = form.querySelector('button[type="submit"]');
     if (!body || body.length > 2000) { setCommentStatus(form, "Escreva um comentário de até 2.000 caracteres.", "error"); return; }
     if (button) button.disabled = true;
     try {
       const mediaId = form.dataset.mediaId;
-      const { data, error } = await client.from("archive_media_comments").insert({ media_id: mediaId, author_id: user.id, body })
-        .select("id,media_id,author_id,body,created_at").single();
+      const { data, error } = await client.from("archive_media_comments").insert({ media_id: mediaId, author_id: user.id, body, visibility })
+        .select("id,media_id,author_id,body,visibility,created_at").single();
       if (error) throw error;
       const item = current();
       if (item?.id === mediaId) {
@@ -310,7 +359,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
       if (!item || item.id !== payload.new.media_id) return;
       try {
         const { data, error } = await client.from("archive_media_comments")
-          .select("id,media_id,author_id,body,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name)")
+          .select("id,media_id,author_id,body,visibility,created_at,author:profiles!archive_media_comments_author_id_fkey(username,display_name)")
           .eq("media_id", item.id).order("created_at", { ascending: true }).limit(100);
         if (error) throw error;
         item.comments = data || [];
@@ -320,3 +369,4 @@ export function bindArchiveGallery(root, client, user, media, profile = user) {
     .subscribe();
   window.addEventListener("pagehide", () => { if (state.channel) client.removeChannel(state.channel); }, { once: true });
 }
+
