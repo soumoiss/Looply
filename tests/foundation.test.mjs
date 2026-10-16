@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
+import { processSequentially } from "../src/archive-import.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -113,7 +114,10 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /dialogPlayer\.removeAttribute\("src"\)/);
   assert.match(playlists, /youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(videoId\)\}/);
   assert.doesNotMatch(playlists, /youtube\.com\/playlist\?list=|Abrir no YouTube|target="_blank"/i);
-  assert.match(playlists, /A lista de faixas precisa da chave restrita da YouTube Data API v3/);
+  assert.match(playlists, /Configure LOOPLY_YOUTUBE_API_KEY no projeto Vercel que publica esta URL/);
+  assert.match(playlists, /data-youtube-retry/);
+  assert.match(playlists, /youtube-playlist-timeout/);
+  assert.match(playlists, /playlistCachePrefix/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
 });
@@ -156,8 +160,8 @@ test("the activity center and profile preferences are persisted with recipient-o
 });
 
 test("conversations have their own route and real microphone recording flow", async () => {
-  const [chat, conversation, page, css] = await Promise.all([
-    read("src/chat.js"), read("assets/js/conversation.js"), read("conversa.html"), read("assets/css/pages/conversation.css")
+  const [chat, conversation, page, css, sharedChatCss] = await Promise.all([
+    read("src/chat.js"), read("assets/js/conversation.js"), read("conversa.html"), read("assets/css/pages/conversation.css"), read("assets/css/pages/chat.css")
   ]);
   assert.match(page, /assets\/js\/conversation\.js/);
   assert.match(conversation, /new URLSearchParams\(window\.location\.search\)/);
@@ -168,6 +172,35 @@ test("conversations have their own route and real microphone recording flow", as
   assert.match(chat, /bucketName: "looply-chat"/);
   assert.match(chat, /data-chat-open/);
   assert.match(css, /page-conversation/);
+  assert.match(chat, /data-chat-conversation-search/);
+  assert.match(chat, /data-chat-filter="unread"/);
+  assert.match(chat, /data-chat-copy/);
+  assert.match(chat, /data-chat-audio-rate/);
+  assert.match(chat, /chat-date-separator/);
+  assert.match(sharedChatCss, /chat-message-avatar/);
+});
+
+test("YouTube playlist loading paginates, ignores unavailable videos, and explains API failures", async () => {
+  const { fetchPlaylistItems, youtubeApiErrorMessage } = await import("../src/youtube-playlist.js");
+  const requests = [];
+  const pages = [
+    { items: [{ snippet: { resourceId: { videoId: "abcdefghijk" }, title: "Faixa 1", position: 0, channelTitle: "Canal" } }], nextPageToken: "page-2" },
+    { items: [
+      { snippet: { resourceId: { videoId: "lmnopqrstuv" }, title: "Faixa 2", position: 1 } },
+      { snippet: { resourceId: { videoId: "zzzzzzzzzzz" }, title: "Deleted video", position: 2 } }
+    ] }
+  ];
+  const tracks = await fetchPlaylistItems("playlist-id", "unit-test-key", async (url, options) => {
+    requests.push({ url: new URL(url), options });
+    return { ok: true, status: 200, json: async () => pages[requests.length - 1] };
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].url.searchParams.get("maxResults"), "50");
+  assert.equal(requests[1].url.searchParams.get("pageToken"), "page-2");
+  assert.deepEqual(tracks.map((track) => track.title), ["Faixa 1", "Faixa 2"]);
+  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "quotaExceeded" }] } }), /cota diária/i);
+  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "ipRefererBlocked" }] } }), /domínio/i);
+  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "accessNotConfigured" }] } }), /ative a YouTube Data API v3/i);
 });
 
 test("the mobile navigation remains outside the sticky header stacking context", async () => {
@@ -455,6 +488,35 @@ test("the archive importer uses the media index and preserves exclusive audience
   assert.equal(catalog.some((item) => item.source_path.includes("fora-da-audiencia")), false);
 });
 
+test("archive import processes each item sequentially and continues after an item fails", async () => {
+  const order = [];
+  const progress = [];
+  const result = await processSequentially(["carta-1", "carta-2", "midia-1"], async (item) => {
+    order.push(`start:${item}`);
+    if (item === "carta-2") throw new Error("Edge Function returned a non-2xx status code");
+    order.push(`done:${item}`);
+  }, (state) => progress.push({ item: state.item, succeeded: state.succeeded, failed: state.failed }));
+
+  assert.deepEqual(order, ["start:carta-1", "done:carta-1", "start:carta-2", "start:midia-1", "done:midia-1"]);
+  assert.equal(result.succeeded, 2);
+  assert.equal(result.failed, 1);
+  assert.equal(result.failures[0].item, "carta-2");
+  assert.deepEqual(progress, [
+    { item: "carta-1", succeeded: 1, failed: 0 },
+    { item: "carta-2", succeeded: 1, failed: 1 },
+    { item: "midia-1", succeeded: 2, failed: 1 }
+  ]);
+});
+
+test("archive uploads use resumable chunks and isolate each card and media request", async () => {
+  const importer = await read("src/archive-import.js");
+  assert.match(importer, /chunkSize:\s*6\s*\*\s*1024\s*\*\s*1024/);
+  assert.match(importer, /processSequentially\(cards,[\s\S]*?cards:\s*\[card\]/);
+  assert.match(importer, /processSequentially\(media,[\s\S]*?register_archive_media/);
+  assert.match(importer, /falha individual não interrompe o restante/);
+  assert.doesNotMatch(importer, /Promise\.all\(workers\)/);
+});
+
 test("the admin screen connects the archive importer and audited archive comments", async () => {
   const [admin, entry, css] = await Promise.all([
     read("src/admin.js"), read("assets/js/admin.js"), read("assets/css/pages/admin.css")
@@ -468,4 +530,5 @@ test("the admin screen connects the archive importer and audited archive comment
   assert.match(entry, /bindArchiveImport\(root, client\)/);
   assert.match(css, /archive-import-errors/);
 });
+
 

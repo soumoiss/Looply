@@ -18,7 +18,7 @@ function escapeHtml(value) {
 export function archiveImportMarkup() {
   return `<section class="archive-import panel" aria-labelledby="archiveImportTitle">
     <div class="admin-heading"><div><span class="section-kicker">Migração privada</span><h2 id="archiveImportTitle">Importar cartas e mídias antigas</h2></div></div>
-    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o Supabase privado; textos MSG associados às mídias também serão preservados.</p>
+    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o Supabase privado; textos MSG associados às mídias também serão preservados. Cada item é processado separadamente; uma falha individual não interrompe o restante.</p>
     <form data-archive-import-form>
       <div class="field"><label for="archiveSourceFolder">Pasta Loooply-main</label><input id="archiveSourceFolder" type="file" webkitdirectory directory multiple required><small class="field-hint">Selecione a pasta que contém midia-index.json (na raiz ou em data/), midia/ e as cartas .txt.</small></div>
       <div class="field"><label for="archiveImportPurpose">Motivo desta importação</label><textarea id="archiveImportPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva o motivo da importação para a auditoria."></textarea></div>
@@ -153,6 +153,22 @@ export function findMediaIndexEntry(fileMap) {
   return fileMap.get(keyPath("data/midia-index.json")) || fileMap.get(keyPath("midia-index.json")) || null;
 }
 
+export async function processSequentially(items, processItem, onProgress = () => {}) {
+  let succeeded = 0;
+  const failures = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    try {
+      await processItem(item, index);
+      succeeded += 1;
+    } catch (error) {
+      failures.push({ item, index, error });
+    }
+    onProgress({ item, index, total: items.length, succeeded, failed: failures.length });
+  }
+  return { succeeded, failed: failures.length, failures };
+}
+
 async function uploadResumable(client, path, file, contentType, onProgress) {
   const { data, error } = await client.auth.getSession();
   const token = data?.session?.access_token;
@@ -183,9 +199,30 @@ async function uploadResumable(client, path, file, contentType, onProgress) {
 }
 
 function classifyFailure(error) {
-  const message = String(error?.message || "");
+  const message = String(error?.message || error || "");
   if (/duplicate|already exists|alreadyexits|object.*exists|409/i.test(message)) return "O arquivo já existe no Storage; verificando o registro.";
   return message.slice(0, 240) || "Falha sem detalhe retornado pelo serviço.";
+}
+
+function isAlreadyExistsFailure(error) {
+  return /duplicate|already exists|alreadyexits|object.*exists|409/i.test(String(error?.message || error || ""));
+}
+
+async function functionFailureMessage(error, data, fallback) {
+  let detail = String(data?.error || data?.message || "").trim();
+  const response = error?.context;
+  if (!detail && response && typeof response.clone === "function") {
+    const copy = response.clone();
+    try {
+      const body = await copy.json();
+      detail = String(body?.error || body?.message || "").trim();
+    } catch {
+      try { detail = (await response.clone().text()).trim(); } catch { /* Use the status fallback below. */ }
+    }
+    if (!detail && Number.isFinite(Number(response.status))) detail = `HTTP ${response.status}`;
+  }
+  if (!detail) detail = String(error?.message || fallback || "Falha no serviço.");
+  return detail.replace(/[\r\n\t]+/g, " ").slice(0, 240);
 }
 
 export function bindArchiveImport(root, client) {
@@ -229,9 +266,6 @@ export function bindArchiveImport(root, client) {
         } catch (error) { errors.push(`${name}: ${String(error?.message || "falha ao ler carta")}`); }
       }
       cards.sort((a, b) => a.recipient_id.localeCompare(b.recipient_id) || Number(b.is_private) - Number(a.is_private) || a.card_number - b.card_number);
-      if (errors.length) throw new Error("Corrija os arquivos de carta inválidos antes de iniciar a importação.");
-      if (!cards.length) throw new Error("Nenhuma carta elegível foi encontrada na pasta selecionada.");
-
       const catalog = makeMediaCatalog(index, fileMap);
       const indexedPaths = new Set(catalog.map((item) => keyPath(item.source_path)));
       const unindexedCount = [...fileMap.values()].filter(({ path }) => {
@@ -245,15 +279,18 @@ export function bindArchiveImport(root, client) {
       for (const item of catalog) {
         const fileEntry = fileMap.get(keyPath(item.source_path));
         if (!fileEntry) { missingMediaCount += 1; continue; }
-        if (fileEntry.file.size < 1 || fileEntry.file.size > maxFileBytes) { errors.push(`${item.source_path}: tamanho fora do limite permitido.`); continue; }
+        if (fileEntry.file.size < 1 || fileEntry.file.size > maxFileBytes) { errors.push(`${item.source_path}: tamanho fora do limite permitido; arquivo ignorado.`); continue; }
         const folder = item.source_path.slice(0, item.source_path.lastIndexOf("/"));
         const sidecarName = `MSG_${fileNameFromPath(item.source_path)}.txt`;
         const sidecar = fileMap.get(keyPath(`${folder}/${sidecarName}`));
-        if (sidecar) item.description = (await readCardText(sidecar.file)).trim() || item.description;
-        if (item.description.length > 10_000) { errors.push(`${item.source_path}: a descrição associada excede 10.000 caracteres.`); continue; }
+        if (sidecar) {
+          try { item.description = (await readCardText(sidecar.file)).trim() || item.description; }
+          catch (error) { errors.push(`${sidecar.path}: não foi possível ler a legenda; usando a descrição do índice (${String(error?.message || "erro de leitura").slice(0, 120)}).`); }
+        }
+        if (item.description.length > 10_000) { errors.push(`${item.source_path}: a descrição associada excede 10.000 caracteres; arquivo ignorado.`); continue; }
         const recipientIds = item.recipient_names.map((username) => profileByName.get(username)).filter(Boolean);
-        if (item.visibility === "exclusive" && recipientIds.length !== 1) { errors.push(`${item.source_path}: não foi possível associar o destinatário exclusivo.`); continue; }
-        if (item.source_date && Number.isNaN(new Date(item.source_date).valueOf())) { errors.push(`${item.source_path}: data original inválida.`); continue; }
+        if (item.visibility === "exclusive" && recipientIds.length !== 1) { errors.push(`${item.source_path}: não foi possível associar o destinatário exclusivo; arquivo ignorado.`); continue; }
+        if (item.source_date && Number.isNaN(new Date(item.source_date).valueOf())) { errors.push(`${item.source_path}: data original inválida; arquivo ignorado.`); continue; }
         media.push({
           ...item,
           storage_path: `legacy-archive/${item.source_path}`,
@@ -261,52 +298,52 @@ export function bindArchiveImport(root, client) {
           recipient_ids: recipientIds
         });
       }
-      if (errors.length) throw new Error("Corrija os arquivos de mídia inválidos antes de iniciar a importação.");
-
       let cardsImported = 0;
-      const cardBatches = [];
-      for (let i = 0; i < cards.length; i += 4) cardBatches.push(cards.slice(i, i + 4));
-      for (const [indexNumber, batch] of cardBatches.entries()) {
-        status.textContent = `Importando cartas ${Math.min(cards.length, indexNumber * 4 + batch.length)} de ${cards.length}…`;
+      const cardResult = await processSequentially(cards, async (card, indexNumber) => {
+        status.textContent = `Importando carta ${indexNumber + 1} de ${cards.length}: ${card.original_file}…`;
         const { data, error } = await client.functions.invoke("looply-admin", {
-          body: { action: "import_archived_cards", resourceType: "archived_cards", purpose, cards: batch }
+          body: { action: "import_archived_cards", resourceType: "archived_cards", purpose, cards: [card] }
         });
-        if (error || !Number.isFinite(Number(data?.importedCount))) throw error || new Error(data?.error || "Falha ao confirmar a importação das cartas.");
+        if (error || !Number.isFinite(Number(data?.importedCount))) {
+          throw new Error(await functionFailureMessage(error, data, "Falha ao confirmar a importação da carta."));
+        }
         cardsImported += Number(data.importedCount);
+      }, ({ item, index, total, succeeded, failed }) => {
+        status.textContent = `Cartas: ${succeeded} de ${total} · falhas: ${failed}${item ? ` · ${item.original_file}` : ""}`;
+      });
+      for (const failure of cardResult.failures) {
+        errors.push(`${failure.item.original_file}: ${String(failure.error?.message || "falha ao importar carta").slice(0, 240)}`);
       }
 
-      let completed = 0;
-      let failed = 0;
-      let cursor = 0;
-      const workers = Array.from({ length: Math.min(2, media.length) }, async () => {
-        while (cursor < media.length) {
-          const position = cursor++;
-          const item = media[position];
-          const file = fileMap.get(keyPath(item.source_path)).file;
-          status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (0%)`;
-          try {
-            try {
-              await uploadResumable(client, item.storage_path, file, item.mime_type, (percentage) => {
-                status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (${percentage}%)`;
-              });
-            } catch (uploadError) {
-              // Registration checks the object through the privileged server Storage API, making retries safe.
-              status.textContent = `${item.file_name}: ${classifyFailure(uploadError)}`;
-            }
-            const { data, error } = await client.functions.invoke("looply-admin", {
-              body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item }
-            });
-            if (error || !data?.mediaId) throw error || new Error(data?.error || "O objeto não foi localizado no bucket privado.");
-            completed += 1;
-          } catch (error) {
-            failed += 1;
-            errors.push(`${item.source_path}: ${String(error?.message || "falha ao registrar mídia").slice(0, 200)}`);
-          }
-          status.textContent = `Mídias registradas: ${completed} de ${media.length} · falhas: ${failed} · ${cardsImported} cartas.`;
+      const mediaResult = await processSequentially(media, async (item, position) => {
+        const file = fileMap.get(keyPath(item.source_path))?.file;
+        if (!file) {
+          missingMediaCount += 1;
+          throw new Error("arquivo ausente na pasta selecionada; ignorado.");
         }
+        status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (0%)`;
+        try {
+          await uploadResumable(client, item.storage_path, file, item.mime_type, (percentage) => {
+            status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (${percentage}%)`;
+          });
+        } catch (uploadError) {
+          if (!isAlreadyExistsFailure(uploadError)) throw new Error(classifyFailure(uploadError));
+          // The object may already have been uploaded in a previous attempt; register it below.
+        }
+        const { data, error } = await client.functions.invoke("looply-admin", {
+          body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item }
+        });
+        if (error || !data?.mediaId) {
+          throw new Error(await functionFailureMessage(error, data, "O objeto não foi localizado no bucket privado."));
+        }
+      }, ({ item, index, total, succeeded, failed }) => {
+        status.textContent = `Mídias registradas: ${succeeded} de ${total} · falhas: ${failed} · ${cardsImported} cartas · ${item?.file_name || ""}`;
       });
-      await Promise.all(workers);
-      status.textContent = `Importação concluída: ${cardsImported} cartas · ${completed} de ${media.length} mídias registradas · ${missingMediaCount} item(ns) catalogado(s) ausente(s) ignorado(s) · ${errors.length} falha(s) · ${unindexedCount} arquivo(s) fora do catálogo ignorado(s). Repetir a importação é seguro.`;
+      for (const failure of mediaResult.failures) {
+        errors.push(`${failure.item.source_path}: ${String(failure.error?.message || "falha ao enviar ou registrar mídia").slice(0, 240)}`);
+      }
+
+      status.textContent = `Importação concluída: ${cardsImported} de ${cards.length} cartas registradas (${cardResult.failed} falha(s)) · ${mediaResult.succeeded} de ${media.length} mídias registradas (${mediaResult.failed} falha(s)) · ${missingMediaCount} item(ns) catalogado(s) ausente(s) ignorado(s) · ${unindexedCount} arquivo(s) fora do catálogo ignorado(s). Os demais itens foram processados mesmo quando algum falhou. A importação pode ser repetida para tentar novamente.`;
       if (errors.length) {
         errorsList.hidden = false;
         for (const message of errors.slice(0, 100)) {
@@ -331,3 +368,4 @@ export function bindArchiveImport(root, client) {
     }
   });
 }
+

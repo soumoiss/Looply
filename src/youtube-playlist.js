@@ -46,7 +46,45 @@ function playlistApiKey() {
   return String(window.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
 }
 
-async function fetchPlaylistItems(playlistId, apiKey) {
+const playlistCachePrefix = "looply.youtube-playlist.v1.";
+const playlistCacheMaxAge = 12 * 60 * 60 * 1000;
+
+export function youtubeApiErrorMessage(status, data = {}) {
+  const reason = String(data?.error?.errors?.[0]?.reason || "").toLowerCase();
+  const apiMessage = String(data?.error?.message || "").toLowerCase();
+  if (["quotaexceeded", "dailylimitexceeded", "ratelimitexceeded", "userratelimitexceeded"].includes(reason)) {
+    return "A cota diária da YouTube Data API foi atingida. A lista salva continua disponível; tente novamente após a renovação da cota.";
+  }
+  if (["keyinvalid", "iprefererblocked", "refererblocked", "forbidden"].includes(reason) || /api key|referer|referrer/.test(apiMessage)) {
+    return "A chave da YouTube Data API foi recusada para este domínio. Confira LOOPLY_YOUTUBE_API_KEY no projeto Vercel desta prévia e permita o domínio de implantação nas restrições HTTP da chave.";
+  }
+  if (["accessnotconfigured", "youtubesignuprequired"].includes(reason)) {
+    return "Ative a YouTube Data API v3 no projeto Google Cloud vinculado à chave e gere um novo deployment.";
+  }
+  if (status === 400) return "O YouTube recusou o identificador desta playlist. Confira o ID configurado para este perfil.";
+  if (status === 401) return "A chave da YouTube Data API é inválida. Atualize LOOPLY_YOUTUBE_API_KEY no Vercel e gere um novo deployment.";
+  return `A YouTube Data API respondeu com erro HTTP ${Number(status) || "desconhecido"}. O player incorporado continua disponível.`;
+}
+
+function readPlaylistCache(playlistId) {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(`${playlistCachePrefix}${playlistId}`) || "null");
+    if (!Array.isArray(cached?.tracks) || !Number.isFinite(cached?.savedAt)) return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function writePlaylistCache(playlistId, tracks) {
+  try {
+    sessionStorage.setItem(`${playlistCachePrefix}${playlistId}`, JSON.stringify({ savedAt: Date.now(), tracks }));
+  } catch {
+    // Storage is optional: the current page still renders the tracks.
+  }
+}
+
+export async function fetchPlaylistItems(playlistId, apiKey, fetchImpl = globalThis.fetch) {
   const items = [];
   let pageToken = "";
   for (let page = 0; page < 100; page += 1) {
@@ -57,9 +95,23 @@ async function fetchPlaylistItems(playlistId, apiKey) {
       key: apiKey
     });
     if (pageToken) params.set("pageToken", pageToken);
-    const response = await fetch(`${playlistItemsEndpoint}?${params}`, { headers: { accept: "application/json" } });
-    if (!response.ok) throw new Error("youtube-playlist-request-failed");
-    const data = await response.json();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await fetchImpl(`${playlistItemsEndpoint}?${params}`, {
+        headers: { accept: "application/json" },
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("youtube-playlist-timeout");
+      throw new Error("youtube-playlist-network-error");
+    } finally {
+      clearTimeout(timeout);
+    }
+    let data = {};
+    try { data = await response.json(); } catch { /* The status below provides the actionable failure. */ }
+    if (!response.ok) throw new Error(youtubeApiErrorMessage(response.status, data));
     for (const item of Array.isArray(data.items) ? data.items : []) {
       const videoId = String(item?.snippet?.resourceId?.videoId || "");
       const title = String(item?.snippet?.title || "").trim();
@@ -102,58 +154,99 @@ export async function bindYouTubePlaylist(root) {
 
   const playlistId = playlist.dataset.youtubePlaylist;
   const apiKey = playlistApiKey();
-  if (!apiKey) {
-    status.textContent = "A lista de faixas precisa da chave restrita da YouTube Data API v3. O player da playlist continua disponível nesta página.";
-    return;
-  }
-
-  status.textContent = "Carregando músicas…";
-  try {
-    const tracks = await fetchPlaylistItems(playlistId, apiKey);
-    if (!playlist.isConnected) return;
-    if (!tracks.length) {
-      status.textContent = "Esta playlist não tem músicas públicas disponíveis.";
+  let tracks = [];
+  let loading = false;
+  const cached = readPlaylistCache(playlistId);
+  const render = () => {
+    const query = String(search?.value || "").trim().toLocaleLowerCase("pt-BR");
+    const filtered = tracks.filter((track) => `${track.title} ${track.channel}`.toLocaleLowerCase("pt-BR").includes(query));
+    list.innerHTML = filtered.map((track) => trackMarkup(track, track.position)).join("");
+    if (count) count.textContent = `${tracks.length}`;
+    if (query && !filtered.length) status.textContent = `Nenhuma música corresponde a “${search.value.trim()}”.`;
+    else if (tracks.length) status.textContent = query ? `${filtered.length} de ${tracks.length} músicas` : `${tracks.length} músicas na playlist`;
+    else status.textContent = "";
+  };
+  const showStatus = (message, retry = false) => {
+    status.replaceChildren(document.createTextNode(message));
+    if (retry) {
+      const button = document.createElement("button");
+      button.className = "text-button youtube-playlist-retry";
+      button.type = "button";
+      button.dataset.youtubeRetry = "";
+      button.textContent = "Tentar novamente";
+      status.append(" ", button);
+    }
+  };
+  const load = async ({ retry = false } = {}) => {
+    if (loading) return;
+    if (!apiKey) {
+      showStatus(tracks.length
+        ? `${tracks.length} músicas da última consulta. Configure LOOPLY_YOUTUBE_API_KEY no projeto Vercel que publica esta URL para atualizar a playlist.`
+        : "Configure LOOPLY_YOUTUBE_API_KEY no projeto Vercel que publica esta URL; sem ela, o YouTube não fornece os títulos da playlist. O player incorporado continua disponível.", true);
       return;
     }
-    if (count) count.textContent = `${tracks.length}`;
-    const render = (query = "") => {
-      const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-      const filtered = tracks.filter((track) => `${track.title} ${track.channel}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
-      list.innerHTML = filtered.map((track) => trackMarkup(track, track.position)).join("");
-      status.textContent = normalizedQuery
-        ? `${filtered.length} de ${tracks.length} músicas`
-        : `${tracks.length} músicas na playlist`;
-    };
-    render();
-    search?.addEventListener("input", () => render(search.value));
-    const closeDialog = () => {
-      if (dialog?.open) dialog.close();
-      else if (dialogPlayer) dialogPlayer.removeAttribute("src");
-    };
-    dialog?.querySelector("[data-youtube-dialog-close]")?.addEventListener("click", closeDialog);
-    dialog?.addEventListener("click", (event) => {
-      if (event.target === dialog) closeDialog();
-    });
-    dialog?.addEventListener("close", () => dialogPlayer?.removeAttribute("src"));
+    loading = true;
+    if (!tracks.length || retry) showStatus("Carregando músicas…");
+    try {
+      const freshTracks = await fetchPlaylistItems(playlistId, apiKey);
+      if (!playlist.isConnected) return;
+      tracks = freshTracks;
+      writePlaylistCache(playlistId, tracks);
+      if (!tracks.length) {
+        list.replaceChildren();
+        if (count) count.textContent = "0";
+        showStatus("Esta playlist não tem músicas públicas disponíveis.");
+      } else render();
+    } catch (error) {
+      const message = error?.message === "youtube-playlist-timeout"
+        ? "O YouTube demorou mais de 15 segundos para responder."
+        : error?.message === "youtube-playlist-network-error"
+          ? "Não foi possível conectar à YouTube Data API. Verifique a conexão e as regras de rede."
+          : String(error?.message || "Não foi possível carregar a playlist.");
+      showStatus(tracks.length ? `${tracks.length} músicas salvas. ${message}` : message, true);
+    } finally {
+      loading = false;
+    }
+  };
 
-    list.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-youtube-track]");
-      if (!button) return;
-      list.querySelectorAll("[data-youtube-track]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-      const videoId = button.dataset.youtubeTrack;
-      const track = tracks.find((item) => item.videoId === videoId);
-      if (dialog && dialogPlayer && typeof dialog.showModal === "function") {
-        if (dialogTitle) dialogTitle.textContent = track?.title || "Música";
-        if (dialogChannel) dialogChannel.textContent = track?.channel || "";
-        dialogPlayer.title = `Reprodutor: ${track?.title || "música"}`;
-        const params = new URLSearchParams({ autoplay: "1", playsinline: "1", rel: "0", list: playlistId });
-        dialogPlayer.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params}`;
-        if (!dialog.open) dialog.showModal();
-      } else {
-        player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&list=${encodeURIComponent(playlistId)}`;
-      }
-    });
-  } catch {
-    status.textContent = "Não foi possível carregar a lista de faixas. Confira a chave restrita da YouTube Data API v3; o player continua disponível nesta página.";
+  if (cached) {
+    tracks = cached.tracks;
+    render();
+    if (Date.now() - cached.savedAt <= playlistCacheMaxAge) {
+      showStatus(`${tracks.length} músicas na playlist · lista salva nesta sessão`);
+    }
   }
+  search?.addEventListener("input", render);
+  status.addEventListener("click", (event) => {
+    if (event.target.closest("[data-youtube-retry]")) void load({ retry: true });
+  });
+  const closeDialog = () => {
+    if (dialog?.open) dialog.close();
+    else if (dialogPlayer) dialogPlayer.removeAttribute("src");
+  };
+  dialog?.querySelector("[data-youtube-dialog-close]")?.addEventListener("click", closeDialog);
+  dialog?.addEventListener("click", (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+  dialog?.addEventListener("close", () => dialogPlayer?.removeAttribute("src"));
+
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-youtube-track]");
+    if (!button) return;
+    list.querySelectorAll("[data-youtube-track]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+    const videoId = button.dataset.youtubeTrack;
+    const track = tracks.find((item) => item.videoId === videoId);
+    if (dialog && dialogPlayer && typeof dialog.showModal === "function") {
+      if (dialogTitle) dialogTitle.textContent = track?.title || "Música";
+      if (dialogChannel) dialogChannel.textContent = track?.channel || "";
+      dialogPlayer.title = `Reprodutor: ${track?.title || "música"}`;
+      const params = new URLSearchParams({ autoplay: "1", playsinline: "1", rel: "0", list: playlistId });
+      dialogPlayer.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params}`;
+      if (!dialog.open) dialog.showModal();
+    } else {
+      player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&list=${encodeURIComponent(playlistId)}`;
+    }
+  });
+  if (!cached || Date.now() - cached.savedAt > playlistCacheMaxAge) await load();
 }
+

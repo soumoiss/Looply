@@ -11,6 +11,8 @@ let activeConversationId = null;
 let realtimeChannel = null;
 let realtimeUserId = null;
 let refreshTimer = null;
+let conversationSearch = "";
+let conversationFilter = "all";
 const voiceRecordings = new Map();
 
 function escapeHtml(value) {
@@ -22,6 +24,18 @@ function escapeHtml(value) {
 function formatDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.valueOf()) ? "" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
+function formatMessageDay(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return "";
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (left, right) => left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+  if (sameDay(date, today)) return "Hoje";
+  if (sameDay(date, yesterday)) return "Ontem";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(date);
 }
 
 export async function loadChatData(client, userId) {
@@ -121,6 +135,14 @@ export function chatMarkup(data, userId) {
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
       </a>`).join("")
     : `<p class="chat-empty">Nenhuma conversa. Inicie uma conversa ou escreva uma carta.</p>`;
+  const conversationTools = `<div class="chat-conversation-tools">
+    <label class="visually-hidden" for="chatConversationSearch">Buscar conversa</label>
+    <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
+    <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
+      <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
+      <button type="button" data-chat-filter="unread" aria-pressed="${conversationFilter === "unread"}">Não lidas</button>
+    </div>
+  </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
     ${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}
     <span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span>
@@ -133,7 +155,7 @@ export function chatMarkup(data, userId) {
     <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
     <div class="chat-layout">
       <aside class="chat-sidebar">
-        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div><div class="chat-conversation-list" data-chat-conversations>${conversations}</div></section>
+        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
         <details class="chat-panel chat-search-panel"><summary>Encontrar uma pessoa</summary>
           <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Username</label><input id="chatSearch" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar pelo username"><button class="text-button" type="submit">Buscar</button></form>
           ${searchMessage}
@@ -318,7 +340,7 @@ function renderMedia(media) {
   const fileName = escapeHtml(media.file_name);
   if (media.mime_type.startsWith("image/")) return `<a class="chat-image-link" href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${fileName}" loading="lazy" referrerpolicy="no-referrer"></a>`;
   if (media.mime_type.startsWith("video/")) return `<video src="${url}" controls preload="metadata" aria-label="${fileName}"></video>`;
-  if (media.mime_type.startsWith("audio/")) return `<audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio>`;
+  if (media.mime_type.startsWith("audio/")) return `<div class="chat-audio-player"><audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio><label>Velocidade <select data-chat-audio-rate aria-label="Velocidade do áudio"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>`;
   return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">↗ ${fileName}</a>`;
 }
 
@@ -346,18 +368,31 @@ function olderMessagesButton(conversationId, oldestMessage) {
   return `<button class="chat-load-older" type="button" data-chat-load-older data-conversation-id="${escapeHtml(conversationId)}" data-before="${escapeHtml(oldestMessage.created_at)}">Carregar mensagens anteriores</button>`;
 }
 
-function threadMarkup(messages, userId, peerReadAt = null) {
+function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null) {
   if (!messages.length) return `<div class="chat-empty"><strong>Esta conversa está pronta.</strong><span>Envie a primeira mensagem.</span></div>`;
   const byId = new Map(messages.map((message) => [message.id, message]));
+  let lastDay = "";
   return messages.map((message) => {
+    const day = formatMessageDay(message.created_at);
+    const daySeparator = day && day !== lastDay ? `<div class="chat-date-separator"><span>${escapeHtml(day)}</span></div>` : "";
+    lastDay = day || lastDay;
     const parent = message.reply_to ? byId.get(message.reply_to) : null;
     const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? (parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
-    return `<article class="chat-message ${message.sender_id === userId ? "is-mine" : ""}">
+    const isMine = message.sender_id === userId;
+    const avatarLabel = (peerProfile?.display_name || peerProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+    const avatar = !isMine ? (peerProfile?.avatarUrl
+      ? `<img class="chat-message-avatar" src="${escapeHtml(peerProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="chat-message-avatar" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
+    return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : message.author?.display_name || message.author?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${message.sender_id === userId ? `<small class="chat-delivery">${peerReadAt && new Date(peerReadAt) >= new Date(message.created_at) ? "Lida" : "Enviada"}</small>` : ""}
-    <button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button>
-  </article>`;
+    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
+  </article></div>`;
   }).join("");
+}
+
+function peerParticipantFor(participants, userId) {
+  return participants.find((participant) => participant.user_id !== userId) || null;
 }
 
 function messageComposerMarkup(conversationId) {
@@ -400,8 +435,8 @@ async function openConversation(root, client, conversationId, userId) {
     const { messages, participants } = await loadThread(client, conversationId);
     if (activeConversationId !== conversationId || !root.querySelector("[data-chat-thread]")) return;
     await signThreadAvatar(client, participants, userId);
-    const peerReadAt = participants.find((participant) => participant.user_id !== userId)?.last_read_at || null;
-    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(conversationId)}`;
+    const peer = peerParticipantFor(participants, userId);
+    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
     await Promise.all([
       client.from("conversation_participants").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", conversationId).eq("user_id", userId),
@@ -421,12 +456,13 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     const data = await loadChatData(client, userId);
     if (!root.querySelector("[data-chat-area]")) return;
     area.outerHTML = chatMarkup(data, userId);
+    applyConversationFilter(root);
     if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
       const { messages, participants } = await loadThread(client, activeConversationId);
       await signThreadAvatar(client, participants, userId);
-      const peerReadAt = participants.find((participant) => participant.user_id !== userId)?.last_read_at || null;
+      const peer = peerParticipantFor(participants, userId);
       const thread = root.querySelector("[data-chat-thread]");
-      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peerReadAt)}${messageComposerMarkup(activeConversationId)}`;
+      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}${messageComposerMarkup(activeConversationId)}`;
     } else activeConversationId = null;
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
@@ -464,6 +500,8 @@ export function disposeChatRealtime(client) {
   realtimeChannel = null;
   realtimeUserId = null;
   activeConversationId = null;
+  conversationSearch = "";
+  conversationFilter = "all";
   clearTimeout(refreshTimer);
   for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
@@ -482,6 +520,8 @@ export function bindChatEvents(root, client, getUserId) {
     const openButton = event.target.closest("[data-chat-open]");
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
+    const copyButton = event.target.closest("[data-chat-copy]");
+    const conversationFilterButton = event.target.closest("[data-chat-filter]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
     const recordStartButton = event.target.closest("[data-chat-record-start]");
@@ -489,6 +529,25 @@ export function bindChatEvents(root, client, getUserId) {
     const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
+    if (conversationFilterButton) {
+      conversationFilter = conversationFilterButton.dataset.chatFilter === "unread" ? "unread" : "all";
+      root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
+      applyConversationFilter(root);
+      return;
+    }
+    if (copyButton) {
+      const text = copyButton.closest(".chat-message")?.querySelector("p")?.textContent || "";
+      try {
+        if (!text || !navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await navigator.clipboard.writeText(text);
+        copyButton.textContent = "Copiada";
+        setTimeout(() => { if (copyButton.isConnected) copyButton.textContent = "Copiar"; }, 1600);
+      } catch {
+        copyButton.textContent = "Cópia indisponível";
+        setTimeout(() => { if (copyButton.isConnected) copyButton.textContent = "Copiar"; }, 2200);
+      }
+      return;
+    }
     if (recordStartButton) {
       const form = recordStartButton.closest("[data-chat-send]");
       if (form) await startVoiceRecording(form);
@@ -516,8 +575,8 @@ export function bindChatEvents(root, client, getUserId) {
         const scrollHeight = thread.scrollHeight;
         olderButton.remove();
         const nextButton = messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "";
-        const peerReadAt = participants.find((participant) => participant.user_id !== userId)?.last_read_at || null;
-        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peerReadAt)}`);
+        const peer = peerParticipantFor(participants, userId);
+        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null)}`);
         thread.scrollTop += thread.scrollHeight - scrollHeight;
       } catch (error) {
         console.error("Looply older messages failed", error);
@@ -575,6 +634,19 @@ export function bindChatEvents(root, client, getUserId) {
         startButton.insertAdjacentHTML("afterend", `<small class="chat-inline-error">Não foi possível iniciar agora.</small>`);
       } finally { startButton.disabled = false; }
     }
+  });
+
+  root.addEventListener("input", (event) => {
+    if (!event.target.matches("[data-chat-conversation-search]")) return;
+    conversationSearch = event.target.value;
+    applyConversationFilter(root);
+  });
+
+  root.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-chat-audio-rate]");
+    if (!select) return;
+    const audio = select.closest(".chat-audio-player")?.querySelector("audio");
+    if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, Number(select.value) || 1));
   });
 
   root.addEventListener("submit", async (event) => {
@@ -657,3 +729,18 @@ export function bindChatEvents(root, client, getUserId) {
     }
   });
 }
+
+function applyConversationFilter(root) {
+  const items = [...root.querySelectorAll("[data-chat-conversations] [data-chat-open]")];
+  let visible = 0;
+  const query = conversationSearch.trim().toLocaleLowerCase("pt-BR");
+  for (const item of items) {
+    const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
+    const matchesFilter = conversationFilter !== "unread" || Boolean(item.querySelector(".chat-unread"));
+    item.hidden = !(matchesQuery && matchesFilter);
+    if (!item.hidden) visible += 1;
+  }
+  const noMatches = root.querySelector("[data-chat-no-matches]");
+  if (noMatches) noMatches.hidden = !items.length || visible > 0;
+}
+
