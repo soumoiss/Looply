@@ -16,15 +16,15 @@ Reconstrução independente do Looply com uma página HTML por área e Supabase 
 - `configuracoes.html`: tema, fonte e tamanho de texto sincronizados no perfil do Supabase.
 - `admin.html`: consultas administrativas auditadas e importação do acervo antigo, somente para Peixinho.
 
-As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML, JavaScript de entrada e folha CSS em `assets/css/pages/`. O player de cada playlist funciona sem chave da API, dentro do Looply. Quando a lista é carregada, tocar numa faixa abre um reprodutor sobreposto no próprio app; fechar o reprodutor interrompe a música e não redireciona a página. Para preencher a lista com todas as faixas e seus títulos, configure `LOOPLY_YOUTUBE_API_KEY` no ambiente de build. O script injeta essa chave pública no bundle do navegador; restrinja-a à YouTube Data API v3 e aos domínios do app. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
+As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML, JavaScript de entrada e folha CSS em `assets/css/pages/`. A lista da playlist é carregada por uma função Vercel em `api/youtube-playlist.js`, que valida a sessão Supabase e consulta a YouTube Data API no servidor. A chave do YouTube não é incluída em `config.js`, nos arquivos estáticos nem no JavaScript enviado ao navegador. Quando a lista é carregada, tocar numa faixa abre um reprodutor sobreposto no próprio app; fechar o reprodutor interrompe a música e não redireciona a página. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
 
 ## Configuração e execução
 
-`config.js` contém a URL do projeto Supabase, sua publishable key e um campo vazio para a chave opcional do YouTube. Não coloque senhas, `service_role`, tokens privados ou chaves secretas nesse arquivo. A chave da YouTube Data API é pública no navegador por projeto: proteja-a com restrições de API e de referenciador HTTP antes de configurar `LOOPLY_YOUTUBE_API_KEY`. Para executar localmente, use Node.js 22 ou posterior e sirva a raiz por HTTP.
+`config.js` contém apenas a URL do projeto Supabase e sua publishable key, que é pública por definição. A chave da YouTube Data API fica numa variável Vercel sensível chamada `LOOPLY_YOUTUBE_API_KEY`, lida exclusivamente pela função de servidor. A função também usa `LOOPLY_SUPABASE_URL` e `LOOPLY_SUPABASE_PUBLISHABLE_KEY` para validar a sessão recebida. Nunca coloque senhas, `service_role`, tokens privados ou a chave do YouTube no GitHub ou no JavaScript do navegador. Restrinja a chave no Google Cloud à YouTube Data API v3; como a chamada agora é servidor a servidor, não use restrição HTTP de referenciador. Para executar localmente, use Node.js 22 ou posterior e sirva a raiz por HTTP.
 
 ```text
 node scripts/build.mjs
-node --test tests/foundation.test.mjs
+node --test tests/foundation.test.mjs tests/youtube-api.test.mjs
 ```
 
 O build gera `dist/` com as páginas estáticas e os módulos do navegador. O conteúdo da pasta de referência em `work/legacy-app/` não é publicado pelo build.
@@ -52,7 +52,7 @@ Passo a passo da importação pelo app:
 7. Verifique **Cartas** e **Galeria** com cada conta autorizada. A importação ignora arquivos de mídia ausentes do índice/pasta; cartas e outros arquivos disponíveis continuam sendo importados.
 8. Se a rede cair ou houver erros de upload, volte ao painel e repita a importação com a mesma pasta; os registros/objetos já existentes são tratados para permitir retomada sem duplicação.
 
-A lista de músicas requer uma chave da YouTube Data API v3: no Google Cloud Console, selecione ou crie um projeto, ative **YouTube Data API v3**, crie uma chave de API e restrinja-a tanto à API quanto aos domínios da prévia e do domínio final do Looply. No projeto Vercel, adicione a variável `LOOPLY_YOUTUBE_API_KEY` com essa chave no ambiente **Preview** (e **Production** apenas quando for publicar) e faça um novo deployment. A chave fica visível ao navegador por ser uma chave pública; não a coloque em `service_role` nem a trate como segredo. Sem essa variável, o player incorporado funciona, mas a lista pesquisável não recebe títulos/itens da playlist.
+A lista pesquisável requer uma chave da YouTube Data API v3 no Google Cloud e a variável sensível `LOOPLY_YOUTUBE_API_KEY` no Vercel. Mantenha essa variável apenas nos ambientes autorizados; o código do navegador chama `/api/youtube-playlist` com a sessão Supabase, e a função verifica o usuário antes de consultar o Google. Configure também `LOOPLY_SUPABASE_URL` e `LOOPLY_SUPABASE_PUBLISHABLE_KEY` como variáveis do servidor. Restrinja a chave Google à YouTube Data API v3. Não adicione a chave a `config.js`, a arquivos versionados ou a logs. O player incorporado continua disponível mesmo quando a função ou a API estiver indisponível.
 
 O build e os testes automatizados desta revisão validam a estrutura e os fluxos simulados da interface. Ainda faltam a importação real das cartas/mídias, testes de navegador com as quatro contas (incluindo duas sessões e isolamento de acesso), validação visual por screenshots, testes móveis e confirmação de todos os fluxos na prévia. Build e testes automatizados não comprovam a operação ponta a ponta.
 
