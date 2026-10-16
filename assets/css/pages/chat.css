@@ -84,6 +84,8 @@
   .page-conversation .chat-thread { height:100%; min-height:0; max-height:none; overscroll-behavior:contain; }
   .page-conversation .chat-message-form { position:sticky; bottom:-14px; z-index:3; flex:0 0 auto; }
 }
-\n:is(.page-chat,.page-conversation) .chat-message-history { display:flex; flex:1 0 auto; flex-direction:column; gap:12px; min-height:0; }\n
+
+:is(.page-chat,.page-conversation) .chat-message-history { display:flex; flex:1 0 auto; flex-direction:column; gap:12px; min-height:0; }
+
 :is(.page-chat,.page-conversation) .chat-delete-button { color: var(--danger, #a33); }
 :is(.page-chat,.page-conversation) .chat-message-actions-inline button:disabled { opacity: .55; cursor: wait; }
