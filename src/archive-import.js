@@ -20,7 +20,7 @@ export function archiveImportMarkup() {
     <div class="admin-heading"><div><span class="section-kicker">Migração privada</span><h2 id="archiveImportTitle">Importar cartas e mídias antigas</h2></div></div>
     <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o Supabase privado; textos MSG associados às mídias também serão preservados.</p>
     <form data-archive-import-form>
-      <div class="field"><label for="archiveSourceFolder">Pasta Loooply-main</label><input id="archiveSourceFolder" type="file" webkitdirectory directory multiple required><small class="field-hint">Selecione a pasta que contém data/midia-index.json, midia/ e as cartas .txt.</small></div>
+      <div class="field"><label for="archiveSourceFolder">Pasta Loooply-main</label><input id="archiveSourceFolder" type="file" webkitdirectory directory multiple required><small class="field-hint">Selecione a pasta que contém midia-index.json (na raiz ou em data/), midia/ e as cartas .txt.</small></div>
       <div class="field"><label for="archiveImportPurpose">Motivo desta importação</label><textarea id="archiveImportPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva o motivo da importação para a auditoria."></textarea></div>
       <button class="primary-button compact-button" type="submit">Importar acervo <span aria-hidden="true">↗</span></button>
       <div class="archive-import-progress" data-archive-import-status role="status" aria-live="polite">Nenhum arquivo selecionado.</div>
@@ -149,6 +149,10 @@ export function makeMediaCatalog(index, fileMap) {
   return [...items.values()];
 }
 
+export function findMediaIndexEntry(fileMap) {
+  return fileMap.get(keyPath("data/midia-index.json")) || fileMap.get(keyPath("midia-index.json")) || null;
+}
+
 async function uploadResumable(client, path, file, contentType, onProgress) {
   const { data, error } = await client.auth.getSession();
   const token = data?.session?.access_token;
@@ -209,8 +213,8 @@ export function bindArchiveImport(root, client) {
     if (button) button.disabled = true;
     try {
       const fileMap = selectedRootFiles(input.files);
-      const indexEntry = fileMap.get(keyPath("data/midia-index.json"));
-      if (!indexEntry) throw new Error("Não encontrei data/midia-index.json. Selecione a pasta completa Loooply-main.");
+      const indexEntry = findMediaIndexEntry(fileMap);
+      if (!indexEntry) throw new Error("Não encontrei midia-index.json. Selecione a pasta completa Loooply-main.");
       const index = JSON.parse(await indexEntry.file.text());
       const profileResult = await client.from("profiles").select("id,username").in("username", ["misol", "patati", "yara"]);
       if (profileResult.error) throw profileResult.error;

@@ -424,7 +424,12 @@ test("the legacy archive migration keeps letters private and all media objects b
 });
 
 test("the archive importer uses the media index and preserves exclusive audiences", async () => {
-  const { makeMediaCatalog } = await import("../src/archive-import.js");
+  const { findMediaIndexEntry, makeMediaCatalog } = await import("../src/archive-import.js");
+  const rootIndex = { file: { name: "midia-index.json" }, path: "midia-index.json" };
+  const dataIndex = { file: { name: "midia-index.json" }, path: "data/midia-index.json" };
+  assert.equal(findMediaIndexEntry(new Map([["midia-index.json", rootIndex]])), rootIndex);
+  assert.equal(findMediaIndexEntry(new Map([["data/midia-index.json", dataIndex]])), dataIndex);
+  assert.equal(findMediaIndexEntry(new Map()), null);
   const index = {
     fotos: [
       { path: "midia/comum.jpg" },

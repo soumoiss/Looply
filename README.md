@@ -43,7 +43,7 @@ Para importar o acervo, extraia `Loooply-main.zip` em uma pasta local. Depois qu
 
 Passo a passo da importação pelo app:
 
-1. Extraia o ZIP completo e localize a pasta `Loooply-main` que contém `data/midia-index.json`, a pasta `midia/` e os arquivos de cartas `.txt`.
+1. Extraia o ZIP completo e localize a pasta `Loooply-main` que contém `midia-index.json` (na raiz, como está no ZIP antigo, ou dentro de `data/`), a pasta `midia/` e os arquivos de cartas `.txt`.
 2. Abra a URL da prévia atualizada do Looply e entre com a conta administrativa Peixinho.
 3. Abra **Administração** na navegação.
 4. Na seção **Importar cartas e mídias antigas**, informe um motivo com pelo menos 20 caracteres (por exemplo, `Restaurar o acervo antigo do Looply para os usuários autorizados.`).
