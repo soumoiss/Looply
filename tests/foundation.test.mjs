@@ -666,7 +666,8 @@ test("Home, Galeria, and Cartas have separate page responsibilities", async () =
   assert.match(home, /storiesMarkup/);
   assert.match(home, /socialMarkup/);
   assert.doesNotMatch(home, /archivedCardsMarkup|loadArchivedCards/);
-  assert.match(gallery, /archiveGalleryMarkup/);
+  assert.match(gallery, /galleryExperienceMarkup/);
+  assert.match(gallery, /loadGalleryMedia/);
   assert.doesNotMatch(gallery, /socialMarkup|loadSocialData/);
   assert.match(letters, /archivedCardsMarkup/);
 });
