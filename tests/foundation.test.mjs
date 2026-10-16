@@ -115,10 +115,12 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /dialogPlayer\.removeAttribute\("src"\)/);
   assert.match(playlists, /youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(videoId\)\}/);
   assert.doesNotMatch(playlists, /youtube\.com\/playlist\?list=|Abrir no YouTube|target="_blank"/i);
-  assert.match(playlists, /Configure LOOPLY_YOUTUBE_API_KEY no projeto Vercel que publica esta URL/);
+  assert.match(playlists, /lista pesquisável ainda não está configurada no servidor/);
   assert.match(playlists, /data-youtube-retry/);
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
+  assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
+  assert.match(playlists, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
 });
@@ -135,6 +137,15 @@ test("the build emits all independent pages and their assets", async () => {
   for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
     await access(resolve(projectRoot, path));
   }
+});
+
+test("the YouTube API key is absent from the browser build", async () => {
+  const [config, clientModule, build] = await Promise.all([
+    read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs")
+  ]);
+  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}/);
+  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3/);
+  assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
 test("the activity center and profile preferences are persisted with recipient-only access", async () => {
@@ -184,24 +195,27 @@ test("conversations have their own route and real microphone recording flow", as
 test("YouTube playlist loading paginates, ignores unavailable videos, and explains API failures", async () => {
   const { fetchPlaylistItems, youtubeApiErrorMessage } = await import("../src/youtube-playlist.js");
   const requests = [];
-  const pages = [
-    { items: [{ snippet: { resourceId: { videoId: "abcdefghijk" }, title: "Faixa 1", position: 0, channelTitle: "Canal" } }], nextPageToken: "page-2" },
+  const pagesFromApi = [
+    { items: [{ videoId: "abcdefghijk", title: "Faixa 1", position: 0, channel: "Canal" }], nextPageToken: "page-2" },
     { items: [
-      { snippet: { resourceId: { videoId: "lmnopqrstuv" }, title: "Faixa 2", position: 1 } },
-      { snippet: { resourceId: { videoId: "zzzzzzzzzzz" }, title: "Deleted video", position: 2 } }
+      { videoId: "lmnopqrstuv", title: "Faixa 2", position: 1 },
+      { videoId: "zzzzzzzzzzz", title: "Deleted video", position: 2 }
     ] }
   ];
-  const tracks = await fetchPlaylistItems("playlist-id", "unit-test-key", async (url, options) => {
-    requests.push({ url: new URL(url), options });
-    return { ok: true, status: 200, json: async () => pages[requests.length - 1] };
+  const tracks = await fetchPlaylistItems("PLD5PXwJcU-Sg", "unit-test-token", async (url, options) => {
+    requests.push({ url: new URL(url, "https://looply.test"), options });
+    return { ok: true, status: 200, json: async () => pagesFromApi[requests.length - 1] };
   });
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url.searchParams.get("maxResults"), "50");
+  assert.equal(requests[0].url.pathname, "/api/youtube-playlist");
+  assert.equal(requests[0].url.searchParams.get("playlistId"), "PLD5PXwJcU-Sg");
+  assert.equal(requests[0].url.searchParams.has("key"), false);
+  assert.equal(requests[0].options.headers.authorization, "Bearer unit-test-token");
   assert.equal(requests[1].url.searchParams.get("pageToken"), "page-2");
   assert.deepEqual(tracks.map((track) => track.title), ["Faixa 1", "Faixa 2"]);
-  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "quotaExceeded" }] } }), /cota diária/i);
-  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "ipRefererBlocked" }] } }), /domínio/i);
-  assert.match(youtubeApiErrorMessage(403, { error: { errors: [{ reason: "accessNotConfigured" }] } }), /ative a YouTube Data API v3/i);
+  assert.match(youtubeApiErrorMessage(502, { error: "youtube_quota_exceeded", reason: "quotaExceeded" }), /cota diária/i);
+  assert.match(youtubeApiErrorMessage(502, { error: "youtube_key_rejected", reason: "ipRefererBlocked" }), /chave do servidor/i);
+  assert.match(youtubeApiErrorMessage(502, { error: "youtube_api_disabled", reason: "accessNotConfigured" }), /ative a YouTube Data API v3/i);
 });
 
 test("the mobile navigation remains outside the sticky header stacking context", async () => {
