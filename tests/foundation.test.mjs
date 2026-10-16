@@ -859,3 +859,15 @@ test("chat composer inserts selected emojis at the cursor", async () => {
   assert.match(chat, /emojiButton\.closest\("\[data-chat-send\]"\)/);
   assert.match(css, /\.chat-emoji-picker\[hidden\] \{ display: none; \}/);
 });
+
+
+test("chat conversations use the dedicated route and preload on interaction without mock data", async () => {
+  const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
+  assert.match(chat, /function prefetchConversationPage\(root\)/);
+  assert.match(chat, /hint\.rel = "prefetch"/);
+  assert.match(chat, /window\.location\.assign\(\x60conversa\.html\?id=/);
+  assert.match(chat, /client\.functions\.invoke\("looply-chat"/);
+  assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
+  assert.match(css, /\.page-chat \.chat-thread-panel \{ display: none; \}/);
+  assert.match(css, /max-height: calc\(100dvh - 360px\)/);
+});
