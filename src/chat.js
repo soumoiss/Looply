@@ -784,9 +784,19 @@ export function bindChatEvents(root, client, getUserId) {
 
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
-    const userId = getUserId?.();
-    if (!form || !client || !userId || form.dataset.sending === "true") return;
+    if (!form) return;
+
+    // Always suppress native form navigation for app forms, including duplicate submits.
+    // Otherwise a second tap during an in-flight send can reload the page and lose the draft.
     event.preventDefault();
+    const userId = getUserId?.();
+    if (!client || !userId) {
+      if (form.matches("form[data-chat-send]")) {
+        setStatus(form, "Sua sessão não está disponível. Entre novamente; o rascunho foi mantido.", "error");
+      }
+      return;
+    }
+    if (form.dataset.sending === "true") return;
     form.dataset.sending = "true";
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
@@ -828,8 +838,13 @@ export function bindChatEvents(root, client, getUserId) {
         await refreshChat(root, client, userId);
         await openConversation(root, client, data.conversationId, userId);
       } else {
-        const conversationId = form.dataset.conversationId;
+        const routeConversationId = root.dataset.conversationPage === "true"
+          ? new URLSearchParams(window.location.search).get("id")
+          : "";
+        const conversationId = String(form.dataset.conversationId || routeConversationId || activeConversationId || "").trim();
         if (!conversationId) throw new Error("conversation not selected");
+        // Keep the selected thread bound to the composer if Realtime refreshes the page state.
+        form.dataset.conversationId = conversationId;
         const files = selectedFiles(values);
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
@@ -875,7 +890,7 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
       else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
-      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Escolha uma conversa antes de enviar a mensagem. Seu texto continua no campo.";
+      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Abra uma conversa pela lista antes de enviar. Seu texto continua no campo.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
