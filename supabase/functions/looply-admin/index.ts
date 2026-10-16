@@ -293,6 +293,36 @@ Deno.serve(async (request: Request) => {
       }
     }
 
+    if (payload.action === "verify_archive_media_upload") {
+      const media = payload.media && typeof payload.media === "object" ? payload.media : {};
+      const storagePath = String(media.storage_path || "");
+      const expectedSize = Number(media.byte_size);
+      if (!/^legacy-archive\\/midia\\/(?:[^/]+|misol\\/[^/]+|yara\\/[^/]+)$/i.test(storagePath)
+          || !Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > 104_857_600) {
+        return respond(400, { error: "invalid_archive_media_upload_check" });
+      }
+
+      await recordAccess(service, authData.user.id, "read_requested", "archive_media", null, purpose, requestId,
+        { action: "verify_upload", storage_path: storagePath });
+      try {
+        const splitAt = storagePath.lastIndexOf("/");
+        const folder = storagePath.slice(0, splitAt);
+        const fileName = storagePath.slice(splitAt + 1);
+        const { data: objects, error } = await service.storage.from("looply-media").list(folder, { search: fileName, limit: 100 });
+        if (error) throw error;
+        const object = (objects || []).find((entry: any) => entry.name === fileName);
+        const byteSize = object ? Number(object.metadata?.size || 0) : null;
+        const exists = Boolean(object);
+        await recordAccess(service, authData.user.id, "read_completed", "archive_media", null, purpose, requestId,
+          { action: "verify_upload", exists, byte_size: byteSize, byte_size_matches: exists && byteSize === expectedSize });
+        return respond(200, { requestId, exists, byteSize });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "read_failed", "archive_media", null, purpose, requestId,
+          { action: "verify_upload", reason: errorMessage(error, "Storage upload check failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (payload.action === "register_archive_media") {
       const media = payload.media && typeof payload.media === "object" ? payload.media : {};
       const storagePath = String(media.storage_path || "");

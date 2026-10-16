@@ -175,6 +175,8 @@ async function uploadResumable(client, path, file, contentType, onProgress) {
   if (error || !token) throw new Error("A sessão administrativa expirou.");
   const configuredUrl = window.LOOPLY_CONFIG?.supabaseUrl;
   if (!configuredUrl) throw new Error("A configuração do Supabase não foi encontrada.");
+  const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
+  if (!publishableKey) throw new Error("A chave pública do Supabase não está configurada.");
   const projectUrl = new URL(configuredUrl);
   const endpoint = projectUrl.hostname.endsWith(".supabase.co")
     ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
@@ -185,7 +187,7 @@ async function uploadResumable(client, path, file, contentType, onProgress) {
     const upload = new tus.Upload(uploadFile, {
       endpoint,
       retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, apikey: publishableKey },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       chunkSize: 6 * 1024 * 1024,
@@ -198,14 +200,34 @@ async function uploadResumable(client, path, file, contentType, onProgress) {
   });
 }
 
-function classifyFailure(error) {
-  const message = String(error?.message || error || "");
-  if (/duplicate|already exists|alreadyexits|object.*exists|409/i.test(message)) return "O arquivo já existe no Storage; verificando o registro.";
-  return message.slice(0, 240) || "Falha sem detalhe retornado pelo serviço.";
+export function canReuseArchiveObjectAfterUploadFailure(uploadError, verification, expectedBytes) {
+  const expectedSize = Number(expectedBytes);
+  return Boolean(
+    uploadError
+    && Number.isSafeInteger(expectedSize)
+    && expectedSize > 0
+    && verification?.exists === true
+    && Number(verification.byteSize) === expectedSize
+  );
 }
 
-function isAlreadyExistsFailure(error) {
-  return /duplicate|already exists|alreadyexits|object.*exists|409/i.test(String(error?.message || error || ""));
+async function uploadArchiveFile(client, path, file, contentType, onProgress) {
+  if (file.size <= 6 * 1024 * 1024) {
+    const { error } = await client.storage.from("looply-media").upload(path, file, {
+      cacheControl: "3600",
+      contentType,
+      upsert: false
+    });
+    if (error) throw error;
+    onProgress(100);
+    return;
+  }
+  await uploadResumable(client, path, file, contentType, onProgress);
+}
+
+function classifyFailure(error) {
+  const message = String(error?.message || error || "");
+  return message.replace(/[\r\n\t]+/g, " ").slice(0, 240) || "Falha sem detalhe retornado pelo serviço.";
 }
 
 async function functionFailureMessage(error, data, fallback) {
@@ -323,12 +345,17 @@ export function bindArchiveImport(root, client) {
         }
         status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (0%)`;
         try {
-          await uploadResumable(client, item.storage_path, file, item.mime_type, (percentage) => {
+          await uploadArchiveFile(client, item.storage_path, file, item.mime_type, (percentage) => {
             status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (${percentage}%)`;
           });
         } catch (uploadError) {
-          if (!isAlreadyExistsFailure(uploadError)) throw new Error(classifyFailure(uploadError));
-          // The object may already have been uploaded in a previous attempt; register it below.
+          const { data: verification, error: verificationError } = await client.functions.invoke("looply-admin", {
+            body: { action: "verify_archive_media_upload", resourceType: "archive_media", purpose, media: item }
+          });
+          if (verificationError || !canReuseArchiveObjectAfterUploadFailure(uploadError, verification, item.byte_size)) {
+            const detail = await functionFailureMessage(verificationError, verification, "O Storage não confirmou o arquivo.");
+            throw new Error(`Upload não confirmado (${classifyFailure(uploadError)}). ${detail}`);
+          }
         }
         const { data, error } = await client.functions.invoke("looply-admin", {
           body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item }

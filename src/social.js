@@ -166,6 +166,18 @@ async function uploadResumable(client, path, file, onProgress) {
   const { data, error } = await client.auth.getSession();
   const accessToken = data?.session?.access_token;
   if (error || !accessToken) throw new Error("session expired");
+  const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
+  if (!publishableKey) throw new Error("Supabase publishable key is missing.");
+  if (file.size <= 6 * 1024 * 1024) {
+    const { error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "application/octet-stream",
+      upsert: false
+    });
+    if (uploadError) throw uploadError;
+    onProgress(100);
+    return;
+  }
   const projectUrl = new URL(window.LOOPLY_CONFIG.supabaseUrl);
   const endpoint = projectUrl.hostname.endsWith(".supabase.co")
     ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
@@ -175,7 +187,7 @@ async function uploadResumable(client, path, file, onProgress) {
     const upload = new tus.Upload(file, {
       endpoint,
       retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: { authorization: `Bearer ${accessToken}`, apikey: publishableKey },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       chunkSize: 6 * 1024 * 1024,

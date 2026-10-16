@@ -3,7 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
-import { processSequentially } from "../src/archive-import.js";
+import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -530,5 +530,21 @@ test("the admin screen connects the archive importer and audited archive comment
   assert.match(entry, /bindArchiveImport\(root, client\)/);
   assert.match(css, /archive-import-errors/);
 });
+test("an archive upload conflict is recoverable only when Storage confirms the exact object and size", () => {
+  const conflict = new Error("unexpected TUS response code: 409");
+  assert.equal(canReuseArchiveObjectAfterUploadFailure(conflict, { exists: false, byteSize: null }, 4096), false);
+  assert.equal(canReuseArchiveObjectAfterUploadFailure(conflict, { exists: true, byteSize: 4095 }, 4096), false);
+  assert.equal(canReuseArchiveObjectAfterUploadFailure(conflict, { exists: true, byteSize: 4096 }, 4096), true);
+  assert.equal(canReuseArchiveObjectAfterUploadFailure(null, { exists: true, byteSize: 4096 }, 4096), false);
+});
 
-
+test("all resumable uploads include the publishable key and archive retries use the server-side Storage check", async () => {
+  const [archive, social, chat, admin] = await Promise.all([
+    read("src/archive-import.js"), read("src/social.js"), read("src/chat.js"),
+    read("supabase/functions/looply-admin/index.ts")
+  ]);
+  for (const source of [archive, social, chat]) assert.match(source, /apikey: publishableKey/);
+  assert.match(archive, /client\.functions\.invoke\("looply-admin", \{[\s\S]*?verify_archive_media_upload/);
+  assert.match(admin, /payload\.action === "verify_archive_media_upload"/);
+  assert.match(admin, /service\.storage\.from\("looply-media"\)\.list\(folder/);
+});
