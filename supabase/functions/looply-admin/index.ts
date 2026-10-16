@@ -455,7 +455,14 @@ Deno.serve(async (request: Request) => {
           const expiresIn = requestedType === "archive_media" ? 300 : 1800;
           const { data: signed, error: signedError } = await service.storage.from(bucketId).createSignedUrls(bucketMedia.map((media: any) => media.storage_path), expiresIn);
           if (signedError) throw signedError;
-          bucketMedia.forEach((media: any, index: number) => { media.signed_url = signed?.[index]?.signedUrl || null; });
+          bucketMedia.forEach((media: any, index: number) => {
+            const signedUrl = signed?.[index]?.signedUrl || null;
+            media.signed_url = signedUrl;
+            if (requestedType === "archive_media") {
+              const archiveRow = rows.find((row: any) => row.id === media.id);
+              if (archiveRow) archiveRow.signed_url = signedUrl;
+            }
+          });
         }
       }
 
