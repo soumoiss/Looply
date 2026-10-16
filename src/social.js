@@ -162,7 +162,7 @@ function selectedCommentMedia(formData) {
   return files;
 }
 
-async function uploadResumable(client, path, file, onProgress) {
+export async function uploadResumable(client, path, file, onProgress) {
   const { data, error } = await client.auth.getSession();
   const accessToken = data?.session?.access_token;
   if (error || !accessToken) throw new Error("session expired");
@@ -202,7 +202,7 @@ async function uploadResumable(client, path, file, onProgress) {
 
 export async function loadSocialData(client) {
   const [peopleResult, postsResult] = await Promise.all([
-    client.from("profiles").select("id,username,display_name").order("username").limit(100),
+    client.from("profiles").select("id,username,display_name,profile_visibility").order("username").limit(100),
     loadPosts(client).then((posts) => ({ posts }), (error) => ({ error }))
   ]);
   return {
@@ -225,14 +225,17 @@ function feedMarkup(posts, error, userId) {
 }
 
 export function socialMarkup({ people, peopleError, posts, postsError }, userId) {
-  const recipients = people.map((person) =>
-    `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name)} · @${escapeHtml(person.username)}</option>`
+  const eligiblePeople = (people || []).filter((person) =>
+    person.id !== userId && person.profile_visibility !== "private"
+  );
+  const recipients = eligiblePeople.map((person) =>
+    `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
   ).join("");
   const peopleHint = peopleError
     ? `<span class="field-hint field-error">Não foi possível carregar os perfis. As publicações escolhidas ficarão indisponíveis até atualizar a página.</span>`
-    : people.length
-      ? `<span class="field-hint">Escolha de 1 a 20 perfis. Só as pessoas selecionadas terão acesso.</span>`
-      : `<span class="field-hint">Não há outros perfis disponíveis para compartilhar ainda.</span>`;
+    : eligiblePeople.length
+      ? `<span class="field-hint">Escolha de 1 a 20 perfis visíveis. Só as pessoas selecionadas terão acesso.</span>`
+      : `<span class="field-hint">Não há outros perfis visíveis para compartilhar ainda.</span>`;
 
   return `<section class="social-area" aria-labelledby="socialTitle">
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>

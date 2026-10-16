@@ -1,13 +1,13 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js";
+import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
 
-function renderWelcome(root, profile) {
+function renderWelcome(profile) {
   const name = String(profile.display_name || profile.username || "usuário");
   const avatar = profile.avatarUrl;
   const markup = `<section class="hero-panel home-welcome" aria-labelledby="homeWelcomeTitle">
     <div class="home-welcome-avatar" data-home-avatar aria-hidden="true"><span data-home-avatar-initial></span></div>
-    <div class="home-welcome-copy"><div class="eyebrow">Início</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Cartas e publicações</p></div>
+    <div class="home-welcome-copy"><div class="eyebrow">Início</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Feed</p></div>
     <a class="header-action home-profile-shortcut" href="perfil.html">Meu perfil</a>
   </section>`;
   const template = document.createElement("template");
@@ -28,22 +28,25 @@ function renderWelcome(root, profile) {
 }
 
 await mountAppPage({ page: "home", render: async ({ root, client, user, profile }) => {
-  const [socialResult, archiveResult] = await Promise.allSettled([
-    loadSocialData(client), loadArchivedCards(client, user.id)
+  const [socialResult, storiesResult] = await Promise.allSettled([
+    loadSocialData(client), loadStories(client)
   ]);
-  const data = socialResult.status === "fulfilled"
+  const socialData = socialResult.status === "fulfilled"
     ? socialResult.value
     : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
-  root.innerHTML = `${renderWelcome(root, profile)}${archivedCardsMarkup()}${socialMarkup(data, user.id)}`;
+  const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
+  const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
+  root.innerHTML = `${renderWelcome(profile)}${storiesMarkup(
+    stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
+  )}${socialMarkup(socialData, user.id)}`;
+  bindStories(root, client, user.id, stories, storiesError, profile);
   bindSocialEvents(root, client, () => user.id);
-  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value);
-  else {
-    console.error("Looply archive cards load failed", archiveResult.reason);
-    root.querySelector("[data-archived-cards]").innerHTML = `<p class="empty-state" role="alert">Não foi possível carregar as cartas agora.</p>`;
-    root.querySelector("[data-card-collection-note]").textContent = "Coleção indisponível";
-  }
+  setupStoriesRealtime(client, user.id, root);
   setupSocialRealtime(client, user.id, root);
-  window.addEventListener("pagehide", () => disposeSocialRealtime(client), { once: true });
+  window.addEventListener("pagehide", () => {
+    disposeStoriesRealtime(client, root);
+    disposeSocialRealtime(client);
+  }, { once: true });
 } });
 
 if (window.location.hash) {

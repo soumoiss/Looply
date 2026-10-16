@@ -25,6 +25,7 @@ jobs:
           node --check src/identities.js
           node --check src/profiles.js
           node --check src/social.js
+          node --check src/stories.js
           node --check src/music.js
           node --check src/chat.js
           node --check src/admin.js
@@ -51,6 +52,7 @@ jobs:
         run: |
           deno check --no-lock --config supabase/functions/looply-admin/deno.json supabase/functions/looply-admin/index.ts
           deno check --no-lock --config supabase/functions/looply-chat/deno.json supabase/functions/looply-chat/index.ts
+          deno check --no-lock --config supabase/functions/looply-stories-cleanup/deno.json supabase/functions/looply-stories-cleanup/index.ts
       - name: Build static site
         run: npm run build
       - name: Run security contract tests

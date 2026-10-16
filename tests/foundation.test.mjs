@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
+import { groupActiveStories } from "../src/stories.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -578,4 +579,48 @@ test("global navigation keeps the six core pages and puts profile tools in the a
   assert.match(runtime, /class="account-menu-link" href="usuarios\.html"/);
   assert.match(runtime, /data-sign-out/);
   assert.match(shared, /\.account-menu-popover/);
+});
+
+test("stories are grouped by author, sorted in sequence, and hidden at expiry", () => {
+  const now = Date.parse("2026-10-16T12:00:00.000Z");
+  const groups = groupActiveStories([
+    { id: "expired", author_id: "a", created_at: "2026-10-15T10:00:00.000Z", expires_at: "2026-10-16T11:00:00.000Z" },
+    { id: "a-later", author_id: "a", created_at: "2026-10-16T11:20:00.000Z", expires_at: "2026-10-16T12:20:00.000Z" },
+    { id: "b-one", author_id: "b", created_at: "2026-10-16T11:30:00.000Z", expires_at: "2026-10-16T12:30:00.000Z" },
+    { id: "a-first", author_id: "a", created_at: "2026-10-16T11:10:00.000Z", expires_at: "2026-10-16T12:10:00.000Z" },
+    { id: "fallback", author_id: "c", created_at: "2026-10-16T11:30:00.000Z" },
+    { id: "boundary", author_id: "d", created_at: "2026-10-16T11:00:00.000Z", expires_at: "2026-10-16T12:00:00.000Z" }
+  ], now);
+  assert.deepEqual(groups.map((group) => group.author_id), ["b", "c", "a"]);
+  assert.deepEqual(groups.find((group) => group.author_id === "a").stories.map((story) => story.id), ["a-first", "a-later"]);
+  assert.equal(groups.find((group) => group.author_id === "c").stories[0].expires_at, "2026-10-17T11:30:00.000Z");
+});
+
+test("Home, Galeria, and Cartas have separate page responsibilities", async () => {
+  const [home, gallery, letters] = await Promise.all([
+    read("assets/js/home.js"), read("assets/js/gallery.js"), read("assets/js/letters.js")
+  ]);
+  assert.match(home, /storiesMarkup/);
+  assert.match(home, /socialMarkup/);
+  assert.doesNotMatch(home, /archivedCardsMarkup|loadArchivedCards/);
+  assert.match(gallery, /archiveGalleryMarkup/);
+  assert.doesNotMatch(gallery, /socialMarkup|loadSocialData/);
+  assert.match(letters, /archivedCardsMarkup/);
+});
+
+test("24-hour stories use authenticated RLS and private Storage object authorization", async () => {
+  const names = await readdir(resolve(projectRoot, "supabase/migrations"));
+  const storyName = names.find((name) => name.endsWith("_stories_24h_private_media_realtime.sql"));
+  assert.ok(storyName);
+  const [migration, moduleSource, edgeConfig] = await Promise.all([
+    read("supabase/migrations/" + storyName), read("src/stories.js"),
+    read("supabase/config.toml")
+  ]);
+  assert.match(migration, /expires_at timestamptz not null default \(now\(\) \+ interval '24 hours'\)/i);
+  assert.match(migration, /stories_read_active_authorized[\s\S]*?expires_at > now\(\)/i);
+  assert.match(migration, /story_media_read_authorized[\s\S]*?private\.can_view_story/i);
+  assert.match(migration, /looply_media_read_authorized_story/i);
+  assert.match(migration, /alter publication supabase_realtime add table public\.stories/i);
+  assert.match(moduleSource, /looply-stories-cleanup/);
+  assert.match(edgeConfig, /\[functions\.looply-stories-cleanup\][\s\S]*?verify_jwt = true/);
 });

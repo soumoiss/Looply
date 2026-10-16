@@ -1,22 +1,22 @@
 import { mountAppPage } from "../../src/page-runtime.js";
-import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { archiveGalleryMarkup, bindArchiveGallery, loadArchiveMedia } from "../../src/gallery-archive.js";
 
 await mountAppPage({ page: "gallery", render: async ({ root, client, user, profile }) => {
-  const [socialResult, archiveResult] = await Promise.allSettled([
-    loadSocialData(client), loadArchiveMedia(client)
-  ]);
-  const data = socialResult.status === "fulfilled"
-    ? socialResult.value
-    : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
-  const archiveMedia = archiveResult.status === "fulfilled" ? archiveResult.value : [];
-  root.innerHTML = `${archiveGalleryMarkup(archiveMedia)}${socialMarkup(data, user.id)}`;
-  if (archiveResult.status === "rejected") {
-    console.error("Looply archive gallery load failed", archiveResult.reason);
-    root.querySelector(".archive-media-empty").textContent = "Não foi possível carregar o acervo de mídias.";
+  let archiveMedia = [];
+  let archiveLoadFailed = false;
+  try {
+    archiveMedia = await loadArchiveMedia(client);
+  } catch (error) {
+    archiveLoadFailed = true;
+    console.error("Looply archive gallery load failed", error);
   }
-  bindSocialEvents(root, client, () => user.id);
+  root.innerHTML = archiveGalleryMarkup(archiveMedia);
+  if (archiveLoadFailed) {
+    const message = root.querySelector(".archive-media-empty");
+    if (message) {
+      message.textContent = "Não foi possível carregar o acervo de mídias.";
+      message.setAttribute("role", "alert");
+    }
+  }
   bindArchiveGallery(root, client, user, archiveMedia, profile);
-  setupSocialRealtime(client, user.id, root);
-  window.addEventListener("pagehide", () => disposeSocialRealtime(client), { once: true });
 } });

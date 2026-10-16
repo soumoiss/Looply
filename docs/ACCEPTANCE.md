@@ -1,6 +1,6 @@
 # Roteiro de aceitação do Looply
 
-Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, as migrações aditivas de preferências/notificações e conversas em grupo foram aplicadas no Supabase; `looply-admin` e `looply-chat` estavam nas versões 7 e 3. Ainda não houve importação do acervo nem testes completos de navegador com contas reais. O GitHub Actions para o código do commit `b2e5204` passou com 34 testes; os quatro checks Vercel também reportaram sucesso para `9abaf80`. A checagem visual da prévia em 390 px confirmou as seis abas, o menu da conta e o formulário de grupo. O último commit documental `b56d8d7` ainda estava com checks pendentes na última consulta. Build verde e testes automatizados não comprovam integração ponta a ponta.
+Este roteiro registra 36 fluxos para validar a aplicação completa. Em 16 de outubro de 2026, o projeto Supabase `qixocgetiwlrsbadpbvh` contém a migration de stories de 24 horas; `looply-admin` e `looply-chat` estavam nas versões 7 e 3 na última verificação. O acervo de cartas permanece no banco e os arquivos antigos ainda dependem de importação. O commit anterior passou no GitHub Actions com 34 testes; esta revisão acrescenta três testes e seu resultado será confirmado no check do novo commit. Não houve teste completo de stories com duas contas nem expiração real no navegador. Build e testes automatizados não comprovam integração ponta a ponta.
 
 ## Preparação
 
@@ -47,6 +47,10 @@ Este roteiro registra 33 fluxos para validar a aplicação completa. Em 16 de ou
 | 31 | Abra uma conversa em desktop e celular e confira avatar, nome, prévia, horário, não lidas e mensagens antigas. | Lista e rota individual distinguem conversas, protegem IDs inválidos e preservam a rolagem no histórico paginado. | Implementado no branch; navegador pendente |
 |32 | Crie um grupo com nome e pelo menos duas outras contas; abra-o nas duas sessões e envie texto e anexo. | Cada integrante autorizado vê o título, os participantes, as mensagens, os anexos e as notificações; contas fora do grupo não conseguem ler nenhum desses dados. | Formulário conferido na prévia; criação, isolamento e teste entre sessões pendentes |
 |33 | No menu do avatar, abra Perfil, Pessoas e Configurações e use a navegação principal em celular. | As seis abas principais permanecem visíveis e o perfil, a busca de pessoas, as configurações e a administração ficam acessíveis no menu da conta. | Passou para navegação/menu em 390 px, sem overflow horizontal; demais fluxos pendentes |
+
+| 34 | Publique um story público e abra-o com outra conta autenticada; confira foto, vídeo, texto e lista de stories. | O conteúdo aparece apenas para membros autenticados, o player permanece dentro do app e a posição segue a ordem dos stories. | Não executado |
+| 35 | Publique stories privados e para pessoas escolhidas; tente acessar como remetente, destinatário permitido e uma terceira conta. | O autor e os destinatários permitidos veem o conteúdo; terceiros não obtêm metadados, URL assinada nem arquivo direto. | Não executado |
+| 36 | Confira Home, Cartas e Galeria com o acervo já existente. | Home contém boas-vindas, stories e feed; Cartas continua exibindo cartas arquivadas; Galeria contém o acervo e comentários, sem duplicar publicações do feed. | Teste estrutural automatizado; validação visual pendente |
 
 ## Registro e critério de conclusão
 

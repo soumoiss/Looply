@@ -61,8 +61,12 @@ O Supabase remoto usa URL e redirecionamento do site; o cadastro público fica d
 7. **Páginas e navegação:** páginas próprias de conversa, cartas, notificações, usuários e configurações; navegação global e rotas diretas.
 8. **Integração:** testar com as contas existentes, em especial isolamento entre duas sessões, gravação de áudio, anexos, sincronização de preferências/notificações entre dispositivos e falhas de rede; revisar visualmente em dispositivos móveis.
 
+## Stories
+
+A Home apresenta stories em ordem de atualização, com texto opcional, uma foto ou vídeo, audiência pública, privada ou selecionada e expiração após 24 horas. A visibilidade é aplicada por RLS no banco e no bucket privado; URLs assinadas são emitidas somente depois de a consulta autorizada retornar os metadados. O armazenamento é limpo em lotes de até 100 stories quando a Home é aberta ou um story vence. Essa limpeza é oportunista, não um cron de fundo; a expiração de acesso não depende dela.
+
 ## Limitações conhecidas desta etapa
 
-O Supabase remoto registra 21 migrations aplicadas. `looply-admin` e `looply-chat` estavam ativas nas versões 6 e 2 na última consulta. Há quatro contas Auth com perfis correspondentes; Peixinho está no grupo administrativo. Preferências de perfil e notificações sociais agora têm esquema e RLS aditivos. Os buckets são privados; nenhuma carta ou mídia do acervo antigo foi importada ainda. Build e 26 testes automatizados passaram localmente. A prévia Vercel precisa voltar a gerar build; os fluxos de navegador, a comparação por screenshots e a validação móvel continuam pendentes.
+O Supabase remoto registra 26 migrations aplicadas, incluindo stories com expiração de 24 horas. `looply-admin` e `looply-chat` estavam ativas nas versões 7 e 3 na última consulta. Há quatro contas Auth com perfis correspondentes; Peixinho está no grupo administrativo. Preferências de perfil e notificações sociais agora têm esquema e RLS aditivos. Os buckets são privados; nenhuma carta ou mídia do acervo antigo foi importada ainda. A branch anterior passou no GitHub Actions com 34 testes; a revisão de stories adiciona três testes automatizados, cujo resultado deve ser confirmado no check do commit atualizado. A prévia Vercel precisa voltar a gerar build e a variável de API do YouTube ainda precisa ser configurada no ambiente Preview do projeto correto; os fluxos de navegador, a comparação por screenshots e a validação móvel continuam pendentes.
 
 

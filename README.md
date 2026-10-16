@@ -5,11 +5,11 @@ Reconstrução independente do Looply com uma página HTML por área e Supabase 
 ## Páginas
 
 - `login.html`: tela antiga de login, com a mesma estrutura e folha visual.
-- `home.html`: coleção de cartas antigas, leitura, filtros, calendário e feed social.
-- `galeria.html`: acervo antigo privado, visualizador de fotos/vídeos/áudio, comentários e feed social.
+- `home.html`: boas-vindas com foto do perfil, stories com expiração em 24 horas e feed social.
+- `galeria.html`: acervo antigo privado, visualizador de fotos/vídeos/áudio e comentários. Publicações sociais ficam no Início.
 - `musicas.html`: playlist do YouTube conforme o usuário, dedicatórias e comentários.
 - `chat.html` e `conversa.html`: lista de conversas e uma rota própria por conversa; anexos e gravação de áudio.
-- `cartas.html`: coleção de cartas arquivadas e lista de cartas privadas trocadas com Peixinho.
+- `cartas.html`: coleção de cartas arquivadas e lista de cartas privadas trocadas com Peixinho; o acervo antigo permanece nesta área.
 - `notificacoes.html`: atividade persistente de posts, comentários, respostas, dedicatórias, mensagens e cartas.
 - `usuarios.html`: busca de perfis visíveis e acesso ao perfil ou chat.
 - `perfil.html`: edição do nome de exibição, foto, biografia e privacidade; consulta de outros perfis.
@@ -37,7 +37,7 @@ As migrações em `supabase/migrations/` definem tabelas, relacionamentos, bucke
 
 ## Conteúdo antigo e itens ainda pendentes
 
-A cópia local de referência contém 97 cartas (47 Misol, 42 Patati e 8 Yara) e 256 caminhos únicos de mídia catalogados (209 referências comuns e 48 exclusivas, com uma repetida entre as listas). A migração de esquema já foi aplicada ao projeto Supabase; os buckets continuam privados e os objetos do acervo ainda não foram enviados. A aplicação inclui importação auditada no painel de Peixinho. As cartas são enviadas individualmente à Edge Function; cada mídia é enviada separadamente ao Storage por TUS em blocos de 6 MiB e só depois registrada pela função com seus metadados. Itens ausentes, inválidos ou rejeitados são contabilizados e ignorados para que os demais continuem. O build não publica cartas nem arquivos de mídia.
+A cópia local de referência contém 97 cartas (47 Misol, 42 Patati e 8 Yara) e 256 caminhos únicos de mídia catalogados (209 referências comuns e 48 exclusivas, com uma repetida entre as listas). O esquema das cartas arquivadas já foi aplicado ao projeto Supabase; os buckets continuam privados e os objetos do acervo ainda não foram enviados. A migration `20261016120549_stories_24h_private_media_realtime` acrescentou stories de 24 horas, regras de destinatários, Storage privado e Realtime sem alterar as cartas existentes. A aplicação inclui importação auditada no painel de Peixinho. As cartas são enviadas individualmente à Edge Function; cada mídia é enviada separadamente ao Storage por TUS em blocos de 6 MiB e só depois registrada pela função com seus metadados. Itens ausentes, inválidos ou rejeitados são contabilizados e ignorados para que os demais continuem. Os stories expirados deixam de ser consultáveis no banco e no Storage pelas políticas RLS. A remoção física dos dados expirados é feita em lotes de até 100 itens quando alguém abre a Home ou quando um story expira; não existe cron configurado para limpar o banco quando ninguém acessa o app. O build não publica cartas nem arquivos de mídia.
 
 Para importar o acervo, extraia `Loooply-main.zip` em uma pasta local. Depois que a atualização do branch estiver na prévia Vercel, entre como Peixinho, abra Administração, informe um motivo com pelo menos 20 caracteres, escolha a pasta extraída completa `Loooply-main` e inicie a importação. O processo lê as cartas e o catálogo local no navegador e envia os arquivos ao bucket privado. Ele usa somente os caminhos catalogados, preserva as audiências exclusivas e as descrições `MSG_*.txt` junto às mídias; mídias catalogadas que não estiverem na pasta selecionada são ignoradas, sem bloquear as cartas e demais arquivos disponíveis. Uma falha em uma carta ou mídia é mostrada no resumo e não interrompe o processamento dos itens seguintes. Nenhuma senha de conta, carta ou chave privada entra no repositório. Repita a importação para retomar falhas.
 
