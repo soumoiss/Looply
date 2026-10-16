@@ -823,9 +823,8 @@ test("archive permission administration uses the active authenticated atomic RPC
 
 
 test("chat editing and deletion use the authenticated author's existing RLS and clean attached files", async () => {
-  const [chat, migration, storageMigration] = await Promise.all([
+  const [chat, migration] = await Promise.all([
     read("src/chat.js"),
-    read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql"),
     read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql")
   ]);
   assert.match(chat, /data-chat-edit/);
@@ -835,5 +834,5 @@ test("chat editing and deletion use the authenticated author's existing RLS and 
   assert.match(chat, /storage\.from\("looply-chat"\)\.remove\(paths\)[\s\S]*?\.delete\(\)\.eq\("id", messageId\)\.eq\("sender_id", userId\)/);
   assert.match(migration, /chat_messages_update_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /chat_messages_delete_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/i);
-  assert.match(storageMigration, /looply_chat_delete_own_message[\\s\\S]*?message\\.sender_id = \\(select auth\\.uid\\(\\)\\)/i);
+  assert.match(migration, /looply_chat_delete_own_message[\s\S]*?message\.sender_id = \(select auth\.uid\(\)\)/i);
 });
