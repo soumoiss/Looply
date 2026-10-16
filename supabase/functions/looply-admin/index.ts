@@ -281,19 +281,19 @@ Deno.serve(async (request: Request) => {
       if (requestedType !== "archive_media" || !uuidPattern.test(mediaId)
           || !["members", "exclusive"].includes(visibility)
           || !["viewers", "selected", "disabled"].includes(commentAccess)
-          || viewerIds.length > 500 || commenterIds.length > 500
+          || viewerIds.length > 100 || commenterIds.length > 100
           || [...viewerIds, ...commenterIds].some((id) => !uuidPattern.test(id))) {
         return respond(400, { error: "invalid_archive_media_access" });
       }
       await recordAccess(service, authData.user.id, "write_requested", "archive_media", mediaId, purpose, requestId,
         { action: "set_media_access", visibility, viewer_count: viewerIds.length, comment_access: commentAccess, commenter_count: commenterIds.length });
       try {
-        const { error } = await service.rpc("set_looply_archive_media_access", {
-          p_actor_id: authData.user.id,
+        const { error } = await userClient.rpc("set_gallery_media_permissions", {
+          p_source: "archive",
           p_media_id: mediaId,
           p_visibility: visibility,
-          p_viewer_ids: viewerIds,
           p_comment_access: commentAccess,
+          p_viewer_ids: viewerIds,
           p_commenter_ids: commenterIds
         });
         if (error) throw error;
