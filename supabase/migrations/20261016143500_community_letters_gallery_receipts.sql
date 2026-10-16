@@ -140,7 +140,7 @@ begin
   where object.bucket_id = 'looply-gallery' and object.name = new.storage_path;
   if object_size is null then raise exception 'Uploaded gallery object is missing or has invalid size' using errcode = '23503'; end if;
   if object_size <> new.byte_size then raise exception 'Gallery object size does not match metadata' using errcode = '23514'; end if;
-  if object_size > case when private.is_admin() then 209715200 else 104857600 end then
+  if object_size > (case when private.is_admin() then 209715200 else 104857600 end) then
     raise exception 'Gallery upload exceeds the role limit' using errcode = '23514';
   end if;
   return new;
