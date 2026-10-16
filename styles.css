@@ -630,9 +630,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .archive-media-heading h2 { margin: 5px 0 0; font-size: clamp(20px, 3vw, 28px); letter-spacing: -.04em; }
 .archive-media-heading > span { color: var(--muted); font-size: 9px; }
 .archive-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 9px; }
-.archive-media-tile { min-width: 0; display: grid; grid-template-rows: minmax(110px, 1fr) auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; color: var(--text); background: var(--surface); cursor: pointer; text-align: left; transition: transform .16s ease, box-shadow .16s ease; }
+.archive-media-tile { position: relative; min-width: 0; display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; color: var(--text); background: var(--surface); transition: transform .16s ease, box-shadow .16s ease; }
 .archive-media-tile:hover { transform: translateY(-2px); box-shadow: 0 9px 24px color-mix(in srgb, var(--primary) 12%, transparent); }
-.archive-media-tile > img { display: block; width: 100%; height: 150px; object-fit: cover; background: var(--surface-soft); }
+.archive-media-open { width: 100%; display: grid; grid-template-rows: minmax(110px, 1fr) auto; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
+.archive-media-open > img { display: block; width: 100%; height: 150px; object-fit: cover; background: var(--surface-soft); }
+.archive-media-open:focus-visible { outline-offset: -3px; }
 .archive-media-placeholder { min-height: 150px; display: grid; place-items: center; color: var(--muted); background: var(--surface-soft); font-size: 11px; }
 .archive-media-caption { min-width: 0; display: grid; gap: 4px; padding: 8px 9px; }
 .archive-media-caption strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
@@ -675,7 +677,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .archive-media-unavailable { margin: auto; padding: 15px; color: #fff; font-size: 10px; }
 @media (max-width: 760px) {
   .archive-media-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 7px; }
-  .archive-media-tile > img, .archive-media-placeholder { height: 122px; min-height: 122px; }
+  .archive-media-open > img, .archive-media-placeholder { height: 122px; min-height: 122px; }
   .archive-viewer { padding: 0; }
   .archive-viewer-dialog { width: 100%; max-height: 100dvh; height: 100dvh; border-radius: 0; }
   .archive-viewer-layout { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 1fr) minmax(190px, .72fr); overflow: auto; }
