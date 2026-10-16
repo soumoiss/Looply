@@ -642,3 +642,22 @@ test("post and story media metadata changes trigger realtime refreshes", async (
   assert.match(migration, /alter publication supabase_realtime add table public\.post_media/i);
   assert.match(migration, /alter publication supabase_realtime add table public\.story_media/i);
 });
+
+test("feed media paths are registered for rollback before upload starts", async () => {
+  const source = await read("src/social.js");
+  const indexesOf = (needle) => {
+    const positions = [];
+    let offset = 0;
+    while (true) {
+      const position = source.indexOf(needle, offset);
+      if (position === -1) return positions;
+      positions.push(position);
+      offset = position + needle.length;
+    }
+  };
+  const paths = indexesOf("uploadedPaths.push(path);");
+  const uploads = indexesOf("await uploadResumable(client, path, file");
+  assert.equal(paths.length, 2);
+  assert.equal(uploads.length, 2);
+  paths.forEach((position, index) => assert.ok(position < uploads[index] && uploads[index] - position < 100));
+});

@@ -381,10 +381,10 @@ export function bindSocialEvents(root, client, getUserId) {
           const mediaId = crypto.randomUUID();
           const path = `posts/${createdPostId}/${mediaId}.${extension}`;
           setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: 0%`);
+          uploadedPaths.push(path);
           await uploadResumable(client, path, file, (percentage) => {
             setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`);
           });
-          uploadedPaths.push(path);
           const { error: mediaError } = await client.from("post_media").insert({
             post_id: createdPostId,
             storage_path: path,
@@ -409,8 +409,8 @@ export function bindSocialEvents(root, client, getUserId) {
         for (const [index, file] of files.entries()) {
           const path = `comments/${postId}/${comment.id}/${crypto.randomUUID()}.${mediaExtensions.get(file.type)}`;
           setStatus(form, `Enviando anexo ${index + 1} de ${files.length}: 0%`);
-          await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando anexo ${index + 1} de ${files.length}: ${percentage}%`));
           uploadedPaths.push(path);
+          await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando anexo ${index + 1} de ${files.length}: ${percentage}%`));
           const { error: mediaError } = await client.from("comment_media").insert({
             comment_id: comment.id, post_id: postId, storage_path: path, mime_type: file.type, byte_size: file.size
           });
