@@ -22,7 +22,6 @@ export function playlistMarkup(profile) {
   const id = playlistIdFor(profile.username);
   const title = escapeHtml(profile.display_name || profile.username || "Usuário");
   const embed = `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&listType=playlist`;
-  const page = `https://www.youtube.com/playlist?list=${encodeURIComponent(id)}`;
   return `<section class="panel youtube-playlist" aria-labelledby="youtubePlaylistTitle" data-youtube-playlist="${escapeHtml(id)}">
     <div class="eyebrow">Playlist de ${title}</div><h2 id="youtubePlaylistTitle">Playlist</h2>
     <div class="youtube-playlist-layout">
@@ -31,11 +30,15 @@ export function playlistMarkup(profile) {
         <div class="youtube-track-heading"><h3>Músicas</h3><span data-youtube-track-count></span></div>
         <label class="visually-hidden" for="youtubeTrackSearch">Buscar na playlist</label>
         <input id="youtubeTrackSearch" class="youtube-track-search" type="search" maxlength="100" placeholder="Buscar música" data-youtube-track-search>
-        <p class="youtube-track-status" data-youtube-track-status role="status" aria-live="polite">A lista completa está disponível no player do YouTube.</p>
+        <p class="youtube-track-status" data-youtube-track-status role="status" aria-live="polite">Carregando músicas…</p>
         <ol class="youtube-track-list" data-youtube-track-list aria-label="Faixas da playlist"></ol>
       </section>
     </div>
-    <a class="youtube-playlist-link" href="${page}" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a>
+    <dialog class="youtube-track-dialog" data-youtube-track-dialog aria-labelledby="youtubeTrackDialogTitle">
+      <div class="youtube-track-dialog-heading"><div><span class="section-kicker">Playlist</span><h2 id="youtubeTrackDialogTitle" data-youtube-dialog-title></h2><p data-youtube-dialog-channel></p></div>
+        <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">×</button></div>
+      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </dialog>
   </section>`;
 }
 
@@ -91,12 +94,16 @@ export async function bindYouTubePlaylist(root) {
   const search = playlist?.querySelector("[data-youtube-track-search]");
   const count = playlist?.querySelector("[data-youtube-track-count]");
   const player = playlist?.querySelector(".youtube-playlist-player");
+  const dialog = playlist?.querySelector("[data-youtube-track-dialog]");
+  const dialogPlayer = dialog?.querySelector("[data-youtube-dialog-player]");
+  const dialogTitle = dialog?.querySelector("[data-youtube-dialog-title]");
+  const dialogChannel = dialog?.querySelector("[data-youtube-dialog-channel]");
   if (!playlist || !list || !status || !player) return;
 
   const playlistId = playlist.dataset.youtubePlaylist;
   const apiKey = playlistApiKey();
   if (!apiKey) {
-    status.textContent = "Use os controles do player para ver todas as músicas. A lista nesta página precisa da chave restrita da YouTube Data API v3.";
+    status.textContent = "A lista de faixas precisa da chave restrita da YouTube Data API v3. O player da playlist continua disponível nesta página.";
     return;
   }
 
@@ -119,14 +126,34 @@ export async function bindYouTubePlaylist(root) {
     };
     render();
     search?.addEventListener("input", () => render(search.value));
+    const closeDialog = () => {
+      if (dialog?.open) dialog.close();
+      else if (dialogPlayer) dialogPlayer.removeAttribute("src");
+    };
+    dialog?.querySelector("[data-youtube-dialog-close]")?.addEventListener("click", closeDialog);
+    dialog?.addEventListener("click", (event) => {
+      if (event.target === dialog) closeDialog();
+    });
+    dialog?.addEventListener("close", () => dialogPlayer?.removeAttribute("src"));
+
     list.addEventListener("click", (event) => {
       const button = event.target.closest("[data-youtube-track]");
       if (!button) return;
       list.querySelectorAll("[data-youtube-track]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
       const videoId = button.dataset.youtubeTrack;
-      player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&list=${encodeURIComponent(playlistId)}&listType=playlist`;
+      const track = tracks.find((item) => item.videoId === videoId);
+      if (dialog && dialogPlayer && typeof dialog.showModal === "function") {
+        if (dialogTitle) dialogTitle.textContent = track?.title || "Música";
+        if (dialogChannel) dialogChannel.textContent = track?.channel || "";
+        dialogPlayer.title = `Reprodutor: ${track?.title || "música"}`;
+        const params = new URLSearchParams({ autoplay: "1", playsinline: "1", rel: "0", list: playlistId });
+        dialogPlayer.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params}`;
+        if (!dialog.open) dialog.showModal();
+      } else {
+        player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&list=${encodeURIComponent(playlistId)}`;
+      }
     });
   } catch {
-    status.textContent = "Não foi possível carregar a lista. Confira a chave restrita da YouTube Data API v3; o player continua disponível.";
+    status.textContent = "Não foi possível carregar a lista de faixas. Confira a chave restrita da YouTube Data API v3; o player continua disponível nesta página.";
   }
 }

@@ -101,13 +101,19 @@ test("separate pages keep the original login, navigation, five themes, and respo
   assert.match(readme, /supabase\/migrations/);
 });
 
-test("the account-specific YouTube playlists include the Peixinho playlist", async () => {
+test("account playlists play tracks in an in-app dialog and never link out to YouTube", async () => {
   const [playlists, musicPage] = await Promise.all([read("src/youtube-playlist.js"), read("musicas.html")]);
   assert.match(playlists, /peixinho:\s*"PLD5PXwJcU-Sg"/);
   assert.match(playlists, /PLUZFdmgmipvI/);
   assert.match(playlists, /PLCn4CAsA_tiM/);
   assert.match(playlists, /PLE0tcB0gaSzM/);
   assert.match(playlists, /youtube-nocookie\.com\/embed\/videoseries/);
+  assert.match(playlists, /<dialog[^>]*data-youtube-track-dialog/);
+  assert.match(playlists, /dialog\.showModal\(\)/);
+  assert.match(playlists, /dialogPlayer\.removeAttribute\("src"\)/);
+  assert.match(playlists, /youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(videoId\)\}/);
+  assert.doesNotMatch(playlists, /youtube\.com\/playlist\?list=|Abrir no YouTube|target="_blank"/i);
+  assert.match(playlists, /A lista de faixas precisa da chave restrita da YouTube Data API v3/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
 });
@@ -162,6 +168,12 @@ test("conversations have their own route and real microphone recording flow", as
   assert.match(chat, /bucketName: "looply-chat"/);
   assert.match(chat, /data-chat-open/);
   assert.match(css, /page-conversation/);
+});
+
+test("the mobile navigation remains outside the sticky header stacking context", async () => {
+  const sharedCss = await read("assets/css/pages/shared.css");
+  assert.match(sharedCss, /@media \(max-width: 760px\)[\s\S]*?\.looply-page \.page-header \{[^}]*backdrop-filter: none/);
+  assert.match(sharedCss, /\.looply-page \.page-navigation \{ position: fixed;[\s\S]*?bottom: calc\(7px \+ env\(safe-area-inset-bottom\)\)/);
 });
 
 test("the social schema scopes posts and comments to the post audience", async () => {

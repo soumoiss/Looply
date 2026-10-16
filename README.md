@@ -16,7 +16,7 @@ Reconstrução independente do Looply com uma página HTML por área e Supabase 
 - `configuracoes.html`: tema, fonte e tamanho de texto sincronizados no perfil do Supabase.
 - `admin.html`: consultas administrativas auditadas e importação do acervo antigo, somente para Peixinho.
 
-As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML, JavaScript de entrada e folha CSS em `assets/css/pages/`. O player de cada playlist funciona sem chave da API. Para exibir também a relação pesquisável de faixas ao lado do player, configure `LOOPLY_YOUTUBE_API_KEY` no ambiente de build. O script injeta essa chave pública no bundle do navegador; restrinja-a à YouTube Data API v3 e aos domínios do app. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
+As páginas compartilham os módulos em `src/`, mas cada uma tem seu próprio HTML, JavaScript de entrada e folha CSS em `assets/css/pages/`. O player de cada playlist funciona sem chave da API, dentro do Looply. Quando a lista é carregada, tocar numa faixa abre um reprodutor sobreposto no próprio app; fechar o reprodutor interrompe a música e não redireciona a página. Para preencher a lista com todas as faixas e seus títulos, configure `LOOPLY_YOUTUBE_API_KEY` no ambiente de build. O script injeta essa chave pública no bundle do navegador; restrinja-a à YouTube Data API v3 e aos domínios do app. O ID enviado para Peixinho está em `src/youtube-playlist.js`.
 
 ## Configuração e execução
 
@@ -41,6 +41,19 @@ A cópia local de referência contém 97 cartas (47 Misol, 42 Patati e 8 Yara) e
 
 Para importar o acervo, extraia `Loooply-main.zip` em uma pasta local. Depois que a atualização do branch estiver na prévia Vercel, entre como Peixinho, abra Administração, informe um motivo com pelo menos 20 caracteres, escolha a pasta extraída completa `Loooply-main` e inicie a importação. O processo lê as cartas e o catálogo local no navegador e envia os arquivos ao bucket privado. Ele usa somente os caminhos catalogados, preserva as audiências exclusivas e as descrições `MSG_*.txt` junto às mídias; mídias catalogadas que não estiverem na pasta selecionada são ignoradas, sem bloquear as cartas e demais arquivos disponíveis. Nenhuma senha de conta, carta ou chave privada entra no repositório. Repita a importação para retomar falhas.
 
-O build e 26 testes automatizados passaram nesta revisão. Ainda faltam a importação real das cartas/mídias, testes de navegador com as quatro contas (incluindo duas sessões e isolamento de acesso), validação visual por screenshots, testes móveis e confirmação de todos os fluxos na prévia. A prévia Vercel estava bloqueada por `build-rate-limit` na última verificação. Build e testes automatizados não comprovam a operação ponta a ponta.
+Passo a passo da importação pelo app:
+
+1. Extraia o ZIP completo e localize a pasta `Loooply-main` que contém `data/midia-index.json`, a pasta `midia/` e os arquivos de cartas `.txt`.
+2. Abra a URL da prévia atualizada do Looply e entre com a conta administrativa Peixinho.
+3. Abra **Administração** na navegação.
+4. Na seção **Importar cartas e mídias antigas**, informe um motivo com pelo menos 20 caracteres (por exemplo, `Restaurar o acervo antigo do Looply para os usuários autorizados.`).
+5. No seletor **Pasta Loooply-main**, escolha a pasta extraída completa. O seletor de pasta do navegador incluirá os arquivos internos.
+6. Clique **Importar acervo** e aguarde os contadores de progresso e o resultado final. Mantenha a página aberta até terminar.
+7. Verifique **Cartas** e **Galeria** com cada conta autorizada. A importação ignora arquivos de mídia ausentes do índice/pasta; cartas e outros arquivos disponíveis continuam sendo importados.
+8. Se a rede cair ou houver erros de upload, volte ao painel e repita a importação com a mesma pasta; os registros/objetos já existentes são tratados para permitir retomada sem duplicação.
+
+A lista de músicas requer uma chave da YouTube Data API v3: no Google Cloud Console, selecione ou crie um projeto, ative **YouTube Data API v3**, crie uma chave de API e restrinja-a tanto à API quanto aos domínios da prévia e do domínio final do Looply. No projeto Vercel, adicione a variável `LOOPLY_YOUTUBE_API_KEY` com essa chave no ambiente **Preview** (e **Production** apenas quando for publicar) e faça um novo deployment. A chave fica visível ao navegador por ser uma chave pública; não a coloque em `service_role` nem a trate como segredo. Sem essa variável, o player incorporado funciona, mas a lista pesquisável não recebe títulos/itens da playlist.
+
+O build e os testes automatizados desta revisão validam a estrutura e os fluxos simulados da interface. Ainda faltam a importação real das cartas/mídias, testes de navegador com as quatro contas (incluindo duas sessões e isolamento de acesso), validação visual por screenshots, testes móveis e confirmação de todos os fluxos na prévia. Build e testes automatizados não comprovam a operação ponta a ponta.
 
 Para a publicação, use o branch/PR de trabalho no repositório `soumoiss/Looply`. Configure no Vercel Build Command `npm run build` e Output Directory `dist`. A prévia da PR deve ser validada antes de qualquer publicação em produção.

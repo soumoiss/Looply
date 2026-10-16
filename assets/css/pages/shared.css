@@ -21,7 +21,7 @@
   .looply-page .page-navigation::-webkit-scrollbar { display: none; }
   .looply-page .page-navigation .header-action { flex: 1 0 52px; min-width: 52px; min-height: 52px; flex-direction: column; gap: 3px; padding: 5px 6px; border-color: transparent; border-radius: 13px; background: transparent; box-shadow: none; font-size: 10px; }
   .looply-page .page-navigation [aria-current="page"] { background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong)); }
-  .looply-page .page-header { top: 5px; gap: 10px; }
+  .looply-page .page-header { top: 5px; gap: 10px; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .looply-page .container-page { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   .looply-account { margin-left: auto; }
 }
