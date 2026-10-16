@@ -1,5 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+type UntypedServiceClient = Omit<SupabaseClient<any, any, any, any, any>, "rpc"> & {
+  rpc: (...args: any[]) => Promise<any>;
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,7 +47,7 @@ Deno.serve(async (request: Request) => {
     if (authError || !authData.user) return respond(401, { errorCode: "session_invalid" });
 
     const payload = await request.json().catch(() => ({}));
-    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const service = createClient(projectUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } }) as UntypedServiceClient;
     if (payload.action === "create_direct") {
       const targetId = String(payload.targetId || "");
       if (!uuidPattern.test(targetId)) return respond(400, { errorCode: "invalid_target" });
