@@ -15,29 +15,63 @@ export async function loadMusicData(client, userId) {
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
       .order("created_at", { ascending: false }).limit(50),
     client.from("music_library").select("id,owner_id,title,artist,listen_url,note,created_at,updated_at")
-      .eq("owner_id", userId).order("created_at", { ascending: false }).limit(100)
+      .eq("owner_id", userId).order("created_at", { ascending: false }).limit(100),
+    client.from("music_track_comments").select("id,track_key,track_title,body,created_at")
+      .eq("author_id", userId).order("created_at", { ascending: true }).limit(300)
   ]);
+  const trackComments = trackCommentsResult.data || [];
+  const trackCommentsByKey = {};
+  for (const comment of trackComments) {
+    if (!trackCommentsByKey[comment.track_key]) trackCommentsByKey[comment.track_key] = [];
+    trackCommentsByKey[comment.track_key].push(comment);
+  }
   return {
     people: peopleResult.data || [],
     peopleError: peopleResult.error,
     dedications: dedicationsResult.data || [],
     dedicationsError: dedicationsResult.error,
     library: libraryResult.data || [],
-    libraryError: libraryResult.error
+    libraryError: libraryResult.error,
+    trackCommentsByKey,
+    trackCommentsError: trackCommentsResult.error
   };
 }
 
-function libraryMarkup(items, error) {
+function personalTrackCommentsMarkup(trackKey, title, commentsByKey = {}, loadError = null) {
+  const comments = commentsByKey[trackKey] || [];
+  const safeId = trackKey.replace(/[^a-zA-Z0-9_-]/g, "-");
+  const commentRows = loadError
+    ? '<p class="music-empty" role="alert">Não foi possível carregar os comentários.</p>'
+    : comments.length
+      ? comments.map((comment) => `<p class="music-track-comment"><span>${escapeHtml(comment.body)}</span><time>${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(comment.created_at)))}</time></p>`).join("")
+      : '<p class="music-empty">Nenhum comentário nesta música.</p>';
+  return `<section class="music-track-comments" aria-label="Comentários desta música">
+    <h4>Comentários desta música <span>${comments.length}</span></h4>
+    <div class="music-track-comment-list">${commentRows}</div>
+    <form class="music-track-comment-form" data-music-track-comment data-track-key="${escapeHtml(trackKey)}" data-track-title="${escapeHtml(title)}">
+      <label class="visually-hidden" for="track-comment-${escapeHtml(safeId)}">Comentário sobre ${escapeHtml(title)}</label>
+      <textarea id="track-comment-${escapeHtml(safeId)}" name="body" maxlength="2000" rows="2" required placeholder="Comentar esta música"></textarea>
+      <button class="text-button" type="submit">Salvar comentário</button>
+      <span class="form-status" data-status role="status" aria-live="polite"></span>
+    </form>
+  </section>`;
+}
+
+function libraryMarkup(items, error, commentsByKey = {}, commentsError = null) {
   if (error) return `<p class="music-error" role="alert">Não foi possível carregar sua coleção pessoal.</p>`;
   if (!items.length) return `<p class="music-empty">Sua coleção pessoal está vazia.</p>`;
-  return items.map((item) => `<article class="music-card music-library-card" data-library-track="${escapeHtml(item.id)}">
-    <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">Na sua coleção</span></div>
-    <h3>${escapeHtml(item.title)}</h3>${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
-    ${item.note ? `<p class="music-note">${escapeHtml(item.note)}</p>` : ""}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música <span aria-hidden="true">↗</span></a>
-    <button class="text-button" type="button" data-music-library-delete="${escapeHtml(item.id)}">Remover da minha coleção</button>
-    <span class="form-status" data-library-delete-status role="status" aria-live="polite"></span>
-  </article>`).join("");
+  return items.map((item) => {
+    const trackKey = "library:" + item.id;
+    return `<article class="music-card music-library-card" data-library-track="${escapeHtml(item.id)}">
+      <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">Na sua coleção</span></div>
+      <h3>${escapeHtml(item.title)}</h3>${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
+      ${item.note ? `<p class="music-note">${escapeHtml(item.note)}</p>` : ""}
+      <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música <span aria-hidden="true">↗</span></a>
+      ${personalTrackCommentsMarkup(trackKey, item.title, commentsByKey, commentsError)}
+      <button class="text-button" type="button" data-music-library-delete="${escapeHtml(item.id)}">Remover da minha coleção</button>
+      <span class="form-status" data-library-delete-status role="status" aria-live="polite"></span>
+    </article>`;
+  }).join("");
 }
 
 function personalLibraryMarkup(data) {
@@ -53,7 +87,7 @@ function personalLibraryMarkup(data) {
       <button class="text-button" type="submit">Salvar na minha coleção</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
-    <div class="music-list" data-music-library-list>${libraryMarkup(data.library, data.libraryError)}</div>
+    <div class="music-list" data-music-library-list>${libraryMarkup(data.library, data.libraryError, data.trackCommentsByKey, data.trackCommentsError)}</div>
   </details>`;
 }
 
@@ -178,7 +212,7 @@ export function bindMusicEvents(root, client, getUserId) {
   });
 
   root.addEventListener("submit", async (event) => {
-    const form = event.target.closest("form[data-music-library], form[data-music-send], form[data-music-comment]");
+    const form = event.target.closest("form[data-music-library], form[data-music-send], form[data-music-comment], form[data-music-track-comment]");
     if (!form || !client) return;
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -211,6 +245,17 @@ export function bindMusicEvents(root, client, getUserId) {
         if (error) throw error;
         form.reset();
         setStatus(form, "A dedicatória foi salva.");
+        await refreshMusic(root, client, userId);
+      } else if (form.matches("[data-music-track-comment]")) {
+        const trackKey = String(form.dataset.trackKey || "");
+        const trackTitle = String(form.dataset.trackTitle || "").trim();
+        if (!/^(youtube:[A-Za-z0-9_-]{11}|library:[0-9a-f-]{36})$/i.test(trackKey) || !trackTitle || trackTitle.length > 160 || !body || body.length > 2000) {
+          throw new Error("track-comment-fields");
+        }
+        const { error } = await client.from("music_track_comments").insert({
+          track_key: trackKey, track_title: trackTitle, body
+        });
+        if (error) throw error;
         await refreshMusic(root, client, userId);
       } else {
         const dedicationId = form.dataset.dedicationId;
