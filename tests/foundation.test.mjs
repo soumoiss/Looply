@@ -917,3 +917,20 @@ test("archive card import never counts an unconfirmed or zero-count response as 
   assert.match(importer, /O serviço não confirmou o registro desta carta/);
   assert.match(importer, /cardsImported \+= importedCount/);
 });
+
+test("letters and music keep their existing feature modules and responsive layouts", async () => {
+  const [lettersPage, lettersModule, lettersCss, musicPage, musicModule, musicCss] = await Promise.all([
+    read("cartas.html"), read("assets/js/letters.js"), read("assets/css/pages/letters.css"),
+    read("musicas.html"), read("assets/js/music.js"), read("assets/css/pages/music.css")
+  ]);
+  assert.match(lettersPage, /assets\\/js\\/letters\\.js/);
+  assert.match(lettersModule, /bindCommunityLetters/);
+  assert.match(lettersModule, /bindArchivedCards/);
+  assert.match(lettersModule, /loadWrittenLetters/);
+  assert.match(lettersCss, /@media\\s*\\(max-width:\\s*520px\\)/);
+  assert.match(musicPage, /assets\\/js\\/music\\.js/);
+  assert.match(musicModule, /bindYouTubePlaylist/);
+  assert.match(musicModule, /bindMusicTrackComments/);
+  assert.match(musicModule, /setupMusicRealtime/);
+  assert.match(musicCss, /@media\\s*\\(max-width:\\s*760px\\)/);
+});
