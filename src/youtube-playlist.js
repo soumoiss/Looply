@@ -98,64 +98,47 @@ function writePlaylistCache(playlistId, tracks) {
 }
 
 export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = globalThis.fetch) {
-  const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
-  const directYouTubeApi = Boolean(publicApiKey);
-  if (!directYouTubeApi && !String(accessToken || "").trim()) throw new Error("youtube-session-missing");
+  const token = String(accessToken || "").trim();
+  if (!token) throw new Error("youtube-session-missing");
   const items = [];
   let pageToken = "";
   for (let page = 0; page < 100; page += 1) {
-    const params = directYouTubeApi
-      ? new URLSearchParams({ part: "snippet,contentDetails", playlistId, maxResults: "50", key: publicApiKey })
-      : new URLSearchParams({ playlistId });
+    const params = new URLSearchParams({ playlistId });
     if (pageToken) params.set("pageToken", pageToken);
-    const requestUrl = (directYouTubeApi ? "https://www.googleapis.com/youtube/v3/playlistItems" : playlistApiUrl()) + "?" + params;
+    const requestUrl = playlistApiUrl() + "?" + params;
     let data = null;
     let lastFailure = null;
-
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
       try {
         const response = await fetchImpl(requestUrl, {
           credentials: "omit",
-          headers: directYouTubeApi
-            ? { accept: "application/json" }
-            : { accept: "application/json", authorization: "Bearer " + accessToken },
+          headers: { accept: "application/json", authorization: "Bearer " + token },
           signal: controller.signal
         });
         try { data = await response.json(); } catch { data = {}; }
-        if (response.ok) {
-          lastFailure = null;
-          break;
-        }
+        if (response.ok) { lastFailure = null; break; }
         const transient = [502, 503, 504].includes(response.status);
         if (!transient || attempt === 2) throw new Error(youtubeApiErrorMessage(response.status, data));
         lastFailure = new Error(youtubeApiErrorMessage(response.status, data));
       } catch (error) {
-        if (error?.name === "AbortError") {
-          lastFailure = new Error("youtube-playlist-timeout");
-        } else if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) {
-          throw error;
-        } else {
-          lastFailure = error;
-        }
-      } finally {
-        clearTimeout(timeout);
-      }
+        if (error?.name === "AbortError") lastFailure = new Error("youtube-playlist-timeout");
+        else if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) throw error;
+        else lastFailure = error;
+      } finally { clearTimeout(timeout); }
       if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (2 ** attempt)));
     }
     if (!data || lastFailure) {
       if (lastFailure?.message === "youtube-playlist-timeout") throw lastFailure;
       throw new Error("youtube-playlist-network-error");
     }
-
     for (const item of Array.isArray(data.items) ? data.items : []) {
       const videoId = String(item?.videoId || item?.snippet?.resourceId?.videoId || "");
       const title = String(item?.title || item?.snippet?.title || "").trim();
       if (!/^[A-Za-z0-9_-]{11}$/.test(videoId) || !title || title === "Private video" || title === "Deleted video") continue;
       items.push({
-        videoId,
-        title,
+        videoId, title,
         channel: String(item?.channel || item?.snippet?.videoOwnerChannelTitle || item?.snippet?.channelTitle || ""),
         position: Number.isInteger(item?.position) ? item.position : items.length,
         thumbnail: String(item?.thumbnail || ("https://i.ytimg.com/vi/" + encodeURIComponent(videoId) + "/hqdefault.jpg"))
@@ -166,7 +149,6 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
   }
   throw new Error("youtube-playlist-too-large");
 }
-
 function trackMarkup(track, index) {
   const number = String(index + 1);
   return `<li><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
@@ -218,14 +200,10 @@ export async function bindYouTubePlaylist(root, client) {
     loading = true;
     if (!tracks.length || retry) showStatus("Carregando músicas…");
     try {
-      const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
-      let accessToken = "";
-      if (!publicApiKey) {
-        const { data, error } = await client.auth.getSession();
-        if (error) throw new Error("youtube-session-unavailable");
-        accessToken = String(data?.session?.access_token || "");
-        if (!accessToken) throw new Error("youtube-session-missing");
-      }
+      const { data, error } = await client.auth.getSession();
+      if (error) throw new Error("youtube-session-unavailable");
+      const accessToken = String(data?.session?.access_token || "");
+      if (!accessToken) throw new Error("youtube-session-missing");
       const freshTracks = await fetchPlaylistItems(playlistId, accessToken);
       if (!playlist.isConnected) return;
       tracks = freshTracks;
