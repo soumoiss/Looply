@@ -358,7 +358,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: chatButton.dataset.chatStart } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error("conversation unavailable");
-        window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+        window.location.assign(`mensagens.html?id=${encodeURIComponent(data.conversationId)}`);
       } catch (error) {
         console.error("Looply profile conversation failed", error);
         chatButton.disabled = false;
