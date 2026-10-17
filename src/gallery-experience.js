@@ -31,35 +31,62 @@ export async function loadSharedGalleryComments(client,userId){
  if(archive.error)throw archive.error;if(community.error)throw community.error;
  return [...(archive.data||[]).map(x=>({...x,source:"archive"})),...(community.data||[]).map(x=>({...x,source:"community"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,50);
 }
-export function galleryExperienceMarkup(){return `<section class="gallery-command panel" aria-label="Pesquisar e organizar a galeria">
- <nav class="gallery-quick-actions" aria-label="Acessos rápidos da galeria">
- <div class="gallery-quick-types" role="group" aria-label="Filtrar mídias">
-  <button type="button" class="is-active" data-gallery-quick-type="all" aria-pressed="true">Tudo</button>
-  <button type="button" data-gallery-quick-type="image" aria-pressed="false">Fotos</button>
-  <button type="button" data-gallery-quick-type="video" aria-pressed="false">Vídeos</button>
-  <button type="button" data-gallery-quick-type="audio" aria-pressed="false">Áudios</button>
- </div>
- <div class="gallery-quick-tools" role="group" aria-label="Ferramentas">
-  <button type="button" data-gallery-quick-view="grid" aria-label="Visualização em grade">▦ <span>Grade</span></button>
-  <button type="button" data-gallery-quick-view="masonry" aria-label="Visualização em mosaico">▤ <span>Mosaico</span></button>
-  <button type="button" data-gallery-quick-view="list" aria-label="Visualização em lista">☷ <span>Lista</span></button>
-  <button type="button" data-gallery-quick-action="filters">☷ <span>Filtros</span></button>
-  <button type="button" data-gallery-quick-action="upload">＋ <span>Adicionar</span></button>
-  <button type="button" data-gallery-quick-action="comments">♡ <span>Comentários</span></button>
- </div>
-</nav>
-<div class="gallery-command-main"><label class="gallery-search"><span class="gallery-field-label">Pesquisar na galeria</span><span class="gallery-search-field"><span aria-hidden="true">⌕</span><input type="search" data-gallery-search placeholder="Buscar..." autocomplete="off"></span></label>
- <div class="gallery-field"><label class="gallery-field-label" for="galleryTypeFilter">Tipo de mídia</label><select class="select" id="galleryTypeFilter" data-gallery-type aria-label="Filtrar por tipo"><option value="all">Tudo</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="audio">Áudios</option></select></div>
- <div class="gallery-field"><label class="gallery-field-label" for="gallerySort">Organizar por</label><select class="select" id="gallerySort" data-gallery-sort aria-label="Ordenar"><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="title">Nome</option><option value="random">Aleatório</option></select></div></div>
- <div class="gallery-command-footer"><label class="gallery-check"><input type="checkbox" data-gallery-exclusive><span>Somente exclusivas</span></label><div class="gallery-view-switch" role="group" aria-label="Modo de visualização"><button type="button" data-gallery-view="grid" aria-pressed="true"><span aria-hidden="true">▦</span> Grade</button><button type="button" data-gallery-view="list" aria-pressed="false"><span aria-hidden="true">☷</span> Lista</button><button type="button" data-gallery-view="masonry" aria-pressed="false"><span aria-hidden="true">▤</span> Mosaico</button></div><span class="gallery-result-count" data-gallery-count aria-live="polite"></span></div></section>
- <section class="gallery-library" aria-label="Galeria"><div class="gallery-grid" data-gallery-grid></div><p class="gallery-empty" data-gallery-empty><strong>Nenhuma mídia encontrada.</strong><button class="gallery-load-more" type="button" data-gallery-more hidden>Carregar mais mídias</button></section>
+export function galleryExperienceMarkup(){return `<section class="gallery-redesign" aria-label="Galeria de mídias">
+ <header class="gallery-redesign-toolbar">
+  <div class="gallery-menu-wrap"><button type="button" class="gallery-more-button" data-gallery-menu-toggle aria-expanded="false" aria-label="Opções da galeria" title="Opções">•••</button>
+   <div class="gallery-menu" data-gallery-menu hidden>
+    <button type="button" data-gallery-menu-action="upload">＋ Adicionar imagem ou mídia</button>
+    <button type="button" data-gallery-menu-action="filters">⌕ Filtrar por tipo ou título</button>
+    <button type="button" data-gallery-menu-action="exclusive">◇ Somente exclusivas</button>
+    <button type="button" data-gallery-menu-action="sort">↕ Ordenar mídias</button>
+    <button type="button" data-gallery-menu-action="people">♙ Filtrar por pessoa</button>
+   </div>
+  </div>
+  <div class="gallery-layout-switch" role="group" aria-label="Visualização da galeria">
+   <button type="button" data-gallery-view="list" aria-pressed="false" aria-label="Ver em linha">Linha</button>
+   <button type="button" data-gallery-view="grid" aria-pressed="true" aria-label="Ver em grade">Grade</button>
+   <button type="button" data-gallery-view="masonry" aria-pressed="false" aria-label="Ver em mosaico estilo Pinterest">Masonry</button>
+  </div>
+  <span class="gallery-result-count" data-gallery-count aria-live="polite"></span>
+ </header>
+ <section class="gallery-filter-drawer" data-gallery-filter-panel hidden aria-label="Filtros da galeria">
+  <div class="gallery-filter-fields" data-gallery-filter-basic>
+   <label>Pesquisar por título<input type="search" data-gallery-search placeholder="Buscar título…" autocomplete="off"></label>
+   <label>Tipo<select data-gallery-type><option value="all">Tudo</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="audio">Áudios</option></select></label>
+  </div>
+  <div class="gallery-filter-fields" data-gallery-sort-fields hidden>
+   <label>Ordenar por<select data-gallery-sort><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="size">Tamanho do arquivo</option><option value="title">Título</option></select></label>
+  </div>
+  <div class="gallery-filter-fields" data-gallery-person-fields hidden>
+   <label>Fotos com esta pessoa<select data-gallery-person><option value="all">Todas as pessoas</option></select></label>
+   <p class="gallery-admin-hint" data-gallery-person-hint hidden>O administrador Peixinho poderá identificar pessoas nas mídias.</p>
+  </div>
+  <label class="gallery-exclusive-toggle"><input type="checkbox" data-gallery-exclusive><span>Mostrar somente mídias exclusivas</span></label>
+  <button type="button" class="gallery-filter-close" data-gallery-filter-close>Concluir</button>
+ </section>
+ <section class="gallery-library" aria-label="Todas as mídias"><div class="gallery-grid" data-gallery-grid data-view="grid"></div><p class="gallery-empty" data-gallery-empty><strong>Nenhuma mídia encontrada.</strong></p><button class="gallery-load-more" type="button" data-gallery-more hidden>Carregar mais mídias</button></section>
  <div class="gallery-community-zone" data-gallery-upload-slot></div>
- <section class="gallery-shared-comments panel" aria-label="Comentários compartilhados"><div class="gallery-shared-heading"><h2 id="sharedCommentsTitle">Comentários</h2><span class="gallery-comment-counter" data-shared-comment-count>0</span></div><div data-shared-comments><p class="gallery-comments-empty">Nenhum comentário compartilhado.</p></div></section>
- <div class="gallery-viewer" data-gallery-viewer aria-hidden="true" inert><button class="gallery-viewer-backdrop" type="button" data-viewer-close aria-label="Fechar"></button>
- <section class="gallery-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="galleryViewerTitle"><header class="gallery-viewer-header"><div><h2 data-viewer-title>Mídia</h2><p data-viewer-meta></p></div><div class="gallery-viewer-actions"><a data-viewer-download href="#" download hidden aria-label="Baixar">↓</a><button type="button" data-viewer-comments aria-label="Abrir comentários" aria-expanded="false">☷ <span data-viewer-comment-badge>0</span></button><button type="button" data-viewer-fullscreen aria-label="Tela cheia">⛶</button><button type="button" data-viewer-prev aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-close aria-label="Fechar">×</button></div></header>
- <p data-viewer-description class="gallery-viewer-description" hidden></p><div class="gallery-viewer-layout"><div class="gallery-viewer-stage" data-viewer-stage><div class="gallery-zoom-controls"><button data-zoom="out" type="button" aria-label="Diminuir zoom">−</button><button data-zoom="reset" type="button">Ajustar</button><button data-zoom="in" type="button" aria-label="Aumentar zoom">+</button></div><div data-viewer-content class="gallery-viewer-content"></div><span class="gallery-swipe-hint">Deslize para navegar</span></div>
- <aside class="gallery-viewer-sidebar" data-viewer-comments-panel aria-label="Comentários e permissões" hidden><button type="button" class="gallery-comments-close" data-viewer-comments-close>Voltar à mídia</button><section class="gallery-comments"><header class="gallery-comment-heading"><h3>Comentários <span data-comment-count>0</span></h3></header><div class="gallery-comment-list" data-comment-list></div><form data-comment-form class="gallery-comment-form"><label for="galleryCommentBody">Adicionar comentário</label><textarea id="galleryCommentBody" name="body" maxlength="2000" required></textarea><label>Quem pode ver este comentário<select name="audience" data-comment-audience><option value="selected">Pessoas escolhidas</option><option value="media_viewers">Quem vê a mídia</option><option value="members">Todos os usuários</option><option value="author_only">Somente eu</option></select></label><fieldset data-comment-recipients><legend>Quem poderá ler</legend><div data-comment-people></div></fieldset><button class="primary-button compact-button" type="submit">Comentar</button><p data-comment-status class="form-status" role="status"></p></form></section>
- <form class="gallery-permissions-form" data-permissions-form hidden><h3>Permissões desta mídia</h3><label>Quem pode visualizar<select name="visibility" data-media-visibility><option value="members">Todos os usuários</option><option value="exclusive">Somente pessoas escolhidas</option></select></label><fieldset data-media-recipients><legend>Quem pode visualizar</legend><div data-media-people></div></fieldset><label>Quem pode comentar<select name="comment_access" data-media-comment-access><option value="viewers">Quem pode visualizar</option><option value="selected">Pessoas escolhidas</option><option value="disabled">Ninguém</option></select></label><fieldset data-media-commenters><legend>Quem pode comentar</legend><div data-commenter-people></div></fieldset><button class="primary-button compact-button" type="submit">Salvar permissões</button><p data-permission-status class="form-status" role="status"></p></form></aside></div></section></div>`}
+ <section class="gallery-shared-comments panel" aria-label="Comentários compartilhados"><div class="gallery-shared-heading"><h2>Comentários</h2><span class="gallery-comment-counter" data-shared-comment-count>0</span></div><div data-shared-comments><p class="gallery-comments-empty">Nenhum comentário compartilhado.</p></div></section>
+ <div class="gallery-viewer" data-gallery-viewer aria-hidden="true" inert>
+  <button class="gallery-viewer-back" type="button" data-viewer-close aria-label="Voltar à galeria">‹</button>
+  <button class="gallery-viewer-backdrop" type="button" data-viewer-close aria-label="Fechar visualizador"></button>
+  <section class="gallery-viewer-panel" role="dialog" aria-modal="true" aria-label="Visualizador de mídia">
+   <h2 data-viewer-title class="gallery-visually-hidden">Mídia</h2><p data-viewer-meta class="gallery-visually-hidden"></p><p data-viewer-description hidden></p>
+   <div class="gallery-viewer-layout"><div class="gallery-viewer-stage" data-viewer-stage>
+    <div class="gallery-zoom-controls"><button data-zoom="out" type="button" aria-label="Diminuir zoom">−</button><button data-zoom="reset" type="button" aria-label="Ajustar imagem">↺</button><button data-zoom="in" type="button" aria-label="Aumentar zoom">＋</button></div>
+    <div data-viewer-content class="gallery-viewer-content"></div><span class="gallery-swipe-hint">Deslize para navegar</span>
+   </div>
+   <aside class="gallery-viewer-sidebar" data-viewer-comments-panel aria-label="Comentários" hidden>
+    <button type="button" class="gallery-comments-close" data-viewer-comments-close aria-label="Voltar à foto">×</button>
+    <section class="gallery-comments"><header class="gallery-comment-heading"><h3>Comentários <span data-comment-count>0</span></h3></header><div class="gallery-comment-list" data-comment-list></div>
+     <form data-comment-form class="gallery-comment-form"><label for="galleryCommentBody">Escrever comentário</label><textarea id="galleryCommentBody" name="body" maxlength="2000" required placeholder="Escreva algo…"></textarea><label>Quem pode ver<select name="audience" data-comment-audience><option value="selected">Pessoas escolhidas</option><option value="media_viewers">Quem vê a mídia</option><option value="members">Todos os usuários</option><option value="author_only">Somente eu</option></select></label><fieldset data-comment-recipients><legend>Quem poderá ler</legend><div data-comment-people></div></fieldset><button class="primary-button compact-button" type="submit">Publicar comentário</button><p data-comment-status class="form-status" role="status"></p></form>
+    </section>
+    <form class="gallery-permissions-form" data-permissions-form hidden><h3>Permissões da mídia</h3><label>Quem pode visualizar<select name="visibility" data-media-visibility><option value="members">Todos os usuários</option><option value="exclusive">Pessoas escolhidas</option></select></label><fieldset data-media-recipients><legend>Quem pode visualizar</legend><div data-media-people></div></fieldset><label>Quem pode comentar<select name="comment_access" data-media-comment-access><option value="viewers">Quem pode visualizar</option><option value="selected">Pessoas escolhidas</option><option value="disabled">Ninguém</option></select></label><fieldset data-media-commenters><legend>Quem pode comentar</legend><div data-commenter-people></div></fieldset><button class="primary-button compact-button" type="submit">Salvar permissões</button><p data-permission-status class="form-status" role="status"></p></form>
+   </aside></div>
+   <div class="gallery-viewer-bottom-actions"><a data-viewer-download href="#" download hidden aria-label="Baixar mídia">↓</a><button type="button" data-viewer-comments aria-label="Abrir comentários" aria-expanded="false">♡ <span data-viewer-comment-badge>0</span></button><button type="button" data-viewer-fullscreen aria-label="Tela cheia">⛶</button><button type="button" data-viewer-prev aria-label="Mídia anterior" class="gallery-visually-hidden">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia" class="gallery-visually-hidden">›</button></div>
+  </section>
+ </div>
+</section>`}
 function searchText(x){return [x.title,x.description,x.file_name,x.source_path,x.owner?.username,x.owner?.display_name].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR")}
 function tile(x,userId,isAdmin){const id=esc(x.id),source=esc(x.source),title=esc(x.title||x.file_name||"Mídia"),kind=esc(x.kind),exclusive=x.visibility==="exclusive";const visual=`<span class="media-placeholder" aria-hidden="true">${kind==="video"?"▶":kind==="audio"?"♫":"◌"}</span>`;const owner=x.source==="community"?`@${esc(x.owner?.username||"membro")} · `:"";const del=x.source==="community"&&(isAdmin||x.owner_id===userId)?`<button type="button" class="gallery-card-delete" data-gallery-delete="${id}">Excluir</button>`:"";return `<article class="media-card" data-gallery-item data-gallery-type="${kind}" data-gallery-exclusive="${exclusive}" data-gallery-search="${esc(searchText(x))}"><button class="media-card-open" type="button" data-gallery-open="${id}" data-gallery-source="${source}" aria-label="Abrir ${title}"><span class="media-visual">${visual}</span><span class="media-card-body"><small>${owner}${esc(dateLabel(x.source_date||x.created_at))}</small></span></button>${exclusive?`<span class="media-exclusive-badge">Exclusiva</span>`:""}${del}</article>`}
 function peopleMarkup(people,selected,name,userId){const set=new Set(selected||[]);return people.filter(p=>p.id!==userId).map(p=>`<label class="gallery-person-option"><input type="checkbox" name="${esc(name)}" value="${esc(p.id)}" ${set.has(p.id)?"checked":""}><span>${esc(p.display_name||p.username)} <small>@${esc(p.username)}</small></span></label>`).join("")||`<small>Nenhum outro usuário disponível.</small>`}
