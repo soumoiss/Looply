@@ -135,7 +135,7 @@ test("the removed account is absent from active frontend code and page copy", as
 
 test("the build emits all independent pages and their assets", async () => {
   const { access } = await import("node:fs/promises");
-  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
+  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/mensagens.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
     await access(resolve(projectRoot, path));
   }
 });
@@ -870,4 +870,16 @@ test("chat conversations use the dedicated route and preload on interaction with
   assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
   assert.match(css, /\.page-chat \.chat-thread-panel \{ display: none; \}/);
   assert.match(css, /max-height: calc\(100dvh - 360px\)/);
+});
+
+
+test("the dedicated messages route renders the thread on small screens", async () => {
+  const [page, build, css, chat] = await Promise.all([
+    read("mensagens.html"), read("scripts/build.mjs"), read("assets/css/pages/chat.css"), read("src/chat.js")
+  ]);
+  assert.match(page, /assets\\/js\\/conversation\\.js/);
+  assert.match(page, /page-conversation/);
+  assert.match(build, /mensagens\\.html/);
+  assert.match(css, /page-chat:not\\(\\.page-conversation\\) \\.chat-thread-panel \\{ display: none; \\}/);
+  assert.match(chat, /mensagens\\.html\\?id=/);
 });
