@@ -104,24 +104,40 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
   for (let page = 0; page < 100; page += 1) {
     const params = new URLSearchParams({ playlistId });
     if (pageToken) params.set("pageToken", pageToken);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    let response;
-    try {
-      response = await fetchImpl(playlistApiUrl() + "?" + params, {
-        credentials: "omit",
-        headers: { accept: "application/json", authorization: "Bearer " + accessToken },
-        signal: controller.signal
-      });
-    } catch (error) {
-      if (error?.name === "AbortError") throw new Error("youtube-playlist-timeout");
-      throw new Error("youtube-playlist-network-error");
-    } finally {
-      clearTimeout(timeout);
+    const requestUrl = playlistApiUrl() + "?" + params;
+    let data = null;
+    let lastFailure = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetchImpl(requestUrl, {
+          credentials: "omit",
+          headers: { accept: "application/json", authorization: "Bearer " + accessToken },
+          signal: controller.signal
+        });
+        try { data = await response.json(); } catch { data = {}; }
+        if (response.ok) {
+          lastFailure = null;
+          break;
+        }
+        const transient = [502, 503, 504].includes(response.status);
+        if (!transient || attempt === 2) throw new Error(youtubeApiErrorMessage(response.status, data));
+        lastFailure = new Error(youtubeApiErrorMessage(response.status, data));
+      } catch (error) {
+        if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) throw error;
+        lastFailure = error?.name === "AbortError" ? new Error("youtube-playlist-timeout") : error;
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (2 ** attempt)));
     }
-    let data = {};
-    try { data = await response.json(); } catch { /* The status below provides the actionable failure. */ }
-    if (!response.ok) throw new Error(youtubeApiErrorMessage(response.status, data));
+    if (!data || lastFailure) {
+      if (lastFailure?.message === "youtube-playlist-timeout") throw lastFailure;
+      throw new Error("youtube-playlist-network-error");
+    }
+
     for (const item of Array.isArray(data.items) ? data.items : []) {
       const videoId = String(item?.videoId || item?.snippet?.resourceId?.videoId || "");
       const title = String(item?.title || item?.snippet?.title || "").trim();
