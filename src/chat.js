@@ -851,20 +851,42 @@ export function bindChatEvents(root, client, getUserId) {
     }
     if (startButton) {
       startButton.disabled = true;
+      let messageWindow = null;
+      // Open synchronously from the tap so mobile browsers do not block the new tab.
+      if (root.dataset.conversationPage !== "true") {
+        try {
+          messageWindow = window.open("about:blank", "_blank");
+          if (messageWindow) messageWindow.opener = null;
+        } catch { messageWindow = null; }
+      }
       try {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: startButton.dataset.chatStart } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
+        const destination = `mensagens.html?id=${encodeURIComponent(data.conversationId)}`;
         if (root.dataset.conversationPage !== "true") {
-          window.location.assign(`mensagens.html?id=${encodeURIComponent(data.conversationId)}`);
+          if (messageWindow && !messageWindow.closed) {
+            messageWindow.location.replace(destination);
+          } else {
+            window.location.assign(destination);
+          }
           return;
         }
         activeConversationId = data.conversationId;
         await refreshChat(root, client, userId);
         await openConversation(root, client, data.conversationId, userId);
       } catch (error) {
+        if (messageWindow && !messageWindow.closed) messageWindow.close();
         console.error("Looply direct conversation failed", error);
-        startButton.insertAdjacentHTML("afterend", `<small class="chat-inline-error">Não foi possível iniciar agora.</small>`);
+        const priorError = startButton.parentElement?.querySelector("[data-chat-start-error]");
+        if (!priorError) {
+          const message = document.createElement("small");
+          message.className = "chat-inline-error";
+          message.dataset.chatStartError = "";
+          message.setAttribute("role", "status");
+          message.textContent = "Não foi possível iniciar a conversa. Tente novamente.";
+          startButton.insertAdjacentElement("afterend", message);
+        }
       } finally { startButton.disabled = false; }
     }
   });
