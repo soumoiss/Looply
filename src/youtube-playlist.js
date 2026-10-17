@@ -98,17 +98,13 @@ function writePlaylistCache(playlistId, tracks) {
 }
 
 export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = globalThis.fetch) {
-  const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
-  const directYouTubeApi = Boolean(publicApiKey);
-  if (!directYouTubeApi && !String(accessToken || "").trim()) throw new Error("youtube-session-missing");
+  if (!String(accessToken || "").trim()) throw new Error("youtube-session-missing");
   const items = [];
   let pageToken = "";
   for (let page = 0; page < 100; page += 1) {
-    const params = directYouTubeApi
-      ? new URLSearchParams({ part: "snippet,contentDetails", playlistId, maxResults: "50", key: publicApiKey })
-      : new URLSearchParams({ playlistId });
+    const params = new URLSearchParams({ playlistId });
     if (pageToken) params.set("pageToken", pageToken);
-    const requestUrl = (directYouTubeApi ? "https://www.googleapis.com/youtube/v3/playlistItems" : playlistApiUrl()) + "?" + params;
+    const requestUrl = playlistApiUrl() + "?" + params;
     let data = null;
     let lastFailure = null;
 
@@ -118,9 +114,7 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
       try {
         const response = await fetchImpl(requestUrl, {
           credentials: "omit",
-          headers: directYouTubeApi
-            ? { accept: "application/json" }
-            : { accept: "application/json", authorization: "Bearer " + accessToken },
+          headers: { accept: "application/json", authorization: "Bearer " + accessToken },
           signal: controller.signal
         });
         try { data = await response.json(); } catch { data = {}; }
@@ -218,14 +212,10 @@ export async function bindYouTubePlaylist(root, client) {
     loading = true;
     if (!tracks.length || retry) showStatus("Carregando músicas…");
     try {
-      const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
-      let accessToken = "";
-      if (!publicApiKey) {
-        const { data, error } = await client.auth.getSession();
-        if (error) throw new Error("youtube-session-unavailable");
-        accessToken = String(data?.session?.access_token || "");
-        if (!accessToken) throw new Error("youtube-session-missing");
-      }
+      const { data, error } = await client.auth.getSession();
+      if (error) throw new Error("youtube-session-unavailable");
+      const accessToken = String(data?.session?.access_token || "");
+      if (!accessToken) throw new Error("youtube-session-missing");
       const freshTracks = await fetchPlaylistItems(playlistId, accessToken);
       if (!playlist.isConnected) return;
       tracks = freshTracks;

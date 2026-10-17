@@ -46,6 +46,8 @@ export async function loadChatData(client, userId, { markDelivered = true } = {}
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
   if (participantResult.error) throw participantResult.error;
+  if (notificationResult.error) throw notificationResult.error;
+  if (profilesResult.error) throw profilesResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
   if (markDelivered && ids.length) {

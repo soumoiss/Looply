@@ -68,6 +68,22 @@ test("only four owner-created usernames can have profiles, then remain immutable
   assert.match(immutableMigration, /new\.username is distinct from old\.username/i);
 });
 
+test("login form binds even when session restoration is asynchronous or fails", async () => {
+  const login = await read("src/login.js");
+  assert.match(login, /void supabase\.auth\.getSession\(\)/);
+  assert.match(login, /\.catch\(\(error\) => console\.warn\("Looply session check failed"/);
+  assert.match(login, /form\.addEventListener\("submit"/);
+  assert.doesNotMatch(login, /await supabase\.auth\.getSession\(\)/);
+});
+
+test("page startup offers a retry when session validation fails", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /function noticeWithRetry\(root, text\)/);
+  assert.match(runtime, /await supabase\.auth\.getUser\(\)/);
+  assert.match(runtime, /noticeWithRetry\(root, "Não foi possível validar sua sessão/);
+  assert.match(runtime, /retry\.addEventListener\("click", \(\) => window\.location\.reload\(\)\)/);
+});
+
 test("the interface supports only Auth sign-in and never stores browser credentials", async () => {
   const [login, client] = await Promise.all([read("src/login.js"), read("src/supabase.js")]);
   assert.doesNotMatch(login + client, /localStorage\.(?:getItem|setItem)\(["'](?:username|password|isLoggedIn)/i);
@@ -141,14 +157,14 @@ test("the build emits all independent pages and their assets", async () => {
   }
 });
 
-test("the public YouTube key is configured in the browser and server secrets stay out of the build", async () => {
-  const [config, clientModule, build] = await Promise.all([
-    read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs")
+test("the YouTube API key stays server-side and is never shipped in browser assets", async () => {
+  const [config, clientModule, build, api] = await Promise.all([
+    read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs"), read("api/youtube-playlist.js")
   ]);
-  assert.match(config, /youtubeApiKey:\s*"AIza[\w-]{20,}"/);
-  assert.match(clientModule, /https:\/\/www\.googleapis\.com\/youtube\/v3\/playlistItems/);
-  assert.doesNotMatch(config, /LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
-  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}|service_role|sb_secret_/i);
+  assert.doesNotMatch(clientModule, /AIza[\w-]{20,}|https:\/\/www\.googleapis\.com\/youtube\/v3\/playlistItems/);
+  assert.match(clientModule, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
+  assert.match(api, /LOOPLY_YOUTUBE_API_KEY/);
   assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
@@ -863,6 +879,20 @@ test("chat composer inserts selected emojis at the cursor", async () => {
   assert.match(css, /\.chat-emoji-picker\[hidden\] \{ display: none; \}/);
 });
 
+
+test("chat initialization surfaces notification and profile query errors instead of hiding them", async () => {
+  const chat = await read("src/chat.js");
+  assert.match(chat, /if \(notificationResult\.error\) throw notificationResult\.error/);
+  assert.match(chat, /if \(profilesResult\.error\) throw profilesResult\.error/);
+});
+
+test("page runtime announces loading and clears busy state on success or failure", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /aria-busy", "true"/);
+  assert.match(runtime, /Carregando…/);
+  assert.match(runtime, /root\.setAttribute\("aria-busy", "false"\)/);
+  assert.match(runtime, /function noticeWithRetry\(root, text\)/);
+});
 
 test("chat conversations use the dedicated route and preload on interaction without mock data", async () => {
   const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
