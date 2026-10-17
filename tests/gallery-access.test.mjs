@@ -4,9 +4,19 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { archiveGalleryMarkup, loadArchiveMedia } from "../src/gallery-archive.js";
+import { mediaKind } from "../src/gallery-experience.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
+
+test("gallery detects media from metadata or case-insensitive file extensions", () => {
+  assert.equal(mediaKind({ kind: "image" }), "image");
+  assert.equal(mediaKind({ mime_type: "video/mp4" }), "video");
+  assert.equal(mediaKind({ file_name: "NewClip.MOV" }), "video");
+  assert.equal(mediaKind({ file_name: "voice note.M4A" }), "audio");
+  assert.equal(mediaKind({ file_name: "photo.HEIC" }), "image");
+  assert.equal(mediaKind({ file_name: "unknown.bin" }), "file");
+});
 
 function query(data) {
   return {
