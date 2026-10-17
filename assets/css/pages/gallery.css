@@ -305,3 +305,38 @@
 .page-gallery .community-gallery-heading .section-kicker{display:none!important}
 .page-gallery .community-gallery-heading h2{margin:0}
 .page-gallery .community-gallery-card-copy strong{display:none!important}
+
+
+/* Ajustes compactos e visualização sem obstrução */
+.page-gallery .gallery-command{padding:12px;gap:10px}
+.page-gallery .gallery-quick-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.page-gallery .gallery-quick-types{display:flex;gap:6px;min-width:0}
+.page-gallery .gallery-quick-types button,.page-gallery .gallery-quick-tools button{min-height:38px;padding:7px 10px;border-radius:12px;font-size:.88rem}
+.page-gallery .gallery-quick-tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.page-gallery .gallery-quick-tools button span{display:none}
+.page-gallery .gallery-command-main{display:none;grid-template-columns:1fr 1fr;gap:9px}
+.page-gallery .gallery-command-main.is-open{display:grid}
+.page-gallery .gallery-command-main .gallery-search{grid-column:1/-1}
+.page-gallery .gallery-command-footer{gap:8px}
+.page-gallery .gallery-result-count{font-size:.82rem}
+.page-gallery .gallery-mobile-panel-toggle{display:none}
+.page-gallery .gallery-mobile-panel-content[hidden]{display:none!important}
+@media(max-width:680px){
+ .page-gallery .gallery-command{padding:10px;border-radius:20px}
+ .page-gallery .gallery-quick-actions{grid-template-columns:1fr}
+ .page-gallery .gallery-quick-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+ .page-gallery .gallery-quick-types button{padding:6px 3px;font-size:.8rem;min-height:36px}
+ .page-gallery .gallery-quick-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+ .page-gallery .gallery-quick-tools button{padding:7px 4px;min-height:36px}
+ .page-gallery .gallery-quick-tools button span{display:inline}
+ .page-gallery .gallery-command-main{grid-template-columns:1fr}
+ .page-gallery .gallery-command-main .gallery-search{grid-column:auto}
+ .page-gallery .gallery-command-footer .gallery-view-switch button{min-height:38px}
+ .page-gallery .gallery-viewer-layout{display:flex;flex-direction:column}
+ .page-gallery .gallery-viewer-stage{min-height:42vh;max-height:58vh}
+ .page-gallery .gallery-viewer-sidebar{width:100%;min-width:0}
+ .page-gallery .gallery-mobile-panel-toggle{display:flex;align-items:center;justify-content:center;width:100%;min-height:42px;border:1px solid var(--border,#e5dce9);border-radius:12px;background:var(--surface,#fff);color:var(--primary);font-weight:750}
+ .page-gallery .gallery-mobile-panel-content{padding-top:10px}
+ .page-gallery .gallery-viewer-panel{width:100%;height:100%;max-height:100dvh;border-radius:18px 18px 0 0;overflow-y:auto}
+ .page-gallery .gallery-viewer{align-items:end;padding:0}
+}
