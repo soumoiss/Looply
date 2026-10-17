@@ -89,3 +89,13 @@ test("the page runtime renders before refreshing unread counts and prefetches na
   assert.ok(runtime.includes('hint.rel = "prefetch"'));
 });
 
+
+test("gallery viewer exposes a separate dismissible comments drawer without replacing the media stage", async () => {
+  const [manager, css] = await Promise.all([read("src/gallery-experience.js"), read("assets/css/pages/gallery.css")]);
+  assert.match(manager, /data-comments-toggle/);
+  assert.match(manager, /data-comments-panel/);
+  assert.match(manager, /data-comments-close/);
+  assert.match(manager, /commentsPanel\?\.classList\.remove\("is-open"\)/);
+  assert.match(css, /\.gallery-viewer-sidebar\.is-open/);
+  assert.match(css, /\.gallery-comments-toggle/);
+});
