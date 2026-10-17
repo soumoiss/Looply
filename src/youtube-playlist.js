@@ -132,8 +132,13 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
         if (!transient || attempt === 2) throw new Error(youtubeApiErrorMessage(response.status, data));
         lastFailure = new Error(youtubeApiErrorMessage(response.status, data));
       } catch (error) {
-        if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) throw error;
-        lastFailure = error?.name === "AbortError" ? new Error("youtube-playlist-timeout") : error;
+        if (error?.name === "AbortError") {
+          lastFailure = new Error("youtube-playlist-timeout");
+        } else if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) {
+          throw error;
+        } else {
+          lastFailure = error;
+        }
       } finally {
         clearTimeout(timeout);
       }
