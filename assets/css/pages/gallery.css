@@ -484,3 +484,109 @@
 .gallery-viewer-sidebar .gallery-comments[hidden] { display:none !important; }
 
 .gallery-viewer-bottom-actions [hidden] { display:none !important; }
+
+/* Gallery palette aligned with Looply's existing application theme.
+   Keep the global shell, animated Looply mark, wordmark and profile avatar untouched. */
+.page-gallery .gallery-redesign-toolbar,
+.page-gallery .gallery-filter-drawer {
+  background:var(--surface);
+  border-color:var(--line);
+  color:var(--text);
+  box-shadow:0 8px 26px color-mix(in srgb,var(--text) 5%,transparent);
+}
+.page-gallery .gallery-more-button {
+  color:var(--text);
+  background:var(--surface-soft);
+  border-color:var(--line);
+}
+.page-gallery .gallery-menu {
+  color:var(--text);
+  background:var(--surface);
+  border-color:var(--line);
+  box-shadow:var(--shadow);
+}
+.page-gallery .gallery-menu button { color:var(--text); }
+.page-gallery .gallery-menu button:hover,
+.page-gallery .gallery-menu button:focus-visible {
+  background:var(--surface-soft);
+  color:var(--primary);
+}
+.page-gallery .gallery-layout-switch button[aria-pressed="true"] {
+  color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 10%,var(--surface));
+  border-color:color-mix(in srgb,var(--primary) 28%,var(--line));
+}
+.page-gallery .gallery-filter-fields input,
+.page-gallery .gallery-filter-fields select,
+.page-gallery .gallery-filter-drawer select,
+.page-gallery .gallery-comment-form textarea,
+.page-gallery .gallery-comment-form select,
+.page-gallery .gallery-permissions-form select {
+  color:var(--text);
+  background:var(--surface-soft);
+  border-color:var(--line);
+}
+.page-gallery .gallery-filter-fields input::placeholder,
+.page-gallery .gallery-comment-form textarea::placeholder { color:var(--muted); }
+.page-gallery .gallery-exclusive-toggle { color:var(--text); }
+.page-gallery .gallery-exclusive-toggle input,
+.page-gallery .gallery-person-option input { accent-color:var(--primary); }
+.page-gallery .gallery-filter-close,
+.page-gallery .gallery-load-more {
+  border-color:var(--line);
+  color:var(--primary);
+  background:var(--surface);
+}
+.page-gallery .gallery-filter-close {
+  color:var(--on-primary, #fff);
+  background:var(--primary);
+}
+.page-gallery .media-card { background:var(--surface); }
+.page-gallery .media-visual { background:var(--surface-soft); }
+.page-gallery .media-exclusive-badge,
+.page-gallery .gallery-card-delete {
+  background:color-mix(in srgb,var(--surface) 78%,#000);
+}
+.page-gallery .gallery-empty { color:var(--muted); }
+.page-gallery .gallery-viewer { color:var(--text); }
+.page-gallery .gallery-viewer-backdrop { background:color-mix(in srgb,var(--text) 82%,transparent); }
+.page-gallery .gallery-viewer-panel {
+  color:var(--text);
+  background:var(--surface);
+  border-color:var(--line);
+}
+.page-gallery .gallery-viewer-back,
+.page-gallery .gallery-zoom-controls,
+.page-gallery .gallery-viewer-bottom-actions button,
+.page-gallery .gallery-viewer-bottom-actions a {
+  color:var(--text);
+  background:color-mix(in srgb,var(--surface) 88%,transparent);
+  border-color:var(--line);
+}
+.page-gallery .gallery-viewer-sidebar { color:var(--text); background:var(--surface); }
+.page-gallery .gallery-comment,
+.page-gallery .gallery-person-option {
+  color:var(--text);
+  background:var(--surface-soft);
+  border-color:var(--line);
+}
+.page-gallery .gallery-comments-close {
+  color:var(--text);
+  background:var(--surface-soft);
+  border-color:var(--line);
+}
+.page-gallery .gallery-comment-form,
+.page-gallery .gallery-permissions-form,
+.page-gallery .gallery-people-tags-form { border-color:var(--line); }
+.page-gallery .gallery-person-option small,
+.page-gallery .gallery-admin-hint { color:var(--muted); }
+.page-gallery .gallery-comment-form button,
+.page-gallery .gallery-permissions-form button,
+.page-gallery .gallery-people-tags-form button {
+  background:var(--primary);
+  color:var(--on-primary, #fff);
+}
+@media (prefers-reduced-motion: reduce) {
+ .page-gallery .media-visual img,
+ .page-gallery .gallery-more-button { transition:none !important; }
+}
