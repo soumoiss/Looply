@@ -51,7 +51,7 @@ function galleryGridMarkup(media, userId, isAdmin) {
 export function communityGalleryMarkup(media, userId, isAdmin) {
   const maxLabel = isAdmin ? "Até 200 MB por arquivo" : "Até 100 MB por arquivo";
   return "<section class=\"panel community-gallery-panel\" aria-labelledby=\"communityGalleryTitle\">" +
-    "<div class=\"community-gallery-heading\"><div><span class=\"section-kicker\">Mídia</span><h2 id=\"communityGalleryTitle\">Galeria da comunidade</h2></div><span data-community-gallery-count>" + media.length + " arquivo(s)</span></div>" +
+    "<div class=\"community-gallery-heading\"><h2 id=\"communityGalleryTitle\">Comunidade</h2><span data-community-gallery-count>" + media.length + " arquivo(s)</span></div>" +
     "<form class=\"community-gallery-upload\" data-community-gallery-upload><label>Fotos, vídeos ou áudios<input type=\"file\" name=\"files\" accept=\"image/jpeg,image/png,image/webp,image/heic,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/webm,audio/wav,audio/aac\" multiple required></label>" +
     "<label>Descrição (opcional)<input type=\"text\" name=\"caption\" maxlength=\"500\"></label><small>" + maxLabel + " · até " + maxFilesPerUpload + " arquivos por envio</small>" +
     "<button class=\"primary-button compact-button\" type=\"submit\">Publicar mídia</button><p class=\"form-status\" data-community-gallery-status role=\"status\" aria-live=\"polite\"></p></form>" +
