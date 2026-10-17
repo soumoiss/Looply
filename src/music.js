@@ -290,6 +290,7 @@ export function setupMusicRealtime(client, userId, root) {
     .channel(`looply-music-${userId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "music_dedications" }, () => scheduleMusicRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "music_comments" }, () => scheduleMusicRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "music_track_comments", filter: `author_id=eq.${userId}` }, () => scheduleMusicRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "music_library", filter: `owner_id=eq.${userId}` }, () => scheduleMusicRefresh(root, client, userId))
     .subscribe((state) => {
       const status = root.querySelector("[data-music-realtime]");
