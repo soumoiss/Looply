@@ -3,6 +3,6 @@
 window.LOOPLY_CONFIG = Object.freeze({
   supabaseUrl: "https://qixocgetiwlrsbadpbvh.supabase.co",
   publishableKey: "sb_publishable_GEUz-cJM1qXuaR7KbM2EBA_vk1hGxdT",
-  youtubeApiUrl: "https://looply-git-codex-looply-foundation-mpsant0s-projects.vercel.app/api/youtube-playlist"
+  youtubeApiUrl: "https://looply-mu.vercel.app/api/youtube-playlist"
 });
 
