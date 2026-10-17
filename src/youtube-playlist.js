@@ -213,10 +213,14 @@ export async function bindYouTubePlaylist(root, client) {
     loading = true;
     if (!tracks.length || retry) showStatus("Carregando músicas…");
     try {
-      const { data, error } = await client.auth.getSession();
-      if (error) throw new Error("youtube-session-unavailable");
-      const accessToken = String(data?.session?.access_token || "");
-      if (!accessToken) throw new Error("youtube-session-missing");
+      const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
+      let accessToken = "";
+      if (!publicApiKey) {
+        const { data, error } = await client.auth.getSession();
+        if (error) throw new Error("youtube-session-unavailable");
+        accessToken = String(data?.session?.access_token || "");
+        if (!accessToken) throw new Error("youtube-session-missing");
+      }
       const freshTracks = await fetchPlaylistItems(playlistId, accessToken);
       if (!playlist.isConnected) return;
       tracks = freshTracks;
