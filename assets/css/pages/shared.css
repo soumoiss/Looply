@@ -42,3 +42,88 @@
   .looply-account > span { display: none; }
   .looply-account .theme-picker { display: none; }
 }
+
+
+/* Shared navigation and header refresh — keep existing destinations and active-state logic. */
+.looply-page .page-header {
+  gap: 12px;
+  padding: 10px 12px;
+  border-color: var(--line);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface-strong) 90%, var(--bg));
+  box-shadow: var(--shadow-sm);
+}
+.looply-page .page-navigation { gap: 5px; }
+.looply-page .page-navigation .header-action {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.looply-page .page-navigation .header-action:hover {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-strong));
+}
+.looply-page .page-navigation [aria-current="page"] {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-strong));
+  box-shadow: none;
+}
+.looply-page .page-navigation-icon { width: 19px; height: 19px; }
+.looply-account { gap: 10px; }
+.looply-user-avatar, .looply-user-initial {
+  width: 40px;
+  height: 40px;
+  border: 2px solid color-mix(in srgb, var(--primary) 15%, white);
+}
+.looply-account .header-action {
+  min-height: 40px;
+  border-radius: 13px;
+}
+.account-menu-popover {
+  border-color: var(--line);
+  border-radius: 18px;
+  padding: 8px;
+}
+.account-menu-link { min-height: 42px; display: flex; align-items: center; }
+@media (max-width: 760px) {
+  .looply-page .page-header {
+    top: max(4px, env(safe-area-inset-top));
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 18px;
+  }
+  .looply-page .page-navigation {
+    bottom: max(7px, env(safe-area-inset-bottom));
+    width: min(calc(100% - 12px), 620px);
+    gap: 2px;
+    padding: 5px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+    box-shadow: 0 10px 34px rgba(39,25,61,.17);
+  }
+  .looply-page .page-navigation .header-action {
+    min-width: 48px;
+    min-height: 54px;
+    flex: 1 1 0;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 3px;
+    border-radius: 14px;
+    font-size: 10px;
+  }
+  .looply-page .page-navigation [aria-current="page"] {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+  }
+  .page-navigation-icon { width: 20px; height: 20px; }
+}
+@media (max-width: 380px) {
+  .looply-page .page-navigation .header-action { min-width: 43px; font-size: 9px; }
+  .page-navigation-label[data-short-label]::after { font-size: 9px; }
+}
