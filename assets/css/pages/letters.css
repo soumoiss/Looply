@@ -215,3 +215,16 @@
  .page-letters .letters-user-card .primary-button { grid-column:1 / -1; width:100%; }
  .page-letters .letters-user-status { grid-column:1 / -1; }
 }
+
+
+/* Prompt 06: compact task-first letters layout, preserving all existing controls. */
+.page-letters .letters-page-content { display:grid; gap:14px; }
+.page-letters .community-letter-compose-panel, .page-letters .community-letter-collection, .page-letters .written-letters-panel { margin-bottom:0; box-shadow:var(--shadow-sm); }
+.page-letters .community-letter-heading { margin-bottom:8px; }
+.page-letters .community-letter-heading h2, .page-letters .written-letters-heading h2 { font-size:clamp(1rem,2.5vw,1.15rem); }
+.page-letters .community-letter-form { gap:9px; }
+.page-letters .community-letter-form textarea { min-height:100px; }
+.page-letters .community-letter-row, .page-letters .written-letter-row { min-width:0; }
+.page-letters .community-letter-meta, .page-letters .written-letter-row > div { overflow-wrap:anywhere; }
+.page-letters .community-letter-row button, .page-letters .written-letter-row a { flex:0 0 auto; }
+@media(max-width:520px){.page-letters .community-letter-row,.page-letters .written-letter-row{align-items:flex-start;gap:8px}.page-letters .community-letter-row button,.page-letters .written-letter-row a{font-size:.8rem}.page-letters .community-letter-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px)}}
