@@ -232,10 +232,8 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
     `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
   ).join("");
   const peopleHint = peopleError
-    ? `<span class="field-hint field-error">Não foi possível carregar os perfis. As publicações escolhidas ficarão indisponíveis até atualizar a página.</span>`
-    : eligiblePeople.length
-      ? ""
-      : "";
+    ? `<span class="field-hint field-error">Não foi possível carregar os perfis.</span>`
+    : "";
 
   return `<section class="social-area" aria-labelledby="socialTitle">
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
