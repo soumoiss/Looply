@@ -9,7 +9,7 @@ function person(profile) {
 }
 
 export async function loadMusicData(client, userId) {
-  const [peopleResult, dedicationsResult, libraryResult] = await Promise.all([
+  const [peopleResult, dedicationsResult, libraryResult, trackCommentsResult] = await Promise.all([
     client.from("profiles").select("id,username,display_name").order("username").limit(100),
     client.from("music_dedications")
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
