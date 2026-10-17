@@ -31,6 +31,7 @@ function escapeHtml(value) {
 }
 
 function notice(root, text, kind = "info") {
+  root.setAttribute("aria-busy", "false");
   root.innerHTML = `<section class="panel page-notice" role="${kind === "error" ? "alert" : "status"}">${escapeHtml(text)}</section>`;
 }
 
@@ -128,6 +129,9 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   const header = document.querySelector("[data-site-header]");
   if (!root || !header) return;
 
+  root.setAttribute("aria-busy", "true");
+  root.innerHTML = `<section class="panel page-notice" role="status">Carregando…</section>`;
+
   if (!isSupabaseConfigured || !supabase) {
     notice(root, "A configuração pública do Supabase está ausente ou inválida.", "error");
     return;
@@ -223,6 +227,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   try {
     await render({ root, client: supabase, user, profile, isAdmin });
+    root.setAttribute("aria-busy", "false");
   } catch (error) {
     console.error("Looply page failed to load", error);
     noticeWithRetry(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.");
