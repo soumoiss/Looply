@@ -105,3 +105,16 @@
   .youtube-track-item .youtube-track { width:100%; }
   .youtube-track-comment-open { margin-left:auto; }
 }
+
+
+/* Prompt 06: compact playlist list and resilient mobile player sizing. */
+.page-music .youtube-playlist { padding:clamp(12px,2.5vw,18px); }
+.page-music .youtube-playlist-layout { grid-template-columns:minmax(0,1.2fr) minmax(240px,.9fr); }
+.page-music .youtube-playlist-player { min-height:0; aspect-ratio:16/9; }
+.page-music .youtube-track-panel { min-width:0; }
+.page-music .youtube-track { grid-template-columns:20px 64px minmax(0,1fr) 16px; gap:7px; }
+.page-music .youtube-track img { width:64px; }
+.page-music .music-card, .page-music .music-track-comments { min-width:0; }
+.page-music .music-listen { overflow-wrap:anywhere; }
+@media(max-width:760px){.page-music .youtube-playlist-layout{grid-template-columns:minmax(0,1fr)}.page-music .youtube-playlist-player{width:100%;min-height:0;aspect-ratio:16/9}.page-music .youtube-track-panel{max-height:none}.page-music .youtube-track-list{max-height:45dvh}.page-music .youtube-track-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px);padding:12px}}
+@media(max-width:380px){.page-music .youtube-track{grid-template-columns:18px 52px minmax(0,1fr) 14px;gap:5px;padding:5px}.page-music .youtube-track img{width:52px}.page-music .youtube-track-copy strong{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
