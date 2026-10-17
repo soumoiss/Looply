@@ -59,3 +59,20 @@
 }
 
 
+
+
+/* Recorte de foto de perfil em proporção 1:1 */
+.avatar-crop-dialog{width:min(94vw,430px);max-width:430px;padding:0;border:1px solid #e5d8ef;border-radius:24px;background:var(--surface,#fff);color:var(--text,#30243b);box-shadow:0 24px 90px #24152c55}
+.avatar-crop-dialog::backdrop{background:#21172dcc;backdrop-filter:blur(5px)}
+.avatar-crop-panel{display:grid;gap:14px;padding:20px}
+.avatar-crop-panel h2{margin:0;font-size:1.25rem}
+.avatar-crop-panel p{margin:0;color:var(--muted,#81758b);font-size:.9rem}
+.avatar-crop-stage{display:grid;place-items:center;width:100%;aspect-ratio:1;background:#17131b;border-radius:16px;overflow:hidden}
+.avatar-crop-stage canvas{display:block;width:min(100%,320px);height:auto;aspect-ratio:1;touch-action:none;cursor:grab}
+.avatar-crop-stage canvas:active{cursor:grabbing}
+.avatar-crop-zoom{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;font-weight:700}
+.avatar-crop-zoom input{width:100%;accent-color:#7851a9}
+.avatar-crop-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.avatar-crop-actions button{min-height:44px;border:1px solid #e2d6ec;border-radius:12px;background:#faf7fc;color:#574666;font:inherit;font-weight:750}
+.avatar-crop-actions [data-crop-confirm]{border-color:#7851a9;background:#7851a9;color:white}
+@media(max-width:480px){.avatar-crop-panel{padding:15px}.avatar-crop-dialog{border-radius:19px}}
