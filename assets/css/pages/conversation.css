@@ -172,3 +172,41 @@ html:has(body.page-conversation),body.page-conversation{width:100%;height:100%;m
  .page-conversation .chat-message-form input[type=file]{max-width:100%}
 }
 @media(prefers-reduced-motion:reduce){.page-conversation .chat-thread{scroll-behavior:auto}}
+
+
+/* Chat com composição inspirada na referência: lista de contatos e conversa bem definidas */
+.page-conversation .container-page{max-width:1400px}
+.page-conversation .page-content{max-width:none}
+.page-conversation .chat-layout{display:grid;grid-template-columns:minmax(280px,36%) minmax(0,1fr);gap:16px;align-items:stretch}
+.page-conversation .chat-sidebar{display:flex;flex-direction:column;gap:12px;min-width:0}
+.page-conversation .chat-panel,.page-conversation .chat-thread-panel{border:1px solid #e7dff0;border-radius:24px;background:var(--surface,#fff);box-shadow:0 12px 32px #49305c0d;overflow:hidden}
+.page-conversation .chat-panel{padding:14px}
+.page-conversation .chat-panel-heading{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 12px}
+.page-conversation .chat-conversation-list{display:grid;gap:4px}
+.page-conversation .chat-conversation-item,.page-conversation [data-chat-open]{display:flex;align-items:center;gap:12px;width:100%;padding:10px;border:0;border-radius:16px;background:transparent;text-align:left}
+.page-conversation .chat-conversation-item:hover,.page-conversation [data-chat-open]:hover,.page-conversation [data-chat-open].is-active{background:#f2e8fa}
+.page-conversation .chat-conversation-avatar,.page-conversation .chat-thread-avatar{width:48px;height:48px;min-width:48px;border-radius:50%;object-fit:cover;background:#e7d9f4}
+.page-conversation .chat-thread-panel{min-width:0;min-height:70vh;padding:0}
+.page-conversation .chat-thread{display:flex;flex-direction:column;min-height:70vh;height:100%;padding:0 18px 18px}
+.page-conversation .chat-thread-heading{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;margin:0 -18px 14px;padding:14px 18px;background:#fff;border-bottom:1px solid #eee5f4}
+.page-conversation .chat-thread-heading strong{flex:1}
+.page-conversation .chat-thread-heading a{color:#7851a9;text-decoration:none;font-weight:700}
+.page-conversation .chat-message{max-width:min(78%,560px);padding:11px 15px;border-radius:18px}
+.page-conversation .chat-message-form{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;margin-top:auto;padding:12px 0 max(8px,env(safe-area-inset-bottom));background:#fff}
+.page-conversation .chat-message-form input:not([type=file]),.page-conversation .chat-message-form textarea{min-width:0;border-radius:24px}
+.page-conversation .chat-message-form button{flex-shrink:0}
+@media(max-width:760px){
+ .page-conversation .chat-layout{grid-template-columns:minmax(0,1fr);gap:10px}
+ .page-conversation .chat-sidebar{display:block}
+ .page-conversation .chat-sidebar .chat-panel:not(:first-child){display:none}
+ .page-conversation .chat-thread-panel{min-height:calc(100dvh - 240px);border-radius:22px}
+ .page-conversation .chat-thread{min-height:calc(100dvh - 240px);height:calc(100dvh - 240px);padding:0 12px 12px}
+ .page-conversation .chat-thread-heading{margin:0 -12px 12px;padding:12px}
+ .page-conversation .chat-conversation-list{display:flex;overflow-x:auto;padding-bottom:4px}
+ .page-conversation .chat-conversation-list [data-chat-open]{flex:0 0 76px;display:flex;flex-direction:column;gap:5px;padding:6px 3px;text-align:center}
+ .page-conversation .chat-conversation-list .chat-conversation-copy{max-width:76px}
+ .page-conversation .chat-conversation-list .chat-conversation-copy strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem}
+ .page-conversation .chat-conversation-list .chat-conversation-copy small,.page-conversation .chat-conversation-list .chat-conversation-copy p{display:none}
+ .page-conversation .chat-conversation-avatar{width:52px;height:52px;min-width:52px}
+ .page-conversation .chat-message{max-width:88%;border-radius:18px}
+}
