@@ -482,3 +482,5 @@
 .gallery-viewer-panel { width:100% !important; max-width:none !important; max-height:none !important; margin:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; }
 .gallery-viewer-sidebar .gallery-comments { display:grid; }
 .gallery-viewer-sidebar .gallery-comments[hidden] { display:none !important; }
+
+.gallery-viewer-bottom-actions [hidden] { display:none !important; }
