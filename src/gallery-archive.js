@@ -10,22 +10,28 @@ function formatDate(value) {
 }
 
 export async function loadArchiveMedia(client, userId) {
-  const [mediaResult, commenterResult] = await Promise.all([
+  const [mediaResult, commenterResult, visibleCommentsResult] = await Promise.all([
     client.from("archive_media")
       .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at")
       .order("source_path", { ascending: true }).limit(500),
     userId
       ? client.from("archive_media_commenters").select("media_id").eq("user_id", userId)
+      : Promise.resolve({ data: [], error: null }),
+    userId
+      ? client.from("archive_media_comments").select("media_id").limit(5000)
       : Promise.resolve({ data: [], error: null })
   ]);
   if (mediaResult.error) throw mediaResult.error;
   if (commenterResult.error) throw commenterResult.error;
+  if (visibleCommentsResult.error) throw visibleCommentsResult.error;
   const commenterMedia = new Set((commenterResult.data || []).map((row) => row.media_id));
+  const mediaWithReadableComments = new Set((visibleCommentsResult.data || []).map((row) => row.media_id));
   return (mediaResult.data || []).map((item) => ({
     ...item,
     signedUrl: null,
     comments: [],
     commentsLoaded: false,
+    hasVisibleComments: mediaWithReadableComments.has(item.id),
     canComment: item.comment_access === "viewers" || (item.comment_access === "selected" && commenterMedia.has(item.id))
   }));
 }
@@ -45,11 +51,14 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
     const legacyComment = item.description && item.kind === "image"
       ? '<button class="media-comment-toggle" type="button" data-open-archive-description="' + escapeHtml(item.id) + '" aria-label="Ver comentário de ' + title + '" title="Ver comentário"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></button>'
       : "";
+    const commentBadge = item.hasVisibleComments
+      ? '<button class="media-comment-toggle" type="button" data-open-archive-comments="' + escapeHtml(item.id) + '" aria-label="Ver comentários autorizados" title="Comentários">♡</button>'
+      : "";
     const createdAt = escapeHtml(item.created_at || "");
     const sortName = escapeHtml(String(item.file_name || item.source_path || "").toLocaleLowerCase("pt-BR"));
     return '<article class="archive-media-tile" data-kind="' + kind + '" data-access="' + access + '" data-created-at="' + createdAt + '" data-name="' + sortName + '" data-search="' + searchText + '">' +
       '<button class="archive-media-open" type="button" data-open-archive-media="' + escapeHtml(item.id) + '" aria-label="Abrir ' + title + '">' + preview +
-      '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + '</article>';
+      '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + commentBadge + '</article>';
   }).join("");
   const emptyMessage = media.length ? "" : '<p class="archive-media-empty" data-archive-media-empty>O acervo ainda não foi importado.</p>';
   const grid = '<div class="archive-media-grid" data-archive-media-grid data-view="grid">' + tiles + '</div>';
