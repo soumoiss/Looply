@@ -121,7 +121,7 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /data-youtube-retry/);
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
-  assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
+  assert.match(playlists, /authorization: "Bearer " \+ token/);
   assert.match(playlists, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
@@ -141,14 +141,13 @@ test("the build emits all independent pages and their assets", async () => {
   }
 });
 
-test("the public YouTube key is configured in the browser and server secrets stay out of the build", async () => {
+test("the public build excludes the YouTube Data API key and uses the authenticated server proxy", async () => {
   const [config, clientModule, build] = await Promise.all([
     read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs")
   ]);
-  assert.match(config, /youtubeApiKey:\s*"AIza[\w-]{20,}"/);
-  assert.match(clientModule, /https:\/\/www\.googleapis\.com\/youtube\/v3\/playlistItems/);
-  assert.doesNotMatch(config, /LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
-  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}|LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(clientModule, /youtubeApiKey|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3\/playlistItems|LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(clientModule, /headers: \{ accept: "application\/json", authorization: "Bearer " \+ token \}/);
   assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
