@@ -940,3 +940,21 @@ test("playlist loading retries a transient network failure and follows every pag
   assert.equal(tracks[1].title, "Faixa 2");
   assert.equal(calls, 3);
 });
+
+
+test("global visual system is linked across pages and preserves safe mobile navigation", async () => {
+  const [app, shared, home, gallery, music, login] = await Promise.all([
+    read("assets/css/app.css"), read("assets/css/pages/shared.css"),
+    read("home.html"), read("galeria.html"), read("musicas.html"), read("login.html")
+  ]);
+  assert.match(app, /Looply visual system v3/);
+  assert.match(app, /@media \(max-width: 760px\)/);
+  assert.match(app, /env\(safe-area-inset-bottom\)/);
+  assert.match(shared, /Shared navigation and header refresh/);
+  assert.match(shared, /aria-current="page"/);
+  for (const page of [home, gallery, music]) {
+    assert.ok(page.includes("assets/css/app.css"));
+    assert.ok(page.includes("assets/css/pages/shared.css"));
+  }
+  assert.ok(login.includes("assets/css/app.css"));
+});
