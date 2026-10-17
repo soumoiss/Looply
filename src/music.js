@@ -42,7 +42,7 @@ function libraryMarkup(items, error) {
 
 function personalLibraryMarkup(data) {
   return `<details class="music-library-panel"><summary>Minha coleção pessoal</summary>
-    <p class="field-hint">Só você e a administração auditada podem consultar esta lista.</p>
+    
     <form class="music-library-form" data-music-library>
       <div class="music-form-grid">
         <div class="field"><label for="libraryMusicTitle">Música</label><input id="libraryMusicTitle" name="title" type="text" maxlength="160" required placeholder="Nome da música"></div>
@@ -109,9 +109,8 @@ function musicContent(data, userId) {
     `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name)} · @${escapeHtml(profile.username)}</option>`
   ).join("");
   const recipientHint = data.peopleError
-    ? `<span class="field-hint field-error">A lista de perfis não carregou; atualize a página para dedicar uma música.</span>`
-    : choices ? `<span class="field-hint">A dedicatória fica visível apenas para você e o perfil escolhido.</span>`
-      : `<span class="field-hint">Ainda não há outros perfis visíveis para receber uma dedicatória.</span>`;
+    ? `<span class="field-hint field-error">Não foi possível carregar os perfis.</span>`
+    : "";
 
   return `<section class="music-area" data-music-area aria-labelledby="musicTitle">
     <div class="music-heading"><div><span class="section-kicker">Biblioteca</span><h2 id="musicTitle">Músicas e dedicatórias</h2></div>
