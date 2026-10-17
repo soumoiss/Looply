@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { archiveGalleryMarkup, loadArchiveMedia } from "../src/gallery-archive.js";
+import { galleryExperienceMarkup } from "../src/gallery-experience.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
@@ -101,4 +102,19 @@ test("archive viewer keeps media dominant and opens comments in a separate persi
   assert.match(gallery, /hasVisibleComments: mediaWithReadableComments\.has\(item\.id\)/);
   assert.match(css, /\.archive-viewer-comments\[hidden\] \{ display:none !important; \}/);
   assert.match(css, /object-fit:contain/);
+});
+
+test("rebuilt gallery has compact options menu, three layouts, title/type/person filters and immersive viewer", () => {
+  const markup = galleryExperienceMarkup();
+  for (const selector of [
+    "data-gallery-menu-toggle", "data-gallery-menu-action=\"upload\"",
+    "data-gallery-menu-action=\"filters\"", "data-gallery-menu-action=\"exclusive\"",
+    "data-gallery-menu-action=\"sort\"", "data-gallery-menu-action=\"people\"",
+    "data-gallery-view=\"list\"", "data-gallery-view=\"grid\"", "data-gallery-view=\"masonry\"",
+    "data-gallery-person", "data-viewer-close", "data-viewer-comments",
+    "data-gallery-people-tags-form", "data-comment-audience", "data-comment-recipients"
+  ]) assert.ok(markup.includes(selector), "missing gallery control: " + selector);
+  assert.match(markup, /gallery-viewer-back/);
+  assert.match(markup, /gallery-viewer-bottom-actions/);
+  assert.match(markup, /data-viewer-content/);
 });
