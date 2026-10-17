@@ -70,18 +70,18 @@ test("only four owner-created usernames can have profiles, then remain immutable
 
 test("login form binds even when session restoration is asynchronous or fails", async () => {
   const login = await read("src/login.js");
-  assert.match(login, /void supabase\\.auth\\.getSession\\(\\)/);
-  assert.match(login, /\\.catch\\(\\(error\\) => console\\.warn\\("Looply session check failed"/);
-  assert.match(login, /form\\.addEventListener\\("submit"/);
-  assert.doesNotMatch(login, /await supabase\\.auth\\.getSession\\(\\)/);
+  assert.match(login, /void supabase\.auth\.getSession\(\)/);
+  assert.match(login, /\.catch\(\(error\) => console\.warn\("Looply session check failed"/);
+  assert.match(login, /form\.addEventListener\("submit"/);
+  assert.doesNotMatch(login, /await supabase\.auth\.getSession\(\)/);
 });
 
 test("page startup offers a retry when session validation fails", async () => {
   const runtime = await read("src/page-runtime.js");
-  assert.match(runtime, /function noticeWithRetry\\(root, text\\)/);
-  assert.match(runtime, /await supabase\\.auth\\.getUser\\(\\)/);
-  assert.match(runtime, /noticeWithRetry\\(root, "Não foi possível validar sua sessão/);
-  assert.match(runtime, /retry\\.addEventListener\\("click", \\(\\) => window\\.location\\.reload\\(\\)\\)/);
+  assert.match(runtime, /function noticeWithRetry\(root, text\)/);
+  assert.match(runtime, /await supabase\.auth\.getUser\(\)/);
+  assert.match(runtime, /noticeWithRetry\(root, "Não foi possível validar sua sessão/);
+  assert.match(runtime, /retry\.addEventListener\("click", \(\) => window\.location\.reload\(\)\)/);
 });
 
 test("the interface supports only Auth sign-in and never stores browser credentials", async () => {
