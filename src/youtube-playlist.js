@@ -59,7 +59,7 @@ const playlistCacheMaxAge = 12 * 60 * 60 * 1000;
 
 export function youtubeApiErrorMessage(status, data = {}) {
   const code = String(typeof data?.error === "string" ? data.error : "");
-  const reason = String(data?.reason || "").toLowerCase();
+  const reason = String(data?.reason || data?.error?.errors?.[0]?.reason || "").toLowerCase();
   if (code === "youtube_service_not_configured") {
     return "A lista pesquisável ainda não está configurada no servidor. O player incorporado continua disponível.";
   }
@@ -98,13 +98,17 @@ function writePlaylistCache(playlistId, tracks) {
 }
 
 export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = globalThis.fetch) {
-  if (!String(accessToken || "").trim()) throw new Error("youtube-session-missing");
+  const publicApiKey = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiKey || "").trim();
+  const directYouTubeApi = Boolean(publicApiKey);
+  if (!directYouTubeApi && !String(accessToken || "").trim()) throw new Error("youtube-session-missing");
   const items = [];
   let pageToken = "";
   for (let page = 0; page < 100; page += 1) {
-    const params = new URLSearchParams({ playlistId });
+    const params = directYouTubeApi
+      ? new URLSearchParams({ part: "snippet,contentDetails", playlistId, maxResults: "50", key: publicApiKey })
+      : new URLSearchParams({ playlistId });
     if (pageToken) params.set("pageToken", pageToken);
-    const requestUrl = playlistApiUrl() + "?" + params;
+    const requestUrl = (directYouTubeApi ? "https://www.googleapis.com/youtube/v3/playlistItems" : playlistApiUrl()) + "?" + params;
     let data = null;
     let lastFailure = null;
 
@@ -114,7 +118,9 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
       try {
         const response = await fetchImpl(requestUrl, {
           credentials: "omit",
-          headers: { accept: "application/json", authorization: "Bearer " + accessToken },
+          headers: directYouTubeApi
+            ? { accept: "application/json" }
+            : { accept: "application/json", authorization: "Bearer " + accessToken },
           signal: controller.signal
         });
         try { data = await response.json(); } catch { data = {}; }
