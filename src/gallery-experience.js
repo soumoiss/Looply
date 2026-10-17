@@ -69,7 +69,7 @@ export function galleryExperienceMarkup(){return `<section class="gallery-redesi
  </section>
  <section class="gallery-library" aria-label="Todas as mídias"><div class="gallery-grid" data-gallery-grid data-view="grid"></div><p class="gallery-empty" data-gallery-empty><strong>Nenhuma mídia encontrada.</strong></p><button class="gallery-load-more" type="button" data-gallery-more hidden>Carregar mais mídias</button></section>
  <div class="gallery-community-zone" data-gallery-upload-slot></div>
- <section class="gallery-shared-comments panel" aria-label="Comentários compartilhados"><div class="gallery-shared-heading"><h2>Comentários</h2><span class="gallery-comment-counter" data-shared-comment-count>0</span></div><div data-shared-comments><p class="gallery-comments-empty">Nenhum comentário compartilhado.</p></div></section>
+
  <div class="gallery-viewer" data-gallery-viewer aria-hidden="true" inert>
   <button class="gallery-viewer-back" type="button" data-viewer-close aria-label="Voltar à galeria">‹</button>
   <button class="gallery-viewer-backdrop" type="button" data-viewer-close aria-label="Fechar visualizador"></button>
