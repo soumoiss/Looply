@@ -8,5 +8,7 @@ const looplyApiBase = looplyIsGitHubPages
 window.LOOPLY_CONFIG = Object.freeze({
   supabaseUrl: "https://qixocgetiwlrsbadpbvh.supabase.co",
   publishableKey: "sb_publishable_GEUz-cJM1qXuaR7KbM2EBA_vk1hGxdT",
-  youtubeApiUrl: looplyApiBase
+  youtubeApiUrl: looplyApiBase,
+  // Chave pública do YouTube Data API. Restrinja-a no Google Cloud por API e origem.
+  youtubeApiKey: "AIzaSyAL_V1wioXwRNCJn9ZIW7RsqHhBqbDd6Sg"
 });
