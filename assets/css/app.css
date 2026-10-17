@@ -716,3 +716,61 @@ button, input, select, textarea { accent-color: var(--primary); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Login shares the same visual language without changing its form or authentication hooks. */
+body:has(.login-page) {
+  display: grid;
+  align-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 8% 4%, rgba(181,145,238,.22), transparent 32%),
+    radial-gradient(circle at 92% 88%, rgba(220,204,255,.46), transparent 30%),
+    linear-gradient(145deg, #f8f5fd, #f0eafb);
+}
+.login-page { width: min(calc(100% - 28px), 440px); padding: 18px 0; }
+.login-card {
+  padding: clamp(24px, 5vw, 38px);
+  border: 1px solid rgba(105,77,145,.14);
+  border-radius: 28px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 24px 72px rgba(49,31,78,.12);
+  backdrop-filter: blur(18px);
+}
+.login-logo { background: #f0eafb; }
+.login-logo .circle { border-width: 4px; }
+.login-brand-name { letter-spacing: -.035em; }
+.form-label { display: block; margin-bottom: 7px; color: #3b3348; font-size: 13px; font-weight: 750; }
+.input-wrap .input {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  padding-inline: 17px 50px;
+  border: 1px solid rgba(92,65,130,.16);
+  border-radius: 14px;
+  background: #fbf9ff;
+  color: #282333;
+  font: inherit;
+}
+.input-wrap .input:focus {
+  outline: none;
+  border-color: #9b72d2;
+  box-shadow: 0 0 0 3px rgba(111,45,189,.12);
+}
+.toggle-password { min-width: 40px; min-height: 40px; }
+.login-button {
+  min-height: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7437c5, #6025a8);
+  box-shadow: 0 8px 20px rgba(111,45,189,.22);
+}
+.login-button:hover:not(:disabled) { background: linear-gradient(135deg, #6630b0, #542092); }
+#message { overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  .login-page { width: calc(100% - 20px); }
+  .login-card { padding: 23px 18px; border-radius: 23px; }
+  .login-brand { margin-bottom: 22px; }
+  .login-logo { width: 70px; height: 70px; }
+  .login-logo .circle { width: 56px; height: 56px; }
+}
