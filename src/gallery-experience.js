@@ -9,18 +9,21 @@ export async function loadGalleryMedia(client){
  const items=[...(a.data||[]).map(x=>({...x,source:"archive",title:x.file_name||x.source_path,description:x.description||"",owner_id:null})),...(c.data||[]).map(x=>({...x,source:"community",title:x.caption||x.file_name,description:x.caption||"",visibility:x.visibility||"members"}))];
  const archiveIds=items.filter(x=>x.source==="archive").map(x=>x.id),communityIds=items.filter(x=>x.source==="community").map(x=>x.id);if(!items.length)return [];
  const empty={data:[],error:null};
- const [ar,ac,cr,cc]=await Promise.all([
+ const [ar,ac,cr,cc,peopleTags]=await Promise.all([
   archiveIds.length?client.from("archive_media_recipients").select("media_id,user_id").in("media_id",archiveIds):Promise.resolve(empty),
   archiveIds.length?client.from("archive_media_commenters").select("media_id,user_id").in("media_id",archiveIds):Promise.resolve(empty),
   communityIds.length?client.from("community_gallery_media_recipients").select("media_id,user_id,can_view,can_comment").in("media_id",communityIds):Promise.resolve(empty),
-  communityIds.length?client.from("community_gallery_media_commenters").select("media_id,user_id").in("media_id",communityIds):Promise.resolve(empty)
+  communityIds.length?client.from("community_gallery_media_commenters").select("media_id,user_id").in("media_id",communityIds):Promise.resolve(empty),
+  client.from("gallery_media_people").select("source,media_id,person_id,person:profiles!gallery_media_people_person_id_fkey(id,username,display_name)").limit(5000)
  ]);
  for(const r of [ar,ac,cr,cc])if(r.error)throw r.error;
+ const tagsByMedia=new Map();
+ if(!peopleTags.error)for(const row of peopleTags.data||[]){const key=row.source+":"+row.media_id,list=tagsByMedia.get(key)||[];list.push(row);tagsByMedia.set(key,list)}
  const recipients=new Map();
  for(const r of [...(ar.data||[]),...(cr.data||[])]){const list=recipients.get(r.media_id)||[];list.push(r);recipients.set(r.media_id,list)}
  const commenters=new Map();
  for(const r of [...(ac.data||[]),...(cc.data||[])]){const list=commenters.get(r.media_id)||[];list.push(r.user_id);commenters.set(r.media_id,list)}
- for(const x of items){const r=recipients.get(x.id)||[];x.recipient_ids=r.filter(y=>y.can_view!==false).map(y=>y.user_id);x.commenter_ids=commenters.get(x.id)||r.filter(y=>y.can_comment).map(y=>y.user_id);x.signedUrl="";x.signedAt=0}
+ for(const x of items){const r=recipients.get(x.id)||[];x.recipient_ids=r.filter(y=>y.can_view!==false).map(y=>y.user_id);x.commenter_ids=commenters.get(x.id)||r.filter(y=>y.can_comment).map(y=>y.user_id);x.people_tags=tagsByMedia.get(x.source+":"+x.id)||[];x.people_ids=x.people_tags.map(t=>t.person_id);x.signedUrl="";x.signedAt=0}
  return items
 }
 export async function loadSharedGalleryComments(client,userId){
