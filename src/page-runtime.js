@@ -34,6 +34,18 @@ function notice(root, text, kind = "info") {
   root.innerHTML = `<section class="panel page-notice" role="${kind === "error" ? "alert" : "status"}">${escapeHtml(text)}</section>`;
 }
 
+function noticeWithRetry(root, text) {
+  notice(root, text, "error");
+  const panel = root.querySelector(".page-notice");
+  if (!panel) return;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "text-button";
+  retry.textContent = "Tentar novamente";
+  retry.addEventListener("click", () => window.location.reload());
+  panel.append(" ", retry);
+}
+
 function headerMarkup(page, profile, admin, unreadCount) {
   const username = escapeHtml(profile.username);
   const name = escapeHtml(profile.display_name || profile.username);
@@ -121,9 +133,32 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    await supabase.auth.signOut();
+  let userData;
+  let userError;
+  try {
+    ({ data: userData, error: userError } = await supabase.auth.getUser());
+  } catch (error) {
+    console.error("Looply session validation failed", error);
+    noticeWithRetry(root, "Não foi possível validar sua sessão. Verifique a conexão e tente novamente.");
+    return;
+  }
+
+  if (userError) {
+    const status = Number(userError.status || 0);
+    const invalidSession = status === 401 ||
+      userError.name === "AuthSessionMissingError" ||
+      (status === 400 && /session|token|jwt/i.test(String(userError.message || "")));
+    if (invalidSession) {
+      await supabase.auth.signOut().catch((error) => console.warn("Looply sign-out after invalid session failed", error));
+      window.location.replace("login.html");
+      return;
+    }
+    console.error("Looply session validation failed", userError);
+    noticeWithRetry(root, "Não foi possível validar sua sessão. Verifique a conexão e tente novamente.");
+    return;
+  }
+
+  if (!userData?.user) {
     window.location.replace("login.html");
     return;
   }
@@ -139,7 +174,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     profile = profileResult.value;
     isAdmin = adminResult.status === "fulfilled" && Boolean(adminResult.value);
   } catch (error) {
-    notice(root, error?.message || "Não foi possível carregar o perfil.", "error");
+    noticeWithRetry(root, error?.message || "Não foi possível carregar o perfil.");
     return;
   }
 
@@ -190,7 +225,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     await render({ root, client: supabase, user, profile, isAdmin });
   } catch (error) {
     console.error("Looply page failed to load", error);
-    notice(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.", "error");
+    noticeWithRetry(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.");
   }
 
   window.addEventListener("pagehide", () => {
