@@ -1,6 +1,6 @@
 -- Comentários pessoais independentes para cada faixa da playlist ou coleção.
 -- track_key usa youtube:<videoId> ou library:<uuid>; os registros não se misturam entre músicas.
-create table public.music_track_comments (
+create table if not exists public.music_track_comments (
   id uuid primary key default gen_random_uuid(),
   track_key text not null,
   track_title text not null,
@@ -19,26 +19,30 @@ create table public.music_track_comments (
   )
 );
 
-create index music_track_comments_owner_track_idx
+create index if not exists music_track_comments_owner_track_idx
   on public.music_track_comments (author_id, track_key, created_at);
 
 alter table public.music_track_comments enable row level security;
 revoke all on table public.music_track_comments from public, anon, authenticated;
 grant select, insert, update, delete on table public.music_track_comments to authenticated;
 
+drop policy if exists music_track_comments_select_own on public.music_track_comments;
 create policy music_track_comments_select_own
   on public.music_track_comments for select to authenticated
   using ((select auth.uid()) = author_id);
 
+drop policy if exists music_track_comments_insert_own on public.music_track_comments;
 create policy music_track_comments_insert_own
   on public.music_track_comments for insert to authenticated
   with check ((select auth.uid()) = author_id);
 
+drop policy if exists music_track_comments_update_own on public.music_track_comments;
 create policy music_track_comments_update_own
   on public.music_track_comments for update to authenticated
   using ((select auth.uid()) = author_id)
   with check ((select auth.uid()) = author_id);
 
+drop policy if exists music_track_comments_delete_own on public.music_track_comments;
 create policy music_track_comments_delete_own
   on public.music_track_comments for delete to authenticated
   using ((select auth.uid()) = author_id);
