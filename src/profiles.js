@@ -27,7 +27,7 @@ export function profileAreaMarkup(profile) {
       <form class="profile-editor-form" data-profile-edit>
         <div class="profile-avatar-editor">
           <div class="profile-avatar-edit-preview" data-avatar-preview data-original-avatar-url="${avatarUrl}">${avatar}</div>
-          <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG ou WebP · até 10 MB</span></div>
+          <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong></div>
             <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar">${profile.avatarUrl ? "Trocar foto" : "Escolher foto"}</label>
               <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" capture="user" data-avatar-input>
               <input type="hidden" name="removeAvatar" value="false" data-avatar-remove-state>
@@ -35,7 +35,7 @@ export function profileAreaMarkup(profile) {
           </div>
         </div>
         <div class="profile-edit-grid">
-          <div class="field"><span class="profile-username-label">Username</span><strong class="profile-username-readonly">@${username}</strong><span class="field-hint">Seu username confirmado não pode ser alterado.</span></div>
+          <div class="field"><span class="profile-username-label">Username</span><strong class="profile-username-readonly">@${username}</strong></div>
           <div class="field"><label for="editDisplayName">Nome de exibição</label><input id="editDisplayName" name="displayName" value="${displayName}" maxlength="80" required></div>
         </div>
         <div class="field"><label for="editBio">Sobre mim</label><textarea id="editBio" name="bio" maxlength="280" rows="3">${bio}</textarea></div>
