@@ -59,7 +59,13 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   ]);
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
-  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id) +
+  const avatarProfiles = profiles.filter((profile) => profile.avatar_path);
+  if (avatarProfiles.length) {
+    const { data: signed, error: signedError } = await client.storage.from("looply-avatars")
+      .createSignedUrls(avatarProfiles.map((profile) => profile.avatar_path), 1800);
+    if (!signedError && signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+  }
+  root.innerHTML = usersDirectoryMarkup(profiles, user.id) + communityLettersMarkup(communityLetters, profiles, user.id) +
     "<section class=\"panel written-letters-panel\"><div class=\"written-letters-heading\"><h2>Cartas enviadas e recebidas</h2><a class=\"text-button\" href=\"chat.html\">Abrir conversa</a></div><div class=\"written-letters-list\"></div></section>" +
     archivedCardsMarkup();
   root.addEventListener("input", (event) => {
