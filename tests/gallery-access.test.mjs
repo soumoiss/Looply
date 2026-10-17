@@ -33,8 +33,9 @@ test("archive metadata loads in parallel without signing every media object or d
     storage: { from() { throw new Error("media URLs should stay lazy"); } }
   };
   const result = await loadArchiveMedia(client, "member-id");
-  assert.deepEqual(calls, ["archive_media", "archive_media_commenters"]);
+  assert.deepEqual(calls, ["archive_media", "archive_media_commenters", "archive_media_comments"]);
   assert.deepEqual(result.map((item) => item.canComment), [true, true, false]);
+  assert.deepEqual(result.map((item) => item.hasVisibleComments), [false, true, false]);
   assert.ok(result.every((item) => item.signedUrl === null && item.commentsLoaded === false));
 });
 
@@ -89,3 +90,15 @@ test("the page runtime renders before refreshing unread counts and prefetches na
   assert.ok(runtime.includes('hint.rel = "prefetch"'));
 });
 
+
+test("archive viewer keeps media dominant and opens comments in a separate persistent drawer", async () => {
+  const [gallery, css] = await Promise.all([read("src/gallery-archive.js"), read("styles.css")]);
+  assert.match(gallery, /data-viewer-comments-toggle/);
+  assert.match(gallery, /data-viewer-comments-panel hidden/);
+  assert.match(gallery, /data-viewer-comments-close/);
+  assert.match(gallery, /data-viewer-download/);
+  assert.match(gallery, /setCommentsOpen\(!state\.commentsOpen\)/);
+  assert.match(gallery, /hasVisibleComments: mediaWithReadableComments\.has\(item\.id\)/);
+  assert.match(css, /\.archive-viewer-comments\[hidden\] \{ display:none !important; \}/);
+  assert.match(css, /object-fit:contain/);
+});

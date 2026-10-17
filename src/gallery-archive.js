@@ -10,22 +10,28 @@ function formatDate(value) {
 }
 
 export async function loadArchiveMedia(client, userId) {
-  const [mediaResult, commenterResult] = await Promise.all([
+  const [mediaResult, commenterResult, visibleCommentsResult] = await Promise.all([
     client.from("archive_media")
       .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at")
       .order("source_path", { ascending: true }).limit(500),
     userId
       ? client.from("archive_media_commenters").select("media_id").eq("user_id", userId)
+      : Promise.resolve({ data: [], error: null }),
+    userId
+      ? client.from("archive_media_comments").select("media_id").limit(5000)
       : Promise.resolve({ data: [], error: null })
   ]);
   if (mediaResult.error) throw mediaResult.error;
   if (commenterResult.error) throw commenterResult.error;
+  if (visibleCommentsResult.error) throw visibleCommentsResult.error;
   const commenterMedia = new Set((commenterResult.data || []).map((row) => row.media_id));
+  const mediaWithReadableComments = new Set((visibleCommentsResult.data || []).map((row) => row.media_id));
   return (mediaResult.data || []).map((item) => ({
     ...item,
     signedUrl: null,
     comments: [],
     commentsLoaded: false,
+    hasVisibleComments: mediaWithReadableComments.has(item.id),
     canComment: item.comment_access === "viewers" || (item.comment_access === "selected" && commenterMedia.has(item.id))
   }));
 }
@@ -45,11 +51,14 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
     const legacyComment = item.description && item.kind === "image"
       ? '<button class="media-comment-toggle" type="button" data-open-archive-description="' + escapeHtml(item.id) + '" aria-label="Ver comentário de ' + title + '" title="Ver comentário"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></button>'
       : "";
+    const commentBadge = item.hasVisibleComments
+      ? '<button class="media-comment-toggle" type="button" data-open-archive-comments="' + escapeHtml(item.id) + '" aria-label="Ver comentários autorizados" title="Comentários">♡</button>'
+      : "";
     const createdAt = escapeHtml(item.created_at || "");
     const sortName = escapeHtml(String(item.file_name || item.source_path || "").toLocaleLowerCase("pt-BR"));
     return '<article class="archive-media-tile" data-kind="' + kind + '" data-access="' + access + '" data-created-at="' + createdAt + '" data-name="' + sortName + '" data-search="' + searchText + '">' +
       '<button class="archive-media-open" type="button" data-open-archive-media="' + escapeHtml(item.id) + '" aria-label="Abrir ' + title + '">' + preview +
-      '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + '</article>';
+      '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + commentBadge + '</article>';
   }).join("");
   const emptyMessage = media.length ? "" : '<p class="archive-media-empty" data-archive-media-empty>O acervo ainda não foi importado.</p>';
   const grid = '<div class="archive-media-grid" data-archive-media-grid data-view="grid">' + tiles + '</div>';
@@ -72,14 +81,14 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
       '<div class="archive-viewer-backdrop" data-archive-viewer-close></div>' +
       '<section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">' +
         '<header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>' +
-          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
+          '<div class="archive-viewer-actions"><a data-viewer-download download aria-label="Baixar mídia" title="Baixar">↓</a><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-comments-toggle aria-expanded="false" aria-controls="archiveViewerComments">Comentários</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
         '</header>' +
         '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
         '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
           '<div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>' +
           '<div class="archive-viewer-content" data-archive-viewer-content></div>' +
         '</div>' +
-        '<aside class="archive-viewer-comments"><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
+        '<aside id="archiveViewerComments" class="archive-viewer-comments" data-viewer-comments-panel hidden><header class="archive-comments-panel-header"><h3>Comentários <span data-viewer-comment-count>0</span></h3><button type="button" data-viewer-comments-close aria-label="Fechar comentários">×</button></header><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
           '<p data-no-comment hidden>Você pode visualizar esta mídia, mas não tem permissão para comentar.</p>' +
           '<form class="archive-media-comment-form" data-archive-media-comment><label for="archiveMediaCommentBody">Adicionar comentário</label><textarea id="archiveMediaCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário"></textarea>' +
             '<label for="archiveMediaCommentAudience">Quem poderá ver este comentário?</label><select id="archiveMediaCommentAudience" name="audience" data-comment-audience>' +
@@ -126,7 +135,7 @@ function setCommentStatus(form, message, kind = "") {
 
 export function bindArchiveGallery(root, client, user, media, profile = user, isAdmin = false) {
   const state = {
-    media: [...media], activeId: null, zoom: 1, panX: 0, panY: 0,
+    media: [...media], activeId: null, zoom: 1, panX: 0, panY: 0, commentsOpen: false,
     dragging: null, gesture: null, channel: null, lastFocus: null,
     profileOptionsLoaded: false, profileOptionsLoading: null, thumbnailObserver: null
   };
@@ -278,11 +287,33 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     return item.comments;
   }
 
+  function syncCommentBadge(item) {
+    const tile = root.querySelector(`[data-open-archive-media="${CSS.escape(item.id)}"]`)?.closest(".archive-media-tile");
+    if (!tile) return;
+    let badge = tile.querySelector("[data-open-archive-comments]");
+    const hasReadableComments = item.commentsLoaded && (item.comments || []).length > 0;
+    if (hasReadableComments && !badge) {
+      badge = document.createElement("button"); badge.type = "button"; badge.className = "media-comment-toggle";
+      badge.dataset.openArchiveComments = item.id; badge.setAttribute("aria-label", "Ver comentários autorizados"); badge.textContent = "♡";
+      tile.append(badge);
+    } else if (!hasReadableComments && badge) badge.remove();
+  }
+
+  function setCommentsOpen(open) {
+    state.commentsOpen = Boolean(open);
+    const panel = root.querySelector("[data-viewer-comments-panel]");
+    const toggle = root.querySelector("[data-viewer-comments-toggle]");
+    if (panel) panel.hidden = !state.commentsOpen;
+    if (toggle) toggle.setAttribute("aria-expanded", String(state.commentsOpen));
+    viewer?.classList.toggle("comments-open", state.commentsOpen);
+  }
+
   function renderComments(item) {
     const list = root.querySelector("[data-viewer-comments]");
     const count = root.querySelector("[data-viewer-comment-count]");
     if (list) list.innerHTML = commentsMarkup(item.comments || []);
     if (count) count.textContent = String((item.comments || []).length);
+    syncCommentBadge(item);
   }
 
   function setCommentForm(item) {
@@ -328,6 +359,9 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     state.gesture = null;
     root.querySelector("[data-archive-viewer-title]").textContent = item.file_name || item.source_path;
     root.querySelector("[data-archive-viewer-meta]").textContent = `${item.kind} · ${formatDate(item.created_at)}`;
+    const download = root.querySelector("[data-viewer-download]");
+    if (download) { download.removeAttribute("href"); download.hidden = true; }
+    setCommentsOpen(false);
     const description = root.querySelector("[data-archive-viewer-description]");
     if (description) {
       description.textContent = item.description || "";
@@ -362,6 +396,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     }
     if (current()?.id !== item.id) return;
     if (viewerContent) viewerContent.innerHTML = mediaContent(item);
+    if (download && item.signedUrl) { download.href = item.signedUrl; download.download = item.file_name || "looply-media"; download.hidden = false; }
     applyZoom();
     if (item.canComment) {
       const audience = root.querySelector("[data-comment-audience]");
@@ -436,6 +471,10 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
       void show(state.media.find((item) => item.id === open.dataset.openArchiveMedia), open);
       return;
     }
+    if (event.target.closest("[data-viewer-comments-toggle]")) { setCommentsOpen(!state.commentsOpen); return; }
+    if (event.target.closest("[data-viewer-comments-close]")) { setCommentsOpen(false); return; }
+    const commentBadge = event.target.closest("[data-open-archive-comments]");
+    if (commentBadge) { const item = state.media.find((entry) => entry.id === commentBadge.dataset.openArchiveComments); void show(item, commentBadge).then(() => setCommentsOpen(true)); return; }
     if (event.target.closest("[data-archive-viewer-close]")) { close(); return; }
     const zoomButton = event.target.closest("[data-media-zoom]");
     if (zoomButton) {
