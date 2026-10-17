@@ -26,7 +26,7 @@ function writtenLettersMarkup(letters, userId) {
     return "<article class=\"written-letter-row\"><div><strong>" + escapeHtml(letter.subject) + "</strong><span>" +
       (own ? "Para " : "De ") + escapeHtml(peer?.display_name || peer?.username || "Perfil restrito") +
       " · " + escapeHtml(formatDate(letter.created_at)) + "</span></div>" +
-      "<a class=\"text-button\" href=\"conversa.html?id=" + encodeURIComponent(letter.conversation_id) + "\">Abrir conversa</a></article>";
+      "<a class=\"text-button\" href=\"mensagens.html?id=" + encodeURIComponent(letter.conversation_id) + "\">Abrir conversa</a></article>";
   }).join("");
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
