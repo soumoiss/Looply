@@ -555,3 +555,164 @@ html[data-theme="noite"] .card-row, html[data-theme="noite"] .track-card { box-s
 .brand-inline .brand-mark-animated .circle { width:36px; height:36px; display:grid; place-items:center; border:4px solid currentColor; border-radius:50%; animation:spin 3s linear infinite; }
 .brand-inline .brand-mark-animated svg { width:20px; height:20px; color:inherit; }
 @media (prefers-reduced-motion:reduce) { .brand-inline .brand-mark-animated .circle { animation:none; } }
+
+
+/* Looply visual system v3 — shared polish, responsive-safe and behavior-preserving. */
+:root {
+  --primary: #6f2dbd;
+  --primary-dark: #59239a;
+  --primary-deep: #442078;
+  --deep: #2e2040;
+  --bg: #f7f4fc;
+  --bg-2: #f0eafb;
+  --surface: rgba(255,255,255,.96);
+  --surface-strong: #fff;
+  --surface-soft: #fbf9ff;
+  --lilac: #eee6fb;
+  --text: #282333;
+  --muted: #756e82;
+  --muted-2: #a49bb2;
+  --line: rgba(92,65,130,.15);
+  --success: #18875a;
+  --danger: #bd3455;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 30px;
+  --shadow-sm: 0 4px 16px rgba(49,31,78,.055);
+  --shadow-md: 0 12px 32px rgba(49,31,78,.09);
+  --shadow-lg: 0 24px 64px rgba(38,24,58,.18);
+  --max: 1120px;
+}
+html { min-width: 320px; scroll-padding-top: 90px; }
+body { overflow-x: clip; }
+img, video, canvas, iframe, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; }
+button, [role="button"], a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { accent-color: var(--primary); }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 52%, white);
+  outline-offset: 2px;
+}
+:where(.looply-page, .login-page) {
+  color: var(--text);
+}
+.looply-page .container-page {
+  width: min(100%, 1240px);
+  margin-inline: auto;
+  padding-inline: clamp(12px, 2.5vw, 28px);
+}
+.looply-page main { min-width: 0; }
+.looply-page .page-content { min-width: 0; gap: 16px; }
+.looply-page .hero-panel,
+.looply-page .panel,
+.looply-page .card,
+.looply-page .settings-form,
+.looply-page .notifications-panel {
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.looply-page .hero-panel {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, white), var(--surface) 72%);
+}
+.looply-page .hero-title {
+  color: var(--deep);
+  letter-spacing: -.035em;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.looply-page .eyebrow,
+.looply-page .section-kicker,
+.looply-page .memory-radar-kicker {
+  letter-spacing: .09em;
+}
+.looply-page .panel,
+.looply-page .page-content > section,
+.looply-page .page-content > article {
+  min-width: 0;
+}
+.looply-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea) {
+  max-width: 100%;
+  border-color: var(--line);
+  border-radius: 13px;
+  background-color: var(--surface-strong);
+  color: var(--text);
+}
+.looply-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea)::placeholder {
+  color: var(--muted-2);
+  opacity: 1;
+}
+.looply-page :is(input, select, textarea):focus {
+  border-color: color-mix(in srgb, var(--primary) 65%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.looply-page :is(button, .primary-button, .login-button, .header-action, .text-button, .profile-photo-picker, .profile-photo-remove) {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.looply-page :is(button, .primary-button, .login-button):active { transform: translateY(1px); }
+.looply-page :is(.primary-button, .login-button, button[type=submit]) {
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 17%, transparent);
+}
+.looply-page :is(.primary-button, .login-button):hover:not(:disabled) {
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.looply-page :is(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+.looply-page .page-notice {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.looply-page .page-notice[role=alert] { border-color: color-mix(in srgb, var(--danger) 28%, var(--line)); }
+.looply-page .page-notice .text-button { min-height: 40px; margin-top: 8px; }
+.looply-page .looply-footer { padding-bottom: 6px; }
+:where(.media-comment-window, .music-player-window, .avatar-crop-dialog, .archive-viewer-dialog) {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+}
+:where(.media-comment-overlay, .music-player-overlay) {
+  padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+}
+:where(.media-comment-window-content, .music-player-scroll, .archive-viewer-content) {
+  overscroll-behavior: contain;
+}
+:where(.page-chat, .page-conversation) .chat-layout,
+:where(.page-chat, .page-conversation) .chat-thread-panel,
+:where(.page-chat, .page-conversation) .chat-thread,
+:where(.page-chat, .page-conversation) .chat-message-form { min-width: 0; }
+:where(.page-chat, .page-conversation) .chat-message-form textarea { max-width: 100%; }
+@media (min-width: 761px) {
+  .looply-page .container-page { padding-bottom: 24px; }
+  .looply-page .page-header { gap: 14px; }
+  .looply-page .page-content { gap: 18px; }
+}
+@media (max-width: 760px) {
+  html { scroll-padding-top: 76px; }
+  .looply-page .container-page {
+    padding-inline: 10px;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom));
+  }
+  .looply-page .page-content { gap: 12px; }
+  .looply-page .hero-panel,
+  .looply-page .panel { border-radius: 18px; }
+  .looply-page .hero-title { font-size: clamp(1.45rem, 6vw, 2rem); }
+  .looply-page :is(button, .primary-button, .text-button, .header-action, .profile-photo-picker, .profile-photo-remove) {
+    min-height: 42px;
+  }
+  .looply-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select) { min-height: 44px; }
+  .looply-page textarea { scroll-margin-bottom: 120px; }
+}
+@media (max-width: 420px) {
+  .looply-page .container-page { padding-inline: 8px; }
+  .looply-page .page-content { gap: 10px; }
+  .looply-page .hero-panel { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
