@@ -846,6 +846,9 @@ export function bindChatEvents(root, client, getUserId) {
         window.location.assign(`mensagens.html?id=${encodeURIComponent(conversationId)}`);
         return;
       }
+      const conversationUrl = new URL(window.location.href);
+      conversationUrl.searchParams.set("id", conversationId);
+      window.history.replaceState(null, "", conversationUrl);
       await openConversation(root, client, conversationId, userId);
       return;
     }
