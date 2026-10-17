@@ -477,3 +477,8 @@
  .gallery-viewer-sidebar .gallery-comments { gap:12px; }
  .gallery-zoom-controls { top:max(65px,calc(env(safe-area-inset-top) + 55px)); }
 }
+
+.gallery-comments[hidden],.gallery-comment-form[hidden],.gallery-permissions-form[hidden],.gallery-people-tags-form[hidden] { display:none !important; }
+.gallery-viewer-panel { width:100% !important; max-width:none !important; max-height:none !important; margin:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; }
+.gallery-viewer-sidebar .gallery-comments { display:grid; }
+.gallery-viewer-sidebar .gallery-comments[hidden] { display:none !important; }
