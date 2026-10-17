@@ -910,3 +910,11 @@ test("playlist loading retries a transient network failure and follows every pag
   assert.equal(tracks[1].title, "Faixa 2");
   assert.equal(calls, 3);
 });
+
+test("archive card import never counts an unconfirmed or zero-count response as success", async () => {
+  const importer = await read("src/archive-import.js");
+  assert.match(importer, /const importedCount = Number\(data\?\.importedCount\)/);
+  assert.match(importer, /!Number\.isFinite\(importedCount\) \|\| importedCount !== 1/);
+  assert.match(importer, /O serviço não confirmou o registro desta carta/);
+  assert.match(importer, /cardsImported \+= importedCount/);
+});
