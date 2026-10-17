@@ -129,7 +129,7 @@ function conversationPreview(conversation, userId) {
 function notificationsMarkup(notifications) {
   const unread = notifications.filter((item) => !item.read_at).length;
   if (!notifications.length) return `<p class="chat-empty">Nenhuma notificação</p>`;
-  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="conversa.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
+  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="mensagens.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
     <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(item.preview)}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
   </a>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
 }
@@ -137,7 +137,7 @@ function notificationsMarkup(notifications) {
 export function chatMarkup(data, userId) {
   if (data.error) return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div></div><div class="chat-empty" role="alert">Não foi possível carregar as conversas. Atualize a página e tente novamente.</div></section>`;
   const conversations = data.conversations.length
-    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
+    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="mensagens.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
         ${conversationAvatar(conversation, userId)}
         <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
@@ -627,7 +627,7 @@ function prefetchConversationPage(root) {
     const link = event.target.closest?.("a[data-chat-open]");
     if (!link || !root.contains(link) || link.target || link.hasAttribute("download")) return;
     const url = new URL(link.href, window.location.href);
-    if (url.origin !== window.location.origin || !url.pathname.endsWith("conversa.html") || prefetched.has(url.href)) return;
+    if (url.origin !== window.location.origin || !url.pathname.endsWith("mensagens.html") || prefetched.has(url.href)) return;
     prefetched.add(url.href);
     const hint = document.createElement("link");
     hint.rel = "prefetch";
@@ -843,7 +843,7 @@ export function bindChatEvents(root, client, getUserId) {
       event.preventDefault();
       const conversationId = openButton.dataset.chatOpen;
       if (root.dataset.conversationPage !== "true") {
-        window.location.assign(`conversa.html?id=${encodeURIComponent(conversationId)}`);
+        window.location.assign(`mensagens.html?id=${encodeURIComponent(conversationId)}`);
         return;
       }
       await openConversation(root, client, conversationId, userId);
@@ -856,7 +856,7 @@ export function bindChatEvents(root, client, getUserId) {
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
         if (root.dataset.conversationPage !== "true") {
-          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+          window.location.assign(`mensagens.html?id=${encodeURIComponent(data.conversationId)}`);
           return;
         }
         activeConversationId = data.conversationId;
@@ -922,7 +922,7 @@ export function bindChatEvents(root, client, getUserId) {
         setStatus(form, "Grupo criado.");
         await refreshChat(root, client, userId);
         if (root.dataset.conversationPage !== "true") {
-          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
+          window.location.assign(`mensagens.html?id=${encodeURIComponent(data.conversationId)}`);
           return;
         }
         await openConversation(root, client, data.conversationId, userId);
