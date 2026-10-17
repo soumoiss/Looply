@@ -61,7 +61,7 @@ test("only four owner-created usernames can have profiles, then remain immutable
   assert.match(authProfileMigration, /requested_username not in \('patati', 'misol', 'yara', 'peixinho'\)/i);
   assert.match(authProfileMigration, /when 'peixinho' then 'Peixinho'/i);
   assert.match(allowlistMigration, /profiles_username_allowlist/);
-  assert.match(profiles, /Seu username confirmado não pode ser alterado/);
+  assert.doesNotMatch(profiles, /Seu username confirmado não pode ser alterado/);
   assert.doesNotMatch(profiles, /update\(\{ username/);
   assert.match(immutableMigration, /revoke update \(username\) on table public\.profiles from authenticated/i);
   assert.match(immutableMigration, /profiles_prevent_username_change/);
