@@ -18,7 +18,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     media = [];
   }
 
-  if (loadError) { const note = document.createElement("p"); note.className = "gallery-load-error"; note.setAttribute("role", "alert"); note.textContent = loadError; root.querySelector(".gallery-controls").after(note); }
+  if (loadError) { const note = document.createElement("p"); note.className = "gallery-load-error"; note.setAttribute("role", "alert"); note.textContent = loadError; root.querySelector(".gallery-command").after(note); }
   bindCommunityGallery(root, client, user, isAdmin, []);
   bindGalleryExperience(root, client, user, profile, isAdmin, media);
 } });
