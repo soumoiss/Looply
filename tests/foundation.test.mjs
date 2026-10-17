@@ -880,6 +880,20 @@ test("chat composer inserts selected emojis at the cursor", async () => {
 });
 
 
+test("chat initialization surfaces notification and profile query errors instead of hiding them", async () => {
+  const chat = await read("src/chat.js");
+  assert.match(chat, /if \(notificationResult\.error\) throw notificationResult\.error/);
+  assert.match(chat, /if \(profilesResult\.error\) throw profilesResult\.error/);
+});
+
+test("page runtime announces loading and clears busy state on success or failure", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /aria-busy", "true"/);
+  assert.match(runtime, /Carregando…/);
+  assert.match(runtime, /root\.setAttribute\("aria-busy", "false"\)/);
+  assert.match(runtime, /function noticeWithRetry\(root, text\)/);
+});
+
 test("chat conversations use the dedicated route and preload on interaction without mock data", async () => {
   const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
   assert.match(chat, /function prefetchConversationPage\(root\)/);
