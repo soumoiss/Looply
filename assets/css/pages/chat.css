@@ -352,3 +352,164 @@
   :is(.page-chat,.page-conversation) .chat-conversation,
   :is(.page-chat,.page-conversation) .chat-filter-tabs button { transition: none; }
 }
+
+
+/* Conversa inspirada no fluxo de mensageria moderna, preservando a paleta Looply. */
+:is(.page-chat,.page-conversation) .chat-area {
+  border-radius: 28px;
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--line));
+  background: linear-gradient(155deg, var(--surface-strong) 0%, color-mix(in srgb, var(--lilac) 19%, var(--surface)) 100%);
+  box-shadow: 0 18px 54px color-mix(in srgb, var(--deep) 8%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-panel,
+:is(.page-chat,.page-conversation) .chat-thread-panel {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-strong);
+}
+:is(.page-chat,.page-conversation) .chat-conversation {
+  gap: 12px;
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 17px;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+:is(.page-chat,.page-conversation) .chat-conversation:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--line));
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+:is(.page-chat,.page-conversation) .chat-conversation.is-active {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+}
+:is(.page-chat,.page-conversation) .chat-conversation-avatar,
+:is(.page-chat,.page-conversation) .chat-person-avatar,
+:is(.page-chat,.page-conversation) .chat-thread-avatar {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-thread-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+:is(.page-chat,.page-conversation) .chat-thread {
+  background-color: color-mix(in srgb, var(--bg) 48%, var(--surface-soft));
+  background-image: radial-gradient(color-mix(in srgb, var(--primary) 6%, transparent) .8px, transparent .8px);
+  background-size: 18px 18px;
+}
+:is(.page-chat,.page-conversation) .chat-thread-heading {
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+  backdrop-filter: blur(16px);
+}
+:is(.page-chat,.page-conversation) .chat-message-row { gap: 8px; }
+:is(.page-chat,.page-conversation) .chat-message {
+  border: 1px solid color-mix(in srgb, var(--deep) 5%, var(--line));
+  border-radius: 18px 18px 18px 6px;
+  background: var(--surface-strong);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--deep) 5%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-message.is-mine {
+  border-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  border-radius: 18px 18px 6px 18px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+}
+:is(.page-chat,.page-conversation) .chat-message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 6px;
+}
+:is(.page-chat,.page-conversation) .chat-message > p {
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+:is(.page-chat,.page-conversation) .chat-message-actions-inline {
+  margin-top: 8px;
+  opacity: .78;
+}
+:is(.page-chat,.page-conversation) .chat-message-actions-inline button {
+  padding: 4px 0;
+  background: transparent;
+}
+:is(.page-chat,.page-conversation) .chat-message-form {
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-strong);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--deep) 6%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-message-form textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 180px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--surface-soft);
+  line-height: 1.45;
+}
+:is(.page-chat,.page-conversation) .chat-message-form textarea:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid color-mix(in srgb, var(--primary) 12%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-message-actions {
+  align-items: center;
+  gap: 8px;
+}
+:is(.page-chat,.page-conversation) .chat-message-actions > :is(button,label) {
+  min-height: 38px;
+  border-radius: 12px;
+}
+:is(.page-chat,.page-conversation) .chat-message-actions .primary-button {
+  min-height: 42px;
+  border-radius: 13px;
+  font-weight: 800;
+}
+:is(.page-chat,.page-conversation) .chat-emoji-picker {
+  background: var(--surface-strong);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--deep) 10%, transparent);
+}
+:is(.page-chat,.page-conversation) .chat-empty {
+  border-radius: 16px;
+}
+:is(.page-chat,.page-conversation) .chat-unread {
+  border-radius: 999px;
+  font-weight: 800;
+}
+:is(.page-chat,.page-conversation) .conversation-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-strong);
+}
+@media (max-width: 680px) {
+  :is(.page-chat,.page-conversation) .chat-area {
+    margin: 0;
+    padding: 10px;
+    border-radius: 20px;
+  }
+  :is(.page-chat,.page-conversation) .chat-thread {
+    background-size: 16px 16px;
+    padding: 10px;
+  }
+  :is(.page-chat,.page-conversation) .chat-message {
+    max-width: min(91%, 440px);
+    padding: 10px 12px;
+  }
+  :is(.page-chat,.page-conversation) .chat-message-form {
+    padding: 9px;
+    border-radius: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.page-chat,.page-conversation) .chat-conversation { transition: none; }
+}

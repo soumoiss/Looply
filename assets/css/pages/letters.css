@@ -31,3 +31,154 @@
 .community-letter-close { position:absolute; top:14px; right:14px; min-width:38px; min-height:38px; }
 .community-letter-body { max-height:55dvh; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.7; }
 @media(max-width:520px) { .community-letter-row { align-items:flex-start; } }
+
+
+/* Refinamento visual das cartas: superfícies limpas, controles consistentes e layout adaptável. */
+.page-letters .letters-page-content {
+  display: grid;
+  gap: clamp(14px, 2vw, 22px);
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.page-letters .community-letter-compose-panel,
+.page-letters .community-letter-collection,
+.page-letters .written-letters-panel {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: clamp(16px, 2.8vw, 26px);
+  border: 1px solid color-mix(in srgb, var(--primary) 13%, var(--line));
+  border-radius: clamp(18px, 2.5vw, 28px);
+  background: linear-gradient(145deg, var(--surface-strong), color-mix(in srgb, var(--lilac) 24%, var(--surface)));
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--deep) 7%, transparent);
+}
+.page-letters .community-letter-heading,
+.page-letters .written-letters-heading {
+  min-height: 38px;
+  margin-bottom: 16px;
+}
+.page-letters .community-letter-heading h2,
+.page-letters .written-letters-heading h2 {
+  font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+  letter-spacing: -.025em;
+}
+.page-letters .community-letter-heading > span,
+.page-letters [data-letter-count] {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 30px;
+  place-items: center;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line));
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  font-size: .82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.page-letters .community-letter-form { gap: 13px; }
+.page-letters .community-letter-form label,
+.page-letters .community-letter-dialog label {
+  gap: 7px;
+  font-size: .88rem;
+  letter-spacing: .005em;
+}
+.page-letters .community-letter-form input:not([type=checkbox]),
+.page-letters .community-letter-form select,
+.page-letters .community-letter-form textarea,
+.page-letters .community-letter-dialog input {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  outline: none;
+  background: var(--surface-strong);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.page-letters .community-letter-form textarea { min-height: 140px; resize: vertical; }
+.page-letters .community-letter-form :is(input,select,textarea):focus-visible,
+.page-letters .community-letter-dialog input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 13%, transparent);
+}
+.page-letters .community-letter-form .primary-button,
+.page-letters .community-letter-dialog .primary-button {
+  min-height: 46px;
+  border-radius: 14px;
+  font-weight: 800;
+}
+.page-letters .community-letter-protect {
+  width: fit-content;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+}
+.page-letters .community-letter-list,
+.page-letters .written-letters-list { gap: 9px; }
+.page-letters .community-letter-row,
+.page-letters .written-letter-row {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.page-letters .community-letter-row:hover,
+.page-letters .written-letter-row:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--line));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--deep) 6%, transparent);
+}
+.page-letters .community-letter-meta { gap: 5px; }
+.page-letters .community-letter-meta strong,
+.page-letters .written-letter-row strong { line-height: 1.35; }
+.page-letters .community-letter-meta span,
+.page-letters .written-letter-row span { font-size: .8rem; line-height: 1.45; }
+.page-letters .community-letter-row .text-button,
+.page-letters .written-letter-row .text-button {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  font-size: .82rem;
+  font-weight: 800;
+}
+.page-letters .community-letters-empty,
+.page-letters .written-letters-empty {
+  padding: 16px 4px;
+  font-size: .88rem;
+}
+.page-letters .community-letter-dialog {
+  width: min(680px, calc(100% - 20px));
+  max-height: min(88dvh, 900px);
+  border-radius: 24px;
+  backdrop-filter: blur(20px);
+}
+.page-letters .community-letter-dialog-card { gap: 16px; }
+.page-letters .community-letter-body {
+  padding: clamp(14px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  line-height: 1.8;
+}
+@media (min-width: 900px) {
+  .page-letters .letters-page-content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .page-letters .community-letter-compose-panel { grid-row: span 2; }
+}
+@media (max-width: 520px) {
+  .page-letters .community-letter-row,
+  .page-letters .written-letter-row { align-items: flex-start; }
+  .page-letters .community-letter-row .text-button,
+  .page-letters .written-letter-row .text-button { padding: 8px 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-letters .community-letter-row,
+  .page-letters .written-letter-row,
+  .page-letters .community-letter-form :is(input,select,textarea) { transition: none; }
+}

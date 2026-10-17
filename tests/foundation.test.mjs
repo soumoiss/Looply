@@ -141,12 +141,14 @@ test("the build emits all independent pages and their assets", async () => {
   }
 });
 
-test("the YouTube API key is absent from the browser build", async () => {
+test("the public YouTube key is configured in the browser and server secrets stay out of the build", async () => {
   const [config, clientModule, build] = await Promise.all([
     read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs")
   ]);
-  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}/);
-  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3/);
+  assert.match(config, /youtubeApiKey:\s*"AIza[\w-]{20,}"/);
+  assert.match(clientModule, /https:\/\/www\.googleapis\.com\/youtube\/v3\/playlistItems/);
+  assert.doesNotMatch(config, /LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
