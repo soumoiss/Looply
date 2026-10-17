@@ -142,7 +142,7 @@ export function chatMarkup(data, userId) {
         <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
       </a>`).join("")
-    : `<p class="chat-empty">Nenhuma conversa. Inicie uma conversa ou escreva uma carta.</p>`;
+    : `<p class="chat-empty">Nenhuma conversa.</p>`;
   const conversationTools = `<div class="chat-conversation-tools">
     <label class="visually-hidden" for="chatConversationSearch">Buscar conversa</label>
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
@@ -189,13 +189,13 @@ export function chatMarkup(data, userId) {
         <details class="chat-panel letter-compose-panel"><summary>Escrever uma carta para Peixinho</summary>
           <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
             <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
-            <p class="field-hint">Somente você e Peixinho poderão abrir esta carta. A resposta continuará na conversa privada.</p>
+            
             <button class="primary-button compact-button" type="submit">Enviar carta <span aria-hidden="true">↗</span></button><span class="form-status" data-status role="status" aria-live="polite"></span>
           </form>
         </details>
         <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
       </aside>
-      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div></div></section>
+      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong></div></div></section>
     </div>
   </section>`;
 }
@@ -449,7 +449,7 @@ function messageComposerMarkup(conversationId) {
     <div class="chat-message-actions"><button class="text-button chat-emoji-toggle" type="button" data-chat-emoji-toggle aria-expanded="false" aria-controls="chatEmojiPicker">😊 Emoji</button>
     <div id="chatEmojiPicker" class="chat-emoji-picker" data-chat-emoji-picker role="group" aria-label="Inserir emoji" hidden>
       ${["😀", "😂", "🥰", "😊", "😍", "👍", "❤️", "🎉"].map((emoji) => `<button type="button" data-chat-emoji="${escapeHtml(emoji)}" aria-label="Inserir ${escapeHtml(emoji)}">${escapeHtml(emoji)}</button>`).join("")}
-    </div><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="text-button chat-record-start" type="button" data-chat-record-start>Gravar áudio</button><span class="field-hint">Até 8 arquivos, 100 MiB cada.</span><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+    </div><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="text-button chat-record-start" type="button" data-chat-record-start>Gravar áudio</button><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
