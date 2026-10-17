@@ -55,7 +55,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   const [archiveResult, letterResult, communityResult, profilesResult] = await Promise.allSettled([
     loadArchivedCards(client, user.id), loadWrittenLetters(client, user.id),
     loadCommunityLetters(client, user.id),
-    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
+    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(500)
   ]);
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
