@@ -121,7 +121,7 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /data-youtube-retry/);
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
-  assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
+  assert.match(playlists, /authorization: "Bearer " \\+ token/);
   assert.match(playlists, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
