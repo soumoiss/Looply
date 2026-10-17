@@ -106,7 +106,7 @@ export function bindMusicTrackComments(root, client) {
   };
 
   const openComments = (videoId, play = false) => {
-    const trackButton = list.querySelector('[data-youtube-track="' + CSS.escape(videoId) + '"]');
+    const trackButton = [...list.querySelectorAll("[data-youtube-track]")].find((button) => button.dataset.youtubeTrack === videoId);
     const track = {
       videoId,
       title: trackButton?.querySelector(".youtube-track-copy strong")?.textContent || "Música",
@@ -143,7 +143,8 @@ export function bindMusicTrackComments(root, client) {
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = String(bodyInput?.value || "").trim();
-    if (!activeTrack || !body || body.length > 2000 || saving) {
+    const track = activeTrack;
+    if (!track || !body || body.length > 2000 || saving) {
       if (status) { status.textContent = "Escreva um comentário de até 2.000 caracteres."; status.dataset.kind = "error"; }
       return;
     }
@@ -154,14 +155,14 @@ export function bindMusicTrackComments(root, client) {
       const { data: authData, error: authError } = await client.auth.getUser();
       if (authError || !authData?.user) throw new Error("sign-in-required");
       const { error } = await client.from("music_track_comments").insert({
-        track_key: "youtube:" + activeTrack.videoId,
-        track_title: activeTrack.title.slice(0, 160),
+        track_key: "youtube:" + track.videoId,
+        track_title: track.title.slice(0, 160),
         body
       });
       if (error) throw error;
       bodyInput.value = "";
       if (status) { status.textContent = "Comentário salvo nesta música."; status.dataset.kind = "success"; }
-      await loadComments(activeTrack);
+      await loadComments(track);
       if (status) { status.textContent = "Comentário salvo nesta música."; status.dataset.kind = "success"; }
     } catch (error) {
       console.error("Looply track comment save failed", error);
