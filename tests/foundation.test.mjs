@@ -6,6 +6,7 @@ import test from "node:test";
 import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
 import { groupActiveStories, storiesMarkup, storyMediaUrlTtl } from "../src/stories.js";
 import { profileAreaMarkup } from "../src/profiles.js";
+import { fetchPlaylistItems } from "../src/youtube-playlist.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -868,7 +869,7 @@ test("chat conversations use the dedicated route and preload on interaction with
   assert.ok(chat.includes("window.location.assign(`mensagens.html?id="));
   assert.match(chat, /client\.functions\.invoke\("looply-chat"/);
   assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
-  assert.match(css, /\.page-chat \.chat-thread-panel \{ display: none; \}/);
+  assert.ok(css.includes(".page-chat:not(.page-conversation) .chat-thread-panel { display: none; }"));
   assert.match(css, /max-height: calc\(100dvh - 360px\)/);
 });
 
@@ -882,4 +883,28 @@ test("the dedicated messages route renders the thread on small screens", async (
   assert.ok(build.includes("mensagens.html"));
   assert.ok(css.includes(".page-chat:not(.page-conversation) .chat-thread-panel { display: none; }"));
   assert.ok(chat.includes("mensagens.html?id="));
+});
+
+
+test("playlist loading retries a transient network failure and follows every page", async () => {
+  let calls = 0;
+  const fetchImpl = async (url) => {
+    calls += 1;
+    if (calls === 1) throw new TypeError("Failed to fetch");
+    if (!String(url).includes("pageToken=")) {
+      return { ok: true, json: async () => ({
+        items: [{ videoId: "ME3nTqgLDEg", title: "Faixa 1", position: 0 }],
+        nextPageToken: "page-two"
+      }) };
+    }
+    return { ok: true, json: async () => ({
+      items: [{ videoId: "U3M33tm_Vtg", title: "Faixa 2", position: 1 }],
+      nextPageToken: ""
+    }) };
+  };
+  const tracks = await fetchPlaylistItems("PLCn4CAsA_tiM", "session-token", fetchImpl);
+  assert.equal(tracks.length, 2);
+  assert.equal(tracks[0].title, "Faixa 1");
+  assert.equal(tracks[1].title, "Faixa 2");
+  assert.equal(calls, 3);
 });
