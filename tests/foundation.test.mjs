@@ -7,9 +7,19 @@ import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "..
 import { groupActiveStories, storiesMarkup, storyMediaUrlTtl } from "../src/stories.js";
 import { profileAreaMarkup } from "../src/profiles.js";
 import { fetchPlaylistItems } from "../src/youtube-playlist.js";
+import { requestedConversationId } from "../src/conversation-route.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
+
+test("conversation routes accept exactly one UUID and reject manipulated identifiers", () => {
+  const valid = "123e4567-e89b-42d3-a456-426614174000";
+  assert.equal(requestedConversationId(`?id=${valid}`), valid);
+  assert.equal(requestedConversationId(""), null);
+  assert.equal(requestedConversationId("?id=not-a-uuid"), null);
+  assert.equal(requestedConversationId(`?id=${valid}&id=${valid}`), null);
+  assert.equal(requestedConversationId("?id=../../admin"), null);
+});
 
 test("the browser client uses an exact Supabase JS version and a publishable key", async () => {
   const [client, config] = await Promise.all([read("src/supabase.js"), read("config.js")]);
