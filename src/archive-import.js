@@ -322,10 +322,14 @@ export function bindArchiveImport(root, client) {
         const { data, error } = await client.functions.invoke("looply-admin", {
           body: { action: "import_archived_cards", resourceType: "archived_cards", purpose, cards: [card] }
         });
-        if (error || !Number.isFinite(Number(data?.importedCount))) {
-          throw new Error(await functionFailureMessage(error, data, "Falha ao confirmar a importação da carta."));
+        const importedCount = Number(data?.importedCount);
+        if (error || !Number.isFinite(importedCount) || importedCount !== 1) {
+          const detail = await functionFailureMessage(error, data, "Falha ao confirmar a importação da carta.");
+          throw new Error(importedCount === 0
+            ? "O serviço não confirmou o registro desta carta. Ela foi contabilizada como falha."
+            : detail);
         }
-        cardsImported += Number(data.importedCount);
+        cardsImported += importedCount;
       }, ({ item, index, total, succeeded, failed }) => {
         status.textContent = `Cartas: ${succeeded} de ${total} · falhas: ${failed}${item ? ` · ${item.original_file}` : ""}`;
       });
