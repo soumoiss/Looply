@@ -332,7 +332,7 @@
     min-height: 0;
     border-radius: 17px;
   }
-  .page-chat .chat-thread-panel { display: none; }
+  .page-chat:not(.page-conversation) .chat-thread-panel { display: none; }
   .page-chat .chat-sidebar { padding: 12px; border-right: 0; }
   .page-chat .chat-conversation-list { max-height: calc(100dvh - 360px); min-height: 170px; }
   :is(.page-chat,.page-conversation) .chat-heading { align-items: flex-start; }
