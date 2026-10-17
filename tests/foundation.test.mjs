@@ -865,7 +865,7 @@ test("chat conversations use the dedicated route and preload on interaction with
   const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
   assert.match(chat, /function prefetchConversationPage\(root\)/);
   assert.match(chat, /hint\.rel = "prefetch"/);
-  assert.match(chat, /window\\.location\\.assign\\(\\x60mensagens\\.html\\?id=/);
+  assert.ok(chat.includes("window.location.assign(`mensagens.html?id="));
   assert.match(chat, /client\.functions\.invoke\("looply-chat"/);
   assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
   assert.match(css, /\.page-chat \.chat-thread-panel \{ display: none; \}/);
