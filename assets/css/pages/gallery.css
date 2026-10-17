@@ -294,3 +294,14 @@
 .page-gallery .gallery-shared-heading h2{margin:0;font-size:1.1rem}
 .page-gallery .page-title-panel{display:none!important}
 @media(max-width:620px){.page-gallery .media-card-body{padding:5px 7px;min-height:23px}.page-gallery .media-card-body small{font-size:.65rem}.page-gallery .media-visual{aspect-ratio:1/1}}
+
+/* The image itself is the thumbnail: keep text from covering it */
+.page-gallery .media-card-body{display:none!important}
+.page-gallery .media-card-open{position:relative}
+.page-gallery .media-visual{aspect-ratio:1/1}
+.page-gallery .gallery-card-delete{top:auto;right:7px;bottom:7px}
+.page-gallery .media-exclusive-badge{top:7px;left:7px}
+.page-gallery .gallery-shared-comments .gallery-shared-heading{margin-bottom:12px}
+.page-gallery .community-gallery-heading .section-kicker{display:none!important}
+.page-gallery .community-gallery-heading h2{margin:0}
+.page-gallery .community-gallery-card-copy strong{display:none!important}
