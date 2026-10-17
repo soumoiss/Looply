@@ -147,7 +147,7 @@ test("the public build excludes the YouTube Data API key and uses the authentica
   ]);
   assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}|LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(clientModule, /youtubeApiKey|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3\/playlistItems|LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(clientModule, /authorization: \{ accept: "application\/json", authorization: "Bearer " \+ token \}/);
+  assert.match(clientModule, /headers: \{ accept: "application\/json", authorization: "Bearer " \+ token \}/);
   assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
