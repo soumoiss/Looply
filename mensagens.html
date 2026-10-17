@@ -6,6 +6,11 @@
   <meta name="theme-color" content="#F5F0FA">
   <meta name="color-scheme" content="light">
   <title>Mensagens — Looply</title>
+  <script>
+    if (!new URLSearchParams(window.location.search).get("id")) {
+      window.location.replace(new URL("chat.html", window.location.href).href);
+    }
+  </script>
   <script src="config.js"></script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="assets/css/app.css">
