@@ -210,3 +210,35 @@ html:has(body.page-conversation),body.page-conversation{width:100%;height:100%;m
  .page-conversation .chat-conversation-avatar{width:52px;height:52px;min-width:52px}
  .page-conversation .chat-message{max-width:88%;border-radius:18px}
 }
+
+
+/* Tela exclusiva de conversa, com identidade visual consistente com o mockup de mensageiro. */
+.page-conversation .container-page { width:100%; max-width:1560px; padding-inline:clamp(8px,1.8vw,24px); }
+.page-conversation main { min-width:0; }
+.page-conversation .page-content { width:100%; max-width:none; margin:0; }
+.page-conversation .conversation-back { display:inline-flex; align-items:center; min-height:38px; padding:5px 12px; border:1px solid #e4d5ef; border-radius:12px; background:#fff; font-size:13px; }
+.page-conversation .chat-area { border:1px solid #e5d9ef; border-radius:22px; box-shadow:0 14px 42px rgba(75,43,100,.09); }
+.page-conversation .chat-heading { background:linear-gradient(110deg,#f8f2ff,#fff); }
+.page-conversation .chat-layout { grid-template-columns:minmax(250px,.72fr) minmax(0,1.65fr); min-height:calc(100dvh - 230px); }
+.page-conversation .chat-sidebar { max-height:calc(100dvh - 230px); }
+.page-conversation .chat-thread-panel { height:calc(100dvh - 230px); min-height:500px; }
+.page-conversation .chat-thread { height:100%; max-height:none; min-height:0; flex:1 1 auto; }
+.page-conversation .chat-message-form { position:sticky; bottom:0; padding:12px; border-top:1px solid #eee4f5; background:rgba(255,255,255,.97); backdrop-filter:blur(14px); }
+.page-conversation .chat-message-form textarea { min-height:46px; border-radius:16px; background:#fcf9ff; }
+@media(max-width:760px) {
+  .page-conversation .container-page { padding:0 8px calc(8px + env(safe-area-inset-bottom)); }
+  .page-conversation .page-header { display:none; }
+  .page-conversation .conversation-back { margin:8px 0; }
+  .page-conversation .chat-area { height:calc(100dvh - 64px); min-height:460px; display:flex; flex-direction:column; border-radius:18px; }
+  .page-conversation .chat-heading { flex:0 0 auto; padding:11px 13px; }
+  .page-conversation .chat-heading .section-kicker { display:none; }
+  .page-conversation .chat-heading h2 { font-size:18px; }
+  .page-conversation .chat-layout { display:flex; flex:1 1 auto; min-height:0; }
+  .page-conversation .chat-sidebar { display:none; }
+  .page-conversation .chat-thread-panel { display:flex; flex:1 1 auto; width:100%; height:auto; min-height:0; max-height:none; border:0; border-radius:0 0 18px 18px; }
+  .page-conversation .chat-thread { display:flex; flex:1 1 auto; min-height:0; height:auto; max-height:none; overflow-y:auto; padding:10px; }
+  .page-conversation .chat-thread-heading { top:0; margin:-10px -10px 8px; padding:10px; }
+  .page-conversation .chat-message { max-width:88%; padding:10px 12px; }
+  .page-conversation .chat-message-form { flex:0 0 auto; margin:0; padding:9px; border-radius:0 0 18px 18px; }
+  .page-conversation .chat-message-form textarea { min-height:44px; max-height:120px; }
+}
