@@ -198,6 +198,73 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     syncProfileOverview(form);
   };
 
+
+  const cropAvatarFile = (file, form) => new Promise((resolve, reject) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "avatar-crop-dialog";
+    dialog.innerHTML = `<form method="dialog" class="avatar-crop-panel">
+      <h2>Recortar foto</h2>
+      <p>Arraste para posicionar e ajuste o zoom.</p>
+      <div class="avatar-crop-stage"><canvas width="320" height="320" aria-label="Prévia quadrada da foto"></canvas></div>
+      <label class="avatar-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value="1"></label>
+      <div class="avatar-crop-actions"><button type="button" data-crop-cancel>Cancelar</button><button type="button" data-crop-confirm>Usar foto</button></div>
+    </form>`;
+    document.body.append(dialog);
+    const canvas = dialog.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const zoomInput = dialog.querySelector('input[type="range"]');
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    let zoom = 1, offsetX = 0, offsetY = 0, dragging = false, lastX = 0, lastY = 0, settled = false;
+    const baseScale = () => Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+    const draw = () => {
+      if (!image.complete || !image.naturalWidth) return;
+      const scale = baseScale() * zoom;
+      const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+      const maxX = Math.max(0, (width - canvas.width) / 2), maxY = Math.max(0, (height - canvas.height) / 2);
+      offsetX = Math.min(maxX, Math.max(-maxX, offsetX));
+      offsetY = Math.min(maxY, Math.max(-maxY, offsetY));
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, (canvas.width - width) / 2 + offsetX, (canvas.height - height) / 2 + offsetY, width, height);
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(objectUrl);
+      dialog.close();
+      dialog.remove();
+      resolve(value);
+    };
+    image.onload = () => { draw(); dialog.showModal(); };
+    image.onerror = () => { finish(null); reject(new Error("Não foi possível abrir esta imagem.")); };
+    image.src = objectUrl;
+    zoomInput.addEventListener("input", () => { zoom = Number(zoomInput.value); draw(); });
+    canvas.addEventListener("pointerdown", (event) => { dragging = true; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      offsetX += event.clientX - lastX; offsetY += event.clientY - lastY;
+      lastX = event.clientX; lastY = event.clientY; draw();
+    });
+    const stopDrag = () => { dragging = false; };
+    canvas.addEventListener("pointerup", stopDrag);
+    canvas.addEventListener("pointercancel", stopDrag);
+    dialog.querySelector("[data-crop-cancel]").addEventListener("click", () => finish(null));
+    dialog.addEventListener("cancel", (event) => { event.preventDefault(); finish(null); });
+    dialog.querySelector("[data-crop-confirm]").addEventListener("click", () => {
+      const output = document.createElement("canvas");
+      output.width = 512; output.height = 512;
+      const out = output.getContext("2d");
+      const scale = baseScale() * zoom * (512 / canvas.width);
+      const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+      out.drawImage(image, (512 - width) / 2 + offsetX * 512 / canvas.width, (512 - height) / 2 + offsetY * 512 / canvas.height, width, height);
+      output.toBlob((blob) => {
+        if (!blob) { finish(null); reject(new Error("Não foi possível recortar esta imagem.")); return; }
+        const cropped = new File([blob], "profile-avatar.jpg", { type: "image/jpeg", lastModified: Date.now() });
+        finish(cropped);
+      }, "image/jpeg", 0.92);
+    });
+  });
+
   root.addEventListener("input", (event) => {
     const form = event.target.closest("form[data-profile-edit]");
     if (form && ["displayName", "bio"].includes(event.target.name)) syncProfileOverview(form);
@@ -207,19 +274,19 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     if (form && event.target.name === "visibility") syncProfileOverview(form);
   });
 
-  root.addEventListener("change", (event) => {
+  root.addEventListener("change", async (event) => {
     const input = event.target.closest("input[data-avatar-input]");
     if (!input) return;
     const form = input.closest("form[data-profile-edit]");
     const preview = form?.querySelector("[data-avatar-preview]");
     const removeButton = form?.querySelector("[data-avatar-remove]");
     const removeState = form?.querySelector("[data-avatar-remove-state]");
-    const file = input.files?.[0];
+    const originalFile = input.files?.[0];
     const previousUrl = form?.dataset.avatarPreviewUrl;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
     if (form) delete form.dataset.avatarPreviewUrl;
-    if (!file || !preview || !form) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+    if (!originalFile || !preview || !form) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(originalFile.type) || originalFile.size > 10 * 1024 * 1024) {
       input.value = "";
       const removingAvatar = removeState?.value === "true";
       renderAvatarPreview(preview, removingAvatar ? "" : preview.dataset.originalAvatarUrl || "", form);
@@ -230,15 +297,30 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
       setStatus(form, "Escolha uma imagem JPEG, PNG ou WebP de até 10 MB.", "error");
       return;
     }
-    const previewUrl = URL.createObjectURL(file);
-    form.dataset.avatarPreviewUrl = previewUrl;
-    if (removeState) removeState.value = "false";
-    if (removeButton) {
-      removeButton.hidden = false;
-      removeButton.textContent = "Cancelar seleção";
+    try {
+      const croppedFile = await cropAvatarFile(originalFile, form);
+      if (!croppedFile) {
+        input.value = "";
+        setStatus(form, "Recorte cancelado.", "error");
+        return;
+      }
+      const transfer = new DataTransfer();
+      transfer.items.add(croppedFile);
+      input.files = transfer.files;
+      const previewUrl = URL.createObjectURL(croppedFile);
+      form.dataset.avatarPreviewUrl = previewUrl;
+      if (removeState) removeState.value = "false";
+      if (removeButton) {
+        removeButton.hidden = false;
+        removeButton.textContent = "Cancelar seleção";
+      }
+      renderAvatarPreview(preview, previewUrl, form);
+      setStatus(form, "Foto quadrada pronta. Salve para aplicar.", "success");
+    } catch (error) {
+      console.error("Looply avatar crop failed", error);
+      input.value = "";
+      setStatus(form, "Não foi possível recortar esta imagem. Tente outra.", "error");
     }
-    renderAvatarPreview(preview, previewUrl, form);
-    setStatus(form, "Prévia atualizada. Salve para aplicar a foto.", "success");
   });
 
   root.addEventListener("submit", async (event) => {
