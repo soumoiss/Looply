@@ -865,7 +865,7 @@ test("chat conversations use the dedicated route and preload on interaction with
   const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
   assert.match(chat, /function prefetchConversationPage\(root\)/);
   assert.match(chat, /hint\.rel = "prefetch"/);
-  assert.match(chat, /window\.location\.assign\(\x60conversa\.html\?id=/);
+  assert.match(chat, /window\\.location\\.assign\\(\\x60mensagens\\.html\\?id=/);
   assert.match(chat, /client\.functions\.invoke\("looply-chat"/);
   assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
   assert.match(css, /\.page-chat \.chat-thread-panel \{ display: none; \}/);
@@ -877,9 +877,9 @@ test("the dedicated messages route renders the thread on small screens", async (
   const [page, build, css, chat] = await Promise.all([
     read("mensagens.html"), read("scripts/build.mjs"), read("assets/css/pages/chat.css"), read("src/chat.js")
   ]);
-  assert.match(page, /assets\\/js\\/conversation\\.js/);
-  assert.match(page, /page-conversation/);
-  assert.match(build, /mensagens\\.html/);
-  assert.match(css, /page-chat:not\\(\\.page-conversation\\) \\.chat-thread-panel \\{ display: none; \\}/);
-  assert.match(chat, /mensagens\\.html\\?id=/);
+  assert.ok(page.includes("assets/js/conversation.js"));
+  assert.ok(page.includes("page-conversation"));
+  assert.ok(build.includes("mensagens.html"));
+  assert.ok(css.includes(".page-chat:not(.page-conversation) .chat-thread-panel { display: none; }"));
+  assert.ok(chat.includes("mensagens.html?id="));
 });
