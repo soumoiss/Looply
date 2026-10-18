@@ -113,6 +113,7 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
     const count = section?.querySelector("[data-community-gallery-count]");
     if (grid) grid.innerHTML = galleryGridMarkup(media, user.id, isAdmin);
     if (count) count.textContent = media.length + " arquivo(s)";
+    root.dispatchEvent(new CustomEvent("gallery-media-refresh"));
   };
   const reload = async () => { media = await loadCommunityGallery(client); render(); };
   section?.addEventListener("submit", async (event) => {
