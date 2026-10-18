@@ -193,7 +193,31 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     const target = [...root.querySelectorAll("[data-archive-thumbnail]")]
       .find((element) => element.dataset.mediaId === item.id);
     if (!target || !item.signedUrl) return;
+    const bindRetry = (image) => {
+      if (image.dataset.retryBound === "true") return;
+      image.dataset.retryBound = "true";
+      image.addEventListener("error", async () => {
+        if (image.dataset.urlRetry === "done") {
+          const fallback = document.createElement("span");
+          fallback.className = "archive-media-placeholder";
+          fallback.dataset.archiveThumbnail = "";
+          fallback.dataset.mediaId = item.id;
+          fallback.textContent = "Mídia indisponível — toque para tentar novamente";
+          image.replaceWith(fallback);
+          return;
+        }
+        image.dataset.urlRetry = "done";
+        item.signedUrl = null;
+        item.signedAt = 0;
+        try { await ensureSigned([item]); }
+        catch (error) { console.warn("Looply thumbnail retry failed", error); }
+        if (!item.signedUrl && image.isConnected) {
+          image.alt = "Mídia indisponível — abra para tentar novamente";
+        }
+      }, { once: true });
+    };
     if (target instanceof HTMLImageElement) {
+      bindRetry(target);
       if (target.src !== item.signedUrl) target.src = item.signedUrl;
       return;
     }
@@ -204,6 +228,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     image.alt = item.file_name || item.source_path || "Imagem";
     image.loading = "lazy";
     image.referrerPolicy = "no-referrer";
+    bindRetry(image);
     target.replaceWith(image);
   }
 
