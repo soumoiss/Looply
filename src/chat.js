@@ -772,8 +772,13 @@ export function bindChatEvents(root, client, getUserId) {
   root.addEventListener("click", (event) => {
     const back = event.target.closest("[data-chat-back]");
     if (!back) return;
+    if (root.dataset.conversationPage === "true") {
+      window.location.assign("chat.html");
+      return;
+    }
     activeConversationId = null;
     activeThreadRequest += 1;
+    refreshSequence += 1;
     root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
     const thread = root.querySelector("[data-chat-thread]");
     if (thread) thread.innerHTML = `<div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div>`;
