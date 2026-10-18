@@ -44,7 +44,9 @@ test("opening a stale story refreshes and retries instead of silently leaving th
   const source = await read("src/stories.js");
   assert.match(source, /let activeStories = group \? activeStoriesFor\(group\) : \[\]/);
   assert.match(source, /await refresh\(\);\s*group = state\.groups\.find/);
-  assert.match(source, /if \(!viewer\.open\) viewer\.showModal\(\)/);
+  assert.match(source, /openStoryDialog\(viewer\)/);
+  assert.match(source, /function openStoryDialog\(dialog\)/);
+  assert.match(source, /function closeStoryDialog\(dialog\)/);
 });
 
 test("story captions overlay the full-ratio media with a transparent gradient and safe-area spacing", async () => {
@@ -52,4 +54,11 @@ test("story captions overlay the full-ratio media with a transparent gradient an
   assert.match(css, /story-viewer-caption[^{}]*\{[^}]*background:\s*linear-gradient\(180deg, transparent/);
   assert.match(css, /bottom:\s*calc\(66px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(css, /story-viewer-caption:empty\s*\{\s*display:\s*none/);
+});
+
+test("story media retries signed URLs per object and exposes a retry control when media is unavailable", async () => {
+  const source = await read("src/stories.js");
+  assert.match(source, /createSignedUrl\(item\.storage_path, remainingTtl\)/);
+  assert.match(source, /data-story-media-retry/);
+  assert.match(source, /Não foi possível carregar a mídia deste story/);
 });
