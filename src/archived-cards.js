@@ -1,6 +1,9 @@
 import { addMonths, extractDate, firstDayOfMonth, formatMonthYear, formatShort, sameDay, toISO } from "./date-parser.js";
 
 const $ = (root, selector) => root.querySelector(selector);
+const cardIcon = (name) => name === "read"
+  ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>'
+  : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>';
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -107,16 +110,17 @@ function renderRows(root, state) {
     row.setAttribute("role", "button");
     const label = card.is_private ? "Carta privada" : "Carta";
     const title = card.is_protected ? (card.is_private ? "Carta privada protegida" : "Carta protegida") : titleFromBody(card.body);
-    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " 🔒" : ""}</span><h3 class="card-title"></h3><p class="card-date"></p></div><span class="card-check" aria-label=""></span>`;
+    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " 🔒" : ""}</span><h3 class="card-title"></h3><p class="card-date"></p></div><button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
     row.querySelector(".card-title").textContent = title;
     const date = row.querySelector(".card-date");
     date.textContent = card.date ? formatShort(card.date) : "Sem data";
     date.classList.toggle("is-empty", !card.date);
     const check = row.querySelector(".card-check");
     const isRead = state.readIds.has(card.id);
-    check.textContent = isRead ? "✓" : "○";
+    check.innerHTML = cardIcon(isRead ? "read" : "unread");
     check.classList.toggle("is-read", isRead);
-    check.setAttribute("aria-label", isRead ? "Carta lida" : "Carta não lida");
+    check.setAttribute("aria-label", isRead ? "Marcar carta como não lida" : "Marcar carta como lida");
+    check.setAttribute("aria-pressed", String(isRead));
     container.append(row);
   }
   if (empty) empty.hidden = cards.length > 0;
@@ -180,6 +184,29 @@ function updateModalNavigation(root, state) {
   if (next) next.disabled = index < 0 || index >= rows.length - 1;
 }
 
+async function toggleRead(root, client, userId, state, card) {
+  const status = $(root, "[data-card-load-status]");
+  const wasRead = state.readIds.has(card.id);
+  try {
+    if (wasRead) {
+      const { error } = await client.from("archived_card_reads").delete().eq("card_id", card.id).eq("user_id", userId);
+      if (error) throw error;
+      state.readIds.delete(card.id);
+    } else {
+      const { error } = await client.from("archived_card_reads").upsert(
+        { card_id: card.id, user_id: userId, read_at: new Date().toISOString() },
+        { onConflict: "card_id,user_id" }
+      );
+      if (error) throw error;
+      state.readIds.add(card.id);
+    }
+    if (status) status.textContent = wasRead ? "Carta marcada como não lida." : "Carta marcada como lida.";
+    renderRows(root, state);
+  } catch {
+    if (status) status.textContent = "Não foi possível alterar o estado de leitura. Tente novamente.";
+  }
+}
+
 async function markRead(root, client, userId, state, card) {
   if (state.readIds.has(card.id)) return;
   const { error } = await client.from("archived_card_reads").upsert({ card_id: card.id, user_id: userId, read_at: new Date().toISOString() }, { onConflict: "card_id,user_id" });
@@ -234,6 +261,14 @@ export function bindArchivedCards(root, client, userId, { cards, reads }) {
   renderRows(root, state);
 
   root.addEventListener("click", async (event) => {
+    const readToggle = event.target.closest("[data-card-toggle-read]");
+    if (readToggle) {
+      event.stopPropagation();
+      const row = readToggle.closest("[data-card-id]");
+      const card = state.cards.find((item) => item.id === row?.dataset.cardId);
+      if (card) await toggleRead(root, client, userId, state, card);
+      return;
+    }
     const filter = event.target.closest("[data-card-filter]");
     if (filter) {
       state.filter = filter.dataset.cardFilter;
