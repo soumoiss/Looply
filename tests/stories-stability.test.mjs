@@ -49,7 +49,7 @@ test("opening a stale story refreshes and retries instead of silently leaving th
 
 test("story captions overlay the full-ratio media with a transparent gradient and safe-area spacing", async () => {
   const css = await read("assets/css/pages/home.css");
-  assert.match(css, /story-viewer-caption[^{}]*background:\s*linear-gradient\(180deg, transparent/);
+  assert.match(css, /story-viewer-caption[^{}]*\{[^}]*background:\s*linear-gradient\(180deg, transparent/);
   assert.match(css, /bottom:\s*calc\(66px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(css, /story-viewer-caption:empty\s*\{\s*display:\s*none/);
 });
