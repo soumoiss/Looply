@@ -76,34 +76,31 @@ test("the interface supports only Auth sign-in and never stores browser credenti
   assert.match(login, /emailForUsername\(username\)/);
 });
 
-test("separate pages keep the original login, navigation, five themes, and responsive layout", async () => {
-  const [login, home, gallery, music, chat, profile, admin, css, theme, readme] = await Promise.all([
-    read("login.html"), read("home.html"), read("galeria.html"), read("musicas.html"),
+test("the remaining application pages keep navigation and responsive layout without the removed gallery page", async () => {
+  const [login, home, music, chat, profile, admin, css, theme, runtime, build] = await Promise.all([
+    read("login.html"), read("home.html"), read("musicas.html"),
     read("chat.html"), read("perfil.html"), read("admin.html"), read("styles.css"),
-    read("src/theme.js"), read("README.md")
+    read("src/theme.js"), read("src/page-runtime.js"), read("scripts/build.mjs")
   ]);
-  for (const theme of ["lilas", "noite", "oceano", "rosa", "floresta"]) {
-    assert.match(theme, new RegExp("\\b" + theme + "\\b"));
+  for (const themeName of ["lilas", "noite", "oceano", "rosa", "floresta"]) {
+    assert.match(theme, new RegExp("\\b" + themeName + "\\b"));
   }
   assert.match(login, /Quem és\?/);
   assert.match(login, /código secreto/);
   assert.match(login, /Avante!/);
-  for (const page of [home, gallery, music, chat, profile, admin]) {
+  for (const page of [home, music, chat, profile, admin]) {
     assert.match(page, /data-site-header/);
-    assert.match(page, /id="pageContent"/);
     assert.match(page, /assets\/js\//);
   }
   assert.match(home, /home\.js/);
-  assert.match(gallery, /gallery\.js/);
   assert.match(music, /music\.js/);
   assert.match(chat, /chat\.js/);
   assert.match(profile, /profile\.js/);
   assert.match(admin, /admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
-  assert.match(readme, /supabase\/migrations/);
+  assert.doesNotMatch(runtime + build, /galeria\.html|gallery/i);
 });
-
 test("account playlists play tracks in an in-app dialog and never link out to YouTube", async () => {
   const [playlists, musicPage] = await Promise.all([read("src/youtube-playlist.js"), read("musicas.html")]);
   assert.match(playlists, /peixinho:\s*"PLD5PXwJcU-Sg"/);

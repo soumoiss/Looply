@@ -6,7 +6,6 @@ Reconstrução independente do Looply com uma página HTML por área e Supabase 
 
 - `login.html`: tela antiga de login, com a mesma estrutura e folha visual.
 - `home.html`: boas-vindas com foto do perfil, stories com expiração em 24 horas e feed social.
-- `galeria.html`: acervo antigo privado, visualizador de fotos/vídeos/áudio e comentários. Publicações sociais ficam no Início.
 - `musicas.html`: playlist do YouTube conforme o usuário, dedicatórias e comentários.
 - `chat.html` e `conversa.html`: lista de conversas e uma rota própria por conversa; anexos e gravação de áudio.
 - `cartas.html`: coleção de cartas arquivadas e lista de cartas privadas trocadas com Peixinho; o acervo antigo permanece nesta área.
@@ -49,7 +48,7 @@ Passo a passo da importação pelo app:
 4. Na seção **Importar cartas e mídias antigas**, informe um motivo com pelo menos 20 caracteres (por exemplo, `Restaurar o acervo antigo do Looply para os usuários autorizados.`).
 5. No seletor **Pasta Loooply-main**, escolha a pasta extraída completa. O seletor de pasta do navegador incluirá os arquivos internos.
 6. Clique **Importar acervo** e aguarde os contadores de progresso e o resultado final. Mantenha a página aberta até terminar.
-7. Verifique **Cartas** e **Galeria** com cada conta autorizada. A importação ignora arquivos de mídia ausentes do índice/pasta; cartas e outros arquivos disponíveis continuam sendo importados.
+7. Verifique **Cartas** com cada conta autorizada. A importação ignora arquivos de mídia ausentes do índice/pasta; cartas e outros arquivos disponíveis continuam sendo importados.
 8. Se a rede cair ou houver erros de upload, volte ao painel e repita a importação com a mesma pasta; os registros/objetos já existentes são tratados para permitir retomada sem duplicação.
 
 A lista pesquisável requer uma chave da YouTube Data API v3 no Google Cloud e a variável sensível `LOOPLY_YOUTUBE_API_KEY` no Vercel. Mantenha essa variável apenas nos ambientes autorizados; o código do navegador chama `/api/youtube-playlist` com a sessão Supabase, e a função verifica o usuário antes de consultar o Google. Configure também `LOOPLY_SUPABASE_URL` e `LOOPLY_SUPABASE_PUBLISHABLE_KEY` como variáveis do servidor. Restrinja a chave Google à YouTube Data API v3. Não adicione a chave a `config.js`, a arquivos versionados ou a logs. O player incorporado continua disponível mesmo quando a função ou a API estiver indisponível.

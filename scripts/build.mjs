@@ -12,7 +12,7 @@ if (!outputRelative || outputRelative.startsWith("..") || path.isAbsolute(output
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 
-for (const file of ["index.html", "login.html", "home.html", "galeria.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html", "styles.css"]) {
+for (const file of ["index.html", "login.html", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html", "styles.css"]) {
   await cp(path.join(projectRoot, file), path.join(outputDirectory, file));
 }
 
@@ -20,4 +20,4 @@ await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
-console.log("Looply built with separate pages for login, home, gallery, music, conversations, letters, notifications, users, settings, profile, and administration.");
+console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration.");
