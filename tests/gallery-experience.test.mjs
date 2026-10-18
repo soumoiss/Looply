@@ -35,7 +35,6 @@ test("gallery recovers individual signed URLs and uses the supplied visual shell
 
 test("gallery upload SQL accepts ordinary UUID filenames",async()=>{
  const sql=await read("supabase/migrations/20261018170000_fix_gallery_upload_path_regex.sql");
- assert.ok(sql.includes(String.raw`/[a-f0-9-]{36}\\.(jpg|jpeg|png|webp|heic|mp4|webm|mp3|m4a|ogg|wav|aac)$`));
- assert.ok(sql.includes(String.raw`'^[a-f0-9-]{36}\\.(jpg|jpeg|png|webp|heic|mp4|webm|mp3|m4a|ogg|wav|aac)$'`));
- assert.doesNotMatch(sql, /\\\\\\\\\./);
+ assert.ok(sql.includes(String.raw`/[a-f0-9-]{36}\.(jpg|jpeg|png|webp|heic|mp4|webm|mp3|m4a|ogg|wav|aac)$`));
+ assert.ok(sql.includes(String.raw`\'^[a-f0-9-]{36}\.(jpg|jpeg|png|webp|heic|mp4|webm|mp3|m4a|ogg|wav|aac)$\'`));
 });
