@@ -155,7 +155,7 @@ export function setupChatEnhancements(root, client, userId) {
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
-        button.type = "button"; button.className = "chat-v2-favorite"; button.dataset.v2Favorite = id; button.setAttribute("aria-label", "Favoritar conversa");
+        button.type = "button"; button.className = "chat-v2-favorite"; button.dataset.v2Favorite = id; button.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
         button.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
         button.setAttribute("aria-pressed", String(favorites.has(id)));
         item.append(button);
@@ -195,6 +195,7 @@ export function setupChatEnhancements(root, client, userId) {
     write(favoritesKey, [...favorites]);
     favorite.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
     favorite.setAttribute("aria-pressed", String(favorites.has(id)));
+    favorite.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
     applyFilters();
   }, true);
   root.addEventListener("click", async (event) => {
