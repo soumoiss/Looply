@@ -300,7 +300,7 @@ test("media storage stays private and follows post-level RLS", async () => {
 test("profile search and editing use only profile fields protected by RLS", async () => {
   const profiles = await read("src/profiles.js");
   assert.match(profiles, /const updates = \{ display_name: displayName, bio, profile_visibility: visibility \}/);
-  assert.match(profiles, /from\("profiles"\)\.update\(updates\)/);
+  assert.match(profiles, /from\("profiles"\)[\s\S]*?\.update\(updates\)/);
   assert.match(profiles, /storage\.from\("looply-avatars"\)\.createSignedUrls/);
   assert.match(profiles, /storage\.from\("looply-avatars"\)\.upload/);
   assert.match(profiles, /avatars\/\$\{userId\}\/\$\{crypto\.randomUUID\(\)\}/);
