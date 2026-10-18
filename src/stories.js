@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 import { uploadResumable } from "./social.js";
 
 const maxStoryBytes = 100 * 1024 * 1024;
@@ -199,7 +200,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
     "</p>" +
     '<dialog class="story-create-dialog" data-story-create-dialog aria-labelledby="storyCreateTitle">' +
       '<div class="story-dialog-heading"><div><span class="section-kicker">Story</span><h2 id="storyCreateTitle">Adicionar story</h2></div>' +
-      '<button class="icon-button" type="button" data-story-create-close aria-label="Fechar">×</button></div>' +
+      '<button class="icon-button" type="button" data-story-create-close aria-label="Fechar">' + icon("close") + '</button></div>' +
       '<form class="story-create-form" data-story-create>' +
         '<label for="storyBody">Texto <span>(opcional, até 1.000 caracteres)</span></label>' +
         '<textarea id="storyBody" name="body" maxlength="1000" rows="3" placeholder="Adicione um texto"></textarea>' +
@@ -232,12 +233,12 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<div class="story-progress-list" data-story-progress-list></div>' +
         '<header class="story-viewer-header"><div class="story-viewer-author">' +
           '<span data-story-viewer-avatar></span><span><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span>' +
-        '</div><button class="icon-button" type="button" data-story-close aria-label="Fechar stories">×</button></header>' +
+        '</div><button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></header>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-viewer-media" data-story-viewer-media></div>' +
           '<button class="story-tap-zone story-tap-zone-next" type="button" data-story-next aria-label="Próximo story"></button>' +
-          '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false"><span aria-hidden="true">Ⅱ</span></button>' +
+          '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
@@ -254,7 +255,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '</div>' +
         '</footer>' +
         '<section class="story-insights-panel" data-story-insights-panel hidden aria-label="Visualizações do story">' +
-          '<header><strong>Atividade do story</strong><button type="button" class="icon-button" data-story-insights-close aria-label="Fechar atividade">×</button></header>' +
+          '<header><strong>Atividade do story</strong><button type="button" class="icon-button" data-story-insights-close aria-label="Fechar atividade">' + icon("close") + '</button></header>' +
           '<p data-story-insights-summary>Carregando visualizações…</p><ul data-story-insights-list></ul>' +
         '</section>' +
       "</div>" +
@@ -466,7 +467,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (button) {
       button.setAttribute("aria-pressed", state.paused ? "true" : "false");
       button.setAttribute("aria-label", state.paused ? "Reproduzir story" : "Pausar story");
-      button.querySelector("span").textContent = state.paused ? "▶" : "Ⅱ";
+      button.innerHTML = icon(state.paused ? "play" : "pause");
     }
   };
   const setProgressDuration = (duration) => {

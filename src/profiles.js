@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -117,7 +118,7 @@ function renderOpenedProfile(container, profile, posts, postsError, showBack = t
     ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
     : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"));
   container.innerHTML = `<section class="opened-profile" aria-label="Perfil de ${escapeHtml(profile.username)}">
-    ${showBack ? `<button class="text-button" type="button" data-profile-close>← Voltar aos resultados</button>` : `<a class="text-button" href="usuarios.html">← Pessoas</a>`}
+    ${showBack ? `<button class="text-button" type="button" data-profile-close>${icon("back")} Voltar aos resultados</button>` : `<a class="text-button" href="usuarios.html">${icon("back")} Pessoas</a>`}
     <div class="opened-profile-heading"><span class="person-result-avatar" aria-hidden="true">${avatar}</span>
       <div><h3>${escapeHtml(profile.display_name || profile.username)}</h3><span>@${escapeHtml(profile.username)}</span></div>
     </div>

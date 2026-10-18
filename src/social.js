@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 import { signProfileAvatars } from "./profiles.js";
 
 function escapeHtml(value) {
@@ -37,7 +38,7 @@ function commentMediaMarkup(media) {
 
 function commentAttachmentField(commentId, postId) {
   const id = `comment-media-${commentId || postId}`;
-  return `<label class="comment-attachment-label" for="${escapeHtml(id)}">＋ Foto ou vídeo <span>Você pode escolher pela galeria ou câmera do celular.</span></label>
+  return `<label class="comment-attachment-label" for="${escapeHtml(id)}">${icon("plus")} Foto ou vídeo <span>Você pode escolher pela galeria ou câmera do celular.</span></label>
     <input class="visually-hidden" id="${escapeHtml(id)}" name="commentMedia" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">`;
 }
 
@@ -317,7 +318,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
           <option value="private">Só eu</option>
           <option value="selected">Pessoas escolhidas</option>
         </select>
-        <button class="primary-button compact-button" type="submit">Publicar <span aria-hidden="true">↗</span></button>
+        <button class="primary-button compact-button" type="submit">Publicar ${icon("send")}</button>
       </div>
       <div class="recipient-picker" data-recipient-picker hidden>
         <label for="postRecipients">Escolha quem poderá ver</label>

@@ -45,6 +45,6 @@ test("profile and account actions use consistent accessible SVG icons", async ()
   assert.match(profile, /profile-visibility-badge"><svg/);
   assert.match(profile, /profile-overview-shortcut[^>]*><svg/);
   assert.match(runtime, /data-sign-out><svg/);
-  assert.match(runtime, /configuracoes\.html"><svg/);
+  assert.match(runtime, /configuracoes\.html">\$\{icon\("settings"\)\}/);
   assert.match(css, /account-menu-link svg/);
 });

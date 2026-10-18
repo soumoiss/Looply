@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },
@@ -78,7 +79,7 @@ export function setupChatEnhancements(root, client, userId) {
   };
   const modal = () => {
     let node = root.querySelector("[data-chat-v2-modal]");
-    if (!node) { node = document.createElement("div"); node.className = "chat-v2-modal-backdrop"; node.dataset.chatV2Modal = ""; node.hidden = true; node.innerHTML = '<section class="chat-v2-modal" role="dialog" aria-modal="true" aria-labelledby="chatV2ModalTitle"><button type="button" class="chat-v2-modal-close" data-v2-close aria-label="Fechar">×</button><div data-v2-modal-content></div></section>'; root.append(node); }
+    if (!node) { node = document.createElement("div"); node.className = "chat-v2-modal-backdrop"; node.dataset.chatV2Modal = ""; node.hidden = true; node.innerHTML = '<section class="chat-v2-modal" role="dialog" aria-modal="true" aria-labelledby="chatV2ModalTitle"><button type="button" class="chat-v2-modal-close" data-v2-close aria-label="Fechar">' + icon("close") + '</button><div data-v2-modal-content></div></section>'; root.append(node); }
     return node;
   };
   const openModal = (content) => { const node = modal(); node.querySelector("[data-v2-modal-content]").innerHTML = content; node.hidden = false; node.querySelector("[data-v2-close]").focus(); };

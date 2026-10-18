@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 const fileExtensions = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"], ["audio/mp4", "mp4"],
@@ -110,7 +111,7 @@ function conversationLabel(conversation, userId) {
 
 function conversationAvatar(conversation, userId) {
   if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
-  if (conversation.kind === "group") return `<span class="chat-conversation-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span>`;
+  if (conversation.kind === "group") return `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   return profile?.avatarUrl
@@ -191,7 +192,7 @@ export function chatMarkup(data, userId) {
           <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
             <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
             <p class="field-hint">Somente você e Peixinho poderão abrir esta carta. A resposta continuará na conversa privada.</p>
-            <button class="primary-button compact-button" type="submit">Enviar carta <span aria-hidden="true">↗</span></button><span class="form-status" data-status role="status" aria-live="polite"></span>
+            <button class="primary-button compact-button" type="submit">Enviar carta ${icon("send")}</button><span class="form-status" data-status role="status" aria-live="polite"></span>
           </form>
         </details>
         <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
@@ -380,7 +381,7 @@ function renderMedia(media) {
   if (media.mime_type.startsWith("image/")) return `<a class="chat-image-link" href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${fileName}" loading="lazy" referrerpolicy="no-referrer"></a>`;
   if (media.mime_type.startsWith("video/")) return `<video src="${url}" controls preload="metadata" aria-label="${fileName}"></video>`;
   if (media.mime_type.startsWith("audio/")) return `<div class="chat-audio-player"><audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio><label>Velocidade <select data-chat-audio-rate aria-label="Velocidade do áudio"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>`;
-  return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">↗ ${fileName}</a>`;
+  return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">${icon("external")} ${fileName}</a>`;
 }
 
 async function loadThread(client, conversationId, before = null) {
@@ -445,9 +446,9 @@ function peerParticipantFor(participants, userId) {
 
 function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
-    <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">×</button></p>
+    <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}" aria-label="Anexar mídia" title="Anexar mídia">📌</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">☺</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">🎙</button><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}" aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -456,7 +457,7 @@ function messageComposerMarkup(conversationId) {
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><span class="chat-thread-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">←</button></header>`;
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button></header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
