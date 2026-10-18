@@ -645,3 +645,18 @@ button:has(> .looply-icon:only-child) .looply-icon,
 a:has(> .looply-icon:only-child) .looply-icon {
   margin-inline-end: 0;
 }
+
+/* Accessible hit areas and keyboard focus for icon controls. */
+.icon-button,
+.youtube-track-dialog-close,
+.chat-v2-modal-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
