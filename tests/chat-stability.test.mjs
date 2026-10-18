@@ -87,10 +87,12 @@ test("WebRTC call controls distinguish microphone, speaker, camera, and camera s
 test("tic-tac-toe randomizes the first starter, gives the previous winner the next start, and records results idempotently", async () => {
   const source = await read("src/chat-enhancements.js");
   const migration = await read("supabase/migrations/20261018191500_chat_ttt_persistent_scores.sql");
+  const indexes = await read("supabase/migrations/20261018194500_chat_ttt_score_indexes.sql");
   assert.match(source, /Math\.random\(\) < 0\.5 \? gameInvite\.senderId : userId/);
   assert.match(source, /gameState\.winnerId \|\|/);
   assert.match(source, /record_chat_ttt_result/);
   assert.match(migration, /game_id uuid primary key/);
   assert.match(migration, /on conflict \(game_id\) do nothing/);
   assert.match(migration, /conversation_participants/);
+  assert.match(indexes, /chat_ttt_results_conversation_created_idx/);
 });
