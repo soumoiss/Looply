@@ -457,15 +457,11 @@ export function bindSocialEvents(root, client, getUserId) {
       if (!targetId || !postId || sendInternalShare.disabled) return;
       sendInternalShare.disabled = true;
       try {
-        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId } });
+        const { data, error } = await client.functions.invoke("looply-chat", {
+          body: { action: "share_post", mode: "share", targetId, postId }
+        });
         if (error) throw error;
         if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
-        const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
-        const { error: messageError } = await client.from("chat_messages").insert({
-          conversation_id: data.conversationId,
-          body: "Publicação compartilhada no Looply: " + sourceUrl
-        });
-        if (messageError) throw messageError;
         dialog.close();
         window.location.href = "conversa.html?id=" + encodeURIComponent(data.conversationId);
       } catch (error) {
@@ -480,17 +476,20 @@ export function bindSocialEvents(root, client, getUserId) {
       const authorId = privateReply.dataset.privateReply;
       const postId = privateReply.dataset.privatePost;
       if (!authorId || !postId || privateReply.disabled) return;
+      const replyText = window.prompt("Escreva sua resposta privada à publicação:", "");
+      if (replyText === null) return;
+      if (!replyText.trim()) {
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = "Escreva uma resposta antes de enviar.";
+        return;
+      }
       privateReply.disabled = true;
       try {
-        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: authorId } });
+        const { data, error } = await client.functions.invoke("looply-chat", {
+          body: { action: "share_post", mode: "private_reply", targetId: authorId, postId, body: replyText.trim() }
+        });
         if (error) throw error;
         if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
-        const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
-        const { error: messageError } = await client.from("chat_messages").insert({
-          conversation_id: data.conversationId,
-          body: "Resposta privada à sua publicação: " + sourceUrl
-        });
-        if (messageError) throw messageError;
         window.location.href = "conversa.html?id=" + encodeURIComponent(data.conversationId);
       } catch (error) {
         console.error("Looply private post reply failed", error);
