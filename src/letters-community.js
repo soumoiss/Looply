@@ -157,7 +157,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     passwordInput.disabled = !enabled;
     passwordInput.required = enabled;
   });
-  root.addEventListener("click", (event) => {
+  root.addEventListener("click", async (event) => {
     const deleteButton = event.target.closest("[data-delete-community-letter]");
     if (deleteButton) {
       const letterId = deleteButton.dataset.deleteCommunityLetter;
