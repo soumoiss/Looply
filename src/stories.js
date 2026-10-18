@@ -34,6 +34,34 @@ function rawSignedUrl(value) {
   }
 }
 
+function openStoryDialog(dialog) {
+  if (!dialog) return false;
+  if (dialog.open) return true;
+  try {
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+      return true;
+    }
+  } catch (error) {
+    console.warn("Looply story dialog could not enter the modal layer.", error);
+  }
+  // Fallback for embedded/mobile browsers with incomplete <dialog> support.
+  dialog.setAttribute("open", "");
+  dialog.classList.add("story-dialog-fallback-open");
+  return true;
+}
+
+function closeStoryDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.close === "function" && dialog.open) {
+    dialog.close();
+    return;
+  }
+  dialog.removeAttribute("open");
+  dialog.classList.remove("story-dialog-fallback-open");
+  dialog.dispatchEvent(new Event("close"));
+}
+
 function profileName(profile) {
   return String(profile?.display_name || profile?.username || "Membro");
 }
@@ -126,11 +154,25 @@ export async function loadStories(client) {
     signGroups.set(ttl, group);
   }
   await Promise.all([...signGroups].map(async ([ttl, items]) => {
-    const { data: signed, error: signedError } = await client.storage.from("looply-media")
-      .createSignedUrls(items.map((item) => item.storage_path), ttl);
-    items.forEach((item, index) => {
-      item.signedUrl = signedError ? null : signed?.[index]?.signedUrl || null;
-    });
+    const storage = client.storage.from("looply-media");
+    const { data: signed, error: signedError } = await storage.createSignedUrls(items.map((item) => item.storage_path), ttl);
+    await Promise.all(items.map(async (item, index) => {
+      item.signedUrl = !signedError ? signed?.[index]?.signedUrl || null : null;
+      if (item.signedUrl) return;
+      // Some Storage responses fail per-object while the batch request itself succeeds.
+      // Retry the individual path so one malformed item cannot blank every story in the group.
+      const remainingTtl = storyMediaUrlTtl(item.storyExpiresAt, Date.now());
+      if (!remainingTtl) return;
+      const single = await storage.createSignedUrl(item.storage_path, remainingTtl);
+      if (single.error) {
+        console.warn("Looply story media URL could not be signed.", {
+          storyId: item.storyId,
+          errorCode: single.error.statusCode || single.error.name || "storage-sign-failed"
+        });
+        return;
+      }
+      item.signedUrl = single.data?.signedUrl || null;
+    }));
   }));
 
   const avatarPaths = [...new Set(rows.map((story) => story.author?.avatar_path).filter(Boolean))];
@@ -489,7 +531,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       targetGroupIndex += direction;
       if (targetGroupIndex < 0 || targetGroupIndex >= state.groups.length) {
         if (direction > 0) {
-          viewer.close();
+          closeStoryDialog(viewer);
           void refresh();
           cleanupExpiredStories(client);
         }
@@ -509,7 +551,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const stories = activeStoriesFor(state.active);
     state.active.stories = stories;
     if (!stories.length || state.index >= stories.length) {
-      viewer.close();
+      closeStoryDialog(viewer);
       void refresh();
       return;
     }
@@ -579,12 +621,19 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         setProgressDuration(7000);
         state.timer = setTimeout(() => advance(1), 7000);
       }
-    } else if (!story.body) {
-      const missing = document.createElement("p");
+    } else if (media) {
+      const missing = document.createElement("div");
       missing.className = "story-media-unavailable";
-      missing.textContent = "Mídia temporariamente indisponível.";
+      const message = document.createElement("p");
+      message.textContent = "Não foi possível carregar a mídia deste story.";
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "text-button";
+      retry.dataset.storyMediaRetry = "";
+      retry.textContent = "Tentar carregar novamente";
+      missing.append(message, retry);
       mediaHost.append(missing);
-    } else {
+    } else if (story.body) {
       setProgressDuration(7000);
       state.timer = setTimeout(() => advance(1), 7000);
     }
@@ -688,7 +737,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (replacement) state.active = replacement;
         else {
           state.active = null;
-          if (viewer.open) viewer.close();
+          if (viewer.open) closeStoryDialog(viewer);
         }
       }
       scheduleNextExpiry();
@@ -719,7 +768,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   scheduleNextExpiry();
   root.__looplyStoryStop = clearTimer;
   root.__looplyStoryCameraStop = () => stopCamera(true);
-  root.__looplyStoryClose = () => { if (viewer.open) viewer.close(); };
+  root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
     if (story?.author_id === userId && !viewer.querySelector("[data-story-insights-panel]").hidden) {
@@ -757,7 +806,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-create-open]")) {
-      createDialog.showModal();
+      openStoryDialog(createDialog);
       return;
     }
     if (event.target.closest("[data-story-camera-open]")) {
@@ -807,7 +856,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-create-close]")) {
-      createDialog.close();
+      closeStoryDialog(createDialog);
       return;
     }
     if (event.target.closest("[data-story-refresh]")) {
@@ -833,11 +882,31 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.active = { ...group, stories: activeStories };
       state.index = 0;
       renderSlide();
-      if (!viewer.open) viewer.showModal();
+      openStoryDialog(viewer);
+      return;
+    }
+    if (event.target.closest("[data-story-media-retry]")) {
+      const current = currentStory();
+      if (!current) return;
+      try {
+        showStatus("Carregando mídia do story…");
+        const refreshed = await loadStories(client);
+        state.groups = groupActiveStories(refreshed);
+        const group = state.groups.find((item) => item.author_id === current.author_id);
+        const nextStory = group?.stories.find((item) => item.id === current.id);
+        if (!nextStory) throw new Error("story-not-found");
+        state.active = { ...group, stories: activeStoriesFor(group) };
+        state.index = state.active.stories.findIndex((item) => item.id === current.id);
+        renderSlide();
+        showStatus("");
+      } catch (error) {
+        console.warn("Looply story media retry failed.", error);
+        showStatus("A mídia continua indisponível. Verifique sua conexão e tente novamente.", true);
+      }
       return;
     }
     if (event.target.closest("[data-story-close]")) {
-      viewer.close();
+      closeStoryDialog(viewer);
       return;
     }
     if (event.target.closest("[data-story-prev]")) {
@@ -911,7 +980,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         }
         const { error } = await client.from("stories").delete().eq("id", current.id).eq("author_id", userId);
         if (error) throw error;
-        viewer.close();
+        closeStoryDialog(viewer);
         await refresh();
         scheduleNextExpiry();
       } catch (error) {
@@ -924,7 +993,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
 
   viewer.addEventListener("click", (event) => {
-    if (event.target === viewer) viewer.close();
+    if (event.target === viewer) closeStoryDialog(viewer);
   });
   const touchSurface = viewer.querySelector("[data-story-touch-surface]");
   let pointerStart = null;
@@ -950,7 +1019,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.ignoreTapUntil = Date.now() + 500;
       advance(deltaX < 0 ? 1 : -1);
     }
-    else if (deltaY > 90) viewer.close();
+    else if (deltaY > 90) closeStoryDialog(viewer);
   });
   touchSurface.addEventListener("pointercancel", () => { pointerStart = null; });
   viewer.addEventListener("keydown", (event) => {
@@ -1042,7 +1111,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
 
       form.reset();
-      createDialog.close();
+      closeStoryDialog(createDialog);
       await refresh();
       showStatus("Story publicado. Ele expira após 24 horas.");
     } catch (error) {
