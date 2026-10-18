@@ -157,18 +157,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
-  const backButton = header.querySelector("[data-page-back]");
-  backButton?.addEventListener("click", (event) => {
-    let previousUrl = null;
-    try { previousUrl = document.referrer ? new URL(document.referrer) : null; } catch { previousUrl = null; }
-    const canReturn = previousUrl?.origin === window.location.origin
-      && !previousUrl.pathname.toLowerCase().endsWith("/login.html")
-      && previousUrl.href !== window.location.href;
-    if (canReturn) {
-      event.preventDefault();
-      window.history.back();
-    }
-  });
+  // Keep this control deterministic: the href rendered by headerMarkup is the destination.
+  // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
