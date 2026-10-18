@@ -19,7 +19,7 @@ test("playlist remains sourced from the YouTube Data API with complete paginatio
 test("track comments use the exact playlist and video IDs and are sent to the administrator privately", async () => {
   const [playlist, migration, edge, admin] = await Promise.all([
     read("src/youtube-playlist.js"),
-    read("supabase/migrations/20261018160000_music_page_comments.sql"),
+    read("supabase/migrations/20261018192146_music_page_comments.sql"),
     read("supabase/functions/looply-admin/index.ts"),
     read("src/admin.js")
   ]);
@@ -38,7 +38,7 @@ test("track comments use the exact playlist and video IDs and are sent to the ad
 test("general comments and multi-recipient dedications remain persisted and realtime-enabled", async () => {
   const [music, migration, css] = await Promise.all([
     read("src/music.js"),
-    read("supabase/migrations/20261018160000_music_page_comments.sql"),
+    read("supabase/migrations/20261018192146_music_page_comments.sql"),
     read("assets/css/pages/music.css")
   ]);
   assert.match(music, /data-music-general-comment/);
