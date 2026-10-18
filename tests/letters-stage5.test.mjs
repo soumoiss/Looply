@@ -17,7 +17,7 @@ test("protected letters accept 1, 2 and long non-whitespace passwords and round-
 });
 
 test("protected letters reject whitespace in passwords without imposing an arbitrary length limit", async () => {
-  for (const password of [" ", "a b", "a\\tb", "a\\nb"]) {
+  for (const password of [" ", "a b", "a\tb", "a\nb"]) {
     await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
 });
@@ -34,9 +34,9 @@ test("letters page keeps the archived collection and reversible read controls wi
   assert.match(page, /archivedCardsMarkup/);
   assert.match(community, /data-community-letter-compose hidden/);
   assert.match(community, /data-toggle-community-compose/);
-  assert.match(community, /crypto\\.subtle\\.encrypt/);
+  assert.ok(community.includes("crypto.subtle.encrypt"));
   assert.match(archive, /data-card-toggle-read/);
-  assert.match(archive, /archived_card_reads"\\)\\.delete/);
+  assert.ok(archive.includes('.from("archived_card_reads").delete()'));
   assert.match(migration, /archived_card_reads_owner_delete/);
   assert.match(css, /community-letter-password-field/);
 });
