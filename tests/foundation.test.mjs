@@ -124,7 +124,7 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
 });
 
 test("the removed account is absent from active frontend code and page copy", async () => {
-  const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/gallery.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/conversation.js", "assets/js/letters.js", "assets/js/notifications.js", "assets/js/users.js", "assets/js/settings.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "galeria.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html"];
+  const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/conversation.js", "assets/js/letters.js", "assets/js/notifications.js", "assets/js/users.js", "assets/js/settings.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html"];
   const contents = await Promise.all(files.map(read));
   const removedUsername = ["li", "li", "ka"].join("");
   assert.doesNotMatch(contents.join("\n"), new RegExp(removedUsername, "i"));
@@ -132,7 +132,7 @@ test("the removed account is absent from active frontend code and page copy", as
 
 test("the build emits all independent pages and their assets", async () => {
   const { access } = await import("node:fs/promises");
-  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
+  for (const path of ["dist/login.html", "dist/home.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
     await access(resolve(projectRoot, path));
   }
 });
@@ -469,7 +469,7 @@ test("the legacy archive migration keeps letters private and all media objects b
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "read_completed", media\.bucket_id === "looply-chat" \? "chat_media" : media\.audit_resource_type \|\| "post_media"/);
 });
 
-test("the archive importer indexes legacy media but leaves audience decisions to the gallery administrator", async () => {
+test("the archive importer indexes legacy media while preserving audience metadata", async () => {
   const { findMediaIndexEntry, makeMediaCatalog } = await import("../src/archive-import.js");
   const rootIndex = { file: { name: "midia-index.json" }, path: "midia-index.json" };
   const dataIndex = { file: { name: "midia-index.json" }, path: "data/midia-index.json" };
@@ -656,18 +656,15 @@ test("story engagement tables reveal views only to the viewer and story author",
   assert.match(migration, /alter publication supabase_realtime add table public\.story_views/i);
 });
 
-test("Home, Galeria, and Cartas have separate page responsibilities", async () => {
-  const [home, gallery, letters] = await Promise.all([
-    read("assets/js/home.js"), read("assets/js/gallery.js"), read("assets/js/letters.js")
+test("Home and Cartas retain separate page responsibilities", async () => {
+  const [home, letters] = await Promise.all([
+    read("assets/js/home.js"), read("assets/js/letters.js")
   ]);
   assert.match(home, /storiesMarkup/);
   assert.match(home, /socialMarkup/);
   assert.doesNotMatch(home, /archivedCardsMarkup|loadArchivedCards/);
-  assert.match(gallery, /archiveGalleryMarkup/);
-  assert.doesNotMatch(gallery, /socialMarkup|loadSocialData/);
   assert.match(letters, /archivedCardsMarkup/);
 });
-
 test("24-hour stories use authenticated RLS and private Storage object authorization", async () => {
   const names = await readdir(resolve(projectRoot, "supabase/migrations"));
   const storyName = names.find((name) => name.endsWith("_stories_24h_private_media_realtime.sql"));
@@ -733,23 +730,20 @@ test("password-protected letters encrypt content and reject a wrong password", a
   await assert.rejects(openProtectedLetter(letter, "senha-incorreta"), /Senha incorreta/);
 });
 
-test("community gallery and letters use RLS, encryption and receipt-aware chat", async () => {
+test("letters and archived media retain RLS, encryption and receipt-aware chat", async () => {
   const names = await readdir(resolve(projectRoot, "supabase/migrations"));
-  const migrationName = names.find((name) => name.endsWith("_community_letters_gallery_receipts.sql"));
+  const migrationName = names.find((name) => /community_letters.*receipts\.sql$/.test(name));
   assert.ok(migrationName);
-  const [sql, gallery, letters, chat, css, adminFunction] = await Promise.all([
-    read("supabase/migrations/" + migrationName), read("src/community-gallery.js"),
-    read("src/letters-community.js"), read("src/chat.js"), read("assets/css/pages/chat.css"),
+  const [sql, letters, chat, css, adminFunction] = await Promise.all([
+    read("supabase/migrations/" + migrationName), read("src/letters-community.js"),
+    read("src/chat.js"), read("assets/css/pages/chat.css"),
     read("supabase/functions/looply-admin/index.ts")
   ]);
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /sender_id = \(select auth\.uid\(\)\)/i);
   assert.match(sql, /is_protected = true and body is null[\s\S]*password_ciphertext/);
-  assert.match(sql, /looply-gallery[\s\S]*209715200/i);
   assert.match(sql, /209715200 else 104857600/i);
   assert.match(sql, /archive_media_byte_size_check[\s\S]*209715200/i);
-  assert.match(gallery, /looply-gallery/);
-  assert.match(gallery, /tus-js-client/);
   assert.match(letters, /crypto\.subtle\.encrypt/);
   assert.doesNotMatch(letters, /password:\s*String\(values\.get/);
   assert.match(chat, /mark_conversations_delivered/);
@@ -757,5 +751,3 @@ test("community gallery and letters use RLS, encryption and receipt-aware chat",
   assert.match(css, /--looply-visible-height/);
   assert.match(adminFunction, /expectedSize > 209_715_200/);
 });
-
-
