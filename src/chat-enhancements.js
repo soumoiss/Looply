@@ -55,6 +55,8 @@ export function setupChatEnhancements(root, client, userId) {
         gameState = payload.state;
         ownTurn = payload.state.turn === userId;
         renderGame();
+      } else if (payload.type === "score-saved") {
+        void refreshScoreboard();
       } else if (payload.type === "close") closeModal();
     });
     await gameChannel.subscribe();
@@ -234,6 +236,7 @@ export function setupChatEnhancements(root, client, userId) {
           p_winner_id: winnerId, p_is_draw: result === "draw"
         });
         if (error) toast("A rodada terminou, mas o placar não foi salvo. Confira a migração do banco.");
+        else await sendGame("score-saved");
       }
       renderGame(); return;
     }
