@@ -31,3 +31,17 @@
 .community-letter-close { position:absolute; top:14px; right:14px; min-width:38px; min-height:38px; }
 .community-letter-body { max-height:55dvh; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.7; }
 @media(max-width:520px) { .community-letter-row { align-items:flex-start; } }
+
+/* Stage 5 letter controls */
+.community-letter-compose-toggle { display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:50%; }
+.community-letter-heading > div > span { display:inline-flex; align-items:center; gap:7px; }
+.community-letter-form [hidden] { display:none !important; }
+.community-letter-password-field { display:flex; align-items:center; gap:8px; }
+.community-letter-password-field input { flex:1; min-width:0; }
+.community-letter-password-field .icon-action { display:inline-flex; flex:0 0 42px; align-items:center; justify-content:center; width:42px; min-height:42px; }
+.community-letter-compose-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.community-letter-compose-actions button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.community-letter-protect { flex-wrap:wrap; }
+.card-check { display:inline-flex; align-items:center; justify-content:center; min-width:40px; min-height:40px; border:1px solid var(--line); border-radius:50%; color:var(--muted); background:var(--surface); cursor:pointer; }
+.card-check.is-read { color:var(--primary); border-color:var(--primary); }
+.card-check svg { display:block; }
