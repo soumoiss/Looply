@@ -120,6 +120,7 @@ function postMarkup(post, userId) {
     <div class="post-interactions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
       <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
+      ${post.author_id !== userId ? '<button class="post-icon-button" type="button" data-private-reply="' + escapeHtml(post.author_id) + '" data-private-post="' + escapeHtml(post.id) + '">Responder em particular</button>' : ""}
       <span class="post-action-status" data-post-status="${escapeHtml(post.id)}" role="status" aria-live="polite"></span>
     </div>
     <section class="post-comments" aria-label="Comentários">
@@ -390,6 +391,24 @@ export function bindSocialEvents(root, client, getUserId) {
 
   root.addEventListener("click", async (event) => {
     if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.());
+    const privateReply = event.target.closest("[data-private-reply]");
+    if (privateReply && client) {
+      const authorId = privateReply.dataset.privateReply;
+      const postId = privateReply.dataset.privatePost;
+      if (!authorId || !postId || privateReply.disabled) return;
+      privateReply.disabled = true;
+      try {
+        const { data: conversationId, error } = await client.rpc("create_direct_conversation", { p_target_id: authorId });
+        if (error) throw error;
+        const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+        window.location.href = "chat.html?conversation=" + encodeURIComponent(conversationId) + "&post=" + encodeURIComponent(sourceUrl);
+      } catch (error) {
+        console.error("Looply private post reply failed", error);
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = explainWriteError(error);
+      } finally { privateReply.disabled = false; }
+      return;
+    }
     const likeButton = event.target.closest("[data-toggle-like]");
     if (likeButton && client) {
       const postId = likeButton.dataset.toggleLike;
