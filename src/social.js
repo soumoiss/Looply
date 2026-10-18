@@ -92,8 +92,12 @@ function postMarkup(post, userId) {
     let embed = "";
     if (externalUrl.hostname.includes("instagram")) {
       const pathParts = externalUrl.pathname.split("/").filter(Boolean);
-      const kind = ["p", "reel", "tv"].includes(pathParts[0]) ? pathParts[0] : null;
-      const shortcode = pathParts[1] || "";
+      // Instagram's native "Share" URLs wrap the post type in /share/{p|reel|tv}/{shortcode}/.
+      const sharePrefix = pathParts[0] === "share";
+      const kindIndex = sharePrefix ? 1 : 0;
+      const shortcodeIndex = sharePrefix ? 2 : 1;
+      const kind = ["p", "reel", "tv"].includes(pathParts[kindIndex]) ? pathParts[kindIndex] : null;
+      const shortcode = pathParts[shortcodeIndex] || "";
       if (kind && /^[A-Za-z0-9_-]{5,30}$/.test(shortcode)) {
         provider = "Instagram";
         const embedPath = kind === "p" ? "p" : kind;
@@ -449,8 +453,13 @@ export function bindSocialEvents(root, client, getUserId) {
         if (error) throw error;
         if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
         const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+        const { error: messageError } = await client.from("chat_messages").insert({
+          conversation_id: data.conversationId,
+          body: "Publicação compartilhada no Looply: " + sourceUrl
+        });
+        if (messageError) throw messageError;
         dialog.close();
-        window.location.href = "chat.html?conversation=" + encodeURIComponent(data.conversationId) + "&post=" + encodeURIComponent(sourceUrl);
+        window.location.href = "conversa.html?id=" + encodeURIComponent(data.conversationId);
       } catch (error) {
         console.error("Looply internal post share failed", error);
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
@@ -469,7 +478,12 @@ export function bindSocialEvents(root, client, getUserId) {
         if (error) throw error;
         if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
         const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
-        window.location.href = "chat.html?conversation=" + encodeURIComponent(data.conversationId) + "&post=" + encodeURIComponent(sourceUrl);
+        const { error: messageError } = await client.from("chat_messages").insert({
+          conversation_id: data.conversationId,
+          body: "Resposta privada à sua publicação: " + sourceUrl
+        });
+        if (messageError) throw messageError;
+        window.location.href = "conversa.html?id=" + encodeURIComponent(data.conversationId);
       } catch (error) {
         console.error("Looply private post reply failed", error);
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
@@ -560,26 +574,33 @@ export function bindSocialEvents(root, client, getUserId) {
     try {
       const formData = new FormData(form);
       const body = String(formData.get("body") || "").trim();
-      if (!body) throw new Error("empty body");
       if (form.matches("[data-social-post]")) {
         const files = selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
-        const externalUrl = String(formData.get("externalUrl") || "").trim();
+        let externalUrl = String(formData.get("externalUrl") || "").trim();
+        if (!body && !externalUrl && !files.length) throw new Error("empty body");
+        const postBody = body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
           let parsed;
           try { parsed = new URL(externalUrl); } catch { throw new Error("unsupported external URL"); }
-          const allowedHosts = ["instagram.com","www.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
+          if (parsed.protocol === "https:" && parsed.hostname.toLowerCase() === "l.instagram.com") {
+            const sharedTarget = parsed.searchParams.get("u");
+            try { parsed = new URL(sharedTarget || ""); } catch { throw new Error("unsupported external URL"); }
+          }
+          const allowedHosts = ["instagram.com","www.instagram.com","m.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
           if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("unsupported external URL");
+          if (["instagram.com", "m.instagram.com"].includes(parsed.hostname.toLowerCase())) parsed.hostname = "www.instagram.com";
+          externalUrl = parsed.href;
         }
         if (visibility === "selected") {
           const recipientIds = formData.getAll("recipientIds").map(String);
           if (recipientIds.length < 1 || recipientIds.length > 20) throw new Error("invalid recipients");
-          const { data, error } = await client.rpc("create_selected_post", { p_body: body, p_recipient_ids: recipientIds });
+          const { data, error } = await client.rpc("create_selected_post", { p_body: postBody, p_recipient_ids: recipientIds });
           if (error) throw error;
           createdPostId = data;
         } else {
-          const { data, error } = await client.from("posts").insert({ body, visibility, external_url: externalUrl || null }).select("id").single();
+          const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
           if (error) throw error;
           createdPostId = data.id;
         }
