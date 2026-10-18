@@ -2,6 +2,7 @@ import { mountAppPage } from "../../src/page-runtime.js";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
 import { setupChatCalls } from "../../src/chat-calls.js";
+import { setupChatCalls } from "../../src/chat-calls.js";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {
   root.dataset.conversationPage = "true";
