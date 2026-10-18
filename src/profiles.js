@@ -72,6 +72,24 @@ function setStatus(form, message, kind = "success") {
   target.dataset.kind = kind;
 }
 
+function avatarSaveErrorMessage(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (message === "avatar-required") return "Escolha e recorte uma foto de perfil antes de continuar.";
+  if (message === "avatar-replacement-required") return "Escolha uma nova foto antes de substituir a atual. A foto existente foi preservada.";
+  if (message === "profile-fields") return "Confira o nome e a apresentação do perfil.";
+  if (message === "unsupported avatar" || message === "avatar-not-square") return "A imagem precisa ser JPEG, PNG ou WebP, recortada em 512 × 512 px e ter até 10 MB.";
+  if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto atual foi preservada; tente novamente.";
+  if (message.includes("session expired") || status === 401) return "Sua sessão expirou. Entre novamente e tente salvar a foto.";
+  if (status === 403 || code.includes("42501") || message.includes("row-level security") || message.includes("permission")) return "Sua conta não tem permissão para salvar a foto. A foto atual foi preservada.";
+  if (status === 413 || code.includes("file_size") || message.includes("too large") || message.includes("payload too large")) return "A imagem excede o limite aceito pelo armazenamento. Escolha uma imagem menor que 10 MB.";
+  if (code.includes("mime") || message.includes("mime type") || message.includes("content type") || message.includes("unsupported format")) return "O formato da imagem não é aceito. Use JPEG, PNG ou WebP.";
+  if (error instanceof TypeError || message.includes("fetch") || message.includes("network") || message.includes("failed to fetch")) return "Falha de conexão ao salvar a foto. Verifique a internet e tente novamente; a foto atual foi preservada.";
+  if (status >= 500) return "O serviço de armazenamento está temporariamente indisponível. A foto atual foi preservada.";
+  return "Não foi possível salvar a foto. A alteração não foi confirmada e a foto anterior foi preservada. Tente novamente.";
+}
+
 export async function signProfileAvatars(client, profiles) {
   const withUrls = (profiles || []).map((profile) => ({ ...profile, avatarUrl: "" }));
   const withAvatars = withUrls.filter((profile) => profile.avatar_path);
@@ -345,10 +363,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     } catch (error) {
       console.error("Looply profile action failed", error);
       if (form.matches("[data-profile-edit]")) {
-        const message = error?.message === "avatar-required" ? "Escolha e recorte uma foto de perfil antes de continuar."
-          : error?.message === "avatar-replacement-required" ? "Escolha uma nova foto antes de substituir a atual. A foto existente foi preservada."
-          : "Não foi possível salvar. Confira a imagem e a conexão; sua foto atual foi preservada.";
-        setStatus(form, message, "error");
+        setStatus(form, avatarSaveErrorMessage(error), "error");
       } else {
         const results = root.querySelector("[data-profile-results]");
         if (results) results.innerHTML = `<p class="search-empty" role="alert">Não foi possível buscar agora. Confira sua conexão e tente novamente.</p>`;

@@ -48,3 +48,20 @@ test("profile and account actions use consistent accessible SVG icons", async ()
   assert.match(runtime, /configuracoes\.html">\$\{icon\("settings"\)\}/);
   assert.match(css, /account-menu-link svg/);
 });
+
+test("profile photo save errors distinguish invalid images, auth, storage permissions, and connectivity", async () => {
+  const source = await read("src/profiles.js");
+  assert.match(source, /function avatarSaveErrorMessage\(error\)/);
+  assert.match(source, /status === 401/);
+  assert.match(source, /status === 403/);
+  assert.match(source, /status === 413/);
+  assert.match(source, /error instanceof TypeError/);
+  assert.match(source, /avatarSaveErrorMessage\(error\)/);
+});
+
+test("global back link follows its explicit home or chat destination", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /href="\$\{page === "conversation" \? "chat\.html" : "home\.html"\}" data-page-back/);
+  assert.doesNotMatch(runtime, /window\.history\.back\(\)/);
+  assert.match(runtime, /Keep this control deterministic/);
+});

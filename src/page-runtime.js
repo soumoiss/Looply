@@ -2,6 +2,7 @@ import { icon } from "./icons.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { checkAdminAccess } from "./admin.js";
 import { applyProfilePreferences } from "./theme.js";
+import { setupGlobalCallListener } from "./global-call-listener.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
@@ -157,18 +158,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
-  const backButton = header.querySelector("[data-page-back]");
-  backButton?.addEventListener("click", (event) => {
-    let previousUrl = null;
-    try { previousUrl = document.referrer ? new URL(document.referrer) : null; } catch { previousUrl = null; }
-    const canReturn = previousUrl?.origin === window.location.origin
-      && !previousUrl.pathname.toLowerCase().endsWith("/login.html")
-      && previousUrl.href !== window.location.href;
-    if (canReturn) {
-      event.preventDefault();
-      window.history.back();
-    }
-  });
+  // Keep this control deterministic: the href rendered by headerMarkup is the destination.
+  // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
@@ -211,6 +202,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     console.error("Looply page failed to load", error);
     notice(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.", "error");
   }
+
+  // Listen for direct-call offers from every conversation the signed-in user belongs to,
+  // even when the user is browsing a different page.
+  setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
     authListener.subscription.unsubscribe();

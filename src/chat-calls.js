@@ -14,6 +14,8 @@ export function setupChatCalls(root, client, userId) {
   let pendingCandidates = [];
   let isCaller = false;
   let closing = false;
+  let offerRetryTimer = null;
+  const clearOfferRetry = () => { if (offerRetryTimer) clearInterval(offerRetryTimer); offerRetryTimer = null; };
   const activeConversation = () => root.querySelector(".chat-thread-heading")?.dataset.conversationId || root.querySelector("[data-chat-send]")?.dataset.conversationId || "";
   const isGroup = () => root.querySelector(".chat-thread-heading")?.dataset.chatKind === "group";
   const peerName = () => root.querySelector(".chat-thread-heading strong")?.textContent?.trim() || "Contato";
@@ -49,6 +51,7 @@ export function setupChatCalls(root, client, userId) {
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
   const releaseMedia = () => {
+    clearOfferRetry();
     if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); pc = null; }
     if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
     const local = root.querySelector("[data-call-local]");
@@ -94,9 +97,16 @@ export function setupChatCalls(root, client, userId) {
   };
   const createPeerConnection = () => {
     if (!window.RTCPeerConnection) throw new Error("webrtc unavailable");
+    const configuredIceServers = Array.isArray(window.LOOPLY_CONFIG?.rtcIceServers)
+      ? window.LOOPLY_CONFIG.rtcIceServers.filter((server) => server && (
+          (typeof server.urls === "string" && /^turns?:/i.test(server.urls))
+          || (Array.isArray(server.urls) && server.urls.some((url) => typeof url === "string" && /^turns?:/i.test(url)))
+        ) && (typeof server.username === "string") && (typeof server.credential === "string"))
+      : [];
     pc = new RTCPeerConnection({ iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun.cloudflare.com:3478" }
+      { urls: "stun:stun.cloudflare.com:3478" },
+      ...configuredIceServers
     ] });
     pc.onicecandidate = (event) => { if (event.candidate) send("ice", { candidate: event.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
@@ -110,6 +120,18 @@ export function setupChatCalls(root, client, userId) {
     attachMedia();
     return pc;
   };
+  const waitForIceGatheringComplete = (peer, timeout = 5000) => new Promise((resolve) => {
+    if (!peer || peer.iceGatheringState === "complete") { resolve(); return; }
+    let timer;
+    const finish = () => {
+      peer.removeEventListener("icegatheringstatechange", check);
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    const check = () => { if (peer.iceGatheringState === "complete") finish(); };
+    peer.addEventListener("icegatheringstatechange", check);
+    timer = setTimeout(finish, timeout);
+  });
   const addPendingCandidates = async () => {
     if (!pc?.remoteDescription) return;
     const queued = pendingCandidates.splice(0);
@@ -130,8 +152,26 @@ export function setupChatCalls(root, client, userId) {
       callView("Chamando…");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const sent = await send("offer", { description: pc.localDescription.toJSON(), mode, senderName: root.querySelector("[data-site-header]")?.textContent?.trim() || "Contato" });
+      // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
+      await waitForIceGatheringComplete(pc);
+      const offerPayload = {
+        description: pc.localDescription.toJSON(),
+        mode,
+        senderName: root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato"
+      };
+      const sent = await send("offer", offerPayload);
       if (!sent) throw new Error("offer could not be sent");
+      // Broadcast is ephemeral. Retry the offer while waiting so a listener that is
+      // still loading its conversation memberships can still receive the call.
+      clearOfferRetry();
+      const retryUntil = Date.now() + 30000;
+      offerRetryTimer = window.setInterval(() => {
+        if (!pc || !isCaller || pc.remoteDescription || Date.now() >= retryUntil) {
+          clearOfferRetry();
+          return;
+        }
+        void send("offer", offerPayload);
+      }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
@@ -148,6 +188,7 @@ export function setupChatCalls(root, client, userId) {
       await addPendingCandidates();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      await waitForIceGatheringComplete(pc);
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
       callView("Conectando…");
@@ -157,10 +198,36 @@ export function setupChatCalls(root, client, userId) {
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para atender." : "Não foi possível atender a chamada.");
     }
   };
+  const restorePendingIncomingCall = (conversationId) => {
+    if (!conversationId || activeConversation() !== conversationId || incomingOffer || pc) return;
+    let pending = null;
+    try {
+      const key = `looply:pending-call:${userId}`;
+      pending = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (pending) sessionStorage.removeItem(key);
+    } catch (error) {
+      console.warn("Looply pending call could not be restored", error);
+      return;
+    }
+    if (!pending || pending.conversationId !== conversationId || pending.senderId === userId
+      || pending.accepted !== true || !Number.isFinite(pending.savedAt)
+      || Date.now() - pending.savedAt > 90000 || !pending.description) return;
+    incomingOffer = pending;
+    callMode = pending.mode === "video" ? "video" : "audio";
+    callPeerName = pending.senderName || peerName();
+    window.setTimeout(() => {
+      if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall();
+    }, 0);
+  };
+
   const ensureChannel = async () => {
     const id = activeConversation();
     if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
-    if (channel && channelConversationId === id) return channelReady ? await channelReady ? channel : null : channel;
+    if (channel && channelConversationId === id) {
+      const ready = channelReady ? await channelReady : Boolean(channel);
+      if (ready) restorePendingIncomingCall(id);
+      return ready ? channel : null;
+    }
     if (channel) await client.removeChannel(channel);
     channel = null; channelReady = null; channelConversationId = id;
     const session = await client.auth.getSession();
@@ -170,13 +237,23 @@ export function setupChatCalls(root, client, userId) {
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
-        if (pc) { await send("decline"); return; }
+        if (pc) {
+          if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
+          await send("decline");
+          return;
+        }
+        if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
         incomingOffer = payload;
         callMode = payload.mode === "video" ? "video" : "audio";
         callPeerName = payload.senderName || peerName();
         showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
       } else if (payload.type === "answer" && pc && isCaller) {
-        try { await pc.setRemoteDescription(payload.description); await addPendingCandidates(); updateStatus("Conectando…"); } catch (error) { console.error("Looply call answer failed", error); }
+        try {
+          clearOfferRetry();
+          await pc.setRemoteDescription(payload.description);
+          await addPendingCandidates();
+          updateStatus("Conectando…");
+        } catch (error) { console.error("Looply call answer failed", error); }
       } else if (payload.type === "ice" && payload.candidate) {
         if (pc?.remoteDescription) { try { await pc.addIceCandidate(payload.candidate); } catch (error) { console.warn("Looply ICE candidate ignored", error); } }
         else pendingCandidates.push(payload.candidate);
@@ -200,6 +277,7 @@ export function setupChatCalls(root, client, userId) {
       return false;
     });
     const subscribed = await channelReady;
+    if (subscribed) restorePendingIncomingCall(id);
     return subscribed ? channel : null;
   };
   const addButtons = () => {
