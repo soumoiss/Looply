@@ -70,12 +70,12 @@ function dateLabel(value) {
 }
 function rowMarkup(letter, own) {
   const peer = own ? letter.recipient : letter.sender;
-  return "<article class=\\\"community-letter-row\\\"><div class=\\\"community-letter-meta\\\"><strong>" + escapeHtml(letter.subject) +
+  return "<article class="community-letter-row"><div class="community-letter-meta"><strong>" + escapeHtml(letter.subject) +
     "</strong><span>" + (own ? "Para " : "De ") + escapeHtml(displayName(peer)) +
     (letter.is_protected ? " · protegida por senha" : "") + " · " + escapeHtml(dateLabel(letter.created_at)) + "</span></div>" +
-    "<button class=\\\"text-button\\\" type=\\\"button\\\" data-open-community-letter=\\\"" + escapeHtml(letter.id) + "\\\">" +
+    "<button class="text-button" type="button" data-open-community-letter="" + escapeHtml(letter.id) + "">" +
     (letter.is_protected ? "Desbloquear" : "Ler carta") + "</button>" +
-    (own ? "<button class=\\\"icon-action\\\" type=\\\"button\\\" data-delete-community-letter=\\\"" + escapeHtml(letter.id) + "\\\" aria-label=\\\"Excluir carta enviada\\\">" + icon("trash") + "</button>" : "") + "</article>";
+    (own ? "<button class="icon-action" type="button" data-delete-community-letter="" + escapeHtml(letter.id) + "" aria-label="Excluir carta enviada">" + icon("trash") + "</button>" : "") + "</article>";
 }
 export async function loadCommunityLetters(client, userId) {
   const { data, error } = await client.from("community_letters")
