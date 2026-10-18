@@ -23,8 +23,16 @@ toggle.addEventListener("click", () => {
 if (!isSupabaseConfigured || !supabase) {
   status("O login não está configurado. Confira config.js.");
 } else {
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session) window.location.replace("home.html");
+  // Session restoration is opportunistic: network errors must not block the login form.
+  void supabase.auth.getSession()
+    .then(({ data: sessionData, error }) => {
+      if (error) {
+        console.warn("Looply session check failed", error);
+        return;
+      }
+      if (sessionData?.session) window.location.replace("home.html");
+    })
+    .catch((error) => console.warn("Looply session check failed", error));
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
