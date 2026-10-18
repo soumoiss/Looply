@@ -28,8 +28,10 @@ export function profileAreaMarkup(profile) {
         <div class="profile-avatar-editor">
           <div class="profile-avatar-edit-preview" data-avatar-preview data-original-avatar-url="${avatarUrl}">${avatar}</div>
           <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG ou WebP · até 10 MB</span></div>
-            <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>${profile.avatarUrl ? "Trocar foto" : "Escolher foto"}</label>
-              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
+            <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Câmera</label>
+              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" capture="user" data-avatar-input>
+              <label class="profile-photo-picker" for="profileAvatarGallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="9" r="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 17 5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Galeria</label>
+              <input class="profile-photo-input" id="profileAvatarGallery" name="avatarGallery" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
               <input type="hidden" name="removeAvatar" value="false" data-avatar-remove-state>
               <button class="profile-photo-remove" type="button" data-avatar-remove ${profile.avatarUrl ? "" : "hidden"}>${profile.avatarUrl ? "Remover foto" : "Cancelar seleção"}</button></div>
           </div>
@@ -55,7 +57,7 @@ export function profileAreaMarkup(profile) {
           <label for="profileCropZoom">Zoom</label><input id="profileCropZoom" data-crop-zoom type="range" min="1" max="3" step="0.01" value="1">
           <label for="profileCropX">Mover para esquerda ou direita</label><input id="profileCropX" data-crop-x type="range" min="0" max="100" value="50">
           <label for="profileCropY">Mover para cima ou para baixo</label><input id="profileCropY" data-crop-y type="range" min="0" max="100" value="50">
-          <div class="profile-crop-actions"><button type="button" class="text-button" data-crop-cancel>Cancelar</button><button type="button" class="primary-button compact-button" data-crop-save>Salvar recorte</button></div>
+          <div class="profile-crop-actions"><button type="button" class="text-button" data-crop-cancel><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Cancelar</button><button type="button" class="primary-button compact-button" data-crop-save><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Salvar recorte</button></div>
         </form>
       </dialog>
     </section>
@@ -227,6 +229,10 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
   root.addEventListener("change", async (event) => {
     const input=event.target.closest("input[data-avatar-input]"); if(!input)return;
     const form=input.closest("form[data-profile-edit]"), file=input.files?.[0]; if(!file||!form||!cropDialog||!cropImage)return;
+    for (const other of form.querySelectorAll("input[data-avatar-input]")) {
+      if (other !== input && other.name === "avatar") other.name = "avatarCamera";
+    }
+    input.name = "avatar";
     const fail=(message)=>{input.value="";setStatus(form,message,"error");};
     if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 10 MB. Sua foto atual foi preservada.");return;}
     try {
