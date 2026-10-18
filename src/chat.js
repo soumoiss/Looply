@@ -503,6 +503,7 @@ function updateThreadMarkup(thread, markup, conversationId) {
 async function openConversation(root, client, conversationId, userId) {
   if (!conversationId || !client || !userId) return;
   activeConversationId = conversationId;
+  refreshSequence += 1;
   const requestId = ++activeThreadRequest;
   const thread = root.querySelector("[data-chat-thread]");
   if (!thread) return;
@@ -575,13 +576,9 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
 
 function scheduleRefresh(root, client, userId) {
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(async () => {
-    await refreshChat(root, client, userId, { keepThread: Boolean(activeConversationId) });
-    if (activeConversationId && root.querySelector("[data-chat-thread]")) {
-      const thread = root.querySelector("[data-chat-thread]");
-      thread.scrollTop = thread.scrollHeight;
-    }
-  }, 400);
+  refreshTimer = setTimeout(() => {
+    void refreshChat(root, client, userId, { keepThread: Boolean(activeConversationId) });
+  }, 450);
 }
 
 export function setupChatRealtime(client, userId, root) {
