@@ -89,6 +89,16 @@ export function setupChatCalls(root, client, userId) {
         remote.volume = 1;
         remote.autoplay = true;
         remote.playsInline = true;
+        if (remoteStream.getTracks().length) {
+          remote.play().then(() => {
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = true;
+          }).catch(() => {
+            updateStatus("Toque em “Ativar áudio” para ouvir o outro participante.");
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = false;
+          });
+        }
       }
       // Install ontrack as soon as the peer connection exists. On the answering side,
       // remote tracks can arrive before the answer has finished and before callView renders.
