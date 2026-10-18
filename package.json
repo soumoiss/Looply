@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node scripts/build.mjs && node --test tests/foundation.test.mjs tests/youtube-api.test.mjs tests/chat-stability.test.mjs tests/stories-stability.test.mjs tests/feed-stability.test.mjs"
+    "test": "node scripts/build.mjs && node --test tests/foundation.test.mjs tests/youtube-api.test.mjs tests/chat-stability.test.mjs tests/stories-stability.test.mjs tests/feed-stability.test.mjs tests/letters-stage5.test.mjs"
   }
 }
