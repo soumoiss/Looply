@@ -127,3 +127,15 @@
   .page-chat .chat-v2-swatches { grid-template-columns:1fr; }
   .page-chat .chat-v2-actions > button { flex:1; }
 }
+
+/* In-call controls and media stage. */
+.page-chat .chat-call-modal { width:min(100%,620px); }
+.page-chat .chat-call-videos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.page-chat .chat-call-videos video { width:100%; min-height:150px; max-height:320px; aspect-ratio:4/3; border-radius:16px; background:#101722; object-fit:cover; }
+.page-chat .chat-call-videos video[hidden] { display:none; }
+.page-chat .chat-call-videos:has(video[hidden]) { grid-template-columns:minmax(0,1fr); }
+.page-chat .chat-call-modal [data-call-status] { min-height:1.5em; }
+@media (max-width:520px) {
+  .page-chat .chat-call-videos { grid-template-columns:minmax(0,1fr); }
+  .page-chat .chat-call-videos video { max-height:240px; }
+}
