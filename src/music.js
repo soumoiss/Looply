@@ -145,7 +145,7 @@ function musicContent(data, userId) {
         </div>
         <div class="field"><label for="musicUrl">Link para ouvir</label><input id="musicUrl" name="listenUrl" type="url" maxlength="1000" required placeholder="YouTube, Spotify, Apple Music ou SoundCloud"></div>
         <div class="field"><label for="musicNote">Uma dedicatória (opcional)</label><textarea id="musicNote" name="note" maxlength="1000" rows="3" placeholder="Por que esta música lembrou essa pessoa?"></textarea></div>
-        <button class="primary-button compact-button" type="submit">Enviar dedicatória ${icon("external")}</button>
+        <button class="primary-button compact-button" type="submit">Enviar dedicatória ${icon("send")}</button>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     </details>
