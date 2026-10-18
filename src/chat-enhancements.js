@@ -106,11 +106,11 @@ export function setupChatEnhancements(root, client, userId) {
     thread.classList.toggle("is-chat-v2-dark", value === "#202938");
   };
   const renderTools = () => {
-    const sidebarHeading = root.querySelector(".chat-sidebar .chat-panel-heading");
-    if (sidebarHeading && !sidebarHeading.querySelector("[data-v2-settings]")) {
+    const topHeading = root.querySelector(".chat-heading");
+    if (topHeading && !topHeading.querySelector("[data-v2-settings]")) {
       const button = document.createElement("button");
-      button.type = "button"; button.className = "chat-v2-icon-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.textContent = "⚙";
-      sidebarHeading.append(button);
+      button.type = "button"; button.className = "chat-v2-icon-button chat-v2-menu-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.title = "Configurações"; button.textContent = "☰";
+      topHeading.prepend(button);
     }
     const filters = root.querySelector(".chat-filter-tabs");
     if (filters && !filters.querySelector('[data-chat-filter="groups"]')) {
