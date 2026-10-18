@@ -320,3 +320,51 @@
   .page-conversation .chat-emoji-button { width:28px; }
   .page-conversation .chat-message-actions .primary-button { width:38px; height:38px; }
 }
+
+
+/* Etapa 2: seletor de emojis acessível, com inserção no cursor. */
+.page-chat .chat-emoji-picker {
+  position: absolute;
+  z-index: 120;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(30px, 1fr));
+  gap: 3px;
+  width: min(320px, calc(100vw - 28px));
+  max-height: min(240px, 42dvh);
+  overflow: auto;
+  padding: 9px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 14px;
+  background: var(--surface-strong, #fff);
+  box-shadow: 0 12px 32px #0f172a24;
+}
+.page-chat .chat-emoji-picker button {
+  display: grid;
+  min-width: 30px;
+  min-height: 34px;
+  place-items: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+}
+.page-chat .chat-emoji-picker button:hover,
+.page-chat .chat-emoji-picker button:focus-visible { outline: 2px solid var(--primary, #7c3aed); background: var(--surface-soft, #f3e8ff); }
+.page-chat .chat-message-actions { position: relative; }
+.page-chat .chat-call-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); background: #080b14ed; }
+.page-chat .chat-call-backdrop[hidden] { display: none; }
+.page-chat .chat-call-modal { display: flex; width: 100%; max-width: none; height: 100%; max-height: none; flex-direction: column; justify-content: center; overflow: auto; padding: clamp(14px, 3vw, 28px); border: 0; border-radius: 18px; color: #f8fafc; background: #111827; }
+.page-chat .chat-call-modal h2, .page-chat .chat-call-modal .chat-v2-kicker { color: #f8fafc; }
+.page-chat .chat-call-modal .chat-call-videos { flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; }
+.page-chat .chat-call-modal .chat-call-videos video { max-height: min(60dvh, 640px); }
+.page-chat .chat-call-modal [data-call-local][hidden] { display: none; }
+.page-chat .chat-call-modal .chat-v2-actions { justify-content: center; flex-wrap: wrap; }
+.page-chat .chat-call-modal .chat-v2-button { min-height: 44px; }
+@media (max-width: 600px) {
+  .page-chat .chat-emoji-picker { grid-template-columns: repeat(7, minmax(30px, 1fr)); }
+  .page-chat .chat-call-modal { border-radius: 0; }
+  .page-chat .chat-call-modal .chat-call-videos { grid-template-columns: minmax(0, 1fr); }
+  .page-chat .chat-call-modal .chat-call-videos video { max-height: 48dvh; }
+}

@@ -86,7 +86,7 @@ export function setupChatCalls(root, client, userId) {
     }
   };
   const callView = (statusText) => {
-    showModal(`<span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status>${escape(statusText)}</p><div class="chat-call-videos"><video data-call-remote autoplay playsinline controls aria-label="Mídia recebida"></video><video data-call-local autoplay playsinline muted aria-label="Sua câmera"></video></div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic>Silenciar microfone</button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera>Desligar câmera</button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup>Encerrar chamada</button></div>`);
+    showModal(`<span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-pressed="false">🎙 Silenciar microfone</button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-pressed="false">🔊 Áudio ligado</button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-pressed="false">▣ Desligar câmera</button><button type="button" class="chat-v2-button" data-call-flip-camera>↻ Trocar câmera</button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup>✕ Encerrar chamada</button></div>`);
     const local = root.querySelector("[data-call-local]");
     if (local && callMode !== "video") local.hidden = true;
     attachMedia();
@@ -217,12 +217,55 @@ export function setupChatCalls(root, client, userId) {
     if (button.matches("[data-call-hangup]") || button.matches("[data-call-close]")) { await endCall(true); return; }
     if (button.matches("[data-call-toggle-mic]")) {
       const track = localStream?.getAudioTracks()[0];
-      if (track) { track.enabled = !track.enabled; button.textContent = track.enabled ? "Silenciar microfone" : "Ativar microfone"; }
+      if (track) {
+        track.enabled = !track.enabled;
+        button.setAttribute("aria-pressed", String(!track.enabled));
+        button.textContent = track.enabled ? "🎙 Silenciar microfone" : "🔇 Ativar microfone";
+      }
+      return;
+    }
+    if (button.matches("[data-call-toggle-speaker]")) {
+      const remote = root.querySelector("[data-call-remote]");
+      if (remote) {
+        remote.muted = !remote.muted;
+        button.setAttribute("aria-pressed", String(remote.muted));
+        button.textContent = remote.muted ? "🔈 Ativar áudio" : "🔊 Áudio ligado";
+      }
       return;
     }
     if (button.matches("[data-call-toggle-camera]")) {
       const track = localStream?.getVideoTracks()[0];
-      if (track) { track.enabled = !track.enabled; button.textContent = track.enabled ? "Desligar câmera" : "Ligar câmera"; }
+      if (track) {
+        track.enabled = !track.enabled;
+        button.setAttribute("aria-pressed", String(!track.enabled));
+        button.textContent = track.enabled ? "▣ Desligar câmera" : "▧ Ligar câmera";
+      }
+      return;
+    }
+    if (button.matches("[data-call-flip-camera]")) {
+      if (!localStream || callMode !== "video" || !navigator.mediaDevices?.getUserMedia) return;
+      const oldTrack = localStream.getVideoTracks()[0];
+      if (!oldTrack) return;
+      button.disabled = true;
+      try {
+        const facing = oldTrack.getSettings?.().facingMode;
+        const nextFacing = facing === "environment" ? "user" : "environment";
+        const replacementStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: nextFacing } }, audio: false });
+        const nextTrack = replacementStream.getVideoTracks()[0];
+        if (!nextTrack) throw new Error("camera unavailable");
+        const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
+        if (sender) await sender.replaceTrack(nextTrack);
+        localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+        localStream.addTrack(nextTrack);
+        const local = root.querySelector("[data-call-local]");
+        if (local) { local.srcObject = localStream; await local.play().catch(() => {}); }
+        toast(nextFacing === "environment" ? "Câmera traseira selecionada." : "Câmera frontal selecionada.");
+      } catch (error) {
+        console.warn("Looply camera switch failed", error);
+        toast("Não foi possível trocar a câmera neste dispositivo.");
+      } finally { button.disabled = false; }
+      return;
     }
   });
   const observer = new MutationObserver(() => { addButtons(); if (activeConversation() && !isGroup()) ensureChannel(); });
