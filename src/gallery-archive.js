@@ -11,7 +11,7 @@ function formatDate(value) {
 
 export async function loadArchiveMedia(client, userId, includePrivate = false) {
   let mediaQuery = client.from("archive_media")
-    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at");
+    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,source_date,created_at");
   if (!includePrivate) mediaQuery = mediaQuery.eq("visibility", "members");
   const [mediaResult, commenterResult] = await Promise.all([
     mediaQuery.order("source_path", { ascending: true }).limit(500),
@@ -282,21 +282,30 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     state.thumbnailObserver?.disconnect();
     const targets = [...root.querySelectorAll("[data-archive-thumbnail]")];
     if (!targets.length) return;
+
+    // Sign the first viewport's images immediately. Lazy loading remains enabled for
+    // the rest, but the first photos must not depend on IntersectionObserver firing.
+    const priority = state.media.filter((item) => item.kind === "image").slice(0, 48);
+    const priorityIds = new Set(priority.map((item) => String(item.id)));
+    void ensureSigned(priority).catch((error) => console.warn("Looply initial photo signing failed", error));
+
+    const deferredTargets = targets.filter((target) => !priorityIds.has(String(target.dataset.mediaId)));
+    if (!deferredTargets.length) return;
     if (!("IntersectionObserver" in window)) {
-      void ensureSigned(state.media.filter((item) => item.kind === "image").slice(0, 24))
+      void ensureSigned(state.media.filter((item) => item.kind === "image" && !priorityIds.has(String(item.id))))
         .catch((error) => console.warn("Looply archive thumbnail load failed", error));
       return;
     }
     state.thumbnailObserver = new IntersectionObserver((entries) => {
       const visibleIds = entries.filter((entry) => entry.isIntersecting)
         .map((entry) => entry.target.dataset.mediaId).filter(Boolean);
-      const candidates = visibleIds.map((id) => state.media.find((item) => item.id === id)).filter(Boolean);
+      const candidates = visibleIds.map((id) => state.media.find((item) => String(item.id) === String(id))).filter(Boolean);
       if (candidates.length) {
         void ensureSigned(candidates).catch((error) => console.warn("Looply archive thumbnail load failed", error));
         for (const entry of entries) if (entry.isIntersecting) state.thumbnailObserver?.unobserve(entry.target);
       }
-    }, { rootMargin: "320px 0px" });
-    for (const target of targets) state.thumbnailObserver.observe(target);
+    }, { rootMargin: "420px 0px" });
+    for (const target of deferredTargets) state.thumbnailObserver.observe(target);
   }
 
   async function loadCommentProfiles() {
