@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 const playlists = Object.freeze({
   misol: "PLUZFdmgmipvI",
   yara: "PLCn4CAsA_tiM",
@@ -36,7 +37,7 @@ export function playlistMarkup(profile) {
     </div>
     <dialog class="youtube-track-dialog" data-youtube-track-dialog aria-labelledby="youtubeTrackDialogTitle">
       <div class="youtube-track-dialog-heading"><div><span class="section-kicker">Playlist</span><h2 id="youtubeTrackDialogTitle" data-youtube-dialog-title></h2><p data-youtube-dialog-channel></p></div>
-        <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">×</button></div>
+        <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">${icon("close")}</button></div>
       <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentário para Peixinho ADM</h3><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Seu comentário</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário para Peixinho ADM"></textarea><button class="primary-button compact-button" type="submit">Enviar comentário</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
     </dialog>
   </section>`;
@@ -133,8 +134,8 @@ function trackMarkup(track, index) {
   return `<li><div class="youtube-track-row"><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
     <span class="youtube-track-number">${number}</span><img src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer">
     <span class="youtube-track-copy"><strong>${escapeHtml(track.title)}</strong>${track.channel ? `<small>${escapeHtml(track.channel)}</small>` : ""}</span>
-    <span class="youtube-track-play" aria-hidden="true">▶</span>
-  </button><button class="youtube-track-comment" type="button" data-youtube-track-comment="${escapeHtml(track.videoId)}" aria-label="Comentar esta música" title="Comentar esta música">▤</button><button class="youtube-track-share" type="button" data-youtube-track-share="${escapeHtml(track.videoId)}" aria-label="Compartilhar música" title="Compartilhar música">↗</button><a class="youtube-track-external" href="https://www.youtube.com/watch?v=${encodeURIComponent(track.videoId)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir música no YouTube" title="Abrir música no YouTube">⤴</a></div></li>`;
+    <span class="youtube-track-play">${icon("play")}</span>
+  </button><button class="youtube-track-comment" type="button" data-youtube-track-comment="${escapeHtml(track.videoId)}" aria-label="Comentar esta música" title="Comentar esta música">${icon("comment")}</button><button class="youtube-track-share" type="button" data-youtube-track-share="${escapeHtml(track.videoId)}" aria-label="Compartilhar música" title="Compartilhar música">${icon("share")}</button><a class="youtube-track-external" href="https://www.youtube.com/watch?v=${encodeURIComponent(track.videoId)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir música no YouTube" title="Abrir música no YouTube">${icon("external")}</a></div></li>`;
 }
 
 export async function bindYouTubePlaylist(root, client) {
