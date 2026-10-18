@@ -318,7 +318,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
           <option value="private">Só eu</option>
           <option value="selected">Pessoas escolhidas</option>
         </select>
-        <button class="primary-button compact-button" type="submit">Publicar <span aria-hidden="true">↗</span></button>
+        <button class="primary-button compact-button" type="submit">Publicar ${icon("send")}</button>
       </div>
       <div class="recipient-picker" data-recipient-picker hidden>
         <label for="postRecipients">Escolha quem poderá ver</label>
