@@ -562,7 +562,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (playToggle) {
       playToggle.setAttribute("aria-pressed", "false");
       playToggle.setAttribute("aria-label", "Pausar story");
-      playToggle.querySelector("span").textContent = "Ⅱ";
+      playToggle.innerHTML = icon("pause");
     }
     viewer.querySelector("[data-story-progress-list]").innerHTML = stories.map((item, index) =>
       '<span class="story-progress-item' + (index < state.index ? " is-done" : index === state.index ? " is-current" : "") + '">' +
