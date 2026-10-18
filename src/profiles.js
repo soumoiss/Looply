@@ -80,7 +80,8 @@ function avatarSaveErrorMessage(error) {
   if (message === "avatar-replacement-required") return "Escolha uma nova foto antes de substituir a atual. A foto existente foi preservada.";
   if (message === "profile-fields") return "Confira o nome e a apresentação do perfil.";
   if (message === "unsupported avatar" || message === "avatar-not-square") return "A imagem precisa ser JPEG, PNG ou WebP, recortada em 512 × 512 px e ter até 10 MB.";
-  if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto atual foi preservada; tente novamente.";
+  if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto anterior foi preservada; tente novamente.";
+  if (message === "profile-update-not-confirmed") return "O servidor não confirmou a atualização do perfil. Nenhuma alteração de foto foi considerada concluída.";
   if (message.includes("session expired") || status === 401) return "Sua sessão expirou. Entre novamente e tente salvar a foto.";
   if (status === 403 || code.includes("42501") || message.includes("row-level security") || message.includes("permission")) return "Sua conta não tem permissão para salvar a foto. A foto atual foi preservada.";
   if (status === 413 || code.includes("file_size") || message.includes("too large") || message.includes("payload too large")) return "A imagem excede o limite aceito pelo armazenamento. Escolha uma imagem menor que 10 MB.";
@@ -331,18 +332,34 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
           const { data: uploadData, error: uploadError } = await client.storage.from("looply-avatars").upload(newAvatarPath, avatarFile, { contentType: avatarFile.type, upsert: false, cacheControl: "3600" });
           if (uploadError) throw uploadError;
           if (!uploadData?.path || uploadData.path !== newAvatarPath) throw new Error("avatar-upload-invalid-result");
-          const { data: validationUrl, error: validationError } = await client.storage.from("looply-avatars").createSignedUrl(newAvatarPath, 60);
-          if (validationError || !validationUrl?.signedUrl) {
-            await client.storage.from("looply-avatars").remove([newAvatarPath]);
-            throw new Error("avatar-upload-validation-failed");
-          }
         }
         const updates = { display_name: displayName, bio, profile_visibility: visibility };
         if (hasAvatarFile || removeAvatar) updates.avatar_path = newAvatarPath;
-        const { error } = await client.from("profiles").update(updates).eq("id", userId);
-        if (error) {
-          if (newAvatarPath) await client.storage.from("looply-avatars").remove([newAvatarPath]);
-          throw error;
+        const { data: updatedProfile, error: updateError } = await client.from("profiles")
+          .update(updates).eq("id", userId).select("id,avatar_path").maybeSingle();
+        if (updateError || !updatedProfile) {
+          if (newAvatarPath) {
+            const { error: cleanupError } = await client.storage.from("looply-avatars").remove([newAvatarPath]);
+            if (cleanupError) console.error("Could not clean up uncommitted profile avatar", cleanupError);
+          }
+          if (updateError) throw updateError;
+          throw new Error("profile-update-not-confirmed");
+        }
+        if (newAvatarPath) {
+          // Storage SELECT is intentionally allowed only after profiles.avatar_path points at this object.
+          // Signing before the profile update fails the bucket's read-visible-profile RLS policy.
+          const { data: validationUrl, error: validationError } = await client.storage.from("looply-avatars").createSignedUrl(newAvatarPath, 60);
+          if (validationError || !validationUrl?.signedUrl) {
+            const { data: rolledBackProfile, error: rollbackError } = await client.from("profiles")
+              .update({ avatar_path: oldAvatarPath }).eq("id", userId).select("id").maybeSingle();
+            if (!rollbackError && rolledBackProfile) {
+              const { error: cleanupError } = await client.storage.from("looply-avatars").remove([newAvatarPath]);
+              if (cleanupError) console.error("Could not clean up rolled-back profile avatar", cleanupError);
+            } else {
+              console.error("Could not roll back profile avatar after storage validation failed", rollbackError);
+            }
+            throw new Error("avatar-upload-validation-failed");
+          }
         }
         if (newAvatarPath) form.dataset.hasAvatar = "true";
         if (oldAvatarPath && (newAvatarPath || removeAvatar)) {
