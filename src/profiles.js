@@ -19,8 +19,8 @@ export function profileAreaMarkup(profile) {
       <div class="profile-overview-avatar">${avatar}</div>
       <div class="profile-overview-copy"><span class="section-kicker">Meu espaço</span><h2>${displayName || username}</h2>
         <span class="profile-overview-username">@${username}</span>${bio ? `<p>${bio}</p>` : `<p>Conte um pouco sobre você.</p>`}
-        <span class="profile-visibility-badge">◉ ${escapeHtml(visibilityLabel)}</span></div>
-      <a class="profile-overview-shortcut" href="#profileEditor">Editar dados <span aria-hidden="true">↓</span></a>
+        <span class="profile-visibility-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.5 8.2-8 10-4.5-1.8-8-5-8-10V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtml(visibilityLabel)}</span></div>
+      <a class="profile-overview-shortcut" href="#profileEditor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Editar perfil</a>
     </article>
     <section class="profile-editor-card" id="profileEditor" aria-labelledby="profileEditorTitle">
       <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Editar perfil</h2><p>Atualize seu nome, foto, apresentação e privacidade.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
@@ -52,7 +52,7 @@ export function profileAreaMarkup(profile) {
       </form>
       <dialog class="profile-crop-dialog" data-profile-crop-dialog aria-labelledby="profileCropTitle">
         <form method="dialog" class="profile-crop-shell">
-          <header class="profile-crop-heading"><h2 id="profileCropTitle">Recortar foto</h2><button type="submit" class="profile-icon-button" aria-label="Fechar recorte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+          <header class="profile-crop-heading"><h2 id="profileCropTitle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v14a4 4 0 0 0 4 4h10M3 7h14a4 4 0 0 1 4 4v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Recortar foto</h2><button type="submit" class="profile-icon-button" aria-label="Fechar recorte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
           <p>Escolha a região quadrada que será usada no perfil.</p><div class="profile-crop-window"><img data-crop-source alt="Prévia para recorte"></div>
           <label for="profileCropZoom">Zoom</label><input id="profileCropZoom" data-crop-zoom type="range" min="1" max="3" step="0.01" value="1">
           <label for="profileCropX">Mover para esquerda ou direita</label><input id="profileCropX" data-crop-x type="range" min="0" max="100" value="50">
