@@ -590,7 +590,7 @@ test("global navigation keeps the six core pages and puts profile tools in the a
   assert.match(primaryNavigation, /"letters", "Cartas"/);
   assert.match(primaryNavigation, /"notifications", "Notificações"/);
   assert.doesNotMatch(primaryNavigation, /"users"|"profile"|"settings"/);
-  assert.match(runtime, /class="account-menu-link" href="usuarios\.html"/);
+  assert.match(runtime, /class="account-menu-link"[^>]*href="usuarios\\.html"/);
   assert.match(runtime, /data-sign-out/);
   assert.match(shared, /\.account-menu-popover/);
 });
