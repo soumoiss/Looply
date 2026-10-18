@@ -157,10 +157,36 @@ export function setupChatCalls(root, client, userId) {
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para atender." : "Não foi possível atender a chamada.");
     }
   };
+  const restorePendingIncomingCall = (conversationId) => {
+    if (!conversationId || activeConversation() !== conversationId || incomingOffer || pc) return;
+    let pending = null;
+    try {
+      const key = `looply:pending-call:${userId}`;
+      pending = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (pending) sessionStorage.removeItem(key);
+    } catch (error) {
+      console.warn("Looply pending call could not be restored", error);
+      return;
+    }
+    if (!pending || pending.conversationId !== conversationId || pending.senderId === userId
+      || pending.accepted !== true || !Number.isFinite(pending.savedAt)
+      || Date.now() - pending.savedAt > 90000 || !pending.description) return;
+    incomingOffer = pending;
+    callMode = pending.mode === "video" ? "video" : "audio";
+    callPeerName = pending.senderName || peerName();
+    window.setTimeout(() => {
+      if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall();
+    }, 0);
+  };
+
   const ensureChannel = async () => {
     const id = activeConversation();
     if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
-    if (channel && channelConversationId === id) return channelReady ? await channelReady ? channel : null : channel;
+    if (channel && channelConversationId === id) {
+      const ready = channelReady ? await channelReady : Boolean(channel);
+      if (ready) restorePendingIncomingCall(id);
+      return ready ? channel : null;
+    }
     if (channel) await client.removeChannel(channel);
     channel = null; channelReady = null; channelConversationId = id;
     const session = await client.auth.getSession();
@@ -200,6 +226,7 @@ export function setupChatCalls(root, client, userId) {
       return false;
     });
     const subscribed = await channelReady;
+    if (subscribed) restorePendingIncomingCall(id);
     return subscribed ? channel : null;
   };
   const addButtons = () => {
