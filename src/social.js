@@ -1,3 +1,5 @@
+import { signProfileAvatars } from "./profiles.js";
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -74,6 +76,26 @@ function postMarkup(post, userId) {
     ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false)).join("")}</div>`).join("")
     : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
+  const externalUrl = (() => {
+    try {
+      const url = new URL(post.external_url || "");
+      const hosts = ["instagram.com","www.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
+      return url.protocol === "https:" && hosts.includes(url.hostname.toLowerCase()) ? url : null;
+    } catch { return null; }
+  })();
+  let externalMarkup = "";
+  if (externalUrl) {
+    let provider = externalUrl.hostname.includes("instagram") ? "Instagram" : externalUrl.hostname.includes("tiktok") ? "TikTok" : "Link externo";
+    let embed = "";
+    if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
+      const id = externalUrl.hostname === "youtu.be" ? externalUrl.pathname.slice(1) : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : externalUrl.pathname.match(/^\\/(?:shorts|embed)\\/([^/?]+)/)?.[1];
+      if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
+        provider = "YouTube";
+        embed = '<div class="post-external-embed"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      }
+    }
+    externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ↗</a></section>';
+  }
   const mediaMarkup = (post.media || []).map((item) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
     const source = escapeHtml(item.signedUrl);
@@ -85,13 +107,14 @@ function postMarkup(post, userId) {
 
   return `<article class="post-card" id="post-${escapeHtml(post.id)}" data-post-card="${escapeHtml(post.id)}">
     <header class="post-header">
-      <div class="post-author"><span class="post-avatar" aria-hidden="true">${escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
+      <div class="post-author"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div>
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<button class="post-delete-button" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir sua publicação">Excluir</button>` : ""}</div>
     </header>
     <p class="post-body">${escapeHtml(post.body)}</p>
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
+    ${externalMarkup}
     <section class="post-comments" aria-label="Comentários">
       <h3>Comentários <span>${comments.length}</span></h3>
       <div class="comment-list">${commentList}</div>
@@ -109,11 +132,22 @@ function postMarkup(post, userId) {
 async function loadPosts(client) {
   const { data, error } = await client
     .from("posts")
-    .select("id,author_id,body,visibility,created_at,author:profiles!posts_author_id_fkey(username,display_name),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(username,display_name),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
+    .select("id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
     .order("created_at", { ascending: false })
     .limit(30);
   if (error) throw error;
   const posts = data || [];
+  const profileRows = [];
+  for (const post of posts) {
+    if (post.author) profileRows.push(post.author);
+    for (const comment of post.comments || []) if (comment.author) profileRows.push(comment.author);
+  }
+  const signedProfiles = await signProfileAvatars(client, [...new Map(profileRows.filter((p) => p.id).map((p) => [p.id, p])).values()]);
+  const profilesById = new Map(signedProfiles.map((p) => [p.id, p]));
+  for (const post of posts) {
+    if (post.author) post.author = profilesById.get(post.author.id) || post.author;
+    for (const comment of post.comments || []) if (comment.author) comment.author = profilesById.get(comment.author.id) || comment.author;
+  }
   const media = posts.flatMap((post) => (post.media || []).map((item) => ({ ...item, postId: post.id })));
   const commentMedia = posts.flatMap((post) => (post.comments || []).flatMap((comment) =>
     (comment.media || []).map((item) => Object.assign(item, { commentId: comment.id }))));
@@ -241,10 +275,15 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
       <span class="realtime-state" data-realtime-status role="status">Conectando atualizações...</span></div>
     <form class="post-composer" data-social-post>
-      <label for="postBody">Nova publicação</label>
+      <header class="post-composer-heading"><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+      <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
+      <label for="postBody">Texto</label>
       <textarea id="postBody" name="body" maxlength="5000" required placeholder="Escreva uma publicação"></textarea>
       <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>até 8 arquivos, 100 MB por arquivo</span></label>
       <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">
+      <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
+      <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
+      <span class="field-hint">YouTube pode ser incorporado quando compatível. Instagram e TikTok abrem o conteúdo original quando a incorporação não é autorizada.</span>
       <label class="visually-hidden" for="mediaAlt">Descrição das mídias</label>
       <input id="mediaAlt" name="altText" class="media-alt-input" type="text" maxlength="500" placeholder="Descrição acessível das fotos ou vídeos (opcional)">
       <div class="composer-options">
@@ -262,6 +301,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
         ${peopleHint}
       </div>
       <div class="form-status" data-status role="status" aria-live="polite"></div>
+      </div>
     </form>
     <div class="feed-list" data-social-feed>${feedMarkup(posts, postsError, userId)}</div>
   </section>`;
@@ -302,6 +342,17 @@ export async function refreshSocialFeed(root, client, userId) {
 }
 
 export function bindSocialEvents(root, client, getUserId) {
+  root.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-toggle-composer]");
+    if (!toggle) return;
+    const fields = root.querySelector("[data-composer-fields]");
+    if (!fields) return;
+    fields.hidden = !fields.hidden;
+    toggle.setAttribute("aria-expanded", String(!fields.hidden));
+    toggle.setAttribute("aria-label", fields.hidden ? "Abrir formulário de nova publicação" : "Fechar formulário de nova publicação");
+    if (!fields.hidden) root.querySelector("#postBody")?.focus({ preventScroll: true });
+  });
+
   root.addEventListener("change", (event) => {
     if (event.target.matches("#postVisibility")) {
       const picker = root.querySelector("[data-recipient-picker]");
@@ -364,6 +415,14 @@ export function bindSocialEvents(root, client, getUserId) {
       if (form.matches("[data-social-post]")) {
         const files = selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
+        const externalUrl = String(formData.get("externalUrl") || "").trim();
+        if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
+        if (externalUrl) {
+          let parsed;
+          try { parsed = new URL(externalUrl); } catch { throw new Error("unsupported external URL"); }
+          const allowedHosts = ["instagram.com","www.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
+          if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("unsupported external URL");
+        }
         if (visibility === "selected") {
           const recipientIds = formData.getAll("recipientIds").map(String);
           if (recipientIds.length < 1 || recipientIds.length > 20) throw new Error("invalid recipients");
@@ -371,7 +430,7 @@ export function bindSocialEvents(root, client, getUserId) {
           if (error) throw error;
           createdPostId = data;
         } else {
-          const { data, error } = await client.from("posts").insert({ body, visibility }).select("id").single();
+          const { data, error } = await client.from("posts").insert({ body, visibility, external_url: externalUrl || null }).select("id").single();
           if (error) throw error;
           createdPostId = data.id;
         }
@@ -395,7 +454,15 @@ export function bindSocialEvents(root, client, getUserId) {
           });
           if (mediaError) throw mediaError;
         }
+        if (visibility === "selected" && externalUrl) {
+          const { error: linkError } = await client.from("posts").update({ external_url: externalUrl }).eq("id", createdPostId);
+          if (linkError) throw linkError;
+        }
         form.reset();
+        const composerFields = root.querySelector("[data-composer-fields]");
+        const composerToggle = root.querySelector("[data-toggle-composer]");
+        if (composerFields) composerFields.hidden = true;
+        if (composerToggle) { composerToggle.setAttribute("aria-expanded", "false"); composerToggle.setAttribute("aria-label", "Abrir formulário de nova publicação"); }
         const picker = root.querySelector("[data-recipient-picker]");
         if (picker) picker.hidden = true;
         setStatus(form, files.length ? "Sua publicação e as mídias foram salvas." : "Sua publicação foi salva.");
