@@ -29,7 +29,7 @@ export function setupChatCalls(root, client, userId) {
       modal.className = "chat-v2-modal-backdrop chat-call-backdrop";
       modal.dataset.callModal = "";
       modal.hidden = true;
-      modal.innerHTML = '<section class="chat-v2-modal chat-call-modal" role="dialog" aria-modal="true" aria-labelledby="chatCallTitle"><button type="button" class="chat-v2-modal-close" data-call-close aria-label="Fechar janela de chamada">' + icon("close") + '</button><div data-call-content></div></section>';
+      modal.innerHTML = '<section class="chat-v2-modal chat-call-modal" role="dialog" aria-modal="true" aria-labelledby="chatCallTitle"><button type="button" class="chat-v2-modal-close" data-call-close aria-label="Encerrar chamada">' + icon("hangup") + '</button><div data-call-content></div></section>';
       root.append(modal);
     }
     return modal;
