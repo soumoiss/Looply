@@ -63,6 +63,71 @@ Deno.serve(async (request: Request) => {
       return respond(200, { conversationId: data });
     }
 
+    if (payload.action === "share_post") {
+      const targetId = String(payload.targetId || "");
+      const postId = String(payload.postId || "");
+      const mode = String(payload.mode || "share");
+      const replyBody = String(payload.body || "").trim();
+      if (!uuidPattern.test(targetId) || !uuidPattern.test(postId)
+          || !["share", "private_reply"].includes(mode)
+          || targetId === authData.user.id
+          || (mode === "private_reply" && (!replyBody || replyBody.length > 2000))) {
+        return respond(400, { errorCode: "invalid_post_share" });
+      }
+
+      const { data: post, error: postError } = await service.from("posts")
+        .select("id,author_id,visibility")
+        .eq("id", postId)
+        .maybeSingle();
+      if (postError) {
+        console.error("Looply shared post lookup failed", postError);
+        return respond(500, { errorCode: "post_unavailable" });
+      }
+      if (!post) return respond(404, { errorCode: "post_unavailable" });
+      if (mode === "private_reply" && post.author_id !== authData.user.id && post.author_id !== targetId) {
+        return respond(403, { errorCode: "post_author_mismatch" });
+      }
+      if (mode === "private_reply" && post.author_id !== targetId) {
+        return respond(400, { errorCode: "post_author_mismatch" });
+      }
+      if (post.visibility === "private" && post.author_id !== authData.user.id) {
+        return respond(403, { errorCode: "post_unavailable" });
+      }
+      if (post.visibility === "selected" && post.author_id !== authData.user.id) {
+        const { data: recipient, error: recipientError } = await service.from("post_recipients")
+          .select("post_id")
+          .eq("post_id", postId)
+          .eq("recipient_id", authData.user.id)
+          .maybeSingle();
+        if (recipientError || !recipient) return respond(403, { errorCode: "post_unavailable" });
+      }
+
+      const { data: conversationId, error: conversationError } = await service.rpc("create_direct_conversation", {
+        p_actor_id: authData.user.id,
+        p_target_id: targetId
+      });
+      if (conversationError) {
+        if (conversationError.code === "42501") return respond(200, { errorCode: "profile_unavailable" });
+        console.error("Looply post share conversation creation failed", conversationError);
+        return respond(500, { errorCode: "conversation_unavailable" });
+      }
+
+      const postUrl = "https://soumoiss.github.io/Looply/home.html#post-" + encodeURIComponent(postId);
+      const messageBody = mode === "private_reply"
+        ? replyBody + "\\n\\nPublicação: " + postUrl
+        : "Publicação compartilhada no Looply: " + postUrl;
+      const { error: messageError } = await service.from("chat_messages").insert({
+        conversation_id: conversationId,
+        sender_id: authData.user.id,
+        body: messageBody
+      });
+      if (messageError) {
+        console.error("Looply post share message insert failed", messageError);
+        return respond(500, { errorCode: "message_unavailable" });
+      }
+      return respond(200, { conversationId });
+    }
+
     if (payload.action === "create_group") {
       const subject = String(payload.subject || "").trim();
       const targetIds = Array.isArray(payload.targetIds) ? payload.targetIds.map((id: unknown) => String(id)) : [];
