@@ -21,3 +21,9 @@
 .community-gallery-grid[data-view=masonry] .community-gallery-visual img,.community-gallery-grid[data-view=masonry] .community-gallery-visual video{height:auto;aspect-ratio:auto;object-fit:contain}
 .gallery-community-comments-fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:260;width:48px;height:48px;border:1px solid #ffffff30;border-radius:50%;background:#8e44ad;color:#fff;box-shadow:0 8px 24px #0006;font-size:1.2rem;cursor:pointer}
 @media(max-width:650px){.gallery-community-comments-fab{right:16px;bottom:calc(16px + env(safe-area-inset-bottom))}}
+
+.community-gallery-upload{display:grid;gap:11px;margin:0;padding:14px;border:1px solid var(--g-line);border-radius:15px;background:#fff}
+.community-gallery-upload label{display:grid;gap:6px;font-size:.9rem;font-weight:700}
+.community-gallery-upload input{width:100%;min-height:40px;border:1px solid var(--g-line);border-radius:10px;padding:8px;background:#fff;color:var(--g-text);font:inherit}
+.community-gallery-upload input[type=file]{padding:6px;font-size:.82rem}
+.community-gallery-upload small{color:var(--g-muted);font-size:.82rem}
