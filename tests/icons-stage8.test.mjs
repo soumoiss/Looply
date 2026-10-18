@@ -7,7 +7,7 @@ const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("shared icon registry exposes unique semantic names and valid SVG output", () => {
   assert.equal(new Set(iconNames).size, iconNames.length);
-  for (const name of ["close", "back", "check", "bell", "cancel", "save", "pencil", "trash", "plus", "minus", "search", "filter", "refresh", "copy", "share", "external", "upload", "menu", "alert", "offline", "empty", "sync", "loader", "play", "pause", "phone", "video", "mic", "micOff", "volume", "volumeOff", "camera", "cameraOff", "cameraSwitch"]) {
+  for (const name of ["close", "back", "check", "bell", "cancel", "save", "pencil", "trash", "plus", "minus", "search", "filter", "refresh", "copy", "share", "external", "upload", "menu", "alert", "offline", "empty", "sync", "loader", "play", "pause", "phone", "video", "mic", "micOff", "volume", "volumeOff", "camera", "cameraOff", "cameraSwitch", "paperclip", "smile", "forward", "circle", "lock", "eye", "send"]) {
     assert.ok(iconNames.includes(name), "missing icon " + name);
     assert.match(icon(name), /^<svg class="looply-icon"/);
     assert.match(icon(name), /aria-hidden="true"/);
