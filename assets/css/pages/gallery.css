@@ -115,3 +115,13 @@
  .page-gallery .gallery-bottom-nav a{min-height:46px;font-size:.62rem}
  .page-gallery .container-page{padding-bottom:82px}
 }
+
+
+/* Final interaction fixes: exactly four columns for grid and Pinterest layouts at every viewport width. */
+.page-gallery .archive-media-grid:not([data-view="list"]),
+.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(4,minmax(0,1fr))}
+.page-gallery .archive-media-grid[data-view="masonry"],
+.page-gallery .community-gallery-grid[data-view="masonry"]{display:block;columns:4;column-width:auto;column-gap:12px}
+@media(max-width:900px){.page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(4,minmax(0,1fr))}.page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{columns:4;column-width:auto;column-gap:8px}}
+@media(max-width:650px){.page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{columns:4;column-width:auto;column-gap:5px}.page-gallery .archive-media-tile,.page-gallery .community-gallery-card{border-radius:9px}.page-gallery .archive-media-caption,.page-gallery .community-gallery-card-copy{padding:6px}.page-gallery .archive-media-caption strong,.page-gallery .community-gallery-card-copy strong{font-size:.68rem}.page-gallery .archive-media-caption small,.page-gallery .community-gallery-card-copy span{font-size:.58rem}}
+.page-gallery .gallery-brand{gap:0}.page-gallery .gallery-brand .brand-mark{width:42px;height:42px;border:0;background:transparent;box-shadow:none}.page-gallery .gallery-brand .brand-mark .circle{width:36px;height:36px;display:grid;place-items:center;border:4px solid currentColor;border-radius:50%;animation:spin 3s linear infinite}.page-gallery .gallery-brand .brand-mark svg{width:20px;height:20px;color:inherit}
