@@ -14,6 +14,8 @@ export function setupChatCalls(root, client, userId) {
   let pendingCandidates = [];
   let isCaller = false;
   let closing = false;
+  let offerRetryTimer = null;
+  const clearOfferRetry = () => { if (offerRetryTimer) clearInterval(offerRetryTimer); offerRetryTimer = null; };
   const activeConversation = () => root.querySelector(".chat-thread-heading")?.dataset.conversationId || root.querySelector("[data-chat-send]")?.dataset.conversationId || "";
   const isGroup = () => root.querySelector(".chat-thread-heading")?.dataset.chatKind === "group";
   const peerName = () => root.querySelector(".chat-thread-heading strong")?.textContent?.trim() || "Contato";
@@ -49,6 +51,7 @@ export function setupChatCalls(root, client, userId) {
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
   const releaseMedia = () => {
+    clearOfferRetry();
     if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); pc = null; }
     if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
     const local = root.querySelector("[data-call-local]");
@@ -130,8 +133,24 @@ export function setupChatCalls(root, client, userId) {
       callView("Chamando…");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const sent = await send("offer", { description: pc.localDescription.toJSON(), mode, senderName: root.querySelector("[data-site-header]")?.textContent?.trim() || "Contato" });
+      const offerPayload = {
+        description: pc.localDescription.toJSON(),
+        mode,
+        senderName: root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato"
+      };
+      const sent = await send("offer", offerPayload);
       if (!sent) throw new Error("offer could not be sent");
+      // Broadcast is ephemeral. Retry the offer while waiting so a listener that is
+      // still loading its conversation memberships can still receive the call.
+      clearOfferRetry();
+      const retryUntil = Date.now() + 30000;
+      offerRetryTimer = window.setInterval(() => {
+        if (!pc || !isCaller || pc.remoteDescription || Date.now() >= retryUntil) {
+          clearOfferRetry();
+          return;
+        }
+        void send("offer", offerPayload);
+      }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
@@ -196,13 +215,23 @@ export function setupChatCalls(root, client, userId) {
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
-        if (pc) { await send("decline"); return; }
+        if (pc) {
+          if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
+          await send("decline");
+          return;
+        }
+        if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
         incomingOffer = payload;
         callMode = payload.mode === "video" ? "video" : "audio";
         callPeerName = payload.senderName || peerName();
         showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
       } else if (payload.type === "answer" && pc && isCaller) {
-        try { await pc.setRemoteDescription(payload.description); await addPendingCandidates(); updateStatus("Conectando…"); } catch (error) { console.error("Looply call answer failed", error); }
+        try {
+          clearOfferRetry();
+          await pc.setRemoteDescription(payload.description);
+          await addPendingCandidates();
+          updateStatus("Conectando…");
+        } catch (error) { console.error("Looply call answer failed", error); }
       } else if (payload.type === "ice" && payload.candidate) {
         if (pc?.remoteDescription) { try { await pc.addIceCandidate(payload.candidate); } catch (error) { console.warn("Looply ICE candidate ignored", error); } }
         else pendingCandidates.push(payload.candidate);
