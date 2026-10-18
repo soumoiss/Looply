@@ -2,7 +2,7 @@
 
 ## Estado desta entrega
 
-Esta branch contém uma primeira implementação parcial e verificável. Não representa conclusão integral da Etapa 2. Não foram executados testes de chamadas entre dois dispositivos físicos e a migração SQL ainda precisa ser aplicada ao projeto Supabase remoto antes de o placar funcionar em produção.
+A Etapa 2 foi integrada à main como entrega parcial. Não representa conclusão integral da etapa. Não foram executados testes de chamadas entre dois dispositivos físicos; a migração SQL e os índices do placar foram aplicados ao projeto Supabase remoto Looply V2 e a existência da tabela/função/RLS foi verificada por consulta SQL.
 
 ## Alterações nesta branch
 
@@ -19,7 +19,7 @@ Esta branch contém uma primeira implementação parcial e verificável. Não re
 2. **Chamadas recebidas globalmente:** a sinalização continua ligada ao canal da conversa e ao módulo de chat. A chamada ainda não foi integrada a um listener global em todas as páginas.
 3. **Web Push com navegador fechado:** não está implementado. Exige service worker, permissão explícita, assinatura Push e serviço servidor para envio. Uma página web não pode garantir despertar/tocar indefinidamente quando o navegador foi encerrado.
 4. **Teste de chamadas:** nenhum teste de áudio/vídeo bidirecional entre dois dispositivos reais foi realizado nesta entrega.
-5. **Placar Supabase:** a migração foi adicionada ao repositório, mas não aplicada ao banco remoto por esta alteração. A tabela, função RPC, RLS e índices foram encontrados no banco remoto; ainda não foi validada uma partida real gravando e lendo o placar entre dois usuários.
+5. **Placar Supabase:** migração e índices aplicados ao banco remoto. Consulta SQL confirmou tabela, função RPC e RLS. Ainda não foi validada uma partida real gravando e lendo o placar entre dois usuários.
 6. **Ícones:** alguns controles de chat/chamada ainda usam caracteres Unicode. A substituição integral por ativos Icons8 Stroke 1 verificados não foi concluída.
 7. **Teste visual:** não houve validação manual em navegador móvel/desktop nesta entrega.
 
@@ -30,8 +30,8 @@ Esta branch contém uma primeira implementação parcial e verificável. Não re
 3. Testar emoji, anexos e avatars no chat.
 4. Testar chamada entre dois dispositivos em redes diferentes, nos dois sentidos, com permissões de microfone/câmera e com/sem TURN.
 5. Testar placar em duas sessões autenticadas e repetir o envio do mesmo `game_id` para confirmar que não duplica a pontuação.
-6. Só depois da validação, integrar à `main` e verificar o deploy do GitHub Pages.
+6. A etapa já foi integrada à `main`; verificar a execução do deploy do GitHub Pages antes de assumir que o site está atualizado.
 
 ## Publicação
 
-Esta etapa deve permanecer em revisão enquanto os itens acima estiverem pendentes. Um PR/commit no GitHub não prova que o site foi publicado nem que o banco remoto recebeu a migração.
+O commit foi integrado à `main` via PR #44. A verificação de implantação Vercel falhou por limite de builds. A execução do workflow do GitHub Pages não pôde ser confirmada nesta sessão; portanto, o endereço do site pode ainda servir a versão anterior. O banco remoto recebeu as migrações, mas a gravação/leitura do placar ainda precisa de teste funcional.
