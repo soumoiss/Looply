@@ -118,3 +118,15 @@ test("private call signaling authorization is limited to direct conversation mem
   assert.match(migration, /c\.kind = 'direct'/i);
   assert.match(migration, /cp\.user_id = \(select auth\.uid\(\)\)/i);
 });
+
+test("accepted calls handed off from other pages still require a fresh tap for media permission", async () => {
+  const source = await read("src/chat-calls.js");
+  const start = source.indexOf("const restorePendingIncomingCall =");
+  const end = source.indexOf("\n  const ensureChannel =", start);
+  assert.ok(start >= 0 && end > start, "pending call restoration helper must exist");
+  const restore = source.slice(start, end);
+  assert.match(restore, /showModal\(/);
+  assert.match(restore, /data-call-accept/);
+  assert.match(restore, /Require a fresh, explicit tap/);
+  assert.doesNotMatch(restore, /setTimeout\(\(\) =>[\s\S]*acceptCall\(\)/);
+});
