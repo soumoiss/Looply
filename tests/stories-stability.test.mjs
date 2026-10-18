@@ -16,7 +16,7 @@ test("Stories viewer has theme-aware title and safe responsive media sizing", as
 test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {
   const source = await read("src/stories.js");
   assert.match(source, /data-story-camera-flip/);
-  assert.match(source, /facingMode === "environment" \? "user" : "environment"/);
+  assert.match(source, /state\.cameraFacing === "environment" \? "user" : "environment"/);
   assert.match(source, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(source, /uploadResumable\(client, uploadedPath, media/);
   assert.match(source, /from\("story_media"\)/);
