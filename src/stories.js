@@ -230,7 +230,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
     ? "Não foi possível carregar os perfis; atualize antes de enviar para pessoas escolhidas."
     : eligiblePeople.length ? "Selecione uma ou mais pessoas visíveis."
       : "Nenhum outro perfil visível está disponível.";
-  return '<section class="story-area" aria-labelledby="storyAreaTitle">' +
+  return '<section class="story-area" id="stories" aria-labelledby="storyAreaTitle">' +
     '<div class="story-area-heading"><div><span class="section-kicker">Stories</span><h2 id="storyAreaTitle">Stories</h2></div>' +
     '<button class="text-button" type="button" data-story-create-open>Adicionar story</button></div>' +
     '<div class="story-list" data-story-list aria-label="Stories ativos">' +
@@ -562,7 +562,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (playToggle) {
       playToggle.setAttribute("aria-pressed", "false");
       playToggle.setAttribute("aria-label", "Pausar story");
-      playToggle.querySelector("span").textContent = "Ⅱ";
+      playToggle.innerHTML = icon("pause");
     }
     viewer.querySelector("[data-story-progress-list]").innerHTML = stories.map((item, index) =>
       '<span class="story-progress-item' + (index < state.index ? " is-done" : index === state.index ? " is-current" : "") + '">' +

@@ -24,13 +24,14 @@ async function loadNotifications(client) {
 
 function notificationHref(item) {
   if (item.source === "chat") return `conversa.html?id=${encodeURIComponent(item.conversation_id)}`;
-  if (["post", "comment", "reply"].includes(item.kind)) return `home.html#post-${encodeURIComponent(item.resource_id)}`;
+  if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `home.html#post-${encodeURIComponent(item.resource_id)}`;
+  if (item.kind === "story_like") return "home.html#stories";
   if (item.kind === "music_dedication") return `musicas.html#dedication-${encodeURIComponent(item.resource_id)}`;
   return "#";
 }
 
 function notificationMarkup(item) {
-  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", music_dedication: "Dedicatória", letter: "Carta", message: "Mensagem" };
+  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", music_dedication: "Dedicatória", letter: "Carta", message: "Mensagem" };
   const actor = item.actor ? (item.actor.display_name || item.actor.username) : "Looply";
   return `<a class="notification-row ${item.read_at ? "is-read" : "is-unread"}" href="${notificationHref(item)}"
       data-notification-source="${item.source}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(notificationHref(item))}">
