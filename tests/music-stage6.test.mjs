@@ -1,0 +1,48 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+
+test("playlist remains sourced from the YouTube Data API with complete pagination and resilient cache", async () => {
+  const [playlist, api] = await Promise.all([read("src/youtube-playlist.js"), read("api/youtube-playlist.js")]);
+  assert.match(playlist, /fetchPlaylistItems/);
+  assert.match(playlist, /nextPageToken/);
+  assert.match(playlist, /writePlaylistCache/);
+  assert.match(playlist, /Tentar novamente/);
+  assert.match(playlist, /youtube-nocookie\.com\/embed/);
+  assert.match(api, /LOOPLY_YOUTUBE_API_KEY/);
+  assert.doesNotMatch(api, /AIzaSy[A-Za-z0-9_-]{20,}/);
+  assert.match(api, /youtube_quota_exceeded/);
+});
+
+test("track comments use the exact playlist and video IDs and are sent to the administrator privately", async () => {
+  const [playlist, migration, edge, admin] = await Promise.all([
+    read("src/youtube-playlist.js"),
+    read("supabase/migrations/20261018160000_music_page_comments.sql"),
+    read("supabase/functions/looply-admin/index.ts"),
+    read("src/admin.js")
+  ]);
+  assert.match(playlist, /playlist_id: playlistId, video_id: activeTrack\.videoId/);
+  assert.match(playlist, /Comentário para Peixinho ADM/);
+  assert.match(migration, /author_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /private\.is_admin\(\)/);
+  assert.match(migration, /comment_type = 'general'/);
+  assert.match(edge, /youtube_track_comments/);
+  assert.match(admin, /value="youtube_track_comments"/);
+});
+
+test("general comments and multi-recipient dedications remain persisted and realtime-enabled", async () => {
+  const [music, migration, css] = await Promise.all([
+    read("src/music.js"),
+    read("supabase/migrations/20261018160000_music_page_comments.sql"),
+    read("assets/css/pages/music.css")
+  ]);
+  assert.match(music, /data-music-general-comment/);
+  assert.match(music, /comment_type: "general"/);
+  assert.match(music, /values\.getAll\("recipientId"\)/);
+  assert.match(music, /all-users/);
+  assert.match(music, /table: "music_page_comments"/);
+  assert.match(migration, /alter publication supabase_realtime add table public\.music_page_comments/);
+  assert.match(css, /youtube-track-comment/);
+});

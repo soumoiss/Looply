@@ -9,13 +9,15 @@ function person(profile) {
 }
 
 export async function loadMusicData(client, userId) {
-  const [peopleResult, dedicationsResult, libraryResult] = await Promise.all([
+  const [peopleResult, dedicationsResult, libraryResult, generalCommentsResult] = await Promise.all([
     client.from("profiles").select("id,username,display_name").order("username").limit(100),
     client.from("music_dedications")
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
       .order("created_at", { ascending: false }).limit(50),
     client.from("music_library").select("id,owner_id,title,artist,listen_url,note,created_at,updated_at")
-      .eq("owner_id", userId).order("created_at", { ascending: false }).limit(100)
+      .eq("owner_id", userId).order("created_at", { ascending: false }).limit(100),
+    client.from("music_page_comments").select("id,body,created_at,author_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
+      .eq("comment_type", "general").order("created_at", { ascending: true }).limit(100)
   ]);
   return {
     people: peopleResult.data || [],
@@ -23,7 +25,9 @@ export async function loadMusicData(client, userId) {
     dedications: dedicationsResult.data || [],
     dedicationsError: dedicationsResult.error,
     library: libraryResult.data || [],
-    libraryError: libraryResult.error
+    libraryError: libraryResult.error,
+    generalComments: generalCommentsResult.data || [],
+    generalCommentsError: generalCommentsResult.error
   };
 }
 
@@ -96,6 +100,15 @@ function dedicationMarkup(item, userId) {
   </article>`;
 }
 
+function generalCommentsMarkup(data) {
+  if (data.generalCommentsError) return '<p class="music-empty">Os comentários gerais estão temporariamente indisponíveis.</p>';
+  const comments = data.generalComments || [];
+  if (!comments.length) return '<p class="music-empty">Ainda não há comentários gerais.</p>';
+  return comments.map((comment) => '<article class="music-comment"><strong>' +
+    escapeHtml(comment.author?.display_name || comment.author?.username || "Usuário") +
+    '</strong><p>' + escapeHtml(comment.body) + '</p></article>').join("");
+}
+
 function musicContent(data, userId) {
   if (data.dedicationsError) {
     return `<div class="social-message social-error" role="alert">Não foi possível carregar suas músicas. Confira a conexão e tente novamente.</div>`;
@@ -117,9 +130,14 @@ function musicContent(data, userId) {
     <div class="music-heading"><div><span class="section-kicker">Biblioteca</span><h2 id="musicTitle">Músicas e dedicatórias</h2></div>
       <span class="music-count">${incoming} recebida${incoming === 1 ? "" : "s"} · ${outgoing} enviada${outgoing === 1 ? "" : "s"}</span></div>
     ${personalLibraryMarkup(data)}
+    <section class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
+      <h3 id="musicGeneralCommentsTitle">Comentários gerais</h3>
+      <div class="music-general-comment-list" data-music-general-comment-list>${generalCommentsMarkup(data)}</div>
+      <form data-music-general-comment class="music-comment-form"><label for="musicGeneralCommentBody">Comentar na página de músicas</label><textarea id="musicGeneralCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário geral"></textarea><button class="text-button" type="submit">Enviar comentário geral</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
+    </section>
     <details class="music-composer"><summary>Dedicar uma música</summary>
       <form data-music-send>
-        <div class="field"><label for="musicRecipient">Para quem é esta música?</label><select id="musicRecipient" name="recipientId" required ${choices ? "" : "disabled"}><option value="">Escolha uma pessoa</option>${choices}</select>${recipientHint}</div>
+        <div class="field"><label for="musicRecipient">Para quem é esta música?</label><select id="musicRecipient" name="recipientId" multiple size="5" required ${choices ? "" : "disabled"}><option value="all-users">Todos os usuários</option>${choices}</select>${recipientHint}</div>
         <div class="music-form-grid">
           <div class="field"><label for="musicTitle">Música</label><input id="musicTitle" name="title" type="text" maxlength="160" required placeholder="Nome da música"></div>
           <div class="field"><label for="musicArtist">Artista</label><input id="musicArtist" name="artist" type="text" maxlength="120" placeholder="Nome do artista"></div>
@@ -179,7 +197,7 @@ export function bindMusicEvents(root, client, getUserId) {
   });
 
   root.addEventListener("submit", async (event) => {
-    const form = event.target.closest("form[data-music-library], form[data-music-send], form[data-music-comment]");
+    const form = event.target.closest("form[data-music-library], form[data-music-send], form[data-music-comment], form[data-music-general-comment]");
     if (!form || !client) return;
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -204,14 +222,25 @@ export function bindMusicEvents(root, client, getUserId) {
         const title = String(values.get("title") || "").trim();
         const artist = String(values.get("artist") || "").trim();
         const note = String(values.get("note") || "").trim();
-        const recipientId = String(values.get("recipientId") || "");
+        const recipientIds = values.getAll("recipientId").map(String);
         const listenUrl = String(values.get("listenUrl") || "").trim();
         const supported = /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
-        if (!title || title.length > 160 || !recipientId || !supported) throw new Error("music-fields");
-        const { error } = await client.from("music_dedications").insert({ recipient_id: recipientId, title, artist, dedication_note: note, listen_url: listenUrl });
+        const selectedRecipients = recipientIds.includes("all-users")
+          ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
+          : recipientIds.filter((id) => id !== userId);
+        if (!title || title.length > 160 || !selectedRecipients.length || !supported) throw new Error("music-fields");
+        const rows = selectedRecipients.map((recipient_id) => ({ recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
+        const { error } = await client.from("music_dedications").insert(rows);
         if (error) throw error;
         form.reset();
-        setStatus(form, "A dedicatória foi salva.");
+        setStatus(form, "Dedicatória enviada para " + selectedRecipients.length + " pessoa(s).");
+        await refreshMusic(root, client, userId);
+      } else if (form.matches("[data-music-general-comment]")) {
+        if (!body || body.length > 2000) throw new Error("comment-fields");
+        const { error } = await client.from("music_page_comments").insert({ comment_type: "general", body });
+        if (error) throw error;
+        form.reset();
+        setStatus(form, "Comentário geral enviado.");
         await refreshMusic(root, client, userId);
       } else {
         const dedicationId = form.dataset.dedicationId;
@@ -246,6 +275,7 @@ export function setupMusicRealtime(client, userId, root) {
     .channel(`looply-music-${userId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "music_dedications" }, () => scheduleMusicRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "music_comments" }, () => scheduleMusicRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "music_page_comments" }, () => scheduleMusicRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "music_library", filter: `owner_id=eq.${userId}` }, () => scheduleMusicRefresh(root, client, userId))
     .subscribe((state) => {
       const status = root.querySelector("[data-music-realtime]");
