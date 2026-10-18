@@ -11,7 +11,7 @@ function formatDate(value) {
 
 export async function loadArchiveMedia(client, userId, includePrivate = false) {
   let mediaQuery = client.from("archive_media")
-    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at");
+    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,source_date,created_at");
   if (!includePrivate) mediaQuery = mediaQuery.eq("visibility", "members");
   const [mediaResult, commenterResult] = await Promise.all([
     mediaQuery.order("source_path", { ascending: true }).limit(500),
@@ -73,12 +73,12 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
       '<div class="archive-viewer-backdrop" data-archive-viewer-close></div>' +
       '<section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">' +
         '<header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>' +
-          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-people-toggle aria-label="Pessoas e opções" title="Pessoas e opções">•••</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
+          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-archive-people-toggle aria-label="Pessoas e opções" title="Pessoas e opções">•••</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
         '</header>' +
         '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
         '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
           '<div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>' +
-          '<div class="archive-viewer-content" data-archive-viewer-content></div>' +
+          '<div class="archive-viewer-content" data-archive-viewer-content></div><button type="button" class="archive-viewer-comments-fab" data-archive-comments-toggle aria-label="Abrir comentários" title="Comentários">☷</button>' +
         '</div>' +
         '<aside class="archive-viewer-comments"><section class="archive-viewer-people"><div class="archive-viewer-people-heading"><h3>Pessoas</h3><button type="button" data-archive-people-inline-toggle>Gerenciar</button></div><div class="archive-viewer-people-list" data-archive-viewer-people-list></div><div class="archive-viewer-people-panel" data-archive-viewer-people-panel hidden><label>Quem aparece nesta mídia<select multiple size="5" data-archive-people-select></select></label><button type="button" data-archive-people-save>Salvar marcações</button><span class="gallery-community-status" data-archive-people-status role="status"></span></div></section><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
           '<p data-no-comment hidden>Você pode visualizar esta mídia, mas não tem permissão para comentar.</p>' +
@@ -282,21 +282,30 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     state.thumbnailObserver?.disconnect();
     const targets = [...root.querySelectorAll("[data-archive-thumbnail]")];
     if (!targets.length) return;
+
+    // Sign the first viewport's images immediately. Lazy loading remains enabled for
+    // the rest, but the first photos must not depend on IntersectionObserver firing.
+    const priority = state.media.filter((item) => item.kind === "image").slice(0, 48);
+    const priorityIds = new Set(priority.map((item) => String(item.id)));
+    void ensureSigned(priority).catch((error) => console.warn("Looply initial photo signing failed", error));
+
+    const deferredTargets = targets.filter((target) => !priorityIds.has(String(target.dataset.mediaId)));
+    if (!deferredTargets.length) return;
     if (!("IntersectionObserver" in window)) {
-      void ensureSigned(state.media.filter((item) => item.kind === "image").slice(0, 24))
+      void ensureSigned(state.media.filter((item) => item.kind === "image" && !priorityIds.has(String(item.id))))
         .catch((error) => console.warn("Looply archive thumbnail load failed", error));
       return;
     }
     state.thumbnailObserver = new IntersectionObserver((entries) => {
       const visibleIds = entries.filter((entry) => entry.isIntersecting)
         .map((entry) => entry.target.dataset.mediaId).filter(Boolean);
-      const candidates = visibleIds.map((id) => state.media.find((item) => item.id === id)).filter(Boolean);
+      const candidates = visibleIds.map((id) => state.media.find((item) => String(item.id) === String(id))).filter(Boolean);
       if (candidates.length) {
         void ensureSigned(candidates).catch((error) => console.warn("Looply archive thumbnail load failed", error));
         for (const entry of entries) if (entry.isIntersecting) state.thumbnailObserver?.unobserve(entry.target);
       }
-    }, { rootMargin: "320px 0px" });
-    for (const target of targets) state.thumbnailObserver.observe(target);
+    }, { rootMargin: "420px 0px" });
+    for (const target of deferredTargets) state.thumbnailObserver.observe(target);
   }
 
   async function loadCommentProfiles() {
@@ -506,7 +515,25 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
   }
 
   root.addEventListener("click", (event) => {
-    if(event.target.closest("[data-archive-people-toggle],[data-archive-people-inline-toggle]")){const panel=root.querySelector("[data-archive-viewer-people-panel]");if(panel)panel.hidden=!panel.hidden;return;}
+    if(event.target.closest("[data-archive-comments-toggle]")) {
+      const comments = root.querySelector(".archive-viewer-comments");
+      const layout = root.querySelector(".archive-viewer-layout");
+      const opened = !comments?.classList.contains("is-open");
+      comments?.classList.toggle("is-open", opened);
+      layout?.classList.toggle("has-comments", opened);
+      const toggle = root.querySelector("[data-archive-comments-toggle]");
+      toggle?.setAttribute("aria-label", opened ? "Fechar comentários" : "Abrir comentários");
+      return;
+    }
+    if(event.target.closest("[data-archive-people-toggle],[data-archive-people-inline-toggle]")) {
+      const panel=root.querySelector("[data-archive-viewer-people-panel]");
+      if(panel)panel.hidden=!panel.hidden;
+      const comments=root.querySelector(".archive-viewer-comments");
+      const layout=root.querySelector(".archive-viewer-layout");
+      comments?.classList.add("is-open");
+      layout?.classList.add("has-comments");
+      return;
+    }
     if(event.target.closest("[data-archive-people-save]")){void saveArchivePeople();return;}
     const description = event.target.closest("[data-open-archive-description]");
     if (description) {

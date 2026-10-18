@@ -202,7 +202,7 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
       } catch (error) {
         await removeUploaded(client, path);
         console.warn("Community gallery item failed", file.name, error);
-        failures.push(file.name + ": não foi possível enviar.");
+        failures.push(file.name + ": " + String(error?.message || "não foi possível enviar").slice(0,180));
       }
     }
     form.reset();
