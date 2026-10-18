@@ -45,3 +45,13 @@ test("mobile chat uses list-first navigation and keeps the composer controls ava
   assert.match(source, /data-chat-emoji/);
   assert.match(source, /Anexar mídia/);
 });
+
+test("Stories remain in the conversation list and survive Realtime sidebar refreshes", async () => {
+  const [page, controller] = await Promise.all([
+    read("assets/js/chat.js"),
+    read("src/chat.js")
+  ]);
+  assert.match(page, /storyArea && chatSidebar\) chatSidebar\.prepend\(storyArea\)/);
+  assert.match(controller, /const currentStories = currentSidebar\?\.querySelector\("\.story-area"\)/);
+  assert.match(controller, /if \(currentStories\) freshSidebar\.prepend\(currentStories\)/);
+});
