@@ -219,3 +219,113 @@
   outline-offset:3px;
 }
 
+
+
+/* Reference redesign 2026-10: gallery presentation only; data/auth behavior remains in existing modules. */
+.page-gallery{
+  --g-bg:var(--bg,#f5f0fa);
+  --g-card:var(--surface-strong,#fff);
+  --g-line:var(--line,rgba(102,82,126,.13));
+  --g-primary:var(--primary,#7010b0);
+  --g-hover:var(--primary-dark,#5f1098);
+  --g-muted:var(--muted,#817b89);
+  --g-text:var(--text,#29252f);
+  color:var(--text,#29252f);
+  background:transparent;
+}
+.page-gallery .container-page{width:min(calc(100% - 28px),1440px);padding-top:18px}
+.page-gallery .page-header{
+  position:sticky;top:12px;z-index:190;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  min-height:118px;margin:0 0 22px;padding:18px 28px;
+  border:1px solid color-mix(in srgb,var(--primary,#7010b0) 8%,var(--line,transparent));
+  border-radius:38px;background:color-mix(in srgb,var(--surface-strong,#fff) 94%,transparent);
+  box-shadow:0 12px 40px color-mix(in srgb,var(--primary,#7010b0) 8%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+}
+.page-gallery .page-header .brand-inline{gap:18px;flex:0 1 auto;min-width:0}
+.page-gallery .page-header .brand-mark{
+  width:94px;height:94px;flex:0 0 94px;display:grid;place-items:center;
+  border:0;border-radius:50%;background:transparent;box-shadow:none;color:#55776a
+}
+.page-gallery .page-header .brand-mark .circle{
+  width:84px;height:84px;display:grid;place-items:center;border:9px solid currentColor;
+  border-radius:50%;animation:looply-spin 12s linear infinite
+}
+.page-gallery .page-header .brand-mark svg{width:44px;height:44px;color:inherit}
+.page-gallery .page-header .brand-inline strong{
+  display:block;color:#267b5b;font-family:'Cabin Sketch',cursive;
+  font-size:clamp(2.8rem,5vw,4.4rem);font-weight:700;line-height:.96;letter-spacing:-.045em
+}
+.page-gallery .page-header .brand-inline span span{
+  display:block;margin-top:7px;color:#66766d;font-size:clamp(1.15rem,2.3vw,1.8rem);
+  line-height:1.05;letter-spacing:.045em
+}
+.page-gallery .page-header .page-navigation{display:none}
+.page-gallery .page-header .looply-account-menu{margin-left:auto;flex:0 0 auto}
+.page-gallery .page-header .looply-account{display:flex;align-items:center;gap:0;padding:0;border:0;background:transparent;box-shadow:none}
+.page-gallery .page-header .looply-account>img,
+.page-gallery .page-header .looply-account>.looply-user-avatar{
+  width:76px;height:76px;min-width:76px;border:2px solid color-mix(in srgb,var(--primary,#7010b0) 18%,white);
+  border-radius:50%;object-fit:cover
+}
+.page-gallery .page-header .looply-account>span:not(.account-menu-caret){display:none}
+.page-gallery .page-header .account-menu-caret{display:none}
+.page-gallery .page-header .account-menu-popover{right:0;left:auto;z-index:220}
+.page-gallery .gallery-experience{padding:0 clamp(0px,1vw,12px)}
+.page-gallery .gallery-topbar{padding:0 0 14px;border:0;background:transparent}
+.page-gallery .gallery-brand{display:none}
+.page-gallery .gallery-icon-button{background:var(--surface-strong,#fff);color:var(--text,#29252f);border-color:var(--line)}
+.page-gallery .gallery-add-button{background:var(--primary);color:#fff}
+.page-gallery .gallery-categories{gap:10px}
+.page-gallery .gallery-category{min-height:54px;border-radius:17px;background:var(--surface-soft,#faf7fc);color:var(--text)}
+.page-gallery .gallery-category.is-active{background:color-mix(in srgb,var(--primary) 12%,var(--surface-strong));color:var(--primary)}
+.page-gallery .gallery-search,.page-gallery .gallery-sort select,.page-gallery .gallery-people-filter select,
+.page-gallery .gallery-view-switch{background:var(--surface-strong,#fff);border-color:var(--line);color:var(--text)}
+.page-gallery .gallery-search input{color:var(--text)}
+.page-gallery .gallery-content>section{background:var(--surface-strong,#fff);border-color:var(--line);box-shadow:var(--shadow-sm,0 8px 24px rgba(80,56,115,.07))}
+.page-gallery .archive-media-tile,.page-gallery .community-gallery-card{background:var(--surface-strong,#fff);border-color:var(--line)}
+.page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(1,minmax(0,1fr));gap:12px}
+.page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{display:block;columns:1;column-gap:12px}
+.page-gallery .archive-media-grid[data-view="masonry"] .archive-media-tile,.page-gallery .community-gallery-grid[data-view="masonry"] .community-gallery-card{display:inline-block;width:100%;margin:0 0 12px;break-inside:avoid}
+.page-gallery .archive-media-grid[data-view="grid"] .archive-media-open>img,.page-gallery .community-gallery-grid[data-view="grid"] .community-gallery-visual img{aspect-ratio:4/3}
+.page-gallery .archive-media-caption strong,.page-gallery .community-gallery-card-copy strong{color:var(--text)}
+.page-gallery .archive-media-caption small,.page-gallery .community-gallery-card-copy span{color:var(--muted)}
+.page-gallery .gallery-bottom-nav{background:color-mix(in srgb,var(--surface-strong,#fff) 94%,transparent);border-color:var(--line)}
+.page-gallery .gallery-bottom-nav a[aria-current=page]{background:color-mix(in srgb,var(--primary) 12%,var(--surface-strong));color:var(--primary)}
+@media(min-width:520px){
+ .page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(2,minmax(0,1fr))}
+ .page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{columns:2}
+}
+@media(min-width:760px){
+ .page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(3,minmax(0,1fr))}
+ .page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{columns:3}
+}
+@media(min-width:1024px){
+ .page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){grid-template-columns:repeat(4,minmax(0,1fr))}
+ .page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{columns:4}
+}
+@media(max-width:600px){
+ .page-gallery .container-page{width:calc(100% - 20px);padding-top:10px;padding-bottom:90px}
+ .page-gallery .page-header{top:6px;min-height:78px;margin-bottom:15px;padding:10px 14px;border-radius:28px;gap:8px}
+ .page-gallery .page-header .brand-inline{gap:9px}
+ .page-gallery .page-header .brand-mark{width:54px;height:54px;flex-basis:54px}
+ .page-gallery .page-header .brand-mark .circle{width:49px;height:49px;border-width:5px}
+ .page-gallery .page-header .brand-mark svg{width:27px;height:27px}
+ .page-gallery .page-header .brand-inline strong{font-size:clamp(1.8rem,8vw,2.7rem)}
+ .page-gallery .page-header .brand-inline span span{margin-top:4px;font-size:clamp(.85rem,3.7vw,1.15rem)}
+ .page-gallery .page-header .looply-account>img,.page-gallery .page-header .looply-account>.looply-user-avatar{width:48px;height:48px;min-width:48px}
+ .page-gallery .gallery-categories{grid-template-columns:repeat(5,minmax(74px,1fr));gap:6px;overflow-x:auto;padding:1px 0 7px}
+ .page-gallery .gallery-category{min-height:46px;padding:7px 8px;font-size:.75rem}
+ .page-gallery .gallery-toolbar{align-items:stretch;flex-direction:column}
+ .page-gallery .gallery-search{max-width:none;width:100%}
+ .page-gallery .gallery-toolbar-actions{justify-content:space-between;flex-wrap:wrap}
+ .page-gallery .gallery-sort select{max-width:170px}
+ .page-gallery .archive-media-grid:not([data-view="list"]),.page-gallery .community-gallery-grid:not([data-view="list"]){gap:7px}
+ .page-gallery .archive-media-grid[data-view="masonry"],.page-gallery .community-gallery-grid[data-view="masonry"]{column-gap:7px}
+ .page-gallery .archive-media-tile,.page-gallery .community-gallery-card{border-radius:12px}
+ .page-gallery .archive-media-caption,.page-gallery .community-gallery-card-copy{padding:8px}
+ .page-gallery .archive-media-caption strong,.page-gallery .community-gallery-card-copy strong{font-size:.72rem}
+ .page-gallery .archive-media-caption small,.page-gallery .community-gallery-card-copy span{font-size:.62rem}
+}
+@media(prefers-reduced-motion:reduce){.page-gallery .page-header .brand-mark .circle{animation:none}.page-gallery *{scroll-behavior:auto!important;transition-duration:.01ms!important}}
