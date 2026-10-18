@@ -769,7 +769,7 @@ test("shared header provides one accessible back control, active navigation, and
   assert.match(runtime, /onAuthStateChange/);
   assert.match(runtime, /looply-activity-\$\{user\.id\}/);
   assert.match(shared, /--looply-icon-color, #000/);
-  assert.match(shared, /data-theme=\\"noite\\"/);
+  assert.match(shared, /data-theme="noite"/);
   assert.doesNotMatch(conversation, /conversation-back/);
   for (const page of pages) assert.match(page, /data-site-header/);
 });
