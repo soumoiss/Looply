@@ -28,6 +28,9 @@ test("track comments use the exact playlist and video IDs and are sent to the ad
   assert.match(migration, /author_id = \(select auth\.uid\(\)\)/);
   assert.match(migration, /private\.is_admin\(\)/);
   assert.match(migration, /comment_type = 'general'/);
+  assert.ok(migration.includes("and video_id ~ '^[A-Za-z0-9_-]{11}$'"));
+  assert.equal((migration.match(/create table public\\.music_page_comments/g) || []).length, 1);
+  assert.equal((migration.match(/create or replace function public\\.record_looply_admin_access/g) || []).length, 1);
   assert.match(edge, /youtube_track_comments/);
   assert.match(admin, /value="youtube_track_comments"/);
 });
