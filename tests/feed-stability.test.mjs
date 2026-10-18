@@ -35,9 +35,11 @@ test("likes use persistent unique post/user records and realtime updates", async
 test("Instagram post, reel and TV links render a real provider embed with a safe shortcode", async () => {
   const source = await read("src/social.js");
   assert.match(source, /post-instagram-embed/);
-  assert.match(source, /const embedPath = kind === "p" \? "p" : kind/);
-  assert.ok(source.includes("[\"p\", \"reel\", \"tv\"]"));
+  assert.match(source, /export function instagramEmbedDetails/);
+  assert.match(source, /const shared = parts\[0\] === "share"/);
+  assert.match(source, /const shortcode = parts\[shared \? 2 : 1\]/);
   assert.ok(source.includes("^[A-Za-z0-9_-]{5,30}$"));
+  assert.match(source, /if \(!body && !externalUrl && !files\.length\)/);
 });
 
 test("private replies use the authenticated chat edge function and internal share offers recipient selection", async () => {
@@ -46,5 +48,9 @@ test("private replies use the authenticated chat edge function and internal shar
   assert.match(source, /data-share-in-app/);
   assert.match(source, /data-share-recipient/);
   assert.match(source, /data-share-in-app-send/);
+  assert.match(source, /from\("chat_messages"\)\.insert/);
+  assert.match(source, /Publicação compartilhada no Looply/);
+  assert.match(source, /Resposta privada à sua publicação/);
+  assert.match(source, /conversa\.html\?id=/);
   assert.doesNotMatch(source, /client\.rpc\("create_direct_conversation", \{ p_target_id: authorId \}\)/);
 });
