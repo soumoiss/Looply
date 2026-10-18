@@ -130,3 +130,12 @@ test("accepted calls handed off from other pages still require a fresh tap for m
   assert.match(restore, /Require a fresh, explicit tap/);
   assert.doesNotMatch(restore, /setTimeout\(\(\) =>[\s\S]*acceptCall\(\)/);
 });
+
+test("tic-tac-toe shows actual player names and resolves the winner from the winning player ID", async () => {
+  const source = await read("src/chat-enhancements.js");
+  assert.match(source, /const ownDisplayName = \(\) => root\.querySelector\("\.looply-account strong"\)/);
+  assert.match(source, /senderName: ownDisplayName\(\)/);
+  assert.match(source, /oName: ownDisplayName\(\)/);
+  assert.match(source, /const winnerId = gameState\.winnerId \|\|/);
+  assert.doesNotMatch(source, /senderName: root\.querySelector\("\[data-site-header\]"\)\?\.textContent/);
+});
