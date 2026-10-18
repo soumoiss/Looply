@@ -1,12 +1,22 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
+import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
+import { loadSocialData } from "../../src/social.js";
 
-await mountAppPage({ page: "chat", render: async ({ root, client, user }) => {
-  const data = await loadChatData(client, user.id);
-  root.innerHTML = chatMarkup(data, user.id);
+await mountAppPage({ page: "chat", render: async ({ root, client, user, profile }) => {
+  const [dataResult, storiesResult, socialResult] = await Promise.allSettled([
+    loadChatData(client, user.id), loadStories(client), loadSocialData(client)
+  ]);
+  const data = dataResult.status === "fulfilled" ? dataResult.value : { error: true, conversations: [], notifications: [], profiles: [] };
+  const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
+  const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
+  const socialData = socialResult.status === "fulfilled" ? socialResult.value : { people: [], peopleError: socialResult.reason };
+  root.innerHTML = `${storiesMarkup(stories, storiesError, socialData.people, socialData.peopleError, user.id, profile)}${chatMarkup(data, user.id)}`;
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
   setupChatRealtime(client, user.id, root);
-  window.addEventListener("pagehide", () => disposeChatRealtime(client), { once: true });
+  bindStories(root, client, user.id, stories, storiesError, profile);
+  setupStoriesRealtime(client, user.id, root);
+  window.addEventListener("pagehide", () => { disposeChatRealtime(client); disposeStoriesRealtime(client, root); }, { once: true });
 } });
