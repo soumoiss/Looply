@@ -164,6 +164,7 @@ export function setupChatCalls(root, client, userId) {
     const session = await client.auth.getSession();
     if (session.data?.session?.access_token) await client.realtime.setAuth(session.data.session.access_token);
     const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false } } });
+    channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
@@ -183,19 +184,20 @@ export function setupChatCalls(root, client, userId) {
         await endCall(false, "A outra pessoa encerrou a chamada.");
       }
     });
-    await new Promise((resolve, reject) => {
+    const subscribed = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Realtime call channel timed out")), 10000);
       next.subscribe((status, error) => {
-        if (status === "SUBSCRIBED") { clearTimeout(timer); resolve(); }
+        if (status === "SUBSCRIBED") { clearTimeout(timer); resolve(true); }
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") { clearTimeout(timer); reject(error || new Error(status)); }
       });
-    }).catch((error) => {
+    }).catch(async (error) => {
       console.error("Looply private call channel failed", error);
       toast("Não foi possível conectar o canal privado de chamadas.");
-      return null;
+      if (channel === next) channel = null;
+      await client.removeChannel(next);
+      return false;
     });
-    if (!channel) return null;
-    return channel;
+    return subscribed ? channel : null;
   };
   const addButtons = () => {
     const heading = root.querySelector(".chat-thread-heading");
