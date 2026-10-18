@@ -7,7 +7,7 @@ test("gallery uses real cloud media, not mock sample items",async()=>{
  const [ui,controller,community]=await Promise.all([read("galeria.html"),read("src/gallery-experience.js"),read("src/community-gallery.js")]);
  assert.match(ui,/data-gallery-category="private"/); assert.match(ui,/data-gallery-view="masonry"/);
  assert.match(controller,/gallery_media_people/); assert.match(controller,/create_community_gallery_comment/);
- assert.match(community,/storage.from(bucketName).upload/); assert.match(community,/community_gallery_media/);
+ assert.ok(community.includes("client.storage.from(bucketName).upload")); assert.match(community,/community_gallery_media/);
  assert.doesNotMatch(controller,/mediaItems\s*=\s*\[/);
 });
 test("gallery privacy migration stores a hash and scopes notifications",async()=>{
