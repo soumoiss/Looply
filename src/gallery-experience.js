@@ -4,7 +4,7 @@ const labelDate=v=>{const d=new Date(v);return Number.isNaN(+d)?"":new Intl.Date
 export function bindGalleryExperience(root,client,user,isAdmin,source={}){
  const shell=document.querySelector("[data-gallery-experience]");if(!shell||shell.dataset.galleryExperienceBound)return;shell.dataset.galleryExperienceBound="1";
  const $=(s,b=shell)=>b.querySelector(s), $$=(s,b=root)=>[...b.querySelectorAll(s)];
- const st={category:"all",view:"grid",sort:"newest",query:"",people:[],unlocked:false,profiles:[],tags:new Map(),active:null,swipe:null};
+ const st={category:"recent",view:"grid",sort:"newest",query:"",people:[],unlocked:false,profiles:[],tags:new Map(),active:null,swipe:null};
  let archive=[...(source.archiveMedia||[])], community=[...(source.communityMedia||[])];
  const all=()=>[...archive.map(m=>({...m,source:"archive",date:dateVal(m.file_name||m.source_path,m.source_date||m.created_at),search:[m.file_name,m.source_path,m.description].join(" ").toLowerCase()})),...community.map(m=>({...m,source:"community",date:dateVal(m.file_name,m.created_at),search:[m.file_name,m.caption,m.owner?.username,m.owner?.display_name].join(" ").toLowerCase()}))];
  async function profiles(){if(st.profiles.length)return st.profiles;const r=await client.from("profiles").select("id,username,display_name").order("display_name").limit(500);if(r.error)throw r.error;return st.profiles=r.data||[];}
