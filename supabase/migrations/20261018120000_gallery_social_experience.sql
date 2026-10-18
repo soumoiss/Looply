@@ -132,7 +132,7 @@ for each row execute function private.notify_selected_gallery_comment_recipient(
 
 create or replace function private.notify_archive_gallery_comment()
 returns trigger language plpgsql security definer set search_path = ''
-as $
+as $$
 begin
   if new.audience in ('members','media_viewers') then
     insert into public.notifications(recipient_id,actor_id,kind,resource_id,event_id,preview)
@@ -143,14 +143,14 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists archive_gallery_comment_notification on public.archive_media_comments;
 create trigger archive_gallery_comment_notification after insert on public.archive_media_comments
 for each row execute function private.notify_archive_gallery_comment();
 
 create or replace function private.notify_selected_archive_comment_recipient()
 returns trigger language plpgsql security definer set search_path = ''
-as $
+as $$
 declare v_author uuid; v_media uuid; v_body text; v_audience text;
 begin
   select author_id,media_id,body,audience into v_author,v_media,v_body,v_audience
@@ -162,12 +162,12 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists selected_archive_comment_notification on public.archive_media_comment_recipients;
 create trigger selected_archive_comment_notification after insert on public.archive_media_comment_recipients
 for each row execute function private.notify_selected_archive_comment_recipient();
 
-do $
+do $$
 begin
   if not exists(select 1 from pg_catalog.pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='community_gallery_comments') then
     execute 'alter publication supabase_realtime add table public.community_gallery_comments';
