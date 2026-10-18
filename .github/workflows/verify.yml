@@ -28,6 +28,8 @@ jobs:
           node --check src/stories.js
           node --check src/music.js
           node --check src/chat.js
+          node --check src/chat-enhancements.js
+          node --check src/chat-calls.js
           node --check src/admin.js
           node --check src/archive-import.js
           node --check src/archived-cards.js
@@ -39,6 +41,7 @@ jobs:
           node --check src/youtube-playlist.js
           node --check assets/js/admin.js
           node --check assets/js/chat.js
+          node --check assets/js/conversation.js
           node --check assets/js/gallery.js
           node --check assets/js/home.js
           node --check assets/js/login.js
