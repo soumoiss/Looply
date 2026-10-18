@@ -283,3 +283,9 @@
   .page-chat .story-area { padding:14px 16px 10px; }
   .page-chat .story-area-heading h2 { font-size:15px; }
 }
+
+.page-chat .story-avatar-button::after { content:none; }
+.page-chat .story-avatar-frame { position:relative; display:grid; width:52px; height:52px; place-items:center; padding:2px; border-radius:50%; background:linear-gradient(135deg,#a855f7,#6366f1); }
+.page-chat .story-avatar-image, .page-chat .story-avatar-initial { display:grid; width:100%; height:100%; place-items:center; overflow:hidden; border:2px solid #fff; border-radius:50%; object-fit:cover; background:#ede9fe; color:#6d28d9; font-size:15px; }
+.page-chat .story-avatar-label { display:block; max-width:64px; overflow:hidden; color:#64748b; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.page-chat .story-add-mark { position:absolute; right:-1px; bottom:-1px; display:grid; width:18px; height:18px; place-items:center; border:2px solid #fff; border-radius:50%; color:#fff; background:#7c3aed; font-size:12px; }
