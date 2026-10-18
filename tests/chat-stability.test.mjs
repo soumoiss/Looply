@@ -96,3 +96,25 @@ test("tic-tac-toe randomizes the first starter, gives the previous winner the ne
   assert.match(migration, /conversation_participants/);
   assert.match(indexes, /chat_ttt_results_conversation_created_idx/);
 });
+
+test("incoming direct calls are listened for on authenticated pages outside the active chat", async () => {
+  const [runtime, globalListener, callController] = await Promise.all([
+    read("src/page-runtime.js"), read("src/global-call-listener.js"), read("src/chat-calls.js")
+  ]);
+  assert.match(runtime, /setupGlobalCallListener\(supabase, user\.id, profile\)/);
+  assert.match(globalListener, /from\("conversation_participants"\)/);
+  assert.match(globalListener, /config: \{ private: true/);
+  assert.match(globalListener, /conversation\.kind !== "direct"/);
+  assert.match(globalListener, /participants\.some\(\(p\) => p\.user_id === payload\.senderId\)/);
+  assert.match(globalListener, /looply:pending-call:/);
+  assert.match(callController, /restorePendingIncomingCall\(id\)/);
+  assert.match(callController, /offerRetryTimer/);
+});
+
+test("private call signaling authorization is limited to direct conversation members", async () => {
+  const migration = await read("supabase/migrations/20261018180000_direct_call_signaling_hardening.sql");
+  assert.match(migration, /for select\s+to authenticated/i);
+  assert.match(migration, /for insert\s+to authenticated/i);
+  assert.match(migration, /c\.kind = 'direct'/i);
+  assert.match(migration, /cp\.user_id = \(select auth\.uid\(\)\)/i);
+});
