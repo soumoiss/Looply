@@ -215,9 +215,9 @@ export function setupChatCalls(root, client, userId) {
     incomingOffer = pending;
     callMode = pending.mode === "video" ? "video" : "audio";
     callPeerName = pending.senderName || peerName();
-    window.setTimeout(() => {
-      if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall();
-    }, 0);
+    // Require a fresh, explicit tap on this page before requesting camera/microphone.
+    // Navigation from the global alert can consume the browser's transient user activation.
+    showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
   };
 
   const ensureChannel = async () => {
