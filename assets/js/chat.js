@@ -26,6 +26,22 @@ await mountAppPage({ page: "chat", render: async ({ root, client, user, profile 
   setupChatEnhancements(root, client, user.id);
   setupChatCalls(root, client, user.id);
   setupChatRealtime(client, user.id, root);
+  const chatParams = new URLSearchParams(window.location.search);
+  const linkedConversation = chatParams.get("conversation");
+  const linkedPostUrl = chatParams.get("post");
+  if (linkedConversation) {
+    requestAnimationFrame(() => {
+      root.dispatchEvent(new CustomEvent("looply:open-conversation", { detail: { conversationId: linkedConversation } }));
+      if (linkedPostUrl) window.setTimeout(() => {
+        const messageInput = root.querySelector(".chat-message-form textarea");
+        if (messageInput && !messageInput.value.trim()) {
+          messageInput.value = "Sobre esta publicação: " + linkedPostUrl;
+          messageInput.dispatchEvent(new Event("input", { bubbles: true }));
+          messageInput.focus({ preventScroll: true });
+        }
+      }, 450);
+    });
+  }
   bindStories(root, client, user.id, stories, storiesError, profile);
   setupStoriesRealtime(client, user.id, root);
   window.addEventListener("pagehide", () => { disposeChatRealtime(client); disposeStoriesRealtime(client, root); }, { once: true });
