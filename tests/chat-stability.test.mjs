@@ -112,7 +112,7 @@ test("incoming direct calls are listened for on authenticated pages outside the 
 });
 
 test("private call signaling authorization is limited to direct conversation members", async () => {
-  const migration = await read("supabase/migrations/20261018220000_direct_call_signaling_hardening.sql");
+  const migration = await read("supabase/migrations/20261018215518_direct_call_signaling_hardening.sql");
   assert.match(migration, /for select\s+to authenticated/i);
   assert.match(migration, /for insert\s+to authenticated/i);
   assert.match(migration, /c\.kind = 'direct'/i);
