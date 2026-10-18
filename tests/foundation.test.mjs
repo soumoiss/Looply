@@ -763,7 +763,7 @@ test("shared header provides one accessible back control, active navigation, and
   ]);
   assert.match(runtime, /data-site-header/);
   assert.match(runtime, /data-page-back/);
-  assert.match(runtime, /href="\$\{page === "conversation" \? "chat\.html" : "home\.html"\}" data-page-back/);
+  assert.match(runtime, /href="home\.html" data-page-back aria-label="Voltar para o início"/);
   assert.doesNotMatch(runtime, /window\.history\.back\(\)/);
   assert.match(runtime, /navigationIcons\.back/);
   assert.match(runtime, /aria-current/);
