@@ -84,9 +84,6 @@ Deno.serve(async (request: Request) => {
         return respond(500, { errorCode: "post_unavailable" });
       }
       if (!post) return respond(404, { errorCode: "post_unavailable" });
-      if (mode === "private_reply" && post.author_id !== authData.user.id && post.author_id !== targetId) {
-        return respond(403, { errorCode: "post_author_mismatch" });
-      }
       if (mode === "private_reply" && post.author_id !== targetId) {
         return respond(400, { errorCode: "post_author_mismatch" });
       }
@@ -114,7 +111,7 @@ Deno.serve(async (request: Request) => {
 
       const postUrl = "https://soumoiss.github.io/Looply/home.html#post-" + encodeURIComponent(postId);
       const messageBody = mode === "private_reply"
-        ? replyBody + "\\n\\nPublicação: " + postUrl
+        ? replyBody + "\n\nPublicação: " + postUrl
         : "Publicação compartilhada no Looply: " + postUrl;
       const { error: messageError } = await service.from("chat_messages").insert({
         conversation_id: conversationId,
