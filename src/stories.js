@@ -818,16 +818,22 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     const storyButton = event.target.closest("[data-story-open]");
     if (storyButton) {
-      const group = state.groups.find((item) => item.author_id === storyButton.dataset.storyOpen);
-      if (!group) return;
-      state.active = { ...group, stories: activeStoriesFor(group) };
-      if (!state.active.stories.length) {
+      const authorId = storyButton.dataset.storyOpen;
+      let group = state.groups.find((item) => item.author_id === authorId);
+      let activeStories = group ? activeStoriesFor(group) : [];
+      if (!activeStories.length) {
         await refresh();
+        group = state.groups.find((item) => item.author_id === authorId);
+        activeStories = group ? activeStoriesFor(group) : [];
+      }
+      if (!group || !activeStories.length) {
+        showStatus("Este story não está mais disponível. A lista foi atualizada.");
         return;
       }
+      state.active = { ...group, stories: activeStories };
       state.index = 0;
       renderSlide();
-      viewer.showModal();
+      if (!viewer.open) viewer.showModal();
       return;
     }
     if (event.target.closest("[data-story-close]")) {

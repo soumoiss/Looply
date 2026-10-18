@@ -8,6 +8,7 @@ export function setupChatCalls(root, client, userId) {
   let channelReady = null;
   let pc = null;
   let localStream = null;
+  let remoteStream = null;
   let incomingOffer = null;
   let callMode = "audio";
   let callPeerName = "Contato";
@@ -58,6 +59,7 @@ export function setupChatCalls(root, client, userId) {
     const remote = root.querySelector("[data-call-remote]");
     if (local) local.srcObject = null;
     if (remote) remote.srcObject = null;
+    remoteStream = null;
     pendingCandidates = [];
     incomingOffer = null;
     isCaller = false;
@@ -79,18 +81,49 @@ export function setupChatCalls(root, client, userId) {
     const local = root.querySelector("[data-call-local]");
     const remote = root.querySelector("[data-call-remote]");
     if (local && localStream) { local.srcObject = localStream; local.muted = true; local.play().catch(() => {}); }
-    if (remote && pc) {
-      if (!remote.srcObject) remote.srcObject = new MediaStream();
+    if (pc) {
+      if (!remoteStream) remoteStream = new MediaStream();
+      if (remote) {
+        remote.srcObject = remoteStream;
+        remote.muted = false;
+        remote.volume = 1;
+        remote.autoplay = true;
+        remote.playsInline = true;
+        if (remoteStream.getTracks().length) {
+          remote.play().then(() => {
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = true;
+          }).catch(() => {
+            updateStatus("Toque em “Ativar áudio” para ouvir o outro participante.");
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = false;
+          });
+        }
+      }
+      // Install ontrack as soon as the peer connection exists. On the answering side,
+      // remote tracks can arrive before the answer has finished and before callView renders.
       pc.ontrack = (event) => {
         const stream = event.streams?.[0];
-        if (stream) remote.srcObject = stream;
-        else if (event.track && !remote.srcObject.getTracks().some((track) => track.id === event.track.id)) remote.srcObject.addTrack(event.track);
-        remote.play().catch(() => updateStatus("Toque no vídeo remoto para ativar o áudio."));
+        if (stream) remoteStream = stream;
+        else if (event.track && !remoteStream.getTracks().some((track) => track.id === event.track.id)) remoteStream.addTrack(event.track);
+        const target = root.querySelector("[data-call-remote]");
+        if (!target) return;
+        target.srcObject = remoteStream;
+        target.muted = false;
+        target.volume = 1;
+        target.play().then(() => {
+          const enableAudio = root.querySelector("[data-call-enable-audio]");
+          if (enableAudio) enableAudio.hidden = true;
+        }).catch(() => {
+          updateStatus("Toque em “Ativar áudio” para ouvir o outro participante.");
+          const enableAudio = root.querySelector("[data-call-enable-audio]");
+          if (enableAudio) enableAudio.hidden = false;
+        });
       };
     }
   };
   const callView = (statusText) => {
-    showModal(`<span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-pressed="false">${icon("mic")} Silenciar microfone</button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-pressed="false">${icon("volume")} Áudio ligado</button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-pressed="false">' + icon("camera") + ' Desligar câmera</button><button type="button" class="chat-v2-button" data-call-flip-camera>' + icon("cameraSwitch") + ' Trocar câmera</button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup>${icon("hangup")} Encerrar chamada</button></div>`);
+    showModal(`<span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-pressed="false">${icon("mic")} Silenciar microfone</button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-pressed="false">${icon("volume")} Áudio ligado</button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-pressed="false">' + icon("camera") + ' Desligar câmera</button><button type="button" class="chat-v2-button" data-call-flip-camera>' + icon("cameraSwitch") + ' Trocar câmera</button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup>${icon("hangup")} Encerrar chamada</button></div>`);
     const local = root.querySelector("[data-call-local]");
     if (local && callMode !== "video") local.hidden = true;
     attachMedia();
@@ -194,8 +227,15 @@ export function setupChatCalls(root, client, userId) {
       callView("Conectando…");
     } catch (error) {
       console.error("Looply call accept failed", error);
+      if (["NotAllowedError", "PermissionDeniedError"].includes(error?.name)) {
+        const offer = incomingOffer;
+        releaseMedia();
+        incomingOffer = offer;
+        showModal(`<span class="chat-v2-kicker">Permissão necessária</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Permita o acesso ao microfone${callMode === "video" ? " e à câmera" : ""} no navegador e toque em Atender para continuar.</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+        return;
+      }
       await send("decline");
-      await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para atender." : "Não foi possível atender a chamada.");
+      await endCall(false, "Não foi possível atender a chamada. Confira a conexão e os dispositivos.");
     }
   };
   const restorePendingIncomingCall = (conversationId) => {
@@ -215,9 +255,9 @@ export function setupChatCalls(root, client, userId) {
     incomingOffer = pending;
     callMode = pending.mode === "video" ? "video" : "audio";
     callPeerName = pending.senderName || peerName();
-    // Require a fresh, explicit tap on this page before requesting camera/microphone.
-    // Navigation from the global alert can consume the browser's transient user activation.
-    showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+    // The user already pressed "Atender" on the global incoming-call overlay.
+    // Continue directly into media setup instead of requiring a second navigation/tap.
+    window.setTimeout(() => { if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall(); }, 0);
   };
 
   const ensureChannel = async () => {
@@ -291,6 +331,21 @@ export function setupChatCalls(root, client, userId) {
     if (!button) return;
     if (button.matches("[data-call-audio]")) { await startCall("audio"); return; }
     if (button.matches("[data-call-video]")) { await startCall("video"); return; }
+    if (button.matches("[data-call-enable-audio]")) {
+      const remote = root.querySelector("[data-call-remote]");
+      if (!remote) return;
+      remote.muted = false;
+      remote.volume = 1;
+      try {
+        await remote.play();
+        button.hidden = true;
+        updateStatus("Áudio remoto ativado.");
+      } catch (error) {
+        console.warn("Looply remote audio playback remains blocked", error);
+        updateStatus("O navegador bloqueou o áudio. Confira as permissões e toque novamente.");
+      }
+      return;
+    }
     if (button.matches("[data-call-accept]")) { await acceptCall(); return; }
     if (button.matches("[data-call-decline]")) { await send("decline"); await endCall(false, "Chamada recusada."); return; }
     if (button.matches("[data-call-hangup]") || button.matches("[data-call-close]")) { await endCall(true); return; }

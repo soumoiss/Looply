@@ -73,7 +73,8 @@ create table public.community_letters (
     or (is_protected = true and body is null
       and password_salt ~ '^[A-Za-z0-9_-]{22}$'
       and password_iv ~ '^[A-Za-z0-9_-]{16}$'
-      and password_ciphertext ~ '^[A-Za-z0-9_-]{22,7000}$')
+      and char_length(password_ciphertext) between 22 and 7000
+      and password_ciphertext ~ '^[A-Za-z0-9_-]+$')
   )
 );
 create index community_letters_recipient_created_idx on public.community_letters(recipient_id, created_at desc);

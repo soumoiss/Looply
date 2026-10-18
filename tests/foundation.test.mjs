@@ -300,7 +300,7 @@ test("media storage stays private and follows post-level RLS", async () => {
 test("profile search and editing use only profile fields protected by RLS", async () => {
   const profiles = await read("src/profiles.js");
   assert.match(profiles, /const updates = \{ display_name: displayName, bio, profile_visibility: visibility \}/);
-  assert.match(profiles, /from\("profiles"\)\.update\(updates\)/);
+  assert.match(profiles, /from\("profiles"\)[\s\S]*?\.update\(updates\)/);
   assert.match(profiles, /storage\.from\("looply-avatars"\)\.createSignedUrls/);
   assert.match(profiles, /storage\.from\("looply-avatars"\)\.upload/);
   assert.match(profiles, /avatars\/\$\{userId\}\/\$\{crypto\.randomUUID\(\)\}/);
@@ -763,7 +763,7 @@ test("shared header provides one accessible back control, active navigation, and
   ]);
   assert.match(runtime, /data-site-header/);
   assert.match(runtime, /data-page-back/);
-  assert.match(runtime, /href="\$\{page === "conversation" \? "chat\.html" : "home\.html"\}" data-page-back/);
+  assert.match(runtime, /href="home\.html" data-page-back aria-label="Voltar para o início"/);
   assert.doesNotMatch(runtime, /window\.history\.back\(\)/);
   assert.match(runtime, /navigationIcons\.back/);
   assert.match(runtime, /aria-current/);

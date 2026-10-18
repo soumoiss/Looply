@@ -119,14 +119,34 @@ test("private call signaling authorization is limited to direct conversation mem
   assert.match(migration, /cp\.user_id = \(select auth\.uid\(\)\)/i);
 });
 
-test("accepted calls handed off from other pages still require a fresh tap for media permission", async () => {
+test("a call accepted on any page auto-starts after handoff and permission denial leaves a retry prompt", async () => {
   const source = await read("src/chat-calls.js");
   const start = source.indexOf("const restorePendingIncomingCall =");
   const end = source.indexOf("\n  const ensureChannel =", start);
   assert.ok(start >= 0 && end > start, "pending call restoration helper must exist");
   const restore = source.slice(start, end);
-  assert.match(restore, /showModal\(/);
-  assert.match(restore, /data-call-accept/);
-  assert.match(restore, /Require a fresh, explicit tap/);
-  assert.doesNotMatch(restore, /setTimeout\(\(\) =>[\s\S]*acceptCall\(\)/);
+  assert.match(restore, /pending\.accepted !== true/);
+  assert.match(restore, /void acceptCall\(\)/);
+  assert.match(source, /PermissionDeniedError/);
+  assert.match(source, /data-call-accept/);
+  assert.match(source, /Permita o acesso ao microfone/);
+});
+
+test("tic-tac-toe shows actual player names and resolves the winner from the winning player ID", async () => {
+  const source = await read("src/chat-enhancements.js");
+  assert.match(source, /const ownDisplayName = \(\) => root\.querySelector\("\.looply-account strong"\)/);
+  assert.match(source, /senderName: ownDisplayName\(\)/);
+  assert.match(source, /oName: ownDisplayName\(\)/);
+  assert.match(source, /const winnerId = gameState\.winnerId \|\|/);
+  assert.doesNotMatch(source, /senderName: root\.querySelector\("\[data-site-header\]"\)\?\.textContent/);
+});
+
+test("remote audio/video tracks are captured before answer negotiation and audio playback has an explicit fallback", async () => {
+  const source = await read("src/chat-calls.js");
+  assert.match(source, /let remoteStream = null/);
+  assert.match(source, /if \(pc\) \{\s*if \(!remoteStream\) remoteStream = new MediaStream\(\)/);
+  assert.match(source, /Install ontrack as soon as the peer connection exists/);
+  assert.match(source, /pc\.ontrack = \(event\) =>/);
+  assert.match(source, /data-call-enable-audio/);
+  assert.match(source, /remote\.muted = false/);
 });
