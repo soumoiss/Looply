@@ -2,6 +2,7 @@ import { icon } from "./icons.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { checkAdminAccess } from "./admin.js";
 import { applyProfilePreferences } from "./theme.js";
+import { setupGlobalCallListener } from "./global-call-listener.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
@@ -201,6 +202,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     console.error("Looply page failed to load", error);
     notice(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.", "error");
   }
+
+  // Listen for direct-call offers from every conversation the signed-in user belongs to,
+  // even when the user is browsing a different page.
+  setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
     authListener.subscription.unsubscribe();
