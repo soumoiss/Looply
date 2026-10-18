@@ -3,7 +3,11 @@
 .looply-page .page-navigation::-webkit-scrollbar { display: none; }
 .looply-page .page-navigation .header-action { position: relative; flex: 0 0 auto; }
 .looply-page .page-navigation [aria-current="page"] { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 32%, var(--line)); background: var(--surface-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent); }
-.page-navigation-icon { width: 17px; height: 17px; flex: 0 0 auto; }
+.page-navigation-icon { width: 17px; height: 17px; flex: 0 0 auto; color: var(--looply-icon-color, #000); }
+.header-back-button { flex: 0 0 auto; gap: 6px; padding: 0 10px; }
+.header-back-button > span:first-child { display: inline-flex; color: var(--looply-icon-color, #000); }
+.header-back-button svg { width: 16px; height: 16px; }
+html[data-theme="noite"] { --looply-icon-color: #fff; }
 .navigation-badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--surface-strong); border-radius: 999px; color: #fff; background: #cf3154; font-size: 9px; font-weight: 800; line-height: 1; }
 .page-navigation-label { white-space: nowrap; }
 .looply-account { display: flex; align-items: center; gap: 9px; }
@@ -39,6 +43,7 @@
   .looply-page .page-navigation .header-action { font-size: 9px; }
   .page-navigation-label[data-short-label] { font-size: 0; }
   .page-navigation-label[data-short-label]::after { content: attr(data-short-label); font-size: 10px; }
+  .header-back-button .back-label { display: none; }
   .looply-account > span { display: none; }
   .looply-account .theme-picker { display: none; }
 }

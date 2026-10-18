@@ -590,7 +590,7 @@ test("global navigation keeps the six core pages and puts profile tools in the a
   assert.match(primaryNavigation, /"letters", "Cartas"/);
   assert.match(primaryNavigation, /"notifications", "Notificações"/);
   assert.doesNotMatch(primaryNavigation, /"users"|"profile"|"settings"/);
-  assert.match(runtime, /class="account-menu-link" href="usuarios\.html"/);
+  assert.match(runtime, /class="account-menu-link"[^>]*href="usuarios.html"/);
   assert.match(runtime, /data-sign-out/);
   assert.match(shared, /\.account-menu-popover/);
 });
@@ -750,4 +750,38 @@ test("letters and archived media retain RLS, encryption and receipt-aware chat",
   assert.match(chat, /message\.read_at \? "Lida" : message\.delivered_at \? "Entregue"/);
   assert.match(css, /--looply-visible-height/);
   assert.match(adminFunction, /expectedSize > 209_715_200/);
+});
+
+
+test("shared header provides one accessible back control, active navigation, and authenticated profile across secondary pages", async () => {
+  const [runtime, shared, conversation, pages] = await Promise.all([
+    read("src/page-runtime.js"),
+    read("assets/css/pages/shared.css"),
+    read("assets/js/conversation.js"),
+    Promise.all(["home.html", "chat.html", "conversa.html", "cartas.html", "musicas.html", "notificacoes.html", "usuarios.html", "perfil.html", "configuracoes.html", "admin.html"].map(read))
+  ]);
+  assert.match(runtime, /data-site-header/);
+  assert.match(runtime, /data-page-back/);
+  assert.match(runtime, /window\.history\.back\(\)/);
+  assert.match(runtime, /navigationIcons\.back/);
+  assert.match(runtime, /aria-current/);
+  assert.match(runtime, /loadProfileAvatar\(profile\)/);
+  assert.match(runtime, /onAuthStateChange/);
+  assert.match(runtime, /looply-activity-\$\{user\.id\}/);
+  assert.match(shared, /--looply-icon-color, #000/);
+  assert.match(shared, /data-theme="noite"/);
+  assert.doesNotMatch(conversation, /conversation-back/);
+  for (const page of pages) assert.match(page, /data-site-header/);
+});
+
+test("the removed real-time status slogan is absent without removing Supabase realtime channels", async () => {
+  const [runtime, chat, music, conversation, enhancements] = await Promise.all([
+    read("src/page-runtime.js"), read("src/chat.js"), read("src/music.js"),
+    read("assets/js/conversation.js"), read("src/chat-enhancements.js")
+  ]);
+  const activeUi = [runtime, chat, music, conversation, enhancements].join("\\n");
+  assert.doesNotMatch(activeUi, /atualizações em tempo real ativas/i);
+  assert.match(runtime, /\.subscribe\(\)/);
+  assert.match(chat, /postgres_changes|\.subscribe\(/);
+  assert.match(music, /postgres_changes|\.subscribe\(/);
 });

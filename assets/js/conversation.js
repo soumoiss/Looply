@@ -7,7 +7,6 @@ await mountAppPage({ page: "conversation", render: async ({ root, client, user }
   root.dataset.conversationPage = "true";
   const data = await loadChatData(client, user.id);
   root.innerHTML = chatMarkup(data, user.id);
-  root.insertAdjacentHTML("afterbegin", `<a class="conversation-back" href="chat.html">← Conversas</a>`);
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
   setupChatCalls(root, client, user.id);
