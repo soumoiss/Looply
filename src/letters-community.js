@@ -100,7 +100,7 @@ export function communityLettersMarkup(letters, profiles, userId) {
       "<label>Assunto<input name=\"subject\" maxlength=\"120\" required></label>" +
       "<label>Mensagem<textarea name=\"body\" rows=\"5\" maxlength=\"5000\" required></textarea></label>" +
       "<label class=\"community-letter-protect\"><input type=\"checkbox\" name=\"is_protected\" data-letter-protected> " + icon("lock") + " Proteger a carta com senha</label>" +
-      "<label data-letter-password-wrap hidden>Senha da carta<input name=\"password\" type=\"password\" minlength=\"8\" maxlength=\"256\" autocomplete=\"new-password\" data-letter-password disabled></label>" +
+      "<label data-letter-password-wrap hidden>Senha da carta<input name=\"password\" type=\"password\" autocomplete=\"new-password\" data-letter-password disabled><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>" + icon("eye") + "</button></label>" +
       "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
       "<p class=\"form-status\" data-community-letter-compose-status role=\"status\" aria-live=\"polite\"></p>" +
     "</form></section>" +
@@ -111,7 +111,7 @@ export function communityLettersMarkup(letters, profiles, userId) {
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
-      "<form data-community-letter-unlock hidden><label>Senha da carta<input type=\"password\" name=\"password\" autocomplete=\"current-password\" required></label>" +
+      "<form data-community-letter-unlock hidden><label>Senha da carta<input type=\"password\" name=\"password\" autocomplete=\"current-password\" required><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>"+ icon("eye") +"</button></label>" +
       "<button class=\"primary-button compact-button\" type=\"submit\">Desbloquear</button><p class=\"form-status\" data-community-letter-unlock-status role=\"status\" aria-live=\"polite\"></p></form>" +
       "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre></div></dialog>";
 }
