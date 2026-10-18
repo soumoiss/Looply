@@ -47,7 +47,7 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
       : "";
     const createdAt = escapeHtml(item.created_at || "");
     const sortName = escapeHtml(String(item.file_name || item.source_path || "").toLocaleLowerCase("pt-BR"));
-    return '<article class="archive-media-tile" data-kind="' + kind + '" data-access="' + access + '" data-created-at="' + createdAt + '" data-name="' + sortName + '" data-search="' + searchText + '">' +
+    return '<article class="archive-media-tile" data-gallery-source="archive" data-media-id="' + escapeHtml(item.id) + '" data-kind="' + kind + '" data-access="' + access + '" data-created-at="' + createdAt + '" data-name="' + sortName + '" data-search="' + searchText + '">' +
       '<button class="archive-media-open" type="button" data-open-archive-media="' + escapeHtml(item.id) + '" aria-label="Abrir ' + title + '">' + preview +
       '<span class="archive-media-caption"><strong>' + title + '</strong><small>' + kind + ' · ' + escapeHtml(formatDate(item.created_at)) + '</small></span></button>' + legacyComment + '</article>';
   }).join("");
@@ -72,14 +72,14 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
       '<div class="archive-viewer-backdrop" data-archive-viewer-close></div>' +
       '<section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">' +
         '<header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>' +
-          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
+          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-people-toggle aria-label="Pessoas e opções" title="Pessoas e opções">•••</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
         '</header>' +
         '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
         '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
           '<div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>' +
           '<div class="archive-viewer-content" data-archive-viewer-content></div>' +
         '</div>' +
-        '<aside class="archive-viewer-comments"><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
+        '<aside class="archive-viewer-comments"><section class="archive-viewer-people"><div class="archive-viewer-people-heading"><h3>Pessoas</h3><button type="button" data-archive-people-inline-toggle>Gerenciar</button></div><div class="archive-viewer-people-list" data-archive-viewer-people-list></div><div class="archive-viewer-people-panel" data-archive-viewer-people-panel hidden><label>Quem aparece nesta mídia<select multiple size="5" data-archive-people-select></select></label><button type="button" data-archive-people-save>Salvar marcações</button><span class="gallery-community-status" data-archive-people-status role="status"></span></div></section><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
           '<p data-no-comment hidden>Você pode visualizar esta mídia, mas não tem permissão para comentar.</p>' +
           '<form class="archive-media-comment-form" data-archive-media-comment><label for="archiveMediaCommentBody">Adicionar comentário</label><textarea id="archiveMediaCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário"></textarea>' +
             '<label for="archiveMediaCommentAudience">Quem poderá ver este comentário?</label><select id="archiveMediaCommentAudience" name="audience" data-comment-audience>' +
@@ -128,7 +128,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
   const state = {
     media: [...media], activeId: null, zoom: 1, panX: 0, panY: 0,
     dragging: null, gesture: null, channel: null, lastFocus: null,
-    profileOptionsLoaded: false, profileOptionsLoading: null, thumbnailObserver: null
+    profileOptionsLoaded: false, profileOptionsLoading: null, thumbnailObserver: null, peopleProfiles: null
   };
   const viewer = root.querySelector("[data-archive-viewer]");
   const viewerContent = root.querySelector("[data-archive-viewer-content]");
@@ -317,6 +317,31 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     image.style.cursor = state.zoom > 1 ? (state.dragging ? "grabbing" : "grab") : "zoom-in";
   }
 
+  async function loadArchivePeople(item) {
+    if (!item) return;
+    const list=root.querySelector("[data-archive-viewer-people-list]"), panel=root.querySelector("[data-archive-viewer-people-panel]"), select=root.querySelector("[data-archive-people-select]"), status=root.querySelector("[data-archive-people-status]");
+    const result=await client.from("gallery_media_people").select("person_id,person:profiles!gallery_media_people_person_id_fkey(id,username,display_name)").eq("source","archive").eq("media_id",item.id);
+    if(result.error)throw result.error;
+    list?.replaceChildren();
+    for(const row of result.data||[]){const chip=document.createElement("span");chip.textContent=row.person?.display_name||row.person?.username||"Membro";list?.append(chip);}
+    if(list&&!result.data?.length)list.textContent="Sem marcações";
+    if(panel)panel.hidden=true;
+    if(isAdmin&&select){
+      if(!state.peopleProfiles){const p=await client.from("profiles").select("id,username,display_name").order("display_name").limit(500);if(p.error)throw p.error;state.peopleProfiles=p.data||[];}
+      const chosen=new Set((result.data||[]).map(r=>String(r.person_id)));select.replaceChildren();
+      for(const p of state.peopleProfiles){const o=document.createElement("option");o.value=p.id;o.textContent=(p.display_name||p.username)+(p.username?" · @"+p.username:"");o.selected=chosen.has(String(p.id));select.append(o);}
+      if(status)status.textContent="";
+    }
+  }
+  async function saveArchivePeople(){
+    const item=current(),select=root.querySelector("[data-archive-people-select]"),status=root.querySelector("[data-archive-people-status]"),button=root.querySelector("[data-archive-people-save]");
+    if(!item||!isAdmin||!select)return;button.disabled=true;if(status)status.textContent="Salvando marcações…";
+    try{const d=await client.from("gallery_media_people").delete().eq("source","archive").eq("media_id",item.id);if(d.error)throw d.error;
+      const ids=[...select.selectedOptions].map(o=>o.value);if(ids.length){const r=await client.from("gallery_media_people").insert(ids.map(person_id=>({source:"archive",media_id:item.id,person_id,created_by:user.id})));if(r.error)throw r.error;}
+      if(status)status.textContent="Marcações salvas na nuvem.";await loadArchivePeople(item);root.dispatchEvent(new CustomEvent("gallery-people-refresh"));
+    }catch(e){console.error("Archive tags save failed",e);if(status)status.textContent="Não foi possível salvar. Confira as permissões.";}finally{button.disabled=false;}
+  }
+
   async function show(item, trigger = document.activeElement) {
     if (!item || !viewer) return;
     state.activeId = item.id;
@@ -349,8 +374,8 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     const visible = visibleMedia();
     const position = visible.findIndex((entry) => entry.id === item.id);
     const neighbors = [visible[position - 1], item, visible[position + 1]].filter(Boolean);
-    const [signedResult, commentsResult] = await Promise.allSettled([
-      ensureSigned(neighbors), loadComments(item)
+    const [signedResult, commentsResult, peopleResult] = await Promise.allSettled([
+      ensureSigned(neighbors), loadComments(item), loadArchivePeople(item)
     ]);
     if (signedResult.status === "rejected") console.warn("Looply archive viewer media load failed", signedResult.reason);
     if (commentsResult.status === "rejected") {
@@ -424,6 +449,8 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
   }
 
   root.addEventListener("click", (event) => {
+    if(event.target.closest("[data-archive-people-toggle],[data-archive-people-inline-toggle]")){const panel=root.querySelector("[data-archive-viewer-people-panel]");if(panel)panel.hidden=!panel.hidden;return;}
+    if(event.target.closest("[data-archive-people-save]")){void saveArchivePeople();return;}
     const description = event.target.closest("[data-open-archive-description]");
     if (description) {
       event.preventDefault();
@@ -599,6 +626,9 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
       if (!item || item.id !== payload.new.media_id) return;
       try { await loadComments(item, true); }
       catch (error) { console.error("Looply archive comments refresh failed", error); }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "gallery_media_people" }, async (payload) => {
+      const item=current();if(item&&payload.new?.source==="archive"&&payload.new?.media_id===item.id){try{await loadArchivePeople(item);}catch(error){console.warn("Archive tags refresh failed",error);}}root.dispatchEvent(new CustomEvent("gallery-people-refresh"));
     })
     .subscribe();
   window.addEventListener("pagehide", () => {
