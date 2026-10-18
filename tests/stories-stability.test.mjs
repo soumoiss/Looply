@@ -68,12 +68,12 @@ test("story media retries signed URLs per object and exposes a retry control whe
 test("private story replies have a deployed database RPC and persist a direct message", async () => {
   const migration = await read("supabase/migrations/20261018235900_restore_story_private_reply_rpc.sql");
   const source = await read("src/stories.js");
-  assert.match(migration, /create or replace function public\\.send_story_reply\\(p_story_id uuid, p_body text\\)/i);
-  assert.match(migration, /grant execute on function public\\.send_story_reply\\(uuid, text\\) to authenticated/i);
-  assert.match(migration, /private\\.can_view_story\\(p_story_id\\)/);
-  assert.match(migration, /create_direct_conversation\\(actor_id, story_author_id\\)/);
-  assert.match(migration, /insert into public\\.chat_messages \\(conversation_id, sender_id, body\\)/);
-  assert.match(migration, /insert into public\\.story_replies/);
-  assert.match(source, /client\\.rpc\\("send_story_reply", \\{ p_story_id: story\\.id, p_body: body \\}\\)/);
-  assert.match(source, /A resposta não foi enviada\\. Verifique a conexão/);
+  assert.match(migration, /create or replace function public\.send_story_reply\(p_story_id uuid, p_body text\)/i);
+  assert.match(migration, /grant execute on function public\.send_story_reply\(uuid, text\) to authenticated/i);
+  assert.match(migration, /private\.can_view_story\(p_story_id\)/);
+  assert.match(migration, /create_direct_conversation\(actor_id, story_author_id\)/);
+  assert.match(migration, /insert into public\.chat_messages \(conversation_id, sender_id, body\)/);
+  assert.match(migration, /insert into public\.story_replies/);
+  assert.match(source, /client\.rpc\("send_story_reply", \{ p_story_id: story\.id, p_body: body \}\)/);
+  assert.match(source, /A resposta não foi enviada\. Verifique a conexão/);
 });
