@@ -217,7 +217,7 @@ export function setupChatEnhancements(root, client, userId) {
     if (target.matches("[data-v2-color]")) {
       const id = settingsScope; const color = target.dataset.v2Color || "";
       if (color) wallpapers[id] = color; else delete wallpapers[id];
-      write(wallpaperKey, wallpapers); applyWallpaper(); renderSettings(true); return;
+      write(wallpaperKey, wallpapers); applyWallpaper(); renderSettings(settingsScope !== "*"); return;
     }
   });
   root.addEventListener("change", async (event) => {
@@ -230,8 +230,7 @@ export function setupChatEnhancements(root, client, userId) {
       const id = settingsScope;
       wallpapers[id] = `url("${String(reader.result).replace(/["\\\\]/g, "")}")`;
       if (!write(wallpaperKey, wallpapers)) { toast("Armazenamento local cheio; tente uma imagem menor."); return; }
-      const thread = root.querySelector("[data-chat-thread]");
-      if (thread) { thread.style.backgroundImage = wallpapers[id]; thread.style.backgroundSize = "cover"; }
+      applyWallpaper();
       closeModal(); toast("Papel de parede atualizado.");
     };
     reader.readAsDataURL(file);
