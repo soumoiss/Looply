@@ -230,7 +230,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
     ? "Não foi possível carregar os perfis; atualize antes de enviar para pessoas escolhidas."
     : eligiblePeople.length ? "Selecione uma ou mais pessoas visíveis."
       : "Nenhum outro perfil visível está disponível.";
-  return '<section class="story-area" aria-labelledby="storyAreaTitle">' +
+  return '<section class="story-area" id="stories" aria-labelledby="storyAreaTitle">' +
     '<div class="story-area-heading"><div><span class="section-kicker">Stories</span><h2 id="storyAreaTitle">Stories</h2></div>' +
     '<button class="text-button" type="button" data-story-create-open>Adicionar story</button></div>' +
     '<div class="story-list" data-story-list aria-label="Stories ativos">' +
