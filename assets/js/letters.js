@@ -30,7 +30,7 @@ function writtenLettersMarkup(letters, userId) {
   }).join("");
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
-  const [archiveResult, letterResult, communityResult, profilesResult] = await Promise.allSettled([
+  const [archiveResult, communityResult, profilesResult] = await Promise.allSettled([
     loadArchivedCards(client, user.id), loadCommunityLetters(client, user.id),
     client.from("profiles").select("id,username,display_name").order("username").limit(100)
   ]);
