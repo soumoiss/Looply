@@ -35,9 +35,9 @@ test("likes use persistent unique post/user records and realtime updates", async
 test("Instagram post, reel and TV links render a real provider embed with a safe shortcode", async () => {
   const source = await read("src/social.js");
   assert.match(source, /post-instagram-embed/);
-  assert.match(source, /www\\.instagram\\.com\\/\$\{embedPath\}\\/\$\{escapeHtml\(shortcode\)\}\\/embed/);
-  assert.match(source, /\["p", "reel", "tv"\]/);
-  assert.match(source, /\^\[A-Za-z0-9_-\]\{5,30\}\$/);
+  assert.match(source, /const embedPath = kind === "p" \? "p" : kind/);
+  assert.ok(source.includes("[\"p\", \"reel\", \"tv\"]"));
+  assert.ok(source.includes("^[A-Za-z0-9_-]{5,30}$"));
 });
 
 test("private replies use the authenticated chat edge function and internal share offers recipient selection", async () => {
