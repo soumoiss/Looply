@@ -99,7 +99,9 @@ export function setupChatEnhancements(root, client, userId) {
     const thread = root.querySelector("[data-chat-thread]");
     if (!thread) return;
     const value = wallpapers[id] || "";
-    thread.style.backgroundColor = value || "";
+    thread.style.backgroundColor = value.startsWith("url(") ? "" : (value || "");
+    thread.style.backgroundImage = value.startsWith("url(") ? value : "none";
+    thread.style.backgroundSize = value.startsWith("url(") ? "cover" : "";
     thread.classList.toggle("is-chat-v2-dark", value === "#202938");
   };
   const renderTools = () => {
@@ -181,16 +183,17 @@ export function setupChatEnhancements(root, client, userId) {
     }
     if (target.matches("[data-v2-decline]")) { await sendGame("decline"); closeModal(); return; }
     if (target.matches("[data-v2-accept]")) {
-      const state = { cells: Array(9).fill(null), turn: userId, x: "X", o: "O", xName: "X", oName: "O" };
-      gameState = state; ownTurn = true;
+      const state = { cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: gameInvite.senderId, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
+      gameState = state; ownTurn = false;
       await sendGame("state", { state }); renderGame(); return;
     }
     if (target.matches("[data-v2-cell]")) {
       const index = Number(target.dataset.v2Cell);
       if (!gameState || gameState.turn !== userId || gameState.cells[index] || winner(gameState.cells)) return;
-      const cells = [...gameState.cells]; cells[index] = "X";
+      const cells = [...gameState.cells]; cells[index] = userId === gameState.xPlayer ? "X" : "O";
       const result = winner(cells);
-      gameState = { ...gameState, cells, turn: result ? null : "peer" };
+      const nextTurn = userId === gameState.xPlayer ? gameState.oPlayer : gameState.xPlayer;
+      gameState = { ...gameState, cells, turn: result ? null : nextTurn };
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-close-game]")) { await sendGame("close"); closeModal(); return; }
