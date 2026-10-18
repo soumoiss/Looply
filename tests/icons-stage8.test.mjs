@@ -72,3 +72,33 @@ test("shared icon styles preserve theme inheritance, focus visibility and touch 
   assert.match(css, /:focus-visible/);
   assert.match(css, /min-height:\s*44px/);
 });
+
+test("Stage 8 icon inventory documents the full registry and semantic states", async () => {
+  const inventory = await read("docs/icon-inventory.md");
+  for (const name of iconNames) {
+    assert.match(inventory, new RegExp("`" + name + "`"), "inventory missing " + name);
+  }
+  for (const name of ["permissionDenied", "offline", "alert", "empty", "sync", "loader", "check", "external", "menu", "more", "grid", "star", "starFilled"]) {
+    assert.ok(iconNames.includes(name), "missing semantic icon " + name);
+  }
+  assert.match(inventory, /https:\/\/icons8\.com\/icons\/collections\/ui/);
+  assert.match(inventory, /https:\/\/icons8\.com\/icons\/set\/close/);
+});
+
+test("Stage 8 uses the shared registry instead of improvised UI glyphs", async () => {
+  const [social, enhancements, chat, music, admin] = await Promise.all([
+    read("src/social.js"), read("src/chat-enhancements.js"), read("src/chat.js"),
+    read("src/music.js"), read("src/admin.js")
+  ]);
+  assert.match(social, /Abrir conteúdo original '\s*\+ icon\("external"\)/);
+  assert.match(enhancements, /button\.innerHTML = icon\("menu"\)/);
+  assert.match(enhancements, /icon\(favorites\.has\(id\) \? "starFilled" : "star"\)/);
+  assert.match(enhancements, /icon\("more"\)/);
+  assert.match(enhancements, /icon\("grid"\)/);
+  assert.match(chat, /aria-label="Voltar às conversas">\$\{icon\("back"\)\}/);
+  assert.match(music, /icon\("external"\)/);
+  assert.match(admin, /icon\("external"\)/);
+  assert.doesNotMatch(enhancements, /button\.textContent = "☰"|favorites\.has\(id\) \? "★" : "☆"|>⋯<|>▦</);
+  assert.doesNotMatch(chat, /data-chat-back[^>]*>←</);
+  assert.doesNotMatch(social, /Abrir conteúdo original ↗/);
+});
