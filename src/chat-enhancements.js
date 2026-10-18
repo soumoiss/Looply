@@ -158,21 +158,24 @@ export function setupChatEnhancements(root, client, userId) {
       if (activeFilter === "groups" || activeFilter === "favorites") item.hidden = !matches;
     });
   };
+  root.addEventListener("click", (event) => {
+    const favorite = event.target.closest("[data-v2-favorite]");
+    if (!favorite) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const id = favorite.dataset.v2Favorite;
+    if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
+    write(favoritesKey, [...favorites]);
+    favorite.textContent = favorites.has(id) ? "★" : "☆";
+    favorite.setAttribute("aria-pressed", String(favorites.has(id)));
+    applyFilters();
+  }, true);
   root.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
     if (target.matches("[data-v2-close]")) { closeModal(); return; }
     if (target.matches("[data-v2-settings]")) { renderSettings(false); return; }
     if (target.matches("[data-v2-thread-settings]")) { renderSettings(true); return; }
-    if (target.matches("[data-v2-favorite]")) {
-      event.preventDefault(); event.stopPropagation();
-      const id = target.dataset.v2Favorite;
-      if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
-      write(favoritesKey, [...favorites]);
-      target.textContent = favorites.has(id) ? "★" : "☆";
-      target.setAttribute("aria-pressed", String(favorites.has(id)));
-      applyFilters(); return;
-    }
     if (target.matches("[data-v2-game]")) {
       if (isGroup()) { toast("O jogo está disponível apenas em conversas individuais."); return; }
       const name = root.querySelector(".chat-thread-heading strong")?.textContent || "Contato";
