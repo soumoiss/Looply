@@ -28,6 +28,7 @@ export function adminMarkup(profile = {}) {
           <option value="posts">Publicações, comentários e mídias</option>
           <option value="music_dedications">Músicas e comentários</option>
           <option value="music_library">Coleções pessoais de músicas</option>
+          <option value="youtube_track_comments">Comentários por música</option>
           <option value="letters">Cartas para Peixinho</option>
           <option value="conversations">Conversas privadas</option>
           <option value="chat_messages">Mensagens de chat e anexos</option>
@@ -89,6 +90,9 @@ function itemMarkup(resourceType, item) {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}${item.artist ? ` · ${escapeHtml(item.artist)}` : ""}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
       <p class="admin-record-body">${escapeHtml(item.dedication_note)}</p><p>@${escapeHtml(item.sender?.username || "perfil restrito")} → @${escapeHtml(item.recipient?.username || "perfil restrito")}</p>
       <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ↗</a>${comments ? `<details><summary>Comentários</summary><ul>${comments}</ul></details>` : ""}</article>`;
+  }
+  if (resourceType === "youtube_track_comments") {
+    return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.author?.display_name || item.author?.username || "Usuário")} · comentário de música</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p><p>Playlist: ${escapeHtml(item.playlist_id)} · Vídeo: ${escapeHtml(item.video_id)}</p><small>Comentário UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "music_library") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}${item.artist ? ` · ${escapeHtml(item.artist)}` : ""}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
