@@ -624,3 +624,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .dashboard-account .theme-control select { max-width: 75px; }
   .dashboard-account .secondary-button { min-height: 34px; padding: 0 8px; }
 }
+
+
+/* Stage 8: one visual contract for inline semantic icons across themes and breakpoints. */
+.looply-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.18em;
+  color: currentColor;
+  pointer-events: none;
+}
+button .looply-icon,
+a .looply-icon,
+label .looply-icon {
+  margin-inline-end: .35em;
+}
+button:has(> .looply-icon:only-child) .looply-icon,
+a:has(> .looply-icon:only-child) .looply-icon {
+  margin-inline-end: 0;
+}
