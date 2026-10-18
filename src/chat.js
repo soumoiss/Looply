@@ -613,6 +613,20 @@ export function disposeChatRealtime(client) {
 }
 
 export function bindChatEvents(root, client, getUserId) {
+  // Signed avatar URLs may expire or the stored object may be missing. Replace only
+  // failed images with the same visual fallback used when no avatar is configured.
+  root.addEventListener("error", (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.matches(".chat-conversation-avatar, .chat-person-avatar, .chat-group-option-avatar, .chat-thread-avatar, .chat-message-avatar")) return;
+    const container = image.closest(".chat-conversation, .chat-person, .chat-group-option, .chat-thread-heading, .chat-message-row");
+    const label = container?.querySelector(".chat-conversation-copy strong, .chat-person strong, .chat-group-option strong, .chat-thread-heading strong, .chat-message-meta strong");
+    const initial = (label?.textContent?.trim() || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+    const fallback = document.createElement("span");
+    fallback.className = image.className;
+    fallback.setAttribute("aria-hidden", "true");
+    fallback.textContent = initial;
+    image.replaceWith(fallback);
+  }, true);
   if (root.dataset.conversationPage === "true" && window.visualViewport) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
