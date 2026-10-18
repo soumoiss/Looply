@@ -1,8 +1,37 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-const read=(path)=>readFile(new URL("../"+path,import.meta.url),"utf8");
-test("profile images are cropped to a real 512x512 square before upload",async()=>{const s=await read("src/profiles.js");assert.match(s,/data-profile-crop-dialog/);assert.match(s,/data-crop-x/);assert.match(s,/data-crop-y/);assert.match(s,//canvas\\\.width=512;canvas\\\.height=512/g/);assert.match(s,/validatedBitmap\.width === 512 && validatedBitmap\.height === 512/);assert.match(s,/uploadData\.path !== newAvatarPath/);});
-test("missing avatars are routed to profile selection without losing existing profile data",async()=>{const [r,s]=await Promise.all([read("src/page-runtime.js"),read("src/profiles.js")]);assert.match(r,/!profile\.avatar_path && page !== "profile"/);assert.match(r,/perfil\.html\?foto=obrigatoria/);assert.match(s,/avatar-required/);assert.match(s,/A foto atual foi preservada/);assert.match(s,/avatar-replacement-required/);});
-test("profile cleanup removes community search and personalization slogan",async()=>{const s=await read("src/profiles.js");assert.doesNotMatch(s,/Encontre seus amigos|profile-people-search|Deixe seu perfil com a sua cara/);assert.match(s,/Editar perfil/);});
-test("avatar cropper exposes cancel/save controls and accessible labels",async()=>{const [s,c]=await Promise.all([read("src/profiles.js"),read("assets/css/pages/profile.css")]);assert.match(s,/data-crop-cancel/);assert.match(s,/data-crop-save/);assert.match(s,/aria-label="Fechar recorte"/);assert.match(c,/\.profile-crop-dialog::backdrop/);});
+const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+
+test("profile images are cropped to a real 512x512 square before upload", async () => {
+  const source = await read("src/profiles.js");
+  assert.match(source, /data-profile-crop-dialog/);
+  assert.match(source, /data-crop-x/);
+  assert.match(source, /data-crop-y/);
+  assert.match(source, /canvas\.width=512;canvas\.height=512/);
+  assert.match(source, /validatedBitmap\.width === 512 && validatedBitmap\.height === 512/);
+  assert.match(source, /uploadData\.path !== newAvatarPath/);
+});
+
+test("missing avatars are routed to profile selection", async () => {
+  const [runtime, source] = await Promise.all([read("src/page-runtime.js"), read("src/profiles.js")]);
+  assert.match(runtime, /!profile\.avatar_path && page !== "profile"/);
+  assert.match(runtime, /perfil\.html\?foto=obrigatoria/);
+  assert.match(source, /avatar-required/);
+  assert.match(source, /A foto atual foi preservada/);
+  assert.match(source, /avatar-replacement-required/);
+});
+
+test("profile cleanup removes community search and personalization slogan", async () => {
+  const source = await read("src/profiles.js");
+  assert.doesNotMatch(source, /Encontre seus amigos|profile-people-search|Deixe seu perfil com a sua cara/);
+  assert.match(source, /Editar perfil/);
+});
+
+test("avatar cropper exposes cancel/save controls and accessible labels", async () => {
+  const [source, css] = await Promise.all([read("src/profiles.js"), read("assets/css/pages/profile.css")]);
+  assert.match(source, /data-crop-cancel/);
+  assert.match(source, /data-crop-save/);
+  assert.match(source, /aria-label="Fechar recorte"/);
+  assert.match(css, /\.profile-crop-dialog::backdrop/);
+});
