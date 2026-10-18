@@ -14,5 +14,5 @@ test("gallery privacy migration stores a hash and scopes notifications",async()=
  const sql=await read("supabase/migrations/20261018120000_gallery_social_experience.sql");
  assert.match(sql,/extensions\.crypt/); assert.match(sql,/verify_gallery_private_passcode/);
  assert.match(sql,/community_gallery_comment_recipients/); assert.match(sql,/gallery_tag/);
- assert.match(sql,/Tagged person must be able to view this media/);
+ assert.match(sql,/Tagged person must be able to view this media/); assert.match(sql,/Comment recipient must be able to view this media/);
 });
