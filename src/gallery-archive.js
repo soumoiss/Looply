@@ -325,7 +325,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     list?.replaceChildren();
     for(const row of result.data||[]){const chip=document.createElement("span");chip.textContent=row.person?.display_name||row.person?.username||"Membro";list?.append(chip);}
     if(list&&!result.data?.length)list.textContent="Sem marcações";
-    if(panel)panel.hidden=!isAdmin;
+    if(panel)panel.hidden=true;
     if(isAdmin&&select){
       if(!state.peopleProfiles){const p=await client.from("profiles").select("id,username,display_name").order("display_name").limit(500);if(p.error)throw p.error;state.peopleProfiles=p.data||[];}
       const chosen=new Set((result.data||[]).map(r=>String(r.person_id)));select.replaceChildren();
