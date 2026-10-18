@@ -59,3 +59,16 @@
 }
 
 
+
+/* Stage 7: square avatar cropper */
+.profile-photo-picker svg {width:16px;height:16px;flex:0 0 auto}.profile-photo-picker{display:inline-flex;gap:7px}
+.profile-icon-button{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--border);border-radius:11px;color:var(--text);background:var(--surface);cursor:pointer}.profile-icon-button svg{width:18px;height:18px}
+.profile-crop-dialog{width:min(92vw,460px);max-height:90dvh;padding:0;overflow:auto;border:1px solid var(--border);border-radius:20px;color:var(--text);background:var(--surface);box-shadow:var(--shadow-md)}
+.profile-crop-dialog::backdrop{background:rgba(20,13,29,.65);backdrop-filter:blur(3px)}.profile-crop-shell{display:grid;gap:12px;padding:18px}
+.profile-crop-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.profile-crop-heading h2{margin:0;font-size:20px}
+.profile-crop-shell>p{margin:0;color:var(--muted);font-size:13px}.profile-crop-window{position:relative;width:min(100%,320px);aspect-ratio:1;margin:0 auto;overflow:hidden;border-radius:14px;background:#18131e}
+.profile-crop-window img{position:absolute;max-width:none;object-fit:fill;user-select:none;pointer-events:none}.profile-crop-shell>label{font-size:12px;font-weight:700}
+.profile-crop-shell input[type=range]{width:100%;accent-color:var(--primary)}.profile-crop-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+.profile-crop-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.profile-photo-picker:focus-visible,.profile-icon-button:focus-visible,.profile-crop-actions button:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 50%,transparent);outline-offset:2px}
+@media(max-width:520px){.profile-crop-shell{padding:14px}.profile-crop-window{width:min(100%,280px)}}
