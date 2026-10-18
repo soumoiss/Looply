@@ -27,3 +27,58 @@
 .community-gallery-upload input{width:100%;min-height:40px;border:1px solid var(--g-line);border-radius:10px;padding:8px;background:#fff;color:var(--g-text);font:inherit}
 .community-gallery-upload input[type=file]{padding:6px;font-size:.82rem}
 .community-gallery-upload small{color:var(--g-muted);font-size:.82rem}
+
+
+/* GalleryPro visual replacement: keep the Looply app shell/auth, replace the old gallery chrome. */
+.page-gallery [data-site-header],.page-gallery>.container-page>.looply-footer{display:none!important}
+.page-gallery .container-page{width:100%;max-width:none;padding:0}
+.page-gallery .gallery-experience{width:min(100%,1440px);margin:0 auto;padding:clamp(12px,2.5vw,30px)}
+.page-gallery .gallery-topbar{position:sticky;top:0;z-index:90;margin:calc(-1 * clamp(12px,2.5vw,30px)) calc(-1 * clamp(12px,2.5vw,30px)) 24px;padding:12px clamp(12px,2.5vw,30px);min-height:76px;background:rgba(250,250,251,.94);backdrop-filter:blur(16px);border-bottom:1px solid var(--g-line)}
+.page-gallery .gallery-brand-mark{width:48px;height:48px;border-radius:16px}
+.page-gallery .gallery-brand-name{font-size:clamp(1.55rem,3vw,2rem)}
+.page-gallery .gallery-add-button{width:46px;height:46px;border-radius:14px}
+.page-gallery .gallery-categories{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 22px}
+.page-gallery .gallery-category{justify-content:flex-start;min-height:58px;padding:12px 16px;border-radius:16px;font-size:.92rem}
+.page-gallery .gallery-category:first-child{background:var(--cat-recent-bg);color:#9f1239}
+.page-gallery .gallery-category:first-child .gallery-category-icon{color:#ec4899}
+.page-gallery .gallery-category:nth-child(2){background:var(--cat-recent-bg);color:#9f1239}
+.page-gallery .gallery-category:nth-child(2) .gallery-category-icon{color:#ec4899}
+.page-gallery .gallery-category:nth-child(3){background:var(--cat-videos-bg);color:#1d4ed8}
+.page-gallery .gallery-category:nth-child(3) .gallery-category-icon{color:#2563eb}
+.page-gallery .gallery-category:nth-child(4){background:var(--cat-private-bg);color:#7e22ce}
+.page-gallery .gallery-category:nth-child(4) .gallery-category-icon{color:#9333ea}
+.page-gallery .gallery-category:nth-child(5){background:var(--cat-people-bg);color:#92400e}
+.page-gallery .gallery-category:nth-child(5) .gallery-category-icon{color:#d97706}
+.page-gallery .gallery-category.is-active{outline:2px solid #8e44ad65;outline-offset:1px;box-shadow:0 6px 18px #8e44ad14}
+.page-gallery .gallery-toolbar{margin-bottom:2px}
+.page-gallery .gallery-content{display:flex;flex-direction:column;gap:0}
+.page-gallery .gallery-content>section{margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.page-gallery .archive-media-heading,.page-gallery .community-gallery-heading{display:none!important}
+.page-gallery .archive-gallery-toolbar{display:none!important}
+.page-gallery .archive-media-grid,.page-gallery .community-gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0}
+.page-gallery .archive-media-tile,.page-gallery .community-gallery-card{overflow:hidden;border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 4px 15px #1f293708;break-inside:avoid}
+.page-gallery .archive-media-open>img,.page-gallery .archive-media-open>.archive-media-placeholder{display:grid;width:100%;min-height:120px;aspect-ratio:4/3;object-fit:cover;place-items:center;background:#f3f4f6;color:#6b7280}
+.page-gallery .archive-media-caption{padding:11px 12px}
+.page-gallery .archive-media-caption strong,.page-gallery .community-gallery-card-copy strong{font-size:.84rem}
+.page-gallery .archive-media-caption small,.page-gallery .community-gallery-card-copy span{font-size:.73rem}
+.page-gallery .community-gallery-visual img,.page-gallery .community-gallery-visual video{aspect-ratio:4/3;object-fit:cover}
+.page-gallery .community-gallery-empty:only-child{display:none}
+.page-gallery .archive-media-tile[hidden],.page-gallery .community-gallery-card[hidden]{display:none!important}
+.page-gallery .archive-media-grid[data-view=list],.page-gallery .community-gallery-grid[data-view=list]{grid-template-columns:1fr}
+.page-gallery .archive-media-grid[data-view=list] .archive-media-tile,.page-gallery .community-gallery-grid[data-view=list] .community-gallery-card{grid-template-columns:minmax(110px,220px) minmax(0,1fr)}
+.page-gallery .archive-media-grid[data-view=masonry],.page-gallery .community-gallery-grid[data-view=masonry]{display:block;columns:4 210px;column-gap:12px}
+.page-gallery .archive-media-grid[data-view=masonry] .archive-media-tile,.page-gallery .community-gallery-grid[data-view=masonry] .community-gallery-card{display:inline-block;width:100%;margin:0 0 12px}
+.page-gallery .archive-media-grid[data-view=masonry] .archive-media-open>img,.page-gallery .community-gallery-grid[data-view=masonry] .community-gallery-visual img,.page-gallery .community-gallery-grid[data-view=masonry] .community-gallery-visual video{height:auto;aspect-ratio:auto;object-fit:contain}
+.page-gallery .community-gallery-upload.is-upload-modal{padding:18px}
+@media(max-width:900px){.page-gallery .archive-media-grid,.page-gallery .community-gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.page-gallery .archive-media-grid[data-view=masonry],.page-gallery .community-gallery-grid[data-view=masonry]{columns:3 170px}}
+@media(max-width:650px){
+ .page-gallery .gallery-topbar{margin:calc(-1 * clamp(12px,2.5vw,30px)) calc(-1 * clamp(12px,2.5vw,30px)) 18px;padding:10px 12px;min-height:66px}
+ .page-gallery .gallery-brand-mark{width:42px;height:42px}
+ .page-gallery .gallery-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
+ .page-gallery .gallery-category{flex-direction:row;justify-content:flex-start;min-height:54px;padding:10px 12px;font-size:.82rem}
+ .page-gallery .gallery-toolbar-actions{gap:6px}
+ .page-gallery .archive-media-grid,.page-gallery .community-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .page-gallery .archive-media-grid[data-view=masonry],.page-gallery .community-gallery-grid[data-view=masonry]{columns:2 135px;column-gap:7px}
+ .page-gallery .archive-media-grid[data-view=masonry] .archive-media-tile,.page-gallery .community-gallery-grid[data-view=masonry] .community-gallery-card{margin-bottom:7px}
+ .page-gallery .archive-media-tile,.page-gallery .community-gallery-card{border-radius:13px}
+}
