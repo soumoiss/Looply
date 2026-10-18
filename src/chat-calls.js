@@ -113,6 +113,18 @@ export function setupChatCalls(root, client, userId) {
     attachMedia();
     return pc;
   };
+  const waitForIceGatheringComplete = (peer, timeout = 5000) => new Promise((resolve) => {
+    if (!peer || peer.iceGatheringState === "complete") { resolve(); return; }
+    let timer;
+    const finish = () => {
+      peer.removeEventListener("icegatheringstatechange", check);
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    const check = () => { if (peer.iceGatheringState === "complete") finish(); };
+    peer.addEventListener("icegatheringstatechange", check);
+    timer = setTimeout(finish, timeout);
+  });
   const addPendingCandidates = async () => {
     if (!pc?.remoteDescription) return;
     const queued = pendingCandidates.splice(0);
@@ -133,6 +145,8 @@ export function setupChatCalls(root, client, userId) {
       callView("Chamando…");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
+      await waitForIceGatheringComplete(pc);
       const offerPayload = {
         description: pc.localDescription.toJSON(),
         mode,
@@ -167,6 +181,7 @@ export function setupChatCalls(root, client, userId) {
       await addPendingCandidates();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      await waitForIceGatheringComplete(pc);
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
       callView("Conectando…");
