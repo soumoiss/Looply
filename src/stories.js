@@ -1056,8 +1056,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         replyStatus.textContent = "Resposta enviada em particular. Abrindo conversa…";
         setTimeout(() => window.location.assign(`conversa.html?id=${encodeURIComponent(reply.conversation_id)}`), 650);
       } catch (error) {
-        console.error("Looply story reply failed.", error);
-        replyStatus.textContent = "Não foi possível enviar em particular. Tente novamente.";
+        console.error("Looply story reply failed.", {
+          code: error?.code || error?.cause?.code || "unknown",
+          message: error?.message || "unknown"
+        });
+        const code = error?.code || error?.cause?.code || "";
+        const message = String(error?.message || "");
+        if (code === "42501") {
+          replyStatus.textContent = "Não foi possível responder: o story pode ter expirado, não estar mais disponível para você ou o perfil não aceitar esta conversa.";
+        } else if (code === "22023") {
+          replyStatus.textContent = "Escreva uma resposta de até 2.000 caracteres.";
+        } else if (code === "PGRST202" || /send_story_reply/i.test(message) && /schema cache|could not find/i.test(message)) {
+          replyStatus.textContent = "O serviço de resposta ainda não está disponível. Atualize a página e tente novamente.";
+        } else {
+          replyStatus.textContent = "A resposta não foi enviada. Verifique a conexão e tente novamente; sua mensagem não foi marcada como enviada.";
+        }
       } finally {
         submit.disabled = false;
       }
