@@ -140,3 +140,13 @@ test("tic-tac-toe shows actual player names and resolves the winner from the win
   assert.match(source, /const winnerId = gameState\.winnerId \|\|/);
   assert.doesNotMatch(source, /senderName: root\.querySelector\("\[data-site-header\]"\)\?\.textContent/);
 });
+
+test("remote audio/video tracks are captured before answer negotiation and audio playback has an explicit fallback", async () => {
+  const source = await read("src/chat-calls.js");
+  assert.match(source, /let remoteStream = null/);
+  assert.match(source, /if \(pc\) \{\s*if \(!remoteStream\) remoteStream = new MediaStream\(\)/);
+  assert.match(source, /Install ontrack as soon as the peer connection exists/);
+  assert.match(source, /pc\.ontrack = \(event\) =>/);
+  assert.match(source, /data-call-enable-audio/);
+  assert.match(source, /remote\.muted = false/);
+});
