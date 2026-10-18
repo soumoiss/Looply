@@ -6,29 +6,12 @@ const allowedPlaylists = new Set([
   "PLMeQ_QyqhY7s"
 ]);
 const youtubeEndpoint = "https://www.googleapis.com/youtube/v3/playlistItems";
-const allowedOrigins = new Set([
-  "https://soumoiss.github.io",
-  "https://looply-mu.vercel.app",
-  "https://looply-git-codex-looply-foundation-mpsant0s-projects.vercel.app"
-]);
-
-function applyCors(request, response) {
-  const origin = String(request.headers?.origin || request.headers?.Origin || "");
-  response.setHeader("vary", "Origin, Authorization");
-  if (!origin) return true;
-  if (!allowedOrigins.has(origin)) return false;
-  response.setHeader("access-control-allow-origin", origin);
-  response.setHeader("access-control-allow-methods", "GET, OPTIONS");
-  response.setHeader("access-control-allow-headers", "authorization, content-type");
-  response.setHeader("access-control-max-age", "600");
-  return true;
-}
 
 function respond(response, status, body) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store");
-  response.setHeader("vary", "Origin, Authorization");
+  response.setHeader("vary", "Authorization");
   response.setHeader("x-content-type-options", "nosniff");
   response.end(JSON.stringify(body));
 }
@@ -73,17 +56,8 @@ export async function handleYouTubePlaylist(request, response, options = {}) {
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
 
-  if (!applyCors(request, response)) {
-    return respond(response, 403, { error: "youtube_origin_not_allowed" });
-  }
-  if (request.method === "OPTIONS") {
-    response.setHeader("allow", "GET, OPTIONS");
-    response.statusCode = 204;
-    response.end("");
-    return;
-  }
   if (request.method !== "GET") {
-    response.setHeader("allow", "GET, OPTIONS");
+    response.setHeader("allow", "GET");
     return respond(response, 405, { error: "method_not_allowed" });
   }
 

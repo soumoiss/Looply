@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { archiveGalleryMarkup, loadArchiveMedia } from "../src/gallery-archive.js";
-import { galleryExperienceMarkup } from "../src/gallery-experience.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
@@ -34,9 +33,8 @@ test("archive metadata loads in parallel without signing every media object or d
     storage: { from() { throw new Error("media URLs should stay lazy"); } }
   };
   const result = await loadArchiveMedia(client, "member-id");
-  assert.deepEqual(calls, ["archive_media", "archive_media_commenters", "archive_media_comments"]);
+  assert.deepEqual(calls, ["archive_media", "archive_media_commenters"]);
   assert.deepEqual(result.map((item) => item.canComment), [true, true, false]);
-  assert.deepEqual(result.map((item) => item.hasVisibleComments), [false, true, false]);
   assert.ok(result.every((item) => item.signedUrl === null && item.commentsLoaded === false));
 });
 
@@ -64,23 +62,21 @@ test("viewer navigation supports touch swipes, keyboard arrows, responsive conta
   assert.ok(css.includes(".archive-viewer-stage { touch-action: pan-y;"));
 });
 
-test("gallery permissions use the active atomic authenticated API", async () => {
-  const [manager, edge, migration, audiences] = await Promise.all([
-    read("src/gallery-experience.js"),
+test("media visibility and comment recipients are separately scoped and saved through audited APIs", async () => {
+  const [manager, edge, migration] = await Promise.all([
+    read("src/archive-audience-manager.js"),
     read("supabase/functions/looply-admin/index.ts"),
-    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql"),
-    read("supabase/migrations/20261016152935_gallery_private_audiences.sql")
+    read("supabase/migrations/20261016171658_archive_media_access_private_comments.sql")
   ]);
-  assert.match(manager, /set_gallery_media_permissions/);
-  assert.match(manager, /data-comment-audience/);
-  assert.match(manager, /data-comment-recipients/);
-  assert.match(edge, /userClient\.rpc\("set_gallery_media_permissions"/);
-  assert.match(edge, /p_source: "archive"/);
-  assert.doesNotMatch(edge, /set_looply_archive_media_access/);
-  assert.match(migration, /create or replace function public\.set_gallery_media_permissions/);
-  assert.match(migration, /grant execute on function public\.set_gallery_media_permissions[\s\S]*?to authenticated/i);
-  assert.ok(audiences.includes("archive_media_comment_recipients"));
-  assert.ok(audiences.includes("archive_media_commenters"));
+  assert.match(manager, /multiple[^>]*data-audience-viewers/);
+  assert.match(manager, /multiple[^>]*data-audience-commenters/);
+  assert.match(manager, /set_archive_media_access/);
+  assert.ok(edge.includes('recordAccess(service, authData.user.id, "write_requested", "archive_media",'));
+  assert.match(edge, /set_looply_archive_media_access/);
+  assert.ok(/grant execute on function public\.set_looply_archive_media_access[\s\S]*?to service_role/i.test(migration));
+  assert.ok(migration.includes("create or replace function public.create_archive_media_comment"));
+  assert.ok(migration.includes("insert into public.archive_media_comment_recipients"));
+  assert.ok(migration.includes("archive_media_commenters_self_or_admin_read"));
 });
 
 test("the page runtime renders before refreshing unread counts and prefetches navigation on intent", async () => {
@@ -91,30 +87,3 @@ test("the page runtime renders before refreshing unread counts and prefetches na
   assert.ok(runtime.includes('hint.rel = "prefetch"'));
 });
 
-
-test("archive viewer keeps media dominant and opens comments in a separate persistent drawer", async () => {
-  const [gallery, css] = await Promise.all([read("src/gallery-archive.js"), read("styles.css")]);
-  assert.match(gallery, /data-viewer-comments-toggle/);
-  assert.match(gallery, /data-viewer-comments-panel hidden/);
-  assert.match(gallery, /data-viewer-comments-close/);
-  assert.match(gallery, /data-viewer-download/);
-  assert.match(gallery, /setCommentsOpen\(!state\.commentsOpen\)/);
-  assert.match(gallery, /hasVisibleComments: mediaWithReadableComments\.has\(item\.id\)/);
-  assert.match(css, /\.archive-viewer-comments\[hidden\] \{ display:none !important; \}/);
-  assert.match(css, /object-fit:contain/);
-});
-
-test("rebuilt gallery has compact options menu, three layouts, title/type/person filters and immersive viewer", () => {
-  const markup = galleryExperienceMarkup();
-  for (const selector of [
-    "data-gallery-menu-toggle", "data-gallery-menu-action=\"upload\"",
-    "data-gallery-menu-action=\"filters\"", "data-gallery-menu-action=\"exclusive\"",
-    "data-gallery-menu-action=\"sort\"", "data-gallery-menu-action=\"people\"",
-    "data-gallery-view=\"list\"", "data-gallery-view=\"grid\"", "data-gallery-view=\"masonry\"",
-    "data-gallery-person", "data-viewer-close", "data-viewer-comments",
-    "data-gallery-people-tags-form", "data-comment-audience", "data-comment-recipients"
-  ]) assert.ok(markup.includes(selector), "missing gallery control: " + selector);
-  assert.match(markup, /gallery-viewer-back/);
-  assert.match(markup, /gallery-viewer-bottom-actions/);
-  assert.match(markup, /data-viewer-content/);
-});

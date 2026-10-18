@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_background">#00000000</color>
+    <color name="looply_purple">#8B3DFF</color>
+    <color name="looply_surface">#160F20</color>
+    <color name="looply_text">#FFFFFF</color>
+</resources>
+

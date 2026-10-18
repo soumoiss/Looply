@@ -51,7 +51,7 @@ function galleryGridMarkup(media, userId, isAdmin) {
 export function communityGalleryMarkup(media, userId, isAdmin) {
   const maxLabel = isAdmin ? "Até 200 MB por arquivo" : "Até 100 MB por arquivo";
   return "<section class=\"panel community-gallery-panel\" aria-labelledby=\"communityGalleryTitle\">" +
-    "<div class=\"community-gallery-heading\"><h2 id=\"communityGalleryTitle\">Comunidade</h2><span data-community-gallery-count>" + media.length + " arquivo(s)</span></div>" +
+    "<div class=\"community-gallery-heading\"><div><span class=\"section-kicker\">Mídia</span><h2 id=\"communityGalleryTitle\">Galeria da comunidade</h2></div><span data-community-gallery-count>" + media.length + " arquivo(s)</span></div>" +
     "<form class=\"community-gallery-upload\" data-community-gallery-upload><label>Fotos, vídeos ou áudios<input type=\"file\" name=\"files\" accept=\"image/jpeg,image/png,image/webp,image/heic,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/webm,audio/wav,audio/aac\" multiple required></label>" +
     "<label>Descrição (opcional)<input type=\"text\" name=\"caption\" maxlength=\"500\"></label><small>" + maxLabel + " · até " + maxFilesPerUpload + " arquivos por envio</small>" +
     "<button class=\"primary-button compact-button\" type=\"submit\">Publicar mídia</button><p class=\"form-status\" data-community-gallery-status role=\"status\" aria-live=\"polite\"></p></form>" +
@@ -145,7 +145,6 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
         });
         if (error) throw error;
         uploaded += 1;
-        root.dispatchEvent(new CustomEvent("looply:gallery-refresh"));
       } catch (error) {
         await removeUploaded(client, path);
         console.warn("Community gallery item failed", file.name, error);
@@ -153,6 +152,7 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
       }
     }
     form.reset();
+    try { await reload(); } catch (error) { console.error("Community gallery refresh failed", error); }
     status.textContent = uploaded + " arquivo(s) enviado(s)." + (failures.length ? " " + failures.length + " falha(s): " + failures.slice(0, 4).join(" ") : "");
     button.disabled = false;
   });
@@ -166,7 +166,11 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
     if (storageError) { button.disabled = false; console.error("Community gallery media deletion failed", storageError); return; }
     const { error } = await client.from("community_gallery_media").delete().eq("id", item.id);
     if (error) console.error("Community gallery row deletion failed", error);
-    root.dispatchEvent(new CustomEvent("looply:gallery-refresh"));
+    await reload().catch((reloadError) => console.error("Community gallery refresh failed", reloadError));
   });
-
+  const channel = client.channel("looply-community-gallery-" + user.id)
+    .on("postgres_changes", { event: "*", schema: "public", table: "community_gallery_media" },
+      () => reload().catch((error) => console.warn("Community gallery refresh failed", error)))
+    .subscribe();
+  window.addEventListener("pagehide", () => client.removeChannel(channel), { once: true });
 }

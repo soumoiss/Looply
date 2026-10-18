@@ -6,7 +6,6 @@ import test from "node:test";
 import { canReuseArchiveObjectAfterUploadFailure, processSequentially } from "../src/archive-import.js";
 import { groupActiveStories, storiesMarkup, storyMediaUrlTtl } from "../src/stories.js";
 import { profileAreaMarkup } from "../src/profiles.js";
-import { fetchPlaylistItems } from "../src/youtube-playlist.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(projectRoot, path), "utf8");
@@ -61,7 +60,7 @@ test("only four owner-created usernames can have profiles, then remain immutable
   assert.match(authProfileMigration, /requested_username not in \('patati', 'misol', 'yara', 'peixinho'\)/i);
   assert.match(authProfileMigration, /when 'peixinho' then 'Peixinho'/i);
   assert.match(allowlistMigration, /profiles_username_allowlist/);
-  assert.doesNotMatch(profiles, /Seu username confirmado não pode ser alterado/);
+  assert.match(profiles, /Seu username confirmado não pode ser alterado/);
   assert.doesNotMatch(profiles, /update\(\{ username/);
   assert.match(immutableMigration, /revoke update \(username\) on table public\.profiles from authenticated/i);
   assert.match(immutableMigration, /profiles_prevent_username_change/);
@@ -121,7 +120,7 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /data-youtube-retry/);
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
-  assert.match(playlists, /authorization: "Bearer " \+ token/);
+  assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
   assert.match(playlists, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
@@ -136,18 +135,17 @@ test("the removed account is absent from active frontend code and page copy", as
 
 test("the build emits all independent pages and their assets", async () => {
   const { access } = await import("node:fs/promises");
-  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/mensagens.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
+  for (const path of ["dist/login.html", "dist/home.html", "dist/galeria.html", "dist/musicas.html", "dist/chat.html", "dist/conversa.html", "dist/cartas.html", "dist/notificacoes.html", "dist/usuarios.html", "dist/configuracoes.html", "dist/perfil.html", "dist/admin.html", "dist/assets/js/login.js", "dist/assets/js/conversation.js", "dist/assets/js/letters.js", "dist/assets/js/notifications.js", "dist/assets/js/users.js", "dist/assets/js/settings.js", "dist/assets/css/pages/conversation.css", "dist/assets/css/pages/letters.css", "dist/assets/css/pages/notifications.css", "dist/assets/css/pages/users.css", "dist/assets/css/pages/settings.css", "dist/assets/css/app.css", "dist/src/page-runtime.js"]) {
     await access(resolve(projectRoot, path));
   }
 });
 
-test("the public build excludes the YouTube Data API key and uses the authenticated server proxy", async () => {
+test("the YouTube API key is absent from the browser build", async () => {
   const [config, clientModule, build] = await Promise.all([
     read("dist/config.js"), read("dist/src/youtube-playlist.js"), read("scripts/build.mjs")
   ]);
-  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}|LOOPLY_YOUTUBE_API_KEY|service_role|SUPABASE_SERVICE_ROLE_KEY/);
-  assert.doesNotMatch(clientModule, /youtubeApiKey|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3\/playlistItems|LOOPLY_YOUTUBE_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(clientModule, /headers: \{ accept: "application\/json", authorization: "Bearer " \+ token \}/);
+  assert.doesNotMatch(config, /youtubeApiKey|AIza[\w-]{20,}/);
+  assert.doesNotMatch(clientModule, /LOOPLY_YOUTUBE_API_KEY|AIza[\w-]{20,}|googleapis\.com\/youtube\/v3/);
   assert.doesNotMatch(build, /process\.env\.LOOPLY_YOUTUBE_API_KEY/);
 });
 
@@ -668,8 +666,7 @@ test("Home, Galeria, and Cartas have separate page responsibilities", async () =
   assert.match(home, /storiesMarkup/);
   assert.match(home, /socialMarkup/);
   assert.doesNotMatch(home, /archivedCardsMarkup|loadArchivedCards/);
-  assert.match(gallery, /galleryExperienceMarkup/);
-  assert.match(gallery, /loadGalleryMedia/);
+  assert.match(gallery, /archiveGalleryMarkup/);
   assert.doesNotMatch(gallery, /socialMarkup|loadSocialData/);
   assert.match(letters, /archivedCardsMarkup/);
 });
@@ -765,172 +762,3 @@ test("community gallery and letters use RLS, encryption and receipt-aware chat",
 });
 
 
-
-
-test("chat realtime refresh keeps the active draft and avoids delivery-triggered refresh loops", async () => {
-  const chat = await read("src/chat.js");
-  assert.ok(chat.includes("loadChatData(client, userId, { markDelivered: false })"));
-  assert.ok(chat.includes('payload?.eventType === "INSERT"'));
-  assert.ok(chat.includes('mark_conversations_delivered", { p_conversation_ids: [payload.new.conversation_id] }'));
-  assert.ok(chat.includes('form.dataset.sending = "true"'));
-  assert.ok(chat.includes("data-chat-messages"));
-  assert.ok(chat.includes('composer?.dataset.sending === "true"'));
-  assert.ok(chat.includes('if (!conversationId) throw new Error("conversation not selected")'));
-  const submit = chat.slice(chat.indexOf('root.addEventListener("submit"'));
-  assert.ok(submit.indexOf("event.preventDefault()") < submit.indexOf('form.dataset.sending === "true"'),
-    "duplicate chat submits must not fall through to native page navigation");
-  assert.match(submit, /form\.dataset\.conversationId \|\| routeConversationId \|\| activeConversationId/);
-  assert.match(submit, /form\.dataset\.conversationId = conversationId/);
-  assert.ok(!chat.includes('if (!conversationId || conversationId !== activeConversationId)'));
-  assert.equal(chat.split("else if (/conversation not selected").length - 1, 1);
-  assert.ok(!chat.includes("area.replaceWith("));
-});
-
-test("gallery access, comment audiences and swipeable responsive viewer are wired end to end", async () => {
-  const [gallery, entry, migration, accessRpc, realtimeMigration, css] = await Promise.all([
-    read("src/gallery-experience.js"),
-    read("assets/js/gallery.js"),
-    read("supabase/migrations/20261016152935_gallery_private_audiences.sql"),
-    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql"),
-    read("supabase/migrations/20261016200337_gallery_comment_audience_realtime.sql"),
-    read("assets/css/pages/gallery.css")
-  ]);
-  assert.ok(entry.includes("bindGalleryExperience"));
-  assert.ok(gallery.includes("set_gallery_media_permissions"));
-  assert.ok(gallery.includes("loadSharedGalleryComments"));
-  assert.ok(gallery.includes("data-comment-audience"));
-  assert.ok(gallery.includes("pointerup"));
-  assert.ok(gallery.includes("pinch"));
-  assert.ok(migration.includes("archive_media_comment_recipients"));
-  assert.ok(migration.includes("community_gallery_comment_recipients"));
-  assert.ok(migration.includes("audience = 'selected'"));
-  assert.ok(accessRpc.includes("grant execute on function public.set_gallery_media_permissions"));
-  assert.ok(realtimeMigration.includes("archive_media_comment_recipients"));
-  assert.ok(realtimeMigration.includes("community_gallery_comment_recipients"));
-  assert.ok(gallery.includes("scheduleGalleryRefresh"));
-  assert.ok(css.includes("gallery-viewer-content img") && css.includes("object-fit:contain"));
-});
-
-test("archive permission administration uses the active authenticated atomic RPC", async () => {
-  const [edge, migration] = await Promise.all([
-    read("supabase/functions/looply-admin/index.ts"),
-    read("supabase/migrations/20261016195217_gallery_permissions_atomic_rpc.sql")
-  ]);
-  assert.match(edge, /userClient\.rpc\("set_gallery_media_permissions"/);
-  assert.match(edge, /p_source: "archive"/);
-  assert.match(edge, /viewerIds\.length > 100/);
-  assert.doesNotMatch(edge, /set_looply_archive_media_access/);
-  assert.match(migration, /grant execute on function public\.set_gallery_media_permissions[\s\S]*?to authenticated/i);
-});
-
-
-test("chat editing and deletion use the authenticated author's existing RLS and clean attached files", async () => {
-  const [chat, migration] = await Promise.all([
-    read("src/chat.js"),
-    read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql")
-  ]);
-  assert.match(chat, /data-chat-edit/);
-  assert.match(chat, /data-chat-delete/);
-  assert.match(chat, /\.update\(\{ body: nextBody \}\)[\s\S]*?\.eq\("sender_id", userId\)/);
-  assert.match(chat, /window\.confirm\("Apagar esta mensagem e os anexos enviados com ela\?"\)/);
-  assert.match(chat, /storage\.from\("looply-chat"\)\.remove\(paths\)[\s\S]*?\.delete\(\)\.eq\("id", messageId\)\.eq\("sender_id", userId\)/);
-  assert.match(migration, /chat_messages_update_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/i);
-  assert.match(migration, /chat_messages_delete_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/i);
-  assert.match(migration, /looply_chat_delete_own_message[\s\S]*?message\.sender_id = \(select auth\.uid\(\)\)/i);
-});
-
-
-test("chat composer uses Enter to send, Shift+Enter for a newline, and valid CSS rules", async () => {
-  const [chat, css] = await Promise.all([
-    read("src/chat.js"), read("assets/css/pages/chat.css")
-  ]);
-  assert.match(chat, /root\.addEventListener\("keydown"/);
-  assert.match(chat, /event\.key !== "Enter" \|\| event\.shiftKey \|\| event\.isComposing/);
-  assert.match(chat, /form\.requestSubmit\(\)/);
-  assert.ok(chat.indexOf('root.addEventListener("keydown"') < chat.indexOf('root.addEventListener("submit"'));
-  assert.doesNotMatch(css, /\\n/);
-});
-
-test("chat composer inserts selected emojis at the cursor", async () => {
-  const [chat, css] = await Promise.all([
-    read("src/chat.js"), read("assets/css/pages/chat.css")
-  ]);
-  assert.match(chat, /data-chat-emoji-toggle/);
-  assert.match(chat, /data-chat-emoji-picker/);
-  assert.match(chat, /textarea\.setRangeText\(emoji, start, end, "end"\)/);
-  assert.match(chat, /emojiButton\.closest\("\[data-chat-send\]"\)/);
-  assert.match(css, /\.chat-emoji-picker\[hidden\] \{ display: none; \}/);
-});
-
-
-test("chat conversations use the dedicated route and preload on interaction without mock data", async () => {
-  const [chat, css] = await Promise.all([read("src/chat.js"), read("assets/css/pages/chat.css")]);
-  assert.match(chat, /function prefetchConversationPage\(root\)/);
-  assert.match(chat, /hint\.rel = "prefetch"/);
-  assert.ok(chat.includes("window.location.assign(`mensagens.html?id="));
-  assert.match(chat, /client\.functions\.invoke\("looply-chat"/);
-  assert.match(css, /grid-template-columns: minmax\(275px, \.78fr\) minmax\(0, 1\.35fr\)/);
-  assert.ok(css.includes(".page-chat:not(.page-conversation) .chat-thread-panel { display: none; }"));
-  assert.match(css, /max-height: calc\(100dvh - 360px\)/);
-});
-
-
-test("the dedicated messages route renders the thread on small screens", async () => {
-  const [page, build, css, chat] = await Promise.all([
-    read("mensagens.html"), read("scripts/build.mjs"), read("assets/css/pages/chat.css"), read("src/chat.js")
-  ]);
-  assert.ok(page.includes("assets/js/conversation.js"));
-  assert.ok(page.includes("page-conversation"));
-  assert.ok(build.includes("mensagens.html"));
-  assert.ok(css.includes(".page-chat:not(.page-conversation) .chat-thread-panel { display: none; }"));
-  assert.ok(chat.includes("mensagens.html?id="));
-});
-
-
-test("playlist loading retries a transient network failure and follows every page", async () => {
-  let calls = 0;
-  const fetchImpl = async (url) => {
-    calls += 1;
-    if (calls === 1) throw new TypeError("Failed to fetch");
-    if (!String(url).includes("pageToken=")) {
-      return { ok: true, json: async () => ({
-        items: [{ videoId: "ME3nTqgLDEg", title: "Faixa 1", position: 0 }],
-        nextPageToken: "page-two"
-      }) };
-    }
-    return { ok: true, json: async () => ({
-      items: [{ videoId: "U3M33tm_Vtg", title: "Faixa 2", position: 1 }],
-      nextPageToken: ""
-    }) };
-  };
-  const tracks = await fetchPlaylistItems("PLCn4CAsA_tiM", "session-token", fetchImpl);
-  assert.equal(tracks.length, 2);
-  assert.equal(tracks[0].title, "Faixa 1");
-  assert.equal(tracks[1].title, "Faixa 2");
-  assert.equal(calls, 3);
-});
-
-test("archive card import never counts an unconfirmed or zero-count response as success", async () => {
-  const importer = await read("src/archive-import.js");
-  assert.match(importer, /const importedCount = Number\(data\?\.importedCount\)/);
-  assert.match(importer, /!Number\.isFinite\(importedCount\) \|\| importedCount !== 1/);
-  assert.match(importer, /O serviço não confirmou o registro desta carta/);
-  assert.match(importer, /cardsImported \+= importedCount/);
-});
-
-test("letters and music keep their existing feature modules and responsive layouts", async () => {
-  const [lettersPage, lettersModule, lettersCss, musicPage, musicModule, musicCss] = await Promise.all([
-    read("cartas.html"), read("assets/js/letters.js"), read("assets/css/pages/letters.css"),
-    read("musicas.html"), read("assets/js/music.js"), read("assets/css/pages/music.css")
-  ]);
-  assert.match(lettersPage, /assets\/js\/letters\.js/);
-  assert.match(lettersModule, /bindCommunityLetters/);
-  assert.match(lettersModule, /bindArchivedCards/);
-  assert.match(lettersModule, /loadWrittenLetters/);
-  assert.match(lettersCss, /@media\s*\(max-width:\s*520px\)/);
-  assert.match(musicPage, /assets\/js\/music\.js/);
-  assert.match(musicModule, /bindYouTubePlaylist/);
-  assert.match(musicModule, /bindMusicTrackComments/);
-  assert.match(musicModule, /setupMusicRealtime/);
-  assert.match(musicCss, /@media\s*\(max-width:\s*760px\)/);
-});

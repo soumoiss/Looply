@@ -35,7 +35,7 @@ function commentMediaMarkup(media) {
 
 function commentAttachmentField(commentId, postId) {
   const id = `comment-media-${commentId || postId}`;
-  return `<label class="comment-attachment-label" for="${escapeHtml(id)}">＋ Foto ou vídeo</label>
+  return `<label class="comment-attachment-label" for="${escapeHtml(id)}">＋ Foto ou vídeo <span>Você pode escolher pela galeria ou câmera do celular.</span></label>
     <input class="visually-hidden" id="${escapeHtml(id)}" name="commentMedia" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">`;
 }
 
@@ -72,7 +72,7 @@ function postMarkup(post, userId) {
   const roots = comments.filter((comment) => !comment.parent_comment_id);
   const commentList = roots.length
     ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false)).join("")}</div>`).join("")
-    : `<p class="empty-comments">Nenhum comentário.</p>`;
+    : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const mediaMarkup = (post.media || []).map((item) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
@@ -232,8 +232,10 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
     `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
   ).join("");
   const peopleHint = peopleError
-    ? `<span class="field-hint field-error">Não foi possível carregar os perfis.</span>`
-    : "";
+    ? `<span class="field-hint field-error">Não foi possível carregar os perfis. As publicações escolhidas ficarão indisponíveis até atualizar a página.</span>`
+    : eligiblePeople.length
+      ? `<span class="field-hint">Escolha de 1 a 20 perfis visíveis. Só as pessoas selecionadas terão acesso.</span>`
+      : `<span class="field-hint">Não há outros perfis visíveis para compartilhar ainda.</span>`;
 
   return `<section class="social-area" aria-labelledby="socialTitle">
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
