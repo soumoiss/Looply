@@ -44,7 +44,7 @@ test("letters page keeps the archived collection and reversible read controls wi
 test("protected-letter SQL avoids PostgreSQL repetition counts above its regex limit", async () => {
   const { readFile } = await import("node:fs/promises");
   const { resolve } = await import("node:path");
-  const migration = await readFile(resolve(process.cwd(), "supabase/migrations/20261018230000_fix_community_letter_password_regex.sql"), "utf8");
+  const migration = await readFile(resolve(process.cwd(), "supabase/migrations/20261018222201_fix_community_letter_password_regex.sql"), "utf8");
   assert.match(migration, /char_length\(password_ciphertext\) between 22 and 7000/i);
   assert.match(migration, /password_ciphertext ~ '\^\[A-Za-z0-9_-\]\+\$'/i);
   assert.doesNotMatch(migration, /\{22,7000\}/);
