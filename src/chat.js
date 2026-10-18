@@ -11,7 +11,6 @@ let activeConversationId = null;
 let realtimeChannel = null;
 let realtimeUserId = null;
 let refreshTimer = null;
-let refreshVersion = 0;
 let conversationSearch = "";
 let conversationFilter = "all";
 const voiceRecordings = new Map();
@@ -39,7 +38,7 @@ function formatMessageDay(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(date);
 }
 
-export async function loadChatData(client, userId, { markDelivered = true } = {}) {
+export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").order("created_at", { ascending: false }).limit(50),
@@ -48,7 +47,7 @@ export async function loadChatData(client, userId, { markDelivered = true } = {}
   if (participantResult.error) throw participantResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
-  if (markDelivered && ids.length) {
+  if (ids.length) {
     const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids });
     if (deliveredError) console.warn("Looply delivery receipt update failed", deliveredError);
   }
@@ -129,7 +128,7 @@ function conversationPreview(conversation, userId) {
 function notificationsMarkup(notifications) {
   const unread = notifications.filter((item) => !item.read_at).length;
   if (!notifications.length) return `<p class="chat-empty">Nenhuma notificação</p>`;
-  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="mensagens.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
+  return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="conversa.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
     <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(item.preview)}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
   </a>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
 }
@@ -137,12 +136,12 @@ function notificationsMarkup(notifications) {
 export function chatMarkup(data, userId) {
   if (data.error) return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div></div><div class="chat-empty" role="alert">Não foi possível carregar as conversas. Atualize a página e tente novamente.</div></section>`;
   const conversations = data.conversations.length
-    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="mensagens.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
+    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
         ${conversationAvatar(conversation, userId)}
         <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
       </a>`).join("")
-    : `<p class="chat-empty">Nenhuma conversa.</p>`;
+    : `<p class="chat-empty">Nenhuma conversa. Inicie uma conversa ou escreva uma carta.</p>`;
   const conversationTools = `<div class="chat-conversation-tools">
     <label class="visually-hidden" for="chatConversationSearch">Buscar conversa</label>
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
@@ -189,13 +188,13 @@ export function chatMarkup(data, userId) {
         <details class="chat-panel letter-compose-panel"><summary>Escrever uma carta para Peixinho</summary>
           <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
             <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
-            
+            <p class="field-hint">Somente você e Peixinho poderão abrir esta carta. A resposta continuará na conversa privada.</p>
             <button class="primary-button compact-button" type="submit">Enviar carta <span aria-hidden="true">↗</span></button><span class="form-status" data-status role="status" aria-live="polite"></span>
           </form>
         </details>
         <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
       </aside>
-      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong></div></div></section>
+      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div></div></section>
     </div>
   </section>`;
 }
@@ -433,7 +432,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
-    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button chat-delete-button" type="button" data-chat-delete="${escapeHtml(message.id)}">Apagar</button>` : ""}</div>
+    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
   </article></div>`;
   }).join("");
 }
@@ -446,10 +445,7 @@ function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">×</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><button class="text-button chat-emoji-toggle" type="button" data-chat-emoji-toggle aria-expanded="false" aria-controls="chatEmojiPicker">😊 Emoji</button>
-    <div id="chatEmojiPicker" class="chat-emoji-picker" data-chat-emoji-picker role="group" aria-label="Inserir emoji" hidden>
-      ${["😀", "😂", "🥰", "😊", "😍", "👍", "❤️", "🎉"].map((emoji) => `<button type="button" data-chat-emoji="${escapeHtml(emoji)}" aria-label="Inserir ${escapeHtml(emoji)}">${escapeHtml(emoji)}</button>`).join("")}
-    </div><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="text-button chat-record-start" type="button" data-chat-record-start>Gravar áudio</button><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}">Anexar fotos, vídeos, áudio ou arquivos</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="text-button chat-record-start" type="button" data-chat-record-start>Gravar áudio</button><span class="field-hint">Até 8 arquivos, 100 MiB cada.</span><button class="primary-button compact-button" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -490,100 +486,48 @@ async function openConversation(root, client, conversationId, userId) {
     await signThreadAvatar(client, participants);
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-message-history" data-chat-messages>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
+    thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
     thread.scrollTop = thread.scrollHeight;
     const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
     if (readError) console.warn("Looply read receipt update failed", readError);
     await refreshChat(root, client, userId, { keepThread: true });
   } catch (error) {
     console.error("Looply conversation load failed", error);
-    const composer = thread.querySelector("[data-chat-send]");
-    if (composer) setStatus(composer, "Conexão instável. Sua mensagem ainda não foi enviada; tente novamente.", "error");
-    else if (thread.isConnected) thread.innerHTML = `<p class="chat-empty" role="alert">Não foi possível carregar esta conversa. Confira o acesso e tente novamente.</p>`;
+    if (thread.isConnected) thread.innerHTML = `<p class="chat-empty" role="alert">Não foi possível carregar esta conversa. Confira o acesso e tente novamente.</p>`;
   }
 }
 
-async function refreshActiveThread(root, client, userId, { refreshReadState = false } = {}) {
-  const conversationId = activeConversationId;
-  const thread = root.querySelector("[data-chat-thread]");
-  if (!conversationId || !thread) return;
-  const composer = thread.querySelector("[data-chat-send]");
-  if (composer?.dataset.sending === "true") return;
-  const focused = composer?.contains(document.activeElement);
-  const scrollTop = thread.scrollTop;
-  try {
-    const { messages, participants, conversation } = await loadThread(client, conversationId);
-    if (conversationId !== activeConversationId || !thread.isConnected) return;
-    await signThreadAvatar(client, participants);
-    const peer = peerParticipantFor(participants, userId);
-    const nextHeading = document.createElement("div");
-    nextHeading.innerHTML = threadHeadingMarkup(root, participants, userId, conversation);
-    const currentHeading = thread.querySelector(".chat-thread-heading");
-    const heading = nextHeading.firstElementChild;
-    if (currentHeading && heading) currentHeading.replaceWith(heading);
-    else if (heading) thread.prepend(heading);
-    const history = thread.querySelector("[data-chat-messages]");
-    const historyHtml = (messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "") +
-      threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation.kind === "group");
-    if (history) history.innerHTML = historyHtml;
-    else {
-      const wrapper = document.createElement("div");
-      wrapper.className = "chat-message-history";
-      wrapper.dataset.chatMessages = "";
-      wrapper.innerHTML = historyHtml;
-      const composerForm = thread.querySelector("[data-chat-send]");
-      if (composerForm) composerForm.before(wrapper);
-      else thread.append(wrapper);
-    }
-    if (refreshReadState) {
-      const { error } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
-      if (error) console.warn("Looply read receipt update failed", error);
-    }
-    thread.scrollTop = focused ? scrollTop : thread.scrollHeight;
-  } catch (error) {
-    console.warn("Looply active thread refresh failed", error);
-    const live = root.querySelector("[data-chat-live]");
-    if (live) live.textContent = "Conexão instável · tentando novamente";
-  }
-}
 async function refreshChat(root, client, userId, { keepThread = false } = {}) {
   const area = root.querySelector("[data-chat-area]");
   if (!area) return;
-  const version = ++refreshVersion;
   try {
-    const data = await loadChatData(client, userId, { markDelivered: false });
-    if (version !== refreshVersion || !area.isConnected) return;
-    const replacement = document.createElement("div");
-    replacement.innerHTML = chatMarkup(data, userId);
-    const fresh = replacement.firstElementChild;
-    if (!fresh?.querySelector("[data-chat-thread]")) throw new Error("Conversation list refresh returned invalid markup");
-    const currentList = area.querySelector("[data-chat-conversations]");
-    const newList = fresh.querySelector("[data-chat-conversations]");
-    if (currentList && newList) currentList.innerHTML = newList.innerHTML;
-    const currentCount = currentList?.closest(".chat-panel")?.querySelector(".chat-panel-heading span");
-    const newCount = newList?.closest(".chat-panel")?.querySelector(".chat-panel-heading span");
-    if (currentCount && newCount) currentCount.textContent = newCount.textContent;
-    const currentNotifications = area.querySelector(".chat-notifications-panel");
-    const newNotifications = fresh.querySelector(".chat-notifications-panel");
-    if (currentNotifications && newNotifications) currentNotifications.innerHTML = newNotifications.innerHTML;
+    const data = await loadChatData(client, userId);
+    if (!root.querySelector("[data-chat-area]")) return;
+    area.outerHTML = chatMarkup(data, userId);
     applyConversationFilter(root);
-    const composer = area.querySelector("[data-chat-send]");
-    if (keepThread && activeConversationId && composer?.dataset.sending !== "true") {
-      await refreshActiveThread(root, client, userId);
-    }
+    if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
+      const { messages, participants, conversation } = await loadThread(client, activeConversationId);
+      const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: activeConversationId });
+      if (readError) console.warn("Looply read receipt update failed", readError);
+      await signThreadAvatar(client, participants);
+      const peer = peerParticipantFor(participants, userId);
+      const isGroup = conversation.kind === "group";
+      const thread = root.querySelector("[data-chat-thread]");
+      if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(activeConversationId)}`;
+    } else activeConversationId = null;
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
-    const live = root.querySelector("[data-chat-live]");
-    if (live) live.textContent = "Conexão instável · tentando novamente";
+    area.innerHTML = `<div class="chat-empty" role="alert">Não foi possível atualizar as conversas agora.</div>`;
   }
 }
+
 function scheduleRefresh(root, client, userId) {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(async () => {
     await refreshChat(root, client, userId, { keepThread: Boolean(activeConversationId) });
     if (activeConversationId && root.querySelector("[data-chat-thread]")) {
       const thread = root.querySelector("[data-chat-thread]");
-      if (thread && !thread.querySelector("[data-chat-send] [name=body]:focus")) thread.scrollTop = thread.scrollHeight;
+      thread.scrollTop = thread.scrollHeight;
     }
   }, 400);
 }
@@ -593,14 +537,7 @@ export function setupChatRealtime(client, userId, root) {
   if (realtimeChannel) client.removeChannel(realtimeChannel);
   realtimeUserId = userId;
   realtimeChannel = client.channel(`looply-chat-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, (payload) => {
-      const incoming = payload?.eventType === "INSERT" && payload.new?.sender_id !== userId && payload.new?.conversation_id;
-      if (!incoming) { scheduleRefresh(root, client, userId); return; }
-      void client.rpc("mark_conversations_delivered", { p_conversation_ids: [payload.new.conversation_id] })
-        .then(({ error }) => { if (error) console.warn("Looply delivery receipt update failed", error); })
-        .catch((error) => console.warn("Looply delivery receipt update failed", error))
-        .finally(() => scheduleRefresh(root, client, userId));
-    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {
@@ -617,30 +554,10 @@ export function disposeChatRealtime(client) {
   conversationSearch = "";
   conversationFilter = "all";
   clearTimeout(refreshTimer);
-  refreshVersion += 1;
   for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
 
-function prefetchConversationPage(root) {
-  const prefetched = new Set();
-  const prefetch = (event) => {
-    const link = event.target.closest?.("a[data-chat-open]");
-    if (!link || !root.contains(link) || link.target || link.hasAttribute("download")) return;
-    const url = new URL(link.href, window.location.href);
-    if (url.origin !== window.location.origin || !url.pathname.endsWith("mensagens.html") || prefetched.has(url.href)) return;
-    prefetched.add(url.href);
-    const hint = document.createElement("link");
-    hint.rel = "prefetch";
-    hint.as = "document";
-    hint.href = url.href;
-    document.head.append(hint);
-  };
-  root.addEventListener("pointerover", prefetch, { passive: true });
-  root.addEventListener("focusin", prefetch);
-}
-
 export function bindChatEvents(root, client, getUserId) {
-  prefetchConversationPage(root);
   if (root.dataset.conversationPage === "true" && window.visualViewport) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
@@ -675,10 +592,6 @@ export function bindChatEvents(root, client, getUserId) {
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
     const copyButton = event.target.closest("[data-chat-copy]");
-    const editButton = event.target.closest("[data-chat-edit]");
-    const deleteButton = event.target.closest("[data-chat-delete]");
-    const emojiToggle = event.target.closest("[data-chat-emoji-toggle]");
-    const emojiButton = event.target.closest("[data-chat-emoji]");
     const conversationFilterButton = event.target.closest("[data-chat-filter]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
@@ -687,84 +600,10 @@ export function bindChatEvents(root, client, getUserId) {
     const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
-    if (emojiToggle) {
-      const picker = emojiToggle.closest("[data-chat-send]")?.querySelector("[data-chat-emoji-picker]");
-      if (picker) {
-        picker.hidden = !picker.hidden;
-        emojiToggle.setAttribute("aria-expanded", String(!picker.hidden));
-      }
-      return;
-    }
-    if (emojiButton) {
-      const form = emojiButton.closest("[data-chat-send]");
-      const textarea = form?.querySelector('textarea[name="body"]');
-      if (!textarea) return;
-      const emoji = emojiButton.dataset.chatEmoji || "";
-      const start = textarea.selectionStart ?? textarea.value.length;
-      const end = textarea.selectionEnd ?? start;
-      textarea.setRangeText(emoji, start, end, "end");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      textarea.focus();
-      const picker = form.querySelector("[data-chat-emoji-picker]");
-      if (picker) picker.hidden = true;
-      form.querySelector("[data-chat-emoji-toggle]")?.setAttribute("aria-expanded", "false");
-      return;
-    }
     if (conversationFilterButton) {
       conversationFilter = conversationFilterButton.dataset.chatFilter === "unread" ? "unread" : "all";
       root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
       applyConversationFilter(root);
-      return;
-    }
-    if (editButton) {
-      const messageId = editButton.dataset.chatEdit;
-      const messageNode = editButton.closest(".chat-message");
-      const currentBody = messageNode?.querySelector("p")?.textContent || "";
-      const body = window.prompt("Editar mensagem", currentBody);
-      if (body === null) return;
-      const nextBody = body.trim();
-      if (!nextBody || nextBody.length > 5000) {
-        const composer = root.querySelector("[data-chat-send]");
-        if (composer) setStatus(composer, "A mensagem precisa ter entre 1 e 5.000 caracteres.", "error");
-        return;
-      }
-      editButton.disabled = true;
-      try {
-        const { data, error } = await client.from("chat_messages")
-          .update({ body: nextBody }).eq("id", messageId).eq("sender_id", userId).select("id").maybeSingle();
-        if (error) throw error;
-        if (!data?.id) throw new Error("message unavailable");
-        await refreshActiveThread(root, client, userId);
-      } catch (error) {
-        console.error("Looply message edit failed", error);
-        const composer = root.querySelector("[data-chat-send]");
-        if (composer) setStatus(composer, "Não foi possível editar esta mensagem. Confira se ela ainda pertence a você.", "error");
-      }
-      return;
-    }
-    if (deleteButton) {
-      const messageId = deleteButton.dataset.chatDelete;
-      if (!window.confirm("Apagar esta mensagem e os anexos enviados com ela?")) return;
-      deleteButton.disabled = true;
-      try {
-        const { data: media, error: mediaError } = await client.from("chat_media")
-          .select("storage_path").eq("message_id", messageId);
-        if (mediaError) throw mediaError;
-        const paths = (media || []).map((item) => item.storage_path).filter(Boolean);
-        if (paths.length) {
-          const { error: storageError } = await client.storage.from("looply-chat").remove(paths);
-          if (storageError) throw storageError;
-        }
-        const { data, error } = await client.from("chat_messages")
-          .delete().eq("id", messageId).eq("sender_id", userId).select("id").maybeSingle();
-        if (error) throw error;
-        if (!data?.id) throw new Error("message unavailable");
-        await refreshChat(root, client, userId, { keepThread: true });
-      } catch (error) {
-        console.error("Looply message deletion failed", error);
-        const composer = root.querySelector("[data-chat-send]");
-        if (composer) setStatus(composer, "Não foi possível apagar a mensagem ou seus anexos. A mensagem foi mantida.", "error");
-      }
       return;
     }
     if (copyButton) {
@@ -809,7 +648,7 @@ export function bindChatEvents(root, client, getUserId) {
         olderButton.remove();
         const nextButton = messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "";
         const peer = peerParticipantFor(participants, userId);
-        history.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
+        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
         thread.scrollTop += thread.scrollHeight - scrollHeight;
       } catch (error) {
         console.error("Looply older messages failed", error);
@@ -843,7 +682,7 @@ export function bindChatEvents(root, client, getUserId) {
       event.preventDefault();
       const conversationId = openButton.dataset.chatOpen;
       if (root.dataset.conversationPage !== "true") {
-        window.location.assign(`mensagens.html?id=${encodeURIComponent(conversationId)}`);
+        window.location.assign(`conversa.html?id=${encodeURIComponent(conversationId)}`);
         return;
       }
       await openConversation(root, client, conversationId, userId);
@@ -855,9 +694,8 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: startButton.dataset.chatStart } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
-        const destination = `mensagens.html?id=${encodeURIComponent(data.conversationId)}`;
         if (root.dataset.conversationPage !== "true") {
-          window.location.assign(destination);
+          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
           return;
         }
         activeConversationId = data.conversationId;
@@ -865,15 +703,7 @@ export function bindChatEvents(root, client, getUserId) {
         await openConversation(root, client, data.conversationId, userId);
       } catch (error) {
         console.error("Looply direct conversation failed", error);
-        const priorError = startButton.parentElement?.querySelector("[data-chat-start-error]");
-        if (!priorError) {
-          const message = document.createElement("small");
-          message.className = "chat-inline-error";
-          message.dataset.chatStartError = "";
-          message.setAttribute("role", "status");
-          message.textContent = "Não foi possível iniciar a conversa. Tente novamente.";
-          startButton.insertAdjacentElement("afterend", message);
-        }
+        startButton.insertAdjacentHTML("afterend", `<small class="chat-inline-error">Não foi possível iniciar agora.</small>`);
       } finally { startButton.disabled = false; }
     }
   });
@@ -891,30 +721,11 @@ export function bindChatEvents(root, client, getUserId) {
     if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, Number(select.value) || 1));
   });
 
-  root.addEventListener("keydown", (event) => {
-    const textarea = event.target.closest?.(".chat-message-form textarea");
-    if (!textarea || event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
-    event.preventDefault();
-    const form = textarea.closest("form[data-chat-send]");
-    if (form && form.dataset.sending !== "true") form.requestSubmit();
-  });
-
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
-    if (!form) return;
-
-    // Always suppress native form navigation for app forms, including duplicate submits.
-    // Otherwise a second tap during an in-flight send can reload the page and lose the draft.
-    event.preventDefault();
     const userId = getUserId?.();
-    if (!client || !userId) {
-      if (form.matches("form[data-chat-send]")) {
-        setStatus(form, "Sua sessão não está disponível. Entre novamente; o rascunho foi mantido.", "error");
-      }
-      return;
-    }
-    if (form.dataset.sending === "true") return;
-    form.dataset.sending = "true";
+    if (!form || !client || !userId) return;
+    event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
     try {
@@ -931,7 +742,7 @@ export function bindChatEvents(root, client, getUserId) {
         setStatus(form, "Grupo criado.");
         await refreshChat(root, client, userId);
         if (root.dataset.conversationPage !== "true") {
-          window.location.assign(`mensagens.html?id=${encodeURIComponent(data.conversationId)}`);
+          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
           return;
         }
         await openConversation(root, client, data.conversationId, userId);
@@ -955,13 +766,7 @@ export function bindChatEvents(root, client, getUserId) {
         await refreshChat(root, client, userId);
         await openConversation(root, client, data.conversationId, userId);
       } else {
-        const routeConversationId = root.dataset.conversationPage === "true"
-          ? new URLSearchParams(window.location.search).get("id")
-          : "";
-        const conversationId = String(form.dataset.conversationId || routeConversationId || activeConversationId || "").trim();
-        if (!conversationId) throw new Error("conversation not selected");
-        // Keep the selected thread bound to the composer if Realtime refreshes the page state.
-        form.dataset.conversationId = conversationId;
+        const conversationId = form.dataset.conversationId;
         const files = selectedFiles(values);
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
@@ -975,8 +780,8 @@ export function bindChatEvents(root, client, getUserId) {
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "arquivo";
             const path = `conversations/${conversationId}/${message.id}/${crypto.randomUUID()}.${fileExtensions.get(file.type.split(";")[0])}`;
             setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: 0%`);
-            uploadedPaths.push(path);
             await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
+            uploadedPaths.push(path);
             const { error: mediaError } = await client.from("chat_media").insert({
               conversation_id: conversationId, message_id: message.id, storage_path: path,
               mime_type: file.type.split(";")[0], byte_size: file.size, file_name: safeName
@@ -993,12 +798,9 @@ export function bindChatEvents(root, client, getUserId) {
           if (preview?.src?.startsWith("blob:")) URL.revokeObjectURL(preview.src);
           delete form._looplyRecordedFile;
         }
-        if (form.isConnected) {
-          form.reset();
-          setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
-        }
-        delete form.dataset.sending;
-        await refreshActiveThread(root, client, userId);
+        form.reset();
+        setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
+        await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
       console.error("Looply chat action failed", error);
@@ -1007,12 +809,10 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
       else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
-      else if (/conversation not selected/.test(String(error?.message || ""))) message = "Abra uma conversa pela lista antes de enviar. Seu texto continua no campo.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
     } finally {
-      delete form.dataset.sending;
       if (button) button.disabled = false;
     }
   });

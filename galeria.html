@@ -1,81 +1,13 @@
 <!doctype html>
 <html lang="pt-BR" data-theme="lilas">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0F0F12">
-  <meta name="description" content="Galeria Looply: fotos, vídeos, acervo e comentários com controle de acesso.">
-  <title>Galeria — Looply</title>
-  <script src="config.js"></script>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="assets/css/app.css">
-  <link rel="stylesheet" href="assets/css/pages/shared.css">
-  <link rel="stylesheet" href="assets/css/pages/gallery.css">
-  <style>
-    /* Camada visual mobile; autenticação, dados e ações continuam nos módulos reais do Looply. */
-    :root{--gallery-mobile-bg:#0f0f12;--gallery-mobile-card:#18181c;--gallery-mobile-border:#2a2a32;--gallery-mobile-primary:#6c5ce7}
-    html,body{min-height:100%}
-    body.page-gallery{margin:0;background:radial-gradient(circle at 50% -12%,rgba(108,92,231,.32),transparent 38rem),var(--gallery-mobile-bg);color:#f5f3ff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    .page-gallery .container-page{width:min(100%,1280px);min-height:100dvh;margin-inline:auto;padding:0 clamp(16px,3vw,36px) max(24px,env(safe-area-inset-bottom));box-sizing:border-box;background:transparent;border:0;position:relative}
-    .page-gallery .page-header{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:0 -14px 16px;padding:12px 16px;background:rgba(24,24,28,.92);border-bottom:1px solid var(--gallery-mobile-border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-    .page-gallery .brand-inline{gap:9px;flex-shrink:0;color:#fff;text-decoration:none}
-    .page-gallery .brand-inline strong{font-size:1.12rem;letter-spacing:-.04em}
-    .page-gallery .brand-inline>span:last-child>span{color:#a7a3b8}
-    .page-gallery .brand-mark-animated .circle{animation:looply-gallery-spin 2.4s linear infinite;transform-origin:center}.page-gallery .brand-mark-animated{flex:0 0 auto}.page-gallery .brand-mark-animated svg{display:block;width:100%;height:100%}
-    @keyframes looply-gallery-spin{to{transform:rotate(360deg)}}
-    .page-gallery .page-navigation{order:3;width:100%;display:flex;gap:5px;overflow-x:auto;padding:2px 0;scrollbar-width:none}
-    .page-gallery .page-navigation::-webkit-scrollbar{display:none}
-    .page-gallery .page-navigation .header-action{flex:0 0 auto;padding:7px 10px;border-radius:999px;color:#c8c4d7;font-size:.76rem}
-    .page-gallery .page-navigation .header-action[aria-current=page]{color:#fff;background:rgba(108,92,231,.22);box-shadow:inset 0 0 0 1px rgba(167,139,250,.24)}
-    .page-gallery .looply-account-menu{margin-left:auto}
-    .page-gallery .looply-account{max-width:180px;padding:4px 7px;border-radius:999px;background:#222128}
-    .page-gallery .looply-account>span:nth-child(2){min-width:0}
-    .page-gallery .looply-account strong,.page-gallery .looply-account small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .page-gallery main,.page-gallery #pageContent{min-width:0}
-    .page-gallery .gallery-redesign{color:#f5f3ff}
-    .page-gallery .gallery-redesign-toolbar{position:relative;top:auto;z-index:15;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:12px 14px;border:1px solid var(--gallery-mobile-border);border-radius:17px;background:rgba(24,24,28,.95);backdrop-filter:blur(14px)}
-    .page-gallery .gallery-menu,.page-gallery .gallery-filter-drawer{color:#f5f3ff;background:var(--gallery-mobile-card);border:1px solid var(--gallery-mobile-border);border-radius:16px;box-shadow:0 18px 50px #0005}
-    .page-gallery .gallery-menu{min-width:220px}.page-gallery .gallery-menu button{color:#f5f3ff}
-    .page-gallery .gallery-layout-switch{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:999px;background:#101014}
-    .page-gallery .gallery-layout-switch button{min-height:32px;padding:6px 10px;border-radius:999px;color:#b8b4c8;font-size:.75rem}
-    .page-gallery .gallery-layout-switch button[aria-pressed=true]{color:#fff;background:var(--gallery-mobile-primary)}
-    .page-gallery .gallery-result-count{color:#aaa5bc;font-size:.76rem}
-    .page-gallery .gallery-filter-drawer{padding:14px;margin-bottom:14px}
-    .page-gallery .gallery-filter-fields{gap:10px}
-    .page-gallery .gallery-filter-drawer label,.page-gallery .gallery-filter-drawer legend{color:#c8c4d7;font-size:.78rem}
-    .page-gallery .gallery-filter-drawer input,.page-gallery .gallery-filter-drawer select,.page-gallery .gallery-filter-drawer textarea{color:#f5f3ff;background:#101014;border:1px solid #373442;border-radius:11px}
-    .page-gallery .gallery-library{min-width:0}
-    .page-gallery .gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    .page-gallery .gallery-grid[data-view=list]{grid-template-columns:minmax(0,1fr)}
-    .page-gallery .gallery-grid[data-view=masonry]{display:block;columns:3;column-gap:10px}
-    .page-gallery .gallery-grid[data-view=masonry]>*{break-inside:avoid;margin:0 0 10px}
-    .page-gallery .gallery-grid>*{min-width:0;overflow:hidden;border-radius:17px;border:1px solid #ffffff13;background:var(--gallery-mobile-card)}
-    .page-gallery .gallery-grid img,.page-gallery .gallery-grid video{display:block;width:100%;max-width:100%;object-fit:cover}
-    .page-gallery .gallery-empty,.page-gallery .gallery-load-error{padding:24px 16px;color:#bdb7d0;text-align:center;border:1px dashed #393446;border-radius:18px;background:#18181ca6}
-    .page-gallery .gallery-load-error{color:#ffb4b4}.page-gallery .gallery-community-zone{margin-top:18px}
-    .page-gallery .gallery-viewer{z-index:100}.page-gallery .gallery-viewer-panel{color:#f5f3ff;background:#0b0b0e}
-    .page-gallery .gallery-viewer-sidebar{color:#f5f3ff;background:#18181c;border-color:#2a2a32}
-    .page-gallery .gallery-viewer-bottom-actions button,.page-gallery .gallery-viewer-bottom-actions a{min-width:42px;min-height:42px;border-radius:13px}
-    .page-gallery .primary-button{background:var(--gallery-mobile-primary)}
-    .page-gallery .looply-footer{padding:18px 0 6px;color:#777286;text-align:center;font-size:.72rem}
-    @media(min-width:700px){body.page-gallery{padding:16px 0;background-color:#7c3aed;background-image:radial-gradient(circle at 50% 0%,#c084fc 0%,#9333ea 48%,#4c1d95 100%),radial-gradient(rgba(255,255,255,.13) 1.5px,transparent 1.5px);background-size:100% 100%,24px 24px;background-attachment:fixed}.page-gallery .container-page{height:min(880px,calc(100dvh - 32px));min-height:600px;overflow-y:auto;margin-block:0;padding-inline:22px;border:8px solid #111827;border-radius:42px;box-shadow:0 28px 80px #0007}.page-gallery .page-header{margin-inline:-22px;padding-inline:22px;border-radius:33px 33px 0 0}.page-gallery .page-navigation{order:initial;width:auto;margin-left:auto}.page-gallery .gallery-redesign-toolbar{top:auto}.page-gallery .gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.page-gallery .gallery-grid[data-view=masonry]{columns:3}}
-    @media(max-width:390px){.page-gallery .container-page{padding-inline:10px}.page-gallery .page-header{margin-inline:-10px;padding-inline:11px;gap:8px}.page-gallery .gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.page-gallery .gallery-grid[data-view=masonry]{columns:2}.page-gallery .gallery-redesign-toolbar{top:120px}}
-    @media(prefers-reduced-motion:reduce){.page-gallery .brand-mark-animated .circle{animation:none}.page-gallery *,.page-gallery *:before,.page-gallery *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
-  /* Reference model overrides (kept after legacy mobile rules to win the cascade). */
-  .page-gallery .gallery-redesign-toolbar{position:relative;top:auto;gap:12px;padding:12px 14px;border-radius:17px}
-  .page-gallery .gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
-  .page-gallery .gallery-layout-switch button[aria-pressed=true]{background:#6c5ce7;color:#fff;box-shadow:none}
-  @media(max-width:900px){.page-gallery .gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-  @media(max-width:620px){.page-gallery .gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.page-gallery .gallery-redesign-toolbar{top:auto}}
-  </style>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#F5F0FA"><title>Galeria — Looply</title><script src="config.js"></script>
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/pages/shared.css"><link rel="stylesheet" href="assets/css/pages/gallery.css">
 </head>
 <body class="looply-page page-gallery">
-  <div class="container-page">
-    <header class="page-header" data-site-header></header>
-    <main><div class="page-content" id="pageContent" aria-live="polite"></div></main>
-    <footer class="looply-footer">Looply · Galeria</footer>
-  </div>
-  <!-- Mantém autenticação, usuários reais, Supabase, permissões e ações da aplicação. -->
-  <script type="module" src="assets/js/gallery.js"></script>
-</body>
-</html>
+  <div class="container-page"><header class="page-header" data-site-header></header>
+    <main><section class="hero-panel page-title-panel"><div class="eyebrow">Galeria</div><h1 class="hero-title">Fotos e vídeos</h1></section><div class="page-content" id="pageContent" aria-live="polite"></div></main>
+    <footer class="looply-footer">Looply</footer>
+  </div><script type="module" src="assets/js/gallery.js"></script>
+</body></html>

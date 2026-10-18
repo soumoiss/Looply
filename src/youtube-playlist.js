@@ -7,18 +7,6 @@ const playlists = Object.freeze({
 const fallbackPlaylist = "PLMeQ_QyqhY7s";
 const playlistApiEndpoint = "/api/youtube-playlist";
 
-function playlistApiUrl() {
-  const configured = String(globalThis.window?.LOOPLY_CONFIG?.youtubeApiUrl || "").trim();
-  if (!configured) return playlistApiEndpoint;
-  try {
-    const base = new URL(configured, globalThis.window?.location?.origin || "https://looply.invalid");
-    if (base.protocol !== "https:" || base.pathname !== "/api/youtube-playlist") return playlistApiEndpoint;
-    return base.toString();
-  } catch {
-    return playlistApiEndpoint;
-  }
-}
-
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -59,7 +47,7 @@ const playlistCacheMaxAge = 12 * 60 * 60 * 1000;
 
 export function youtubeApiErrorMessage(status, data = {}) {
   const code = String(typeof data?.error === "string" ? data.error : "");
-  const reason = String(data?.reason || data?.error?.errors?.[0]?.reason || "").toLowerCase();
+  const reason = String(data?.reason || "").toLowerCase();
   if (code === "youtube_service_not_configured") {
     return "A lista pesquisável ainda não está configurada no servidor. O player incorporado continua disponível.";
   }
@@ -98,47 +86,37 @@ function writePlaylistCache(playlistId, tracks) {
 }
 
 export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = globalThis.fetch) {
-  const token = String(accessToken || "").trim();
-  if (!token) throw new Error("youtube-session-missing");
+  if (!String(accessToken || "").trim()) throw new Error("youtube-session-missing");
   const items = [];
   let pageToken = "";
   for (let page = 0; page < 100; page += 1) {
     const params = new URLSearchParams({ playlistId });
     if (pageToken) params.set("pageToken", pageToken);
-    const requestUrl = playlistApiUrl() + "?" + params;
-    let data = null;
-    let lastFailure = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      try {
-        const response = await fetchImpl(requestUrl, {
-          credentials: "omit",
-          headers: { accept: "application/json", authorization: "Bearer " + token },
-          signal: controller.signal
-        });
-        try { data = await response.json(); } catch { data = {}; }
-        if (response.ok) { lastFailure = null; break; }
-        const transient = [502, 503, 504].includes(response.status);
-        if (!transient || attempt === 2) throw new Error(youtubeApiErrorMessage(response.status, data));
-        lastFailure = new Error(youtubeApiErrorMessage(response.status, data));
-      } catch (error) {
-        if (error?.name === "AbortError") lastFailure = new Error("youtube-playlist-timeout");
-        else if (error?.message && error.message !== "Failed to fetch" && !(error instanceof TypeError)) throw error;
-        else lastFailure = error;
-      } finally { clearTimeout(timeout); }
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (2 ** attempt)));
-    }
-    if (!data || lastFailure) {
-      if (lastFailure?.message === "youtube-playlist-timeout") throw lastFailure;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await fetchImpl(playlistApiEndpoint + "?" + params, {
+        credentials: "same-origin",
+        headers: { accept: "application/json", authorization: "Bearer " + accessToken },
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("youtube-playlist-timeout");
       throw new Error("youtube-playlist-network-error");
+    } finally {
+      clearTimeout(timeout);
     }
+    let data = {};
+    try { data = await response.json(); } catch { /* The status below provides the actionable failure. */ }
+    if (!response.ok) throw new Error(youtubeApiErrorMessage(response.status, data));
     for (const item of Array.isArray(data.items) ? data.items : []) {
       const videoId = String(item?.videoId || item?.snippet?.resourceId?.videoId || "");
       const title = String(item?.title || item?.snippet?.title || "").trim();
       if (!/^[A-Za-z0-9_-]{11}$/.test(videoId) || !title || title === "Private video" || title === "Deleted video") continue;
       items.push({
-        videoId, title,
+        videoId,
+        title,
         channel: String(item?.channel || item?.snippet?.videoOwnerChannelTitle || item?.snippet?.channelTitle || ""),
         position: Number.isInteger(item?.position) ? item.position : items.length,
         thumbnail: String(item?.thumbnail || ("https://i.ytimg.com/vi/" + encodeURIComponent(videoId) + "/hqdefault.jpg"))
@@ -149,6 +127,7 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
   }
   throw new Error("youtube-playlist-too-large");
 }
+
 function trackMarkup(track, index) {
   const number = String(index + 1);
   return `<li><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
