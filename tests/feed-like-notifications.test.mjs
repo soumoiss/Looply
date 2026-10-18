@@ -6,7 +6,7 @@ import test from "node:test";
 const read = (path) => readFile(resolve(process.cwd(), path), "utf8");
 
 test("Instagram URL posts have the required column privilege and like notifications are database-backed", async () => {
-  const migration = await read("supabase/migrations/20261019110000_feed_link_permissions_and_like_notifications.sql");
+  const migration = await read("supabase/migrations/20261018232721_feed_link_permissions_and_like_notifications.sql");
   assert.match(migration, /grant insert \(author_id, body, visibility, external_url\) on public\.posts to authenticated/i);
   assert.match(migration, /'post_like', 'story_like'/);
   assert.match(migration, /after insert on public\.post_likes/i);
