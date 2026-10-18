@@ -100,6 +100,15 @@ function dedicationMarkup(item, userId) {
   </article>`;
 }
 
+function generalCommentsMarkup(data) {
+  if (data.generalCommentsError) return '<p class="music-empty">Os comentários gerais estão temporariamente indisponíveis.</p>';
+  const comments = data.generalComments || [];
+  if (!comments.length) return '<p class="music-empty">Ainda não há comentários gerais.</p>';
+  return comments.map((comment) => '<article class="music-comment"><strong>' +
+    escapeHtml(comment.author?.display_name || comment.author?.username || "Usuário") +
+    '</strong><p>' + escapeHtml(comment.body) + '</p></article>').join("");
+}
+
 function musicContent(data, userId) {
   if (data.dedicationsError) {
     return `<div class="social-message social-error" role="alert">Não foi possível carregar suas músicas. Confira a conexão e tente novamente.</div>`;
@@ -123,7 +132,7 @@ function musicContent(data, userId) {
     ${personalLibraryMarkup(data)}
     <section class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
       <h3 id="musicGeneralCommentsTitle">Comentários gerais</h3>
-      <div class="music-general-comment-list" data-music-general-comment-list></div>
+      <div class="music-general-comment-list" data-music-general-comment-list>${generalCommentsMarkup(data)}</div>
       <form data-music-general-comment class="music-comment-form"><label for="musicGeneralCommentBody">Comentar na página de músicas</label><textarea id="musicGeneralCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário geral"></textarea><button class="text-button" type="submit">Enviar comentário geral</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
     </section>
     <details class="music-composer"><summary>Dedicar uma música</summary>
