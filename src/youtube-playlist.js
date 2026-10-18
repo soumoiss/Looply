@@ -6,7 +6,8 @@ const playlists = Object.freeze({
   peixinho: "PLD5PXwJcU-Sg"
 });
 const fallbackPlaylist = "PLMeQ_QyqhY7s";
-const playlistApiEndpoint = "/api/youtube-playlist";
+const apiBaseUrl = String(globalThis.window?.LOOPLY_CONFIG?.apiBaseUrl || "https://looply-mu.vercel.app").replace(/\/+$/, "");
+const playlistApiEndpoint = apiBaseUrl + "/api/youtube-playlist";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
