@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -137,6 +137,16 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     let query = service.from("music_library")
       .select("id,owner_id,title,artist,listen_url,note,created_at,updated_at,owner:profiles!music_library_owner_id_fkey(id,username,display_name)")
       .order("created_at", { ascending: false }).limit(resourceId ? 1 : 50);
+    if (resourceId) query = query.eq("id", resourceId);
+    const result = resourceId ? await query.maybeSingle() : await query;
+    if (result.error) throw result.error;
+    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+  }
+
+  if (resourceType === "youtube_track_comments") {
+    let query = service.from("music_page_comments")
+      .select("id,playlist_id,video_id,body,created_at,author_id,author:profiles!music_page_comments_author_id_fkey(id,username,display_name)")
+      .eq("comment_type", "track").order("created_at", { ascending: false }).limit(resourceId ? 1 : 100);
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
