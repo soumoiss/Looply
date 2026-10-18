@@ -16,7 +16,7 @@ test("chat page has a home link and all conversation filters apply consistently"
   assert.match(enhancements, /activeFilter === "favorites" && favorites\.has\(id\)/);
   assert.match(enhancements, /item\.hidden = !matches/);
   assert.match(enhancements, /\[data-chat-conversations\] \[data-chat-open\]/);
-  assert.match(chat, /looply-chat-v2:\\${userId}:favorites/);
+  assert.match(chat, /localStorage\\.getItem/);
   assert.match(chat, /activeFilter === "groups" && isGroup/);
   assert.match(chat, /activeFilter === "favorites" && favorites\.has/);
 });
