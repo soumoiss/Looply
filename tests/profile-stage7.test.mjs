@@ -58,3 +58,10 @@ test("profile photo save errors distinguish invalid images, auth, storage permis
   assert.match(source, /error instanceof TypeError/);
   assert.match(source, /avatarSaveErrorMessage\(error\)/);
 });
+
+test("global back link follows its explicit home or chat destination", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /href="\$\{page === "conversation" \? "chat\.html" : "home\.html"\}" data-page-back/);
+  assert.doesNotMatch(runtime, /window\.history\.back\(\)/);
+  assert.match(runtime, /Keep this control deterministic/);
+});
