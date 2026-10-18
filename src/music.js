@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -38,7 +39,7 @@ function libraryMarkup(items, error) {
     <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">Na sua coleção</span></div>
     <h3>${escapeHtml(item.title)}</h3>${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${item.note ? `<p class="music-note">${escapeHtml(item.note)}</p>` : ""}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música <span aria-hidden="true">↗</span></a>
+    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música ${icon("external")}</a>
     <button class="text-button" type="button" data-music-library-delete="${escapeHtml(item.id)}">Remover da minha coleção</button>
     <span class="form-status" data-library-delete-status role="status" aria-live="polite"></span>
   </article>`).join("");
@@ -83,7 +84,7 @@ function dedicationMarkup(item, userId) {
     <h3>${escapeHtml(item.title)}</h3>
     ${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${notes}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música <span aria-hidden="true">↗</span></a>
+    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música ${icon("external")}</a>
     <section class="music-comments" aria-label="Comentários privados da música">
       <h4>Comentários <span>${comments.length}</span></h4>
       <div class="music-comment-list">${commentsMarkup}</div>
@@ -144,7 +145,7 @@ function musicContent(data, userId) {
         </div>
         <div class="field"><label for="musicUrl">Link para ouvir</label><input id="musicUrl" name="listenUrl" type="url" maxlength="1000" required placeholder="YouTube, Spotify, Apple Music ou SoundCloud"></div>
         <div class="field"><label for="musicNote">Uma dedicatória (opcional)</label><textarea id="musicNote" name="note" maxlength="1000" rows="3" placeholder="Por que esta música lembrou essa pessoa?"></textarea></div>
-        <button class="primary-button compact-button" type="submit">Enviar dedicatória <span aria-hidden="true">↗</span></button>
+        <button class="primary-button compact-button" type="submit">Enviar dedicatória ${icon("send")}</button>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     </details>

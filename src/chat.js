@@ -468,7 +468,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
-  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}">${avatar}<strong>${escapeHtml(name)}</strong><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">←</button></header>`;
+  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}">${avatar}<strong>${escapeHtml(name)}</strong><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button></header>`;
 }
 
 async function signThreadAvatar(client, participants) {

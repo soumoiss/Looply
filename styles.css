@@ -649,7 +649,11 @@ a:has(> .looply-icon:only-child) .looply-icon {
 /* Accessible hit areas and keyboard focus for icon controls. */
 .icon-button,
 .youtube-track-dialog-close,
-.chat-v2-modal-close {
+.chat-v2-modal-close,
+.chat-v2-icon-button,
+.chat-v2-favorite,
+.chat-back-button,
+.profile-icon-button {
   min-width: 44px;
   min-height: 44px;
 }

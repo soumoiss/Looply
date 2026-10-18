@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -43,7 +44,7 @@ export function adminMarkup(profile = {}) {
         <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>As mídias são exibidas em grupos de 100.</small></div>
       </div>
       <div class="field"><label for="adminPurpose">Motivo da consulta</label><textarea id="adminPurpose" name="purpose" minlength="20" maxlength="500" rows="3" required placeholder="Descreva por que esta consulta é necessária (mínimo de 20 caracteres)."></textarea></div>
-      <button class="primary-button compact-button" type="submit">Registrar e consultar <span aria-hidden="true">↗</span></button>
+      <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
     <div class="admin-results" data-admin-results aria-live="polite"><p>Consultas administrativas aparecem aqui depois de registradas.</p></div>
@@ -68,8 +69,8 @@ function mediaMarkup(media) {
   const url = escapeHtml(media.signed_url);
   const label = escapeHtml(media.alt_text || media.file_name || media.storage_path || "Mídia privada");
   if (media.mime_type?.startsWith("audio/")) return `<figure><audio src="${url}" controls preload="metadata" aria-label="${label}"></audio><figcaption>${label}</figcaption></figure>`;
-  if (media.mime_type === "application/pdf" || media.mime_type === "text/plain") return `<p class="admin-media-link"><a href="${url}" target="_blank" rel="noopener noreferrer">Abrir ${label} ↗</a></p>`;
-  if (media.mime_type === "image/heic") return `<p class="admin-media-link"><a href="${url}" target="_blank" rel="noopener noreferrer">Abrir ou baixar ${label} ↗</a></p>`;
+  if (media.mime_type === "application/pdf" || media.mime_type === "text/plain") return `<p class="admin-media-link"><a href="${url}" target="_blank" rel="noopener noreferrer">Abrir ${label} ${icon("external")}</a></p>`;
+  if (media.mime_type === "image/heic") return `<p class="admin-media-link"><a href="${url}" target="_blank" rel="noopener noreferrer">Abrir ou baixar ${label} ${icon("external")}</a></p>`;
   return (media.kind === "video" || media.mime_type?.startsWith("video/"))
     ? `<figure><video src="${url}" controls preload="metadata" aria-label="${label}"></video><figcaption>${label}</figcaption></figure>`
     : `<figure><img src="${url}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${label}</figcaption></figure>`;
@@ -89,7 +90,7 @@ function itemMarkup(resourceType, item) {
     const comments = (item.comments || []).map((comment) => `<li><strong>@${escapeHtml(comment.author?.username || "perfil restrito")} · ${escapeHtml(comment.visibility)}</strong><p>${escapeHtml(comment.body)}</p></li>`).join("");
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}${item.artist ? ` · ${escapeHtml(item.artist)}` : ""}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
       <p class="admin-record-body">${escapeHtml(item.dedication_note)}</p><p>@${escapeHtml(item.sender?.username || "perfil restrito")} → @${escapeHtml(item.recipient?.username || "perfil restrito")}</p>
-      <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ↗</a>${comments ? `<details><summary>Comentários</summary><ul>${comments}</ul></details>` : ""}</article>`;
+      <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ${icon("external")}</a>${comments ? `<details><summary>Comentários</summary><ul>${comments}</ul></details>` : ""}</article>`;
   }
   if (resourceType === "youtube_track_comments") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.author?.display_name || item.author?.username || "Usuário")} · comentário de música</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p><p>Playlist: ${escapeHtml(item.playlist_id)} · Vídeo: ${escapeHtml(item.video_id)}</p><small>Comentário UUID: ${escapeHtml(item.id)}</small></article>`;
@@ -97,7 +98,7 @@ function itemMarkup(resourceType, item) {
   if (resourceType === "music_library") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}${item.artist ? ` · ${escapeHtml(item.artist)}` : ""}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
       <p>@${escapeHtml(item.owner?.username || "perfil restrito")}</p>${item.note ? `<p class="admin-record-body">${escapeHtml(item.note)}</p>` : ""}
-      <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ↗</a></article>`;
+      <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ${icon("external")}</a></article>`;
   }
   if (resourceType === "profiles") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.username)}</strong><span>${escapeHtml(item.profile_visibility)}</span></div>
