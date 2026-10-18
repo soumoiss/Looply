@@ -264,3 +264,22 @@
   .page-conversation .chat-emoji-button { width:28px; }
   .page-conversation .chat-message-actions .primary-button { width:38px; height:38px; }
 }
+
+
+.page-chat .story-area { display:block; margin:0; padding:12px 15px 10px; border:0; border-bottom:1px solid #edf0f5; border-radius:0; background:#fff; box-shadow:none; }
+.page-chat .story-area-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 8px; }
+.page-chat .story-area-heading h2 { margin:0; color:#1e293b; font-size:14px; font-weight:750; }
+.page-chat .story-area-heading .section-kicker { display:none; }
+.page-chat .story-area-heading .text-button { padding:5px 8px; font-size:11px; }
+.page-chat .story-list { display:flex; align-items:flex-start; gap:12px; overflow-x:auto; padding:2px 0 5px; scrollbar-width:none; }
+.page-chat .story-list::-webkit-scrollbar { display:none; }
+.page-chat .story-avatar-button { display:flex; min-width:58px; flex:0 0 58px; flex-direction:column; align-items:center; gap:5px; padding:0; border:0; background:transparent; cursor:pointer; }
+.page-chat .story-avatar-button .story-avatar, .page-chat .story-avatar-button img, .page-chat .story-avatar-button > span:first-child { width:52px; height:52px; }
+.page-chat .story-avatar-button::after { content:attr(aria-label); display:block; max-width:60px; overflow:hidden; color:#64748b; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.page-chat .story-count { display:none; }
+.page-chat .story-feed-status { margin:3px 0 0; color:#94a3b8; font-size:10px; }
+.page-chat .story-feed-status:empty { display:none; }
+@media (min-width:681px) {
+  .page-chat .story-area { padding:14px 16px 10px; }
+  .page-chat .story-area-heading h2 { font-size:15px; }
+}
