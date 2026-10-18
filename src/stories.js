@@ -51,6 +51,17 @@ function openStoryDialog(dialog) {
   return true;
 }
 
+function closeStoryDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.close === "function" && dialog.open) {
+    dialog.close();
+    return;
+  }
+  dialog.removeAttribute("open");
+  dialog.classList.remove("story-dialog-fallback-open");
+  dialog.dispatchEvent(new Event("close"));
+}
+
 function profileName(profile) {
   return String(profile?.display_name || profile?.username || "Membro");
 }
@@ -520,7 +531,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       targetGroupIndex += direction;
       if (targetGroupIndex < 0 || targetGroupIndex >= state.groups.length) {
         if (direction > 0) {
-          viewer.close();
+          closeStoryDialog(viewer);
           void refresh();
           cleanupExpiredStories(client);
         }
@@ -540,7 +551,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const stories = activeStoriesFor(state.active);
     state.active.stories = stories;
     if (!stories.length || state.index >= stories.length) {
-      viewer.close();
+      closeStoryDialog(viewer);
       void refresh();
       return;
     }
@@ -726,7 +737,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (replacement) state.active = replacement;
         else {
           state.active = null;
-          if (viewer.open) viewer.close();
+          if (viewer.open) closeStoryDialog(viewer);
         }
       }
       scheduleNextExpiry();
@@ -757,7 +768,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   scheduleNextExpiry();
   root.__looplyStoryStop = clearTimer;
   root.__looplyStoryCameraStop = () => stopCamera(true);
-  root.__looplyStoryClose = () => { if (viewer.open) viewer.close(); };
+  root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
     if (story?.author_id === userId && !viewer.querySelector("[data-story-insights-panel]").hidden) {
@@ -845,7 +856,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-create-close]")) {
-      createDialog.close();
+      closeStoryDialog(createDialog);
       return;
     }
     if (event.target.closest("[data-story-refresh]")) {
@@ -895,7 +906,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-close]")) {
-      viewer.close();
+      closeStoryDialog(viewer);
       return;
     }
     if (event.target.closest("[data-story-prev]")) {
@@ -969,7 +980,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         }
         const { error } = await client.from("stories").delete().eq("id", current.id).eq("author_id", userId);
         if (error) throw error;
-        viewer.close();
+        closeStoryDialog(viewer);
         await refresh();
         scheduleNextExpiry();
       } catch (error) {
@@ -982,7 +993,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
 
   viewer.addEventListener("click", (event) => {
-    if (event.target === viewer) viewer.close();
+    if (event.target === viewer) closeStoryDialog(viewer);
   });
   const touchSurface = viewer.querySelector("[data-story-touch-surface]");
   let pointerStart = null;
@@ -1008,7 +1019,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.ignoreTapUntil = Date.now() + 500;
       advance(deltaX < 0 ? 1 : -1);
     }
-    else if (deltaY > 90) viewer.close();
+    else if (deltaY > 90) closeStoryDialog(viewer);
   });
   touchSurface.addEventListener("pointercancel", () => { pointerStart = null; });
   viewer.addEventListener("keydown", (event) => {
@@ -1100,7 +1111,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
 
       form.reset();
-      createDialog.close();
+      closeStoryDialog(createDialog);
       await refresh();
       showStatus("Story publicado. Ele expira após 24 horas.");
     } catch (error) {
