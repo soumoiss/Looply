@@ -214,7 +214,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
         if (!item.signedUrl && image.isConnected) {
           image.alt = "Mídia indisponível — abra para tentar novamente";
         }
-      }, { once: true });
+      });
     };
     if (target instanceof HTMLImageElement) {
       bindRetry(target);
