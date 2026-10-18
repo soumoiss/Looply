@@ -16,7 +16,7 @@ create table if not exists public.chat_ttt_results (
 
 alter table public.chat_ttt_results enable row level security;
 revoke all on table public.chat_ttt_results from public, anon, authenticated;
-grant select on table public.chat_ttt_results to authenticated;
+grant select, insert on table public.chat_ttt_results to authenticated;
 
 drop policy if exists chat_ttt_participants_read on public.chat_ttt_results;
 create policy chat_ttt_participants_read on public.chat_ttt_results
@@ -27,6 +27,27 @@ create policy chat_ttt_participants_read on public.chat_ttt_results
       and participant.user_id = (select auth.uid())
   ));
 
+drop policy if exists chat_ttt_participants_insert on public.chat_ttt_results;
+create policy chat_ttt_participants_insert on public.chat_ttt_results
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.conversation_participants participant
+      where participant.conversation_id = chat_ttt_results.conversation_id
+        and participant.user_id = (select auth.uid())
+    )
+    and exists (
+      select 1 from public.conversation_participants participant
+      where participant.conversation_id = chat_ttt_results.conversation_id
+        and participant.user_id = chat_ttt_results.x_player
+    )
+    and exists (
+      select 1 from public.conversation_participants participant
+      where participant.conversation_id = chat_ttt_results.conversation_id
+        and participant.user_id = chat_ttt_results.o_player
+    )
+  );
+
 create or replace function public.record_chat_ttt_result(
   p_game_id uuid,
   p_conversation_id uuid,
@@ -36,7 +57,7 @@ create or replace function public.record_chat_ttt_result(
   p_is_draw boolean
 ) returns boolean
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
