@@ -90,7 +90,16 @@ function postMarkup(post, userId) {
   if (externalUrl) {
     let provider = externalUrl.hostname.includes("instagram") ? "Instagram" : externalUrl.hostname.includes("tiktok") ? "TikTok" : "Link externo";
     let embed = "";
-    if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
+    if (externalUrl.hostname.includes("instagram")) {
+      const pathParts = externalUrl.pathname.split("/").filter(Boolean);
+      const kind = ["p", "reel", "tv"].includes(pathParts[0]) ? pathParts[0] : null;
+      const shortcode = pathParts[1] || "";
+      if (kind && /^[A-Za-z0-9_-]{5,30}$/.test(shortcode)) {
+        provider = "Instagram";
+        const embedPath = kind === "p" ? "p" : kind;
+        embed = '<div class="post-external-embed post-instagram-embed"><iframe src="https://www.instagram.com/' + embedPath + '/' + escapeHtml(shortcode) + '/embed" title="Publicação do Instagram" loading="lazy" allow="clipboard-write; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      }
+    } else if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
       const pathParts = externalUrl.pathname.split("/").filter(Boolean);
       const id = externalUrl.hostname === "youtu.be" ? pathParts[0] : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : ["shorts", "embed"].includes(pathParts[0]) ? pathParts[1] : null;
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
