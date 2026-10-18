@@ -545,9 +545,13 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     const currentArea = root.querySelector("[data-chat-area]");
     const currentSidebar = currentArea?.querySelector(".chat-sidebar");
     const freshSidebar = freshArea?.querySelector(".chat-sidebar");
-    // Refresh only the conversation list/sidebar. Never replace the thread,
-    // composer, textarea or recording controls during background sync.
-    if (currentSidebar && freshSidebar) currentSidebar.replaceWith(freshSidebar);
+    const currentStories = currentSidebar?.querySelector(".story-area");
+    // Refresh only the conversation list/sidebar. Keep the live Stories node
+    // and never replace the thread, composer, textarea or recorder on sync.
+    if (currentSidebar && freshSidebar) {
+      currentSidebar.replaceWith(freshSidebar);
+      if (currentStories) freshSidebar.prepend(currentStories);
+    }
     applyConversationFilter(root);
 
     const conversationId = activeConversationId;
