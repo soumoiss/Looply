@@ -35,3 +35,20 @@
   .youtube-track-dialog { padding: 12px; }
   .youtube-track-dialog-player { min-height: 220px; }
 }
+
+/* Stage 6 music interaction controls */
+.youtube-track-row { display:flex; align-items:stretch; gap:5px; min-width:0; }
+.youtube-track-row > .youtube-track { flex:1; min-width:0; }
+.youtube-track-comment { display:grid; width:38px; min-width:38px; min-height:48px; place-items:center; align-self:center; border:1px solid var(--border); border-radius:10px; color:var(--primary); background:var(--surface); font-size:18px; cursor:pointer; }
+.youtube-track-comment:hover { background:var(--surface-raised, rgba(122,84,150,.12)); }
+.youtube-track-comments { display:grid; gap:12px; margin-top:16px; }
+.youtube-track-comments h3, .music-general-comments h3 { margin:0; font-size:17px; }
+.youtube-track-comments form, .music-general-comments form { display:grid; gap:9px; }
+.youtube-track-comments textarea, .music-general-comments textarea { width:100%; min-height:76px; resize:vertical; }
+.youtube-track-comment-item, .music-general-comments .music-comment { padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.youtube-track-comment-item p, .music-general-comments .music-comment p { margin:5px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.music-general-comments { display:grid; gap:12px; margin:0 0 18px; padding:16px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+.music-general-comment-list { display:grid; gap:8px; }
+.music-composer select[multiple] { min-height:132px; }
+.music-composer select[multiple] option { padding:7px; }
+@media (max-width:780px) { .youtube-track-comment { width:36px; min-width:36px; } }
