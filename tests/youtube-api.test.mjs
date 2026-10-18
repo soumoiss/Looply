@@ -12,8 +12,8 @@ function createResponse() {
   };
 }
 
-function createRequest(url = "/api/youtube-playlist?playlistId=PLD5PXwJcU-Sg", authorization = "Bearer valid-session-token", method = "GET") {
-  return { method, url, headers: authorization ? { authorization } : {} };
+function createRequest(url = "/api/youtube-playlist?playlistId=PLD5PXwJcU-Sg", authorization = "Bearer valid-session-token", method = "GET", origin = "") {
+  return { method, url, headers: { ...(authorization ? { authorization } : {}), ...(origin ? { origin } : {}) } };
 }
 
 const env = {
@@ -112,4 +112,29 @@ test("YouTube playlist API does not reveal upstream error payloads", async () =>
     upstreamStatus: 403
   });
   assert.doesNotMatch(response.body, /contains-secret|server-only-test-key/);
+});
+
+test("YouTube playlist API answers CORS preflight only for the configured public app origins", async () => {
+  const response = createResponse();
+  let calls = 0;
+  await handler(createRequest(undefined, "", "OPTIONS", "https://soumoiss.github.io"), response, {
+    env,
+    fetchImpl: async () => { calls += 1; throw new Error("preflight must not call upstream services"); }
+  });
+  assert.equal(response.statusCode, 204);
+  assert.equal(response.headers["access-control-allow-origin"], "https://soumoiss.github.io");
+  assert.match(response.headers["access-control-allow-headers"], /authorization/i);
+  assert.equal(calls, 0);
+});
+
+test("YouTube playlist API rejects unapproved cross-origin callers", async () => {
+  const response = createResponse();
+  let calls = 0;
+  await handler(createRequest(undefined, "Bearer valid-session-token", "GET", "https://attacker.example"), response, {
+    env,
+    fetchImpl: async () => { calls += 1; throw new Error("untrusted origin must be rejected"); }
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(JSON.parse(response.body).error, "origin_not_allowed");
+  assert.equal(calls, 0);
 });
