@@ -45,8 +45,29 @@ export async function loadCommunityGallery(client, includePrivate = false) {
   if (error) throw error;
   const rows = data || [];
   if (!rows.length) return [];
-  const { data: signed, error: signedError } = await client.storage.from(bucketName).createSignedUrls(rows.map((item) => item.storage_path), 1800);
-  return rows.map((item, index) => ({ ...item, signedUrl: signedError ? null : signed?.[index]?.signedUrl || null }));
+  const storage = client.storage.from(bucketName);
+  let signed = null;
+  let signedError = null;
+  try {
+    const result = await storage.createSignedUrls(rows.map((item) => item.storage_path), 1800);
+    signed = result.data || null;
+    signedError = result.error || null;
+  } catch (error) {
+    signedError = error;
+  }
+  return Promise.all(rows.map(async (item, index) => {
+    let signedUrl = !signedError ? signed?.[index]?.signedUrl || null : null;
+    // A single missing object must not make the entire feed appear broken.
+    if (!signedUrl && item.storage_path) {
+      try {
+        const result = await storage.createSignedUrl(item.storage_path, 1800);
+        if (!result.error) signedUrl = result.data?.signedUrl || null;
+      } catch (error) {
+        console.warn("Community media URL recovery failed", item.file_name, error);
+      }
+    }
+    return { ...item, signedUrl };
+  }));
 }
 function galleryGridMarkup(media, userId, isAdmin) {
   return media.length ? media.map((item) => itemMarkup(item, userId, isAdmin)).join("") :
@@ -119,6 +140,31 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
     root.dispatchEvent(new CustomEvent("gallery-media-refresh"));
   };
   const reload = async () => { media = await loadCommunityGallery(client, includePrivate); render(); };
+  // Recover an expired or stale signed URL without forcing the user to reload the page.
+  section?.addEventListener("error", async (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.closest(".community-gallery-card")) return;
+    const card = image.closest(".community-gallery-card");
+    if (image.dataset.urlRetry === "done") {
+      const fallback = document.createElement("span");
+      fallback.className = "community-gallery-unavailable";
+      fallback.textContent = "Mídia indisponível — abra para tentar novamente.";
+      image.replaceWith(fallback);
+      return;
+    }
+    image.dataset.urlRetry = "done";
+    const item = media.find((entry) => String(entry.id) === String(card.dataset.mediaId));
+    if (!item?.storage_path) return;
+    try {
+      const result = await client.storage.from(bucketName).createSignedUrl(item.storage_path, 1800);
+      if (result.error || !result.data?.signedUrl) throw result.error || new Error("Signed URL unavailable");
+      item.signedUrl = result.data.signedUrl;
+      image.src = item.signedUrl;
+    } catch (error) {
+      console.warn("Community gallery image could not be recovered", item.file_name, error);
+      image.dispatchEvent(new Event("error"));
+    }
+  }, true);
   root.addEventListener("gallery-private-unlocked", () => { includePrivate = true; reload().catch((error) => console.error("Private community media refresh failed", error)); });
   section?.addEventListener("submit", async (event) => {
     const form = event.target.closest("[data-community-gallery-upload]");

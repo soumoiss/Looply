@@ -193,7 +193,36 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     const target = [...root.querySelectorAll("[data-archive-thumbnail]")]
       .find((element) => element.dataset.mediaId === item.id);
     if (!target || !item.signedUrl) return;
+    const bindRetry = (image) => {
+      if (image.dataset.retryBound === "true") return;
+      image.dataset.retryBound = "true";
+      image.addEventListener("error", async () => {
+        if (image.dataset.urlRetry === "done") {
+          const fallback = document.createElement("span");
+          fallback.className = "archive-media-placeholder";
+          fallback.dataset.archiveThumbnail = "";
+          fallback.dataset.mediaId = item.id;
+          fallback.textContent = "Mídia indisponível — toque para tentar novamente";
+          image.replaceWith(fallback);
+          return;
+        }
+        image.dataset.urlRetry = "done";
+        item.signedUrl = null;
+        item.signedAt = 0;
+        try { await ensureSigned([item]); }
+        catch (error) { console.warn("Looply thumbnail retry failed", error); }
+        if (!item.signedUrl && image.isConnected) {
+          const fallback = document.createElement("span");
+          fallback.className = "archive-media-placeholder";
+          fallback.dataset.archiveThumbnail = "";
+          fallback.dataset.mediaId = item.id;
+          fallback.textContent = "Mídia indisponível — toque para tentar novamente";
+          image.replaceWith(fallback);
+        }
+      });
+    };
     if (target instanceof HTMLImageElement) {
+      bindRetry(target);
       if (target.src !== item.signedUrl) target.src = item.signedUrl;
       return;
     }
@@ -204,6 +233,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     image.alt = item.file_name || item.source_path || "Imagem";
     image.loading = "lazy";
     image.referrerPolicy = "no-referrer";
+    bindRetry(image);
     target.replaceWith(image);
   }
 
@@ -211,16 +241,41 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     const now = Date.now();
     const missing = [...new Map(items.filter(Boolean)
       .filter((item) => !item.signedUrl || !item.signedAt || now - item.signedAt > 20 * 60 * 1000)
+      .filter((item) => item.storage_path)
       .map((item) => [item.id, item])).values()];
     if (!missing.length) return;
-    const { data, error } = await client.storage.from("looply-media")
-      .createSignedUrls(missing.map((item) => item.storage_path), 1800);
-    if (error) throw error;
-    missing.forEach((item, index) => {
-      item.signedUrl = data?.[index]?.signedUrl || null;
-      item.signedAt = item.signedUrl ? Date.now() : 0;
+    const storage = client.storage.from("looply-media");
+    let batchData = null;
+    let batchError = null;
+    try {
+      const batch = await storage.createSignedUrls(missing.map((item) => item.storage_path), 1800);
+      batchData = batch.data || null;
+      batchError = batch.error || null;
+    } catch (error) {
+      batchError = error;
+    }
+    const failures = [];
+    for (let index = 0; index < missing.length; index += 1) {
+      const item = missing[index];
+      let signedUrl = !batchError ? batchData?.[index]?.signedUrl || null : null;
+      // createSignedUrls can return a per-file error while the overall request succeeds.
+      // Retry those files individually so one broken path never blanks the whole gallery.
+      if (!signedUrl) {
+        try {
+          const single = await storage.createSignedUrl(item.storage_path, 1800);
+          if (!single.error) signedUrl = single.data?.signedUrl || null;
+        } catch (error) {
+          console.warn("Looply archive signed URL retry failed", item.file_name || item.storage_path, error);
+        }
+      }
+      item.signedUrl = signedUrl;
+      item.signedAt = signedUrl ? Date.now() : 0;
+      if (!signedUrl) failures.push(item.file_name || item.storage_path);
       renderThumbnail(item);
-    });
+    }
+    if (failures.length) {
+      console.warn("Some Looply archive media could not be signed", failures.length, failures.slice(0, 5));
+    }
   }
 
   function observeThumbnails() {
