@@ -33,7 +33,7 @@ test("call, story, attachment and letter controls share the central icon registr
     read("src/letters-community.js"), read("src/chat-enhancements.js"), read("src/page-runtime.js")
   ]);
   for (const source of [calls, stories, social, letters, enhancements, runtime]) assert.match(source, /from "\.\/icons\.js"/);
-  for (const name of ["mic", "micOff", "volume", "volumeOff", "camera", "cameraOff", "cameraSwitch", "hangup"]) assert.ok(calls.includes('icon("' + name + '")') || calls.includes('icon(track.enabled ? "' + name));
+  for (const token of ['icon("mic")', 'icon("volume")', 'icon("camera")', 'icon("cameraSwitch")', 'icon("hangup")', 'track.enabled ? "mic" : "micOff"', 'remote.muted ? "volumeOff" : "volume"', 'track.enabled ? "camera" : "cameraOff"']) assert.ok(calls.includes(token), "missing call icon/state " + token);
   assert.match(stories, /data-story-play-toggle[^\n]*icon\("pause"\)/);
   assert.match(stories, /button\.innerHTML = icon\(state\.paused \? "play" : "pause"\)/);
   assert.match(social, /icon\("plus"\)/);
