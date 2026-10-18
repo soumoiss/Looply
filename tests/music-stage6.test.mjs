@@ -5,13 +5,19 @@ import { readFile } from "node:fs/promises";
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("playlist remains sourced from the YouTube Data API with complete pagination and resilient cache", async () => {
-  const [playlist, api] = await Promise.all([read("src/youtube-playlist.js"), read("api/youtube-playlist.js")]);
+  const [playlist, api, proxy] = await Promise.all([read("src/youtube-playlist.js"), read("api/youtube-playlist.js"), read("supabase/functions/looply-youtube-playlist/index.ts")]);
   assert.match(playlist, /fetchPlaylistItems/);
   assert.match(playlist, /nextPageToken/);
   assert.match(playlist, /writePlaylistCache/);
   assert.match(playlist, /Tentar novamente/);
   assert.match(playlist, /youtube-nocookie\.com\/embed/);
   assert.match(api, /LOOPLY_YOUTUBE_API_KEY/);
+  assert.match(playlist, /functions\/v1\/looply-youtube-playlist/);
+  assert.match(playlist, /apikey: String\(globalThis\.window\?\.LOOPLY_CONFIG\?\.publishableKey/);
+  assert.match(proxy, /upstreamEndpoint = "https:\/\/looply-mu\.vercel\.app\/api\/youtube-playlist"/);
+  assert.match(proxy, /headers: \{ accept: "application\/json", authorization \}/);
+  assert.match(proxy, /access-control-allow-origin/);
+  assert.match(proxy, /allowedPlaylists\.has\(playlistId\)/);
   assert.doesNotMatch(api, /AIzaSy[A-Za-z0-9_-]{20,}/);
   assert.match(api, /youtube_quota_exceeded/);
 });
