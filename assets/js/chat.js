@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
+import { setupChatCalls } from "../../src/chat-calls.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
 import { loadSocialData } from "../../src/social.js";
 
@@ -15,6 +16,7 @@ await mountAppPage({ page: "chat", render: async ({ root, client, user, profile 
   root.innerHTML = `${storiesMarkup(stories, storiesError, socialData.people, socialData.peopleError, user.id, profile)}${chatMarkup(data, user.id)}`;
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
+  setupChatCalls(root, client, user.id);
   setupChatRealtime(client, user.id, root);
   bindStories(root, client, user.id, stories, storiesError, profile);
   setupStoriesRealtime(client, user.id, root);
