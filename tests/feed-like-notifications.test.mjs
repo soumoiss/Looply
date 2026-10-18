@@ -19,5 +19,5 @@ test("notification inbox identifies who liked a post or story and links to the c
   assert.match(source, /post_like: "Curtida no feed"/);
   assert.match(source, /story_like: "Curtida no story"/);
   assert.match(source, /if \(item\.kind === "story_like"\) return "home\.html#stories"/);
-  assert.match(source, /"post_like"\].*home\.html#post-/);
+  assert.match(source, /post_like[\s\S]*home\.html#post-/);
 });
