@@ -37,10 +37,11 @@ function itemMarkup(item, userId, isAdmin) {
     "<div class=\"gallery-person-chips\" data-gallery-person-chips></div><button class=\"community-gallery-open\" type=\"button\" data-open-community-media=\"" + escapeHtml(item.id) + "\">Abrir mídia ↗</button>" +
     (canDelete ? "<button class=\"community-gallery-delete\" type=\"button\" data-delete-community-media=\"" + escapeHtml(item.id) + "\">Excluir</button>" : "") + "</article>";
 }
-export async function loadCommunityGallery(client) {
-  const { data, error } = await client.from("community_gallery_media")
-    .select("id,owner_id,storage_path,file_name,kind,mime_type,byte_size,caption,created_at,visibility,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)")
-    .order("created_at", { ascending: false }).limit(300);
+export async function loadCommunityGallery(client, includePrivate = false) {
+  let query = client.from("community_gallery_media")
+    .select("id,owner_id,storage_path,file_name,kind,mime_type,byte_size,caption,created_at,visibility,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)");
+  if (!includePrivate) query = query.eq("visibility", "members");
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(300);
   if (error) throw error;
   const rows = data || [];
   if (!rows.length) return [];
@@ -107,15 +108,18 @@ async function removeUploaded(client, path) {
 }
 export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) {
   let media = [...initialMedia];
+  let includePrivate = false;
   const section = root.querySelector(".community-gallery-panel");
   const render = () => {
     const grid = section?.querySelector("[data-community-gallery-grid]");
     const count = section?.querySelector("[data-community-gallery-count]");
     if (grid) grid.innerHTML = galleryGridMarkup(media, user.id, isAdmin);
     if (count) count.textContent = media.length + " arquivo(s)";
+    root.dispatchEvent(new CustomEvent("gallery-community-media-updated", { detail: { media } }));
     root.dispatchEvent(new CustomEvent("gallery-media-refresh"));
   };
-  const reload = async () => { media = await loadCommunityGallery(client); render(); };
+  const reload = async () => { media = await loadCommunityGallery(client, includePrivate); render(); };
+  root.addEventListener("gallery-private-unlocked", () => { includePrivate = true; reload().catch((error) => console.error("Private community media refresh failed", error)); });
   section?.addEventListener("submit", async (event) => {
     const form = event.target.closest("[data-community-gallery-upload]");
     if (!form) return;
