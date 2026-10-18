@@ -9,11 +9,12 @@ function formatDate(value) {
   return Number.isNaN(date.valueOf()) ? "" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(date);
 }
 
-export async function loadArchiveMedia(client, userId) {
+export async function loadArchiveMedia(client, userId, includePrivate = false) {
+  let mediaQuery = client.from("archive_media")
+    .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at");
+  if (!includePrivate) mediaQuery = mediaQuery.eq("visibility", "members");
   const [mediaResult, commenterResult] = await Promise.all([
-    client.from("archive_media")
-      .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,created_at")
-      .order("source_path", { ascending: true }).limit(500),
+    mediaQuery.order("source_path", { ascending: true }).limit(500),
     userId
       ? client.from("archive_media_commenters").select("media_id").eq("user_id", userId)
       : Promise.resolve({ data: [], error: null })
@@ -432,6 +433,7 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
     const count = currentLibrary?.querySelector("[data-archive-media-count]");
     if (count) count.textContent = `${state.media.length} arquivo(s)`;
     observeThumbnails();
+    root.dispatchEvent(new CustomEvent("gallery-archive-media-updated", { detail: { media: state.media } }));
     const active = activeId ? current() : null;
     if (active) {
       renderComments(active);
@@ -616,9 +618,13 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
   const status = root.querySelector("[data-archive-media-count]");
   if (status) status.textContent = `${state.media.length} arquivo(s)`;
   observeThumbnails();
+  root.addEventListener("gallery-private-unlocked", async () => {
+    try { refreshTiles(await loadArchiveMedia(client, user.id, true)); }
+    catch (error) { console.error("Looply private archive refresh failed", error); }
+  });
   state.channel = client.channel(`looply-archive-media-${user.id}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "archive_media" }, async () => {
-      try { refreshTiles(await loadArchiveMedia(client, user.id)); }
+      try { refreshTiles(await loadArchiveMedia(client, user.id, document.documentElement.dataset.galleryPrivateUnlocked === "true")); }
       catch (error) { console.error("Looply archive media refresh failed", error); }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "archive_media_comments" }, async (payload) => {
