@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -38,7 +39,7 @@ function libraryMarkup(items, error) {
     <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">Na sua coleção</span></div>
     <h3>${escapeHtml(item.title)}</h3>${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${item.note ? `<p class="music-note">${escapeHtml(item.note)}</p>` : ""}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música <span aria-hidden="true">↗</span></a>
+    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música ${icon("external")}</a>
     <button class="text-button" type="button" data-music-library-delete="${escapeHtml(item.id)}">Remover da minha coleção</button>
     <span class="form-status" data-library-delete-status role="status" aria-live="polite"></span>
   </article>`).join("");
