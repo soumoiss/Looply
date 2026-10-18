@@ -206,7 +206,7 @@ export function setupChatCalls(root, client, userId) {
     const heading = root.querySelector(".chat-thread-heading");
     if (!heading || heading.dataset.chatKind === "group") return;
     if (!heading.querySelector("[data-call-audio]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-audio aria-label="Ligar por áudio" title="Chamada de áudio">☎</button>');
-    if (!heading.querySelector("[data-call-video]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-video aria-label="Ligar por vídeo" title="Chamada de vídeo">▣</button>');
+    if (!heading.querySelector("[data-call-video]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-video aria-label="Ligar por vídeo" title="Chamada de vídeo">' + icon("video") + '</button>');
   };
   root.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
