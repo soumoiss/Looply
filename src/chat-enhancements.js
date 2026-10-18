@@ -134,7 +134,7 @@ export function setupChatEnhancements(root, client, userId) {
     const topHeading = root.querySelector(".chat-heading");
     if (topHeading && !topHeading.querySelector("[data-v2-settings]")) {
       const button = document.createElement("button");
-      button.type = "button"; button.className = "chat-v2-icon-button chat-v2-menu-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.title = "Configurações"; button.textContent = "☰";
+      button.type = "button"; button.className = "chat-v2-icon-button chat-v2-menu-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.title = "Configurações"; button.innerHTML = icon("menu");
       topHeading.prepend(button);
     }
     const filters = root.querySelector(".chat-filter-tabs");
@@ -143,8 +143,8 @@ export function setupChatEnhancements(root, client, userId) {
     }
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
-      heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">⋯</button>');
-      if (!isGroup() && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Jogar jogo da velha" title="Jogar jogo da velha">▦</button>');
+      heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">${icon("more")}</button>');
+      if (!isGroup() && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Jogar jogo da velha" title="Jogar jogo da velha">${icon("grid")}</button>');
       heading.dataset.conversationId = selectedConversation();
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
@@ -156,7 +156,7 @@ export function setupChatEnhancements(root, client, userId) {
       if (!star) {
         const button = document.createElement("button");
         button.type = "button"; button.className = "chat-v2-favorite"; button.dataset.v2Favorite = id; button.setAttribute("aria-label", "Favoritar conversa");
-        button.textContent = favorites.has(id) ? "★" : "☆";
+        button.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
         button.setAttribute("aria-pressed", String(favorites.has(id)));
         item.append(button);
       }
@@ -193,7 +193,7 @@ export function setupChatEnhancements(root, client, userId) {
     const id = favorite.dataset.v2Favorite;
     if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
     write(favoritesKey, [...favorites]);
-    favorite.textContent = favorites.has(id) ? "★" : "☆";
+    favorite.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
     favorite.setAttribute("aria-pressed", String(favorites.has(id)));
     applyFilters();
   }, true);
