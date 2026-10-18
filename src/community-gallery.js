@@ -28,15 +28,18 @@ function mediaContent(item) {
 }
 function itemMarkup(item, userId, isAdmin) {
   const canDelete = item.owner_id === userId || isAdmin;
-  return "<article class=\"community-gallery-card\"><div class=\"community-gallery-visual\">" + mediaContent(item) + "</div>" +
+  const search = escapeHtml([item.file_name, item.caption, item.owner?.username, item.owner?.display_name].join(" ").toLocaleLowerCase("pt-BR"));
+  const access = item.visibility === "exclusive" ? "exclusive" : "members";
+  return "<article class=\"community-gallery-card\" data-gallery-source=\"community\" data-media-id=\"" + escapeHtml(item.id) + "\" data-kind=\"" + escapeHtml(item.kind) + "\" data-access=\"" + access + "\" data-created-at=\"" + escapeHtml(item.created_at) + "\" data-name=\"" + escapeHtml(String(item.file_name || "").toLocaleLowerCase("pt-BR")) + "\" data-search=\"" + search + "\">" +
+    "<div class=\"community-gallery-visual\">" + mediaContent(item) + "</div>" +
     "<div class=\"community-gallery-card-copy\"><strong>" + escapeHtml(item.caption || item.file_name) + "</strong>" +
     "<span>@" + escapeHtml(item.owner?.username || "membro") + " · " + escapeHtml(dateLabel(item.created_at)) + "</span></div>" +
-    (canDelete ? "<button class=\"community-gallery-delete\" type=\"button\" data-delete-community-media=\"" + escapeHtml(item.id) + "\">Excluir</button>" : "") +
-    "</article>";
+    "<div class=\"gallery-person-chips\" data-gallery-person-chips></div><button class=\"community-gallery-open\" type=\"button\" data-open-community-media=\"" + escapeHtml(item.id) + "\">Abrir mídia ↗</button>" +
+    (canDelete ? "<button class=\"community-gallery-delete\" type=\"button\" data-delete-community-media=\"" + escapeHtml(item.id) + "\">Excluir</button>" : "") + "</article>";
 }
 export async function loadCommunityGallery(client) {
   const { data, error } = await client.from("community_gallery_media")
-    .select("id,owner_id,storage_path,file_name,kind,mime_type,byte_size,caption,created_at,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)")
+    .select("id,owner_id,storage_path,file_name,kind,mime_type,byte_size,caption,created_at,visibility,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)")
     .order("created_at", { ascending: false }).limit(300);
   if (error) throw error;
   const rows = data || [];
@@ -154,6 +157,7 @@ export function bindCommunityGallery(root, client, user, isAdmin, initialMedia) 
     form.reset();
     try { await reload(); } catch (error) { console.error("Community gallery refresh failed", error); }
     status.textContent = uploaded + " arquivo(s) enviado(s)." + (failures.length ? " " + failures.length + " falha(s): " + failures.slice(0, 4).join(" ") : "");
+    form.dispatchEvent(new CustomEvent("community-gallery-upload-complete", { bubbles: true, detail: { uploaded, failed: failures.length } }));
     button.disabled = false;
   });
   section?.addEventListener("click", async (event) => {
