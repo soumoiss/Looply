@@ -207,3 +207,7 @@
 .post-controls { display:flex; align-items:center; gap:6px; }
 .post-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
 @media(max-width:560px) { .post-interactions { gap:6px; } .post-icon-button { min-height:36px; padding:5px 8px; } }
+
+/* Instagram embeds preserve a tall post/reel ratio instead of cropping into a landscape video frame. */
+.post-instagram-embed { aspect-ratio: 4 / 5; max-height: 720px; background: #fff; }
+.post-instagram-embed iframe { background: #fff; }
