@@ -39,8 +39,6 @@
 .page-gallery .gallery-add-button{width:46px;height:46px;border-radius:14px}
 .page-gallery .gallery-categories{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 22px}
 .page-gallery .gallery-category{justify-content:flex-start;min-height:58px;padding:12px 16px;border-radius:16px;font-size:.92rem}
-.page-gallery .gallery-category:first-child{background:var(--cat-recent-bg);color:#9f1239}
-.page-gallery .gallery-category:first-child .gallery-category-icon{color:#ec4899}
 .page-gallery .gallery-category:nth-child(2){background:var(--cat-recent-bg);color:#9f1239}
 .page-gallery .gallery-category:nth-child(2) .gallery-category-icon{color:#ec4899}
 .page-gallery .gallery-category:nth-child(3){background:var(--cat-videos-bg);color:#1d4ed8}
