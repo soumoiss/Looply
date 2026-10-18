@@ -55,3 +55,42 @@ test("Stories remain in the conversation list and survive Realtime sidebar refre
   assert.match(controller, /const currentStories = currentSidebar\?\.querySelector\("\.story-area"\)/);
   assert.match(controller, /if \(currentStories\) freshSidebar\.prepend\(currentStories\)/);
 });
+
+
+test("emoji picker offers multiple choices and inserts the selected emoji at the cursor", async () => {
+  const source = await read("src/chat.js");
+  const css = await read("assets/css/pages/chat.css");
+  assert.match(source, /data-chat-emoji-picker/);
+  assert.match(source, /data-chat-emoji-choice/);
+  assert.match(source, /input\.setRangeText\(emojiChoice\.dataset\.chatEmojiChoice, start, end, "end"\)/);
+  assert.match(source, /"😀","😃","😄"/);
+  assert.match(css, /\.chat-emoji-picker/);
+});
+
+test("chat avatars fall back only after an image fails to load", async () => {
+  const source = await read("src/chat.js");
+  assert.match(source, /root\.addEventListener\("error", \(event\) =>/);
+  assert.match(source, /chat-conversation-avatar, \.chat-person-avatar/);
+  assert.match(source, /image\.replaceWith\(fallback\)/);
+});
+
+test("WebRTC call controls distinguish microphone, speaker, camera, and camera switching", async () => {
+  const source = await read("src/chat-calls.js");
+  const css = await read("assets/css/pages/chat.css");
+  assert.match(source, /data-call-toggle-mic/);
+  assert.match(source, /data-call-toggle-speaker/);
+  assert.match(source, /data-call-flip-camera/);
+  assert.match(source, /sender\.replaceTrack\(nextTrack\)/);
+  assert.match(css, /\.chat-call-backdrop\s*\{\s*position:\s*fixed/);
+});
+
+test("tic-tac-toe randomizes the first starter, gives the previous winner the next start, and records results idempotently", async () => {
+  const source = await read("src/chat-enhancements.js");
+  const migration = await read("supabase/migrations/20261018191500_chat_ttt_persistent_scores.sql");
+  assert.match(source, /Math\.random\(\) < 0\.5 \? gameInvite\.senderId : userId/);
+  assert.match(source, /gameState\.winnerId \|\|/);
+  assert.match(source, /record_chat_ttt_result/);
+  assert.match(migration, /game_id uuid primary key/);
+  assert.match(migration, /on conflict \(game_id\) do nothing/);
+  assert.match(migration, /conversation_participants/);
+});
