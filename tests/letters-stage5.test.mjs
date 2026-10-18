@@ -27,7 +27,7 @@ test("letters page keeps the archived collection and reversible read controls wi
     readFile(resolve(root, "assets/js/letters.js"), "utf8"),
     readFile(resolve(root, "src/letters-community.js"), "utf8"),
     readFile(resolve(root, "src/archived-cards.js"), "utf8"),
-    readFile(resolve(root, "supabase/migrations/20261019130000_letters_read_state_toggle.sql"), "utf8"),
+    readFile(resolve(root, "supabase/migrations/20261018130000_letters_read_state_toggle.sql"), "utf8"),
     readFile(resolve(root, "assets/css/pages/letters.css"), "utf8")
   ]);
   assert.doesNotMatch(page, /Cartas enviadas e recebidas|written-letters-panel/);
