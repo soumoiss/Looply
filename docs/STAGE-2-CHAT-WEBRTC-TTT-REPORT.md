@@ -19,14 +19,14 @@ Esta branch contém uma primeira implementação parcial e verificável. Não re
 2. **Chamadas recebidas globalmente:** a sinalização continua ligada ao canal da conversa e ao módulo de chat. A chamada ainda não foi integrada a um listener global em todas as páginas.
 3. **Web Push com navegador fechado:** não está implementado. Exige service worker, permissão explícita, assinatura Push e serviço servidor para envio. Uma página web não pode garantir despertar/tocar indefinidamente quando o navegador foi encerrado.
 4. **Teste de chamadas:** nenhum teste de áudio/vídeo bidirecional entre dois dispositivos reais foi realizado nesta entrega.
-5. **Placar Supabase:** a migração foi adicionada ao repositório, mas não aplicada ao banco remoto por esta alteração. Até a aplicação da migração, o RPC e o placar persistente retornarão erro.
+5. **Placar Supabase:** a migração foi adicionada ao repositório, mas não aplicada ao banco remoto por esta alteração. A tabela, função RPC, RLS e índices foram encontrados no banco remoto; ainda não foi validada uma partida real gravando e lendo o placar entre dois usuários.
 6. **Ícones:** alguns controles de chat/chamada ainda usam caracteres Unicode. A substituição integral por ativos Icons8 Stroke 1 verificados não foi concluída.
 7. **Teste visual:** não houve validação manual em navegador móvel/desktop nesta entrega.
 
 ## Como validar
 
 1. Executar `npm test` no commit desta branch.
-2. Aplicar a migração SQL ao projeto Supabase correto e confirmar a função `record_chat_ttt_result`, a tabela `chat_ttt_results` e as políticas RLS.
+2. Validar uma partida real em duas sessões autenticadas, incluindo gravação/leitura do placar e repetição do mesmo `game_id`.
 3. Testar emoji, anexos e avatars no chat.
 4. Testar chamada entre dois dispositivos em redes diferentes, nos dois sentidos, com permissões de microfone/câmera e com/sem TURN.
 5. Testar placar em duas sessões autenticadas e repetir o envio do mesmo `game_id` para confirmar que não duplica a pontuação.
