@@ -209,7 +209,8 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" capture="environment">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video>' +
-          '<div class="story-camera-actions"><button class="primary-button compact-button" type="button" data-story-capture-photo>Tirar foto</button>' +
+          '<div class="story-camera-actions"><button class="text-button" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">Alternar câmera</button>' +
+          '<button class="primary-button compact-button" type="button" data-story-capture-photo>Tirar foto</button>' +
           '<button class="text-button" type="button" data-story-record-toggle>Gravar vídeo</button>' +
           '<button class="text-button" type="button" data-story-camera-close>Fechar câmera</button></div>' +
           '<span class="form-status" data-story-camera-status role="status" aria-live="polite"></span>' +
@@ -236,6 +237,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-viewer-media" data-story-viewer-media></div>' +
           '<button class="story-tap-zone story-tap-zone-next" type="button" data-story-next aria-label="Próximo story"></button>' +
+          '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false"><span aria-hidden="true">Ⅱ</span></button>' +
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
@@ -287,8 +289,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 
   const state = {
     groups: groupActiveStories(initialStories), active: null, index: 0, timer: null, previewUrl: null,
-    viewedThisSession: new Set(), likedStories: new Set(), cameraStream: null, mediaRecorder: null,
-    recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0
+    viewedThisSession: new Set(), likedStories: new Set(), cameraStream: null, cameraFacing: "environment", mediaRecorder: null,
+    recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0, paused: false
   };
   const showStatus = (message, isError = false) => {
     if (!status) return;
@@ -334,22 +336,44 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
-  const startCamera = async () => {
+  const startCamera = async (facingMode = state.cameraFacing) => {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("camera_unavailable");
-    const videoOnly = { video: { facingMode: { ideal: "environment" } }, audio: false };
+    const videoOnly = { video: { facingMode: { ideal: facingMode } }, audio: false };
+    let nextStream;
     try {
-      state.cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } }, audio: true
+      nextStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode } }, audio: true
       });
     } catch {
-      state.cameraStream = await navigator.mediaDevices.getUserMedia(videoOnly);
+      nextStream = await navigator.mediaDevices.getUserMedia(videoOnly);
     }
+    state.cameraStream?.getTracks().forEach((track) => track.stop());
+    state.cameraStream = nextStream;
+    state.cameraFacing = facingMode;
     cameraPreview.srcObject = state.cameraStream;
     cameraPanel.hidden = false;
     root.querySelector("[data-story-capture-photo]").disabled = false;
     root.querySelector("[data-story-record-toggle]").disabled = false;
     setCameraStatus("Câmera pronta. Escolha tirar uma foto ou gravar um vídeo.");
     await cameraPreview.play().catch(() => {});
+  };
+  const flipStoryCamera = async () => {
+    if (state.mediaRecorder?.state === "recording") {
+      setCameraStatus("Pare a gravação antes de alternar a câmera.", true);
+      return;
+    }
+    const nextFacing = state.cameraFacing === "environment" ? "user" : "environment";
+    const button = root.querySelector("[data-story-camera-flip]");
+    if (button) button.disabled = true;
+    try {
+      await startCamera(nextFacing);
+      setCameraStatus(nextFacing === "user" ? "Câmera frontal ativa." : "Câmera traseira ativa.");
+    } catch (error) {
+      console.warn("Looply story camera switch failed.", error);
+      setCameraStatus("Não foi possível alternar a câmera neste dispositivo.", true);
+    } finally {
+      if (button) button.disabled = false;
+    }
   };
   const captureStoryPhoto = async () => {
     if (!cameraPreview?.videoWidth || !cameraPreview.videoHeight) throw new Error("camera_not_ready");
@@ -412,6 +436,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     state.timer = null;
   };
   const resumeStoryTimer = () => {
+    if (state.paused || !viewer.open) return;
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const video = mediaHost.querySelector("video");
     if (video && !video.paused && Number.isFinite(video.duration)) {
@@ -421,6 +446,27 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     } else if (!video) {
       setProgressDuration(7000);
       state.timer = setTimeout(() => advance(1), 7000);
+    }
+  };
+  const setStoryPaused = (paused) => {
+    state.paused = Boolean(paused);
+    const mediaHost = viewer.querySelector("[data-story-viewer-media]");
+    const video = mediaHost.querySelector("video");
+    const button = viewer.querySelector("[data-story-play-toggle]");
+    const progress = viewer.querySelector(".story-progress-item.is-current i");
+    if (state.paused) {
+      clearTimer();
+      if (video && !video.paused) video.pause();
+      if (progress) progress.style.animationPlayState = "paused";
+    } else {
+      if (progress) progress.style.animationPlayState = "running";
+      if (video && video.paused) void video.play().catch(() => {});
+      else resumeStoryTimer();
+    }
+    if (button) {
+      button.setAttribute("aria-pressed", state.paused ? "true" : "false");
+      button.setAttribute("aria-label", state.paused ? "Reproduzir story" : "Pausar story");
+      button.querySelector("span").textContent = state.paused ? "▶" : "Ⅱ";
     }
   };
   const setProgressDuration = (duration) => {
@@ -468,6 +514,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     const story = stories[state.index];
     if (!story) return;
+    state.paused = false;
+    const playToggle = viewer.querySelector("[data-story-play-toggle]");
+    if (playToggle) {
+      playToggle.setAttribute("aria-pressed", "false");
+      playToggle.setAttribute("aria-label", "Pausar story");
+      playToggle.querySelector("span").textContent = "Ⅱ";
+    }
     viewer.querySelector("[data-story-progress-list]").innerHTML = stories.map((item, index) =>
       '<span class="story-progress-item' + (index < state.index ? " is-done" : index === state.index ? " is-current" : "") + '">' +
         (index === state.index ? '<i></i>' : "") +
@@ -748,6 +801,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       stopCamera(true);
       return;
     }
+    if (event.target.closest("[data-story-camera-flip]")) {
+      await flipStoryCamera();
+      return;
+    }
     if (event.target.closest("[data-story-create-close]")) {
       createDialog.close();
       return;
@@ -784,6 +841,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (event.target.closest("[data-story-next]")) {
       if (Date.now() < state.ignoreTapUntil) return;
       advance(1);
+      return;
+    }
+    if (event.target.closest("[data-story-play-toggle]")) {
+      setStoryPaused(!state.paused);
       return;
     }
     if (event.target.closest("[data-story-like]")) {
@@ -864,6 +925,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   replyForm.addEventListener("focusin", clearTimer);
   replyForm.addEventListener("focusout", (event) => {
     if (!replyForm.contains(event.relatedTarget)) resumeStoryTimer();
+  });
+  touchSurface.addEventListener("click", (event) => {
+    if (event.target.closest("button, a, input, form, video, [data-story-prev], [data-story-next]")) return;
+    if (Date.now() < state.ignoreTapUntil) return;
+    setStoryPaused(!state.paused);
   });
   touchSurface.addEventListener("pointerdown", (event) => {
     if (event.isPrimary && event.pointerType !== "mouse") pointerStart = { x: event.clientX, y: event.clientY };
