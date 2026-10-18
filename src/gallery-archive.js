@@ -73,7 +73,7 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
       '<div class="archive-viewer-backdrop" data-archive-viewer-close></div>' +
       '<section class="archive-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="archiveViewerTitle">' +
         '<header class="archive-viewer-header"><div><h2 id="archiveViewerTitle" data-archive-viewer-title></h2><span data-archive-viewer-meta></span></div>' +
-          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-viewer-fullscreen>Expandir</button><button type="button" data-archive-people-toggle aria-label="Pessoas e opções" title="Pessoas e opções">•••</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
+          '<div class="archive-viewer-actions"><button type="button" data-viewer-previous aria-label="Mídia anterior">‹</button><button type="button" data-viewer-next aria-label="Próxima mídia">›</button><button type="button" data-archive-people-toggle aria-label="Pessoas e opções" title="Pessoas e opções">•••</button><button type="button" data-archive-viewer-close aria-label="Fechar visualização">×</button></div>' +
         '</header>' +
         '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
         '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
