@@ -10,6 +10,7 @@ const COLORS = [
 ];
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 const key = (userId, name) => `${PREFIX}:${userId}:${name}`;
+const newGameId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const read = (storageKey, fallback) => { try { const value = localStorage.getItem(storageKey); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
 const write = (storageKey, value) => { try { localStorage.setItem(storageKey, JSON.stringify(value)); return true; } catch { return false; } };
 
@@ -89,11 +90,32 @@ export function setupChatEnhancements(root, client, userId) {
     for (const [a,b,c] of lines) if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a];
     return cells.every(Boolean) ? "draw" : null;
   };
+  const refreshScoreboard = async () => {
+    const conversationId = gameConversation;
+    const node = root.querySelector("[data-v2-scoreboard]");
+    if (!node || !conversationId) return;
+    const { data, error } = await client.from("chat_ttt_results").select("winner_id,is_draw").eq("conversation_id", conversationId).limit(500);
+    if (error) {
+      node.textContent = "Placar sincronizado indisponível até aplicar a migração do banco.";
+      return;
+    }
+    if (conversationId !== gameConversation || !node.isConnected) return;
+    const wins = new Map();
+    let draws = 0;
+    for (const row of data || []) {
+      if (row.is_draw) draws += 1;
+      else if (row.winner_id) wins.set(row.winner_id, (wins.get(row.winner_id) || 0) + 1);
+    }
+    const xScore = wins.get(gameState?.xPlayer) || 0;
+    const oScore = wins.get(gameState?.oPlayer) || 0;
+    node.textContent = `${gameState?.xName || "X"} ${xScore} × ${oScore} ${gameState?.oName || "O"} · Empates: ${draws}`;
+  };
   const renderGame = () => {
     if (!gameState) return;
     const result = winner(gameState.cells);
     const status = result === "draw" ? "Empate!" : result ? (result === "X" ? gameState.xName : gameState.oName) + " venceu!" : gameState.turn === userId ? "Sua vez" : "Aguardando a outra pessoa…";
-    openModal(`<span class="chat-v2-kicker">Jogo da velha</span><h2 id="chatV2ModalTitle">Uma pausa para jogar</h2><p class="chat-v2-game-status">${esc(status)}</p><div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">${gameState.cells.map((cell, i) => `<button type="button" class="chat-v2-cell" data-v2-cell="${i}" aria-label="Casa ${i+1}${cell ? ": "+cell : ""}" ${cell || result || gameState.turn !== userId ? "disabled" : ""}>${esc(cell)}</button>`).join("")}</div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-v2-close-game>Fechar partida</button>${result ? '<button type="button" class="chat-v2-button is-primary" data-v2-rematch>Jogar novamente</button>' : ""}</div>`);
+    openModal(`<span class="chat-v2-kicker">Jogo da velha · rodada ${Number(gameState.round) || 1}</span><h2 id="chatV2ModalTitle">Uma pausa para jogar</h2><p class="chat-v2-game-status">${esc(status)}</p><p class="chat-v2-scoreboard" data-v2-scoreboard role="status" aria-live="polite">Carregando placar…</p><div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">${gameState.cells.map((cell, i) => `<button type="button" class="chat-v2-cell" data-v2-cell="${i}" aria-label="Casa ${i+1}${cell ? ": "+cell : ""}" ${cell || result || gameState.turn !== userId ? "disabled" : ""}>${esc(cell)}</button>`).join("")}</div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-v2-close-game>Fechar partida</button>${result ? '<button type="button" class="chat-v2-button is-primary" data-v2-rematch>Jogar novamente</button>' : ""}</div>`);
+    void refreshScoreboard();
   };
   const applyWallpaper = () => {
     const id = selectedConversation();
@@ -192,7 +214,7 @@ export function setupChatEnhancements(root, client, userId) {
     if (target.matches("[data-v2-decline]")) { await sendGame("decline"); closeModal(); return; }
     if (target.matches("[data-v2-accept]")) {
       const firstPlayer = Math.random() < 0.5 ? gameInvite.senderId : userId;
-      const state = { cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: firstPlayer, winnerId: null, round: 1, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
+      const state = { gameId: newGameId(), cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: firstPlayer, winnerId: null, round: 1, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
       gameState = state; ownTurn = false;
       await sendGame("state", { state }); renderGame(); return;
     }
@@ -204,12 +226,21 @@ export function setupChatEnhancements(root, client, userId) {
       const nextTurn = userId === gameState.xPlayer ? gameState.oPlayer : gameState.xPlayer;
       const winnerId = result === "X" ? gameState.xPlayer : result === "O" ? gameState.oPlayer : null;
       gameState = { ...gameState, cells, turn: result ? null : nextTurn, winnerId };
-      await sendGame("state", { state: gameState }); renderGame(); return;
+      await sendGame("state", { state: gameState });
+      if (result) {
+        const { error } = await client.rpc("record_chat_ttt_result", {
+          p_game_id: gameState.gameId, p_conversation_id: gameConversation,
+          p_x_player: gameState.xPlayer, p_o_player: gameState.oPlayer,
+          p_winner_id: winnerId, p_is_draw: result === "draw"
+        });
+        if (error) toast("A rodada terminou, mas o placar não foi salvo. Confira a migração do banco.");
+      }
+      renderGame(); return;
     }
     if (target.matches("[data-v2-close-game]")) { await sendGame("close"); closeModal(); return; }
     if (target.matches("[data-v2-rematch]")) {
       const nextStarter = gameState.winnerId || (Math.random() < 0.5 ? gameState.xPlayer : gameState.oPlayer);
-      gameState = { ...gameState, cells: Array(9).fill(null), turn: nextStarter, winnerId: null, round: (Number(gameState.round) || 1) + 1 };
+      gameState = { ...gameState, gameId: newGameId(), cells: Array(9).fill(null), turn: nextStarter, winnerId: null, round: (Number(gameState.round) || 1) + 1 };
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-save-nickname]")) {
