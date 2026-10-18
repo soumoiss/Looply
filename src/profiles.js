@@ -23,13 +23,13 @@ export function profileAreaMarkup(profile) {
       <a class="profile-overview-shortcut" href="#profileEditor">Editar dados <span aria-hidden="true">↓</span></a>
     </article>
     <section class="profile-editor-card" id="profileEditor" aria-labelledby="profileEditorTitle">
-      <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Deixe seu perfil com a sua cara</h2><p>Atualize seu nome, foto, apresentação e privacidade.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
-      <form class="profile-editor-form" data-profile-edit>
+      <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Editar perfil</h2><p>Atualize seu nome, foto, apresentação e privacidade.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
+      <form class="profile-editor-form" data-profile-edit data-has-avatar="${profile.avatar_path ? "true" : "false"}">
         <div class="profile-avatar-editor">
           <div class="profile-avatar-edit-preview" data-avatar-preview data-original-avatar-url="${avatarUrl}">${avatar}</div>
           <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG ou WebP · até 10 MB</span></div>
-            <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar">${profile.avatarUrl ? "Trocar foto" : "Escolher foto"}</label>
-              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" capture="user" data-avatar-input>
+            <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>${profile.avatarUrl ? "Trocar foto" : "Escolher foto"}</label>
+              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
               <input type="hidden" name="removeAvatar" value="false" data-avatar-remove-state>
               <button class="profile-photo-remove" type="button" data-avatar-remove ${profile.avatarUrl ? "" : "hidden"}>${profile.avatarUrl ? "Remover foto" : "Cancelar seleção"}</button></div>
           </div>
@@ -48,78 +48,17 @@ export function profileAreaMarkup(profile) {
         </div>
         <footer class="profile-edit-footer"><span class="form-status" data-status role="status" aria-live="polite"></span><button class="primary-button compact-button" type="submit">Salvar alterações</button></footer>
       </form>
-    <div class="people-search profile-people-search">
-      <div class="people-search-heading"><span class="section-kicker">Comunidade</span><h2 id="peopleTitle">Encontre seus amigos</h2><p>Busque pelo início do username. Os perfis privados não aparecem para outras pessoas.</p></div>
-      <form class="people-search-form" data-profile-search>
-        <label class="visually-hidden" for="peopleQuery">Username para buscar</label>
-        <span aria-hidden="true">⌕</span>
-        <input id="peopleQuery" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" placeholder="username (3 ou mais caracteres)" required>
-        <button class="text-button" type="submit">Buscar</button>
-      </form>
-      <div class="profile-results" data-profile-results aria-live="polite"></div>
-    </div>
-  </section>`;
-}
-
-function setStatus(form, message, kind = "success") {
-  const target = form.querySelector("[data-status]");
-  if (!target) return;
-  target.textContent = message;
-  target.dataset.kind = kind;
-}
-
-export async function signProfileAvatars(client, profiles) {
-  const withUrls = (profiles || []).map((profile) => ({ ...profile, avatarUrl: "" }));
-  const withAvatars = withUrls.filter((profile) => profile.avatar_path);
-  if (!withAvatars.length) return withUrls;
-  const { data, error } = await client.storage.from("looply-avatars").createSignedUrls(
-    withAvatars.map((profile) => profile.avatar_path),
-    1800
-  );
-  if (!error && data) {
-    withAvatars.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
-  }
-  return withUrls;
-}
-
-export function renderSearchResults(container, profiles) {
-  if (!profiles.length) {
-    container.innerHTML = `<p class="search-empty">Nenhum perfil visível foi encontrado.</p>`;
-    return;
-  }
-  container.innerHTML = profiles.map((profile) => `<article class="person-result">
-    <span class="person-result-avatar" aria-hidden="true">${profile.avatarUrl
-      ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-      : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
-    <div><strong>${escapeHtml(profile.display_name || profile.username)}</strong><span>@${escapeHtml(profile.username)}</span></div>
-    <div class="person-result-actions"><button class="text-button" type="button" data-profile-open="${escapeHtml(profile.id)}">Abrir perfil</button><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></div>
-  </article>`).join("");
-}
-
-function renderOpenedProfile(container, profile, posts, postsError, showBack = true) {
-  const mediaMarkup = (post) => (post.media || []).map((media) => {
-    if (!media.signedUrl) return `<span class="media-unavailable">Mídia temporariamente indisponível.</span>`;
-    const url = escapeHtml(media.signedUrl);
-    const label = escapeHtml(media.alt_text || (media.kind === "video" ? "Vídeo do perfil" : "Foto do perfil"));
-    return media.kind === "video"
-      ? `<video src="${url}" controls preload="metadata" aria-label="${label}"></video>`
-      : `<img src="${url}" alt="${label}" loading="lazy" referrerpolicy="no-referrer">`;
-  }).join("");
-  const postList = postsError
-    ? `<p class="search-empty">Não foi possível carregar as publicações deste perfil.</p>`
-    : posts.length
-      ? posts.map((post) => `<article class="profile-post"><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(post.created_at)))}</time><p>${escapeHtml(post.body)}</p>${post.media?.length ? `<div class="profile-post-media-grid">${mediaMarkup(post)}</div>` : ""}</article>`).join("")
-      : `<p class="search-empty">Este perfil não tem publicações visíveis para você.</p>`;
-  const avatar = profile.avatarUrl
-    ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-    : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"));
-  container.innerHTML = `<section class="opened-profile" aria-label="Perfil de ${escapeHtml(profile.username)}">
-    ${showBack ? `<button class="text-button" type="button" data-profile-close>← Voltar aos resultados</button>` : `<a class="text-button" href="usuarios.html">← Pessoas</a>`}
-    <div class="opened-profile-heading"><span class="person-result-avatar" aria-hidden="true">${avatar}</span>
-      <div><h3>${escapeHtml(profile.display_name || profile.username)}</h3><span>@${escapeHtml(profile.username)}</span></div>
-    </div>
-    ${profile.bio ? `<p class="opened-profile-bio">${escapeHtml(profile.bio)}</p>` : ""}
-    <h4>Publicações visíveis</h4><div class="profile-post-list">${postList}</div>
+      <dialog class="profile-crop-dialog" data-profile-crop-dialog aria-labelledby="profileCropTitle">
+        <form method="dialog" class="profile-crop-shell">
+          <header class="profile-crop-heading"><h2 id="profileCropTitle">Recortar foto</h2><button type="submit" class="profile-icon-button" aria-label="Fechar recorte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+          <p>Escolha a região quadrada que será usada no perfil.</p><div class="profile-crop-window"><img data-crop-source alt="Prévia para recorte"></div>
+          <label for="profileCropZoom">Zoom</label><input id="profileCropZoom" data-crop-zoom type="range" min="1" max="3" step="0.01" value="1">
+          <label for="profileCropX">Mover para esquerda ou direita</label><input id="profileCropX" data-crop-x type="range" min="0" max="100" value="50">
+          <label for="profileCropY">Mover para cima ou para baixo</label><input id="profileCropY" data-crop-y type="range" min="0" max="100" value="50">
+          <div class="profile-crop-actions"><button type="button" class="text-button" data-crop-cancel>Cancelar</button><button type="button" class="primary-button compact-button" data-crop-save>Salvar recorte</button></div>
+        </form>
+      </dialog>
+    </section>
   </section>`;
 }
 
@@ -207,39 +146,64 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     if (form && event.target.name === "visibility") syncProfileOverview(form);
   });
 
-  root.addEventListener("change", (event) => {
-    const input = event.target.closest("input[data-avatar-input]");
-    if (!input) return;
-    const form = input.closest("form[data-profile-edit]");
-    const preview = form?.querySelector("[data-avatar-preview]");
-    const removeButton = form?.querySelector("[data-avatar-remove]");
-    const removeState = form?.querySelector("[data-avatar-remove-state]");
-    const file = input.files?.[0];
-    const previousUrl = form?.dataset.avatarPreviewUrl;
-    if (previousUrl) URL.revokeObjectURL(previousUrl);
-    if (form) delete form.dataset.avatarPreviewUrl;
-    if (!file || !preview || !form) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
-      input.value = "";
-      const removingAvatar = removeState?.value === "true";
-      renderAvatarPreview(preview, removingAvatar ? "" : preview.dataset.originalAvatarUrl || "", form);
-      if (removeButton) {
-        removeButton.hidden = !preview.dataset.originalAvatarUrl && !removingAvatar;
-        removeButton.textContent = removingAvatar ? "Desfazer" : preview.dataset.originalAvatarUrl ? "Remover foto" : "Cancelar seleção";
-      }
-      setStatus(form, "Escolha uma imagem JPEG, PNG ou WebP de até 10 MB.", "error");
-      return;
-    }
-    const previewUrl = URL.createObjectURL(file);
-    form.dataset.avatarPreviewUrl = previewUrl;
-    if (removeState) removeState.value = "false";
-    if (removeButton) {
-      removeButton.hidden = false;
-      removeButton.textContent = "Cancelar seleção";
-    }
-    renderAvatarPreview(preview, previewUrl, form);
-    setStatus(form, "Prévia atualizada. Salve para aplicar a foto.", "success");
+
+  const cropDialog = root.querySelector("[data-profile-crop-dialog]");
+  const cropImage = cropDialog?.querySelector("[data-crop-source]");
+  const cropZoom = cropDialog?.querySelector("[data-crop-zoom]");
+  const cropX = cropDialog?.querySelector("[data-crop-x]");
+  const cropY = cropDialog?.querySelector("[data-crop-y]");
+  let cropContext = null;
+  const updateCropPreview = () => {
+    if (!cropImage || !cropContext) return;
+    const { width, height } = cropContext, zoom = Number(cropZoom.value || 1), unit = Math.min(width, height);
+    const dw = width / unit * zoom * 100, dh = height / unit * zoom * 100;
+    cropImage.style.width = `${dw}%`; cropImage.style.height = `${dh}%`;
+    cropImage.style.left = `${(100-dw)*Number(cropX.value||50)/100}%`;
+    cropImage.style.top = `${(100-dh)*Number(cropY.value||50)/100}%`;
+  };
+  [cropZoom,cropX,cropY].forEach((el)=>el?.addEventListener("input",updateCropPreview));
+  root.addEventListener("change", async (event) => {
+    const input=event.target.closest("input[data-avatar-input]"); if(!input)return;
+    const form=input.closest("form[data-profile-edit]"), file=input.files?.[0]; if(!file||!form||!cropDialog||!cropImage)return;
+    const fail=(message)=>{input.value="";setStatus(form,message,"error");};
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 10 MB. Sua foto atual foi preservada.");return;}
+    try {
+      const bitmap=await createImageBitmap(file);
+      if(bitmap.width<128||bitmap.height<128||bitmap.width>12000||bitmap.height>12000){bitmap.close();fail("A imagem precisa ter pelo menos 128 × 128 px e no máximo 12.000 px por lado.");return;}
+      cropContext={file,width:bitmap.width,height:bitmap.height,form,input,bitmap};
+      cropImage.src=URL.createObjectURL(file);cropZoom.value="1";cropX.value="50";cropY.value="50";updateCropPreview();
+      if(!cropDialog.open)cropDialog.showModal();
+      setStatus(form,"Selecione a área quadrada e confirme. A foto atual continua salva até o envio terminar.","info");
+    } catch(error){console.error("Looply avatar image validation failed",error);fail("Não foi possível ler essa imagem. Tente outro arquivo.");}
   });
+  const closeCrop=(discard)=>{
+    if(!cropContext)return;const {form,input,bitmap}=cropContext;
+    if(discard){input.value="";setStatus(form,"Recorte cancelado. A foto atual foi preservada.","info");}
+    bitmap.close();if(cropImage?.src.startsWith("blob:"))URL.revokeObjectURL(cropImage.src);cropImage?.removeAttribute("src");cropContext=null;
+    if(cropDialog?.open)cropDialog.close();
+  };
+  cropDialog?.querySelector("[data-crop-cancel]")?.addEventListener("click",()=>closeCrop(true));
+  cropDialog?.querySelector(".profile-icon-button")?.addEventListener("click",(event)=>{event.preventDefault();closeCrop(true);});
+  cropDialog?.addEventListener("cancel",(event)=>{event.preventDefault();closeCrop(true);});
+  cropDialog?.querySelector("[data-crop-save]")?.addEventListener("click",async()=>{
+    if(!cropContext)return;const button=cropDialog.querySelector("[data-crop-save]");button.disabled=true;
+    try{
+      const {form,input,bitmap,width,height}=cropContext,scale=Math.max(512/width,512/height)*Number(cropZoom.value||1);
+      const dw=width*scale,dh=height*scale,dx=(512-dw)*Number(cropX.value||50)/100,dy=(512-dh)*Number(cropY.value||50)/100;
+      const canvas=document.createElement("canvas");canvas.width=512;canvas.height=512;const ctx=canvas.getContext("2d",{alpha:false});
+      if(!ctx)throw new Error("canvas unavailable");ctx.fillStyle="#fff";ctx.fillRect(0,0,512,512);ctx.drawImage(bitmap,dx,dy,dw,dh);
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob((v)=>v?resolve(v):reject(new Error("crop failed")),"image/jpeg",.92));
+      if(!blob||blob.size>10*1024*1024)throw new Error("invalid crop result");
+      const cropped=new File([blob],"profile-photo.jpg",{type:"image/jpeg",lastModified:Date.now()}),transfer=new DataTransfer();transfer.items.add(cropped);input.files=transfer.files;
+      if(form.dataset.avatarPreviewUrl)URL.revokeObjectURL(form.dataset.avatarPreviewUrl);
+      const url=URL.createObjectURL(cropped);form.dataset.avatarPreviewUrl=url;
+      const state=form.querySelector("[data-avatar-remove-state]");if(state)state.value="false";
+      const remove=form.querySelector("[data-avatar-remove]");if(remove){remove.hidden=false;remove.textContent="Cancelar seleção";}
+      renderAvatarPreview(form.querySelector("[data-avatar-preview]"),url,form);setStatus(form,"Recorte quadrado de 512 × 512 px pronto. Salve para enviar.","success");closeCrop(false);
+    }catch(error){console.error("Looply avatar crop failed",error);if(cropContext?.form)setStatus(cropContext.form,"Não foi possível recortar essa imagem. A foto atual foi preservada.","error");}
+    finally{button.disabled=false;}
+  });
+
 
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-profile-edit], form[data-profile-search]");
@@ -256,6 +220,8 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
         const avatarFile = values.get("avatar");
         const hasAvatarFile = avatarFile instanceof File && avatarFile.size > 0;
         const removeAvatar = String(values.get("removeAvatar") || "false") === "true" && !hasAvatarFile;
+        if (removeAvatar) throw new Error("avatar-replacement-required");
+        if (form.dataset.hasAvatar !== "true" && !hasAvatarFile) throw new Error("avatar-required");
         if (!displayName || displayName.length > 80 || bio.length > 280) throw new Error("profile-fields");
         const userId = (await client.auth.getUser()).data.user?.id;
         if (!userId) throw new Error("session expired");
@@ -270,9 +236,19 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
           const extensions = new Map([["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"]]);
           const extension = extensions.get(avatarFile.type);
           if (!extension || avatarFile.size > 10 * 1024 * 1024) throw new Error("unsupported avatar");
+          const validatedBitmap = await createImageBitmap(avatarFile);
+          const squareValid = validatedBitmap.width === 512 && validatedBitmap.height === 512;
+          validatedBitmap.close();
+          if (!squareValid) throw new Error("avatar-not-square");
           newAvatarPath = `avatars/${userId}/${crypto.randomUUID()}.${extension}`;
-          const { error: uploadError } = await client.storage.from("looply-avatars").upload(newAvatarPath, avatarFile, { contentType: avatarFile.type, upsert: false, cacheControl: "3600" });
+          const { data: uploadData, error: uploadError } = await client.storage.from("looply-avatars").upload(newAvatarPath, avatarFile, { contentType: avatarFile.type, upsert: false, cacheControl: "3600" });
           if (uploadError) throw uploadError;
+          if (!uploadData?.path || uploadData.path !== newAvatarPath) throw new Error("avatar-upload-invalid-result");
+          const { data: validationUrl, error: validationError } = await client.storage.from("looply-avatars").createSignedUrl(newAvatarPath, 60);
+          if (validationError || !validationUrl?.signedUrl) {
+            await client.storage.from("looply-avatars").remove([newAvatarPath]);
+            throw new Error("avatar-upload-validation-failed");
+          }
         }
         const updates = { display_name: displayName, bio, profile_visibility: visibility };
         if (hasAvatarFile || removeAvatar) updates.avatar_path = newAvatarPath;
@@ -281,6 +257,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
           if (newAvatarPath) await client.storage.from("looply-avatars").remove([newAvatarPath]);
           throw error;
         }
+        if (newAvatarPath) form.dataset.hasAvatar = "true";
         if (oldAvatarPath && (newAvatarPath || removeAvatar)) {
           const { error: removeError } = await client.storage.from("looply-avatars").remove([oldAvatarPath]);
           if (removeError) console.error("Could not remove previous profile avatar", removeError);
@@ -299,7 +276,9 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     } catch (error) {
       console.error("Looply profile action failed", error);
       if (form.matches("[data-profile-edit]")) {
-        const message = "Não foi possível salvar. Confira os campos e tente novamente.";
+        const message = error?.message === "avatar-required" ? "Escolha e recorte uma foto de perfil antes de continuar."
+          : error?.message === "avatar-replacement-required" ? "Escolha uma nova foto antes de substituir a atual. A foto existente foi preservada."
+          : "Não foi possível salvar. Confira a imagem e a conexão; sua foto atual foi preservada.";
         setStatus(form, message, "error");
       } else {
         const results = root.querySelector("[data-profile-results]");
