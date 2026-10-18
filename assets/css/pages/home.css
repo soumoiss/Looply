@@ -231,3 +231,8 @@
 .social-share-dialog-card label { font-size: 13px; font-weight: 700; }
 .social-share-dialog-card select { width: 100%; min-width: 0; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
 .social-share-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* Fallback when a WebView exposes the open attribute but not the modal dialog layer. */
+.story-dialog-fallback-open { position: fixed !important; inset: 0 !important; z-index: 10000 !important; display: block !important; margin: auto !important; }
+.story-viewer-dialog.story-dialog-fallback-open { width: min(100vw, 520px); height: min(100dvh, 900px); max-height: 100dvh; overflow: hidden; background: #100e15; color: #fff; }
+.story-viewer-dialog.story-dialog-fallback-open::backdrop { background: #100d18b8; }
