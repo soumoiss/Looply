@@ -30,6 +30,7 @@ jobs:
           node --check src/chat.js
           node --check src/chat-enhancements.js
           node --check src/chat-calls.js
+          node --check src/global-call-listener.js
           node --check src/admin.js
           node --check src/archive-import.js
           node --check src/letters-community.js
