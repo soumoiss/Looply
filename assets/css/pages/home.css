@@ -211,3 +211,15 @@
 /* Instagram embeds preserve a tall post/reel ratio instead of cropping into a landscape video frame. */
 .post-instagram-embed { aspect-ratio: 4 / 5; max-height: 720px; background: #fff; }
 .post-instagram-embed iframe { background: #fff; }
+
+/* Story viewer: captions overlay the media without hiding the image or colliding with controls. */
+.story-viewer-shell { grid-template-rows: auto auto minmax(0, 1fr) auto !important; }
+.story-viewer-stage { min-height: 0; min-width: 0; }
+.story-viewer-caption { position: absolute !important; z-index: 2; right: 0; bottom: calc(66px + env(safe-area-inset-bottom)); left: 0; max-height: min(24dvh, 190px); margin: 0; overflow-y: auto; padding: 28px 16px 10px; background: linear-gradient(180deg, transparent, #0009 45%, #000b); color: #fff; overflow-wrap: anywhere; }
+.story-viewer-caption:empty { display: none; }
+.story-viewer-actions { position: relative; z-index: 3; }
+.post-instagram-embed { aspect-ratio: 4 / 5; max-height: 720px; background: #fff; }
+.post-instagram-embed iframe { background: #fff; }
+@media (max-width: 560px) {
+  .story-viewer-caption { bottom: calc(68px + env(safe-area-inset-bottom)); max-height: min(22dvh, 170px); padding-right: 14px; padding-left: 14px; }
+}
