@@ -62,6 +62,68 @@ export function profileAreaMarkup(profile) {
   </section>`;
 }
 
+function setStatus(form, message, kind = "success") {
+  const target = form.querySelector("[data-status]");
+  if (!target) return;
+  target.textContent = message;
+  target.dataset.kind = kind;
+}
+
+export async function signProfileAvatars(client, profiles) {
+  const withUrls = (profiles || []).map((profile) => ({ ...profile, avatarUrl: "" }));
+  const withAvatars = withUrls.filter((profile) => profile.avatar_path);
+  if (!withAvatars.length) return withUrls;
+  const { data, error } = await client.storage.from("looply-avatars").createSignedUrls(
+    withAvatars.map((profile) => profile.avatar_path),
+    1800
+  );
+  if (!error && data) {
+    withAvatars.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
+  }
+  return withUrls;
+}
+
+export function renderSearchResults(container, profiles) {
+  if (!profiles.length) {
+    container.innerHTML = `<p class="search-empty">Nenhum perfil visível foi encontrado.</p>`;
+    return;
+  }
+  container.innerHTML = profiles.map((profile) => `<article class="person-result">
+    <span class="person-result-avatar" aria-hidden="true">${profile.avatarUrl
+      ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
+    <div><strong>${escapeHtml(profile.display_name || profile.username)}</strong><span>@${escapeHtml(profile.username)}</span></div>
+    <div class="person-result-actions"><button class="text-button" type="button" data-profile-open="${escapeHtml(profile.id)}">Abrir perfil</button><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></div>
+  </article>`).join("");
+}
+
+function renderOpenedProfile(container, profile, posts, postsError, showBack = true) {
+  const mediaMarkup = (post) => (post.media || []).map((media) => {
+    if (!media.signedUrl) return `<span class="media-unavailable">Mídia temporariamente indisponível.</span>`;
+    const url = escapeHtml(media.signedUrl);
+    const label = escapeHtml(media.alt_text || (media.kind === "video" ? "Vídeo do perfil" : "Foto do perfil"));
+    return media.kind === "video"
+      ? `<video src="${url}" controls preload="metadata" aria-label="${label}"></video>`
+      : `<img src="${url}" alt="${label}" loading="lazy" referrerpolicy="no-referrer">`;
+  }).join("");
+  const postList = postsError
+    ? `<p class="search-empty">Não foi possível carregar as publicações deste perfil.</p>`
+    : posts.length
+      ? posts.map((post) => `<article class="profile-post"><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(post.created_at)))}</time><p>${escapeHtml(post.body)}</p>${post.media?.length ? `<div class="profile-post-media-grid">${mediaMarkup(post)}</div>` : ""}</article>`).join("")
+      : `<p class="search-empty">Este perfil não tem publicações visíveis para você.</p>`;
+  const avatar = profile.avatarUrl
+    ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : escapeHtml((profile.display_name || profile.username).slice(0, 1).toLocaleUpperCase("pt-BR"));
+  container.innerHTML = `<section class="opened-profile" aria-label="Perfil de ${escapeHtml(profile.username)}">
+    ${showBack ? `<button class="text-button" type="button" data-profile-close>← Voltar aos resultados</button>` : `<a class="text-button" href="usuarios.html">← Pessoas</a>`}
+    <div class="opened-profile-heading"><span class="person-result-avatar" aria-hidden="true">${avatar}</span>
+      <div><h3>${escapeHtml(profile.display_name || profile.username)}</h3><span>@${escapeHtml(profile.username)}</span></div>
+    </div>
+    ${profile.bio ? `<p class="opened-profile-bio">${escapeHtml(profile.bio)}</p>` : ""}
+    <h4>Publicações visíveis</h4><div class="profile-post-list">${postList}</div>
+  </section>`;
+}
+
 export async function showProfileInContainer(client, profileId, container, { showBack = true } = {}) {
   container.innerHTML = `<p class="search-empty" role="status">Carregando perfil...</p>`;
   const { data: profile, error } = await client.from("profiles").select("id,username,display_name,bio,avatar_path").eq("id", profileId).maybeSingle();
