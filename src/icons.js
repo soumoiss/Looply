@@ -66,7 +66,9 @@ export function icon(name, options = {}) {
   }
   const size = Number.isFinite(Number(options.size)) ? Math.min(48, Math.max(12, Number(options.size))) : 18;
   const className = String(options.className || "").replace(/[^a-zA-Z0-9 _-]/g, "");
-  const label = String(options.label || "").replace(/[&<>"']/g, "");
+  const label = String(options.label || "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
   const accessible = label ? 'role="img" aria-label="' + label + '"' : 'aria-hidden="true"';
   return '<svg class="looply-icon' + (className ? " " + className : "") + '" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" ' + accessible + '>' + paths[name] + '</svg>';
 }
