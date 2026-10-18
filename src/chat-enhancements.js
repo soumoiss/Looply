@@ -195,7 +195,7 @@ export function setupChatEnhancements(root, client, userId) {
     }
     if (target.matches("[data-v2-close-game]")) { await sendGame("close"); closeModal(); return; }
     if (target.matches("[data-v2-rematch]")) {
-      gameState = { ...gameState, cells: Array(9).fill(null), turn: userId };
+      gameState = { ...gameState, cells: Array(9).fill(null), turn: gameState.xPlayer };
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-save-nickname]")) {
