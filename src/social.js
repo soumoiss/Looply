@@ -90,7 +90,8 @@ function postMarkup(post, userId) {
     let provider = externalUrl.hostname.includes("instagram") ? "Instagram" : externalUrl.hostname.includes("tiktok") ? "TikTok" : "Link externo";
     let embed = "";
     if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
-      const id = externalUrl.hostname === "youtu.be" ? externalUrl.pathname.slice(1) : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : externalUrl.pathname.match(/^\\/(?:shorts|embed)\\/([^/?]+)/)?.[1];
+      const pathParts = externalUrl.pathname.split("/").filter(Boolean);
+      const id = externalUrl.hostname === "youtu.be" ? pathParts[0] : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : ["shorts", "embed"].includes(pathParts[0]) ? pathParts[1] : null;
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
         provider = "YouTube";
         embed = '<div class="post-external-embed"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
