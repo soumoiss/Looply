@@ -137,3 +137,62 @@ A expressão “atualizações em tempo real ativas” não apareceu nos arquivo
 - Inspecionar console e rede no navegador.
 - Validar cada SVG Stroke 1, licença e URL de origem; depois integrar os ativos reais e créditos exigidos.
 - A publicação em produção não foi realizada nesta etapa.
+
+
+## Etapa 8 — auditoria final de ícones, janelas e componentes (2026-10-18)
+
+### Resultado da inspeção estática realizada
+
+Esta etapa foi iniciada a partir da `main` atual, preservando as etapas anteriores. A branch de trabalho é `stage8/final-icons-audit`. A cópia local não pôde ser clonada neste ambiente por falha de resolução de DNS para github.com; por isso, nenhum resultado de execução local de `npm test` é alegado. Os testes automatizados do GitHub Actions serão a evidência de build/regressão após a abertura do PR. Não houve inspeção visual de navegador nesta etapa.
+
+| Página/componente | Arquivos inspecionados nesta etapa | Mudança aplicada | Situação / pendência |
+|---|---|---|---|
+| Shell global / navegação | `src/page-runtime.js`, `styles.css` | Navegação e menu da conta usam o registro central de ícones; menu não usa mais o caractere ⌄; estilos globais de ícones, foco visível e alvos de toque de 44 px para controles de ícone/fechamento | Build/CI pendente; contraste visual em todos os temas não foi verificado em navegador |
+| Playlist e modal de música | `src/youtube-playlist.js`, `assets/css/pages/music.css` | Reproduzir, comentar, compartilhar, abrir no YouTube e fechar o player usam SVGs semânticos centralizados em vez de ▶, ▤, ↗, ⤴ e × | CI e testes de interação pendentes; verificar tamanho e alinhamento em Android |
+| Chamadas de voz/vídeo | `src/chat-calls.js` | Fechar, microfone ligado/desligado, áudio ligado/desligado, câmera, alternar câmera e encerrar chamada usam SVGs semânticos; rótulos textuais continuam presentes | Não testado com dispositivos/permissões reais; testar chamadas e estados de mídia no navegador |
+| Modal de jogo / aprimoramentos de chat | `src/chat-enhancements.js` | O botão fechar usa o registro central; o símbolo × usado como multiplicação no placar foi mantido porque é conteúdo matemático, não um ícone de interface | CI e teclado/Escape pendentes |
+| Stories | `src/stories.js` | Fechar criação, fechar visualizador, fechar atividade e alternar play/pause usam SVGs semânticos; o rótulo acessível de play/pause permanece atualizado | CI, toque e navegação por teclado pendentes |
+| Comentários/feed | `src/social.js` | O símbolo improvisado ＋ no seletor de anexo foi substituído por ícone adicionar; texto explicativo e seleção de arquivo foram preservados | Teste de upload real pendente |
+| Cartas da comunidade | `src/letters-community.js` | Removido o gerador local duplicado de ícones; usa `src/icons.js` compartilhado | Verificar visualmente todos os ícones e estados do formulário |
+| Registro central | `src/icons.js` | Novo mapa semântico de SVGs inline: navegação, edição, fechar, confirmar/cancelar, adicionar/remover, busca/filtro, atualizar, copiar/compartilhar, anexar/enviar, chamada, mídia, erro, offline, vazio, sincronização e carregamento | Ícones são SVGs locais originais do projeto, não ativos baixados do Icons8 |
+| Regressão | `tests/icons-stage8.test.mjs`, `package.json` | Testes para nomes semânticos, SVG acessível, ausência dos símbolos substituídos nos controles auditados, uso compartilhado e foco/alvos de toque | Não executar localmente; CI precisa passar antes do merge |
+
+### Endereços reais do catálogo Icons8 consultados
+
+Os links abaixo são páginas reais de busca/catálogo do Icons8 confirmadas nesta auditoria. São fontes para seleção posterior de ativos; **não** identificam um SVG individual aprovado nem provam que ele pertença ao estilo Stroke 1. Não foram inventados links diretos de download. A implementação desta etapa usa SVGs locais originais para evitar dependência de rede e não declara que os SVGs locais sejam de autoria/licença do Icons8.
+
+| Função de referência | Página real do catálogo |
+|---|---|
+| Início | https://icons8.com.br/icons/set/home |
+| Cartas / envelope | https://icons8.com.br/icons/set/envelope--style-windows |
+| Música | https://icons8.com.br/icons/set/music |
+| Chat | https://icons8.com.br/icons/set/web-chat |
+| Perfil / pessoa | https://icons8.com.br/icons/set/user |
+| Configurações | https://icons8.com.br/icons/set/settings |
+| Busca | https://icons8.com.br/icons/set/search |
+| Calendário | https://icons8.com.br/icons/set/calendar |
+| Câmera | https://icons8.com.br/icons/set/camera |
+| Câmera de vídeo / chamada | https://icons8.com.br/icons/set/vetor-de-c%C3%A2mera-de-v%C3%ADdeo |
+| Microfone | https://icons8.com.br/icons/set/microphone |
+| Telefone | https://icons8.com.br/icons/set/telefone |
+| Fechar janela | https://icons8.com.br/icons/set/close-button |
+| Licença e atribuição | https://icons8.com.br/license |
+
+**Licença/atribuição:** a página de licença consultada orienta a adicionar link para Icons8 nas páginas que usam os recursos (ou no rodapé se a maioria das páginas os usar) e menciona créditos em Sobre/Configurações para aplicativos móveis. Como nenhum ativo individual Icons8 foi integrado, não foi adicionado um crédito que pudesse sugerir uso real de um ativo específico. Antes de substituir os SVGs locais por um download Icons8, selecionar um item concreto, verificar a família Stroke 1, formato disponível e licença aplicável.
+
+### Pendências gerais por área
+
+- **Entrada/login:** ícone de mostrar/ocultar senha e indicador de carregamento não foram substituídos nem testados visualmente.
+- **Início/feed/stories:** apenas os controles de ícones descritos acima foram modificados; todos os botões de feed, comentários, anexos, menus e estados vazios ainda precisam de inspeção visual por estado.
+- **Cartas:** o calendário e os controles de arquivo/filtro ainda precisam de revisão visual e teste por teclado.
+- **Músicas:** os controles principais de faixas foram padronizados; os formulários e estados vazios/erro ainda precisam de teste visual.
+- **Chat/conversa:** os modais de chamadas e jogo foram tocados; controles restantes de resposta, reação, anexos, menu e estados de conexão não foram todos inspecionados em navegador.
+- **Notificações, Pessoas, Perfil, Configurações e Administração:** o cabeçalho comum foi centralizado, mas ícones e estados internos de cada formulário/lista não foram totalmente auditados em navegador.
+- **Temas/responsividade:** estilos usam `currentColor` e foco visível global; não foram executados testes manuais em tema claro/escuro, larguras móveis/tablet/desktop ou leitor de tela.
+- **Estados de permissão negada, offline, erro, vazio, sincronização pendente e sucesso:** existem nomes semânticos no registro central; não se afirma que todos os estados de todas as páginas estejam conectados a esses ícones.
+- **Modais concorrentes:** os modais específicos já existentes foram preservados por usarem fluxos diferentes. A remoção de duplicações foi limitada ao helper local de ícones em Cartas e ao mapa de ícones de navegação/conta; não foi feita uma fusão arriscada de todos os componentes de diálogo.
+- **Publicação:** não declarar produção atualizada até existir uma implantação READY associada ao commit da Etapa 8. A implantação anterior da Vercel estava bloqueada por limite de builds; isso precisa ser rechecado após CI e merge.
+
+### Critério de conclusão
+
+Esta etapa é **parcial até que** o CI passe, as páginas restantes sejam revisadas, os temas e tamanhos sejam testados em navegador/dispositivo, os fluxos de teclado/diálogo sejam exercitados e uma implantação de produção seja verificada pelo SHA do commit. O relatório não marca como concluídos os itens que não foram inspecionados.
