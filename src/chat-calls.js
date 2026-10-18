@@ -4,6 +4,7 @@ export function setupChatCalls(root, client, userId) {
   root.dataset.chatCalls = "true";
   let channel = null;
   let channelConversationId = "";
+  let channelReady = null;
   let pc = null;
   let localStream = null;
   let incomingOffer = null;
@@ -158,9 +159,9 @@ export function setupChatCalls(root, client, userId) {
   const ensureChannel = async () => {
     const id = activeConversation();
     if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
-    if (channel && channelConversationId === id) return channel;
+    if (channel && channelConversationId === id) return channelReady ? await channelReady ? channel : null : channel;
     if (channel) await client.removeChannel(channel);
-    channel = null; channelConversationId = id;
+    channel = null; channelReady = null; channelConversationId = id;
     const session = await client.auth.getSession();
     if (session.data?.session?.access_token) await client.realtime.setAuth(session.data.session.access_token);
     const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false } } });
@@ -184,7 +185,7 @@ export function setupChatCalls(root, client, userId) {
         await endCall(false, "A outra pessoa encerrou a chamada.");
       }
     });
-    const subscribed = await new Promise((resolve, reject) => {
+    channelReady = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Realtime call channel timed out")), 10000);
       next.subscribe((status, error) => {
         if (status === "SUBSCRIBED") { clearTimeout(timer); resolve(true); }
@@ -197,6 +198,7 @@ export function setupChatCalls(root, client, userId) {
       await client.removeChannel(next);
       return false;
     });
+    const subscribed = await channelReady;
     return subscribed ? channel : null;
   };
   const addButtons = () => {
