@@ -11,6 +11,21 @@ function escapeHtml(value) {
   })[character]);
 }
 
+export function instagramEmbedDetails(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || !["instagram.com", "www.instagram.com", "m.instagram.com"].includes(url.hostname.toLowerCase())) return null;
+    const parts = url.pathname.split("/").filter(Boolean);
+    const shared = parts[0] === "share";
+    const kind = parts[shared ? 1 : 0];
+    const shortcode = parts[shared ? 2 : 1];
+    if (!["p", "reel", "tv"].includes(kind) || !/^[A-Za-z0-9_-]{5,30}$/.test(shortcode || "")) return null;
+    return { kind, shortcode, embedUrl: "https://www.instagram.com/" + kind + "/" + shortcode + "/embed/" };
+  } catch {
+    return null;
+  }
+}
+
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "agora há pouco";
@@ -91,17 +106,10 @@ function postMarkup(post, userId) {
     let provider = externalUrl.hostname.includes("instagram") ? "Instagram" : externalUrl.hostname.includes("tiktok") ? "TikTok" : "Link externo";
     let embed = "";
     if (externalUrl.hostname.includes("instagram")) {
-      const pathParts = externalUrl.pathname.split("/").filter(Boolean);
-      // Instagram's native "Share" URLs wrap the post type in /share/{p|reel|tv}/{shortcode}/.
-      const sharePrefix = pathParts[0] === "share";
-      const kindIndex = sharePrefix ? 1 : 0;
-      const shortcodeIndex = sharePrefix ? 2 : 1;
-      const kind = ["p", "reel", "tv"].includes(pathParts[kindIndex]) ? pathParts[kindIndex] : null;
-      const shortcode = pathParts[shortcodeIndex] || "";
-      if (kind && /^[A-Za-z0-9_-]{5,30}$/.test(shortcode)) {
+      const details = instagramEmbedDetails(externalUrl.href);
+      if (details) {
         provider = "Instagram";
-        const embedPath = kind === "p" ? "p" : kind;
-        embed = '<div class="post-external-embed post-instagram-embed"><iframe src="https://www.instagram.com/' + embedPath + '/' + escapeHtml(shortcode) + '/embed" title="Publicação do Instagram" loading="lazy" allow="clipboard-write; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+        embed = '<div class="post-external-embed post-instagram-embed"><iframe src="' + escapeHtml(details.embedUrl) + '" title="Publicação do Instagram" loading="lazy" allow="clipboard-write; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       }
     } else if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
       const pathParts = externalUrl.pathname.split("/").filter(Boolean);
