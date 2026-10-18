@@ -211,7 +211,7 @@ test("YouTube playlist loading paginates, ignores unavailable videos, and explai
   assert.equal(requests[0].url.searchParams.get("playlistId"), "PLD5PXwJcU-Sg");
   assert.equal(requests[0].url.searchParams.has("key"), false);
   assert.equal(requests[0].options.headers.authorization, "Bearer unit-test-token");
-  assert.ok(requests[0].options.headers.apikey);
+  assert.equal(typeof requests[0].options.headers.apikey, "string");
   assert.equal(requests[1].url.searchParams.get("pageToken"), "page-2");
   assert.deepEqual(tracks.map((track) => track.title), ["Faixa 1", "Faixa 2"]);
   assert.match(youtubeApiErrorMessage(502, { error: "youtube_quota_exceeded", reason: "quotaExceeded" }), /cota diária/i);
