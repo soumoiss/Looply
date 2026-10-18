@@ -27,7 +27,7 @@ test("Story viewer supports tap-to-pause and resume without intercepting action 
   assert.match(source, /data-story-play-toggle/);
   assert.match(source, /const setStoryPaused = \(paused\)/);
   assert.match(source, /touchSurface\.addEventListener\("click"/);
-  assert.match(source, /event\.target\.closest\("button, a, input, form, video/);
+  assert.match(source, /event\.target\.closest\("button, a, input, form/);
   assert.match(source, /setStoryPaused\(!state\.paused\)/);
 });
 

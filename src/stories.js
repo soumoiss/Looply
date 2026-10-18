@@ -927,7 +927,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (!replyForm.contains(event.relatedTarget)) resumeStoryTimer();
   });
   touchSurface.addEventListener("click", (event) => {
-    if (event.target.closest("button, a, input, form, video, [data-story-prev], [data-story-next]")) return;
+    if (event.target.closest("button, a, input, form, [data-story-prev], [data-story-next]")) return;
     if (Date.now() < state.ignoreTapUntil) return;
     setStoryPaused(!state.paused);
   });
