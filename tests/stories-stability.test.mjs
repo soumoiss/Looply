@@ -45,6 +45,8 @@ test("opening a stale story refreshes and retries instead of silently leaving th
   assert.match(source, /let activeStories = group \? activeStoriesFor\(group\) : \[\]/);
   assert.match(source, /await refresh\(\);\s*group = state\.groups\.find/);
   assert.match(source, /openStoryDialog\(viewer\)/);
+  assert.match(source, /playToggle\.innerHTML = icon\("pause"\)/);
+  assert.doesNotMatch(source, /playToggle\.querySelector\("span"\)\.textContent/);
   assert.match(source, /function openStoryDialog\(dialog\)/);
   assert.match(source, /function closeStoryDialog\(dialog\)/);
 });
