@@ -32,6 +32,9 @@ export function setupChatEnhancements(root, client, userId) {
   const wallpapers = read(wallpaperKey, {});
   const selectedConversation = () => root.querySelector("[data-chat-send]")?.dataset.conversationId || root.querySelector(".chat-thread-heading")?.dataset.conversationId || "";
   const isGroup = () => root.querySelector(".chat-thread-heading")?.dataset.chatKind === "group";
+  const ownDisplayName = () => root.querySelector(".looply-account strong")?.textContent?.trim()
+    || root.querySelector("[data-profile-display-name]")?.getAttribute("data-profile-display-name")
+    || "Membro";
   const closeChannel = async () => {
     if (gameChannel) { await client.removeChannel(gameChannel); gameChannel = null; }
     gameConversation = "";
@@ -116,7 +119,9 @@ export function setupChatEnhancements(root, client, userId) {
   const renderGame = () => {
     if (!gameState) return;
     const result = winner(gameState.cells);
-    const status = result === "draw" ? "Empate!" : result ? (result === "X" ? gameState.xName : gameState.oName) + " venceu!" : gameState.turn === userId ? "Sua vez" : "Aguardando a outra pessoa…";
+    const winnerId = gameState.winnerId || (result === "X" ? gameState.xPlayer : result === "O" ? gameState.oPlayer : null);
+    const winnerName = winnerId === gameState.xPlayer ? gameState.xName : winnerId === gameState.oPlayer ? gameState.oName : "";
+    const status = result === "draw" ? "Empate!" : winnerId ? winnerName + " venceu!" : gameState.turn === userId ? "Sua vez" : "Aguardando a outra pessoa…";
     openModal(`<span class="chat-v2-kicker">Jogo da velha · rodada ${Number(gameState.round) || 1}</span><h2 id="chatV2ModalTitle">Uma pausa para jogar</h2><p class="chat-v2-game-status">${esc(status)}</p><p class="chat-v2-scoreboard" data-v2-scoreboard role="status" aria-live="polite">Carregando placar…</p><div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">${gameState.cells.map((cell, i) => `<button type="button" class="chat-v2-cell" data-v2-cell="${i}" aria-label="Casa ${i+1}${cell ? ": "+cell : ""}" ${cell || result || gameState.turn !== userId ? "disabled" : ""}>${esc(cell)}</button>`).join("")}</div><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-v2-close-game>Fechar partida</button>${result ? '<button type="button" class="chat-v2-button is-primary" data-v2-rematch>Jogar novamente</button>' : ""}</div>`);
     void refreshScoreboard();
   };
@@ -211,14 +216,14 @@ export function setupChatEnhancements(root, client, userId) {
     }
     if (target.matches("[data-v2-send-invite]")) {
       const name = target.dataset.v2Name || "Contato";
-      const ok = await sendGame("invite", { senderName: root.querySelector("[data-site-header]")?.textContent?.trim() || "Alguém" });
+      const ok = await sendGame("invite", { senderName: ownDisplayName() });
       if (ok) { toast("Convite enviado."); closeModal(); } else toast("Não foi possível enviar o convite agora.");
       return;
     }
     if (target.matches("[data-v2-decline]")) { await sendGame("decline"); closeModal(); return; }
     if (target.matches("[data-v2-accept]")) {
       const firstPlayer = Math.random() < 0.5 ? gameInvite.senderId : userId;
-      const state = { gameId: newGameId(), cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: firstPlayer, winnerId: null, round: 1, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
+      const state = { gameId: newGameId(), cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: firstPlayer, winnerId: null, round: 1, xName: gameInvite.senderName || "Contato", oName: ownDisplayName() };
       gameState = state; ownTurn = false;
       await sendGame("state", { state }); renderGame(); return;
     }
