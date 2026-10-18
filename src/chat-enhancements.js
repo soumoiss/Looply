@@ -191,7 +191,8 @@ export function setupChatEnhancements(root, client, userId) {
     }
     if (target.matches("[data-v2-decline]")) { await sendGame("decline"); closeModal(); return; }
     if (target.matches("[data-v2-accept]")) {
-      const state = { cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: gameInvite.senderId, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
+      const firstPlayer = Math.random() < 0.5 ? gameInvite.senderId : userId;
+      const state = { cells: Array(9).fill(null), xPlayer: gameInvite.senderId, oPlayer: userId, turn: firstPlayer, winnerId: null, round: 1, xName: gameInvite.senderName || "X", oName: root.querySelector(".chat-thread-heading strong")?.textContent || "O" };
       gameState = state; ownTurn = false;
       await sendGame("state", { state }); renderGame(); return;
     }
@@ -201,12 +202,14 @@ export function setupChatEnhancements(root, client, userId) {
       const cells = [...gameState.cells]; cells[index] = userId === gameState.xPlayer ? "X" : "O";
       const result = winner(cells);
       const nextTurn = userId === gameState.xPlayer ? gameState.oPlayer : gameState.xPlayer;
-      gameState = { ...gameState, cells, turn: result ? null : nextTurn };
+      const winnerId = result === "X" ? gameState.xPlayer : result === "O" ? gameState.oPlayer : null;
+      gameState = { ...gameState, cells, turn: result ? null : nextTurn, winnerId };
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-close-game]")) { await sendGame("close"); closeModal(); return; }
     if (target.matches("[data-v2-rematch]")) {
-      gameState = { ...gameState, cells: Array(9).fill(null), turn: gameState.xPlayer };
+      const nextStarter = gameState.winnerId || (Math.random() < 0.5 ? gameState.xPlayer : gameState.oPlayer);
+      gameState = { ...gameState, cells: Array(9).fill(null), turn: nextStarter, winnerId: null, round: (Number(gameState.round) || 1) + 1 };
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-save-nickname]")) {
