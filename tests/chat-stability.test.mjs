@@ -31,7 +31,7 @@ test("opening a conversation invalidates stale background requests and does not 
   const end = source.indexOf("\nasync function refreshChat", start);
   const open = source.slice(start, end);
   assert.match(open, /refreshSequence \+= 1/);
-  assert.match(open, /const hasSameComposer = Boolean\(thread\.querySelector\("\[data-chat-send\]"\)/);
+  assert.match(open, /const hasSameComposer = thread\.querySelector\("\[data-chat-send\]"\)\?\.dataset\.conversationId === conversationId/);
   assert.match(open, /if \(hasSameComposer\) updateThreadMarkup\(thread, markup, conversationId\)/);
   assert.match(open, /requestId !== activeThreadRequest/);
 });
