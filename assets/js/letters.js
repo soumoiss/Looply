@@ -30,27 +30,18 @@ function writtenLettersMarkup(letters, userId) {
   }).join("");
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
-  const [archiveResult, letterResult, communityResult, profilesResult] = await Promise.allSettled([
-    loadArchivedCards(client, user.id), loadWrittenLetters(client, user.id),
-    loadCommunityLetters(client, user.id),
+  const [archiveResult, communityResult, profilesResult] = await Promise.allSettled([
+    loadArchivedCards(client, user.id), loadCommunityLetters(client, user.id),
     client.from("profiles").select("id,username,display_name").order("username").limit(100)
   ]);
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
-  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id) +
-    "<section class=\"panel written-letters-panel\"><div class=\"written-letters-heading\"><h2>Cartas enviadas e recebidas</h2><a class=\"text-button\" href=\"chat.html\">Abrir conversa</a></div><div class=\"written-letters-list\"></div></section>" +
-    archivedCardsMarkup();
+  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id) + archivedCardsMarkup();
   if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters);
   else {
     console.error("Looply community letters load failed", communityResult.reason);
     const composer = root.querySelector(".community-letter-compose-panel");
     if (composer) composer.innerHTML = "<p role=\"alert\">Não foi possível carregar as cartas da comunidade.</p>";
-  }
-  const letterList = root.querySelector(".written-letters-list");
-  if (letterResult.status === "fulfilled") letterList.innerHTML = writtenLettersMarkup(letterResult.value, user.id);
-  else {
-    console.error("Looply written letters load failed", letterResult.reason);
-    letterList.innerHTML = "<p class=\"written-letters-empty\" role=\"alert\">Não foi possível carregar as cartas enviadas e recebidas.</p>";
   }
   if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value);
   else {

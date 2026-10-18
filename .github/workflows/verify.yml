@@ -32,6 +32,8 @@ jobs:
           node --check src/chat-calls.js
           node --check src/admin.js
           node --check src/archive-import.js
+          node --check src/letters-community.js
+          node --check assets/js/letters.js
           node --check src/archived-cards.js
           node --check src/date-parser.js
           node --check src/page-runtime.js
