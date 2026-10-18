@@ -37,7 +37,7 @@ export function playlistMarkup(profile) {
     <dialog class="youtube-track-dialog" data-youtube-track-dialog aria-labelledby="youtubeTrackDialogTitle">
       <div class="youtube-track-dialog-heading"><div><span class="section-kicker">Playlist</span><h2 id="youtubeTrackDialogTitle" data-youtube-dialog-title></h2><p data-youtube-dialog-channel></p></div>
         <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">×</button></div>
-      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentário para Peixinho ADM</h3><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Seu comentário</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário para Peixinho ADM"></textarea><button class="primary-button compact-button" type="submit">Enviar comentário</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
     </dialog>
   </section>`;
 }
@@ -130,11 +130,11 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
 
 function trackMarkup(track, index) {
   const number = String(index + 1);
-  return `<li><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
+  return `<li><div class="youtube-track-row"><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
     <span class="youtube-track-number">${number}</span><img src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer">
     <span class="youtube-track-copy"><strong>${escapeHtml(track.title)}</strong>${track.channel ? `<small>${escapeHtml(track.channel)}</small>` : ""}</span>
     <span class="youtube-track-play" aria-hidden="true">▶</span>
-  </button></li>`;
+  </button><button class="youtube-track-comment" type="button" data-youtube-track-comment="${escapeHtml(track.videoId)}" aria-label="Comentar esta música" title="Comentar esta música">▤</button></div></li>`;
 }
 
 export async function bindYouTubePlaylist(root, client) {
@@ -229,7 +229,55 @@ export async function bindYouTubePlaylist(root, client) {
   });
   dialog?.addEventListener("close", () => dialogPlayer?.removeAttribute("src"));
 
+  let activeTrack = null;
+  const trackCommentsList = dialog?.querySelector("[data-youtube-track-comments-list]");
+  const trackCommentForm = dialog?.querySelector("[data-youtube-track-comment-form]");
+  const trackCommentStatus = dialog?.querySelector("[data-youtube-track-comment-status]");
+  const renderTrackComments = async (track) => {
+    if (!trackCommentsList) return;
+    trackCommentsList.textContent = "Carregando comentários…";
+    const { data, error } = await client.from("music_page_comments")
+      .select("id,body,created_at,author_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
+      .eq("comment_type", "track").eq("playlist_id", playlistId).eq("video_id", track.videoId).order("created_at");
+    if (error) { trackCommentsList.textContent = "Não foi possível carregar os comentários."; return; }
+    if (!data?.length) { trackCommentsList.textContent = "Nenhum comentário seu ainda."; return; }
+    trackCommentsList.replaceChildren();
+    for (const item of data) {
+      const article = document.createElement("article"); article.className = "youtube-track-comment-item";
+      const strong = document.createElement("strong"); strong.textContent = item.author?.display_name || item.author?.username || "Você";
+      const p = document.createElement("p"); p.textContent = item.body; article.append(strong,p); trackCommentsList.append(article);
+    }
+  };
+  trackCommentForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = String(new FormData(trackCommentForm).get("body") || "").trim();
+    if (!activeTrack || !body || body.length > 2000) return;
+    const submit = trackCommentForm.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    if (trackCommentStatus) trackCommentStatus.textContent = "Enviando…";
+    try {
+      const { error } = await client.from("music_page_comments").insert({ comment_type: "track", playlist_id: playlistId, video_id: activeTrack.videoId, body });
+      if (error) throw error;
+      trackCommentForm.reset();
+      if (trackCommentStatus) trackCommentStatus.textContent = "Comentário enviado a Peixinho ADM.";
+      await renderTrackComments(activeTrack);
+    } catch {
+      if (trackCommentStatus) trackCommentStatus.textContent = "Não foi possível enviar. Tente novamente.";
+    } finally { if (submit) submit.disabled = false; }
+  });
   list.addEventListener("click", (event) => {
+    const commentButton = event.target.closest("[data-youtube-track-comment]");
+    if (commentButton) {
+      const track = tracks.find((item) => item.videoId === commentButton.dataset.youtubeTrackComment);
+      if (!track) return;
+      activeTrack = track;
+      if (dialogTitle) dialogTitle.textContent = track.title;
+      if (dialogChannel) dialogChannel.textContent = track.channel || "";
+      if (dialogPlayer) dialogPlayer.removeAttribute("src");
+      if (dialog && !dialog.open) dialog.showModal();
+      void renderTrackComments(track);
+      return;
+    }
     const button = event.target.closest("[data-youtube-track]");
     if (!button) return;
     list.querySelectorAll("[data-youtube-track]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
