@@ -212,7 +212,12 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
         try { await ensureSigned([item]); }
         catch (error) { console.warn("Looply thumbnail retry failed", error); }
         if (!item.signedUrl && image.isConnected) {
-          image.alt = "Mídia indisponível — abra para tentar novamente";
+          const fallback = document.createElement("span");
+          fallback.className = "archive-media-placeholder";
+          fallback.dataset.archiveThumbnail = "";
+          fallback.dataset.mediaId = item.id;
+          fallback.textContent = "Mídia indisponível — toque para tentar novamente";
+          image.replaceWith(fallback);
         }
       });
     };
