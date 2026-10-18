@@ -368,3 +368,6 @@
   .page-chat .chat-call-modal .chat-call-videos { grid-template-columns: minmax(0, 1fr); }
   .page-chat .chat-call-modal .chat-call-videos video { max-height: 48dvh; }
 }
+
+.chat-call-modal [data-call-enable-audio][hidden] { display: none !important; }
+.chat-call-modal [data-call-enable-audio] { min-height: 40px; margin: 8px auto; }
