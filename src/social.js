@@ -130,7 +130,8 @@ function postMarkup(post, userId) {
     ${externalMarkup}
     <div class="post-interactions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
-      <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
+      <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação externamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
+      <button class="post-icon-button" type="button" data-share-in-app="${escapeHtml(post.id)}" aria-label="Compartilhar no chat do Looply">Enviar no Looply</button>
       ${post.author_id !== userId ? '<button class="post-icon-button" type="button" data-private-reply="' + escapeHtml(post.author_id) + '" data-private-post="' + escapeHtml(post.id) + '">Responder em particular</button>' : ""}
       <span class="post-action-status" data-post-status="${escapeHtml(post.id)}" role="status" aria-live="polite"></span>
     </div>
@@ -402,6 +403,61 @@ export function bindSocialEvents(root, client, getUserId) {
 
   root.addEventListener("click", async (event) => {
     if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.());
+    const internalShare = event.target.closest("[data-share-in-app]");
+    if (internalShare && client) {
+      const postId = internalShare.dataset.shareInApp;
+      const userId = getUserId?.();
+      if (!postId || !userId || internalShare.disabled) return;
+      internalShare.disabled = true;
+      try {
+        const { data: people, error } = await client.from("profiles")
+          .select("id,username,display_name").neq("id", userId).order("username").limit(200);
+        if (error) throw error;
+        if (!people?.length) throw new Error("no-share-recipients");
+        let dialog = root.querySelector("[data-share-dialog]");
+        if (!dialog) {
+          dialog = document.createElement("dialog");
+          dialog.className = "social-share-dialog";
+          dialog.dataset.shareDialog = "";
+          root.append(dialog);
+        }
+        dialog.dataset.postId = postId;
+        dialog.innerHTML = '<section class="social-share-dialog-card"><h2>Compartilhar no Looply</h2><label for="socialShareRecipient">Enviar publicação para</label><select id="socialShareRecipient" data-share-recipient>' +
+          people.map((person) => '<option value="' + escapeHtml(person.id) + '">' + escapeHtml(person.display_name || person.username) + ' (@' + escapeHtml(person.username) + ')</option>').join("") +
+          '</select><div class="social-share-dialog-actions"><button type="button" class="text-button" data-share-dialog-cancel>Cancelar</button><button type="button" class="primary-button compact-button" data-share-in-app-send>Continuar no chat</button></div></section>';
+        if (!dialog.open) dialog.showModal();
+      } catch (error) {
+        console.error("Looply internal post sharing failed", error);
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = error?.message === "no-share-recipients" ? "Não há outros usuários disponíveis para compartilhar." : explainWriteError(error);
+      } finally { internalShare.disabled = false; }
+      return;
+    }
+    if (event.target.closest("[data-share-dialog-cancel]")) {
+      root.querySelector("[data-share-dialog]")?.close();
+      return;
+    }
+    const sendInternalShare = event.target.closest("[data-share-in-app-send]");
+    if (sendInternalShare && client) {
+      const dialog = root.querySelector("[data-share-dialog]");
+      const targetId = dialog?.querySelector("[data-share-recipient]")?.value;
+      const postId = dialog?.dataset.postId;
+      if (!targetId || !postId || sendInternalShare.disabled) return;
+      sendInternalShare.disabled = true;
+      try {
+        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId } });
+        if (error) throw error;
+        if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
+        const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+        dialog.close();
+        window.location.href = "chat.html?conversation=" + encodeURIComponent(data.conversationId) + "&post=" + encodeURIComponent(sourceUrl);
+      } catch (error) {
+        console.error("Looply internal post share failed", error);
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = explainWriteError(error);
+      } finally { sendInternalShare.disabled = false; }
+      return;
+    }
     const privateReply = event.target.closest("[data-private-reply]");
     if (privateReply && client) {
       const authorId = privateReply.dataset.privateReply;
@@ -409,10 +465,11 @@ export function bindSocialEvents(root, client, getUserId) {
       if (!authorId || !postId || privateReply.disabled) return;
       privateReply.disabled = true;
       try {
-        const { data: conversationId, error } = await client.rpc("create_direct_conversation", { p_target_id: authorId });
+        const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: authorId } });
         if (error) throw error;
+        if (!data?.conversationId || data.errorCode) throw new Error(data?.errorCode || "conversation_unavailable");
         const sourceUrl = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
-        window.location.href = "chat.html?conversation=" + encodeURIComponent(conversationId) + "&post=" + encodeURIComponent(sourceUrl);
+        window.location.href = "chat.html?conversation=" + encodeURIComponent(data.conversationId) + "&post=" + encodeURIComponent(sourceUrl);
       } catch (error) {
         console.error("Looply private post reply failed", error);
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
