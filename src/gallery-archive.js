@@ -78,7 +78,7 @@ export function archiveGalleryMarkup(media, isAdmin = false) {
         '<p class="archive-viewer-description" data-archive-viewer-description hidden></p>' +
         '<div class="archive-viewer-layout"><div class="archive-viewer-stage" data-archive-viewer-stage>' +
           '<div class="archive-viewer-controls"><button type="button" data-media-zoom="out" aria-label="Diminuir zoom">−</button><button type="button" data-media-zoom="reset">Ajustar</button><button type="button" data-media-zoom="in" aria-label="Aumentar zoom">+</button></div>' +
-          '<div class="archive-viewer-content" data-archive-viewer-content></div>' +
+          '<div class="archive-viewer-content" data-archive-viewer-content></div><button type="button" class="archive-viewer-comments-fab" data-archive-comments-toggle aria-label="Abrir comentários" title="Comentários">☷</button>' +
         '</div>' +
         '<aside class="archive-viewer-comments"><section class="archive-viewer-people"><div class="archive-viewer-people-heading"><h3>Pessoas</h3><button type="button" data-archive-people-inline-toggle>Gerenciar</button></div><div class="archive-viewer-people-list" data-archive-viewer-people-list></div><div class="archive-viewer-people-panel" data-archive-viewer-people-panel hidden><label>Quem aparece nesta mídia<select multiple size="5" data-archive-people-select></select></label><button type="button" data-archive-people-save>Salvar marcações</button><span class="gallery-community-status" data-archive-people-status role="status"></span></div></section><h3>Comentários <span data-viewer-comment-count>0</span></h3><div class="archive-viewer-comment-list" data-viewer-comments></div>' +
           '<p data-no-comment hidden>Você pode visualizar esta mídia, mas não tem permissão para comentar.</p>' +
@@ -515,7 +515,25 @@ export function bindArchiveGallery(root, client, user, media, profile = user, is
   }
 
   root.addEventListener("click", (event) => {
-    if(event.target.closest("[data-archive-people-toggle],[data-archive-people-inline-toggle]")){const panel=root.querySelector("[data-archive-viewer-people-panel]");if(panel)panel.hidden=!panel.hidden;return;}
+    if(event.target.closest("[data-archive-comments-toggle]")) {
+      const comments = root.querySelector(".archive-viewer-comments");
+      const layout = root.querySelector(".archive-viewer-layout");
+      const opened = !comments?.classList.contains("is-open");
+      comments?.classList.toggle("is-open", opened);
+      layout?.classList.toggle("has-comments", opened);
+      const toggle = root.querySelector("[data-archive-comments-toggle]");
+      toggle?.setAttribute("aria-label", opened ? "Fechar comentários" : "Abrir comentários");
+      return;
+    }
+    if(event.target.closest("[data-archive-people-toggle],[data-archive-people-inline-toggle]")) {
+      const panel=root.querySelector("[data-archive-viewer-people-panel]");
+      if(panel)panel.hidden=!panel.hidden;
+      const comments=root.querySelector(".archive-viewer-comments");
+      const layout=root.querySelector(".archive-viewer-layout");
+      comments?.classList.add("is-open");
+      layout?.classList.add("has-comments");
+      return;
+    }
     if(event.target.closest("[data-archive-people-save]")){void saveArchivePeople();return;}
     const description = event.target.closest("[data-open-archive-description]");
     if (description) {
