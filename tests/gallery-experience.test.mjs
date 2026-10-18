@@ -19,3 +19,16 @@ test("gallery privacy migration stores a hash and scopes notifications",async()=
  assert.match(sql,/community_gallery_comment_recipients/); assert.match(sql,/gallery_tag/);
  assert.match(sql,/Tagged person must be able to view this media/); assert.match(sql,/Comment recipient must be able to view this media/);
 });
+
+test("gallery recovers individual signed URLs and uses the supplied visual shell",async()=>{
+ const [archive,community,css,ui]=await Promise.all([read("src/gallery-archive.js"),read("src/community-gallery.js"),read("assets/css/pages/gallery.css"),read("galeria.html")]);
+ assert.match(archive,/createSignedUrl\(item\.storage_path, 1800\)/);
+ assert.match(archive,/thumbnail retry failed/i);
+ assert.match(community,/Community media URL recovery failed/);
+ assert.match(community,/createSignedUrl\(item\.storage_path, 1800\)/);
+ assert.match(css,/GalleryPro visual replacement/);
+ assert.match(css,/data-site-header/);
+ assert.match(css,/gallery-category:nth-child\(5\)/);
+ assert.match(ui,/data-gallery-upload/);
+ assert.match(ui,/data-gallery-view="masonry"/);
+});
