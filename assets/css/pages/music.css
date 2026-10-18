@@ -52,3 +52,6 @@
 .music-composer select[multiple] { min-height:132px; }
 .music-composer select[multiple] option { padding:7px; }
 @media (max-width:780px) { .youtube-track-comment { width:36px; min-width:36px; } }
+
+.youtube-track-share, .youtube-track-external { display:grid; width:36px; min-width:36px; min-height:42px; place-items:center; align-self:center; border:1px solid var(--border); border-radius:10px; color:var(--primary); background:var(--surface); text-decoration:none; font-size:17px; cursor:pointer; }
+.youtube-track-share:hover, .youtube-track-external:hover { background:var(--surface-raised, rgba(122,84,150,.12)); }
