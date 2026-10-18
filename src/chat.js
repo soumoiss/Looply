@@ -454,7 +454,7 @@ function messageComposerMarkup(conversationId) {
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
-    return `<header class="chat-thread-heading"><span class="chat-thread-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><a href="chat.html">Todas as conversas</a></header>`;
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><span class="chat-thread-avatar chat-group-avatar" aria-label="Conversa em grupo">👥</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><a href="chat.html">Todas as conversas</a></header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -465,7 +465,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
-  return `<header class="chat-thread-heading">${avatar}<strong>${escapeHtml(name)}</strong><a href="chat.html">Todas as conversas</a></header>`;
+  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}">${avatar}<strong>${escapeHtml(name)}</strong><a href="chat.html">Todas as conversas</a></header>`;
 }
 
 async function signThreadAvatar(client, participants) {
@@ -503,9 +503,21 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
   try {
     const data = await loadChatData(client, userId);
     if (!root.querySelector("[data-chat-area]")) return;
-    area.outerHTML = chatMarkup(data, userId);
+    const draftForm = root.querySelector("[data-chat-send]");
+    const draftInput = draftForm?.querySelector('textarea[name="body"]');
+    const preserveComposer = Boolean(draftInput && (document.activeElement === draftInput || draftInput.value.length || draftForm.querySelector('input[name="files"]')?.files?.length || voiceRecordings.has(draftForm)));
+    const parsed = document.createElement("div");
+    parsed.innerHTML = chatMarkup(data, userId);
+    const freshArea = parsed.querySelector("[data-chat-area]");
+    if (preserveComposer) {
+      const currentSidebar = area.querySelector(".chat-sidebar");
+      const freshSidebar = freshArea?.querySelector(".chat-sidebar");
+      if (currentSidebar && freshSidebar) currentSidebar.replaceWith(freshSidebar);
+    } else {
+      area.replaceWith(freshArea);
+    }
     applyConversationFilter(root);
-    if (keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
+    if (!preserveComposer && keepThread && activeConversationId && data.conversations.some((row) => row.id === activeConversationId)) {
       const { messages, participants, conversation } = await loadThread(client, activeConversationId);
       const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: activeConversationId });
       if (readError) console.warn("Looply read receipt update failed", readError);
@@ -514,7 +526,8 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
       const isGroup = conversation.kind === "group";
       const thread = root.querySelector("[data-chat-thread]");
       if (thread) thread.innerHTML = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(activeConversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(activeConversationId)}`;
-    } else activeConversationId = null;
+    } else if (!keepThread) activeConversationId = null;
+    root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
     area.innerHTML = `<div class="chat-empty" role="alert">Não foi possível atualizar as conversas agora.</div>`;
