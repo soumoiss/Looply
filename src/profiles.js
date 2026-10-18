@@ -81,6 +81,7 @@ function avatarSaveErrorMessage(error) {
   if (message === "profile-fields") return "Confira o nome e a apresentação do perfil.";
   if (message === "unsupported avatar" || message === "avatar-not-square") return "A imagem precisa ser JPEG, PNG ou WebP, recortada em 512 × 512 px e ter até 10 MB.";
   if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto anterior foi preservada; tente novamente.";
+  if (message === "avatar-rollback-failed") return "Não foi possível confirmar a restauração da foto anterior. Recarregue o perfil antes de tentar novamente; nenhuma confirmação de sucesso foi exibida.";
   if (message === "profile-update-not-confirmed") return "O servidor não confirmou a atualização do perfil. Nenhuma alteração de foto foi considerada concluída.";
   if (message.includes("session expired") || status === 401) return "Sua sessão expirou. Entre novamente e tente salvar a foto.";
   if (status === 403 || code.includes("42501") || message.includes("row-level security") || message.includes("permission")) return "Sua conta não tem permissão para salvar a foto. A foto atual foi preservada.";
@@ -355,10 +356,10 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
             if (!rollbackError && rolledBackProfile) {
               const { error: cleanupError } = await client.storage.from("looply-avatars").remove([newAvatarPath]);
               if (cleanupError) console.error("Could not clean up rolled-back profile avatar", cleanupError);
-            } else {
-              console.error("Could not roll back profile avatar after storage validation failed", rollbackError);
+              throw new Error("avatar-upload-validation-failed");
             }
-            throw new Error("avatar-upload-validation-failed");
+            console.error("Could not roll back profile avatar after storage validation failed", rollbackError);
+            throw new Error("avatar-rollback-failed");
           }
         }
         if (newAvatarPath) form.dataset.hasAvatar = "true";
