@@ -144,6 +144,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
+  if (!profile.avatar_path && page !== "profile") {
+    window.location.replace("perfil.html?foto=obrigatoria");
+    return;
+  }
+
   if (adminOnly && !isAdmin) {
     window.location.replace("home.html");
     return;
