@@ -123,6 +123,9 @@ export function setupChatEnhancements(root, client, userId) {
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
       const id = item.dataset.chatOpen;
+      const label = item.querySelector(".chat-conversation-copy strong");
+      if (label && !label.dataset.originalName) label.dataset.originalName = label.textContent;
+      if (label && nicknames[id]) label.textContent = nicknames[id];
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
