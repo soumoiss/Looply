@@ -192,7 +192,7 @@ export function chatMarkup(data, userId) {
           <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
             <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
             <p class="field-hint">Somente você e Peixinho poderão abrir esta carta. A resposta continuará na conversa privada.</p>
-            <button class="primary-button compact-button" type="submit">Enviar carta <span aria-hidden="true">↗</span></button><span class="form-status" data-status role="status" aria-live="polite"></span>
+            <button class="primary-button compact-button" type="submit">Enviar carta ${icon("send")}</button><span class="form-status" data-status role="status" aria-live="polite"></span>
           </form>
         </details>
         <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
@@ -381,7 +381,7 @@ function renderMedia(media) {
   if (media.mime_type.startsWith("image/")) return `<a class="chat-image-link" href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${fileName}" loading="lazy" referrerpolicy="no-referrer"></a>`;
   if (media.mime_type.startsWith("video/")) return `<video src="${url}" controls preload="metadata" aria-label="${fileName}"></video>`;
   if (media.mime_type.startsWith("audio/")) return `<div class="chat-audio-player"><audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio><label>Velocidade <select data-chat-audio-rate aria-label="Velocidade do áudio"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>`;
-  return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">↗ ${fileName}</a>`;
+  return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">${icon("external")} ${fileName}</a>`;
 }
 
 async function loadThread(client, conversationId, before = null) {
