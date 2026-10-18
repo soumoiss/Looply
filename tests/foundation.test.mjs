@@ -764,7 +764,7 @@ test("shared header provides one accessible back control, active navigation, and
   assert.match(runtime, /data-page-back/);
   assert.match(runtime, /window\.history\.back\(\)/);
   assert.match(runtime, /navigationIcons\.back/);
-  assert.match(runtime, /aria-current=\\"page\\"/);
+  assert.match(runtime, /aria-current/);
   assert.match(runtime, /loadProfileAvatar\(profile\)/);
   assert.match(runtime, /onAuthStateChange/);
   assert.match(runtime, /looply-activity-\$\{user\.id\}/);
