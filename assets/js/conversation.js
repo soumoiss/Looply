@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
+import { setupChatCalls } from "../../src/chat-calls.js";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {
   root.dataset.conversationPage = "true";
@@ -9,6 +10,7 @@ await mountAppPage({ page: "conversation", render: async ({ root, client, user }
   root.insertAdjacentHTML("afterbegin", `<a class="conversation-back" href="chat.html">← Conversas</a>`);
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
+  setupChatCalls(root, client, user.id);
   setupChatRealtime(client, user.id, root);
   const conversationId = new URLSearchParams(window.location.search).get("id");
   if (conversationId) root.dispatchEvent(new CustomEvent("looply:open-conversation", { detail: { conversationId } }));
