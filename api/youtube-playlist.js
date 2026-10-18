@@ -61,11 +61,11 @@ function safeReason(data) {
 export async function handleYouTubePlaylist(request, response, options = {}) {
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const origin = String(request.headers?.origin || request.headers?.Origin || "");
-  if (origin && !allowedOrigins.has(origin)) {
+  const requestOrigin = String(request.headers?.origin || request.headers?.Origin || "");
+  if (requestOrigin && !allowedOrigins.has(requestOrigin)) {
     return respond(response, 403, { error: "origin_not_allowed" });
   }
-  if (origin) response.setHeader("access-control-allow-origin", origin);
+  if (requestOrigin) response.setHeader("access-control-allow-origin", requestOrigin);
   response.setHeader("access-control-allow-methods", "GET, OPTIONS");
   response.setHeader("access-control-allow-headers", "authorization, apikey, content-type, x-client-info");
   response.setHeader("access-control-max-age", "600");

@@ -119,7 +119,8 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
   assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
-  assert.match(playlists, /playlistApiEndpoint = "\/api\/youtube-playlist"/);
+  assert.match(playlists, /LOOPLY_CONFIG\?\.supabaseUrl/);
+  assert.match(playlists, /functions\/v1\/looply-youtube-playlist/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
 });
@@ -206,10 +207,11 @@ test("YouTube playlist loading paginates, ignores unavailable videos, and explai
     return { ok: true, status: 200, json: async () => pagesFromApi[requests.length - 1] };
   });
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url.pathname, "/api/youtube-playlist");
+  assert.equal(requests[0].url.pathname, "/functions/v1/looply-youtube-playlist");
   assert.equal(requests[0].url.searchParams.get("playlistId"), "PLD5PXwJcU-Sg");
   assert.equal(requests[0].url.searchParams.has("key"), false);
   assert.equal(requests[0].options.headers.authorization, "Bearer unit-test-token");
+  assert.ok(requests[0].options.headers.apikey);
   assert.equal(requests[1].url.searchParams.get("pageToken"), "page-2");
   assert.deepEqual(tracks.map((track) => track.title), ["Faixa 1", "Faixa 2"]);
   assert.match(youtubeApiErrorMessage(502, { error: "youtube_quota_exceeded", reason: "quotaExceeded" }), /cota diária/i);

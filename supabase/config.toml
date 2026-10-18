@@ -421,3 +421,6 @@ enabled = true
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 [functions.looply-stories-cleanup]
 verify_jwt = true
+
+[functions.looply-youtube-playlist]
+verify_jwt = true
