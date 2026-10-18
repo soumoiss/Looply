@@ -3,7 +3,7 @@ const maxBodyLength = 5000;
 const encoder = new TextEncoder();
 
 function icon(name) {
-  const paths = { plus: '<path d="M12 5v14M5 12h14"/>', user: '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/>', lock: '<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', eyeOff: '<path d="m3 3 18 18"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>', send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', close: '<path d="m18 6-12 12M6 6l12 12"/>' };
+  const paths = { plus: '<path d="M12 5v14M5 12h14"/>', user: '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/>', lock: '<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', eyeOff: '<path d="m3 3 18 18"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>', send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', users: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>', trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/>', close: '<path d="m18 6-12 12M6 6l12 12"/>' };
   return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || paths.plus) + '</svg>';
 }
 function escapeHtml(value) {
@@ -70,11 +70,12 @@ function dateLabel(value) {
 }
 function rowMarkup(letter, own) {
   const peer = own ? letter.recipient : letter.sender;
-  return "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(letter.subject) +
+  return "<article class=\\\"community-letter-row\\\"><div class=\\\"community-letter-meta\\\"><strong>" + escapeHtml(letter.subject) +
     "</strong><span>" + (own ? "Para " : "De ") + escapeHtml(displayName(peer)) +
     (letter.is_protected ? " · protegida por senha" : "") + " · " + escapeHtml(dateLabel(letter.created_at)) + "</span></div>" +
-    "<button class=\"text-button\" type=\"button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">" +
-    (letter.is_protected ? "Desbloquear" : "Ler carta") + "</button></article>";
+    "<button class=\\\"text-button\\\" type=\\\"button\\\" data-open-community-letter=\\\"" + escapeHtml(letter.id) + "\\\">" +
+    (letter.is_protected ? "Desbloquear" : "Ler carta") + "</button>" +
+    (own ? "<button class=\\\"icon-action\\\" type=\\\"button\\\" data-delete-community-letter=\\\"" + escapeHtml(letter.id) + "\\\" aria-label=\\\"Excluir carta enviada\\\">" + icon("trash") + "</button>" : "") + "</article>";
 }
 export async function loadCommunityLetters(client, userId) {
   const { data, error } = await client.from("community_letters")
@@ -96,7 +97,7 @@ export function communityLettersMarkup(letters, profiles, userId) {
   return "<section class=\"panel community-letter-compose-panel\" aria-labelledby=\"communityLetterComposeTitle\">" +
     "<div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Cartas</span><h2 id=\"communityLetterComposeTitle\">Escrever carta</h2></div><button class='icon-action community-letter-compose-toggle' type='button' data-toggle-community-compose aria-expanded='false' aria-controls='communityLetterComposeForm' aria-label='Escrever carta'>" + icon("plus") + "</button></div>" +
     "<form class=\"community-letter-form\" id='communityLetterComposeForm' data-community-letter-compose hidden>" +
-      "<label>" + icon("user") + " Destinatário<select name=\"recipient_id\" required><option value=\"\" disabled selected>Selecione um destinatário</option><option value=\"all\">Todos os usuários</option>" + options + "</select></label>" +
+      "<label><span>" + icon("user") + " Destinatário</span><span>" + icon("users") + " Selecionar usuários</span><select name=\"recipient_id\" required><option value=\"\" disabled selected>Selecione um destinatário</option><option value=\"all\">Todos os usuários</option>" + options + "</select></label>" +
       "<label>Assunto<input name=\"subject\" maxlength=\"120\" required></label>" +
       "<label>Mensagem<textarea name=\"body\" rows=\"5\" maxlength=\"5000\" required></textarea></label>" +
       "<label class=\"community-letter-protect\"><input type=\"checkbox\" name=\"is_protected\" data-letter-protected> " + icon("lock") + " Proteger a carta com senha</label>" +
@@ -162,6 +163,21 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     passwordInput.required = enabled;
   });
   root.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-delete-community-letter]");
+    if (deleteButton) {
+      const letterId = deleteButton.dataset.deleteCommunityLetter;
+      if (!window.confirm("Excluir esta carta enviada? Esta ação não pode ser desfeita.")) return;
+      deleteButton.disabled = true;
+      const { error } = await client.from("community_letters").delete().eq("id", letterId).eq("sender_id", user.id);
+      if (error) {
+        deleteButton.disabled = false;
+        const status = root.querySelector("[data-community-letter-compose-status]");
+        if (status) status.textContent = "Não foi possível excluir a carta.";
+        return;
+      }
+      await reload();
+      return;
+    }
     const close = event.target.closest("[data-close-community-letter]");
     if (close) { dialog?.close(); return; }
     const button = event.target.closest("[data-open-community-letter]");
