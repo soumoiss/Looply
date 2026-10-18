@@ -72,3 +72,7 @@
 .profile-crop-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 .profile-photo-picker:focus-visible,.profile-icon-button:focus-visible,.profile-crop-actions button:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 50%,transparent);outline-offset:2px}
 @media(max-width:520px){.profile-crop-shell{padding:14px}.profile-crop-window{width:min(100%,280px)}}
+
+.profile-overview-shortcut svg,.profile-visibility-badge svg,.profile-crop-heading h2 svg,.account-menu-link svg,.account-menu-popover [data-sign-out] svg{width:16px;height:16px;flex:0 0 auto;display:inline-block;vertical-align:middle}
+.profile-visibility-badge{gap:6px}.profile-overview-shortcut{gap:7px}.profile-crop-heading h2{display:flex;align-items:center;gap:8px}
+.account-menu-link{display:flex;align-items:center;gap:9px}.account-menu-popover [data-sign-out]{display:flex;align-items:center;justify-content:flex-start;gap:9px}

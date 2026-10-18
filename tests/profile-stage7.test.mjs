@@ -35,3 +35,16 @@ test("avatar cropper exposes cancel/save controls and accessible labels", async 
   assert.match(source, /aria-label="Fechar recorte"/);
   assert.match(css, /\.profile-crop-dialog::backdrop/);
 });
+
+test("profile and account actions use consistent accessible SVG icons", async () => {
+  const [profile, runtime, css] = await Promise.all([
+    read("src/profiles.js"), read("src/page-runtime.js"), read("assets/css/pages/profile.css")
+  ]);
+  assert.match(profile, /for="profileAvatarGallery"/);
+  assert.match(profile, /aria-label="Fechar recorte"/);
+  assert.match(profile, /profile-visibility-badge"><svg/);
+  assert.match(profile, /profile-overview-shortcut[^>]*><svg/);
+  assert.match(runtime, /data-sign-out><svg/);
+  assert.match(runtime, /configuracoes\.html"><svg/);
+  assert.match(css, /account-menu-link svg/);
+});
