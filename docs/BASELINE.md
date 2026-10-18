@@ -4,9 +4,9 @@ Data da análise: 15 de outubro de 2026.
 
 ## Identidade e estrutura
 
-A referência é o repositório público [soumoiss/Loooply](https://github.com/soumoiss/Loooply). Ele contém páginas estáticas para início, login, Home, perfil, galeria, músicas e administração. A interface usa lilás como tema principal, cartões arredondados, fundos suaves, uma marca desenhada em torno de um círculo e cinco temas: lilás, noite, oceano, rosa e floresta. A frase de marca mais recorrente é “cartas aos amigos ;)”.
+A referência é o repositório público [soumoiss/Loooply](https://github.com/soumoiss/Loooply). Ele contém páginas estáticas para início, login, Home, perfil, músicas e administração. A interface usa lilás como tema principal, cartões arredondados, fundos suaves, uma marca desenhada em torno de um círculo e cinco temas: lilás, noite, oceano, rosa e floresta. A frase de marca mais recorrente é “cartas aos amigos ;)”.
 
-Os módulos atuais incluem cartas, calendário e filtros na Home; leitura de mídia na galeria; playlists do YouTube e comentários por música; comentários locais ou sincronizados; perfil; e uma tela de administração.
+Os módulos atuais incluem cartas, calendário e filtros na Home; playlists do YouTube e comentários por música; comentários locais ou sincronizados; perfil; e uma tela de administração.
 
 ## Problemas e limites encontrados
 

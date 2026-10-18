@@ -4,7 +4,7 @@ O ZIP original permanece inalterado. A cópia extraída está em `work/legacy-ap
 
 ## Resultado verificado
 
-- A cópia extraída contém as sete páginas HTML originais: `index.html`, `login.html`, `home.html`, `galeria.html`, `musicas.html`, `perfil.html` e `admin.html`. Foram removidos da cópia local os arquivos de cartas e entradas de índice que pertenciam à conta desativada; o ZIP-fonte segue como arquivo original separado.
+- A cópia extraída contém as páginas HTML originais da aplicação. Foram removidos da cópia local os arquivos de cartas e entradas de índice que pertenciam à conta desativada; o ZIP-fonte segue como arquivo original separado.
 - 97 arquivos seguem o padrão de cartas: 42 têm o prefixo `Patati`, 47 `Misol` e 8 `YARA`. Há dois arquivos TXT de suporte que não seguem esse padrão. Uma das 97 cartas é privada e protegida por senha; o importador mantém o texto/hash dessa carta fora da tabela pública e verifica a senha no servidor.
 - O índice antigo em `midia-index.json` lista 41 referências comuns e 5 referências exclusivas; 34 dos 46 caminhos únicos estão na cópia e 12 não foram localizados.
 - O índice principal em `data/midia-index.json` lista 209 referências comuns e 48 referências exclusivas (37 de Misol e 11 de Yara). Uma mídia aparece nas duas listas; são 256 caminhos únicos, todos presentes na pasta `midia/`. A mídia exclusiva fica em pastas próprias, e uma pasta que não faça parte das audiências autorizadas é ignorada.
@@ -17,7 +17,7 @@ Nenhuma carta, fotografia, vídeo ou áudio do ZIP foi importado para o Supabase
 
 ## Interface observada no código
 
-O login antigo usa nome de usuário, senha com botão de mostrar/ocultar, “Avante!”, link de recuperação e marca “Looply · MoissWorld”. A home tem navegação vertical para Galeria/Músicas, avatar, coleção de cartas, contador, filtros, calendário, lista e modal. Galeria e Músicas usam `container-page`, cabeçalho de marca, hero, toolbar e visualizações próprias. Perfil e Administração são páginas separadas. A estrutura da home e da galeria arquivada foi reconstruída no código local; ainda falta comparar visualmente as páginas com screenshots da referência.
+O login antigo usa nome de usuário, senha com botão de mostrar/ocultar, “Avante!”, link de recuperação e marca “Looply · MoissWorld”. A home tem navegação vertical para Músicas, avatar, coleção de cartas, contador, filtros, calendário, lista e modal. Músicas usa `container-page`, cabeçalho de marca, hero, toolbar e visualizações próprias. Perfil e Administração são páginas separadas. A estrutura da Home foi reconstruída no código local; ainda falta comparar visualmente a página com screenshots da referência.
 
 ## Comportamentos encontrados nos módulos JavaScript
 
@@ -39,12 +39,6 @@ Esta seção descreve a lógica inferida do código-fonte, sem abrir os textos d
 - Cartas protegidas são baixadas ao navegador antes da verificação da senha e o texto protegido fica disponível no próprio cliente após o desbloqueio local. Portanto, a proteção antiga é apenas uma barreira de interface: não é controle de acesso para conteúdo privado. Na reconstrução, arquivos privados devem permanecer no Storage privado e ser autorizados no servidor antes de entregar o conteúdo.
 - Não foi encontrado, nesta auditoria, um fluxo completo para criar e enviar cartas a partir da aplicação antiga; a funcionalidade de criação mobile e persistência no backend permanece nova.
 
-### Galeria, mídia e comentários de fotografia
-
-- `gallery.js` baixa o índice JSON indicado na configuração antiga. Aceita uma lista simples ou coleções como `items`, `fotos`, `videos`, `audios` e agrupamentos exclusivos por usuário. Tipo, título, data, dono e exclusividade podem ser inferidos dos metadados ou do caminho do arquivo.
-- A interface suporta pesquisa textual, filtro por tipo, data e exclusividade, ordenação e modos grade, lista e mosaico, além de visualizador/lightbox. A renderização é dividida em lotes de 30 itens.
-- A regra antiga de visibilidade é aplicada no JavaScript: itens sem marca exclusiva são mostrados; itens exclusivos com proprietário são filtrados pelo username da sessão. Essa filtragem no cliente não protege o arquivo ou o índice contra requisições diretas e não deve ser reutilizada como autorização.
-- Fotografias podem abrir uma janela para exibir um comentário associado à mídia. Isso não equivale ao novo sistema de comentários com autoria, respostas, políticas RLS e anexos mobile.
 
 ### Músicas e comentários
 
@@ -68,7 +62,7 @@ Esta seção descreve a lógica inferida do código-fonte, sem abrir os textos d
 ## Comparação com a fundação nova
 
 - O login no branch mantém os rótulos, os campos username/senha, o botão “Avante!”, a recuperação de acesso, a marca e o rodapé do login legado. A página de preview correspondente foi reaberta em uma aba nova; uma aba antiga mostrava conteúdo de outro deployment e não foi usada como evidência. A inspeção do navegador confirmou os elementos textuais/controles; ainda falta captura e comparação pixel a pixel com a origem, pois o navegador não permite abrir o arquivo `file://` local do ZIP.
-- O código novo tem páginas HTML e entradas JavaScript independentes para início, galeria, músicas, chat/cartas, perfil e administração. A home integra publicações persistidas com a coleção de cartas arquivadas, filtros, calendário, estado de leitura e modal; a galeria integra o acervo catalogado, visualizador e comentários.
+- O código novo tem páginas HTML e entradas JavaScript independentes para início, músicas, chat/cartas, perfil e administração. A home integra publicações persistidas com a coleção de cartas arquivadas, filtros, calendário, estado de leitura e modal; a galeria integra o acervo catalogado, visualizador e comentários.
 - As migrações novas criam as tabelas, políticas e funções para as cartas arquivadas e para a mídia antiga. A coleção e a galeria estão implementadas no código local, mas os 97 textos e 256 arquivos ainda não foram importados para o banco e o bucket privados.
 - As quatro contas já estão criadas no Supabase e Peixinho já tem privilégio administrativo. Não foi feito login de navegador nesta etapa. A playlist do YouTube foi reintegrada por player incorporado, inclusive o ID de Peixinho, sem copiar a chave de API do código legado.
 

@@ -21,8 +21,6 @@ Este roteiro registra 37 fluxos para validar a aplicação completa. Em 16 de ou
 | 5 | Abra a coleção antiga de cartas, contagem, estado de leitura, filtros, calendário e modal. | Textos e metadados são preservados exatamente; contagem e estado correspondem à conta. | Pendente: importar o conteúdo e verificar por usuário |
 | 6 | Crie e envie uma carta no desktop para o destinatário escolhido, com privacidade e data. | Prévia, envio, feedback e persistência funcionam sem duplicar ou sobrescrever carta importada. | Não executado |
 | 7 | Crie e envie uma carta em viewport móvel, inclusive com anexo permitido. | Fluxo cabe em 390 px, permite seleção nativa de arquivo e persiste no backend. | Não executado |
-| 8 | Envie fotografia para a galeria pelo desktop e celular. | Arquivo privado, associação ao registro, progresso, visualização e persistência funcionam. | Não executado |
-| 9 | Envie um vídeo MP4/WebM pela galeria e abra-o após recarregar. | Validação de tipo/tamanho, upload e reprodução funcionam após nova sessão autorizada. | Não executado |
 | 10 | Publique um post público e um privado/selecionado. | Apenas o público autorizado recebe o conteúdo; metadados e arquivo seguem a mesma permissão. | Não executado |
 | 11 | Publique comentário de texto e comentário com foto/vídeo pelo seletor do celular. | Comentários persistem uma vez, anexo respeita a visibilidade do post e apresenta estados de envio/erro. | Não executado |
 | 12 | Responda a um comentário, recarregue e tente anexar arquivos acima do limite. | Resposta mantém relação com o comentário/post; arquivo inválido é recusado e não deixa registro órfão. | Não executado |
@@ -50,7 +48,7 @@ Este roteiro registra 37 fluxos para validar a aplicação completa. Em 16 de ou
 
 | 34 | Publique um story público e abra-o com outra conta autenticada; confira foto, vídeo, texto e lista de stories. | O conteúdo aparece apenas para membros autenticados, o player permanece dentro do app e a posição segue a ordem dos stories. | Não executado |
 | 35 | Publique stories privados e para pessoas escolhidas; tente acessar como remetente, destinatário permitido e uma terceira conta. | O autor e os destinatários permitidos veem o conteúdo; terceiros não obtêm metadados, URL assinada nem arquivo direto. | Não executado |
-| 36 | Confira Home, Cartas e Galeria com o acervo já existente. | Home contém boas-vindas, stories e feed; Cartas continua exibindo cartas arquivadas; Galeria contém o acervo e comentários, sem duplicar publicações do feed. | Teste estrutural automatizado; validação visual pendente |
+| 36 | Confira Home e Cartas com o acervo já existente. | Home contém boas-vindas, stories e feed; Cartas continua exibindo cartas arquivadas, sem alterar publicações do feed. | Teste estrutural automatizado; validação visual pendente |
 
 | 37 | Publique uma foto/vídeo em post e Story e observe a outra conta autorizada sem atualizar manualmente. | A publicação e o metadado de mídia acionam refresh Realtime; RLS continua impedindo metadados de audiências sem acesso. | Não executado |
 

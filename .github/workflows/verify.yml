@@ -34,7 +34,6 @@ jobs:
           node --check src/archive-import.js
           node --check src/archived-cards.js
           node --check src/date-parser.js
-          node --check src/gallery-archive.js
           node --check src/page-runtime.js
           node --check src/login.js
           node --check src/theme.js
@@ -42,7 +41,6 @@ jobs:
           node --check assets/js/admin.js
           node --check assets/js/chat.js
           node --check assets/js/conversation.js
-          node --check assets/js/gallery.js
           node --check assets/js/home.js
           node --check assets/js/login.js
           node --check assets/js/music.js

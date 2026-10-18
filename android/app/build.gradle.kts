@@ -17,7 +17,7 @@ val buildLooplyWeb by tasks.registering(Exec::class) {
     inputs.dir(repositoryRoot.resolve("assets"))
     inputs.files(
         listOf(
-            "index.html", "login.html", "home.html", "galeria.html", "musicas.html",
+            "index.html", "login.html", "home.html", "musicas.html",
             "chat.html", "conversa.html", "cartas.html", "notificacoes.html",
             "usuarios.html", "configuracoes.html", "perfil.html", "admin.html",
             "styles.css"

@@ -21,6 +21,6 @@ O APK de desenvolvimento sai em `app/build/outputs/apk/debug/app-debug.apk`. A a
 
 ## Dependências do serviço
 
-Login, perfis, publicações, stories, galeria, comentários, chat e mídias usam o projeto Supabase configurado no site. A lista de playlists de música usa `/api/youtube-playlist`, uma função do Vercel que precisa de acesso público ao endpoint e da variável secreta já mantida no servidor.
+Login, perfis, publicações, stories, comentários, chat e mídias usam o projeto Supabase configurado no site. A lista de playlists de música usa `/api/youtube-playlist`, uma função do Vercel que precisa de acesso público ao endpoint e da variável secreta já mantida no servidor.
 
 No momento da adaptação, os deploys Vercel acessíveis ao repositório redirecionavam para a tela de autenticação do Vercel. O APK não contém bypass do Vercel. Por isso, o restante do site é empacotado localmente; o endpoint da playlist continua sujeito à proteção do deploy e precisa ser disponibilizado publicamente para funcionar dentro do APK. Nenhuma configuração do Vercel nem banco de produção foi alterada.
