@@ -659,16 +659,35 @@ export function bindChatEvents(root, client, getUserId) {
       applyConversationFilter(root);
       return;
     }
-    const emojiButton = event.target.closest("[data-chat-emoji]");
-    if (emojiButton) {
-      const input = emojiButton.closest("[data-chat-send]")?.querySelector('textarea[name="body"]');
+    const emojiChoice = event.target.closest("[data-chat-emoji-choice]");
+    if (emojiChoice) {
+      const picker = emojiChoice.closest("[data-chat-emoji-picker]");
+      const form = picker?.closest("[data-chat-send]");
+      const input = form?.querySelector('textarea[name="body"]');
       if (input) {
         const start = input.selectionStart ?? input.value.length;
         const end = input.selectionEnd ?? start;
-        input.setRangeText("😊", start, end, "end");
+        input.setRangeText(emojiChoice.dataset.chatEmojiChoice, start, end, "end");
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.focus();
       }
+      picker?.remove();
+      return;
+    }
+    const emojiButton = event.target.closest("[data-chat-emoji]");
+    if (emojiButton) {
+      const form = emojiButton.closest("[data-chat-send]");
+      const existing = form?.querySelector("[data-chat-emoji-picker]");
+      if (existing) { existing.remove(); emojiButton.setAttribute("aria-expanded", "false"); return; }
+      const emojis = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","🥰","😘","😋","😎","🤩","🥳","😭","🥹","😢","😡","🤔","🤗","🤭","😴","🙏","👏","👍","👎","❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","💕","💞","💖","🔥","✨","⭐","🎉","🎂","🌹","🌷","☀️","🌙","☕","🍕","🍰","⚽","🎮","🎵","🎶","🐱","🐶","🦋","🌈","💯","✅","❌","👋","🤝","💪","🤦","🤷","💌","📸","🎁"];
+      const picker = document.createElement("div");
+      picker.className = "chat-emoji-picker";
+      picker.dataset.chatEmojiPicker = "";
+      picker.setAttribute("role", "group");
+      picker.setAttribute("aria-label", "Escolher emoji");
+      picker.innerHTML = emojis.map((emoji) => `<button type="button" data-chat-emoji-choice="${emoji}" aria-label="Inserir ${emoji}">${emoji}</button>`).join("");
+      emojiButton.insertAdjacentElement("afterend", picker);
+      emojiButton.setAttribute("aria-expanded", "true");
       return;
     }
     if (copyButton) {
