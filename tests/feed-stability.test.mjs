@@ -44,13 +44,15 @@ test("Instagram post, reel and TV links render a real provider embed with a safe
 
 test("private replies use the authenticated chat edge function and internal share offers recipient selection", async () => {
   const source = await read("src/social.js");
-  assert.match(source, /action: "create_direct", targetId: authorId/);
+  assert.match(source, /action: "share_post", mode: "private_reply", targetId: authorId, postId, body:/);
+  assert.match(source, /action: "share_post", mode: "share", targetId, postId/);
   assert.match(source, /data-share-in-app/);
   assert.match(source, /data-share-recipient/);
   assert.match(source, /data-share-in-app-send/);
-  assert.match(source, /from\("chat_messages"\)\.insert/);
-  assert.match(source, /Publicação compartilhada no Looply/);
-  assert.match(source, /Resposta privada à sua publicação/);
+  const edge = await read("supabase/functions/looply-chat/index.ts");
+  assert.match(edge, /from\("chat_messages"\)\.insert/);
+  assert.match(edge, /Publicação compartilhada no Looply/);
+  assert.match(edge, /Publicação: /);
   assert.match(source, /conversa\.html\?id=/);
   assert.doesNotMatch(source, /client\.rpc\("create_direct_conversation", \{ p_target_id: authorId \}\)/);
 });
