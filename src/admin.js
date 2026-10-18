@@ -44,7 +44,7 @@ export function adminMarkup(profile = {}) {
         <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>As mídias são exibidas em grupos de 100.</small></div>
       </div>
       <div class="field"><label for="adminPurpose">Motivo da consulta</label><textarea id="adminPurpose" name="purpose" minlength="20" maxlength="500" rows="3" required placeholder="Descreva por que esta consulta é necessária (mínimo de 20 caracteres)."></textarea></div>
-      <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("external")}</button>
+      <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
     <div class="admin-results" data-admin-results aria-live="polite"><p>Consultas administrativas aparecem aqui depois de registradas.</p></div>
