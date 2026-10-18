@@ -196,3 +196,19 @@ Os links abaixo são páginas reais de busca/catálogo do Icons8 confirmadas nes
 ### Critério de conclusão
 
 Esta etapa é **parcial até que** o CI passe, as páginas restantes sejam revisadas, os temas e tamanhos sejam testados em navegador/dispositivo, os fluxos de teclado/diálogo sejam exercitados e uma implantação de produção seja verificada pelo SHA do commit. O relatório não marca como concluídos os itens que não foram inspecionados.
+
+
+### Adendo — ampliação da revisão estática
+
+Após a primeira tabela, a revisão foi ampliada aos seguintes controles adicionais:
+
+| Página/componente | Arquivos adicionais | Resultado desta rodada | Estado |
+|---|---|---|---|
+| Chat / compositor | `src/chat.js` | Botão cancelar resposta, anexar mídia, abrir seletor de emoji, gravar áudio, enviar mensagem, avatar de grupo e voltar usam o registro central; lista de emojis permanece intencionalmente como conteúdo do seletor | Implementado no código; interação e leitor de tela pendentes |
+| Perfil público | `src/profiles.js` | Ações “Voltar aos resultados” e “Pessoas” usam ícone voltar central | Implementado no código; verificação visual pendente |
+| Cartas arquivadas | `src/archived-cards.js` | Navegação anterior/próxima, fechar modal, estado de leitura e marcador de carta protegida usam ícones centrais; removido gerador local duplicado de ícones | Implementado no código; fluxo de foco do modal ainda precisa ser testado |
+| Navegação e menu da conta | `src/page-runtime.js` | O mapa de SVGs da navegação foi substituído por referências ao registro central; Meu perfil, Pessoas, Configurações e Administração recebem ícones semânticos | Implementado no código; revisar tamanhos e alinhamento em desktop/mobile |
+
+Os símbolos usados como conteúdo matemático (`×` no placar e na velocidade do áudio) e os emojis disponíveis para inserir em mensagens não foram tratados como ícones de ação. Isso evita alterar conteúdo legítimo por uma padronização visual indiscriminada.
+
+Arquivos de regressão atualizados: `tests/icons-stage8.test.mjs` e `package.json`. A suíte foi configurada para rodar após o build junto com os testes das Etapas 1–7. A execução efetiva depende do GitHub Actions no PR; não houve execução local porque o ambiente não conseguiu resolver github.com durante o clone.
