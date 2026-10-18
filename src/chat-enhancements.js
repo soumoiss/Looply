@@ -217,7 +217,7 @@ export function setupChatEnhancements(root, client, userId) {
     const reader = new FileReader();
     reader.onload = () => {
       const id = selectedConversation();
-      wallpapers[id] = `url("${String(reader.result).replace(/["\\\\]/g, "")}") center/cover`;
+      wallpapers[id] = `url("${String(reader.result).replace(/["\\\\]/g, "")}")`;
       if (!write(wallpaperKey, wallpapers)) { toast("Armazenamento local cheio; tente uma imagem menor."); return; }
       const thread = root.querySelector("[data-chat-thread]");
       if (thread) { thread.style.backgroundImage = wallpapers[id]; thread.style.backgroundSize = "cover"; }
