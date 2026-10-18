@@ -88,3 +88,52 @@ As funções abaixo exigem símbolos distintos. Nenhuma linha afirma que o ícon
 - src/page-runtime.js contém mapa central de ícones da navegação compartilhada; isso não prova que todos os ícones passam por ele.
 - assets/css/app.css aplica dimensões comuns a SVGs de cabeçalho/navegação, mas a cor herda currentColor e variáveis roxas em alguns componentes. A regra final precisa respeitar superfícies claras e escuras.
 - Nenhum teste de navegador ou dispositivo foi executado nesta auditoria inicial.
+
+
+## Etapa 1 — sistema global, cabeçalho e navegação (implementação parcial)
+
+Commit de implementação mais recente nesta branch: `349a13318fe8cbc77a0927c7ecb7c3e4d7a777a2`.
+
+### Alterações reais aplicadas
+
+| Arquivo | Alteração | Estado |
+|---|---|---|
+| `src/page-runtime.js` | Adicionado botão compartilhado “Voltar” em páginas secundárias; usa o histórico quando o referenciador é da mesma origem e não é a página de login; fallback para Início e, na conversa, para Chat. Padronizada espessura de traço dos SVGs de navegação para 1.6. Incluídos estados ativos no menu da conta para Pessoas e Administração. | Implementado no código; teste automatizado pendente |
+| `assets/css/pages/shared.css` | Contraste dos ícones de navegação preto em temas claros e branco no tema noite; dimensões e estilo do botão Voltar; rótulo oculto em telas estreitas mantendo `aria-label`. | Implementado no CSS; sem inspeção visual em navegador |
+| `assets/js/conversation.js` | Removido o botão “← Conversas” duplicado dentro do conteúdo; a página usa o botão Voltar compartilhado no cabeçalho. | Implementado no código; teste automatizado pendente |
+| `tests/foundation.test.mjs` | Acrescentados testes para cabeçalho comum, botão Voltar, foto/perfil autenticado, canal Realtime e ausência do texto de status solicitado. | Adicionado; ainda precisa executar `npm test` |
+
+### Páginas verificadas quanto ao cabeçalho
+
+Foram inspecionados os arquivos HTML de Início, Chat, Conversa, Cartas, Músicas, Notificações, Pessoas, Perfil, Configurações e Administração. Todos incluem o marcador `data-site-header`; o runtime monta um único cabeçalho nesse marcador. O cabeçalho já obtém o perfil da sessão Supabase, tenta carregar a foto assinada do bucket `looply-avatars`, preserva o controle de acesso administrativo e mantém os canais Realtime de notificações, notificações de chat e atualização de preferências.
+
+### Ícones e limite de validação do Icons8
+
+Os ícones existentes da navegação continuam sendo SVGs inline locais, agora com traço consistente e cor adaptada ao tema. **Eles ainda não foram substituídos por ativos verificados do Icons8 Stroke 1.** A consulta ao catálogo foi tentada, mas não foi possível abrir/validar as páginas e URLs dos SVGs individuais pelo acesso disponível nesta etapa. Não registrar estes SVGs como sendo do Icons8 e não declarar a exigência Icons8 concluída até que cada ativo tenha página de origem, URL de arquivo e licença confirmadas.
+
+| Função global | Ícone presente nesta etapa | Estado Icons8 |
+|---|---|---|
+| Início | SVG de casa inline | Pendente — origem Stroke 1 não confirmada |
+| Cartas | SVG de envelope inline | Pendente — origem Stroke 1 não confirmada |
+| Músicas | SVG de nota musical inline | Pendente — origem Stroke 1 não confirmada |
+| Chat/Mensagens | SVG de balão inline | Pendente — origem Stroke 1 não confirmada |
+| Avisos/Notificações | SVG de sino inline | Pendente — origem Stroke 1 não confirmada |
+| Perfil | SVG de pessoa inline no mapa compartilhado | Pendente — origem Stroke 1 não confirmada |
+| Pessoas | SVG de grupo inline no mapa compartilhado | Pendente — origem Stroke 1 não confirmada |
+| Configurações | SVG de engrenagem inline no mapa compartilhado | Pendente — origem Stroke 1 não confirmada |
+| Administração | SVG de escudo inline no mapa compartilhado | Pendente — origem Stroke 1 não confirmada |
+| Voltar | SVG de seta inline | Pendente — origem Stroke 1 não confirmada |
+
+### Texto de sincronização
+
+A expressão “atualizações em tempo real ativas” não apareceu nos arquivos de runtime, chat, músicas e conversa inspecionados. Foi adicionado teste de regressão nesses módulos para impedir a reintrodução da frase nesses componentes. Os canais Realtime do Supabase foram preservados. A ausência em todo o repositório só estará comprovada depois de executar o teste e fazer uma busca global na cópia completa do projeto.
+
+### Validação ainda necessária
+
+- Executar `npm test` e revisar o resultado de cada teste, incluindo os dois testes novos.
+- Verificar sintaxe do JavaScript, imports e build real.
+- Testar clique Voltar com histórico interno, entrada direta, retorno da página de login e deep link de conversa.
+- Testar cabeçalho, foto de perfil, menu e navegação ativa em telas pequenas e grandes, temas claros e escuros.
+- Inspecionar console e rede no navegador.
+- Validar cada SVG Stroke 1, licença e URL de origem; depois integrar os ativos reais e créditos exigidos.
+- A publicação em produção não foi realizada nesta etapa.
