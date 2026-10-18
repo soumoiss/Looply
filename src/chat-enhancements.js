@@ -16,6 +16,7 @@ const write = (storageKey, value) => { try { localStorage.setItem(storageKey, JS
 export function setupChatEnhancements(root, client, userId) {
   if (!root || root.dataset.chatEnhancements === "true") return;
   root.dataset.chatEnhancements = "true";
+  let settingsScope = "*";
   let gameChannel = null;
   let gameConversation = "";
   let gameState = null;
@@ -98,7 +99,7 @@ export function setupChatEnhancements(root, client, userId) {
     const id = selectedConversation();
     const thread = root.querySelector("[data-chat-thread]");
     if (!thread) return;
-    const value = wallpapers[id] || "";
+    const value = wallpapers[id] || wallpapers["*"] || "";
     thread.style.backgroundColor = value.startsWith("url(") ? "" : (value || "");
     thread.style.backgroundImage = value.startsWith("url(") ? value : "none";
     thread.style.backgroundSize = value.startsWith("url(") ? "cover" : "";
@@ -138,7 +139,8 @@ export function setupChatEnhancements(root, client, userId) {
     applyWallpaper();
   };
   const renderSettings = (conversationOnly = false) => {
-    const id = selectedConversation();
+    settingsScope = conversationOnly ? selectedConversation() : "*";
+    const id = settingsScope;
     const colors = COLORS.map((color) => `<button type="button" class="chat-v2-swatch ${(wallpapers[id] || "") === color.value ? "is-selected" : ""}" data-v2-color="${esc(color.value)}"><span style="background:${color.value || "var(--surface)"}"></span>${esc(color.name)}</button>`).join("");
     openModal(`<span class="chat-v2-kicker">Personalização</span><h2 id="chatV2ModalTitle">${conversationOnly ? "Esta conversa" : "Suas conversas"}</h2><div class="chat-v2-setting-group"><strong>Papel de parede</strong><div class="chat-v2-swatches">${colors}</div><label class="chat-v2-upload">Usar uma imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-v2-wallpaper-file></label></div>${conversationOnly && !isGroup() ? '<div class="chat-v2-setting-group"><label for="chatV2Nickname">Apelido local do contato</label><input id="chatV2Nickname" maxlength="60" value="' + esc(nicknames[id] || "") + '" placeholder="Nome que só você verá"><button type="button" class="chat-v2-button is-primary" data-v2-save-nickname>Salvar apelido</button></div>' : ""}<p class="chat-v2-help">As preferências ficam neste dispositivo e não alteram o perfil da outra pessoa.</p>`);
   };
@@ -213,7 +215,7 @@ export function setupChatEnhancements(root, client, userId) {
       write(nicknameKey, nicknames); updateNickname(id, name); toast(name ? "Apelido salvo neste dispositivo." : "Apelido removido."); return;
     }
     if (target.matches("[data-v2-color]")) {
-      const id = selectedConversation(); const color = target.dataset.v2Color || "";
+      const id = settingsScope; const color = target.dataset.v2Color || "";
       if (color) wallpapers[id] = color; else delete wallpapers[id];
       write(wallpaperKey, wallpapers); applyWallpaper(); renderSettings(true); return;
     }
@@ -225,7 +227,7 @@ export function setupChatEnhancements(root, client, userId) {
     if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 1_500_000) { toast("Escolha PNG, JPG ou WebP de até 1,5 MB."); fileInput.value = ""; return; }
     const reader = new FileReader();
     reader.onload = () => {
-      const id = selectedConversation();
+      const id = settingsScope;
       wallpapers[id] = `url("${String(reader.result).replace(/["\\\\]/g, "")}")`;
       if (!write(wallpaperKey, wallpapers)) { toast("Armazenamento local cheio; tente uma imagem menor."); return; }
       const thread = root.querySelector("[data-chat-thread]");
