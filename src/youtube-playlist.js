@@ -134,7 +134,7 @@ function trackMarkup(track, index) {
     <span class="youtube-track-number">${number}</span><img src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer">
     <span class="youtube-track-copy"><strong>${escapeHtml(track.title)}</strong>${track.channel ? `<small>${escapeHtml(track.channel)}</small>` : ""}</span>
     <span class="youtube-track-play" aria-hidden="true">▶</span>
-  </button><button class="youtube-track-comment" type="button" data-youtube-track-comment="${escapeHtml(track.videoId)}" aria-label="Comentar esta música" title="Comentar esta música">▤</button></div></li>`;
+  </button><button class="youtube-track-comment" type="button" data-youtube-track-comment="${escapeHtml(track.videoId)}" aria-label="Comentar esta música" title="Comentar esta música">▤</button><button class="youtube-track-share" type="button" data-youtube-track-share="${escapeHtml(track.videoId)}" aria-label="Compartilhar música" title="Compartilhar música">↗</button><a class="youtube-track-external" href="https://www.youtube.com/watch?v=${encodeURIComponent(track.videoId)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir música no YouTube" title="Abrir música no YouTube">⤴</a></div></li>`;
 }
 
 export async function bindYouTubePlaylist(root, client) {
@@ -265,7 +265,19 @@ export async function bindYouTubePlaylist(root, client) {
       if (trackCommentStatus) trackCommentStatus.textContent = "Não foi possível enviar. Tente novamente.";
     } finally { if (submit) submit.disabled = false; }
   });
-  list.addEventListener("click", (event) => {
+  list.addEventListener("click", async (event) => {
+    const shareButton = event.target.closest("[data-youtube-track-share]");
+    if (shareButton) {
+      const track = tracks.find((item) => item.videoId === shareButton.dataset.youtubeTrackShare);
+      if (!track) return;
+      const shareUrl = "https://www.youtube.com/watch?v=" + encodeURIComponent(track.videoId);
+      try {
+        if (navigator.share) await navigator.share({ title: track.title, text: track.channel || "Looply", url: shareUrl });
+        else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(shareUrl); status.textContent = "Link da música copiado."; }
+        else window.prompt("Copie o link da música:", shareUrl);
+      } catch (error) { if (error?.name !== "AbortError") window.prompt("Copie o link da música:", shareUrl); }
+      return;
+    }
     const commentButton = event.target.closest("[data-youtube-track-comment]");
     if (commentButton) {
       const track = tracks.find((item) => item.videoId === commentButton.dataset.youtubeTrackComment);
