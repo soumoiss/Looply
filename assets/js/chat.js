@@ -13,7 +13,15 @@ await mountAppPage({ page: "chat", render: async ({ root, client, user, profile 
   const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
   const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
   const socialData = socialResult.status === "fulfilled" ? socialResult.value : { people: [], peopleError: socialResult.reason };
-  root.innerHTML = `${storiesMarkup(stories, storiesError, socialData.people, socialData.peopleError, user.id, profile)}${chatMarkup(data, user.id)}`;
+  root.innerHTML = `${chatMarkup(data, user.id)}`;
+  const storyMarkup = document.createElement("div");
+  storyMarkup.innerHTML = storiesMarkup(stories, storiesError, socialData.people, socialData.peopleError, user.id, profile);
+  const storyArea = storyMarkup.querySelector(".story-area");
+  const storyDialogs = [...(storyArea?.querySelectorAll("dialog") || [])];
+  for (const dialog of storyDialogs) root.append(dialog);
+  const chatSidebar = root.querySelector(".chat-sidebar");
+  if (storyArea && chatSidebar) chatSidebar.prepend(storyArea);
+  else if (storyArea) root.prepend(storyArea);
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
   setupChatCalls(root, client, user.id);
