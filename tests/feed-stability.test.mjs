@@ -31,3 +31,11 @@ test("likes use persistent unique post/user records and realtime updates", async
   assert.match(source, /from\("post_likes"\)/);
   assert.match(source, /table: "post_likes"/);
 });
+
+test("Instagram post, reel and TV links render a real provider embed with a safe shortcode", async () => {
+  const source = await read("src/social.js");
+  assert.match(source, /post-instagram-embed/);
+  assert.match(source, /www\\.instagram\\.com\\/\$\{embedPath\}\\/\$\{escapeHtml\(shortcode\)\}\\/embed/);
+  assert.match(source, /\["p", "reel", "tv"\]/);
+  assert.match(source, /\^\[A-Za-z0-9_-\]\{5,30\}\$/);
+});
