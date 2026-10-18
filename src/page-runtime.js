@@ -19,7 +19,8 @@ const navigationIcons = {
   notifications: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>',
   users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.5a3.5 3.5 0 0 1 0 6.8M17 14a5.5 5.5 0 0 1 4.5 5.5"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1 0 2Z"/></svg>',
-  admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 19 6v5c0 5-3.2 8.3-7 10-3.8-1.7-7-5-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>'
+  admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 19 6v5c0 5-3.2 8.3-7 10-3.8-1.7-7-5-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>'
 };
 
 function escapeHtml(value) {
@@ -42,8 +43,10 @@ function headerMarkup(page, profile, admin, unreadCount) {
   const links = navigation.map(([key, label, href]) => `<a class="header-action" href="${href}" aria-label="${label}"${key === activePage ? ' aria-current="page"' : ""}><span class="page-navigation-icon" aria-hidden="true">${navigationIcons[key]}</span><span class="page-navigation-label" data-short-label="${navigationShortLabels[key] || label}">${label}</span>${key === "notifications" && unreadCount ? `<span class="navigation-badge" aria-label="${unreadCount} não lidas">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}</a>`).join("");
   const profileCurrent = page === "profile" ? " aria-current=\"page\"" : "";
   const settingsCurrent = page === "settings" ? " aria-current=\"page\"" : "";
-  const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">Meu perfil</a><a class="account-menu-link" href="usuarios.html">Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">Configurações</a>${admin ? `<a class="account-menu-link" href="admin.html">Administração</a>` : ""}`;
-  return `<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
+  const usersCurrent = page === "users" ? " aria-current=\"page\"" : "";
+  const adminCurrent = page === "admin" ? " aria-current=\"page\"" : "";
+  const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">Meu perfil</a><a class="account-menu-link"${usersCurrent} href="usuarios.html">Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">Configurações</a>${admin ? `<a class="account-menu-link"${adminCurrent} href="admin.html">Administração</a>` : ""}`;
+  return `${page === "home" ? "" : `<a class="header-action header-back-button" href="${page === "conversation" ? "chat.html" : "home.html"}" data-page-back aria-label="Voltar" title="Voltar"><span aria-hidden="true">${navigationIcons.back}</span><span class="back-label">Voltar</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav>
     <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">⌄</span></summary>
       <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out>Sair</button></div></details>`;
@@ -148,6 +151,18 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
+  const backButton = header.querySelector("[data-page-back]");
+  backButton?.addEventListener("click", (event) => {
+    let previousUrl = null;
+    try { previousUrl = document.referrer ? new URL(document.referrer) : null; } catch { previousUrl = null; }
+    const canReturn = previousUrl?.origin === window.location.origin
+      && !/\\/login\\.html$/i.test(previousUrl.pathname)
+      && previousUrl.href !== window.location.href;
+    if (canReturn) {
+      event.preventDefault();
+      window.history.back();
+    }
+  });
   prefetchNavigation(header);
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
