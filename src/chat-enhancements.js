@@ -143,8 +143,8 @@ export function setupChatEnhancements(root, client, userId) {
     }
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
-      heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">${icon("more")}</button>');
-      if (!isGroup() && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Jogar jogo da velha" title="Jogar jogo da velha">${icon("grid")}</button>');
+      heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">' + icon("more") + '</button>');
+      if (!isGroup() && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Jogar jogo da velha" title="Jogar jogo da velha">' + icon("grid") + '</button>');
       heading.dataset.conversationId = selectedConversation();
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
