@@ -176,3 +176,46 @@ begin
     execute 'alter publication supabase_realtime add table public.gallery_media_people';
   end if;
 end $$;
+
+-- Defense in depth: a selected comment recipient must already be allowed to view its media.
+create or replace function private.guard_gallery_comment_recipient()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+declare v_media uuid; v_audience text; v_visibility text; v_owner uuid;
+begin
+  if tg_table_name='community_gallery_comment_recipients' then
+    select media_id,audience into v_media,v_audience from public.community_gallery_comments where id=new.comment_id;
+    if v_audience is distinct from 'selected' then raise exception 'Recipients require a selected-audience comment' using errcode='42501'; end if;
+    select visibility,owner_id into v_visibility,v_owner from public.community_gallery_media where id=v_media;
+    if v_visibility='exclusive' and new.user_id<>v_owner and not exists (
+      select 1 from public.community_gallery_media_recipients r where r.media_id=v_media and r.user_id=new.user_id and r.can_view
+    ) and not public.is_looply_admin(new.user_id) then
+      raise exception 'Comment recipient must be able to view this media' using errcode='42501';
+    end if;
+  elsif tg_table_name='archive_media_comment_recipients' then
+    select media_id,audience into v_media,v_audience from public.archive_media_comments where id=new.comment_id;
+    if v_audience is distinct from 'selected' then raise exception 'Recipients require a selected-audience comment' using errcode='42501'; end if;
+    select visibility into v_visibility from public.archive_media where id=v_media;
+    if v_visibility='exclusive' and not exists (
+      select 1 from public.archive_media_recipients r where r.media_id=v_media and r.user_id=new.user_id
+    ) and not public.is_looply_admin(new.user_id) then
+      raise exception 'Comment recipient must be able to view this media' using errcode='42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists community_gallery_comment_recipient_guard on public.community_gallery_comment_recipients;
+create trigger community_gallery_comment_recipient_guard before insert on public.community_gallery_comment_recipients
+for each row execute function private.guard_gallery_comment_recipient();
+drop trigger if exists archive_gallery_comment_recipient_guard on public.archive_media_comment_recipients;
+create trigger archive_gallery_comment_recipient_guard before insert on public.archive_media_comment_recipients
+for each row execute function private.guard_gallery_comment_recipient();
+
+revoke all on function private.guard_gallery_media_people() from public,anon,authenticated;
+revoke all on function private.notify_gallery_tag() from public,anon,authenticated;
+revoke all on function private.notify_community_gallery_comment() from public,anon,authenticated;
+revoke all on function private.notify_selected_gallery_comment_recipient() from public,anon,authenticated;
+revoke all on function private.notify_archive_gallery_comment() from public,anon,authenticated;
+revoke all on function private.notify_selected_archive_comment_recipient() from public,anon,authenticated;
+revoke all on function private.guard_gallery_comment_recipient() from public,anon,authenticated;
