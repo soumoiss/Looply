@@ -39,3 +39,12 @@ test("Instagram post, reel and TV links render a real provider embed with a safe
   assert.match(source, /\["p", "reel", "tv"\]/);
   assert.match(source, /\^\[A-Za-z0-9_-\]\{5,30\}\$/);
 });
+
+test("private replies use the authenticated chat edge function and internal share offers recipient selection", async () => {
+  const source = await read("src/social.js");
+  assert.match(source, /action: "create_direct", targetId: authorId/);
+  assert.match(source, /data-share-in-app/);
+  assert.match(source, /data-share-recipient/);
+  assert.match(source, /data-share-in-app-send/);
+  assert.doesNotMatch(source, /client\.rpc\("create_direct_conversation", \{ p_target_id: authorId \}\)/);
+});
