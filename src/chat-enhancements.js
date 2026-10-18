@@ -10,7 +10,7 @@ const COLORS = [
 ];
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 const key = (userId, name) => `${PREFIX}:${userId}:${name}`;
-const newGameId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const newGameId = () => globalThis.crypto?.randomUUID?.() || "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); });
 const read = (storageKey, fallback) => { try { const value = localStorage.getItem(storageKey); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
 const write = (storageKey, value) => { try { localStorage.setItem(storageKey, JSON.stringify(value)); return true; } catch { return false; } };
 
