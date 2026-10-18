@@ -664,3 +664,18 @@ summary:focus-visible,
   outline: 3px solid var(--primary);
   outline-offset: 2px;
 }
+
+
+/* Stage 8: indicate a genuine loading state without flashing reduced-motion users. */
+.looply-icon--loading {
+  animation: looply-icon-spin 1s linear infinite;
+  transform-origin: center;
+}
+@keyframes looply-icon-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .looply-icon--loading {
+    animation: none;
+  }
+}

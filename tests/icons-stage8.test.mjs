@@ -21,6 +21,8 @@ test("shared icon registry exposes unique semantic names and valid SVG output", 
   }
   assert.throws(() => icon("unknown-semantic"), /Unknown Looply icon/);
   assert.match(icon("close", { label: "Fechar" }), /role="img" aria-label="Fechar"/);
+  assert.match(icon("close", { label: 'Fechar "janela" & confirmar' }), /aria-label="Fechar &quot;janela&quot; &amp; confirmar"/);
+  assert.doesNotMatch(icon("close", { label: '<svg onload="alert(1)">' }), /<svg onload=/);
 });
 
 test("playlist controls use semantic icons without typographic substitute glyphs", async () => {
@@ -71,6 +73,8 @@ test("shared icon styles preserve theme inheritance, focus visibility and touch 
   assert.match(css, /\.looply-icon[\s\S]*?color:\s*currentColor/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /min-height:\s*44px/);
+  assert.match(css, /\.looply-icon--loading[\s\S]*?animation:/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
 
 test("Stage 8 icon inventory documents the full registry and semantic states", async () => {
