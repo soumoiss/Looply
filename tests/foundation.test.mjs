@@ -112,7 +112,8 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /dialog\.showModal\(\)/);
   assert.match(playlists, /dialogPlayer\.removeAttribute\("src"\)/);
   assert.match(playlists, /youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(videoId\)\}/);
-  assert.doesNotMatch(playlists, /youtube\.com\/playlist\?list=|Abrir no YouTube|target="_blank"/i);
+  assert.doesNotMatch(playlists, /youtube\.com\/playlist\?list=|Abrir no YouTube/i);
+  assert.match(playlists, /data-youtube-track-external/);
   assert.match(playlists, /lista pesquisável ainda não está configurada no servidor/);
   assert.match(playlists, /data-youtube-retry/);
   assert.match(playlists, /youtube-playlist-timeout/);
