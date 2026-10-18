@@ -97,9 +97,16 @@ export function setupChatCalls(root, client, userId) {
   };
   const createPeerConnection = () => {
     if (!window.RTCPeerConnection) throw new Error("webrtc unavailable");
+    const configuredIceServers = Array.isArray(window.LOOPLY_CONFIG?.rtcIceServers)
+      ? window.LOOPLY_CONFIG.rtcIceServers.filter((server) => server && (
+          (typeof server.urls === "string" && /^turns?:/i.test(server.urls))
+          || (Array.isArray(server.urls) && server.urls.some((url) => typeof url === "string" && /^turns?:/i.test(url)))
+        ) && (typeof server.username === "string") && (typeof server.credential === "string"))
+      : [];
     pc = new RTCPeerConnection({ iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun.cloudflare.com:3478" }
+      { urls: "stun:stun.cloudflare.com:3478" },
+      ...configuredIceServers
     ] });
     pc.onicecandidate = (event) => { if (event.candidate) send("ice", { candidate: event.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
