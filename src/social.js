@@ -76,6 +76,8 @@ function postMarkup(post, userId) {
     ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false)).join("")}</div>`).join("")
     : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
+  const liked = Boolean(post.likedByMe);
+  const likeCount = Number(post.likeCount || 0);
   const externalUrl = (() => {
     try {
       const url = new URL(post.external_url || "");
@@ -115,6 +117,11 @@ function postMarkup(post, userId) {
     <p class="post-body">${escapeHtml(post.body)}</p>
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
     ${externalMarkup}
+    <div class="post-interactions">
+      <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
+      <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
+      <span class="post-action-status" data-post-status="${escapeHtml(post.id)}" role="status" aria-live="polite"></span>
+    </div>
     <section class="post-comments" aria-label="Comentários">
       <h3>Comentários <span>${comments.length}</span></h3>
       <div class="comment-list">${commentList}</div>
@@ -137,6 +144,21 @@ async function loadPosts(client) {
     .limit(30);
   if (error) throw error;
   const posts = data || [];
+  if (posts.length) {
+    const { data: currentUserData } = await client.auth.getUser();
+    const currentUserId = currentUserData?.user?.id;
+    const postIds = posts.map((post) => post.id);
+    const [{ data: likes, error: likesError }, { data: mine, error: mineError }] = await Promise.all([
+      client.from("post_likes").select("post_id").in("post_id", postIds),
+      currentUserId ? client.from("post_likes").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null})
+    ]);
+    if (likesError) throw likesError;
+    if (mineError) throw mineError;
+    const counts = new Map();
+    for (const like of likes || []) counts.set(like.post_id, (counts.get(like.post_id) || 0) + 1);
+    const mineIds = new Set((mine || []).map((like) => like.post_id));
+    for (const post of posts) { post.likeCount = counts.get(post.id) || 0; post.likedByMe = mineIds.has(post.id); }
+  }
   const profileRows = [];
   for (const post of posts) {
     if (post.author) profileRows.push(post.author);
@@ -368,6 +390,46 @@ export function bindSocialEvents(root, client, getUserId) {
 
   root.addEventListener("click", async (event) => {
     if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.());
+    const likeButton = event.target.closest("[data-toggle-like]");
+    if (likeButton && client) {
+      const postId = likeButton.dataset.toggleLike;
+      const userId = getUserId?.();
+      if (!postId || !userId || likeButton.disabled) return;
+      likeButton.disabled = true;
+      try {
+        if (likeButton.getAttribute("aria-pressed") === "true") {
+          const { error } = await client.from("post_likes").delete().eq("post_id", postId).eq("user_id", userId);
+          if (error) throw error;
+        } else {
+          const { error } = await client.from("post_likes").upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+          if (error) throw error;
+        }
+        await refreshSocialFeed(root, client, userId);
+      } catch (error) {
+        console.error("Looply post like failed", error);
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = explainWriteError(error);
+      } finally { likeButton.disabled = false; }
+      return;
+    }
+    const shareButton = event.target.closest("[data-share-post]");
+    if (shareButton) {
+      const postId = shareButton.dataset.sharePost;
+      const url = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+      try {
+        if (navigator.share) await navigator.share({ title: "Publicação no Looply", url });
+        else if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+        else window.prompt("Copie o link da publicação", url);
+        const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        if (status) status.textContent = "Link pronto para compartilhar.";
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+          if (status) status.textContent = "Não foi possível compartilhar agora.";
+        }
+      }
+      return;
+    }
     const deleteButton = event.target.closest("[data-delete-post]");
     if (!deleteButton || !client) return;
     const userId = getUserId?.();
@@ -527,6 +589,7 @@ export function setupSocialRealtime(client, userId, root) {
     .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {
       const currentStatus = root.querySelector("[data-realtime-status]");
