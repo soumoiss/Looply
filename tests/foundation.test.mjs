@@ -823,7 +823,8 @@ test("global announcements are admin-published, RLS-protected, realtime, and ind
   assert.match(announcementClient, /textContent = announcement\.body/);
   assert.match(runtime, /mountGlobalAnnouncements/);
   assert.match(admin, /data-admin-broadcast[\s\S]*?data-broadcast-refresh/);
-  assert.match(admin, /data-broadcast-deactivate[\s\S]*?read_count/);
+  assert.match(admin, /data-broadcast-deactivate/);
+  assert.match(admin, /item\.read_count/);
   assert.match(adminCss, /admin-broadcast-readers/);
   assert.match(appCss, /looply-announcement-overlay/);
 });
