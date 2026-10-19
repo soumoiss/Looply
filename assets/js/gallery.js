@@ -107,11 +107,28 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-comment-mention-users]").innerHTML = commentMentionMarkup(commentMentionQuery);
   };
   const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } };
-  const signedUrl = async x => {
+  const signedUrl = async (x, thumbnail = false) => {
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
-    const { data, error } = await client.storage.from(bucket).createSignedUrl(x.storage_path, 300);
+    const storage = client.storage.from(bucket);
+    if (thumbnail && mediaType(x) === "image") {
+      const transformed = await storage.createSignedUrl(x.storage_path, 300, { transform: { width: 480, height: 480, resize: "contain", quality: 58 } });
+      if (!transformed.error && transformed.data?.signedUrl) return transformed.data.signedUrl;
+      console.warn("Gallery thumbnail transformation unavailable; using original image.", transformed.error);
+    }
+    const { data, error } = await storage.createSignedUrl(x.storage_path, 300);
     if (error) throw error;
     return data?.signedUrl || "";
+  };
+  const ensureMediaUrl = async (x, thumbnail = false) => {
+    const key = thumbnail ? "thumbnailUrl" : "url";
+    const pendingKey = thumbnail ? "thumbnailPromise" : "urlPromise";
+    if (x[key]) return x[key];
+    if (x[pendingKey]) return x[pendingKey];
+    x[pendingKey] = signedUrl(x, thumbnail).then(url => {
+      x[key] = url;
+      return url;
+    }).finally(() => { x[pendingKey] = null; });
+    return x[pendingKey];
   };
   const load = async (reset = false) => {
     if (loading) return;
@@ -190,28 +207,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const likeMap = new Map();
       (likesA.data||[]).concat(likesC.data||[]).forEach(row=>{const key=row.media_id;const current=likeMap.get(key)||{count:0,likedByMe:false};current.count++;if(row.user_id===user.id)current.likedByMe=true;likeMap.set(key,current);});
       fresh.forEach(x=>{const info=likeMap.get(x.id)||{count:0,likedByMe:false};x.likeCount=info.count;x.likedByMe=info.likedByMe;});
-      let signedUrlFailures = 0;
-      await Promise.all(fresh.map(async x => {
-        try {
-          x.url = await signedUrl(x);
-          if (!x.url) signedUrlFailures += 1;
-        } catch (error) {
-          signedUrlFailures += 1;
-          x.url = "";
-          console.warn("Gallery media preview unavailable", { source: x.source, mediaId: x.id, error });
-        }
-      }));
       const seen = new Set(items.map(mediaKey));
       fresh.forEach(x => { if (!seen.has(mediaKey(x))) items.push(x); });
       hasMore = (a.data || []).length === 50 || (c.data || []).length === 50;
       loadPage += 1;
       syncUserLists();
       draw();
-      const warnings = [...sourceWarnings];
-      if (signedUrlFailures) warnings.push(signedUrlFailures + (signedUrlFailures === 1
-        ? " mídia foi carregada, mas sua prévia não pôde ser autorizada."
-        : " mídias foram carregadas, mas suas prévias não puderam ser autorizadas."));
-      say(warnings.join(" "));
+      say(sourceWarnings.join(" "));
       $("[data-load-more]").hidden = !hasMore;
     } catch (error) {
       console.error("Gallery load failed", error);
@@ -249,14 +251,40 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     if (shuffled) list = list.map(value => ({value, sort:Math.random()})).sort((a,b)=>a.sort-b.sort).map(x=>x.value);
     return list;
   };
-  const cardMedia = x => {
+  const mediaPreviewMarkup = (x, url, thumbnail = false) => {
     const type = mediaType(x);
-    if (!x.url) return '<div class="gallery-media-fallback">' + icon("camera") + '<span>Prévia indisponível</span></div>';
-    if (type === "video") return '<video src="' + esc(x.url) + '" preload="metadata" muted playsinline></video><span class="gallery-media-type">' + icon("video") + '</span>';
-    if (type === "audio") return '<div class="gallery-audio-preview">' + icon("music") + '<audio src="' + esc(x.url) + '" controls preload="none"></audio></div>';
+    if (!url) return '<div class="gallery-media-fallback">' + icon("camera") + '<span>Prévia indisponível</span></div>';
+    if (type === "video") return '<video src="' + esc(url) + '" preload="none" muted playsinline></video><span class="gallery-media-type">' + icon("video") + '</span>';
+    if (type === "audio") return '<div class="gallery-audio-preview">' + icon("music") + '<audio src="' + esc(url) + '" controls preload="none"></audio></div>';
     const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
     const transform = "translate(" + Number(adjustment.positionX || 0) + "%," + Number(adjustment.positionY || 0) + "%) rotate(" + Number(adjustment.rotation || 0) + "deg)";
-    return '<img src="' + esc(x.url) + '" alt="" loading="lazy" decoding="async" style="transform:' + esc(transform) + ';transform-origin:center center">';
+    return '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async" draggable="false" style="transform:' + esc(transform) + ';transform-origin:center center"' + (thumbnail ? ' data-thumbnail="true"' : '') + '>';
+  };
+  const cardMedia = x => '<span class="gallery-preview-slot" data-preview-slot="' + esc(mediaKey(x)) + '"><span class="gallery-skeleton" aria-hidden="true"></span></span>';
+  const observePreviewSlots = () => {
+    const slots = $("[data-preview-slot]");
+    const hydrate = async slot => {
+      const x = getItem(slot.dataset.previewSlot);
+      if (!x || slot.dataset.loaded === "true") return;
+      slot.dataset.loaded = "true";
+      try {
+        const url = await ensureMediaUrl(x, mediaType(x) === "image");
+        if (slot.isConnected) slot.innerHTML = mediaPreviewMarkup(x, url, mediaType(x) === "image");
+      } catch (error) {
+        console.warn("Gallery preview unavailable", { mediaId: x.id, source: x.source, error });
+        if (slot.isConnected) slot.innerHTML = mediaPreviewMarkup(x, "", true);
+      }
+    };
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          observer.unobserve(entry.target);
+          hydrate(entry.target);
+        });
+      }, { rootMargin: "220px 0px" });
+      slots.forEach(slot => observer.observe(slot));
+    } else slots.slice(0, 12).forEach(hydrate);
   };
   const draw = () => {
     grid.className = "gallery-grid" + (view === "list" ? " list" : view === "masonry" ? " masonry" : "");
@@ -280,7 +308,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const exclusiveIcon = x.visibility === "exclusive" ? '<span class="gallery-private-indicator" title="Mídia exclusiva" aria-label="Mídia exclusiva">' + icon("shield") + '</span>' : "";
       return '<article class="gallery-card" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
     }).join("") : '<div class="gallery-empty">' + (main === "privadas" ? "Sua pasta privada ainda não tem mídias." : "Nenhuma mídia encontrada. Ajuste os filtros ou adicione uma lembrança.") + '</div>';
-    $$(".gallery-tab[data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === main));
+    observePreviewSlots();
+    $(".gallery-tab[data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === main));
     $$(".gallery-chip[data-kind]").forEach(b => b.classList.toggle("active", b.dataset.kind === kind));
     $("[data-comments-filter]").classList.toggle("active", commentsOnly);
     $("[data-title-filter]").value = kind;
