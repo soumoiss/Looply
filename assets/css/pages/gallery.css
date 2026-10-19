@@ -171,3 +171,17 @@ body.gallery-viewer-open{overflow:hidden}
  .page-gallery .gallery-dialog-actions>*{flex:1}
 }
 @media(prefers-reduced-motion:reduce){.page-gallery *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.page-gallery .gallery-album-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;padding:10px;border:1px solid var(--border,#e8e0ef);border-radius:14px;background:var(--surface-muted,#f5f0fa)}
+.page-gallery .gallery-album-toolbar[hidden]{display:none}
+.page-gallery .gallery-album-toolbar label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
+.page-gallery .gallery-album-toolbar select{max-width:220px;min-width:140px;padding:9px;border:1px solid var(--border,#e8e0ef);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit}
+.page-gallery .gallery-album-card{display:flex;flex-direction:column;gap:10px;padding:12px}
+.page-gallery .gallery-album-open{display:grid;justify-items:start;gap:9px;min-height:140px;padding:16px;border:1px solid var(--border,#e8e0ef);border-radius:14px;background:var(--surface-muted,#f5f0fa);color:inherit;text-align:left}
+.page-gallery .gallery-album-open .looply-icon{width:26px;height:26px;color:var(--accent,#8062bd)}
+.page-gallery .gallery-album-open strong{overflow-wrap:anywhere;font-size:15px}
+.page-gallery .gallery-album-open small{font-size:11px;color:var(--muted,#81768e)}
+.page-gallery .gallery-description-item{display:grid;gap:2px}
+.page-gallery .gallery-description-item small{font-size:10px;color:var(--muted,#81768e)}
+.page-gallery .gallery-viewer-description .gallery-description-item{margin:6px 0}
+.page-gallery .gallery-viewer-description .gallery-description-item small{color:#ffffffb5}
