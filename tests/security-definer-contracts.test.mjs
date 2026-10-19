@@ -9,7 +9,7 @@ const contracts = [
   ["cleanup_pending_gallery_media", /owner_id\s*=\s*v_actor/i],
   ["mark_conversation_read", /is_conversation_participant/i],
   ["mark_conversations_delivered", /conversation_participants[\s\S]*?user_id\s*=\s*actor_id/i],
-  ["record_story_view", /story_recipients|visibility\s*=\s*'public'/i],
+  ["record_story_view", /can_view_story/i],
   ["send_story_reply", /can_view_story/i],
   ["set_gallery_media_adjustment", /private\.is_admin\(\)/i],
   ["set_gallery_media_permissions", /private\.is_admin\(\)[\s\S]*?item_owner\s*<>\s*actor/i],
