@@ -99,8 +99,9 @@ test("published gallery media cannot be downgraded to pending to bypass deletion
 });
 
 test("gallery binds multi-control groups with querySelectorAll instead of querySelector", () => {
+  const lines = gallery.split("\\n").map(line => line.trimStart());
   for (const selector of ["[data-kind]", "[data-main]", "[data-close-access]", "[data-close-tags]", "[data-close-album]"]) {
-    assert.ok(gallery.includes('$$("' + selector + '").forEach('), "Expected all controls for " + selector);
-    assert.ok(!gallery.includes('$("' + selector + '").forEach('), "Single-element query used for " + selector);
+    assert.ok(lines.some(line => line.startsWith('$("' + selector + '").forEach(')), "Expected all controls for " + selector);
+    assert.ok(!lines.some(line => line.startsWith('$("' + selector + '").forEach(')), "Single-element query used for " + selector);
   }
 });
