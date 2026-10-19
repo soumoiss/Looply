@@ -43,3 +43,14 @@ test("gallery Storage policy does not depend on Storage-generated size metadata"
   assert.doesNotMatch(repairedMigration, /metadata\s*->>\s*'size'/);
   assert.match(repairedMigration, /create policy community_gallery_owner_insert_pending/);
 });
+
+const ownerReadMigration = await readFile(
+  new URL("../supabase/migrations/20261019170000_gallery_owner_read_pending_media.sql", import.meta.url),
+  "utf8"
+);
+
+test("gallery owner can read pending media for INSERT RETURNING without exposing it to other users", () => {
+  assert.match(ownerReadMigration, /create policy community_gallery_members_read[\\s\\S]*?for select to authenticated/i);
+  assert.match(ownerReadMigration, /owner_id = \\(select auth\\.uid\\(\\)\\)/);
+  assert.match(ownerReadMigration, /or \\(select private\\.can_view_community_gallery_media\\(community_gallery_media\\.id\\)\\)/);
+});
