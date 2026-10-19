@@ -67,7 +67,7 @@ const galleryMarkup = () => [
   '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-manage-access hidden>', icon("shield"), ' Administrar acesso</button><button type="button" data-open-photo-adjust hidden>', icon("rotateLeft"), ' Ajustar foto (Peixinho)</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
   '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><section class="gallery-photo-adjust" data-photo-adjust-panel hidden aria-label="Ajustar posição da foto"><div class="gallery-photo-adjust-heading"><strong>Ajustar foto</strong><span>Prévia local até salvar</span></div><div class="gallery-photo-adjust-actions"><button type="button" class="gallery-tool" data-rotate-left aria-label="Girar 90 graus para a esquerda" title="Girar para a esquerda">' + icon("rotateLeft") + ' Girar à esquerda</button><button type="button" class="gallery-tool" data-rotate-right aria-label="Girar 90 graus para a direita" title="Girar para a direita">' + icon("rotateRight") + ' Girar à direita</button><button type="button" class="gallery-tool" data-reset-photo-adjust>Restaurar</button></div><label>Posição horizontal <input type="range" min="-20" max="20" step="1" value="0" data-position-x></label><label>Posição vertical <input type="range" min="-20" max="20" step="1" value="0" data-position-y></label><div class="gallery-photo-adjust-footer"><button type="button" class="gallery-tool" data-cancel-photo-adjust>Cancelar</button><button type="button" class="gallery-primary" data-save-photo-adjust>Publicar para todos</button></div><p class="gallery-status" data-photo-adjust-status role="status"></p></section><button type="button" class="gallery-tool" data-zoom-out aria-label="Reduzir zoom">−</button><button type="button" class="gallery-tool" data-zoom-in aria-label="Ampliar zoom">+</button><button type="button" class="gallery-tool" data-open-comments aria-label="Abrir comentários" title="Comentários">', icon("comment"), '</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
 '</div>',
-'<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Seu comentário <textarea name="body" required placeholder="Escreva um comentário…"></textarea></label><label>Quem pode ver?<select name="audience"><option value="media_viewers">Todos que podem ver a mídia</option><option value="author_only">Somente eu e o autor da mídia</option><option value="selected">Pessoas selecionadas</option></select></label><div class="gallery-user-list" data-comment-recipients hidden></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-comments>Fechar</button><button type="submit" class="gallery-primary">Comentar</button></div></form></section></div>',
+'<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Seu comentário <textarea name="body" required placeholder="Escreva um comentário…"></textarea></label><label>Mencionar pessoas <input type="search" data-comment-mention-search placeholder="Buscar @usuário"></label><div class="gallery-user-list" data-comment-mention-users aria-label="Pessoas para mencionar"></div><p class="gallery-help">Selecione uma pessoa para inserir @usuário no comentário. A notificação só será enviada a quem puder ver o comentário.</p><label>Quem pode ver?<select name="audience"><option value="media_viewers">Todos que podem ver a mídia</option><option value="author_only">Somente eu e o autor da mídia</option><option value="selected">Pessoas selecionadas</option></select></label><div class="gallery-user-list" data-comment-recipients hidden></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-comments>Fechar</button><button type="submit" class="gallery-primary">Comentar</button></div></form></section></div>',
 '<div class="gallery-camera-modal" data-camera-modal hidden><div class="gallery-camera-panel"><video data-camera-preview autoplay muted playsinline></video><div><button type="button" class="gallery-tool" data-switch-camera>', icon("cameraSwitch"), ' Trocar câmera</button><button type="button" class="gallery-primary" data-record>', icon("video"), ' Iniciar gravação</button><button type="button" class="gallery-tool" data-stop-camera>Fechar</button></div><p data-camera-status role="status"></p></div></div>'
 ].join("");
 
@@ -90,13 +90,19 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const list = people.filter(p => !q || [p.display_name,p.username].some(v => String(v || "").toLocaleLowerCase("pt-BR").includes(q)));
     return list.map(p => '<label class="gallery-user-option"><input type="checkbox" value="' + esc(p.id) + '"' + (selected.has(p.id) ? " checked" : "") + '><span><strong>' + esc(p.display_name || p.username) + '</strong><small>@' + esc(p.username) + '</small></span></label>').join("") || '<p class="gallery-empty-small">Nenhuma pessoa encontrada.</p>';
   };
-  const chosen = selector => $$(selector + " input[type=checkbox]:checked").map(el => el.value);
+  const commentMentionMarkup = (query = "") => {
+    const q = query.trim().toLocaleLowerCase("pt-BR");
+    const list = people.filter(p => !q || [p.display_name,p.username].some(v => String(v || "").toLocaleLowerCase("pt-BR").includes(q)));
+    return list.map(p => '<button type="button" class="gallery-tool" data-comment-username="' + esc(p.username) + '">@' + esc(p.username) + ' <small>' + esc(p.display_name || p.username) + '</small></button>').join("") || '<p class="gallery-empty-small">Nenhuma pessoa encontrada.</p>';
+  };
+  const chosen = selector => $(selector + " input[type=checkbox]:checked").map(el => el.value);
   const syncUserLists = () => {
     const mentionQuery = $("[data-user-search]").value || "";
     const recipientQuery = $("[data-recipient-search]").value || "";
     const filterQuery = $("[data-filter-user-search]").value || "";
     const tagQuery = $("[data-tag-search]").value || "";
     const accessQuery = $("[data-access-search]").value || "";
+    const commentMentionQuery = $("[data-comment-mention-search]").value || "";
     $("[data-tag-users]").innerHTML = usersHtml(selectedTagPeople, tagQuery);
     $("[data-access-users]").innerHTML = usersHtml(selectedAccessRecipients, accessQuery);
     const commentSelected = new Set(chosen("[data-comment-recipients]"));
@@ -105,6 +111,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-filter-users]").innerHTML = usersHtml(filterPeople, filterQuery);
     
     $("[data-comment-recipients]").innerHTML = usersHtml(commentSelected, "");
+    $("[data-comment-mention-users]").innerHTML = commentMentionMarkup(commentMentionQuery);
   };
   const signedUrl = async x => {
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
@@ -334,7 +341,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const x = getItem(activeKey); if (!x) return;
     const table = x.source === "archive" ? "archive_media_comments" : "community_gallery_comments";
     const { data, error } = await client.from(table).select("id,media_id,author_id,body,audience,created_at").eq("media_id",x.id).order("created_at",{ascending:true}).limit(100);
-    if (error) { say("Não foi possível carregar os comentários.", $("[data-comment-status]")); return; }
+    if (error) { console.error("Looply comments load failed", error); say(error?.code === "42501" ? "Sem permissão para ver os comentários desta mídia. Atualize a página e confirme seu acesso." : "Não foi possível carregar os comentários" + (error?.code ? " (" + error.code + ")" : "") + ".", $("[data-comment-status]")); return; }
     const rows = data || [];
     const authorIds = [...new Set(rows.map(r=>r.author_id))];
     const authors = authorIds.length ? await client.from("profiles").select("id,username,display_name").in("id",authorIds) : {data:[]};
@@ -363,7 +370,14 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       if (error) throw error;
       form.reset(); say("Comentário publicado.", $("[data-comment-status]"));
       x.hasComments = true; draw(); await loadComments();
-    } catch (error) { console.error(error); say(error?.code === "42501" ? "Não foi possível comentar: confirme que você está conectado e pode visualizar esta mídia." : "Não foi possível publicar o comentário: " + (error?.message || "erro inesperado"), $("[data-comment-status]")); }
+    } catch (error) {
+      console.error("Looply comment publish failed", { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint });
+      const message = String(error?.message || "");
+      const feedback = error?.code === "42501"
+        ? (/Authentication required/i.test(message) ? "Sua sessão expirou. Entre novamente e tente publicar o comentário." : /Not permitted to comment/i.test(message) ? "Você pode visualizar esta mídia, mas não tem permissão para comentar nela." : "O Supabase recusou a operação por permissão (42501). Atualize a página e confirme seu acesso à mídia.")
+        : "Não foi possível publicar o comentário" + (error?.code ? " (" + error.code + ")" : "") + (message ? ": " + message : ".");
+      say(feedback, $("[data-comment-status]"));
+    }
     finally { submit.disabled = false; }
   };
   // Use a raw binary Storage request for gallery media. The current Storage API
@@ -627,6 +641,22 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;}));
   $("[data-comment-form]").addEventListener("submit",publishComment);
   $("[data-comment-form] [name=audience]").addEventListener("change",e=>{$("[data-comment-recipients]").hidden=e.target.value!=="selected";syncUserLists();});
+  $("[data-comment-mention-search]").addEventListener("input", syncUserLists);
+  $("[data-comment-mention-users]").addEventListener("click", event => {
+    const button = event.target.closest("[data-comment-username]");
+    if (!button) return;
+    const textarea = $("[data-comment-form] [name=body]");
+    const mention = "@" + button.dataset.commentUsername;
+    const current = textarea.value;
+    if (current.toLocaleLowerCase("pt-BR").includes(mention.toLocaleLowerCase("pt-BR"))) { textarea.focus(); return; }
+    const separator = current && !/\s$/.test(current) ? " " : "";
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    textarea.value = current.slice(0, start) + separator + mention + " " + current.slice(end);
+    const caret = start + separator.length + mention.length + 1;
+    textarea.setSelectionRange(caret, caret);
+    textarea.focus();
+  });
   $("[data-previous]").addEventListener("click",()=>{const list=visible(),index=list.findIndex(x=>mediaKey(x)===activeKey);if(index>0)openViewer(mediaKey(list[index-1]));});
   $("[data-next]").addEventListener("click",()=>{const list=visible(),index=list.findIndex(x=>mediaKey(x)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));});
   $("[data-viewer-admin-delete]").addEventListener("click",()=>{if(activeKey)deleteMedia(activeKey);});
