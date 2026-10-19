@@ -501,6 +501,21 @@ function updateThreadMarkup(thread, markup, conversationId) {
   if (wasNearBottom) thread.scrollTop = thread.scrollHeight;
 }
 
+function scrollInitialThreadToLatest(thread) {
+  if (!thread) return;
+  const scrollToLatest = () => { if (thread.isConnected) thread.scrollTop = thread.scrollHeight; };
+  // The second frame runs after layout has incorporated the inserted messages.
+  // Media can still resize later, so each initial load gets one extra correction.
+  requestAnimationFrame(() => {
+    scrollToLatest();
+    requestAnimationFrame(scrollToLatest);
+  });
+  thread.querySelectorAll("img, video").forEach((media) => {
+    const eventName = media instanceof HTMLVideoElement ? "loadedmetadata" : "load";
+    media.addEventListener(eventName, scrollToLatest, { once: true });
+  });
+}
+
 async function openConversation(root, client, conversationId, userId) {
   if (!conversationId || !client || !userId) return;
   activeConversationId = conversationId;
@@ -521,7 +536,10 @@ async function openConversation(root, client, conversationId, userId) {
     const isGroup = conversation.kind === "group";
     const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
     if (hasSameComposer) updateThreadMarkup(thread, markup, conversationId);
-    else thread.innerHTML = markup;
+    else {
+      thread.innerHTML = markup;
+      scrollInitialThreadToLatest(thread);
+    }
     const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
     if (readError) console.warn("Looply read receipt update failed", readError);
   } catch (error) {
