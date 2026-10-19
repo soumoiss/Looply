@@ -1,3 +1,4 @@
+import "./theme.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 
 const form = document.getElementById("loginForm");
