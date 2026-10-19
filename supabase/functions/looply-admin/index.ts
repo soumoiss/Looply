@@ -136,7 +136,7 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
-    const rows = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
     const ids = [...new Set(rows.flatMap((row: any) => [row.id, ...(row.comments || []).map((comment: any) => comment.id)]))];
     if (ids.length) {
       const { data: moderation, error: moderationError } = await service.from("looply_content_moderation")
