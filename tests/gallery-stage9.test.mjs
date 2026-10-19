@@ -48,6 +48,14 @@ test("gallery includes accessible responsive controls and reduced-motion support
 });
 
 
+test("Title filter renders saved albums and album selection opens the album", () => {
+  assert.match(gallery, /const showingAlbums = kind === "album" && !activeAlbumId/);
+  assert.match(gallery, /data-open-album=/);
+  assert.match(gallery, /data-delete-album=/);
+  assert.match(gallery, /\$\("\[data-album-select\]"\)\.addEventListener\("change"/);
+  assert.match(styles, /gallery-album-open/);
+});
+
 test("gallery albums are persisted and scoped to their owner", () => {
   assert.match(albumMigration, /create table if not exists public\.gallery_albums/);
   assert.match(albumMigration, /owner_id=\(select auth\.uid\(\)\)/);

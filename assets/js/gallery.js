@@ -224,8 +224,20 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const draw = () => {
     grid.className = "gallery-grid" + (view === "list" ? " list" : view === "masonry" ? " masonry" : "");
     const list = visible();
-    count.textContent = list.length + (list.length === 1 ? " mídia" : " mídias");
-    grid.innerHTML = list.length ? list.map(x => {
+    const albumQuery = $("[data-search]").value.trim().toLocaleLowerCase("pt-BR");
+    const albumList = albums.filter(album => !albumQuery || String(album.name || "").toLocaleLowerCase("pt-BR").includes(albumQuery));
+    const showingAlbums = kind === "album" && !activeAlbumId;
+    count.textContent = showingAlbums
+      ? albumList.length + (albumList.length === 1 ? " álbum" : " álbuns")
+      : list.length + (list.length === 1 ? " mídia" : " mídias");
+    $("[data-back-albums]").hidden = !activeAlbumId;
+    if (activeAlbumId) $("[data-album-select]").value = activeAlbumId;
+    grid.innerHTML = showingAlbums
+      ? (albumList.length ? albumList.map(album => {
+          const mediaCount = (albumItemKeys.get(album.id) || new Set()).size;
+          return '<article class="gallery-card gallery-album-card"><button type="button" class="gallery-album-open" data-open-album="' + esc(album.id) + '" aria-label="Abrir álbum ' + esc(album.name) + '"><span class="gallery-album-icon">' + icon("image") + '</span><strong>' + esc(album.name) + '</strong><span class="gallery-meta">' + mediaCount + (mediaCount === 1 ? " mídia" : " mídias") + '</span><span class="gallery-meta">' + esc(dateLabel(album.created_at)) + '</span></button><div class="gallery-card-actions"><button type="button" data-delete-album="' + esc(album.id) + '" aria-label="Excluir álbum ' + esc(album.name) + '">' + icon("trash") + ' Excluir álbum</button></div></article>';
+        }).join("") : '<div class="gallery-empty">Você ainda não criou álbuns.</div>')
+      : list.length ? list.map(x => {
       const author = x.owner?.display_name || x.owner?.username || "Galeria compartilhada";
       const privateIcon = x.isPrivate ? '<span class="gallery-private-indicator" title="Na sua pasta privada" aria-label="Na sua pasta privada">' + icon("lock") + '</span>' : "";
       const exclusiveIcon = x.visibility === "exclusive" ? '<span class="gallery-private-indicator" title="Mídia exclusiva" aria-label="Mídia exclusiva">' + icon("shield") + '</span>' : "";
@@ -501,7 +513,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-close-album]").forEach(b=>b.addEventListener("click",()=>$("[data-album-modal]").hidden=true));
   $("[data-album-form]").addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const name=String(new FormData(form).get("name")||"").trim();if(!name||name.length>80){say("O nome deve ter de 1 a 80 caracteres.",$("[data-album-status]"));return;}const button=form.querySelector('[type="submit"]');button.disabled=true;try{const {data,error}=await client.from("gallery_albums").insert({owner_id:user.id,name}).select("id,owner_id,name,created_at").single();if(error)throw error;albums.unshift(data);activeAlbumId=null;kind="album";$("[data-title-filter]").value="album";$("[data-album-select]").innerHTML='<option value="">Selecione um álbum</option>'+albums.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>').join("");$("[data-album-select]").value=data.id;form.reset();$("[data-album-modal]").hidden=true;draw();say("Álbum criado.");}catch(error){say("Não foi possível criar o álbum.",$("[data-album-status]"));}finally{button.disabled=false;}});
   $("[data-back-albums]").addEventListener("click",()=>{activeAlbumId=null;kind="album";draw();});
-  $("[data-album-select]").addEventListener("change",()=>{});
+  $("[data-album-select]").addEventListener("change", event => {
+    activeAlbumId = event.currentTarget.value || null;
+    kind = "album";
+    main = "recentes";
+    draw();
+  });
   grid.addEventListener("click",async e=>{const openAlbum=e.target.closest("[data-open-album]");const deleteAlbum=e.target.closest("[data-delete-album]");const add=e.target.closest("[data-album-add]");const remove=e.target.closest("[data-album-remove]");if(openAlbum){activeAlbumId=openAlbum.dataset.openAlbum;kind="album";$("[data-title-filter]").value="album";draw();return;}if(deleteAlbum){const album=albums.find(a=>a.id===deleteAlbum.dataset.deleteAlbum);if(!album||!confirm('Excluir o álbum "'+album.name+'"? As mídias originais não serão apagadas.'))return;const {error}=await client.from("gallery_albums").delete().eq("id",album.id).eq("owner_id",user.id);if(error){say("Não foi possível excluir o álbum.");return;}albums=albums.filter(a=>a.id!==album.id);albumItemKeys.delete(album.id);if(activeAlbumId===album.id)activeAlbumId=null;draw();say("Álbum excluído; as mídias originais foram preservadas.");return;}if(add){const albumId=$("[data-album-select]").value;if(!albumId){say("Selecione um álbum na barra de álbuns antes de adicionar mídia.");return;}const x=getItem(add.dataset.albumAdd);if(!x)return;const {error}=await client.from("gallery_album_items").upsert({album_id:albumId,source:x.source,media_id:x.id},{onConflict:"album_id,source,media_id"});if(error){say("Não foi possível adicionar esta mídia ao álbum.");return;}if(!albumItemKeys.has(albumId))albumItemKeys.set(albumId,new Set());albumItemKeys.get(albumId).add(mediaKey(x));draw();say("Mídia adicionada ao álbum.");return;}if(remove&&activeAlbumId){const x=getItem(remove.dataset.albumRemove);if(!x)return;const {error}=await client.from("gallery_album_items").delete().eq("album_id",activeAlbumId).eq("source",x.source).eq("media_id",x.id);if(error){say("Não foi possível remover a mídia do álbum.");return;}albumItemKeys.get(activeAlbumId)?.delete(mediaKey(x));draw();say("Mídia removida do álbum; o arquivo original foi preservado.");return;}});
   grid.addEventListener("click",async e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const like=e.target.closest("[data-like]");const del=e.target.closest("[data-admin-delete]");if(open){openViewer(open.dataset.openMedia);return;}if(comments){activeKey=comments.dataset.comments;loadComments();return;}if(privateButton){togglePrivate(privateButton.dataset.togglePrivate);return;}if(del){deleteMedia(del.dataset.adminDelete);return;}if(like){const x=getItem(like.dataset.like);if(!x)return;const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";like.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}draw();say(x.likedByMe?"Curtida registrada.":"Curtida removida.");}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{like.disabled=false;}}});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});

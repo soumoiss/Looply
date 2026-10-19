@@ -47,6 +47,7 @@ jobs:
           node --check assets/js/home.js
           node --check assets/js/login.js
           node --check assets/js/music.js
+          node --check assets/js/gallery.js
           node --check assets/js/profile.js
       - name: Set up Deno
         uses: denoland/setup-deno@v2
