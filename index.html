@@ -1,13 +1,31 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="lilas">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="0; url=login.html">
-  <title>Looply</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#F5F0FA">
+  <meta name="color-scheme" content="light dark">
+  <title>Looply — MoissWorld</title>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="stylesheet" href="assets/css/splash.css">
 </head>
-<body>
-  <p><a href="login.html">Abrir Looply</a></p>
-  <script>location.replace("login.html");</script>
+<body class="looply-splash-page">
+  <main class="splash-screen" aria-label="Looply está iniciando">
+    <header class="splash-header"><h1>Looply</h1></header>
+    <div class="splash-center">
+      <div class="splash-logo" role="img" aria-label="Logo Looply">
+        <span class="splash-logo-circle">
+          <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+            <path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+            <path d="M85 50A35 35 0 0 1 50 85" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+          </svg>
+        </span>
+      </div>
+      <p class="splash-loading" role="status">Preparando seu espaço...</p>
+    </div>
+    <footer class="splash-footer">MoissWorld</footer>
+  </main>
+  <script type="module" src="src/splash.js"></script>
 </body>
 </html>
