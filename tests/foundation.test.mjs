@@ -99,7 +99,8 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(admin, /admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
-  assert.match(build, /galeria\.html/);\n  assert.match(build, /gallery/i);
+  assert.match(build, /galeria\.html/);
+  assert.match(build, /gallery/i);
 });
 test("account playlists play tracks in an in-app dialog and never link out to YouTube", async () => {
   const [playlists, musicPage] = await Promise.all([read("src/youtube-playlist.js"), read("musicas.html")]);
