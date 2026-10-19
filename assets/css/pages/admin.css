@@ -35,3 +35,31 @@
 .admin-broadcast-readers li span { color:var(--muted); }
 .admin-broadcast-record [data-broadcast-deactivate] { margin-top:12px; color:#a13f59; }
 @media (max-width:620px) { .admin-broadcast-panel { padding:13px; } .admin-broadcast-actions { align-items:stretch; } .admin-broadcast-actions button { width:100%; } }
+
+
+/* Admin user management */
+.admin-user-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  margin-top: 0.85rem;
+  border: 1px solid var(--border-color, rgba(127, 127, 127, 0.28));
+  border-radius: 1rem;
+  background: var(--surface, rgba(127, 127, 127, 0.04));
+  min-width: 0;
+}
+.admin-user-card > p { margin: 0; overflow-wrap: anywhere; }
+.admin-user-card .admin-broadcast-heading { align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.admin-user-card .admin-broadcast-heading h4 { margin: 0; overflow-wrap: anywhere; }
+.admin-user-card .admin-broadcast-form { margin-top: 0; }
+.admin-user-card textarea { width: 100%; min-height: 5rem; resize: vertical; }
+.admin-user-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.admin-user-card input, .admin-user-card select, .admin-user-card textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 540px) {
+  .admin-user-card { padding: 0.8rem; }
+  .admin-user-card .admin-broadcast-heading { align-items: flex-start; }
+  .admin-user-actions > button { min-height: 44px; }
+}

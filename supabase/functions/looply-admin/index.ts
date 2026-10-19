@@ -19,6 +19,12 @@ const allowedResources = new Set([
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
 
+async function isLooplyAdmin(service: UntypedServiceClient, userId: string) {
+  const { data, error } = await service.rpc("is_looply_admin", { p_user_id: userId });
+  if (error) throw error;
+  return data === true;
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
     const message = (error as { message?: unknown }).message;
@@ -388,6 +394,117 @@ Deno.serve(async (request: Request) => {
     if (resourceId && !uuidPattern.test(resourceId)) return respond(400, { error: "Resource ID must be a UUID." });
     const offset = Number(payload.offset ?? 0);
     if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) return respond(400, { error: "Archive media position is invalid." });
+
+    if (action === "users_list") {
+      await recordAccess(service, authData.user.id, "read_requested", "profiles", null, purpose, requestId, { action });
+      try {
+        const [{ data: profiles, error: profilesError }, { data: authUsers, error: authUsersError }] = await Promise.all([
+          service.from("profiles").select("id,username,display_name,bio,profile_visibility,created_at,updated_at").order("username").limit(500),
+          service.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        ]);
+        if (profilesError) throw profilesError;
+        if (authUsersError) throw authUsersError;
+        const authById = new Map((authUsers.users || []).map((user: any) => [user.id, user]));
+        const users = (profiles || []).map((profile: any) => {
+          const authUser: any = authById.get(profile.id);
+          return {
+            ...profile,
+            email: authUser?.email || null,
+            emailConfirmed: Boolean(authUser?.email_confirmed_at),
+            suspended: Boolean(authUser?.banned_until && new Date(authUser.banned_until).getTime() > Date.now()),
+            lastSignInAt: authUser?.last_sign_in_at || null
+          };
+        });
+        await recordAccess(service, authData.user.id, "read_completed", "profiles", null, purpose, requestId, { action, result_count: users.length });
+        return respond(200, { requestId, users });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "read_failed", "profiles", null, purpose, requestId,
+          { action, reason: errorMessage(error, "User list failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "user_create_invite") {
+      const email = String(payload.email || "").trim().toLowerCase();
+      const username = String(payload.username || "").trim().toLowerCase();
+      const displayName = String(payload.displayName || "").trim();
+      const allowedIdentities = new Set(["patati", "misol", "yara", "peixinho"]);
+      if (!allowedIdentities.has(username) || email !== `${username}@loooply.app`
+          || displayName.length < 1 || displayName.length > 80) {
+        return respond(400, { error: "invalid_approved_looply_identity" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
+        { action, username, email });
+      try {
+        const { data, error } = await service.auth.admin.inviteUserByEmail(email, {
+          data: { display_name: displayName },
+          redirectTo: Deno.env.get("SITE_URL") || undefined
+        });
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "profiles", data.user?.id || null, purpose, requestId,
+          { action, username, email });
+        return respond(200, { requestId, userId: data.user?.id || null, email, invited: true });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "profiles", null, purpose, requestId,
+          { action, username, reason: errorMessage(error, "User invitation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "user_update_profile") {
+      const userId = String(payload.userId || "");
+      const displayName = String(payload.displayName || "").trim();
+      const bio = String(payload.bio || "").trim();
+      const profileVisibility = String(payload.profileVisibility || "");
+      if (!uuidPattern.test(userId) || displayName.length < 1 || displayName.length > 80
+          || bio.length > 500 || !["members", "private"].includes(profileVisibility)) {
+        return respond(400, { error: "invalid_user_profile_update" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "profiles", userId, purpose, requestId,
+        { action, display_name: displayName, profile_visibility: profileVisibility });
+      try {
+        const { data, error } = await service.from("profiles")
+          .update({ display_name: displayName, bio, profile_visibility: profileVisibility, updated_at: new Date().toISOString() })
+          .eq("id", userId).select("id,username,display_name,bio,profile_visibility,updated_at").maybeSingle();
+        if (error) throw error;
+        if (!data) return respond(404, { error: "profile_not_found" });
+        await recordAccess(service, authData.user.id, "write_completed", "profiles", userId, purpose, requestId,
+          { action, display_name: displayName, profile_visibility: profileVisibility });
+        return respond(200, { requestId, user: data });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "profiles", userId, purpose, requestId,
+          { action, reason: errorMessage(error, "User profile update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "user_set_suspended" || action === "user_restore_access") {
+      const userId = String(payload.userId || "");
+      if (!uuidPattern.test(userId)) return respond(400, { error: "invalid_user_id" });
+      if (userId === authData.user.id) return respond(400, { error: "cannot_change_own_access" });
+      const suspended = action === "user_set_suspended";
+      await recordAccess(service, authData.user.id, "write_requested", "profiles", userId, purpose, requestId,
+        { action, suspended });
+      try {
+        const { data: target, error: targetError } = await service.auth.admin.getUserById(userId);
+        if (targetError) throw targetError;
+        if (!target.user) return respond(404, { error: "auth_user_not_found" });
+        if (suspended && await isLooplyAdmin(service, userId)) {
+          return respond(400, { error: "cannot_suspend_administrator" });
+        }
+        const { data, error } = await service.auth.admin.updateUserById(userId, {
+          ban_duration: suspended ? "876000h" : "none"
+        });
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "profiles", userId, purpose, requestId,
+          { action, suspended });
+        return respond(200, { requestId, userId, suspended, bannedUntil: data.user?.banned_until || null });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "profiles", userId, purpose, requestId,
+          { action, reason: errorMessage(error, "User access update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
 
     if (action === "broadcast_create") {
       const title = String(payload.title || "").trim();
