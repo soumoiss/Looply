@@ -661,10 +661,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");panel.hidden=!panel.hidden;$("[data-toggle-filters]").setAttribute("aria-expanded",String(!panel.hidden));});
   $("[data-toggle-page-menu]").addEventListener("click",()=>{const menu=$("[data-page-menu]");menu.hidden=!menu.hidden;$("[data-toggle-page-menu]").setAttribute("aria-expanded",String(!menu.hidden));});
   $$("[data-page-menu] button").forEach(button=>button.addEventListener("click",()=>{$("[data-page-menu]").hidden=true;$("[data-toggle-page-menu]").setAttribute("aria-expanded","false");}));
-  $("[data-viewer-info]").addEventListener("click",()=>{const details=$("[data-viewer-details]");details.hidden=!details.hidden;$("[data-viewer-info]").setAttribute("aria-expanded",String(!details.hidden));});
+  $("[data-action-details]").addEventListener("click",()=>{const details=$("[data-viewer-details]");details.hidden=!details.hidden;$("[data-action-details]").setAttribute("aria-expanded",String(!details.hidden));});
   $("[data-viewer-like]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const button=$("[data-viewer-like]");const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";button.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}button.innerHTML=icon(x.likedByMe?"starFilled":"star")+"<span>"+(x.likedByMe?"Curtido":"Curtir")+"</span>";button.setAttribute("aria-pressed",String(Boolean(x.likedByMe)));draw();}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{button.disabled=false;}});
   $("[data-share-media]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const shareData={title:"Looply — Galeria",text:x.description||"Veja esta mídia no Looply",url:location.href};try{if(navigator.share)await navigator.share(shareData);else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareData.url);say("Link da página copiado.");}else say("O compartilhamento não está disponível neste navegador.");}catch(error){if(error?.name!=="AbortError")say("Não foi possível compartilhar neste dispositivo.");}});
-  $("[data-toggle-menu]").addEventListener("click",()=>{$("[data-context-menu]").hidden=!$("[data-context-menu]").hidden;$("[data-toggle-menu]").setAttribute("aria-expanded",String(!$("[data-context-menu]").hidden));});
+  $("[data-toggle-menu]").addEventListener("click",()=>{const sheet=$("[data-action-sheet]");if(sheet.hidden)revealSheet(sheet);else hideSheet(sheet);$("[data-toggle-menu]").setAttribute("aria-expanded",String(!sheet.hidden));});
+  $("[data-close-action-sheet]").addEventListener("click",()=>hideSheet($("[data-action-sheet]")));
+  $("[data-action-sheet]").addEventListener("click",e=>{if(e.target===$("[data-action-sheet]"))hideSheet($("[data-action-sheet]"));});
+  $("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));window.setTimeout(()=>openComments(key),220);}));
   $$("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
   $$("[data-view]").forEach(b=>b.addEventListener("click",()=>{view=b.dataset.view;$$("[data-view]").forEach(v=>{v.classList.toggle("active",v===b);v.setAttribute("aria-pressed",String(v===b));});draw();}));
   $$("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;activeAlbumId=null;shuffled=false;draw();}));
@@ -678,7 +681,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-open-photo-adjust]").addEventListener("click",()=>{
     const x=getItem(activeKey);
     if(!isAdmin||!x||mediaType(x)!=="image")return;
-    $("[data-context-menu]").hidden=true;
+    hideSheet($("[data-action-sheet]"));
     $("[data-photo-adjust-panel]").hidden=false;
     $("[data-position-x]").value=String(x.adjustment?.positionX||0);
     $("[data-position-y]").value=String(x.adjustment?.positionY||0);
@@ -694,7 +697,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $$("[data-cancel-photo-adjust]").forEach(button=>button.addEventListener("click",()=>{const x=getItem(activeKey);if(x){x.adjustment={...(x.savedAdjustment||{rotation:0,positionX:0,positionY:0})};applyPhotoAdjustment(x);}$("[data-photo-adjust-panel]").hidden=true;}));
   $("[data-save-photo-adjust]").addEventListener("click",savePhotoAdjustment);
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
-  $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea").value=getItem(activeKey)?.description||"";});
+  $("[data-edit-description]").addEventListener("click",()=>{$("[data-viewer-details]").hidden=false;$("[data-action-details]").setAttribute("aria-expanded","true");$("[data-description-form]").hidden=false;$("[data-description-form] textarea").value=getItem(activeKey)?.description||"";$("[data-description-form] textarea").focus();});
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.myDescription=description;x.descriptions=(x.descriptions||[]).filter(row=>row.user_id!==user.id);if(description)x.descriptions.push({user_id:user.id,description,updated_at:new Date().toISOString()});x.peopleLookup=peopleMap;x.description=[x.sourceDescription,...x.descriptions.map(row=>row.description)].filter(Boolean).join(" ");$("[data-viewer-description]").innerHTML=descriptionMarkup(x);draw();say("Descrição salva.");e.currentTarget.hidden=true;});
   $("[data-manage-access]").addEventListener("click", async () => {
     const x = getItem(activeKey);
@@ -704,7 +707,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       say("Você não pode administrar o acesso desta mídia.");
       return;
     }
-    $("[data-context-menu]").hidden = true;
+    hideSheet($("[data-action-sheet]"));
     selectedAccessRecipients.clear();
     try {
       const table = x.source === "archive" ? "archive_media_recipients" : "community_gallery_media_recipients";
@@ -723,13 +726,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   });
   $$("[data-close-access]").forEach(b=>b.addEventListener("click",()=> $("[data-access-modal]").hidden=true));
   $("[data-access-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const visibility=e.currentTarget.elements.visibility.value;const viewerIds=[...selectedAccessRecipients];if(visibility==="exclusive"&&!viewerIds.length){say("Selecione pelo menos uma pessoa.",$("[data-access-status]"));return;}if(viewerIds.length>100){say("Selecione no máximo 100 pessoas.",$("[data-access-status]"));return;}const button=e.currentTarget.querySelector('[type="submit"]');button.disabled=true;try{const {error}=await client.rpc("set_gallery_media_permissions",{p_source:x.source,p_media_id:x.id,p_visibility:visibility,p_comment_access:"viewers",p_viewer_ids:visibility==="exclusive"?viewerIds:[],p_commenter_ids:[]});if(error)throw error;x.visibility=visibility;$("[data-access-modal]").hidden=true;draw();say("Permissões da mídia atualizadas.");}catch(error){console.error(error);say("Não foi possível alterar o acesso. Verifique a autorização e os destinatários.",$("[data-access-status]"));}finally{button.disabled=false;}});
-  $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}$("[data-context-menu]").hidden=true;$("[data-tag-search]").value="";selectedTagPeople=new Set(x.peopleIds||[]);$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
+  $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}hideSheet($("[data-action-sheet]"));$("[data-tag-search]").value="";selectedTagPeople=new Set(x.peopleIds||[]);$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
   $$("[data-close-tags]").forEach(b=>b.addEventListener("click",()=> $("[data-tags-modal]").hidden=true));
   $("[data-tag-search]").addEventListener("input",()=>{$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,$("[data-tag-search]").value);});
   $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(selectedTagPeople);const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];selectedTagPeople=new Set(selected);$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
-  $$("[data-open-comments]").forEach(b=>b.addEventListener("click",loadComments));
-  $("[data-close-comments]").addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;});
-  $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;}));
+  $("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>hideSheet($("[data-comments-modal]"))));
+  $("[data-comments-modal]").addEventListener("click",e=>{if(e.target===$("[data-comments-modal]"))hideSheet($("[data-comments-modal]"));});
   $("[data-comment-form]").addEventListener("submit",publishComment);
   $("[data-comment-form] [name=audience]").addEventListener("change",e=>{$("[data-comment-recipients]").hidden=e.target.value!=="selected";syncUserLists();});
   $("[data-comment-mention-search]").addEventListener("input", syncUserLists);
@@ -748,8 +750,6 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     textarea.setSelectionRange(caret, caret);
     textarea.focus();
   });
-  $("[data-previous]").addEventListener("click",()=>{const list=visible(),index=list.findIndex(x=>mediaKey(x)===activeKey);if(index>0)openViewer(mediaKey(list[index-1]));});
-  $("[data-next]").addEventListener("click",()=>{const list=visible(),index=list.findIndex(x=>mediaKey(x)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));});
   $("[data-viewer-admin-delete]").addEventListener("click",()=>{if(activeKey)deleteMedia(activeKey);});
   $("[data-load-more]").addEventListener("click",()=>load(false));
   $("[data-create-album]").addEventListener("click",()=>{$("[data-album-modal]").hidden=false;$("[data-album-status]").textContent="";});
@@ -766,14 +766,84 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   grid.addEventListener("click",async e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const like=e.target.closest("[data-like]");const del=e.target.closest("[data-admin-delete]");if(open){openViewer(open.dataset.openMedia);return;}if(comments){activeKey=comments.dataset.comments;loadComments();return;}if(privateButton){togglePrivate(privateButton.dataset.togglePrivate);return;}if(del){deleteMedia(del.dataset.adminDelete);return;}if(like){const x=getItem(like.dataset.like);if(!x)return;const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";like.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}draw();say(x.likedByMe?"Curtida registrada.":"Curtida removida.");}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{like.disabled=false;}}});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)$("[data-comments-modal]").hidden=true;else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft")$("[data-previous]").click();if(!$("[data-viewer]").hidden&&e.key==="ArrowRight")$("[data-next]").click();});
-  let touchX=0, pinchStart=0, zoomStart=1, viewerZoom=1;
-  const setZoom = next => { const img=$("[data-viewer-media] img"); if(!img)return;viewerZoom=Math.min(4,Math.max(1,next));const x=getItem(activeKey);if(x)applyPhotoAdjustment(x);else img.style.transform="scale("+viewerZoom+")";img.style.transformOrigin="center center";img.dataset.zoom=String(viewerZoom); };
-  $("[data-zoom-in]").addEventListener("click",()=>setZoom(viewerZoom+0.25));
-  $("[data-zoom-out]").addEventListener("click",()=>setZoom(viewerZoom-0.25));
-  const touchDistance = touches => Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
-  $("[data-viewer]").addEventListener("touchstart",e=>{if(e.touches.length===2&&$("[data-viewer-media] img")){touchX=null;pinchStart=touchDistance(e.touches);zoomStart=viewerZoom;}else if(e.touches.length===1){touchX=e.touches[0].screenX;}},{passive:true});
-  $("[data-viewer]").addEventListener("touchmove",e=>{if(e.touches.length===2&&pinchStart){e.preventDefault();setZoom(zoomStart*(touchDistance(e.touches)/pinchStart));}},{passive:false});
-  $("[data-viewer]").addEventListener("touchend",e=>{if(e.touches.length<2)pinchStart=0;if(touchX!==null&&viewerZoom<=1.02&&e.changedTouches.length===1){const delta=e.changedTouches[0].screenX-touchX;if(Math.abs(delta)>70){if(delta<0)$("[data-next]").click();else $("[data-previous]").click();}}},{passive:true});
-  $("[data-viewer]").addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const current=Number(img.dataset.zoom||1);const next=Math.min(4,Math.max(1,current+(e.deltaY<0?0.15:-0.15)));setZoom(next);},{passive:false});
+  let viewerZoom = 1, viewerPanX = 0, viewerPanY = 0;
+  const pointers = new Map();
+  let pinchState = null, dragState = null, swipeStart = null;
+  const clampPan = () => {
+    const host = $("[data-viewer-media]"), img = host.querySelector("img");
+    if (!img || viewerZoom <= 1) { viewerPanX = 0; viewerPanY = 0; return; }
+    const rect = host.getBoundingClientRect();
+    viewerPanX = Math.max(-rect.width * (viewerZoom - 1) / 2, Math.min(rect.width * (viewerZoom - 1) / 2, viewerPanX));
+    viewerPanY = Math.max(-rect.height * (viewerZoom - 1) / 2, Math.min(rect.height * (viewerZoom - 1) / 2, viewerPanY));
+  };
+  const setZoom = (next, focalX = 0, focalY = 0) => {
+    if (!$("[data-viewer-media] img")) return;
+    const previous = viewerZoom;
+    viewerZoom = Math.min(5, Math.max(1, next));
+    if (viewerZoom <= 1) { viewerPanX = 0; viewerPanY = 0; }
+    else if (previous > 0) {
+      viewerPanX = focalX - (focalX - viewerPanX) * (viewerZoom / previous);
+      viewerPanY = focalY - (focalY - viewerPanY) * (viewerZoom / previous);
+    }
+    clampPan();
+    const x = getItem(activeKey);
+    if (x) applyPhotoAdjustment(x);
+  };
+  const viewerMedia = $("[data-viewer-media]");
+  viewerMedia.addEventListener("pointerdown", e => {
+    if (!$("[data-viewer-media] img")) return;
+    viewerMedia.setPointerCapture?.(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if (pointers.size === 2) {
+      const pair = [...pointers.values()];
+      const rect = viewerMedia.getBoundingClientRect();
+      const cx = (pair[0].x + pair[1].x) / 2, cy = (pair[0].y + pair[1].y) / 2;
+      pinchState = {distance:Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y),zoom:viewerZoom,panX:viewerPanX,panY:viewerPanY,focalX:cx-rect.left-rect.width/2,focalY:cy-rect.top-rect.height/2};
+      dragState = null; swipeStart = null;
+    } else if (pointers.size === 1) {
+      const point = pointers.get(e.pointerId);
+      dragState = {x:point.x,y:point.y,panX:viewerPanX,panY:viewerPanY};
+      swipeStart = {x:point.x,y:point.y};
+    }
+  });
+  viewerMedia.addEventListener("pointermove", e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (pointers.size >= 2 && pinchState) {
+      e.preventDefault();
+      const pair = [...pointers.values()].slice(0,2);
+      const distance = Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y);
+      viewerZoom = Math.min(5,Math.max(1,pinchState.zoom * distance / Math.max(1,pinchState.distance)));
+      viewerPanX = pinchState.focalX - (pinchState.focalX - pinchState.panX) * (viewerZoom / pinchState.zoom);
+      viewerPanY = pinchState.focalY - (pinchState.focalY - pinchState.panY) * (viewerZoom / pinchState.zoom);
+      clampPan(); const x=getItem(activeKey); if(x)applyPhotoAdjustment(x);
+    } else if (pointers.size === 1 && viewerZoom > 1 && dragState) {
+      e.preventDefault();
+      viewerPanX = dragState.panX + e.clientX - dragState.x;
+      viewerPanY = dragState.panY + e.clientY - dragState.y;
+      clampPan(); const x=getItem(activeKey); if(x)applyPhotoAdjustment(x);
+    }
+  });
+  const endPointer = e => {
+    const point = pointers.get(e.pointerId);
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchState = null;
+    if (pointers.size === 1) {
+      const remaining = [...pointers.values()][0];
+      dragState = {x:remaining.x,y:remaining.y,panX:viewerPanX,panY:viewerPanY};
+    } else dragState = null;
+    if (point && swipeStart && viewerZoom <= 1.02 && pointers.size === 0) {
+      const dx = point.x - swipeStart.x;
+      if (Math.abs(dx) > 75) {
+        const list = visible(), index = list.findIndex(item => mediaKey(item) === activeKey);
+        if (dx < 0 && index >= 0 && index < list.length-1) openViewer(mediaKey(list[index+1]));
+        else if (dx > 0 && index > 0) openViewer(mediaKey(list[index-1]));
+      }
+    }
+    if (!pointers.size) swipeStart = null;
+  };
+  viewerMedia.addEventListener("pointerup",endPointer);
+  viewerMedia.addEventListener("pointercancel",endPointer);
+  viewerMedia.addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const rect=viewerMedia.getBoundingClientRect();setZoom(viewerZoom+(e.deltaY<0?0.15:-0.15),e.clientX-rect.left-rect.width/2,e.clientY-rect.top-rect.height/2);},{passive:false});
   try { await load(true); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
 } });
