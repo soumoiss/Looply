@@ -169,6 +169,6 @@ test("gallery load tolerates rejected ancillary queries and keeps thumbnail grid
   assert.match(source, /gallery_media_adjustments.*?await safeQuery/s);
   assert.match(source, /gallery_media_descriptions.*?\\n      \\]\\.map\\(safeQuery\\)/s);
   assert.match(source, /community_gallery_media_likes.*?\\n      \\]\\.map\\(safeQuery\\)/s);
-  assert.match(styles, /gallery-grid:not\\(\\.list\\):not\\(\\.masonry\\) \\.gallery-card-body\\{display:none\\}/);
-  assert.match(styles, /gallery-grid:not\\(\\.list\\):not\\(\\.masonry\\) \\.gallery-media\\{aspect-ratio:1\\/1/);
+  assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-card-body{display:none}"));
+  assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-media{aspect-ratio:1/1"));
 });
