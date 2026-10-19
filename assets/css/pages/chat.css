@@ -371,3 +371,12 @@
 
 .chat-call-modal [data-call-enable-audio][hidden] { display: none !important; }
 .chat-call-modal [data-call-enable-audio] { min-height: 40px; margin: 8px auto; }
+
+/* Chat simplification: contact lookup first, then conversations and filters. */
+.page-chat .chat-search-panel { order: -1; }
+.page-chat .chat-search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.page-chat .chat-search-form input { min-width: 0; width: 100%; }
+.page-chat .chat-search-form [data-status] { grid-column: 1 / -1; }
+.page-chat .chat-people-list { display: grid; gap: 7px; max-height: 240px; overflow: auto; }
+.page-chat .chat-people-list[hidden] { display: none; }
+.page-chat .chat-filter-tabs button { flex: 0 0 auto; }
