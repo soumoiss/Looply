@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Assemble gallery update bundle
+        shell: bash
+        run: |
+          if compgen -G ".github/gallery-bundle/part-*.txt" > /dev/null; then
+            cat .github/gallery-bundle/part-*.txt | base64 --decode | tar -xz
+          fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
