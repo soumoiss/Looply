@@ -406,7 +406,11 @@ export function bindAdminEvents(root, client) {
       if (error) throw error;
       setStatus(form, data?.hidden ? "Conteúdo ocultado e ação auditada." : "Conteúdo restaurado e ação auditada.");
       const readForm = root.querySelector("[data-admin-read]");
-      if (readForm) readForm.requestSubmit();
+      if (readForm) {
+        const readPurpose = readForm.querySelector('[name="purpose"]');
+        if (readPurpose && !String(readPurpose.value || "").trim()) readPurpose.value = reason;
+        readForm.requestSubmit();
+      }
     } catch (error) {
       setStatus(form, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível moderar o conteúdo. Confira a sessão e tente novamente.", "error");
       if (button) button.disabled = false;
