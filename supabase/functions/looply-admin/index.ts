@@ -88,7 +88,7 @@ async function recordAccess(service: UntypedServiceClient, actorId: string, even
 
 async function loadResource(service: UntypedServiceClient, actorId: string, resourceType: string, resourceId: string | null, offset = 0) {
   if (resourceType === "audit") {
-    const { data, error } = await service.rpc("read_looply_admin_audit", { p_actor_id: actorId, p_limit: 100 });
+    const { data, error } = await service.rpc("read_looply_admin_audit", { p_actor_id: actorId, p_limit: 100, p_offset: offset });
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
