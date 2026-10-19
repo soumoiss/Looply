@@ -77,7 +77,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
   const allowedMime = new Set(["image/jpeg","image/png","image/webp","image/heic","video/mp4","video/webm","audio/mpeg","audio/mp4","audio/ogg","audio/webm","audio/wav","audio/aac"]);
   const maxBytes = isAdmin ? 200 * 1024 * 1024 : 100 * 1024 * 1024;
-  let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), filterPeople = new Set();
+  let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), filterPeople = new Set();
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
   let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false;
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
@@ -93,12 +93,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const recipientQuery = $("[data-recipient-search]").value || "";
     const filterQuery = $("[data-filter-user-search]").value || "";
     const tagQuery = $("[data-tag-search]").value || "";
-    const tagSelected = new Set(chosen("[data-tag-users]"));
+    $("[data-tag-users]").innerHTML = usersHtml(selectedTagPeople, tagQuery);
     const commentSelected = new Set(chosen("[data-comment-recipients]"));
     $("[data-mention-users]").innerHTML = usersHtml(selectedPeople, mentionQuery);
-    $("[data-recipient-users]").innerHTML = usersHtml(new Set(chosen("[data-recipient-users]")), recipientQuery);
+    $("[data-recipient-users]").innerHTML = usersHtml(selectedRecipients, recipientQuery);
     $("[data-filter-users]").innerHTML = usersHtml(filterPeople, filterQuery);
-    $("[data-tag-users]").innerHTML = usersHtml(tagSelected, tagQuery);
+    
     $("[data-comment-recipients]").innerHTML = usersHtml(commentSelected, "");
   };
   const signedUrl = async x => {
@@ -302,7 +302,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       if (file.size <= 0 || file.size > maxBytes) { say(file.name + " excede o limite permitido de " + formatBytes(maxBytes) + ".", $("[data-upload-status]")); return; }
     }
     const exclusive = Boolean(fd.get("exclusive"));
-    const viewerIds = chosen("[data-recipient-users]");
+    const viewerIds = [...selectedRecipients];
     if (exclusive && !viewerIds.length) { say("Selecione ao menos uma pessoa para a mídia exclusiva.", $("[data-upload-status]")); return; }
     if (exclusive && new Set([...viewerIds,user.id]).size > 100) { say("Selecione no máximo 99 destinatários exclusivos, além de você.", $("[data-upload-status]")); return; }
     let mentionIds = fd.get("mention_all") ? people.map(p=>p.id) : chosen("[data-mention-users]");
@@ -361,7 +361,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         $("[data-progress]").value = percent;
         $("[data-progress-label]").textContent = percent + "% (" + uploaded + "/" + files.length + ")";
       }
-      if (completed) { form.reset(); selectedPeople.clear(); $("[data-file-preview]").innerHTML = '<p>Selecione um ou vários arquivos.</p>'; $("[data-upload-modal]").hidden = true; await load(true); }
+      if (completed) { form.reset(); selectedPeople.clear(); selectedRecipients.clear(); $("[data-file-preview]").innerHTML = '<p>Selecione um ou vários arquivos.</p>'; $("[data-upload-modal]").hidden = true; await load(true); }
       say(failures.length ? completed + " arquivo(s) enviado(s). Falhas: " + failures.join(" · ") : completed + " arquivo(s) publicado(s) com sucesso.", status);
       if (!completed && failures.length) say(failures.join(" · "), $("[data-upload-status]"));
     } finally {
@@ -446,7 +446,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-exclusive]").addEventListener("change",e=>{ $("[data-exclusive-panel]").hidden=!e.target.checked; });
   $("[data-mention-all]").addEventListener("change",e=>{ $("[data-mention-users]").hidden=e.target.checked; });
   ["[data-user-search]","[data-recipient-search]","[data-filter-user-search]"].forEach(sel=>$(sel).addEventListener("input",syncUserLists));
-  ["[data-mention-users]","[data-recipient-users]","[data-filter-users]","[data-comment-recipients]"].forEach(sel=>$(sel).addEventListener("change",()=>{ if(sel==="[data-mention-users]") selectedPeople=new Set(chosen(sel)); if(sel==="[data-filter-users]") filterPeople=new Set(chosen(sel)); }));
+  ["[data-mention-users]","[data-recipient-users]","[data-filter-users]","[data-comment-recipients]","[data-tag-users]"].forEach(sel=>$(sel).addEventListener("change",e=>{const input=e.target.closest('input[type="checkbox"]');if(!input)return;const set=sel==="[data-mention-users]"?selectedPeople:sel==="[data-recipient-users]"?selectedRecipients:sel==="[data-filter-users]"?filterPeople:sel==="[data-tag-users]"?selectedTagPeople:null;if(set){if(input.checked)set.add(input.value);else set.delete(input.value);}}));
   $("[data-title-filter]").addEventListener("change",e=>{kind=e.target.value;if(kind!=="album")activeAlbumId=null;draw();});
   $("[data-search]").addEventListener("input",draw);
   $("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
@@ -465,8 +465,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.myDescription=description;x.descriptions=(x.descriptions||[]).filter(row=>row.user_id!==user.id);if(description)x.descriptions.push({user_id:user.id,description,updated_at:new Date().toISOString()});x.peopleLookup=peopleMap;x.description=[x.sourceDescription,...x.descriptions.map(row=>row.description)].filter(Boolean).join(" ");$("[data-viewer-description]").innerHTML=descriptionMarkup(x);draw();say("Descrição salva.");e.currentTarget.hidden=true;});
   $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}$("[data-context-menu]").hidden=true;$("[data-tag-search]").value="";$("[data-tag-users]").innerHTML=usersHtml(new Set(x.peopleIds||[]),"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
   $("[data-close-tags]").forEach(b=>b.addEventListener("click",()=>$("[data-tags-modal]").hidden=true));
-  $("[data-tag-search]").addEventListener("input",()=>{const selected=new Set(chosen("[data-tag-users]"));$("[data-tag-users]").innerHTML=usersHtml(selected,$("[data-tag-search]").value);});
-  $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(chosen("[data-tag-users]"));const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
+  $("[data-tag-search]").addEventListener("input",()=>{$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,$("[data-tag-search]").value);});
+  $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(selectedTagPeople);const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];selectedTagPeople=new Set(selected);$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
   $$("[data-open-comments]").forEach(b=>b.addEventListener("click",loadComments));
   $("[data-close-comments]").addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;});
   $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;}));
