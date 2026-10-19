@@ -24,7 +24,9 @@ if (!isSupabaseConfigured || !supabase) {
   status("O login não está configurado. Confira config.js.");
 } else {
   const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session) window.location.replace("home.html");
+  const requestedNext = new URLSearchParams(window.location.search).get("next");
+  const nextPage = requestedNext && /^[a-z0-9_-]+\.html$/i.test(requestedNext) ? requestedNext : "home.html";
+  if (sessionData.session) window.location.replace(nextPage);
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -43,7 +45,7 @@ if (!isSupabaseConfigured || !supabase) {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password: secret });
       if (error) throw error;
-      window.location.replace("home.html");
+      window.location.replace(nextPage);
     } catch (error) {
       status(/invalid login credentials/i.test(String(error?.message || ""))
         ? "Usuário ou senha incorretos."
