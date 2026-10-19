@@ -21,7 +21,7 @@ with check (
   and byte_size >= 1
   and (storage.foldername(storage_path))[1] = 'gallery'
   and private.try_uuid((storage.foldername(storage_path))[2]) = (select auth.uid())
-  and storage.filename(storage_path) ~ $re$^([a-f0-9]{32}|[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[a-z0-9]{1,20}$$re$
+  and storage.filename(storage_path) ~ $re$^([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[a-z0-9]{1,20}$$re$
 );
 
 alter table public.community_gallery_media
