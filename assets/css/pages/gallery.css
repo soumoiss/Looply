@@ -616,3 +616,6 @@ body.gallery-viewer-open{overflow:hidden}
   .page-gallery .gallery-viewer-details .gallery-photo-adjust { padding: 10px; gap: 8px; }
   .page-gallery .gallery-photo-adjust-footer > * { flex: 1 1 120px; }
 }
+
+.page-gallery .gallery-context-menu button[hidden] { display: none !important; }
+.page-gallery .gallery-photo-adjust[hidden] { display: none !important; }
