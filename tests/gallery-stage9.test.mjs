@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pendingMigration, styles] = await Promise.all([
+const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pendingMigration, publicationGuard, styles] = await Promise.all([
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
   readFile(new URL("../galeria.html", import.meta.url), "utf8"),
   readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8"),
@@ -10,6 +10,7 @@ const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pend
   readFile(new URL("../supabase/migrations/20261019024648_gallery_albums.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019025302_gallery_media_reference_cleanup.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019025446_gallery_pending_uploads.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019025614_gallery_publication_state_guard.sql", import.meta.url), "utf8"),
   readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8")
 ]);
 
@@ -77,4 +78,11 @@ test("incomplete uploads stay hidden and can be cleaned up by their owner", () =
   assert.match(gallery, /publication_state:"pending"/);
   assert.match(gallery, /cleanup_pending_gallery_media/);
   assert.match(gallery, /publication_state:"published"/);
+});
+
+
+test("published gallery media cannot be downgraded to pending to bypass deletion policy", () => {
+  assert.match(publicationGuard, /old\.publication_state='published'/);
+  assert.match(publicationGuard, /new\.publication_state<>'published'/);
+  assert.match(publicationGuard, /before update of publication_state/);
 });
