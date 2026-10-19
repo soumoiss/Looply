@@ -16,7 +16,7 @@ const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: 
 const navigationIcons = {
   home: icon("home"),
   music: icon("music"),
-  gallery: icon("image"),
+  gallery: icon("camera"),
   chat: icon("chat"),
   profile: icon("user"),
   letters: icon("mail"),
