@@ -23,7 +23,7 @@ const galleryMarkup = () => [
   '<div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><button class="gallery-primary" type="button" data-open-upload>', icon("plus"), ' Adicionar mídia</button></div>',
   '<div class="gallery-main-controls" aria-label="Filtros principais">',
     '<button class="gallery-tab active" type="button" data-main="recentes">', icon("refresh"), ' Recente</button>',
-    '<label class="gallery-select-label">', icon("filter"), ' <span>Título</span><select data-title-filter aria-label="Filtrar por formato"><option value="all">Todos</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="album">Álbuns</option><option value="audio">Áudios</option></select></label>',
+    '<label class="gallery-select-label">', icon("filter"), ' <span>Tipos</span><select data-title-filter aria-label="Filtrar por formato"><option value="all">Todos</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="album">Álbuns</option><option value="audio">Áudios</option></select></label>',
     '<button class="gallery-tab" type="button" data-main="privadas">', icon("lock"), ' Privadas</button>',
     '<button class="gallery-tab" type="button" data-open-people-filter>', icon("users"), ' Pessoas</button>',
     '<button class="gallery-tab" type="button" data-main="exclusivos">', icon("shield"), ' Exclusivos</button>',
