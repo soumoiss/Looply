@@ -8,7 +8,7 @@ with check (
   bucket_id = 'looply-gallery'
   and (storage.foldername(name))[1] = 'gallery'
   and private.try_uuid((storage.foldername(name))[2]) = (select auth.uid())
-  and storage.filename(name) ~ $re$^([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[a-z0-9]{1,20}$$re$
+  and storage.filename(name) ~ $re$^([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})[.][a-z0-9]{1,20}$$re$
 );
 
 drop policy if exists community_gallery_owner_insert_pending on public.community_gallery_media;
@@ -21,7 +21,7 @@ with check (
   and byte_size >= 1
   and (storage.foldername(storage_path))[1] = 'gallery'
   and private.try_uuid((storage.foldername(storage_path))[2]) = (select auth.uid())
-  and storage.filename(storage_path) ~ $re$^([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[a-z0-9]{1,20}$$re$
+  and storage.filename(storage_path) ~ $re$^([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})[.][a-z0-9]{1,20}$$re$
 );
 
 alter table public.community_gallery_media
@@ -31,6 +31,6 @@ alter table public.community_gallery_media
   check (
     storage_path ~ (
       '^gallery/' || owner_id::text ||
-      $re$/([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[a-z0-9]{1,20}$$re$
+      $re$/([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})[.][a-z0-9]{1,20}$$re$
     )
   );
