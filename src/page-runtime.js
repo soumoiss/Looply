@@ -128,6 +128,12 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) {
+    // The gallery must remain visibly usable as a landing page when a session expires.
+    // Other authenticated pages keep the existing sign-in redirect.
+    if (page === "gallery") {
+      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><div><div class="gallery-eyebrow">Seu espaço compartilhado</div><h1 class="gallery-title">Galeria</h1><p class="gallery-subtitle">Fotos, vídeos e lembranças da comunidade Looply, reunidos em um só lugar.</p></div><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Entre na sua conta Looply para visualizar as mídias, publicar fotos e vídeos e interagir com a comunidade.</p></section>`;
+      return;
+    }
     await supabase.auth.signOut();
     window.location.replace("login.html");
     return;
@@ -148,7 +154,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  if (!profile.avatar_path && page !== "profile") {
+  if (!profile.avatar_path && page !== "profile" && page !== "gallery") {
     window.location.replace("perfil.html?foto=obrigatoria");
     return;
   }
