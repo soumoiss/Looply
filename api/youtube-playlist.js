@@ -58,6 +58,17 @@ function safeReason(data) {
   return /^[A-Za-z0-9_-]{1,80}$/.test(reason) ? reason : "";
 }
 
+function playlistIdFromUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || !["youtube.com", "www.youtube.com", "music.youtube.com"].includes(url.hostname.toLowerCase()) || url.pathname !== "/playlist") return "";
+    const id = url.searchParams.get("list") || "";
+    return /^[A-Za-z0-9_-]{1,100}$/.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
 export async function handleYouTubePlaylist(request, response, options = {}) {
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
@@ -114,8 +125,16 @@ export async function handleYouTubePlaylist(request, response, options = {}) {
     return respond(response, 400, { error: "invalid_request" });
   }
   const playlistId = String(requestUrl.searchParams.get("playlistId") || "");
-  if (!allowedPlaylists.has(playlistId)) {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(playlistId)) {
     return respond(response, 400, { error: "youtube_playlist_not_allowed" });
+  }
+  if (!allowedPlaylists.has(playlistId)) {
+    const profile = await fetchJson(fetchImpl, origin + "/rest/v1/profiles?id=eq." + encodeURIComponent(auth.data.id) + "&select=playlist_url", {
+      method: "GET",
+      headers: { accept: "application/json", apikey: publishableKey, authorization: "Bearer " + token }
+    }, 3000);
+    const configuredPlaylistId = profile.response?.ok && Array.isArray(profile.data) ? playlistIdFromUrl(profile.data[0]?.playlist_url) : "";
+    if (configuredPlaylistId !== playlistId) return respond(response, 400, { error: "youtube_playlist_not_allowed" });
   }
   const pageToken = String(requestUrl.searchParams.get("pageToken") || "");
   if (pageToken.length > 2048 || /[\u0000-\u001f\u007f]/.test(pageToken)) {

@@ -17,7 +17,7 @@ test("playlist remains sourced from the YouTube Data API with complete paginatio
   assert.match(proxy, /upstreamEndpoint = "https:\/\/looply-mu\.vercel\.app\/api\/youtube-playlist"/);
   assert.match(proxy, /headers: \{ accept: "application\/json", authorization \}/);
   assert.match(proxy, /access-control-allow-origin/);
-  assert.match(proxy, /allowedPlaylists\.has\(playlistId\)/);
+  assert.match(proxy, /test\(playlistId\)/);
   assert.doesNotMatch(api, /AIzaSy[A-Za-z0-9_-]{20,}/);
   assert.match(api, /youtube_quota_exceeded/);
 });

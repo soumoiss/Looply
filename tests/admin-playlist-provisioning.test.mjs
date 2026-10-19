@@ -8,10 +8,12 @@ const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
 
 test("admin user provisioning persists an optional YouTube playlist without exposing credentials", async () => {
-  const [migration, edge, admin] = await Promise.all([
+  const [migration, edge, admin, api, relay] = await Promise.all([
     read("supabase/migrations/20261020093000_profile_playlist_url.sql"),
     read("supabase/functions/looply-admin/index.ts"),
-    read("src/admin.js")
+    read("src/admin.js"),
+    read("api/youtube-playlist.js"),
+    read("supabase/functions/looply-youtube-playlist/index.ts")
   ]);
 
   assert.match(migration, /add column if not exists playlist_url text/i);
@@ -25,6 +27,9 @@ test("admin user provisioning persists an optional YouTube playlist without expo
   assert.match(admin, /name="playlistUrl"/);
   assert.match(admin, /name="confirmPassword"/);
   assert.match(admin, /password !== confirmPassword/);
+  assert.match(api, /rest\/v1\/profiles\?id=eq/);
+  assert.match(api, /configuredPlaylistId !== playlistId/);
+  assert.match(relay, /\^\[A-Za-z0-9_\-\]\{1,100\}\$/);
   assert.match(admin, /playlistUrl, purpose/);
 });
 

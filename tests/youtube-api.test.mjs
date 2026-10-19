@@ -41,13 +41,14 @@ test("YouTube playlist API validates the Supabase session and only allows config
     env,
     fetchImpl: async (url) => {
       calls += 1;
-      assert.match(String(url), /auth\/v1\/user$/);
-      return { ok: true, status: 200, json: async () => ({ id: "authenticated-user" }) };
+      if (/auth\/v1\/user$/.test(String(url))) return { ok: true, status: 200, json: async () => ({ id: "authenticated-user" }) };
+      assert.match(String(url), /rest\/v1\/profiles\?id=eq\.authenticated-user/);
+      return { ok: true, status: 200, json: async () => [] };
     }
   });
   assert.equal(response.statusCode, 400);
   assert.equal(JSON.parse(response.body).error, "youtube_playlist_not_allowed");
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test("YouTube playlist API keeps the Google key server-side and returns normalized track data", async () => {

@@ -59,7 +59,7 @@ Deno.serve(async (request: Request) => {
   }
   const playlistId = String(params.get("playlistId") || "");
   const pageToken = String(params.get("pageToken") || "");
-  if (!allowedPlaylists.has(playlistId)) {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(playlistId)) {
     return respond(origin, 400, { error: "youtube_playlist_not_allowed" });
   }
   if (pageToken.length > 2048 || /[\u0000-\u001f\u007f]/.test(pageToken)) {
