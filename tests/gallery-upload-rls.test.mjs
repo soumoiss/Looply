@@ -53,4 +53,5 @@ const ownerReadMigration = await readFile(
 test("gallery owner can read pending media for INSERT RETURNING without exposing it to other users", () => {
   assert.ok(ownerReadMigration.includes("create policy community_gallery_members_read"));
   assert.ok(ownerReadMigration.includes("owner_id = (select auth.uid())"));
+  assert.ok(ownerReadMigration.includes("private.can_view_community_gallery_media(community_gallery_media.id)"));
 });
