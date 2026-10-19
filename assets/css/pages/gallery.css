@@ -1,0 +1,50 @@
+/* Looply Gallery — shared app theme */
+.page-gallery .gallery-shell{max-width:1440px;margin:0 auto;padding:clamp(16px,3vw,34px);color:var(--text,#292235);font-family:"Plus Jakarta Sans",system-ui,sans-serif}
+.page-gallery .gallery-hero{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+.page-gallery .gallery-eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted,#81768e);font-weight:800}
+.page-gallery .gallery-title{font-size:clamp(28px,4vw,42px);letter-spacing:-.05em;margin:5px 0 8px;font-weight:800}
+.page-gallery .gallery-subtitle{margin:0;color:var(--muted,#81768e);max-width:650px;line-height:1.6}
+.page-gallery .gallery-primary,.page-gallery .gallery-tool,.page-gallery .gallery-tab,.page-gallery .gallery-chip{border:1px solid var(--border,#e8e0ef);border-radius:13px;padding:10px 15px;font:inherit;font-weight:700;cursor:pointer;background:var(--surface,#fff);color:inherit;transition:.18s}
+.page-gallery .gallery-primary{background:var(--accent,#8062bd);color:white;border-color:transparent;box-shadow:0 6px 18px #8062bd26}
+.page-gallery .gallery-primary:hover,.page-gallery .gallery-tool:hover,.page-gallery .gallery-tab:hover,.page-gallery .gallery-chip:hover{transform:translateY(-1px);border-color:var(--accent,#8062bd)}
+.page-gallery .gallery-tabs,.page-gallery .gallery-filters,.page-gallery .gallery-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.page-gallery .gallery-tabs{border-bottom:1px solid var(--border,#e8e0ef);padding-bottom:12px;margin-bottom:16px}
+.page-gallery .gallery-tab{border:0;background:transparent;color:var(--muted,#81768e);border-radius:10px}
+.page-gallery .gallery-tab.active,.page-gallery .gallery-chip.active{background:var(--accent-soft,#f0eafb);color:var(--accent,#8062bd)}
+.page-gallery .gallery-toolbar{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:16px 0}
+.page-gallery .gallery-search{flex:1;min-width:180px;max-width:390px;border:1px solid var(--border,#e8e0ef);border-radius:13px;padding:12px 14px;background:var(--surface,#fff);color:inherit;font:inherit}
+.page-gallery .gallery-filters{margin:14px 0}
+.page-gallery .gallery-chip{padding:8px 12px;border-radius:999px;font-size:12px}
+.page-gallery .gallery-count{font-size:12px;color:var(--muted,#81768e);font-weight:700}
+.page-gallery .gallery-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.page-gallery .gallery-grid.list{grid-template-columns:1fr}
+.page-gallery .gallery-grid.masonry{grid-template-columns:repeat(3,minmax(0,1fr))}
+.page-gallery .gallery-card{min-width:0;overflow:hidden;border:1px solid var(--border,#e8e0ef);border-radius:18px;background:var(--surface,#fff);box-shadow:0 5px 22px #30204108}
+.page-gallery .gallery-media{aspect-ratio:4/3;background:var(--surface-muted,#f5f0fa);display:grid;place-items:center;overflow:hidden;cursor:pointer}
+.page-gallery .gallery-media img,.page-gallery .gallery-media video{width:100%;height:100%;object-fit:cover;display:block}
+.page-gallery .gallery-grid.list .gallery-card{display:grid;grid-template-columns:minmax(150px,260px) 1fr}
+.page-gallery .gallery-grid.list .gallery-media{height:100%;min-height:160px;aspect-ratio:auto}
+.page-gallery .gallery-card-body{padding:14px}
+.page-gallery .gallery-card-title{font-size:14px;font-weight:800;margin:0 0 6px;overflow-wrap:anywhere}
+.page-gallery .gallery-meta,.page-gallery .gallery-description{font-size:12px;line-height:1.6;color:var(--muted,#81768e)}
+.page-gallery .gallery-description{margin:8px 0}
+.page-gallery .gallery-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.page-gallery .gallery-card-actions button{border:1px solid var(--border,#e8e0ef);background:transparent;color:inherit;border-radius:10px;padding:7px 10px;font:inherit;font-size:12px;cursor:pointer}
+.page-gallery .gallery-empty,.page-gallery .gallery-notice{padding:26px;border:1px dashed var(--border,#e8e0ef);border-radius:18px;text-align:center;color:var(--muted,#81768e);line-height:1.6}
+.page-gallery .gallery-modal{position:fixed;inset:0;background:#1d142bb8;display:grid;place-items:center;padding:18px;z-index:1000}
+.page-gallery .gallery-modal[hidden]{display:none}
+.page-gallery .gallery-dialog{width:min(560px,100%);max-height:90dvh;overflow:auto;background:var(--surface,#fff);color:inherit;border-radius:22px;padding:22px;box-shadow:0 24px 80px #130d1e55}
+.page-gallery .gallery-dialog h2{margin:0 0 16px}
+.page-gallery .gallery-form{display:grid;gap:13px}
+.page-gallery .gallery-form label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.page-gallery .gallery-form input,.page-gallery .gallery-form textarea,.page-gallery .gallery-form select{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--border,#e8e0ef);border-radius:11px;background:var(--surface,#fff);color:inherit;font:inherit}
+.page-gallery .gallery-form textarea{min-height:90px;resize:vertical}
+.page-gallery .gallery-dialog-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:8px}
+.page-gallery .gallery-viewer{position:fixed;inset:0;background:#0e0b12f2;display:grid;place-items:center;z-index:1100;padding:24px}
+.page-gallery .gallery-viewer[hidden]{display:none}
+.page-gallery .gallery-viewer img,.page-gallery .gallery-viewer video{max-width:95vw;max-height:84dvh;object-fit:contain}
+.page-gallery .gallery-viewer button{position:absolute;right:18px;top:18px;background:#ffffff20;color:white;border:1px solid #ffffff55;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer}
+.page-gallery .gallery-status{margin:10px 0;font-size:13px}
+@media(max-width:1050px){.page-gallery .gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.page-gallery .gallery-shell{padding:16px}.page-gallery .gallery-grid,.page-gallery .gallery-grid.masonry{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.page-gallery .gallery-grid.list .gallery-card{grid-template-columns:110px 1fr}.page-gallery .gallery-card-body{padding:10px}.page-gallery .gallery-title{font-size:30px}}
+@media(max-width:420px){.page-gallery .gallery-grid,.page-gallery .gallery-grid.masonry{grid-template-columns:1fr}.page-gallery .gallery-grid.list .gallery-card{grid-template-columns:100px 1fr}}
