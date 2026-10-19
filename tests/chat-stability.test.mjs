@@ -175,6 +175,13 @@ test("call protocol scopes every lifecycle event to one call and rejects invalid
   assert.equal(canTransitionCall(CALL_STATES.CONNECTED, CALL_STATES.RINGING), false);
 });
 
+test("caller processes a valid answer even if WebRTC already moved the lifecycle to connecting", async () => {
+  const source = await read("src/chat-calls.js");
+  assert.match(source, /payload\.type === "answer"[\s\S]*?\[CALL_STATES\.DIALING, CALL_STATES\.CONNECTING\]\.includes\(callState\)/);
+  assert.match(source, /setRemoteDescription\(payload\.description\)/);
+  assert.match(source, /callTimeout = clearTimer\(callTimeout\)/);
+});
+
 test("call controller ignores stale events and uses distinct cancel, decline, busy, and failure states", async () => {
   const source = await read("src/chat-calls.js");
   assert.match(source, /isSignalForCall\(payload, activeCall\)/);
