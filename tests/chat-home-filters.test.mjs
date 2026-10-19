@@ -22,4 +22,14 @@ test("chat page has a home link and all conversation filters apply consistently"
   assert.match(chat, /activeFilter === "groups" && isGroup/);
   assert.match(chat, /activeFilter === "favorites" && favorites\.has/);
   assert.match(chat, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
+  assert.match(chat, /conversationFilterButton\.dataset\.chatFilter/);
+  assert.match(chat, /\["all", "unread", "groups", "favorites"\]/);
+  assert.match(chat, /avatar_path/);
+  assert.match(chat, /createSignedUrls\(avatarProfiles\.map\(\(profile\) => profile\.avatar_path\)/);
+});
+
+test("chat keeps the global header and gives the send icon a fixed size", async () => {
+  const css = await read("assets/css/pages/chat.css");
+  assert.doesNotMatch(css, /\.page-chat \.page-header[^\n]*display:none/);
+  assert.match(css, /chat-message-actions \.primary-button \.looply-icon \{ width:18px; height:18px/);
 });

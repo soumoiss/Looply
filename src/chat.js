@@ -865,11 +865,18 @@ export function bindChatEvents(root, client, getUserId) {
       } else if (form.matches("[data-chat-search]")) {
         const query = String(values.get("query") || "").trim().toLowerCase();
         if (!/^[a-z0-9_]{3,30}$/.test(query)) throw new Error("invalid query");
-        const { data, error } = await client.from("profiles").select("id,username,display_name").ilike("username", `${query}%`).neq("id", userId).order("username").limit(20);
+        const { data, error } = await client.from("profiles").select("id,username,display_name,avatar_path").ilike("username", `${query}%`).neq("id", userId).order("username").limit(20);
         if (error) throw error;
+        const profiles = data || [];
+        const avatarProfiles = profiles.filter((profile) => profile.avatar_path);
+        if (avatarProfiles.length) {
+          const { data: signed } = await client.storage.from("looply-avatars")
+            .createSignedUrls(avatarProfiles.map((profile) => profile.avatar_path), 1800);
+          if (signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+        }
         const container = root.querySelector("[data-chat-people]");
-        if (container) container.innerHTML = (data || []).map((profile) => `<article class="chat-person"><span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
-        setStatus(form, `${(data || []).length} perfil(is) encontrado(s).`);
+        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        setStatus(form, `${profiles.length} perfil(is) encontrado(s).`);
       } else if (form.matches("[data-letter-send]")) {
         const subject = String(values.get("subject") || "").trim();
         const body = String(values.get("body") || "").trim();
