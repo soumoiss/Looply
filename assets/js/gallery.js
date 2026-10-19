@@ -118,7 +118,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
         client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
-        client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,created_at,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)").order("created_at",{ascending:false}).range(start,end),
+        client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)").order("created_at",{ascending:false}).range(start,end),
         client.from("profiles").select("id,username,display_name").order("display_name").limit(500),
         client.from("gallery_media_people").select("source,media_id,person_id"),
         client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),
@@ -183,6 +183,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const visible = () => {
     let list = items.filter(x => {
       const type = mediaType(x), key = mediaKey(x);
+      if (x.source === "community" && x.publication_state !== "published") return false;
       if (activeAlbumId) {
         if (!(albumItemKeys.get(activeAlbumId) || new Set()).has(key)) return false;
       } else {
@@ -318,7 +319,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     let uploaded = 0, completed = 0, failures = [];
     try {
       for (const file of files) {
-        let path = "";
+        let path = "", mediaId = null;
         try {
           const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi,"").toLowerCase();
           const objectId = crypto.randomUUID();
@@ -328,9 +329,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
           const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "image";
           const { data: row, error: rowError } = await client.from("community_gallery_media").insert({
             owner_id:user.id, storage_path:path, file_name:file.name, kind, mime_type:file.type,
-            byte_size:file.size, caption:"", visibility:exclusive ? "exclusive" : "members", comment_access:"viewers"
+            byte_size:file.size, caption:"", visibility:exclusive ? "exclusive" : "members", comment_access:"viewers", publication_state:"pending"
           }).select("id").single();
           if (rowError) throw rowError;
+          mediaId = row.id;
           if (exclusive) {
             const safeViewers = [...new Set([...viewerIds,user.id])];
             const { error } = await client.rpc("set_gallery_media_permissions", {
@@ -344,20 +346,27 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
               user_id:user.id, source:"community", media_id:row.id, description,
               category:kind === "video" ? "video" : kind === "audio" ? "audio" : "photo"
             },{onConflict:"user_id,source,media_id"});
-            if (error) console.warn("Mídia enviada, mas a descrição não foi salva",error);
+            if (error) throw error;
           }
           if (mentionIds.length) {
             const tags = [...new Set(mentionIds)].map(person_id=>({source:"community",media_id:row.id,person_id,created_by:user.id}));
             const { error } = await client.from("gallery_media_people").insert(tags);
-            if (error) console.warn("Mídia enviada, mas algumas menções não foram salvas",error);
+            if (error) throw error;
           }
+          const { error: publishError } = await client.from("community_gallery_media").update({publication_state:"published"}).eq("id",row.id).eq("owner_id",user.id);
+          if (publishError) throw publishError;
           completed++;
         } catch (error) {
           console.error("Upload failed",file.name,error);
           failures.push(file.name + ": " + (error.message || "falha no envio"));
-          if (path && !items.some(x=>x.storage_path===path)) {
-            const { data: row } = await client.from("community_gallery_media").select("id").eq("storage_path",path).maybeSingle();
+          if (mediaId) {
+            const { error: cleanupError } = await client.rpc("cleanup_pending_gallery_media",{p_media_id:mediaId});
+            if (!cleanupError && path) await client.storage.from("looply-gallery").remove([path]).catch(()=>{});
+            else console.warn("A mídia ficou em estado pendente e precisa de reconciliação administrativa",cleanupError);
+          } else if (path && !items.some(x=>x.storage_path===path)) {
+            const { data: row } = await client.from("community_gallery_media").select("id,publication_state").eq("storage_path",path).maybeSingle();
             if (!row) await client.storage.from("looply-gallery").remove([path]).catch(()=>{});
+            else if (row.publication_state === "pending") { const {error:cleanupError}=await client.rpc("cleanup_pending_gallery_media",{p_media_id:row.id}); if(!cleanupError)await client.storage.from("looply-gallery").remove([path]).catch(()=>{}); }
           }
         }
         uploaded++;
