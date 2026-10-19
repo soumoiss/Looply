@@ -185,3 +185,5 @@ body.gallery-viewer-open{overflow:hidden}
 .page-gallery .gallery-description-item small{font-size:10px;color:var(--muted,#81768e)}
 .page-gallery .gallery-viewer-description .gallery-description-item{margin:6px 0}
 .page-gallery .gallery-viewer-description .gallery-description-item small{color:#ffffffb5}
+
+.page-gallery .gallery-viewer .gallery-viewer-nav{position:static;right:auto;top:auto;}
