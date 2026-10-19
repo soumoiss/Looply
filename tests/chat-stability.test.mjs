@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { CALL_STATES, canTransitionCall, createCallId, hasCallScope, isSignalForCall } from "../src/call-protocol.js";
 
 const read = (path) => readFile(resolve(process.cwd(), path), "utf8");
 
@@ -107,7 +106,8 @@ test("tic-tac-toe randomizes the first starter, gives the previous winner the ne
   assert.match(indexes, /chat_ttt_results_conversation_created_idx/);
 });
 
-test("incoming direct calls are listened for on authenticated pages outside the active chat", async () => {
+
+test("global incoming calls and the active-chat controller use the same legacy signaling contract", async () => {
   const [runtime, globalListener, callController] = await Promise.all([
     read("src/page-runtime.js"), read("src/global-call-listener.js"), read("src/chat-calls.js")
   ]);
@@ -115,11 +115,13 @@ test("incoming direct calls are listened for on authenticated pages outside the 
   assert.match(globalListener, /from\("conversation_participants"\)/);
   assert.match(globalListener, /config: \{ private: true/);
   assert.match(globalListener, /conversation\.kind !== "direct"/);
-  assert.match(globalListener, /participants\.some\(\(participant\) => participant\.user_id === payload\.senderId\)/);
   assert.match(globalListener, /looply:pending-call:/);
+  assert.match(globalListener, /type, conversationId: call\.conversationId, senderId: userId/);
   assert.match(callController, /restorePendingIncomingCall\(id\)/);
-  assert.match(callController, /offerRetryTimer/);
-  assert.match(globalListener, /callId: call\.id/);
+  assert.match(callController, /payload\.type === "answer" && pc && isCaller/);
+  assert.match(callController, /type, conversationId: topic, senderId: userId/);
+  assert.doesNotMatch(globalListener, /callId: call\.id/);
+  assert.doesNotMatch(callController, /callId/);
 });
 
 test("private call signaling authorization is limited to direct conversation members", async () => {
@@ -130,19 +132,42 @@ test("private call signaling authorization is limited to direct conversation mem
   assert.match(migration, /cp\.user_id = \(select auth\.uid\(\)\)/i);
 });
 
-test("a handed-off call requires an explicit media gesture and never turns a permission block into decline", async () => {
+test("a call accepted from the global notification is restored and handed to the original accept flow", async () => {
   const source = await read("src/chat-calls.js");
   const start = source.indexOf("const restorePendingIncomingCall =");
-  const end = source.indexOf("\n  const handleSignal =", start);
+  const end = source.indexOf("\n  const ensureChannel =", start);
   assert.ok(start >= 0 && end > start, "pending call restoration helper must exist");
   const restore = source.slice(start, end);
   assert.match(restore, /pending\.accepted !== true/);
-  assert.match(restore, /renderIncoming\(\)/);
-  assert.match(restore, /explicit tap/);
-  assert.doesNotMatch(restore, /void acceptCall\(\)/);
+  assert.match(restore, /pending\.conversationId !== conversationId/);
+  assert.match(restore, /window\.setTimeout\(\(\) => \{[\s\S]*?void acceptCall\(\)/);
+  assert.match(source, /getUserMedia\(\{ audio: true, video: callMode === "video" \}\)/);
   assert.match(source, /PermissionDeniedError/);
-  assert.match(source, /data-call-accept/);
   assert.match(source, /Permita o acesso ao microfone/);
+  assert.match(source, /if \(\["NotAllowedError", "PermissionDeniedError"\]\.includes\(error\?\.name\)\)[\s\S]*?return;[\s\S]*?await send\("decline"\)/);
+});
+
+test("caller and receiver exchange offers, answers, and queued ICE candidates using the previously working WebRTC flow", async () => {
+  const source = await read("src/chat-calls.js");
+  assert.match(source, /const offerPayload = \{/);
+  assert.match(source, /description: pc\.localDescription\.toJSON\(\)/);
+  assert.match(source, /send\("offer", offerPayload\)/);
+  assert.match(source, /offerRetryTimer = setInterval\(/);
+  assert.match(source, /payload\.type === "answer" && pc && isCaller/);
+  assert.match(source, /await pc\.setRemoteDescription\(payload\.description\)/);
+  assert.match(source, /await pc\.setLocalDescription\(answer\)/);
+  assert.match(source, /send\("answer", \{ description: pc\.localDescription\.toJSON\(\) \}\)/);
+  assert.match(source, /else pendingCandidates\.push\(payload\.candidate\)/);
+  assert.match(source, /await pc\.addIceCandidate\(candidate\)/);
+});
+
+test("remote audio/video tracks remain attached to the remote stream and the speaker is unmuted", async () => {
+  const source = await read("src/chat-calls.js");
+  assert.match(source, /let remoteStream = null/);
+  assert.match(source, /pc\.ontrack = \(event\) =>/);
+  assert.match(source, /remoteStream\.addTrack\(event\.track\)/);
+  assert.match(source, /remote\.muted = false/);
+  assert.match(source, /remote\.play\(\)/);
 });
 
 test("tic-tac-toe shows actual player names and resolves the winner from the winning player ID", async () => {
@@ -154,41 +179,17 @@ test("tic-tac-toe shows actual player names and resolves the winner from the win
   assert.doesNotMatch(source, /senderName: root\.querySelector\("\[data-site-header\]"\)\?\.textContent/);
 });
 
-test("remote audio/video tracks are captured before answer negotiation and audio playback has an explicit fallback", async () => {
-  const source = await read("src/chat-calls.js");
-  assert.match(source, /let remoteStream = null/);
-  assert.match(source, /if \(!remoteStream\) remoteStream = new MediaStream\(\)/);
-  assert.match(source, /pc\.ontrack = \(event\) =>/);
-  assert.match(source, /data-call-enable-audio/);
-  assert.match(source, /remote\.muted = false/);
-});
 
-test("call protocol scopes every lifecycle event to one call and rejects invalid state transitions", () => {
-  const callId = createCallId();
-  const call = { id: callId, conversationId: "conversation-1" };
-  const signal = { callId, conversationId: "conversation-1", senderId: "user-2" };
-  assert.ok(hasCallScope(signal));
-  assert.ok(isSignalForCall(signal, call));
-  assert.equal(isSignalForCall({ ...signal, callId: createCallId() }, call), false);
-  assert.ok(canTransitionCall(CALL_STATES.IDLE, CALL_STATES.DIALING));
-  assert.ok(canTransitionCall(CALL_STATES.RINGING, CALL_STATES.ACCEPTING));
-  assert.equal(canTransitionCall(CALL_STATES.CONNECTED, CALL_STATES.RINGING), false);
-});
 
-test("caller processes a valid answer even if WebRTC already moved the lifecycle to connecting", async () => {
-  const source = await read("src/chat-calls.js");
-  assert.match(source, /payload\.type === "answer"[\s\S]*?\[CALL_STATES\.DIALING, CALL_STATES\.CONNECTING\]\.includes\(callState\)/);
-  assert.match(source, /setRemoteDescription\(payload\.description\)/);
-  assert.match(source, /callTimeout = clearTimer\(callTimeout\)/);
-  assert.match(source, /activeCall\?\.id === call\.id && !pc\?\.remoteDescription/);
-});
 
-test("call controller ignores stale events and uses distinct cancel, decline, busy, and failure states", async () => {
+test("audio and video call controls remain available and stop media on hangup", async () => {
   const source = await read("src/chat-calls.js");
-  assert.match(source, /isSignalForCall\(payload, activeCall\)/);
-  assert.match(source, /Never let an old call control a new one/);
-  assert.match(source, /send\("busy"/);
-  assert.match(source, /signal: "cancel"/);
-  assert.match(source, /signal: "failed"/);
-  assert.match(source, /connectionState === "disconnected"/);
+  const css = await read("assets/css/pages/chat.css");
+  assert.match(source, /data-call-audio/);
+  assert.match(source, /data-call-video/);
+  assert.match(source, /data-call-toggle-mic/);
+  assert.match(source, /data-call-toggle-speaker/);
+  assert.match(source, /data-call-flip-camera/);
+  assert.match(source, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+  assert.match(css, /\.chat-call-backdrop\s*\{\s*position:\s*fixed/);
 });
