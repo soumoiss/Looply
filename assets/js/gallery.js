@@ -64,8 +64,8 @@ const galleryMarkup = () => [
 '<div class="gallery-modal" data-access-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title"><div class="gallery-dialog-heading"><h2 id="access-title">Administrar acesso</h2><button type="button" class="gallery-icon-button" data-close-access aria-label="Fechar">', icon("close"), '</button></div><form class="gallery-form" data-access-form><label>Visibilidade <select name="visibility"><option value="members">Todos os usuários autorizados</option><option value="exclusive">Somente pessoas selecionadas</option></select></label><label>Pesquisar pessoas <input type="search" data-access-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-access-users></div><p class="gallery-help">As permissões são verificadas pelo Supabase. A alteração não torna o arquivo público.</p><p class="gallery-status" data-access-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-access>Cancelar</button><button type="submit" class="gallery-primary">Salvar acesso</button></div></form></section></div>',
 '<div class="gallery-modal" data-tags-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="tags-title"><div class="gallery-dialog-heading"><h2 id="tags-title">Adicionar menções</h2><button type="button" class="gallery-icon-button" data-close-tags aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar pessoas <input type="search" data-tag-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-tag-users></div><p class="gallery-status" data-tag-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-tags>Cancelar</button><button type="button" class="gallery-primary" data-save-tags>Salvar menções</button></div></section></div>',
 '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
-  '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-manage-access hidden>', icon("shield"), ' Administrar acesso</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
-  '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><button type="button" class="gallery-tool" data-zoom-out aria-label="Reduzir zoom">−</button><button type="button" class="gallery-tool" data-zoom-in aria-label="Ampliar zoom">+</button><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
+  '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-manage-access hidden>', icon("shield"), ' Administrar acesso</button><button type="button" data-open-photo-adjust hidden>', icon("rotateLeft"), ' Ajustar foto (Peixinho)</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
+  '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><section class="gallery-photo-adjust" data-photo-adjust-panel hidden aria-label="Ajustar posição da foto"><div class="gallery-photo-adjust-heading"><strong>Ajustar foto</strong><span>Prévia local até salvar</span></div><div class="gallery-photo-adjust-actions"><button type="button" class="gallery-tool" data-rotate-left aria-label="Girar 90 graus para a esquerda"></button><button type="button" class="gallery-tool" data-rotate-right aria-label="Girar 90 graus para a direita"></button><button type="button" class="gallery-tool" data-reset-photo-adjust>Restaurar</button></div><label>Posição horizontal <input type="range" min="-20" max="20" step="1" value="0" data-position-x></label><label>Posição vertical <input type="range" min="-20" max="20" step="1" value="0" data-position-y></label><div class="gallery-photo-adjust-footer"><button type="button" class="gallery-tool" data-cancel-photo-adjust>Cancelar</button><button type="button" class="gallery-primary" data-save-photo-adjust>Publicar para todos</button></div><p class="gallery-status" data-photo-adjust-status role="status"></p></section><button type="button" class="gallery-tool" data-zoom-out aria-label="Reduzir zoom">−</button><button type="button" class="gallery-tool" data-zoom-in aria-label="Ampliar zoom">+</button><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
 '</div>',
 '<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Seu comentário <textarea name="body" maxlength="2000" required placeholder="Escreva um comentário…"></textarea></label><label>Quem pode ver?<select name="audience"><option value="media_viewers">Todos que podem ver a mídia</option><option value="author_only">Somente eu e o autor da mídia</option><option value="selected">Pessoas selecionadas</option></select></label><div class="gallery-user-list" data-comment-recipients hidden></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-comments>Fechar</button><button type="submit" class="gallery-primary">Comentar</button></div></form></section></div>',
 '<div class="gallery-camera-modal" data-camera-modal hidden><div class="gallery-camera-panel"><video data-camera-preview autoplay muted playsinline></video><div><button type="button" class="gallery-tool" data-switch-camera>', icon("cameraSwitch"), ' Trocar câmera</button><button type="button" class="gallery-primary" data-record>', icon("video"), ' Iniciar gravação</button><button type="button" class="gallery-tool" data-stop-camera>Fechar</button></div><p data-camera-status role="status"></p></div></div>'
@@ -140,6 +140,11 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.created_at, owner_id:null})),
         ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
+      const adjustmentIds = fresh.map(x => x.id);
+      const adjustmentsResult = adjustmentIds.length ? await client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds) : {data:[],error:null};
+      const adjustmentMap = new Map((adjustmentsResult.data || []).map(row => [row.source + ":" + row.media_id, row]));
+      fresh.forEach(x => { const row = adjustmentMap.get(mediaKey(x)); x.adjustment = { rotation:Number(row?.rotation || 0), positionX:Number(row?.position_x || 0), positionY:Number(row?.position_y || 0) }; });
+      if (adjustmentsResult.error) console.warn("Ajustes de foto compartilhados indisponíveis", adjustmentsResult.error);
       const descArchiveIds = fresh.filter(x=>x.source==="archive").map(x=>x.id);
       const descCommunityIds = fresh.filter(x=>x.source==="community").map(x=>x.id);
       const descResults = await Promise.all([
@@ -256,6 +261,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const type = mediaType(x);
     const media = type === "video" ? '<video src="' + esc(x.url) + '" controls autoplay playsinline></video>' : type === "audio" ? '<audio src="' + esc(x.url) + '" controls autoplay></audio>' : '<img src="' + esc(x.url) + '" alt="" draggable="false">';
     $("[data-viewer-media]").innerHTML = media;
+    applyPhotoAdjustment(x);
+    $("[data-photo-adjust-panel]").hidden = !(isAdmin && type === "image");
+    $("[data-open-photo-adjust]").hidden = !(isAdmin && type === "image");
+    $("[data-position-x]").value = String(x.adjustment?.positionX || 0);
+    $("[data-position-y]").value = String(x.adjustment?.positionY || 0);
+    $("[data-photo-adjust-status]").textContent = "";
     $("[data-viewer-date]").textContent = dateLabel(x.date);
     $("[data-viewer-description]").innerHTML = descriptionMarkup(x);
     $("[data-description-form]").hidden = true;
@@ -266,6 +277,41 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (x.isPrivate ? " Remover de Privadas" : " Mover para Privadas");
     $("[data-viewer]").hidden = false;
     document.body.classList.add("gallery-viewer-open");
+  };
+  const applyPhotoAdjustment = x => {
+    const image = $("[data-viewer-media] img");
+    if (!image) return;
+    const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
+    image.style.transform = "translate(" + Number(adjustment.positionX || 0) + "%," + Number(adjustment.positionY || 0) + "%) rotate(" + Number(adjustment.rotation || 0) + "deg)";
+    image.style.transformOrigin = "center center";
+  };
+  const draftPhotoAdjustment = patch => {
+    const x = getItem(activeKey);
+    if (!x || !isAdmin || mediaType(x) !== "image") return;
+    x.adjustment = {...(x.adjustment || {rotation:0,positionX:0,positionY:0}), ...patch};
+    applyPhotoAdjustment(x);
+  };
+  const savePhotoAdjustment = async () => {
+    const x = getItem(activeKey);
+    if (!x || !isAdmin || mediaType(x) !== "image") return;
+    const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
+    const button = $("[data-save-photo-adjust]");
+    button.disabled = true;
+    say("Publicando ajuste para todos…", $("[data-photo-adjust-status]"));
+    try {
+      const {error} = await client.rpc("set_gallery_media_adjustment", {
+        p_source:x.source, p_media_id:x.id, p_rotation:adjustment.rotation,
+        p_position_x:adjustment.positionX, p_position_y:adjustment.positionY
+      });
+      if (error) throw error;
+      x.savedAdjustment = {...adjustment};
+      $("[data-photo-adjust-panel]").hidden = true;
+      say("Ajuste publicado para todos os usuários.", $("[data-photo-adjust-status]"));
+      draw();
+    } catch (error) {
+      console.error("Gallery photo adjustment failed", error);
+      say("Não foi possível publicar. Confirme a conexão e a permissão administrativa.", $("[data-photo-adjust-status]"));
+    } finally { button.disabled = false; }
   };
   const closeViewer = () => { $("[data-viewer]").hidden = true; document.body.classList.remove("gallery-viewer-open"); activeKey = null; };
   const togglePrivate = async key => {
@@ -490,6 +536,24 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-apply-people]").addEventListener("click",()=>{matchAny=$("[data-match-any]").checked;$("[data-people-modal]").hidden=true;draw();});
   $("[data-close-viewer]").addEventListener("click",closeViewer);
   $("[data-toggle-menu]").addEventListener("click",()=>{$("[data-context-menu]").hidden=!$("[data-context-menu]").hidden;});
+  $("[data-open-photo-adjust]").addEventListener("click",()=>{
+    const x=getItem(activeKey);
+    if(!isAdmin||!x||mediaType(x)!=="image")return;
+    $("[data-context-menu]").hidden=true;
+    $("[data-photo-adjust-panel]").hidden=false;
+    $("[data-position-x]").value=String(x.adjustment?.positionX||0);
+    $("[data-position-y]").value=String(x.adjustment?.positionY||0);
+    $("[data-photo-adjust-status]").textContent="Gire e reposicione a foto; salve para publicar a correção para todos.";
+  });
+  $("[data-rotate-left]").innerHTML=icon("rotateLeft")+" Girar à esquerda";
+  $("[data-rotate-right]").innerHTML=icon("rotateRight")+" Girar à direita";
+  $("[data-rotate-left]").addEventListener("click",()=>{const x=getItem(activeKey);if(x)draftPhotoAdjustment({rotation:(((x.adjustment?.rotation||0)-90)%360+360)%360});});
+  $("[data-rotate-right]").addEventListener("click",()=>{const x=getItem(activeKey);if(x)draftPhotoAdjustment({rotation:((x.adjustment?.rotation||0)+90)%360});});
+  $("[data-position-x]").addEventListener("input",e=>draftPhotoAdjustment({positionX:Number(e.currentTarget.value)}));
+  $("[data-position-y]").addEventListener("input",e=>draftPhotoAdjustment({positionY:Number(e.currentTarget.value)}));
+  $("[data-reset-photo-adjust]").addEventListener("click",()=>draftPhotoAdjustment({rotation:0,positionX:0,positionY:0}));
+  $("[data-cancel-photo-adjust]").addEventListener("click",()=>{const x=getItem(activeKey);if(x){x.adjustment={...(x.savedAdjustment||x.adjustment),...(x.savedAdjustment||{rotation:0,positionX:0,positionY:0})};applyPhotoAdjustment(x);}$("[data-photo-adjust-panel]").hidden=true;});
+  $("[data-save-photo-adjust]").addEventListener("click",savePhotoAdjustment);
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
   $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea").value=getItem(activeKey)?.description||"";});
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.myDescription=description;x.descriptions=(x.descriptions||[]).filter(row=>row.user_id!==user.id);if(description)x.descriptions.push({user_id:user.id,description,updated_at:new Date().toISOString()});x.peopleLookup=peopleMap;x.description=[x.sourceDescription,...x.descriptions.map(row=>row.description)].filter(Boolean).join(" ");$("[data-viewer-description]").innerHTML=descriptionMarkup(x);draw();say("Descrição salva.");e.currentTarget.hidden=true;});
