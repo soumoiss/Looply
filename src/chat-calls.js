@@ -278,7 +278,7 @@ export function setupChatCalls(root, client, userId) {
         void send("offer", offerPayload, call);
       }, 1800);
       callTimeout = setTimeout(() => {
-        if (activeCall?.id === call.id && callState === CALL_STATES.DIALING) void finishCall({ signal: "cancel", message: "A chamada não foi atendida." });
+        if (activeCall?.id === call.id && !pc?.remoteDescription) void finishCall({ signal: "cancel", message: "A chamada não foi atendida." });
       }, 45000);
     } catch (error) {
       console.error("Looply call start failed", error);
