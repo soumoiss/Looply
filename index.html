@@ -7,24 +7,39 @@
   <meta name="color-scheme" content="light dark">
   <title>Looply — MoissWorld</title>
   <script src="config.js"></script>
+  <script src="src/theme-bootstrap.js"></script>
   <link rel="stylesheet" href="assets/css/app.css">
   <link rel="stylesheet" href="assets/css/splash.css">
 </head>
 <body class="looply-splash-page">
   <main class="splash-screen" aria-label="Looply está iniciando">
-    <header class="splash-header"><h1>Looply</h1></header>
+    <div class="splash-ambient splash-ambient-one" aria-hidden="true"></div>
+    <div class="splash-ambient splash-ambient-two" aria-hidden="true"></div>
+    <header class="splash-header"><span class="splash-kicker">MoissWorld apresenta</span><h1>Looply</h1></header>
     <div class="splash-center">
-      <div class="splash-logo" role="img" aria-label="Logo Looply">
-        <span class="splash-logo-circle">
-          <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
-            <path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
-            <path d="M85 50A35 35 0 0 1 50 85" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".45"/>
-          </svg>
+      <div class="splash-logo-stage" data-splash-logo role="img" aria-label="Logo Looply animada">
+        <span class="splash-orbit splash-orbit-one" aria-hidden="true"></span>
+        <span class="splash-orbit splash-orbit-two" aria-hidden="true"></span>
+        <span class="splash-logo-halo" aria-hidden="true"></span>
+        <span class="splash-logo">
+          <span class="splash-logo-circle">
+            <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+              <path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+              <path d="M85 50A35 35 0 0 1 50 85" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+              <circle cx="50" cy="50" r="8" fill="currentColor" opacity=".16"/>
+            </svg>
+          </span>
         </span>
+        <span class="splash-spark splash-spark-one" aria-hidden="true"></span>
+        <span class="splash-spark splash-spark-two" aria-hidden="true"></span>
+        <span class="splash-spark splash-spark-three" aria-hidden="true"></span>
       </div>
-      <p class="splash-loading" role="status">Preparando seu espaço...</p>
+      <div class="splash-copy">
+        <p class="splash-loading" role="status">Preparando seu espaço<span class="splash-dots" aria-hidden="true">...</span></p>
+        <div class="splash-progress" aria-hidden="true"><span></span></div>
+      </div>
     </div>
-    <footer class="splash-footer">MoissWorld</footer>
+    <footer class="splash-footer"><span>MoissWorld</span><i aria-hidden="true"></i><span>conectando memórias</span></footer>
   </main>
   <script type="module" src="src/splash.js"></script>
 </body>
