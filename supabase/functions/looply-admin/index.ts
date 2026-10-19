@@ -506,23 +506,40 @@ Deno.serve(async (request: Request) => {
       const email = String(payload.email || "").trim().toLowerCase();
       const username = String(payload.username || "").trim().toLowerCase();
       const displayName = String(payload.displayName || "").trim();
-      const allowedIdentities = new Set(["patati", "misol", "yara", "peixinho"]);
-      if (!allowedIdentities.has(username) || email !== `${username}@loooply.app`
-          || displayName.length < 1 || displayName.length > 80) {
-        return respond(400, { error: "invalid_approved_looply_identity" });
+      if (!/^[a-z0-9_]{3,30}$/.test(username)
+          || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+          || email.length > 254 || displayName.length < 1 || displayName.length > 80) {
+        return respond(400, { error: "invalid_invitation_fields" });
       }
       await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
         { action, username, email });
+      let pendingInviteCreated = false;
       try {
+        const { data: existingProfile, error: profileLookupError } = await service
+          .from("profiles").select("id").eq("username", username).maybeSingle();
+        if (profileLookupError) throw profileLookupError;
+        if (existingProfile) return respond(409, { error: "username_already_exists" });
+
+        const { error: inviteInsertError } = await service.from("looply_user_invites").insert({
+          username, email, display_name: displayName, invited_by: authData.user.id
+        });
+        if (inviteInsertError) throw inviteInsertError;
+        pendingInviteCreated = true;
+
+        const siteUrl = Deno.env.get("SITE_URL") || "https://soumoiss.github.io/Looply";
+        const redirectTo = new URL("login.html?invite=1", siteUrl.endsWith("/") ? siteUrl : siteUrl + "/").toString();
         const { data, error } = await service.auth.admin.inviteUserByEmail(email, {
-          data: { display_name: displayName },
-          redirectTo: Deno.env.get("SITE_URL") || undefined
+          data: { username, display_name: displayName },
+          redirectTo
         });
         if (error) throw error;
         await recordAccess(service, authData.user.id, "write_completed", "profiles", data.user?.id || null, purpose, requestId,
           { action, username, email });
-        return respond(200, { requestId, userId: data.user?.id || null, email, invited: true });
+        return respond(200, { requestId, userId: data.user?.id || null, username, email, invited: true });
       } catch (error) {
+        if (pendingInviteCreated) {
+          await service.from("looply_user_invites").delete().eq("username", username).eq("email", email);
+        }
         await recordAccess(service, authData.user.id, "write_failed", "profiles", null, purpose, requestId,
           { action, username, reason: errorMessage(error, "User invitation failed.").slice(0, 200) });
         throw error;
