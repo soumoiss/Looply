@@ -141,10 +141,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   if (!user && (sessionError || userLookupError)) {
     console.warn("Looply auth session could not be verified", sessionError || userLookupError);
-    if (page === "gallery") {
-      notice(root, "Não foi possível verificar sua sessão agora. Confira a conexão e recarregue a página.", "error");
-      return;
-    }
+    notice(root, "Não foi possível verificar sua sessão agora. Confira sua conexão e recarregue a página.", "error");
+    return;
   }
 
   if (!user) {
@@ -152,7 +150,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
       root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html?next=galeria.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Sua sessão não foi encontrada neste navegador. Entre na sua conta para carregar as mídias.</p></section>`;
       return;
     }
-    await supabase.auth.signOut();
     window.location.replace("login.html");
     return;
   }
