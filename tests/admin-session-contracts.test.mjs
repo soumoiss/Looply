@@ -48,3 +48,19 @@ test("Edge Function only returns a raw token at unlock and validates its hash se
   assert.match(edge, /looply_admin_session_validate/);
   assert.match(edge, /Protected administrator session created with a 15-minute expiry/);
 });
+
+test("privileged admin actions require a live server-validated session", async () => {
+  const edge = await readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8");
+  const guardAt = edge.indexOf('const adminSessionToken = String(payload.adminSessionToken || "")');
+  const purposeAt = edge.indexOf('const purpose = String(payload.purpose || "").trim()');
+  assert.ok(guardAt > -1 && purposeAt > guardAt, "session guard must run before any privileged action");
+  assert.match(edge, /looply_admin_session_validate/);
+  assert.match(edge, /admin_session_expired_or_revoked/);
+  const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
+  assert.match(ui, /data-admin-session-setup/);
+  assert.match(ui, /data-admin-session-unlock/);
+  assert.match(ui, /data-admin-session-exit/);
+  assert.match(ui, /adminSessionToken: token/);
+  const imports = await readFile(resolve(root, "src/archive-import.js"), "utf8");
+  assert.match(imports, /adminSessionToken: sessionStorage\.getItem\("looplyAdminSessionToken"\)/);
+});
