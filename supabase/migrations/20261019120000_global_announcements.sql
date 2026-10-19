@@ -17,6 +17,7 @@ create index if not exists global_announcements_active_window_idx
 alter table public.global_announcements enable row level security;
 revoke all on table public.global_announcements from public, anon, authenticated;
 grant select on table public.global_announcements to authenticated;
+grant all on table public.global_announcements to service_role;
 create policy global_announcements_read_active
 on public.global_announcements for select to authenticated
 using (
@@ -37,6 +38,7 @@ create index if not exists global_announcement_reads_user_idx
 alter table public.global_announcement_reads enable row level security;
 revoke all on table public.global_announcement_reads from public, anon, authenticated;
 grant select, insert on table public.global_announcement_reads to authenticated;
+grant all on table public.global_announcement_reads to service_role;
 create policy global_announcement_reads_select_own
 on public.global_announcement_reads for select to authenticated
 using (user_id = (select auth.uid()));
