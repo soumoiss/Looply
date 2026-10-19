@@ -377,17 +377,17 @@ export function bindAdminEvents(root, client) {
     if (usernameStatus) { usernameStatus.textContent = ""; usernameStatus.dataset.kind = ""; }
     if (emailStatus) { emailStatus.textContent = ""; emailStatus.dataset.kind = ""; }
     if (availabilityTimer) clearTimeout(availabilityTimer);
-    if (purpose.length < 20 || (!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))) return;
-    if (usernameStatus && /^[a-z0-9_]{3,30}$/.test(username)) usernameStatus.textContent = "Verificando disponibilidade…";
-    if (emailStatus && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) emailStatus.textContent = "Verificando disponibilidade…";
     const requestNumber = ++availabilityRequest;
+    if (purpose.length < 20 || (!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return;
+    if (usernameStatus && /^[a-z0-9_]{3,30}$/.test(username)) usernameStatus.textContent = "Verificando disponibilidade…";
+    if (emailStatus && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) emailStatus.textContent = "Verificando disponibilidade…";
     availabilityTimer = setTimeout(async () => {
       try {
         const { data, error } = await invokeAdmin({
           action: "user_check_availability",
           resourceType: "profiles",
           username: /^[a-z0-9_]{3,30}$/.test(username) ? username : "",
-          email: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ? email : "",
+          email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "",
           purpose
         });
         if (error) throw error;
@@ -396,7 +396,7 @@ export function bindAdminEvents(root, client) {
           usernameStatus.textContent = data?.usernameAvailable ? "Username disponível." : "Este username já está em uso.";
           usernameStatus.dataset.kind = data?.usernameAvailable ? "success" : "error";
         }
-        if (emailStatus && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+        if (emailStatus && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           emailStatus.textContent = data?.emailAvailable ? "E-mail disponível." : "Este e-mail já está cadastrado.";
           emailStatus.dataset.kind = data?.emailAvailable ? "success" : "error";
         }
@@ -580,7 +580,7 @@ export function bindAdminEvents(root, client) {
       const displayName = String(values.get("displayName") || "").trim();
       const password = String(values.get("password") || "");
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
-      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           || displayName.length < 1 || displayName.length > 80 || password.length < 8 || password.length > 72) {
         setStatus(createForm, "Confira o username, o e-mail, o nome e a senha (8–72 caracteres).", "error");
         return;
