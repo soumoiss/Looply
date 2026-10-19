@@ -198,17 +198,19 @@ export function setupChatEnhancements(root, client, userId) {
   const applyFilters = () => {
     const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || "all";
     const items = root.querySelectorAll("[data-chat-conversations] [data-chat-open]");
+    const query = (root.querySelector("[data-chat-conversation-search]")?.value || "").trim().toLocaleLowerCase("pt-BR");
     let visible = 0;
     items.forEach((item) => {
       const id = item.dataset.chatOpen;
       const isGroupItem = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
       const isUnread = Boolean(item.querySelector(".chat-unread"));
-      const matches = activeFilter === "all"
+      const matchesFilter = activeFilter === "all"
         || (activeFilter === "unread" && isUnread)
         || (activeFilter === "groups" && isGroupItem)
         || (activeFilter === "favorites" && favorites.has(id));
-      item.hidden = !matches;
-      if (matches) visible += 1;
+      const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
+      item.hidden = !(matchesFilter && matchesQuery);
+      if (!item.hidden) visible += 1;
     });
     const noMatches = root.querySelector("[data-chat-no-matches]");
     if (noMatches) {
@@ -219,7 +221,8 @@ export function setupChatEnhancements(root, client, userId) {
           : activeFilter === "unread"
             ? "Nenhuma mensagem não lida."
             : "Nenhuma conversa corresponde ao filtro.";
-      if (noMatches.textContent !== emptyMessage) noMatches.textContent = emptyMessage;
+      const message = query ? "Nenhuma conversa corresponde à busca e ao filtro." : emptyMessage;
+      if (noMatches.textContent !== message) noMatches.textContent = message;
       noMatches.hidden = !items.length || visible > 0;
     }
   };
