@@ -17,6 +17,7 @@ test("new community accounts can only be created through an expiring admin invit
   assert.match(migration, /revoke all on table public\.looply_user_invites from public, anon, authenticated/i);
   assert.match(migration, /grant all on table public\.looply_user_invites to service_role/i);
   assert.match(migration, /invitation\.expires_at > now\(\)/i);
+  assert.match(migration, /new\.invited_at is null/i);
   assert.match(migration, /lower\(invitation\.email\) = lower\(new\.email\)/i);
   assert.match(migration, /delete from public\.looply_user_invites/i);
   assert.doesNotMatch(migration, /insert into private\.admin_users/i);
