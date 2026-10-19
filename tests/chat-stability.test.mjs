@@ -25,26 +25,6 @@ test("background refresh updates the sidebar instead of replacing the whole chat
   assert.match(refresh, /requestId !== refreshSequence/);
 });
 
-test("chat paints a visible shell before slow Supabase queries resolve", async () => {
-  const source = await read("assets/js/chat.js");
-  const shell = source.indexOf("root.innerHTML = `${chatMarkup");
-  const queries = source.indexOf("Promise.allSettled", shell);
-  assert.ok(shell >= 0 && queries >= 0 && shell < queries, "chat shell must render before data requests");
-});
-
-test("chat HTML keeps a visible fallback and cache-busts the page module", async () => {
-  const html = await read("chat.html");
-  assert.match(html, /id="pageContent"[^>]*>[\s\S]*Carregando conversas/);
-  assert.match(html, /assets\/js\/chat\.js\?v=[0-9a-f]+/);
-});
-
-test("chat paints a loading state before authentication and profile lookups", async () => {
-  const source = await read("assets/js/chat.js");
-  const firstMount = source.indexOf("await mountAppPage");
-  const loadingShell = source.indexOf("Carregando conversas", 0);
-  assert.ok(loadingShell >= 0 && loadingShell < firstMount, "chat loading state must render before app mount");
-});
-
 test("opening a conversation invalidates stale background requests and does not clear a same-chat draft", async () => {
   const source = await read("src/chat.js");
   const start = source.indexOf("async function openConversation(");

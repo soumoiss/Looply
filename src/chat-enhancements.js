@@ -24,11 +24,10 @@ export function setupChatEnhancements(root, client, userId) {
   let gameState = null;
   let gameInvite = null;
   let ownTurn = false;
+  const favoritesKey = key(userId, "favorites");
   const nicknameKey = key(userId, "nicknames");
   const wallpaperKey = key(userId, "wallpapers");
-  const favorites = new Set();
-  let favoritesLoaded = false;
-  let favoritesChannel = null;
+  const favorites = new Set(read(favoritesKey, []));
   const nicknames = read(nicknameKey, {});
   const wallpapers = read(wallpaperKey, {});
   const selectedConversation = () => root.querySelector("[data-chat-send]")?.dataset.conversationId || root.querySelector(".chat-thread-heading")?.dataset.conversationId || "";
@@ -168,19 +167,14 @@ export function setupChatEnhancements(root, client, userId) {
       const label = item.querySelector(".chat-conversation-copy strong");
       if (label && !label.dataset.originalName) label.dataset.originalName = label.textContent;
       if (label && nicknames[id]) label.textContent = nicknames[id];
-      if (favoritesLoaded) item.dataset.isFavorite = String(favorites.has(id));
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
-        button.type = "button"; button.className = "chat-v2-favorite"; button.dataset.v2Favorite = id;
+        button.type = "button"; button.className = "chat-v2-favorite"; button.dataset.v2Favorite = id; button.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
+        button.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
+        button.setAttribute("aria-pressed", String(favorites.has(id)));
         item.append(button);
       }
-      const currentStar = item.querySelector("[data-v2-favorite]");
-      const isFavorite = favoritesLoaded ? favorites.has(id) : item.dataset.isFavorite === "true";
-      const starIcon = icon(isFavorite ? "starFilled" : "star");
-      if (currentStar.innerHTML !== starIcon) currentStar.innerHTML = starIcon;
-      currentStar.setAttribute("aria-pressed", String(isFavorite));
-      currentStar.setAttribute("aria-label", isFavorite ? "Remover conversa dos favoritos" : "Favoritar conversa");
     });
     if (topHeading) {
       const home = topHeading.querySelector("[data-v2-home]");
@@ -204,19 +198,17 @@ export function setupChatEnhancements(root, client, userId) {
   const applyFilters = () => {
     const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || "all";
     const items = root.querySelectorAll("[data-chat-conversations] [data-chat-open]");
-    const query = (root.querySelector("[data-chat-conversation-search]")?.value || "").trim().toLocaleLowerCase("pt-BR");
     let visible = 0;
     items.forEach((item) => {
       const id = item.dataset.chatOpen;
       const isGroupItem = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
       const isUnread = Boolean(item.querySelector(".chat-unread"));
-      const matchesFilter = activeFilter === "all"
+      const matches = activeFilter === "all"
         || (activeFilter === "unread" && isUnread)
         || (activeFilter === "groups" && isGroupItem)
-        || (activeFilter === "favorites" && (favoritesLoaded ? favorites.has(id) : item.dataset.isFavorite === "true"));
-      const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
-      item.hidden = !(matchesFilter && matchesQuery);
-      if (!item.hidden) visible += 1;
+        || (activeFilter === "favorites" && favorites.has(id));
+      item.hidden = !matches;
+      if (matches) visible += 1;
     });
     const noMatches = root.querySelector("[data-chat-no-matches]");
     if (noMatches) {
@@ -227,40 +219,22 @@ export function setupChatEnhancements(root, client, userId) {
           : activeFilter === "unread"
             ? "Nenhuma mensagem não lida."
             : "Nenhuma conversa corresponde ao filtro.";
-      const message = query ? "Nenhuma conversa corresponde à busca e ao filtro." : emptyMessage;
-      if (noMatches.textContent !== message) noMatches.textContent = message;
+      if (noMatches.textContent !== emptyMessage) noMatches.textContent = emptyMessage;
       noMatches.hidden = !items.length || visible > 0;
     }
   };
-  root.addEventListener("click", async (event) => {
+  root.addEventListener("click", (event) => {
     const favorite = event.target.closest("[data-v2-favorite]");
     if (!favorite) return;
     event.preventDefault();
     event.stopPropagation();
     const id = favorite.dataset.v2Favorite;
-    favorite.disabled = true;
-    try {
-      if (favorites.has(id)) {
-        const { error } = await client.from("conversation_favorites").delete().eq("user_id", userId).eq("conversation_id", id);
-        if (error) throw error;
-        favorites.delete(id);
-      } else {
-        const { error } = await client.from("conversation_favorites").insert({ user_id: userId, conversation_id: id });
-        if (error) throw error;
-        favorites.add(id);
-      }
-      const item = favorite.closest("[data-chat-open]");
-      if (item) item.dataset.isFavorite = String(favorites.has(id));
-      favorite.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
-      favorite.setAttribute("aria-pressed", String(favorites.has(id)));
-      favorite.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
-      applyFilters();
-    } catch (error) {
-      console.error("Looply favorite update failed", error);
-      toast("Não foi possível atualizar os favoritos. Tente novamente.");
-    } finally {
-      favorite.disabled = false;
-    }
+    if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
+    write(favoritesKey, [...favorites]);
+    favorite.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
+    favorite.setAttribute("aria-pressed", String(favorites.has(id)));
+    favorite.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
+    applyFilters();
   }, true);
   root.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
@@ -346,21 +320,6 @@ export function setupChatEnhancements(root, client, userId) {
       queueMicrotask(applyFilters);
     }
   });
-  const syncFavorites = async () => {
-    const { data, error } = await client.from("conversation_favorites").select("conversation_id").eq("user_id", userId);
-    if (error) {
-      console.warn("Looply favorites sync failed", error);
-      return;
-    }
-    favorites.clear();
-    for (const row of data || []) favorites.add(row.conversation_id);
-    favoritesLoaded = true;
-    renderTools();
-    applyFilters();
-  };
-  favoritesChannel = client.channel(`looply-favorites-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "conversation_favorites", filter: `user_id=eq.${userId}` }, () => { void syncFavorites(); })
-    .subscribe();
   root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); });
   root.addEventListener("focusout", (event) => {
     if (event.target.matches(".chat-message-form textarea")) {
@@ -370,12 +329,7 @@ export function setupChatEnhancements(root, client, userId) {
   root.addEventListener("looply:open-conversation", () => { setTimeout(async () => { await ensureChannel(); renderTools(); }, 0); });
   const observer = new MutationObserver(() => { renderTools(); applyFilters(); });
   observer.observe(root, { childList: true, subtree: true });
-  window.addEventListener("pagehide", () => {
-    observer.disconnect();
-    closeChannel();
-    if (favoritesChannel) void client.removeChannel(favoritesChannel);
-  }, { once: true });
+  window.addEventListener("pagehide", () => { observer.disconnect(); closeChannel(); }, { once: true });
   renderTools();
   applyFilters();
-  void syncFavorites();
 }
