@@ -43,10 +43,11 @@ export function adminMarkup(profile = {}) {
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. Toda ação exige justificativa e fica registrada na auditoria. A criação de conta respeita as identidades Looply autorizadas.</p>
       <div class="field"><label for="adminUsersPurpose">Justificativa administrativa (obrigatória)</label><input id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" placeholder="Descreva o motivo da consulta ou alteração" required></div>
       <form class="admin-broadcast-form" data-user-invite>
-        <h4>Convidar uma conta Looply autorizada</h4>
-        <div class="field"><label for="adminInviteUsername">Identidade</label><select id="adminInviteUsername" name="username" required><option value="">Selecione</option><option value="patati">Patati</option><option value="misol">Misol</option><option value="yara">Yara</option><option value="peixinho">Peixinho</option></select></div>
+        <h4>Convidar novo usuário comum</h4>
+        <div class="field"><label for="adminInviteUsername">Nome de usuário para login</label><input id="adminInviteUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva"><small>3–30 letras, números ou sublinhados. O nome será convertido para minúsculas.</small></div>
+        <div class="field"><label for="adminInviteEmail">E-mail para receber o convite</label><input id="adminInviteEmail" name="email" type="email" maxlength="254" autocomplete="email" required placeholder="pessoa@exemplo.com"></div>
         <div class="field"><label for="adminInviteDisplayName">Nome de exibição</label><input id="adminInviteDisplayName" name="displayName" maxlength="80" required></div>
-        <p class="admin-description">O convite será enviado para a identidade @loooply.app selecionada; não é possível criar contas arbitrárias nem conceder privilégios de administrador por aqui.</p>
+        <p class="admin-description">A pessoa receberá um link por e-mail para confirmar a conta e definir a senha. Depois, entrará com o nome de usuário e a senha. Novas contas são comuns; o convite nunca concede acesso ADM.</p>
         <button class="primary-button compact-button" type="submit">Enviar convite</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
       <div class="admin-results" data-users-results aria-live="polite"><p>Desbloqueie o Modo ADM e atualize a lista para consultar as contas.</p></div>
@@ -521,23 +522,29 @@ export function bindAdminEvents(root, client) {
     if (inviteForm && client) {
       event.preventDefault();
       const values = new FormData(inviteForm);
-      const username = String(values.get("username") || "");
+      const username = String(values.get("username") || "").trim().toLowerCase();
+      const email = String(values.get("email") || "").trim().toLowerCase();
       const displayName = String(values.get("displayName") || "").trim();
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
-      if (purpose.length < 20) {
-        setStatus(inviteForm, "Informe uma justificativa de pelo menos 20 caracteres.", "error");
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || displayName.length < 1 || displayName.length > 80) {
+        setStatus(inviteForm, "Informe um usuário válido, um e-mail válido e um nome de exibição.", "error");
+        return;
+      }
+      if (purpose.length < 20 || purpose.length > 500) {
+        setStatus(inviteForm, "Informe uma justificativa de 20 a 500 caracteres.", "error");
         return;
       }
       const button = inviteForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       try {
-        const { data, error } = await invokeAdmin({ action: "user_create_invite", resourceType: "profiles", username, email: username + "@loooply.app", displayName, purpose });
+        const { data, error } = await invokeAdmin({ action: "user_create_invite", resourceType: "profiles", username, email, displayName, purpose });
         if (error) throw error;
         inviteForm.reset();
-        setStatus(inviteForm, "Convite enviado para " + (data?.email || username + "@loooply.app") + ".", "success");
+        setStatus(inviteForm, "Convite enviado para " + (data?.email || email) + ". A pessoa poderá definir a senha pelo link recebido.", "success");
         await loadUsers();
       } catch (error) {
-        setStatus(inviteForm, "Não foi possível enviar o convite. A identidade pode já existir ou não estar disponível.", "error");
+        console.error("Looply common-user invitation failed", error);
+        setStatus(inviteForm, "Não foi possível enviar o convite. Verifique se o usuário ou e-mail já existe e se o e-mail de convite está configurado.", "error");
       } finally { if (button) button.disabled = false; }
       return;
     }

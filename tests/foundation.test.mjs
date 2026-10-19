@@ -47,7 +47,7 @@ test("the initial schema protects profile rows and never derives administrator a
   assert.match(hardening, /admin_users_deny_direct_access[\s\S]*?using \(false\)[\s\S]*?with check \(false\)/i);
 });
 
-test("only four owner-created usernames can have profiles, then remain immutable", async () => {
+test("legacy four usernames remain present while new accounts require an invitation and usernames stay immutable", async () => {
   const [identity, login, profiles, allowlistMigration, immutableMigration, authProfileMigration] = await Promise.all([
     read("src/identities.js"),
     read("src/login.js"),
@@ -60,14 +60,22 @@ test("only four owner-created usernames can have profiles, then remain immutable
     assert.match(identity, new RegExp(`\\b${username}\\b`));
     assert.match(allowlistMigration, new RegExp(`'${username}'`));
   }
-  assert.match(login, /emailForUsername\(username\)/);
-  assert.match(identity, /loooply\.app/);
+  assert.match(login, /functions\.invoke\("looply-login"/);
+  assert.match(login, /updateUser\(\{ password: newPassword \}\)/);
+  assert.match(identity, /patati/);
   assert.match(authProfileMigration, /split_part\(coalesce\(new\.email, ''\), '@', 1\)/i);
   assert.match(authProfileMigration, /@loooply\\\.app\$/i);
   assert.doesNotMatch(authProfileMigration, /raw_user_meta_data ->> 'username'/i);
   assert.match(authProfileMigration, /requested_username not in \('patati', 'misol', 'yara', 'peixinho'\)/i);
   assert.match(authProfileMigration, /when 'peixinho' then 'Peixinho'/i);
   assert.match(allowlistMigration, /profiles_username_allowlist/);
+  const invitationMigration = await read("supabase/migrations/20261019130000_invited_community_accounts.sql");
+  assert.match(invitationMigration, /drop constraint if exists profiles_username_allowlist/i);
+  assert.match(invitationMigration, /create table if not exists public\.looply_user_invites/i);
+  assert.match(invitationMigration, /invitation\.username = requested_username/i);
+  assert.match(invitationMigration, /invitation\.expires_at > now\(\)/i);
+  assert.match(invitationMigration, /delete from public\.looply_user_invites/i);
+  assert.doesNotMatch(invitationMigration, /insert into private\.admin_users/i);
   assert.match(profiles, /Seu username confirmado não pode ser alterado/);
   assert.doesNotMatch(profiles, /update\(\{ username/);
   assert.match(immutableMigration, /revoke update \(username\) on table public\.profiles from authenticated/i);
@@ -79,9 +87,9 @@ test("the interface supports only Auth sign-in and never stores browser credenti
   const [login, client] = await Promise.all([read("src/login.js"), read("src/supabase.js")]);
   assert.doesNotMatch(login + client, /localStorage\.(?:getItem|setItem)\(["'](?:username|password|isLoggedIn)/i);
   assert.doesNotMatch(login + client, /(?:initialPassword|seedPassword|password\s*[:=]\s*["'][^"']{8,}["'])/i);
-  assert.match(login, /signInWithPassword/);
+  assert.match(login, /functions\.invoke\("looply-login"/);
   assert.doesNotMatch(login, /supabase\.auth\.signUp|toggle-auth|Criar conta|Criar minha conta/);
-  assert.match(login, /emailForUsername\(username\)/);
+  assert.match(login, /functions\.invoke\("looply-login"/);
 });
 
 test("the application pages keep navigation and responsive layout and include the gallery", async () => {
@@ -416,9 +424,10 @@ test("chat, letters, notifications, and attachments are private to conversation 
 
 test("the original login keeps its recovery link without requiring SMTP for sign-in", async () => {
   const [login, page] = await Promise.all([read("src/login.js"), read("login.html")]);
-  assert.match(login, /signInWithPassword/);
+  assert.match(login, /functions\.invoke\("looply-login"/);
   assert.match(page, /Esqueci minha senha/);
-  assert.doesNotMatch(login, /resetPasswordForEmail|auth\.updateUser/);
+  assert.match(login, /auth\.updateUser\(\{ password: newPassword \}\)/);
+  assert.doesNotMatch(login, /resetPasswordForEmail/);
   assert.doesNotMatch(login, /localStorage\.(?:getItem|setItem)\(["'](?:username|password|isLoggedIn)/i);
 });
 
