@@ -17,8 +17,7 @@ test("chat page has a home link and all conversation filters apply consistently"
   assert.match(enhancements, /item\.hidden = !matches/);
   assert.match(enhancements, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
   assert.doesNotMatch(enhancements, /applyWallpaper\(\);\s*applyFilters\(\);\s*\};\s*const renderSettings/);
-  assert.match(enhancements, /renderTools\(\);\s*applyFilters\(\);\s*\}$/);
-  assert.match(enhancements, /\[data-chat-conversations\] \[data-chat-open\]/);
+  assert.ok(enhancements.includes("  renderTools();\n  applyFilters();\n}"));\n  assert.match(enhancements, /\[data-chat-conversations\] \[data-chat-open\]/);
   assert.match(chat, /localStorage\.getItem/);
   assert.match(chat, /activeFilter === "groups" && isGroup/);
   assert.match(chat, /activeFilter === "favorites" && favorites\.has/);
