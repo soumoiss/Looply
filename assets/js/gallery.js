@@ -781,8 +781,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const host = $("[data-viewer-media]"), img = host.querySelector("img");
     if (!img || viewerZoom <= 1) { viewerPanX = 0; viewerPanY = 0; return; }
     const rect = host.getBoundingClientRect();
-    viewerPanX = Math.max(-rect.width * (viewerZoom - 1) / 2, Math.min(rect.width * (viewerZoom - 1) / 2, viewerPanX));
-    viewerPanY = Math.max(-rect.height * (viewerZoom - 1) / 2, Math.min(rect.height * (viewerZoom - 1) / 2, viewerPanY));
+    const imageWidth = img.offsetWidth || rect.width;
+    const imageHeight = img.offsetHeight || rect.height;
+    const maxX = Math.max(0, (imageWidth * viewerZoom - rect.width) / 2);
+    const maxY = Math.max(0, (imageHeight * viewerZoom - rect.height) / 2);
+    viewerPanX = Math.max(-maxX, Math.min(maxX, viewerPanX));
+    viewerPanY = Math.max(-maxY, Math.min(maxY, viewerPanY));
   };
   const setZoom = (next, focalX = 0, focalY = 0) => {
     if (!$("[data-viewer-media] img")) return;
