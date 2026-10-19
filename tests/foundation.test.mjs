@@ -76,7 +76,7 @@ test("the interface supports only Auth sign-in and never stores browser credenti
   assert.match(login, /emailForUsername\(username\)/);
 });
 
-test("the remaining application pages keep navigation and responsive layout without the removed gallery page", async () => {
+test("the application pages keep navigation and responsive layout and include the gallery", async () => {
   const [login, home, music, chat, profile, admin, css, theme, runtime, build] = await Promise.all([
     read("login.html"), read("home.html"), read("musicas.html"),
     read("chat.html"), read("perfil.html"), read("admin.html"), read("styles.css"),
@@ -99,7 +99,7 @@ test("the remaining application pages keep navigation and responsive layout with
   assert.match(admin, /admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
-  assert.doesNotMatch(runtime + build, /galeria\.html|gallery/i);
+  assert.match(build, /galeria\.html/);\n  assert.match(build, /gallery/i);
 });
 test("account playlists play tracks in an in-app dialog and never link out to YouTube", async () => {
   const [playlists, musicPage] = await Promise.all([read("src/youtube-playlist.js"), read("musicas.html")]);
