@@ -144,7 +144,7 @@ test("a call accepted from the global notification is restored and handed to the
   assert.match(source, /getUserMedia\(\{ audio: true, video: callMode === "video" \}\)/);
   assert.match(source, /PermissionDeniedError/);
   assert.match(source, /Permita o acesso ao microfone/);
-  assert.match(source, /if \(\["NotAllowedError", "PermissionDeniedError"\]\.includes\(error\?\.name\)\)[\s\S]*?return;[\s\S]*?await send\("decline"\)/);
+  assert.match(source, /if \(\["NotAllowedError", "PermissionDeniedError"\]\.includes\(error\?\.name\)\)[\s\S]*?return;[\s\S]*?await send\("failed"\)/);
 });
 
 test("caller and receiver exchange offers, answers, and queued ICE candidates using the previously working WebRTC flow", async () => {
