@@ -10,7 +10,7 @@ test("production backend deployment is automated without committing Supabase cre
   assert.match(workflow, /secrets\.SUPABASE_ACCESS_TOKEN/);
   assert.match(workflow, /secrets\.SUPABASE_DB_PASSWORD/);
   assert.match(workflow, /SUPABASE_PROJECT_ID: qixocgetiwlrsbadpbvh/);
-  assert.match(workflow, /version: 2\.99\.0/);
+  assert.match(workflow, /version: 2\.118\.0-beta\.37/);
   assert.match(workflow, /supabase db push/);
   assert.match(workflow, /Remote migration versions not found in local migrations directory/);
   assert.match(workflow, /supabase migration repair/);
