@@ -13,7 +13,25 @@ Deno.serve(async (request) => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return respond(401, { error: "unauthorized" });
-  // Actual delivery is intentionally delegated to a secret-backed provider adapter.
-  // This endpoint never accepts VAPID private keys or service-role credentials from clients.
-  return respond(202, { accepted: true, recipientCount: payload.recipientIds.length, kind: String(payload.kind || "activity").slice(0, 40) });
+  const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: subscriptions, error } = await service.from("push_subscriptions").select("id,endpoint,p256dh,auth").in("user_id", payload.recipientIds);
+  if (error) return respond(202, { accepted: true });
+  const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY");
+  const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
+  const subject = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@looply.app";
+  if (!vapidPublic || !vapidPrivate) return respond(503, { error: "push_not_configured" });
+  const webpush = await import("npm:web-push");
+  webpush.default.setVapidDetails(subject, vapidPublic, vapidPrivate);
+  const body = JSON.stringify({ title: String(payload.title || "Looply").slice(0, 80), body: String(payload.body || "Nova atividade").slice(0, 180), url: String(payload.url) });
+  let delivered = 0;
+  for (const subscription of subscriptions || []) {
+    try {
+      await webpush.default.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, body);
+      delivered += 1;
+    } catch (sendError) {
+      const status = Number(sendError?.statusCode || 0);
+      if (status === 404 || status === 410) await service.from("push_subscriptions").delete().eq("id", subscription.id);
+    }
+  }
+  return respond(202, { accepted: true, delivered });
 });
