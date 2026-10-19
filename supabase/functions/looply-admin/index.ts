@@ -426,6 +426,106 @@ Deno.serve(async (request: Request) => {
         "Administrative read request was rejected because its purpose was missing or too short.", requestId);
       return respond(400, { error: "Describe the administrative purpose in at least 20 characters." });
     }
+    if (action === "user_check_availability") {
+      const username = String(payload.username || "").trim().toLowerCase();
+      const email = String(payload.email || "").trim().toLowerCase();
+      const usernameValid = /^[a-z0-9_]{3,30}$/.test(username);
+      const emailValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) && email.length <= 254;
+      let usernameAvailable: boolean | null = null;
+      let emailAvailable: boolean | null = null;
+      if (usernameValid) {
+        const [{ data: profile, error: profileError }, { data: pending, error: pendingError }] = await Promise.all([
+          service.from("profiles").select("id").eq("username", username).maybeSingle(),
+          service.from("looply_user_invites").select("username").eq("username", username).maybeSingle()
+        ]);
+        if (profileError) throw profileError;
+        if (pendingError) throw pendingError;
+        usernameAvailable = !profile && !pending;
+      }
+      if (emailValid) {
+        const { data: authUsers, error: authUsersError } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (authUsersError) throw authUsersError;
+        const { data: pendingEmail, error: pendingEmailError } = await service.from("looply_user_invites")
+          .select("email").ilike("email", email).maybeSingle();
+        if (pendingEmailError) throw pendingEmailError;
+        emailAvailable = !(authUsers.users || []).some((user: any) => String(user.email || "").toLowerCase() === email) && !pendingEmail;
+      }
+      await recordAccess(service, authData.user.id, "availability_checked", "profiles", null, purpose, requestId,
+        { action, username_checked: usernameValid, email_checked: emailValid });
+      return respond(200, { requestId, usernameAvailable, emailAvailable });
+    }
+
+    if (action === "user_create_with_password") {
+      const username = String(payload.username || "").trim().replace(/^@/, "").toLowerCase();
+      const email = String(payload.email || "").trim().toLowerCase();
+      const displayName = String(payload.displayName || "").trim();
+      const password = String(payload.password || "");
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+          || email.length > 254 || displayName.length < 1 || displayName.length > 80
+          || password.length < 8 || password.length > 72) {
+        return respond(400, { error: "invalid_user_creation_fields" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
+        { action, username, email });
+      let pendingInviteCreated = false;
+      let createdUserId: string | null = null;
+      try {
+        const [{ data: existingProfile, error: profileLookupError }, { data: existingInvite, error: inviteLookupError },
+          { data: authUsers, error: authUsersError }] = await Promise.all([
+          service.from("profiles").select("id").eq("username", username).maybeSingle(),
+          service.from("looply_user_invites").select("username").eq("username", username).maybeSingle(),
+          service.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        ]);
+        if (profileLookupError) throw profileLookupError;
+        if (inviteLookupError) throw inviteLookupError;
+        if (authUsersError) throw authUsersError;
+        if (existingProfile || existingInvite) return respond(409, { error: "username_already_exists" });
+        if ((authUsers.users || []).some((user: any) => String(user.email || "").toLowerCase() === email)) {
+          return respond(409, { error: "email_already_exists" });
+        }
+        const { error: inviteInsertError } = await service.from("looply_user_invites").insert({
+          username, email, display_name: displayName, invited_by: authData.user.id
+        });
+        if (inviteInsertError) {
+          if (String(inviteInsertError.code || "") === "23505") return respond(409, { error: "username_or_email_already_exists" });
+          throw inviteInsertError;
+        }
+        pendingInviteCreated = true;
+        const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") || "https://soumoiss.github.io/Looply/login.html?invite=1";
+        const { data: invited, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
+          data: { username, display_name: displayName },
+          redirectTo
+        });
+        if (inviteError) throw inviteError;
+        createdUserId = invited.user?.id || null;
+        if (!createdUserId) throw new Error("Auth user creation returned no user ID.");
+        const { error: passwordError } = await service.auth.admin.updateUserById(createdUserId, {
+          password,
+          email_confirm: true,
+          user_metadata: { username, display_name: displayName }
+        });
+        if (passwordError) throw passwordError;
+        const { data: profile, error: profileError } = await service.from("profiles")
+          .select("id,username,display_name").eq("id", createdUserId).maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile) throw new Error("Auth profile trigger did not create a Looply profile.");
+        await recordAccess(service, authData.user.id, "write_completed", "profiles", createdUserId, purpose, requestId,
+          { action, username, email });
+        return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, created: true });
+      } catch (error) {
+        if (createdUserId) {
+          const { error: deleteError } = await service.auth.admin.deleteUser(createdUserId);
+          if (deleteError) console.error("Looply user-create rollback failed", deleteError);
+        }
+        if (pendingInviteCreated) {
+          await service.from("looply_user_invites").delete().eq("username", username).eq("email", email);
+        }
+        await recordAccess(service, authData.user.id, "write_failed", "profiles", createdUserId, purpose, requestId,
+          { action, username, reason: errorMessage(error, "User creation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     const resourceId = payload.resourceId == null || payload.resourceId === "" ? null : String(payload.resourceId);
     if (resourceId && !uuidPattern.test(resourceId)) return respond(400, { error: "Resource ID must be a UUID." });
     const offset = Number(payload.offset ?? 0);
