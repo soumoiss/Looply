@@ -131,20 +131,20 @@ test("Peixinho can rotate and reposition gallery photos with shared server persi
 
 
 test("gallery upload and comments permissions are granted to authenticated members with RLS limits", () => {
-  assert.match(permissionsMigration, /grant select, insert on table public\\.community_gallery_media to authenticated/);
-  assert.match(permissionsMigration, /grant update \\(publication_state\\)/);
-  assert.match(permissionsMigration, /publication_state = 'pending'/);
-  assert.match(permissionsMigration, /private\\.try_uuid/);
-  assert.match(permissionsMigration, /select private\\.can_view_community_gallery_media\\(p_media_id\\)/);
-  assert.match(permissionsMigration, /select private\\.can_view_archive_media\\(p_media_id\\)/);
-  assert.match(permissionsMigration, /grant execute on function private\\.can_comment_community_gallery_media/);
+  assert.ok(permissionsMigration.includes("grant select, insert on table public.community_gallery_media to authenticated"));
+  assert.ok(permissionsMigration.includes("grant update (publication_state) on table public.community_gallery_media to authenticated"));
+  assert.ok(permissionsMigration.includes("publication_state = 'pending'"));
+  assert.ok(permissionsMigration.includes("private.try_uuid"));
+  assert.ok(permissionsMigration.includes("select private.can_view_community_gallery_media(p_media_id)"));
+  assert.ok(permissionsMigration.includes("select private.can_view_archive_media(p_media_id)"));
+  assert.ok(permissionsMigration.includes("grant execute on function private.can_comment_community_gallery_media"));
 });
 
 test("gallery toolbar actions are icon-first and adapt to the selected Looply theme", () => {
-  assert.match(gallery, /data-main="recentes" aria-label="Recentes" title="Recentes"/);
-  assert.match(gallery, /data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia"/);
-  assert.match(gallery, /data-comments-filter aria-label="Filtrar mídias com comentários"/);
-  assert.match(styles, /--gallery-action: var\\(--primary-dark, var\\(--primary/);
-  assert.match(styles, /--gallery-control-text: var\\(--text/);
-  assert.match(styles, /gallery-card-actions button\\[data-comments\\] span \\{ display: none/);
+  assert.ok(gallery.includes('data-main="recentes" aria-label="Recentes" title="Recentes"'));
+  assert.ok(gallery.includes('data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia"'));
+  assert.ok(gallery.includes('data-comments-filter aria-label="Filtrar mídias com comentários"'));
+  assert.ok(styles.includes("--gallery-action: var(--primary-dark, var(--primary"));
+  assert.ok(styles.includes("--gallery-control-text: var(--text"));
+  assert.ok(styles.includes("gallery-card-actions button[data-comments] span { display: none"));
 });
