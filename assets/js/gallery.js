@@ -279,7 +279,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       } catch (error) {
         signedUrlFailures += 1;
         console.warn("Gallery media preview unavailable", { mediaId: x.id, source: x.source, error });
-        say(signedUrlFailures + (signedUrlFailures === 1 ? " mídia teve falha ao carregar a prévia." : " mídias tiveram falha ao carregar as prévias."));
+        say(signedUrlFailures + (signedUrlFailures === 1 ? " mídia carregada, mas a prévia não pôde ser autorizada." : " mídias carregadas, mas as prévias não puderam ser autorizadas."));
         if (slot.isConnected) slot.innerHTML = mediaPreviewMarkup(x, "", true);
       }
     };
