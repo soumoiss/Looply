@@ -78,3 +78,17 @@ test("comment RPCs use SECURITY DEFINER only after explicit authorization and va
   assert.match(rpcMigration, /revoke all on function public\.create_archive_media_comment\(uuid, text, text, uuid\[\]\) from public, anon/i);
   assert.match(rpcMigration, /revoke all on function public\.create_community_gallery_comment\(uuid, text, text, uuid\[\]\) from public, anon/i);
 });
+
+
+test("gallery loading preserves the available source when the other source fails", () => {
+  assert.match(gallery, /if \(a\.error && c\.error\)\s*\{/);
+  assert.match(gallery, /if \(a\.error\)\s*\{/);
+  assert.match(gallery, /if \(c\.error\)\s*\{/);
+  assert.match(gallery, /exibindo os demais conteúdos disponíveis/);
+});
+
+test("gallery reports inaccessible signed previews instead of silently hiding failures", () => {
+  assert.match(gallery, /Gallery media preview unavailable/);
+  assert.match(gallery, /signedUrlFailures/);
+  assert.match(gallery, /prévia não pôde ser autorizada/);
+});
