@@ -54,6 +54,84 @@ as $function$
     );
 $function$;
 
+-- Keep comment visibility within the same media access boundary.
+create or replace function private.can_view_community_gallery_comment(p_comment_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) is not null and exists (
+    select 1
+    from public.community_gallery_comments comment_row
+    where comment_row.id = p_comment_id
+      and (
+        comment_row.author_id = (select auth.uid())
+        or (select private.is_admin())
+        or (
+          comment_row.audience in ('members', 'media_viewers')
+          and private.can_view_community_gallery_media(comment_row.media_id)
+        )
+        or (
+          comment_row.audience = 'selected'
+          and private.can_view_community_gallery_media(comment_row.media_id)
+          and exists (
+            select 1 from public.community_gallery_comment_recipients recipient
+            where recipient.comment_id = comment_row.id
+              and recipient.user_id = (select auth.uid())
+          )
+        )
+        or (
+          comment_row.audience = 'author_only'
+          and exists (
+            select 1 from public.community_gallery_media media
+            where media.id = comment_row.media_id
+              and media.owner_id = (select auth.uid())
+          )
+        )
+      )
+  );
+$function$;
+
+create or replace function private.can_view_archive_media_comment(p_comment_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) is not null and exists (
+    select 1
+    from public.archive_media_comments comment_row
+    where comment_row.id = p_comment_id
+      and not private.looply_content_is_hidden('archive_media_comment', comment_row.id)
+      and not private.looply_content_is_hidden('archive_media', comment_row.media_id)
+      and (
+        comment_row.author_id = (select auth.uid())
+        or (select private.is_admin())
+        or (
+          comment_row.audience in ('members', 'media_viewers')
+          and private.can_view_archive_media(comment_row.media_id)
+        )
+        or (
+          comment_row.audience = 'selected'
+          and private.can_view_archive_media(comment_row.media_id)
+          and exists (
+            select 1 from public.archive_media_comment_recipients recipient
+            where recipient.comment_id = comment_row.id
+              and recipient.user_id = (select auth.uid())
+          )
+        )
+      )
+  );
+$function$;
+
+revoke all on function private.can_view_community_gallery_comment(uuid) from public, anon;
+revoke all on function private.can_view_archive_media_comment(uuid) from public, anon;
+grant execute on function private.can_view_community_gallery_comment(uuid) to authenticated, service_role;
+grant execute on function private.can_view_archive_media_comment(uuid) to authenticated, service_role;
+
 revoke all on function private.can_comment_community_gallery_media(uuid) from public, anon;
 revoke all on function private.can_comment_archive_media(uuid) from public, anon;
 grant execute on function private.can_comment_community_gallery_media(uuid) to authenticated, service_role;
@@ -89,10 +167,9 @@ begin
       and coalesce(profile.username, '') <> ''
       and position('@' || lower(profile.username) in lower(new.body)) > 0
   loop
-    if new.audience = 'members'
-      or (new.audience = 'author_only' and v_media.owner_id = v_mentioned.id)
-      or (
-        new.audience = 'media_viewers'
+    if (
+      (
+        new.audience in ('members', 'media_viewers')
         and (
           v_media.owner_id = v_mentioned.id
           or (
@@ -109,6 +186,8 @@ begin
           )
         )
       )
+      or (new.audience = 'author_only' and v_media.owner_id = v_mentioned.id)
+    )
     then
       insert into public.notifications(recipient_id, actor_id, kind, resource_id, event_id, preview)
       values (
