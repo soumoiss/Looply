@@ -72,7 +72,7 @@ export function setupGlobalCallListener(client, userId, profile) {
       if (payload.type === "offer") {
         if (!payload.description || !["audio", "video"].includes(payload.mode)) return;
         showIncoming(call, payload);
-      } else if (payload.type === "hangup" || payload.type === "decline") {
+      } else if (payload.type === "hangup" || payload.type === "decline" || payload.type === "failed") {
         if (incoming?.conversationId === conversation.id) hideOverlay();
       }
     });
