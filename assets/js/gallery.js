@@ -286,6 +286,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
     image.style.transform = "translate(" + Number(adjustment.positionX || 0) + "%," + Number(adjustment.positionY || 0) + "%) rotate(" + Number(adjustment.rotation || 0) + "deg) scale(" + Number(viewerZoom || 1) + ")";
     image.style.transformOrigin = "center center";
+    image.dataset.zoom = String(viewerZoom || 1);
   };
   const draftPhotoAdjustment = patch => {
     const x = getItem(activeKey);
