@@ -62,6 +62,12 @@ function randomSessionToken() {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function temporaryPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+}
+
 async function verifyArchivedCardPassword(password: string, saltText: string, hashText: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: decodeBase64Url(saltText), iterations: cardPasswordIterations, hash: "SHA-256" }, key, 256);
@@ -545,11 +551,12 @@ Deno.serve(async (request: Request) => {
       const username = String(payload.username || "").trim().replace(/^@/, "").toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();
       const displayName = String(payload.displayName || "").trim();
-      const password = String(payload.password || "");
+      const suppliedPassword = String(payload.password || "");
+      const password = suppliedPassword || temporaryPassword();
       const playlistUrl = String(payload.playlistUrl || "").trim();
       if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           || email.length > 254 || displayName.length < 1 || displayName.length > 80
-          || password.length < 8 || password.length > 72
+          || (suppliedPassword && (suppliedPassword.length < 8 || suppliedPassword.length > 72))
           || (playlistUrl && !/^https:\/\/(?:www\.|music\.)?youtube\.com\/playlist\?list=[A-Za-z0-9_-]{1,100}(?:&[^#]*)?$/.test(playlistUrl))) {
         return respond(400, { error: "invalid_user_creation_fields" });
       }
@@ -596,7 +603,7 @@ Deno.serve(async (request: Request) => {
         }
         await recordAccess(service, authData.user.id, "write_completed", "profiles", createdUserId, purpose, requestId,
           { action, username, email });
-        return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, playlistUrl: playlistUrl || null, created: true });
+        return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, playlistUrl: playlistUrl || null, temporaryPassword: suppliedPassword ? null : password, created: true });
       } catch (error) {
         if (createdUserId) {
           const { error: deleteError } = await service.auth.admin.deleteUser(createdUserId);

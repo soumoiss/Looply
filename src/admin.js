@@ -17,6 +17,19 @@ export async function checkAdminAccess(client) {
   }
 }
 
+export async function invokeAdminAction(client, body = {}) {
+  if (!client) throw new Error("admin_client_unavailable");
+  let token = sessionStorage.getItem("looplyAdminSessionToken") || "";
+  if (!token) {
+    const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_auto_unlock" } });
+    if (error || data?.isAdmin !== true || !data?.token) throw error || new Error("admin_session_locked");
+    token = String(data.token);
+    sessionStorage.setItem("looplyAdminSessionToken", token);
+  }
+  const { purpose: _ignoredPurpose, ...action } = body || {};
+  return client.functions.invoke("looply-admin", { body: { ...action, adminSessionToken: token } });
+}
+
 export function adminMarkup(profile = {}) {
   const adminName = profile.username === "peixinho" ? "Peixinho" : `@${escapeHtml(profile.username || "administrador")}`;
   return `<section class="admin-area" aria-labelledby="adminTitle">
@@ -38,9 +51,9 @@ export function adminMarkup(profile = {}) {
         <div class="field"><label for="adminCreateEmail">E-mail</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" required placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
         <div class="field"><label for="adminCreateDisplayName">Nome completo / de exibição</label><input id="adminCreateDisplayName" name="displayName" type="text" maxlength="80" autocomplete="off" required></div>
         <div class="field"><label for="adminCreatePlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="adminCreatePlaylistUrl" name="playlistUrl" type="url" maxlength="260" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=..."><small>A playlist personalizada substitui a lista padrão deste perfil.</small></div>
-        <div class="field"><label for="adminCreatePassword">Senha inicial</label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><small>Use de 8 a 72 caracteres. Entregue a senha inicial ao usuário por um canal seguro.</small></div>
-        <div class="field"><label for="adminCreateConfirmPassword">Confirmar senha inicial</label><input id="adminCreateConfirmPassword" name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></div>
-        <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo usa o backend administrativo e não altera a sessão do Peixinho.</p>
+        <div class="field"><label for="adminCreatePassword">Senha inicial <span class="field-hint">(opcional)</span></label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password"><small>Se ficar vazia, o sistema gera uma senha temporária segura e mostra-a uma única vez.</small></div>
+        <div class="field"><label for="adminCreateConfirmPassword">Confirmar senha inicial <span class="field-hint">(opcional)</span></label><input id="adminCreateConfirmPassword" name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+        <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo não altera a sessão do ADM.</p>
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     <div class="admin-results" data-users-results aria-live="polite"><p>O Modo ADM será ativado automaticamente para administradores autorizados.</p></div>
@@ -303,10 +316,7 @@ export function bindAdminEvents(root, client) {
   }
 
   async function invokeAdmin(body) {
-    const token = sessionStorage.getItem("looplyAdminSessionToken") || "";
-    if (!token) throw new Error("admin_session_locked");
-    const { purpose: _ignoredPurpose, ...action } = body || {};
-    return client.functions.invoke("looply-admin", { body: { ...action, adminSessionToken: token } });
+    return invokeAdminAction(client, body);
   }
 
   function showSessionState(state, message = "") {
@@ -558,7 +568,8 @@ export function bindAdminEvents(root, client) {
       const playlistUrl = String(values.get("playlistUrl") || "").trim();
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
       if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-          || displayName.length < 1 || displayName.length > 80 || password.length < 8 || password.length > 72 || password !== confirmPassword
+          || displayName.length < 1 || displayName.length > 80
+          || (password && (password.length < 8 || password.length > 72 || password !== confirmPassword))
           || (playlistUrl && !/^https:\/\/(?:www\.|music\.)?youtube\.com\/playlist\?list=[A-Za-z0-9_-]{1,100}(?:&[^#]*)?$/.test(playlistUrl))) {
         setStatus(createForm, password !== confirmPassword ? "As senhas não coincidem." : "Confira o username, o e-mail, o nome, a senha e a URL da playlist.", "error");
         return;
@@ -577,7 +588,10 @@ export function bindAdminEvents(root, client) {
           status.textContent = "";
           status.dataset.kind = "";
         }
-        setStatus(createForm, "Usuário @" + (data?.username || username) + " cadastrado com sucesso. O login já está habilitado.", "success");
+        const temporaryPassword = String(data?.temporaryPassword || "");
+        setStatus(createForm, temporaryPassword
+          ? `Usuário @${data?.username || username} cadastrado. Senha temporária: ${temporaryPassword} — copie e entregue ao usuário com segurança.`
+          : "Usuário @" + (data?.username || username) + " cadastrado com sucesso. O login já está habilitado.", "success");
         await loadUsers();
       } catch (error) {
         console.error("Looply direct user creation failed", error);

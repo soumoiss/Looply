@@ -31,13 +31,15 @@ const FONT_FAMILIES = Object.freeze({
   syne: 'Syne, Inter, sans-serif'
 });
 const FONT_SIZES = Object.freeze({ small: "14.4px", normal: "16px", large: "17.92px", very_large: "20px" });
+const isTheme = (name) => Object.prototype.hasOwnProperty.call(THEMES, name);
+const isFontFamily = (name) => Object.prototype.hasOwnProperty.call(FONT_FAMILIES, name);
 
 export function applyTheme(name) {
-  const selected = THEMES[name] || name === "system" ? name : "lilas";
+  const selected = isTheme(name) || name === "system" ? name : "lilas";
   const theme = selected === "system"
     ? (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "noite" : "lilas")
     : selected;
-  const values = THEMES[theme];
+  const values = THEMES[theme] || THEMES.lilas;
   const root = document.documentElement;
   root.dataset.savedTheme = selected;
   root.dataset.theme = theme;
@@ -55,16 +57,16 @@ export function applyTheme(name) {
 
 export function applyProfilePreferences(profile = {}) {
   const root = document.documentElement;
-  const family = FONT_FAMILIES[profile.font_family] ? profile.font_family : "system";
+  const family = isFontFamily(profile.font_family) ? profile.font_family : "system";
   const fontSize = FONT_SIZES[profile.font_size] || FONT_SIZES.normal;
   root.dataset.fontFamily = family;
   root.style.setProperty("--looply-font-family", FONT_FAMILIES[family]);
   root.style.setProperty("--looply-root-font-size", fontSize);
-  return applyTheme(THEMES[profile.theme] || profile.theme === "system" ? profile.theme : getSavedTheme());
+  return applyTheme(isTheme(profile.theme) || profile.theme === "system" ? profile.theme : getSavedTheme());
 }
 
 export function getSavedTheme() {
-  try { const saved = localStorage.getItem(THEME_KEY); return THEMES[saved] || saved === "system" ? saved : "lilas"; } catch { return "lilas"; }
+  try { const saved = localStorage.getItem(THEME_KEY); return isTheme(saved) || saved === "system" ? saved : "lilas"; } catch { return "lilas"; }
 }
 applyTheme(getSavedTheme());
 window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => {

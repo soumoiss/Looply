@@ -1,14 +1,16 @@
-const CACHE = "looply-shell-v1";
+const CACHE = "looply-shell-v2";
 const STATIC = /\.(?:html|css|js|svg|png|jpg|jpeg|webp|woff2?)$/i;
 self.addEventListener("install", (event) => { event.waitUntil(self.skipWaiting()); });
-self.addEventListener("activate", (event) => { event.waitUntil(self.clients.claim()); });
+self.addEventListener("activate", (event) => {
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
+});
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin || !STATIC.test(url.pathname) || url.pathname.includes("/supabase/")) return;
   event.respondWith(caches.open(CACHE).then(async (cache) => {
     const cached = await cache.match(event.request);
     const network = fetch(event.request).then((response) => { if (response.ok) cache.put(event.request, response.clone()); return response; }).catch(() => cached);
-    return cached || network;
+    return network || cached;
   }));
 });
 self.addEventListener("push", (event) => {

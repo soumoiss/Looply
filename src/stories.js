@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { invokeAdminAction } from "./admin.js";
 import { uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
 
@@ -325,7 +326,7 @@ function cleanupExpiredStories(client) {
   }).catch((error) => console.warn("Looply story cleanup request failed.", error));
 }
 
-export function bindStories(root, client, userId, initialStories = [], initialError = null, profile = null) {
+export function bindStories(root, client, userId, initialStories = [], initialError = null, profile = null, isAdmin = false) {
   const list = root.querySelector("[data-story-list]");
   const status = root.querySelector("[data-story-feed-status]");
   const createDialog = root.querySelector("[data-story-create-dialog]");
@@ -642,8 +643,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 
     const currentGroupIndex = state.groups.findIndex((group) => group.author_id === story.author_id);
     viewer.querySelector("[data-story-prev]").disabled = state.index === 0 && currentGroupIndex <= 0;
-    viewer.querySelector("[data-story-delete]").hidden = story.author_id !== userId;
-    viewer.querySelector("[data-story-owner-actions]").hidden = story.author_id !== userId;
+    const canDelete = story.author_id === userId || isAdmin;
+    viewer.querySelector("[data-story-delete]").hidden = !canDelete;
+    viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
+    viewer.querySelector("[data-story-owner-actions]").hidden = !canDelete;
     viewer.querySelector("[data-story-reply-actions]").hidden = story.author_id === userId;
     viewer.querySelector("[data-story-insights-panel]").hidden = true;
     const replyStatus = viewer.querySelector("[data-story-reply-status]");
@@ -970,18 +973,24 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     if (event.target.closest("[data-story-delete]")) {
       const current = state.active?.stories?.[state.index];
-      if (!current || current.author_id !== userId) return;
+      if (!current || (current.author_id !== userId && !isAdmin)) return;
       const button = viewer.querySelector("[data-story-delete]");
       button.disabled = true;
       try {
-        const paths = (Array.isArray(current.media) ? current.media : current.media ? [current.media] : [])
-          .map((item) => item.storage_path).filter(Boolean);
-        if (paths.length) {
-          const { error } = await client.storage.from("looply-media").remove(paths);
+        if (isAdmin && current.author_id !== userId) {
+          const { data, error } = await invokeAdminAction(client, { action: "delete_content", contentType: "story", contentId: current.id, confirmDelete: true });
+          if (error) throw error;
+          if (data?.deleted !== true) throw new Error("admin_delete_not_confirmed");
+        } else {
+          const paths = (Array.isArray(current.media) ? current.media : current.media ? [current.media] : [])
+            .map((item) => item.storage_path).filter(Boolean);
+          if (paths.length) {
+            const { error } = await client.storage.from("looply-media").remove(paths);
+            if (error) throw error;
+          }
+          const { error } = await client.from("stories").delete().eq("id", current.id).eq("author_id", userId);
           if (error) throw error;
         }
-        const { error } = await client.from("stories").delete().eq("id", current.id).eq("author_id", userId);
-        if (error) throw error;
         closeStoryDialog(viewer);
         await refresh();
         scheduleNextExpiry();

@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
 import { validatePublicationInput } from "./publication-validation.js";
 
@@ -77,7 +78,7 @@ function commentMarkup(comment, canReply) {
   </article>`;
 }
 
-function postMarkup(post, userId) {
+function postMarkup(post, userId, isAdmin = false) {
   const comments = Array.isArray(post.comments) ? [...post.comments] : [];
   comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const replies = new Map();
@@ -136,7 +137,7 @@ function postMarkup(post, userId) {
       <div class="post-author"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div>
       </div>
-      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<button class="post-delete-button" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir sua publicação">Excluir</button>` : ""}</div>
+      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
     ${post.body ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
@@ -296,7 +297,7 @@ export async function loadSocialData(client) {
   };
 }
 
-function feedMarkup(posts, error, userId) {
+function feedMarkup(posts, error, userId, isAdmin = false) {
   if (error) {
     return `<div class="social-message social-error" role="alert">O feed não carregou. Confira a conexão e as permissões e tente atualizar.
       <button class="text-button" type="button" data-social-action="refresh">Atualizar feed</button></div>`;
@@ -304,10 +305,10 @@ function feedMarkup(posts, error, userId) {
   if (!posts.length) {
     return `<div class="social-message"><strong>Nenhuma publicação ainda.</strong></div>`;
   }
-  return posts.map((post) => postMarkup(post, userId)).join("");
+  return posts.map((post) => postMarkup(post, userId, isAdmin)).join("");
 }
 
-export function socialMarkup({ people, peopleError, posts, postsError }, userId) {
+export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false) {
   const eligiblePeople = (people || []).filter((person) =>
     person.id !== userId && person.profile_visibility !== "private"
   );
@@ -352,7 +353,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
       <div class="form-status" data-status role="status" aria-live="polite"></div>
       </div>
     </form>
-    <div class="feed-list" data-social-feed>${feedMarkup(posts, postsError, userId)}</div>
+    <div class="feed-list" data-social-feed>${feedMarkup(posts, postsError, userId, isAdmin)}</div>
   </section>`;
 }
 
@@ -375,14 +376,14 @@ function explainWriteError(error) {
   return "Não foi possível salvar agora. Confira sua conexão e tente novamente.";
 }
 
-export async function refreshSocialFeed(root, client, userId) {
+export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   const feed = root.querySelector("[data-social-feed]");
   if (!feed || !client) return;
   feed.setAttribute("aria-busy", "true");
   try {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
-    feed.innerHTML = feedMarkup(posts, null, currentUserId);
+    feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
   } finally {
@@ -390,7 +391,7 @@ export async function refreshSocialFeed(root, client, userId) {
   }
 }
 
-export function bindSocialEvents(root, client, getUserId) {
+export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
     if (!toggle) return;
@@ -416,7 +417,7 @@ export function bindSocialEvents(root, client, getUserId) {
   });
 
   root.addEventListener("click", async (event) => {
-    if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.());
+    if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.(), isAdmin);
     const internalShare = event.target.closest("[data-share-in-app]");
     if (internalShare && client) {
       const postId = internalShare.dataset.shareInApp;
@@ -514,7 +515,7 @@ export function bindSocialEvents(root, client, getUserId) {
           const { error } = await client.from("post_likes").upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
           if (error) throw error;
         }
-        await refreshSocialFeed(root, client, userId);
+        await refreshSocialFeed(root, client, userId, isAdmin);
       } catch (error) {
         console.error("Looply post like failed", error);
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
@@ -547,6 +548,13 @@ export function bindSocialEvents(root, client, getUserId) {
     deleteButton.disabled = true;
     try {
       const postId = deleteButton.dataset.deletePost;
+      if (isAdmin && deleteButton.classList.contains("admin-content-delete")) {
+        const { data, error } = await invokeAdminAction(client, { action: "delete_content", contentType: "post", contentId: postId, confirmDelete: true });
+        if (error) throw error;
+        if (data?.deleted !== true) throw new Error("admin_delete_not_confirmed");
+        await refreshSocialFeed(root, client, userId, isAdmin);
+        return;
+      }
       const { data: media, error: mediaError } = await client.from("post_media").select("storage_path").eq("post_id", postId);
       if (mediaError) throw mediaError;
       const { data: commentMedia, error: commentMediaError } = await client.from("comment_media").select("storage_path").eq("post_id", postId);
@@ -558,7 +566,7 @@ export function bindSocialEvents(root, client, getUserId) {
       }
       const { error } = await client.from("posts").delete().eq("id", postId).eq("author_id", userId);
       if (error) throw error;
-      await refreshSocialFeed(root, client, userId);
+      await refreshSocialFeed(root, client, userId, isAdmin);
     } catch (error) {
       console.error("Looply post deletion failed", error);
       const feedback = document.createElement("p");
@@ -667,7 +675,7 @@ export function bindSocialEvents(root, client, getUserId) {
         form.reset();
         setStatus(form, parentCommentId ? "Sua resposta foi salva." : "Seu comentário foi salvo.");
       }
-      await refreshSocialFeed(root, client);
+      await refreshSocialFeed(root, client, userId, isAdmin);
     } catch (error) {
       if (createdPostId) {
         if (uploadedPaths.length) {
@@ -697,7 +705,7 @@ let realtimeChannel = null;
 let realtimeUserId = null;
 let refreshTimer = null;
 
-export function setupSocialRealtime(client, userId, root) {
+export function setupSocialRealtime(client, userId, root, isAdmin = false) {
   if (!client || !userId) return;
   if (realtimeChannel && realtimeUserId === userId) return;
   if (realtimeChannel) client.removeChannel(realtimeChannel);
@@ -705,11 +713,11 @@ export function setupSocialRealtime(client, userId, root) {
   const status = root.querySelector("[data-realtime-status]");
   realtimeChannel = client
     .channel(`looply-social-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .subscribe((state) => {
       const currentStatus = root.querySelector("[data-realtime-status]");
       if (!currentStatus) return;
@@ -717,9 +725,9 @@ export function setupSocialRealtime(client, userId, root) {
     });
 }
 
-function scheduleRefresh(root, client, userId) {
+function scheduleRefresh(root, client, userId, isAdmin = false) {
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => refreshSocialFeed(root, client, userId), 350);
+  refreshTimer = setTimeout(() => refreshSocialFeed(root, client, userId, isAdmin), 350);
 }
 
 export function disposeSocialRealtime(client) {

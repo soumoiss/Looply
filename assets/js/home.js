@@ -28,7 +28,7 @@ function renderWelcome(profile) {
   return welcome.outerHTML;
 }
 
-await mountAppPage({ page: "home", render: async ({ root, client, user, profile }) => {
+await mountAppPage({ page: "home", render: async ({ root, client, user, profile, isAdmin }) => {
   const [socialResult, storiesResult] = await Promise.allSettled([
     loadSocialData(client), loadStories(client)
   ]);
@@ -39,11 +39,11 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile 
   const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
   root.innerHTML = `${renderWelcome(profile)}${storiesMarkup(
     stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
-  )}${socialMarkup(socialData, user.id)}`;
-  bindStories(root, client, user.id, stories, storiesError, profile);
-  bindSocialEvents(root, client, () => user.id);
+  )}${socialMarkup(socialData, user.id, isAdmin)}`;
+  bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
+  bindSocialEvents(root, client, () => user.id, isAdmin);
   setupStoriesRealtime(client, user.id, root);
-  setupSocialRealtime(client, user.id, root);
+  setupSocialRealtime(client, user.id, root, isAdmin);
   window.addEventListener("pagehide", () => {
     disposeStoriesRealtime(client, root);
     disposeSocialRealtime(client);
