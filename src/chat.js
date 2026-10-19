@@ -958,13 +958,14 @@ function applyConversationFilter(root) {
   }
   const noMatches = root.querySelector("[data-chat-no-matches]");
   if (noMatches) {
-    noMatches.textContent = activeFilter === "favorites"
+    const emptyMessage = activeFilter === "favorites"
       ? "Nenhuma conversa favorita. Toque na estrela de uma conversa para favoritar."
       : activeFilter === "groups"
         ? "Nenhum grupo encontrado."
         : activeFilter === "unread"
           ? "Nenhuma mensagem não lida."
           : "Nenhuma conversa corresponde à busca.";
+    if (noMatches.textContent !== emptyMessage) noMatches.textContent = emptyMessage;
     noMatches.hidden = !items.length || visible > 0;
   }
 }
