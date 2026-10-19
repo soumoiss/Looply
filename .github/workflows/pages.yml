@@ -25,10 +25,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build static site
-        run: npm run build
-      - name: Run tests
+      - name: Build site and run tests
         run: npm test
+      - name: Verify chat assets are included in the deployment artifact
+        run: |
+          test -s dist/chat.html
+          test -s dist/src/chat.js
+          test -s dist/src/chat-enhancements.js
+          test -s dist/assets/css/pages/chat.css
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
