@@ -108,6 +108,7 @@ class MainActivity : Activity() {
 
         createLayout()
         configureWebView()
+        requestNotificationPermissionIfNeeded()
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback = OnBackInvokedCallback { handleBack() }
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
@@ -541,6 +542,17 @@ class MainActivity : Activity() {
         requestPermissions(runtimePermissions.toTypedArray(), REQUEST_WEB_MEDIA)
     }
 
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_POST_NOTIFICATIONS
+            )
+        }
+    }
+
     @Deprecated("Deprecated in Android, but retained for API 24 and 25.")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -682,6 +694,7 @@ class MainActivity : Activity() {
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702
         private const val REQUEST_DOWNLOAD_STORAGE = 703
+        private const val REQUEST_POST_NOTIFICATIONS = 704
     }
 }
 

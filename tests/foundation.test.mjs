@@ -387,7 +387,9 @@ test("admin reads use a verified Edge Function and a service-role-only audit bri
   assert.match(edge, /createSignedUrls/);
   assert.match(config, /\[functions\.looply-admin\][\s\S]*?verify_jwt = true/i);
   assert.match(admin, /functions\.invoke\("looply-admin"/);
-  assert.match(admin, /purpose.length < 20/);
+  assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
+  assert.doesNotMatch(admin, /Justificativa administrativa \(obrigatória\)/i);
+  assert.match(edge, /adminAuditPurpose\(action, resourceType\)/);
   assert.doesNotMatch(edge, /sb_secret_[A-Za-z0-9_-]{10,}|service_role["']\s*:\s*["'][A-Za-z0-9_-]{20,}/i);
 });
 
