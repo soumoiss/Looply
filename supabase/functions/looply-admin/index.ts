@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -258,7 +258,8 @@ Deno.serve(async (request: Request) => {
       return respond(200, { body: secret.body });
     }
 
-    const requestedType = String(payload.resourceType || "");
+    const action = String(payload.action || "");
+    const requestedType = String(payload.resourceType || (action.startsWith("broadcast_") ? "announcements" : ""));
     const resourceType = allowedResources.has(requestedType) ? requestedType : "posts";
     const { data: isAdmin, error: membershipError } = await service.rpc("is_looply_admin", { p_user_id: authData.user.id });
     if (membershipError) throw membershipError;
@@ -281,6 +282,87 @@ Deno.serve(async (request: Request) => {
     if (resourceId && !uuidPattern.test(resourceId)) return respond(400, { error: "Resource ID must be a UUID." });
     const offset = Number(payload.offset ?? 0);
     if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) return respond(400, { error: "Archive media position is invalid." });
+
+    if (action === "broadcast_create") {
+      const title = String(payload.title || "").trim();
+      const body = String(payload.body || "").trim();
+      const expiresText = String(payload.expiresAt || "").trim();
+      const expiresAt = expiresText ? new Date(expiresText) : null;
+      if (title.length < 1 || title.length > 120 || body.length < 1 || body.length > 4000
+          || (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now()))) {
+        return respond(400, { error: "invalid_broadcast_content_or_expiry" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "announcements", null, purpose, requestId,
+        { action, title, expires_at: expiresAt?.toISOString() || null });
+      try {
+        const { data: announcement, error } = await service.from("global_announcements")
+          .insert({ title, body, created_by: authData.user.id, expires_at: expiresAt?.toISOString() || null })
+          .select("id,title,body,created_at,expires_at,is_active").single();
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "announcements", announcement.id, purpose, requestId,
+          { action, title });
+        return respond(200, { requestId, announcement });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "announcements", null, purpose, requestId,
+          { action, reason: errorMessage(error, "Broadcast creation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "broadcast_list") {
+      await recordAccess(service, authData.user.id, "read_requested", "announcements", null, purpose, requestId, { action });
+      try {
+        const { data: announcements, error } = await service.from("global_announcements")
+          .select("id,title,body,created_at,starts_at,expires_at,is_active,created_by")
+          .order("created_at", { ascending: false }).limit(50);
+        if (error) throw error;
+        const ids = (announcements || []).map((item: any) => item.id);
+        const [{ data: reads, error: readsError }, { data: profiles, error: profilesError }] = ids.length
+          ? await Promise.all([
+            service.from("global_announcement_reads").select("announcement_id,user_id,read_at").in("announcement_id", ids),
+            service.from("profiles").select("id,username,display_name").order("username")
+          ])
+          : [{ data: [], error: null }, { data: [], error: null }];
+        if (readsError) throw readsError;
+        if (profilesError) throw profilesError;
+        const receiptMap = new Map((reads || []).map((row: any) => [`${row.announcement_id}:${row.user_id}`, row.read_at]));
+        const users = profiles || [];
+        const result = (announcements || []).map((item: any) => {
+          const readers = users.map((profile: any) => ({
+            id: profile.id,
+            username: profile.username,
+            display_name: profile.display_name,
+            read_at: receiptMap.get(`${item.id}:${profile.id}`) || null
+          }));
+          return { ...item, read_count: readers.filter((reader: any) => reader.read_at).length, recipient_count: users.length, readers };
+        });
+        await recordAccess(service, authData.user.id, "read_completed", "announcements", null, purpose, requestId,
+          { action, result_count: result.length });
+        return respond(200, { requestId, announcements: result });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "read_failed", "announcements", null, purpose, requestId,
+          { action, reason: errorMessage(error, "Broadcast list failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "broadcast_deactivate") {
+      const announcementId = String(payload.announcementId || "");
+      if (!uuidPattern.test(announcementId)) return respond(400, { error: "invalid_announcement_id" });
+      await recordAccess(service, authData.user.id, "write_requested", "announcements", announcementId, purpose, requestId, { action });
+      try {
+        const { data, error } = await service.from("global_announcements").update({ is_active: false })
+          .eq("id", announcementId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data) return respond(404, { error: "announcement_not_found" });
+        await recordAccess(service, authData.user.id, "write_completed", "announcements", announcementId, purpose, requestId, { action });
+        return respond(200, { requestId, announcementId, isActive: false });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "announcements", announcementId, purpose, requestId,
+          { action, reason: errorMessage(error, "Broadcast deactivation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
 
     if (payload.action === "set_archive_media_access") {
       const mediaId = String(payload.mediaId || "");
