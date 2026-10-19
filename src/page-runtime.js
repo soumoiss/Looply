@@ -130,9 +130,21 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   // can fail transiently on mobile networks; that must not be mistaken for a signed-out user.
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   let user = sessionData?.session?.user || null;
-  if (!user && !sessionError) {
+  let userLookupError = null;
+  // A getSession storage/read error must not suppress the server-side user fallback.
+  // This is especially important on mobile browsers restoring a persisted session.
+  if (!user) {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (!userError) user = userData?.user || null;
+    else userLookupError = userError;
+  }
+
+  if (!user && (sessionError || userLookupError)) {
+    console.warn("Looply auth session could not be verified", sessionError || userLookupError);
+    if (page === "gallery") {
+      notice(root, "Não foi possível verificar sua sessão agora. Confira a conexão e recarregue a página.", "error");
+      return;
+    }
   }
 
   if (!user) {
