@@ -23,6 +23,19 @@ export function adminMarkup(profile = {}) {
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
     <p class="admin-description">Toda consulta a conteúdo privado exige um motivo e gera eventos na trilha de auditoria.</p>
+    <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
+      <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
+      <form class="admin-broadcast-form" data-admin-broadcast>
+        <div class="field"><label for="broadcastTitle">Título do aviso</label><input id="broadcastTitle" name="title" type="text" maxlength="120" required placeholder="Ex.: Atualização do Looply"></div>
+        <div class="field"><label for="broadcastBody">Mensagem</label><textarea id="broadcastBody" name="body" maxlength="4000" rows="4" required placeholder="Escreva a mensagem que todos os membros devem receber."></textarea></div>
+        <div class="field"><label for="broadcastExpiresAt">Expira em (opcional)</label><input id="broadcastExpiresAt" name="expiresAt" type="datetime-local"><small>Sem data de expiração, o aviso permanece ativo até ser desativado.</small></div>
+        <div class="field"><label for="broadcastPurpose">Motivo administrativo</label><textarea id="broadcastPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Explique o motivo do comunicado (mínimo de 20 caracteres)."></textarea></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Publicar comunicado</button><button class="text-button" type="button" data-broadcast-refresh>Consultar leituras</button></div>
+        <span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form>
+      <div class="admin-broadcast-results" data-broadcast-results aria-live="polite"><p>Informe o motivo administrativo e consulte o histórico para ver os recibos de leitura.</p></div>
+    </section>
     <form class="admin-read-form" data-admin-read>
       <div class="admin-form-grid">
         <div class="field"><label for="adminResource">Área</label><select id="adminResource" name="resourceType">
@@ -153,7 +166,69 @@ function renderResults(container, resourceType, data) {
 }
 
 export function bindAdminEvents(root, client) {
+  async function loadBroadcasts(form, showStatus = true) {
+    const purpose = String(form?.elements.purpose?.value || "").trim();
+    const results = root.querySelector("[data-broadcast-results]");
+    if (purpose.length < 20 || purpose.length > 500) {
+      if (form) setStatus(form, "Informe o motivo administrativo (20–500 caracteres) antes de consultar.", "error");
+      return false;
+    }
+    const refreshButton = form?.querySelector("[data-broadcast-refresh]");
+    if (refreshButton) refreshButton.disabled = true;
+    if (showStatus && form) setStatus(form, "Consultando comunicados e recibos de leitura…", "info");
+    try {
+      const { data, error } = await client.functions.invoke("looply-admin", {
+        body: { action: "broadcast_list", resourceType: "announcements", purpose }
+      });
+      if (error) throw error;
+      const announcements = data?.announcements || [];
+      if (results) {
+        results.innerHTML = announcements.length ? announcements.map((item) => {
+          const readers = (item.readers || []).map((reader) => `<li><strong>@${escapeHtml(reader.username || reader.display_name || "usuário")}</strong><span>${reader.read_at ? `Lido em ${escapeHtml(dateTime(reader.read_at))}` : "Ainda não leu"}</span></li>`).join("");
+          return `<article class="admin-broadcast-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}</strong><span>${item.is_active ? "Ativo" : "Desativado"}</span></div><p class="admin-broadcast-body">${escapeHtml(item.body)}</p><p class="admin-broadcast-meta">Publicado em ${escapeHtml(dateTime(item.created_at))}${item.expires_at ? ` · Expira em ${escapeHtml(dateTime(item.expires_at))}` : ""}</p><p class="admin-broadcast-meta">Leituras: ${Number(item.read_count || 0)} de ${Number(item.recipient_count || 0)} contas</p><details><summary>Ver estado de leitura por conta</summary><ul class="admin-broadcast-readers">${readers}</ul></details>${item.is_active ? `<button class="text-button" type="button" data-broadcast-deactivate="${escapeHtml(item.id)}">Desativar comunicado</button>` : ""}</article>`;
+        }).join("") : '<p class="admin-empty">Nenhum comunicado foi publicado.</p>';
+      }
+      if (showStatus && form) setStatus(form, `Histórico atualizado · ${announcements.length} comunicado(s).`);
+      return true;
+    } catch (error) {
+      console.error("Looply global announcement history failed", error);
+      if (showStatus && form) setStatus(form, "Não foi possível carregar o histórico. Confira o acesso administrativo e tente novamente.", "error");
+      return false;
+    } finally {
+      if (refreshButton) refreshButton.disabled = false;
+    }
+  }
+
   root.addEventListener("click", async (event) => {
+    const refreshBroadcasts = event.target.closest("[data-broadcast-refresh]");
+    const broadcastForm = root.querySelector("form[data-admin-broadcast]");
+    if (refreshBroadcasts && client) {
+      event.preventDefault();
+      await loadBroadcasts(broadcastForm);
+      return;
+    }
+    const deactivateBroadcast = event.target.closest("[data-broadcast-deactivate]");
+    if (deactivateBroadcast && client) {
+      event.preventDefault();
+      const purpose = String(broadcastForm?.elements.purpose?.value || "").trim();
+      if (purpose.length < 20 || purpose.length > 500) {
+        if (broadcastForm) setStatus(broadcastForm, "Informe o motivo administrativo (20–500 caracteres) antes de desativar.", "error");
+        return;
+      }
+      deactivateBroadcast.disabled = true;
+      try {
+        const { error } = await client.functions.invoke("looply-admin", {
+          body: { action: "broadcast_deactivate", resourceType: "announcements", announcementId: deactivateBroadcast.dataset.broadcastDeactivate, purpose }
+        });
+        if (error) throw error;
+        await loadBroadcasts(broadcastForm, false);
+        if (broadcastForm) setStatus(broadcastForm, "Comunicado desativado. Novas janelas não serão exibidas.");
+      } catch (error) {
+        console.error("Looply global announcement deactivation failed", error);
+        if (broadcastForm) setStatus(broadcastForm, "Não foi possível desativar o comunicado.", "error");
+      } finally { deactivateBroadcast.disabled = false; }
+      return;
+    }
     const button = event.target.closest("[data-admin-chat-start]");
     if (!button || !client) return;
     button.disabled = true;
@@ -186,6 +261,53 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const broadcastForm = event.target.closest("form[data-admin-broadcast]");
+    if (broadcastForm && client) {
+      event.preventDefault();
+      const submitButton = broadcastForm.querySelector('button[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+      try {
+        const values = new FormData(broadcastForm);
+        const title = String(values.get("title") || "").trim();
+        const body = String(values.get("body") || "").trim();
+        const purpose = String(values.get("purpose") || "").trim();
+        const expiresText = String(values.get("expiresAt") || "").trim();
+        if (purpose.length < 20 || purpose.length > 500) throw new Error("purpose");
+        if (!title || title.length > 120 || !body || body.length > 4000) throw new Error("content");
+        const expiresAt = expiresText ? new Date(expiresText) : null;
+        if (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now())) throw new Error("expiry");
+        const { data, error } = await client.functions.invoke("looply-admin", {
+          body: {
+            action: "broadcast_create",
+            resourceType: "announcements",
+            title,
+            body,
+            expiresAt: expiresAt?.toISOString() || null,
+            purpose
+          }
+        });
+        if (error) throw error;
+        if (!data?.announcement?.id) throw new Error("announcement unavailable");
+        broadcastForm.elements.title.value = "";
+        broadcastForm.elements.body.value = "";
+        broadcastForm.elements.expiresAt.value = "";
+        await loadBroadcasts(broadcastForm, false);
+        setStatus(broadcastForm, "Comunicado publicado. O histórico de leitura foi atualizado.");
+      } catch (error) {
+        console.error("Looply global announcement creation failed", error);
+        const message = /purpose/.test(String(error?.message || ""))
+          ? "Informe o motivo administrativo (20–500 caracteres)."
+          : /expiry/.test(String(error?.message || ""))
+            ? "A data de expiração precisa estar no futuro."
+            : /content/.test(String(error?.message || ""))
+              ? "Informe um título de até 120 e uma mensagem de até 4.000 caracteres."
+              : "Não foi possível publicar o comunicado. Verifique a autorização administrativa e tente novamente.";
+        setStatus(broadcastForm, message, "error");
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
+      return;
+    }
     const archiveCommentForm = event.target.closest("form[data-admin-archive-comment]");
     if (archiveCommentForm && client) {
       event.preventDefault();

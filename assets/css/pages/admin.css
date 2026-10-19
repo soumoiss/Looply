@@ -16,3 +16,22 @@
 .admin-record .admin-comment-form [data-status][data-kind="success"] { color: var(--primary); }
 @media (max-width: 620px) { .archive-import { padding: 13px; } .admin-archive-card-body pre { max-height: 300px; } }
 
+.admin-broadcast-panel { margin:22px 0; padding:clamp(14px,3vw,22px); border:1px solid var(--line); border-radius:18px; background:var(--surface); }
+.admin-broadcast-heading h3 { margin:5px 0 0; font-size:clamp(1.1rem,3vw,1.35rem); }
+.admin-broadcast-form { display:grid; gap:13px; margin-top:16px; }
+.admin-broadcast-form input, .admin-broadcast-form textarea { width:100%; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:10px; color:var(--text); background:var(--surface-soft); font:inherit; font-size:12px; }
+.admin-broadcast-form textarea { min-height:80px; resize:vertical; }
+.admin-broadcast-form small { display:block; margin-top:5px; color:var(--muted); font-size:10px; line-height:1.5; }
+.admin-broadcast-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.admin-broadcast-actions button { min-height:42px; }
+.admin-broadcast-results { display:grid; gap:12px; margin-top:16px; }
+.admin-broadcast-record { min-width:0; padding:14px; border:1px solid var(--line); border-radius:13px; background:var(--surface-soft); }
+.admin-broadcast-body { margin:10px 0; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.admin-broadcast-meta { margin:5px 0; color:var(--muted); font-size:10px; }
+.admin-broadcast-record details { margin-top:10px; border-top:1px solid var(--line); padding-top:9px; }
+.admin-broadcast-record summary { color:var(--primary); cursor:pointer; font-size:11px; font-weight:750; }
+.admin-broadcast-readers { display:grid; gap:7px; margin:10px 0 0; padding:0; list-style:none; }
+.admin-broadcast-readers li { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11px; }
+.admin-broadcast-readers li span { color:var(--muted); }
+.admin-broadcast-record [data-broadcast-deactivate] { margin-top:12px; color:#a13f59; }
+@media (max-width:620px) { .admin-broadcast-panel { padding:13px; } .admin-broadcast-actions { align-items:stretch; } .admin-broadcast-actions button { width:100%; } }

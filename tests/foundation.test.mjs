@@ -798,3 +798,33 @@ test("the removed real-time status slogan is absent without removing Supabase re
   assert.match(chat, /postgres_changes|\.subscribe\(/);
   assert.match(music, /postgres_changes|\.subscribe\(/);
 });
+
+test("global announcements are admin-published, RLS-protected, realtime, and individually acknowledged", async () => {
+  const [migration, edge, runtime, announcementClient, admin, adminCss, appCss] = await Promise.all([
+    read("supabase/migrations/20261019120000_global_announcements.sql"),
+    read("supabase/functions/looply-admin/index.ts"),
+    read("src/page-runtime.js"),
+    read("src/global-announcements.js"),
+    read("src/admin.js"),
+    read("assets/css/pages/admin.css"),
+    read("assets/css/app.css")
+  ]);
+  assert.match(migration, /create table if not exists public\.global_announcements/i);
+  assert.match(migration, /create table if not exists public\.global_announcement_reads/i);
+  assert.match(migration, /alter table public\.global_announcements enable row level security/i);
+  assert.match(migration, /global_announcement_reads_insert_own[\s\S]*?user_id = \(select auth\.uid\(\)\)/i);
+  assert.match(migration, /record_looply_admin_access[\s\S]*?announcements/i);
+  assert.match(edge, /if \(isAdmin !== true\)[\s\S]*?if \(action === "broadcast_create"\)/);
+  assert.match(edge, /action === "broadcast_create"[\s\S]*?recordAccess\(service, authData\.user\.id, "write_requested", "announcements"/);
+  assert.match(edge, /action === "broadcast_list"[\s\S]*?global_announcement_reads[\s\S]*?recipient_count/);
+  assert.match(edge, /action === "broadcast_deactivate"[\s\S]*?is_active: false/);
+  assert.match(announcementClient, /global_announcement_reads/);
+  assert.match(announcementClient, /table: "global_announcements"/);
+  assert.match(announcementClient, /textContent = announcement\.body/);
+  assert.match(runtime, /mountGlobalAnnouncements/);
+  assert.match(admin, /data-admin-broadcast[\s\S]*?data-broadcast-refresh/);
+  assert.match(admin, /data-broadcast-deactivate/);
+  assert.match(admin, /item\.read_count/);
+  assert.match(adminCss, /admin-broadcast-readers/);
+  assert.match(appCss, /looply-announcement-overlay/);
+});
