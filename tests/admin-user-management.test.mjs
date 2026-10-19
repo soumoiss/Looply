@@ -19,12 +19,13 @@ test("user management actions are behind protected session and require audited p
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_failed", "profiles"/);
 });
 
-test("user creation is restricted to the four approved Looply identities", async () => {
+test("user creation is invitation-only, accepts new usernames, and never grants ADM", async () => {
   const edge = await readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8");
-  assert.match(edge, /new Set\(\["patati", "misol", "yara", "peixinho"\]\)/);
-  assert.match(edge, /email !== `\$\{username\}@loooply\.app`/);
+  assert.match(edge, /\^\[a-z0-9_\]\{3,30\}\$/);
+  assert.match(edge, /looply_user_invites/);
+  assert.match(edge, /data: \{ username, display_name: displayName \}/);
+  assert.match(edge, /redirectTo/);
   assert.match(edge, /inviteUserByEmail/);
-  assert.match(edge, /data: \{ display_name: displayName \}/);
   assert.match(edge, /cannot_change_own_access/);
   assert.match(edge, /cannot_suspend_administrator/);
 });
@@ -32,6 +33,9 @@ test("user creation is restricted to the four approved Looply identities", async
 test("user management UI exposes profile edits and access restoration without unsafe HTML rendering", async () => {
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
   assert.match(ui, /data-user-invite/);
+  assert.match(ui, /name="email"/);
+  assert.match(ui, /Convidar novo usuário comum/);
+  assert.match(ui, /O convite nunca concede acesso ADM/);
   assert.match(ui, /data-user-profile-form/);
   assert.match(ui, /data-user-access-action/);
   assert.match(ui, /user_update_profile/);
