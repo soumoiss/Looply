@@ -116,7 +116,15 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 99);
     if (result.error) throw result.error;
-    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    if (rows.length) {
+      const { data: flags, error: flagsError } = await service.from("looply_content_moderation")
+        .select("content_id").eq("content_type", "archive_media").in("content_id", rows.map((row: any) => row.id));
+      if (flagsError) throw flagsError;
+      const hidden = new Set((flags || []).map((flag: any) => flag.content_id));
+      for (const row of rows) row.moderated = hidden.has(row.id);
+    }
+    return rows;
   }
 
   if (resourceType === "archive_media_comments") {
@@ -126,7 +134,15 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
-    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    if (rows.length) {
+      const { data: flags, error: flagsError } = await service.from("looply_content_moderation")
+        .select("content_id").eq("content_type", "archive_media_comment").in("content_id", rows.map((row: any) => row.id));
+      if (flagsError) throw flagsError;
+      const hidden = new Set((flags || []).map((flag: any) => flag.content_id));
+      for (const row of rows) row.moderated = hidden.has(row.id);
+    }
+    return rows;
   }
 
   if (resourceType === "posts") {
@@ -178,7 +194,15 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
-    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    if (rows.length) {
+      const { data: flags, error: flagsError } = await service.from("looply_content_moderation")
+        .select("content_id").eq("content_type", "music_page_comment").in("content_id", rows.map((row: any) => row.id));
+      if (flagsError) throw flagsError;
+      const hidden = new Set((flags || []).map((flag: any) => flag.content_id));
+      for (const row of rows) row.moderated = hidden.has(row.id);
+    }
+    return rows;
   }
 
   if (resourceType === "profiles") {
@@ -412,11 +436,17 @@ Deno.serve(async (request: Request) => {
       const contentId = String(payload.contentId || "");
       const hidden = payload.hidden === true;
       const reason = String(payload.reason || "").trim();
-      if (!["post", "comment"].includes(contentType) || !uuidPattern.test(contentId)
-          || reason.length < 20 || reason.length > 500) {
+      const tableByContentType: Record<string, string> = {
+        post: "posts",
+        comment: "comments",
+        archive_media: "archive_media",
+        archive_media_comment: "archive_media_comments",
+        music_page_comment: "music_page_comments"
+      };
+      const tableName = tableByContentType[contentType];
+      if (!tableName || !uuidPattern.test(contentId) || reason.length < 20 || reason.length > 500) {
         return respond(400, { error: "invalid_moderation_request" });
       }
-      const tableName = contentType === "post" ? "posts" : "comments";
       const { data: target, error: targetError } = await service.from(tableName).select("id").eq("id", contentId).maybeSingle();
       if (targetError) throw targetError;
       if (!target) return respond(404, { error: "content_not_found" });

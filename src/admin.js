@@ -142,7 +142,7 @@ function itemMarkup(resourceType, item) {
       <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Abrir link externo ${icon("external")}</a>${comments ? `<details><summary>Comentários</summary><ul>${comments}</ul></details>` : ""}</article>`;
   }
   if (resourceType === "youtube_track_comments") {
-    return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.author?.display_name || item.author?.username || "Usuário")} · comentário de música</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p><p>Playlist: ${escapeHtml(item.playlist_id)} · Vídeo: ${escapeHtml(item.video_id)}</p><small>Comentário UUID: ${escapeHtml(item.id)}</small></article>`;
+    return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.author?.display_name || item.author?.username || "Usuário")} · comentário de música</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p>${moderationFormMarkup("music_page_comment", item.id, item.moderated)}<p>Playlist: ${escapeHtml(item.playlist_id)} · Vídeo: ${escapeHtml(item.video_id)}</p><small>Comentário UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "music_library") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}${item.artist ? ` · ${escapeHtml(item.artist)}` : ""}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
@@ -167,13 +167,13 @@ function itemMarkup(resourceType, item) {
     const recipients = (item.recipients || []).map((entry) => `@${escapeHtml(entry.profile?.username || "perfil restrito")}`).join(" · ");
     const comments = (item.comments || []).map((comment) => `<li><strong>@${escapeHtml(comment.author?.username || "perfil restrito")}</strong><p>${escapeHtml(comment.body)}</p></li>`).join("");
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.file_name)} · ${escapeHtml(item.kind)}</strong><span>${escapeHtml(item.visibility)}${item.source_date ? ` · ${escapeHtml(dateTime(item.source_date))}` : ""}</span></div>
-      ${mediaMarkup({ ...item, alt_text: item.file_name })}<p>${escapeHtml(item.source_path)} · ${escapeHtml(String(Math.ceil(item.byte_size / 1024)))} KiB${recipients ? ` · ${recipients}` : ""}</p>
+      ${mediaMarkup({ ...item, alt_text: item.file_name })}${moderationFormMarkup("archive_media", item.id, item.moderated)}<p>${escapeHtml(item.source_path)} · ${escapeHtml(String(Math.ceil(item.byte_size / 1024)))} KiB${recipients ? ` · ${recipients}` : ""}</p>
       ${comments ? `<details><summary>${item.comments.length} comentário(s)</summary><ul>${comments}</ul></details>` : "<p class=\"admin-empty\">Nenhum comentário.</p>"}
       <form class="admin-comment-form" data-admin-archive-comment data-media-id="${escapeHtml(item.id)}"><label class="visually-hidden" for="admin-archive-comment-${escapeHtml(item.id)}">Comentário administrativo</label><textarea id="admin-archive-comment-${escapeHtml(item.id)}" name="body" maxlength="2000" required placeholder="Comente como administrador..."></textarea><button class="text-button" type="submit">Comentar como administrador</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
       <small>Mídia UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "archive_media_comments") {
-    return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p><p>${escapeHtml(item.media?.file_name || "Mídia antiga")} · ${escapeHtml(item.media?.visibility || "")}</p><small>Comentário UUID: ${escapeHtml(item.id)} · Mídia UUID: ${escapeHtml(item.media_id)}</small></article>`;
+    return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body)}</p>${moderationFormMarkup("archive_media_comment", item.id, item.moderated)}<p>${escapeHtml(item.media?.file_name || "Mídia antiga")} · ${escapeHtml(item.media?.visibility || "")}</p><small>Comentário UUID: ${escapeHtml(item.id)} · Mídia UUID: ${escapeHtml(item.media_id)}</small></article>`;
   }
   if (resourceType === "letters") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>Carta · ${escapeHtml(item.subject)}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
