@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pendingMigration, publicationGuard, styles] = await Promise.all([
+const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pendingMigration, publicationGuard, styles, permissionsMigration] = await Promise.all([
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
   readFile(new URL("../galeria.html", import.meta.url), "utf8"),
   readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8"),
@@ -131,13 +131,13 @@ test("Peixinho can rotate and reposition gallery photos with shared server persi
 
 
 test("gallery upload and comments permissions are granted to authenticated members with RLS limits", () => {
-  assert.match(t, /grant select, insert on table public\\.community_gallery_media to authenticated/);
-  assert.match(t, /grant update \\(publication_state\\)/);
-  assert.match(t, /publication_state = 'pending'/);
-  assert.match(t, /private\\.try_uuid/);
-  assert.match(t, /select private\\.can_view_community_gallery_media\\(p_media_id\\)/);
-  assert.match(t, /select private\\.can_view_archive_media\\(p_media_id\\)/);
-  assert.match(t, /grant execute on function private\\.can_comment_community_gallery_media/);
+  assert.match(permissionsMigration, /grant select, insert on table public\\.community_gallery_media to authenticated/);
+  assert.match(permissionsMigration, /grant update \\(publication_state\\)/);
+  assert.match(permissionsMigration, /publication_state = 'pending'/);
+  assert.match(permissionsMigration, /private\\.try_uuid/);
+  assert.match(permissionsMigration, /select private\\.can_view_community_gallery_media\\(p_media_id\\)/);
+  assert.match(permissionsMigration, /select private\\.can_view_archive_media\\(p_media_id\\)/);
+  assert.match(permissionsMigration, /grant execute on function private\\.can_comment_community_gallery_media/);
 });
 
 test("gallery toolbar actions are icon-first and adapt to the selected Looply theme", () => {
