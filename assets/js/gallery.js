@@ -267,7 +267,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const cardMedia = x => '<span class="gallery-preview-slot" data-preview-slot="' + esc(mediaKey(x)) + '"><span class="gallery-skeleton" aria-hidden="true"></span></span>';
   const observePreviewSlots = () => {
     previewObserver?.disconnect();
-    const slots = $("[data-preview-slot]");
+    const slots = $$("[data-preview-slot]");
     const hydrate = async slot => {
       const x = getItem(slot.dataset.previewSlot);
       if (!x || slot.dataset.loaded === "true") return;
