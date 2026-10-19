@@ -32,6 +32,12 @@ test("chat paints a visible shell before slow Supabase queries resolve", async (
   assert.ok(shell >= 0 && queries >= 0 && shell < queries, "chat shell must render before data requests");
 });
 
+test("chat HTML keeps a visible fallback and cache-busts the page module", async () => {
+  const html = await read("chat.html");
+  assert.match(html, /id="pageContent"[^>]*>[\s\S]*Carregando conversas/);
+  assert.match(html, /assets\/js\/chat\.js\?v=[0-9a-f]+/);
+});
+
 test("chat paints a loading state before authentication and profile lookups", async () => {
   const source = await read("assets/js/chat.js");
   const firstMount = source.indexOf("await mountAppPage");
