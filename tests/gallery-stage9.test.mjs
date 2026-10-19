@@ -16,7 +16,7 @@ const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pend
 ]);
 
 test("gallery page uses the single required title and shared runtime", () => {
-  assert.match(page, /<script type="module" src="assets\/js\/gallery\.js"><\/script>/);
+  assert.match(page, /<script type="module" src="assets\/js\/gallery\.js\?v=[^"]+"><\/script>/);
   assert.doesNotMatch(page, /SEU ESPAÇO COMPARTILHADO|Fotos, vídeos e lembranças da comunidade Looply/);
   assert.match(gallery, /<h1 class="gallery-title">Galeria<\/h1>/);
   assert.doesNotMatch(gallery, /gallery-card-title/);
