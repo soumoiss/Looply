@@ -13,7 +13,7 @@ revoke all on public.gallery_media_descriptions from public, anon;
 grant select, insert, update, delete on public.gallery_media_descriptions to authenticated;
 drop policy if exists gallery_personal_description_read on public.gallery_media_descriptions;
 create policy gallery_personal_description_read on public.gallery_media_descriptions for select to authenticated
-using (user_id=(select auth.uid()) and ((source='archive' and (select private.can_view_archive_media(media_id))) or (source='community' and (select private.can_view_community_gallery_media(media_id))));
+using (user_id=(select auth.uid()) and ((source='archive' and (select private.can_view_archive_media(media_id))) or (source='community' and (select private.can_view_community_gallery_media(media_id)))));
 drop policy if exists gallery_personal_description_insert on public.gallery_media_descriptions;
 create policy gallery_personal_description_insert on public.gallery_media_descriptions for insert to authenticated
 with check (user_id=(select auth.uid()) and ((source='archive' and (select private.can_view_archive_media(media_id))) or (source='community' and (select private.can_view_community_gallery_media(media_id))));
