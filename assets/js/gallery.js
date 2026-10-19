@@ -62,7 +62,7 @@ const galleryMarkup = () => [
 '<div class="gallery-modal" data-tags-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="tags-title"><div class="gallery-dialog-heading"><h2 id="tags-title">Adicionar menções</h2><button type="button" class="gallery-icon-button" data-close-tags aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar pessoas <input type="search" data-tag-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-tag-users></div><p class="gallery-status" data-tag-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-tags>Cancelar</button><button type="button" class="gallery-primary" data-save-tags>Salvar menções</button></div></section></div>',
 '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
   '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
-  '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
+  '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><button type="button" class="gallery-tool" data-zoom-out aria-label="Reduzir zoom">−</button><button type="button" class="gallery-tool" data-zoom-in aria-label="Ampliar zoom">+</button><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
 '</div>',
 '<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Seu comentário <textarea name="body" maxlength="2000" required placeholder="Escreva um comentário…"></textarea></label><label>Quem pode ver?<select name="audience"><option value="media_viewers">Todos que podem ver a mídia</option><option value="author_only">Somente eu e o autor da mídia</option><option value="selected">Pessoas selecionadas</option></select></label><div class="gallery-user-list" data-comment-recipients hidden></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-comments>Fechar</button><button type="submit" class="gallery-primary">Comentar</button></div></form></section></div>',
 '<div class="gallery-camera-modal" data-camera-modal hidden><div class="gallery-camera-panel"><video data-camera-preview autoplay muted playsinline></video><div><button type="button" class="gallery-tool" data-switch-camera>', icon("cameraSwitch"), ' Trocar câmera</button><button type="button" class="gallery-primary" data-record>', icon("video"), ' Iniciar gravação</button><button type="button" class="gallery-tool" data-stop-camera>Fechar</button></div><p data-camera-status role="status"></p></div></div>'
@@ -127,10 +127,15 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.source_date || x.created_at, owner_id:null})),
         ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
-      const desc = await client.from("gallery_media_descriptions").select("source,media_id,user_id,description,category,updated_at").in("source",["archive","community"]);
-      if (!desc.error) {
+      const descArchiveIds = fresh.filter(x=>x.source==="archive").map(x=>x.id);
+      const descCommunityIds = fresh.filter(x=>x.source==="community").map(x=>x.id);
+      const descResults = await Promise.all([
+        descArchiveIds.length ? client.from("gallery_media_descriptions").select("source,media_id,user_id,description,category,updated_at").eq("source","archive").in("media_id",descArchiveIds) : Promise.resolve({data:[],error:null}),
+        descCommunityIds.length ? client.from("gallery_media_descriptions").select("source,media_id,user_id,description,category,updated_at").eq("source","community").in("media_id",descCommunityIds) : Promise.resolve({data:[],error:null})
+      ]);
+      if (!descResults.some(result=>result.error)) {
         const descriptions = new Map();
-        (desc.data || []).forEach(row => { const key = row.source + ":" + row.media_id; if (!descriptions.has(key)) descriptions.set(key, []); descriptions.get(key).push(row); });
+        descResults.flatMap(result=>result.data||[]).forEach(row => { const key = row.source + ":" + row.media_id; if (!descriptions.has(key)) descriptions.set(key, []); descriptions.get(key).push(row); });
         fresh.forEach(x => { x.descriptions = descriptions.get(mediaKey(x)) || []; x.myDescription = x.descriptions.find(row => row.user_id === user.id)?.description || ""; x.peopleLookup = peopleMap; x.description = [x.sourceDescription, ...x.descriptions.map(row=>row.description)].filter(Boolean).join(" "); });
       } else fresh.forEach(x=>{x.descriptions=[];x.myDescription="";x.peopleLookup=peopleMap;});
       const freshTags = tags.data || [];
@@ -210,6 +215,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
   const getItem = key => items.find(x => mediaKey(x) === key);
   const openViewer = async key => {
+    viewerZoom=1;
     const x = getItem(key); if (!x || !x.url) { say("Esta mídia não está disponível para visualização."); return; }
     activeKey = key;
     const type = mediaType(x);
@@ -284,7 +290,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const exclusive = Boolean(fd.get("exclusive"));
     const viewerIds = chosen("[data-recipient-users]");
     if (exclusive && !viewerIds.length) { say("Selecione ao menos uma pessoa para a mídia exclusiva.", $("[data-upload-status]")); return; }
-    const mentionIds = fd.get("mention_all") ? people.map(p=>p.id) : chosen("[data-mention-users]");
+    if (exclusive && new Set([...viewerIds,user.id]).size > 100) { say("Selecione no máximo 99 destinatários exclusivos, além de você.", $("[data-upload-status]")); return; }
+    let mentionIds = fd.get("mention_all") ? people.map(p=>p.id) : chosen("[data-mention-users]");
+    if (exclusive) mentionIds = mentionIds.filter(id=>viewerIds.includes(id)||id===user.id);
     const description = String(fd.get("description") || "").trim();
     uploadBusy = true;
     const button = $("[data-publish]"); button.disabled = true;
@@ -457,9 +465,14 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   grid.addEventListener("click",e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const del=e.target.closest("[data-admin-delete]");if(open)openViewer(open.dataset.openMedia);else if(comments){activeKey=comments.dataset.comments;loadComments();}else if(privateButton)togglePrivate(privateButton.dataset.togglePrivate);else if(del)deleteMedia(del.dataset.adminDelete);});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)$("[data-comments-modal]").hidden=true;else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft")$("[data-previous]").click();if(!$("[data-viewer]").hidden&&e.key==="ArrowRight")$("[data-next]").click();});
-  let touchX=0;
-  $("[data-viewer]").addEventListener("touchstart",e=>{touchX=e.changedTouches[0]?.screenX||0;},{passive:true});
-  $("[data-viewer]").addEventListener("touchend",e=>{const delta=(e.changedTouches[0]?.screenX||0)-touchX;if(Math.abs(delta)>70){if(delta<0)$("[data-next]").click();else $("[data-previous]").click();}},{passive:true});
+  let touchX=0, pinchStart=0, zoomStart=1, viewerZoom=1;
+  const setZoom = next => { const img=$("[data-viewer-media] img"); if(!img)return;viewerZoom=Math.min(4,Math.max(1,next));img.style.transform="scale("+viewerZoom+")";img.style.transformOrigin="center center";img.dataset.zoom=String(viewerZoom); };
+  $("[data-zoom-in]").addEventListener("click",()=>setZoom(viewerZoom+0.25));
+  $("[data-zoom-out]").addEventListener("click",()=>setZoom(viewerZoom-0.25));
+  const touchDistance = touches => Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
+  $("[data-viewer]").addEventListener("touchstart",e=>{if(e.touches.length===2&&$("[data-viewer-media] img")){pinchStart=touchDistance(e.touches);zoomStart=viewerZoom;}else if(e.touches.length===1){touchX=e.touches[0].screenX;}},{passive:true});
+  $("[data-viewer]").addEventListener("touchmove",e=>{if(e.touches.length===2&&pinchStart){e.preventDefault();setZoom(zoomStart*(touchDistance(e.touches)/pinchStart));}},{passive:false});
+  $("[data-viewer]").addEventListener("touchend",e=>{if(e.touches.length<2)pinchStart=0;if(viewerZoom<=1.02&&e.changedTouches.length===1){const delta=e.changedTouches[0].screenX-touchX;if(Math.abs(delta)>70){if(delta<0)$("[data-next]").click();else $("[data-previous]").click();}}},{passive:true});
   $("[data-viewer]").addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const current=Number(img.dataset.zoom||1);const next=Math.min(4,Math.max(1,current+(e.deltaY<0?0.15:-0.15)));img.dataset.zoom=String(next);img.style.transform="scale("+next+")";},{passive:false});
   try { await load(true); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
 } });
