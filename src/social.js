@@ -607,7 +607,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
             const sharedTarget = parsed.searchParams.get("u");
             try { parsed = new URL(sharedTarget || ""); } catch { throw new Error("unsupported external URL"); }
           }
-          const allowedHosts = ["instagram.com","www.instagram.com","m.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
+          const allowedHosts = ["instagram.com","www.instagram.com","m.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","vt.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
           if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("unsupported external URL");
           if (["instagram.com", "m.instagram.com"].includes(parsed.hostname.toLowerCase())) parsed.hostname = "www.instagram.com";
           externalUrl = parsed.href;

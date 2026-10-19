@@ -84,3 +84,17 @@ test("shared external links unwrap Instagram redirects and reject unsafe or unsu
   assert.equal(normalizeSharedExternalUrl("https://example.com/post"), null);
   assert.equal(parseIncomingSharedLink("https://soumoiss.github.io/Looply/?text=sem%20link"), null);
 });
+
+
+test("external-link posts have database INSERT permission for external_url", async () => {
+  const migration = await read("supabase/migrations/20261020130000_fix_external_link_post_insert.sql");
+  assert.match(migration, /grant insert\s*\(external_url\)\s*on public\.posts to authenticated/i);
+  assert.match(migration, /posts/i);
+});
+
+test("canonical Instagram Reel URLs resolve to a valid embed URL", async () => {
+  const { instagramEmbedDetails } = await import("../src/social.js");
+  assert.deepEqual(instagramEmbedDetails("https://www.instagram.com/reel/ABC123xyz_-/"), {
+    kind: "reel", shortcode: "ABC123xyz_-", embedUrl: "https://www.instagram.com/reel/ABC123xyz_-/embed/"
+  });
+});

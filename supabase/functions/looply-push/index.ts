@@ -29,7 +29,7 @@ Deno.serve(async (request) => {
       await webpush.default.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, body);
       delivered += 1;
     } catch (sendError) {
-      const status = Number(sendError?.statusCode || 0);
+      const status = Number((sendError as { statusCode?: number } | null)?.statusCode || 0);
       if (status === 404 || status === 410) await service.from("push_subscriptions").delete().eq("id", subscription.id);
     }
   }
