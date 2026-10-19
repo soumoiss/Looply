@@ -118,7 +118,7 @@ test("canonical TikTok video URLs render a provider embed", async () => {
   const { tiktokEmbedDetails } = await import("../src/social.js");
   assert.deepEqual(
     tiktokEmbedDetails("https://www.tiktok.com/@sample/video/1234567890123456789"),
-    { videoId: "1234567890123456789", embedUrl: "https://www.tiktok.com/embed/v2/1234567890123456789" }
+    { videoId: "1234567890123456789", embedUrl: "https://www.tiktok.com/player/v1/1234567890123456789?music_info=1&description=1" }
   );
 });
 
