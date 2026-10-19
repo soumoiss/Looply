@@ -22,3 +22,8 @@ test("the performance migration adds indexes for all foreign keys flagged by Sup
   assert.equal((migration.match(/create index if not exists/gi) || []).length, expectedIndexes.length);
   for (const indexPattern of expectedIndexes) assert.match(migration, indexPattern);
 });
+
+test("gallery adjustment editor foreign key has a covering index", async () => {
+  const migration = await readFile(resolve(root, "supabase/migrations/20261019060000_gallery_adjustments_fk_index.sql"), "utf8");
+  assert.match(migration, /create index if not exists gallery_media_adjustments_updated_by_idx[\s\S]*?on public\.gallery_media_adjustments \(updated_by\)/i);
+});
