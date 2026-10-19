@@ -136,7 +136,19 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     if (resourceId) query = query.eq("id", resourceId);
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
-    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    const ids = [...new Set(rows.flatMap((row: any) => [row.id, ...(row.comments || []).map((comment: any) => comment.id)]))];
+    if (ids.length) {
+      const { data: moderation, error: moderationError } = await service.from("looply_content_moderation")
+        .select("content_type,content_id").in("content_id", ids);
+      if (moderationError) throw moderationError;
+      const hidden = new Set((moderation || []).map((entry: any) => entry.content_type + ":" + entry.content_id));
+      for (const row of rows) {
+        row.moderated = hidden.has("post:" + row.id);
+        for (const comment of row.comments || []) comment.moderated = hidden.has("comment:" + comment.id);
+      }
+    }
+    return rows;
   }
 
   if (resourceType === "music_dedications") {
@@ -394,6 +406,42 @@ Deno.serve(async (request: Request) => {
     if (resourceId && !uuidPattern.test(resourceId)) return respond(400, { error: "Resource ID must be a UUID." });
     const offset = Number(payload.offset ?? 0);
     if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) return respond(400, { error: "Archive media position is invalid." });
+
+    if (action === "moderate_content") {
+      const contentType = String(payload.contentType || "");
+      const contentId = String(payload.contentId || "");
+      const hidden = payload.hidden === true;
+      const reason = String(payload.reason || "").trim();
+      if (!["post", "comment"].includes(contentType) || !uuidPattern.test(contentId)
+          || reason.length < 20 || reason.length > 500) {
+        return respond(400, { error: "invalid_moderation_request" });
+      }
+      const tableName = contentType === "post" ? "posts" : "comments";
+      const { data: target, error: targetError } = await service.from(tableName).select("id").eq("id", contentId).maybeSingle();
+      if (targetError) throw targetError;
+      if (!target) return respond(404, { error: "content_not_found" });
+      await recordAccess(service, authData.user.id, "moderation_requested", "posts", contentId, reason, requestId,
+        { action, content_type: contentType, hidden });
+      try {
+        if (hidden) {
+          const { error } = await service.from("looply_content_moderation").upsert({
+            content_type: contentType, content_id: contentId, reason, moderated_by: authData.user.id
+          }, { onConflict: "content_type,content_id" });
+          if (error) throw error;
+        } else {
+          const { error } = await service.from("looply_content_moderation")
+            .delete().eq("content_type", contentType).eq("content_id", contentId);
+          if (error) throw error;
+        }
+        await recordAccess(service, authData.user.id, "moderation_completed", "posts", contentId, reason, requestId,
+          { action, content_type: contentType, hidden });
+        return respond(200, { requestId, contentType, contentId, hidden });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "moderation_failed", "posts", contentId, reason, requestId,
+          { action, content_type: contentType, hidden, reason_error: errorMessage(error, "Moderation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
 
     if (action === "users_list") {
       await recordAccess(service, authData.user.id, "read_requested", "profiles", null, purpose, requestId, { action });

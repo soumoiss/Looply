@@ -118,12 +118,19 @@ function mediaMarkup(media) {
     : `<figure><img src="${url}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${label}</figcaption></figure>`;
 }
 
+function moderationFormMarkup(contentType, contentId, hidden) {
+  return `<form class="admin-comment-form" data-moderate-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}" data-hidden="${hidden ? "true" : "false"}">
+    <label>Justificativa (mínimo 20 caracteres)<input name="reason" minlength="20" maxlength="500" required placeholder="Motivo da moderação"></label>
+    <button class="text-button" type="submit">${hidden ? "Restaurar conteúdo" : "Ocultar conteúdo"}</button>
+    <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
+}
+
 function itemMarkup(resourceType, item) {
   if (resourceType === "posts") {
-    const comments = (item.comments || []).map((comment) => `<li><strong>@${escapeHtml(comment.author?.username || "perfil restrito")}</strong><p>${escapeHtml(comment.body)}</p></li>`).join("");
+    const comments = (item.comments || []).map((comment) => `<li><strong>@${escapeHtml(comment.author?.username || "perfil restrito")}</strong><p>${escapeHtml(comment.body)}</p>${moderationFormMarkup("comment", comment.id, comment.moderated)}</li>`).join("");
     const media = (item.media || []).map(mediaMarkup).join("");
     return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")}</strong><span>${escapeHtml(item.visibility)} · ${escapeHtml(dateTime(item.created_at))}</span></div>
-      <p class="admin-record-body">${escapeHtml(item.body)}</p>${media ? `<div class="admin-media-grid">${media}</div>` : ""}
+      <p class="admin-record-body">${escapeHtml(item.body)}</p>${moderationFormMarkup("post", item.id, item.moderated)}${media ? `<div class="admin-media-grid">${media}</div>` : ""}
       ${comments ? `<details><summary>${item.comments.length} comentário(s)</summary><ul>${comments}</ul></details>` : ""}
       <form class="admin-comment-form" data-admin-comment data-post-id="${escapeHtml(item.id)}"><label class="visually-hidden" for="admin-comment-${escapeHtml(item.id)}">Comentário administrativo</label><textarea id="admin-comment-${escapeHtml(item.id)}" name="body" maxlength="2000" required placeholder="Comente como administrador..."></textarea><button class="text-button" type="submit">Comentar como administrador</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
       <small>Post UUID: ${escapeHtml(item.id)}</small></article>`;
@@ -377,6 +384,38 @@ export function bindAdminEvents(root, client) {
       if (refreshButton) refreshButton.disabled = false;
     }
   }
+
+  root.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-moderate-content]");
+    if (!form || !client) return;
+    event.preventDefault();
+    const reason = String(form.elements.reason?.value || "").trim();
+    if (reason.length < 20 || reason.length > 500) {
+      setStatus(form, "A justificativa deve conter de 20 a 500 caracteres.", "error");
+      return;
+    }
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    setStatus(form, "Registrando moderação…", "info");
+    try {
+      const { data, error } = await invokeAdmin({
+        action: "moderate_content", resourceType: "posts", purpose: reason,
+        contentType: form.dataset.contentType, contentId: form.dataset.contentId,
+        hidden: form.dataset.hidden !== "true", reason
+      });
+      if (error) throw error;
+      setStatus(form, data?.hidden ? "Conteúdo ocultado e ação auditada." : "Conteúdo restaurado e ação auditada.");
+      const readForm = root.querySelector("[data-admin-read]");
+      if (readForm) {
+        const readPurpose = readForm.querySelector('[name="purpose"]');
+        if (readPurpose && !String(readPurpose.value || "").trim()) readPurpose.value = reason;
+        readForm.requestSubmit();
+      }
+    } catch (error) {
+      setStatus(form, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível moderar o conteúdo. Confira a sessão e tente novamente.", "error");
+      if (button) button.disabled = false;
+    }
+  });
 
   root.addEventListener("click", async (event) => {
     const refreshUsers = event.target.closest("[data-users-refresh]");
