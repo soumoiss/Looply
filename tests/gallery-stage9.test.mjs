@@ -174,8 +174,8 @@ test("gallery load tolerates rejected ancillary queries and keeps thumbnail grid
 });
 
 test("gallery selected-checkbox helper queries all matches instead of calling map on one element", () => {
-  assert.match(gallery, /const chosen = selector => \$\$\(selector \+ " input\[type=checkbox\]:checked"\)\.map\(el => el\.value\);/);
-  assert.doesNotMatch(gallery, /const chosen = selector => \$\(selector \+ " input\[type=checkbox\]:checked"\)\.map/);
-  assert.match(gallery, /const syncUserLists = \(\) =>/);
-  assert.match(gallery, /syncUserLists\(\);\s*draw\(\);/);
+  assert.ok(gallery.includes('const chosen = selector => $$(selector + " input[type=checkbox]:checked").map(el => el.value);'));
+  assert.ok(!gallery.includes('const chosen = selector => $(selector + " input[type=checkbox]:checked").map'));
+  assert.ok(gallery.includes("const syncUserLists = () =>"));
+  assert.ok(gallery.includes("syncUserLists();\n      draw();"));
 });
