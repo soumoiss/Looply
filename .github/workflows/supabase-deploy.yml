@@ -40,7 +40,40 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Apply pending database migrations
-        run: supabase db push
+        shell: bash
+        run: |
+          set +e
+          push_output="$(supabase db push 2>&1)"
+          push_status=$?
+          set -e
+          printf '%s\n' "$push_output"
+
+          if [ "$push_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          # Supabase refuses to push when an old migration was applied remotely
+          # but its file was removed from this repository. Repair only the exact
+          # remote-only versions reported by this project's failed deployment.
+          if ! grep -q "Remote migration versions not found in local migrations directory." <<< "$push_output"; then
+            exit "$push_status"
+          fi
+
+          supabase migration repair \
+            20261016195217 20261016200337 20261017014757 20261017021312 \
+            20261017194314 20261018032328 20261018035937 20261018040021 \
+            20261018043427 20261018122243 20261018184648 20261018184704 \
+            20261018190617 20261018191316 20261018191536 20261018234416 \
+            20261019035614 20261019040810 20261019041408 20261019042221 \
+            20261019043048 20261019043331 20261019043432 20261019044455 \
+            20261019044648 20261019045041 20261019051040 20261019051622 \
+            20261019051947 20261019053101 20261019053809 20261019060251 \
+            20261019104935 20261019104953 20261019105809 20261019112244 \
+            20261019112843 20261019114104 20261019115515 20261019121710 \
+            20261019123550 20261019174315 \
+            --status reverted
+
+          supabase db push
 
       - name: Deploy protected Edge Functions
         run: |
