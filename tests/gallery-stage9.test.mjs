@@ -160,3 +160,15 @@ test("viewer keeps persisted photo adjustment and synchronizes zoom state across
   assert.match(zoom, /img\.dataset\.zoom=String\(viewerZoom\)/);
   assert.match(gallery, /x\.savedAdjustment = \{\.\.\.adjustment\}/);
 });
+
+
+test("gallery load tolerates rejected ancillary queries and keeps thumbnail grid compact", async () => {
+  const source = await readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8");
+  assert.match(source, /const safeQuery = async query => \\{ try \\{ return await query; \\} catch \\(error\\) \\{ return \\{ data: null, error \\}; \\} \\}/);
+  assert.match(source, /gallery_album_items.*?\\n      \\]\\.map\\(safeQuery\\)/s);
+  assert.match(source, /gallery_media_adjustments.*?await safeQuery/s);
+  assert.match(source, /gallery_media_descriptions.*?\\n      \\]\\.map\\(safeQuery\\)/s);
+  assert.match(source, /community_gallery_media_likes.*?\\n      \\]\\.map\\(safeQuery\\)/s);
+  assert.match(styles, /gallery-grid:not\\(\\.list\\):not\\(\\.masonry\\) \\.gallery-card-body\\{display:none\\}/);
+  assert.match(styles, /gallery-grid:not\\(\\.list\\):not\\(\\.masonry\\) \\.gallery-media\\{aspect-ratio:1\\/1/);
+});
