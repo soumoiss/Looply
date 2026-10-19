@@ -12,7 +12,7 @@ const contracts = [
   ["record_story_view", /can_view_story/i],
   ["send_story_reply", /can_view_story/i],
   ["set_gallery_media_adjustment", /private\.is_admin\(\)/i],
-  ["set_gallery_media_permissions", /(?=[\\s\\S]*private\\.is_admin\\(\\))(?=[\\s\\S]*item_owner\\s*<>\\s*actor)/i],
+  ["set_gallery_media_permissions", /item_owner\s*<>\s*actor/i],
   ["set_gallery_media_private", /can_view_community_gallery_media|can_view_archive_media/i],
   ["set_gallery_private_passcode", /auth\.uid\(\)[\s\S]*?extensions\.crypt/i],
   ["verify_gallery_private_passcode", /where\s+user_id\s*=\s*\(select\s+auth\.uid\(\)\)/i]
@@ -36,6 +36,9 @@ test("SECURITY DEFINER RPCs keep a locked search_path and an explicit identity/o
     assert.match(body, /set search_path\s+(?:to|=)\s*''/, `${name} must lock search_path`);
     assert.match(body, /auth\.uid\(\)/, `${name} must bind authorization to the signed-in identity`);
     assert.match(body, guard, `${name} must keep its operation-specific guard`);
+    if (name === "set_gallery_media_permissions") {
+      assert.match(body, /private\.is_admin\(\)/i, "gallery permission updates must retain the administrator check");
+    }
     assert.ok(
       statements.some((statement) => /revoke\s+all\s+on\s+function/i.test(statement) && statement.includes(`public.${name}(`)),
       `${name} must explicitly revoke default/public execution grants`
