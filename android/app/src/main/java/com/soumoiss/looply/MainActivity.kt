@@ -138,7 +138,7 @@ class MainActivity : Activity() {
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
         if (!route.matches(Regex("(?:conversa|notificacoes|home)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
-        webView.post { webView.loadUrl("https://appassets.androidplatform.net/$route") }
+        webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
 
     override fun onStart() {
@@ -495,7 +495,7 @@ class MainActivity : Activity() {
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
         if (!uri.scheme.equals("https", ignoreCase = true)) return false
         val host = uri.host?.lowercase() ?: return false
-        return host == APP_ASSET_HOST || host == SUPABASE_HOST
+        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST || host == SUPABASE_HOST
     }
 
     private fun launchExternal(uri: Uri) {
@@ -508,7 +508,7 @@ class MainActivity : Activity() {
 
     private fun authorizeWebMedia(request: PermissionRequest) {
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != APP_ASSET_HOST
+            request.origin.host?.lowercase() != GITHUB_PAGES_HOST
         ) {
             request.deny()
             return
@@ -630,7 +630,7 @@ class MainActivity : Activity() {
     private fun loadLooply() {
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        webView.loadUrl(LOCAL_START_URL)
+        webView.loadUrl(REMOTE_START_URL)
     }
 
     private fun showError(title: String, message: String) {
@@ -689,8 +689,9 @@ class MainActivity : Activity() {
 
     companion object {
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
+        private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
         private const val SUPABASE_HOST = "qixocgetiwlrsbadpbvh.supabase.co"
-        private const val LOCAL_START_URL = "https://appassets.androidplatform.net/index.html"
+        private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702
         private const val REQUEST_DOWNLOAD_STORAGE = 703

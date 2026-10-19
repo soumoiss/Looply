@@ -1,6 +1,6 @@
 # Looply para Android
 
-Este módulo instala a aplicação web atual dentro de uma WebView Android. O build executa `scripts/build.mjs` e empacota os recursos do repositório em uma origem HTTPS local fornecida por AndroidX WebKit (`appassets.androidplatform.net`). As páginas continuam usando o cliente Supabase público já existente; nenhuma chave administrativa é adicionada ao APK.
+Este módulo abre o Looply publicado no GitHub Pages dentro de uma WebView Android. O APK usa `https://soumoiss.github.io/Looply/` como origem remota, portanto novas publicações no site ficam disponíveis no aplicativo sem recompilar o APK. As páginas continuam usando o cliente Supabase público já existente; nenhuma chave administrativa é adicionada ao APK.
 
 ## Build local
 
