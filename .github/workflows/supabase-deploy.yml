@@ -77,7 +77,9 @@ jobs:
             20261019123550 20261019174315 \
             --status reverted
 
-          supabase db push
+          # The repaired history can contain a newer remote version while
+          # local migrations still need to be applied before it.
+          supabase db push --include-all
 
       - name: Deploy protected Edge Functions
         run: |

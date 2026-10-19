@@ -14,6 +14,7 @@ test("production backend deployment is automated without committing Supabase cre
   assert.match(workflow, /supabase db push/);
   assert.match(workflow, /Remote migration versions not found in local migrations directory/);
   assert.match(workflow, /supabase migration repair/);
+  assert.match(workflow, /supabase db push --include-all/);
   assert.match(workflow, /functions deploy looply-admin/);
   assert.match(workflow, /functions deploy looply-youtube-playlist/);
   assert.doesNotMatch(workflow, /service_role|SUPABASE_SERVICE_ROLE_KEY|eyJ[A-Za-z0-9_-]{20,}/i);
