@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [gallery, page, runtime, migration, albumMigration, cleanupMigration, styles] = await Promise.all([
+const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pendingMigration, styles] = await Promise.all([
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
   readFile(new URL("../galeria.html", import.meta.url), "utf8"),
   readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019024037_gallery_private_folder_admin_delete.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019024648_gallery_albums.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019025302_gallery_media_reference_cleanup.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019025446_gallery_pending_uploads.sql", import.meta.url), "utf8"),
   readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8")
 ]);
 
@@ -65,4 +66,15 @@ test("media deletion cleans polymorphic private, album, tag and description refe
   assert.match(cleanupMigration, /gallery_media_descriptions/);
   assert.match(cleanupMigration, /after delete on public\.archive_media/);
   assert.match(cleanupMigration, /after delete on public\.community_gallery_media/);
+});
+
+
+test("incomplete uploads stay hidden and can be cleaned up by their owner", () => {
+  assert.match(pendingMigration, /publication_state text not null default 'published'/);
+  assert.match(pendingMigration, /media\.publication_state = 'published'/);
+  assert.match(pendingMigration, /cleanup_pending_gallery_media/);
+  assert.match(pendingMigration, /publication_state='pending'/);
+  assert.match(gallery, /publication_state:"pending"/);
+  assert.match(gallery, /cleanup_pending_gallery_media/);
+  assert.match(gallery, /publication_state:"published"/);
 });
