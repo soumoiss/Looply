@@ -18,6 +18,14 @@ test("the browser client uses an exact Supabase JS version and a publishable key
   assert.match(client, /persistSession:\s*true/);
 });
 
+test("transient Auth verification failures do not sign the user out or force a login redirect", async () => {
+  const runtime = await read("src/page-runtime.js");
+  assert.match(runtime, /if \(!user && \(sessionError \|\| userLookupError\)\) \{[\s\S]*?notice\(root, "Não foi possível verificar sua sessão agora/);
+  const unauthenticatedPath = runtime.slice(runtime.indexOf("  if (!user) {", runtime.indexOf("if (!user && (sessionError || userLookupError))")), runtime.indexOf("  let profile;"));
+  assert.doesNotMatch(unauthenticatedPath, /supabase\.auth\.signOut\(\)/);
+  assert.match(unauthenticatedPath, /window\.location\.replace\("login\.html"\)/);
+});
+
 test("the initial schema protects profile rows and never derives administrator access from metadata", async () => {
   const names = await readdir(resolve(projectRoot, "supabase/migrations"));
   const foundationName = names.find((name) => name.endsWith("_foundation_profiles_admin.sql"));
