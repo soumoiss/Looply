@@ -43,6 +43,19 @@
         <div class="form-message" id="message" role="alert" aria-live="polite">Não foi possível entrar. Confira seu usuário e sua senha.</div>
       </form>
 
+      <form id="invitePasswordForm" hidden novalidate>
+        <div class="form-field">
+          <label class="form-label" for="inviteNewPassword">Crie sua senha</label>
+          <div class="input-wrap"><input class="input" id="inviteNewPassword" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Pelo menos 12 caracteres" required></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="inviteConfirmPassword">Confirme sua senha</label>
+          <div class="input-wrap"><input class="input" id="inviteConfirmPassword" name="confirmPassword" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></div>
+        </div>
+        <button class="login-button" type="submit">Ativar minha conta</button>
+        <div class="form-message" id="inviteMessage" role="alert" aria-live="polite"></div>
+      </form>
+
       <div class="login-footer"><strong>Looply</strong> · MoissWorld</div>
     </section>
   </main>
