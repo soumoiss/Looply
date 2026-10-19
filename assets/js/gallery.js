@@ -95,7 +95,6 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const filterQuery = $("[data-filter-user-search]").value || "";
     const tagQuery = $("[data-tag-search]").value || "";
     const accessQuery = $("[data-access-search]").value || "";
-    const accessQuery = $("[data-access-search]").value || "";
     $("[data-tag-users]").innerHTML = usersHtml(selectedTagPeople, tagQuery);
     $("[data-access-users]").innerHTML = usersHtml(selectedAccessRecipients, accessQuery);
     const commentSelected = new Set(chosen("[data-comment-recipients]"));
