@@ -152,7 +152,7 @@ test("caller and receiver exchange offers, answers, and queued ICE candidates us
   assert.match(source, /const offerPayload = \{/);
   assert.match(source, /description: pc\.localDescription\.toJSON\(\)/);
   assert.match(source, /send\("offer", offerPayload\)/);
-  assert.match(source, /offerRetryTimer = setInterval\(/);
+  assert.match(source, /offerRetryTimer = window\.setInterval\(/);
   assert.match(source, /payload\.type === "answer" && pc && isCaller/);
   assert.match(source, /await pc\.setRemoteDescription\(payload\.description\)/);
   assert.match(source, /await pc\.setLocalDescription\(answer\)/);
