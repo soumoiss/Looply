@@ -74,6 +74,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const isMediaFile = file => Boolean(getFileMime(file));
   const maxBytes = Infinity; // Limites reais de armazenamento são aplicados pelo provedor, não duplicados na interface.
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
+  let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
   let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false;
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
@@ -133,7 +134,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const load = async (reset = false) => {
     if (loading) return;
     loading = true;
-    if (reset) { loadPage = 0; hasMore = true; items = []; privateKeys.clear(); say("Carregando mídias…"); }
+    if (reset) {
+      loadPage = 0; hasMore = true; items = []; privateKeys.clear(); say("Carregando mídias…");
+      grid.innerHTML = Array.from({length:8}, () => '<div class="gallery-card gallery-skeleton-card" aria-hidden="true"><span class="gallery-skeleton"></span></div>').join("");
+    }
     try {
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
@@ -262,6 +266,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
   const cardMedia = x => '<span class="gallery-preview-slot" data-preview-slot="' + esc(mediaKey(x)) + '"><span class="gallery-skeleton" aria-hidden="true"></span></span>';
   const observePreviewSlots = () => {
+    previewObserver?.disconnect();
     const slots = $("[data-preview-slot]");
     const hydrate = async slot => {
       const x = getItem(slot.dataset.previewSlot);
@@ -276,14 +281,14 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       }
     };
     if ("IntersectionObserver" in window) {
-      const observer = new IntersectionObserver(entries => {
+      previewObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (!entry.isIntersecting) return;
-          observer.unobserve(entry.target);
+          previewObserver.unobserve(entry.target);
           hydrate(entry.target);
         });
       }, { rootMargin: "220px 0px" });
-      slots.forEach(slot => observer.observe(slot));
+      slots.forEach(slot => previewObserver.observe(slot));
     } else slots.slice(0, 12).forEach(hydrate);
   };
   const draw = () => {
