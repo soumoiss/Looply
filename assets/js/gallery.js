@@ -20,7 +20,7 @@ const descriptionMarkup = x => {
 
 const galleryMarkup = () => [
 '<section class="gallery-shell">',
-  '<div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><button class="gallery-primary" type="button" data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia">', icon("plus"), '</button></div>',
+  '<div class="gallery-hero"><h1 class="gallery-title">Galeria</h1><button class="gallery-primary" type="button" data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia">', icon("plus"), '</button></div>',
   '<div class="gallery-main-controls" aria-label="Filtros principais">',
     '<button class="gallery-tab active" type="button" data-main="recentes" aria-label="Recentes" title="Recentes">', icon("refresh"), '</button>',
     '<label class="gallery-select-label">', icon("filter"), ' <span>Tipos</span><select data-title-filter aria-label="Filtrar por formato"><option value="all">Todos</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="album">Álbuns</option><option value="audio">Áudios</option></select></label>',
