@@ -148,3 +148,15 @@ test("gallery toolbar actions are icon-first and adapt to the selected Looply th
   assert.ok(styles.includes("--gallery-control-text: var(--text"));
   assert.ok(styles.includes("gallery-card-actions button[data-comments] span { display: none"));
 });
+
+
+test("viewer keeps persisted photo adjustment and synchronizes zoom state across media", async () => {
+  const adjustment = gallery.slice(gallery.indexOf("const applyPhotoAdjustment"), gallery.indexOf("const draftPhotoAdjustment"));
+  const zoom = gallery.slice(gallery.indexOf("const setZoom"), gallery.indexOf('$("[data-zoom-in]")'));
+  assert.match(adjustment, /rotate\(.*adjustment\.rotation/s);
+  assert.match(adjustment, /scale\(.*viewerZoom/s);
+  assert.match(adjustment, /image\.dataset\.zoom = String\(viewerZoom \|\| 1\)/);
+  assert.match(zoom, /if\(x\)applyPhotoAdjustment\(x\)/);
+  assert.match(zoom, /img\.dataset\.zoom=String\(viewerZoom\)/);
+  assert.match(gallery, /x\.savedAdjustment = \{\.\.\.adjustment\}/);
+});
