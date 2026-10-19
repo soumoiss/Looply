@@ -42,8 +42,17 @@ export function adminMarkup(profile = {}) {
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. Toda ação exige justificativa e fica registrada na auditoria. A criação de conta respeita as identidades Looply autorizadas.</p>
       <div class="field"><label for="adminUsersPurpose">Justificativa administrativa (obrigatória)</label><input id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" placeholder="Descreva o motivo da consulta ou alteração" required></div>
+      <form class="admin-broadcast-form" data-user-create>
+        <h4>Cadastrar novo usuário</h4>
+        <div class="field"><label for="adminCreateUsername">Username</label><input id="adminCreateUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva" aria-describedby="adminCreateUsernameStatus"><small>Digite sem @; serão aceitos 3–30 caracteres: letras, números e sublinhado. O sistema salva em minúsculas.</small><small id="adminCreateUsernameStatus" data-availability="username" class="form-status" role="status" aria-live="polite"></small></div>
+        <div class="field"><label for="adminCreateEmail">E-mail</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" required placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
+        <div class="field"><label for="adminCreateDisplayName">Nome completo / de exibição</label><input id="adminCreateDisplayName" name="displayName" type="text" maxlength="80" autocomplete="off" required></div>
+        <div class="field"><label for="adminCreatePassword">Senha inicial</label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><small>Use de 8 a 72 caracteres. Entregue a senha inicial ao usuário por um canal seguro.</small></div>
+        <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo usa o backend administrativo e não altera a sessão do Peixinho.</p>
+        <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form>
       <form class="admin-broadcast-form" data-user-invite>
-        <h4>Convidar novo usuário comum</h4>
+        <h4>Ou enviar convite por e-mail</h4>
         <div class="field"><label for="adminInviteUsername">Nome de usuário para login</label><input id="adminInviteUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva"><small>3–30 letras, números ou sublinhados. O nome será convertido para minúsculas.</small></div>
         <div class="field"><label for="adminInviteEmail">E-mail para receber o convite</label><input id="adminInviteEmail" name="email" type="email" maxlength="254" autocomplete="email" required placeholder="pessoa@exemplo.com"></div>
         <div class="field"><label for="adminInviteDisplayName">Nome de exibição</label><input id="adminInviteDisplayName" name="displayName" maxlength="80" required></div>
@@ -355,6 +364,50 @@ export function bindAdminEvents(root, client) {
 
   void refreshAdminSession();
 
+  let availabilityTimer = null;
+  let availabilityRequest = 0;
+  root.addEventListener("input", (event) => {
+    const form = event.target.closest("form[data-user-create]");
+    if (!form || !["username", "email"].includes(event.target.name)) return;
+    const username = String(form.elements.username.value || "").trim().replace(/^@/, "").toLowerCase();
+    const email = String(form.elements.email.value || "").trim().toLowerCase();
+    const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+    const usernameStatus = form.querySelector('[data-availability="username"]');
+    const emailStatus = form.querySelector('[data-availability="email"]');
+    if (usernameStatus) { usernameStatus.textContent = ""; usernameStatus.dataset.kind = ""; }
+    if (emailStatus) { emailStatus.textContent = ""; emailStatus.dataset.kind = ""; }
+    if (availabilityTimer) clearTimeout(availabilityTimer);
+    if (purpose.length < 20 || (!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))) return;
+    if (usernameStatus && /^[a-z0-9_]{3,30}$/.test(username)) usernameStatus.textContent = "Verificando disponibilidade…";
+    if (emailStatus && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) emailStatus.textContent = "Verificando disponibilidade…";
+    const requestNumber = ++availabilityRequest;
+    availabilityTimer = setTimeout(async () => {
+      try {
+        const { data, error } = await invokeAdmin({
+          action: "user_check_availability",
+          resourceType: "profiles",
+          username: /^[a-z0-9_]{3,30}$/.test(username) ? username : "",
+          email: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ? email : "",
+          purpose
+        });
+        if (error) throw error;
+        if (requestNumber !== availabilityRequest) return;
+        if (usernameStatus && /^[a-z0-9_]{3,30}$/.test(username)) {
+          usernameStatus.textContent = data?.usernameAvailable ? "Username disponível." : "Este username já está em uso.";
+          usernameStatus.dataset.kind = data?.usernameAvailable ? "success" : "error";
+        }
+        if (emailStatus && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+          emailStatus.textContent = data?.emailAvailable ? "E-mail disponível." : "Este e-mail já está cadastrado.";
+          emailStatus.dataset.kind = data?.emailAvailable ? "success" : "error";
+        }
+      } catch (error) {
+        if (requestNumber !== availabilityRequest) return;
+        if (usernameStatus) { usernameStatus.textContent = "Não foi possível verificar agora."; usernameStatus.dataset.kind = "error"; }
+        if (emailStatus) { emailStatus.textContent = "Não foi possível verificar agora."; emailStatus.dataset.kind = "error"; }
+      }
+    }, 450);
+  });
+
   async function loadBroadcasts(form, showStatus = true) {
     const purpose = String(form?.elements.purpose?.value || "").trim();
     const results = root.querySelector("[data-broadcast-results]");
@@ -518,6 +571,53 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const createForm = event.target.closest("form[data-user-create]");
+    if (createForm && client) {
+      event.preventDefault();
+      const values = new FormData(createForm);
+      const username = String(values.get("username") || "").trim().replace(/^@/, "").toLowerCase();
+      const email = String(values.get("email") || "").trim().toLowerCase();
+      const displayName = String(values.get("displayName") || "").trim();
+      const password = String(values.get("password") || "");
+      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+          || displayName.length < 1 || displayName.length > 80 || password.length < 8 || password.length > 72) {
+        setStatus(createForm, "Confira o username, o e-mail, o nome e a senha (8–72 caracteres).", "error");
+        return;
+      }
+      if (purpose.length < 20 || purpose.length > 500) {
+        setStatus(createForm, "Informe uma justificativa de 20 a 500 caracteres no campo acima.", "error");
+        return;
+      }
+      const button = createForm.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      setStatus(createForm, "Criando a conta e o perfil…", "info");
+      try {
+        const { data, error } = await invokeAdmin({
+          action: "user_create_with_password", resourceType: "profiles",
+          username, email, displayName, password, purpose
+        });
+        if (error) throw error;
+        createForm.reset();
+        for (const status of createForm.querySelectorAll("[data-availability]")) {
+          status.textContent = "";
+          status.dataset.kind = "";
+        }
+        setStatus(createForm, "Usuário @" + (data?.username || username) + " cadastrado com sucesso. O login já está habilitado.", "success");
+        await loadUsers();
+      } catch (error) {
+        console.error("Looply direct user creation failed", error);
+        const message = String(error?.message || "");
+        const code = String(error?.context?.body?.error || error?.details || "");
+        const reason = [message, code].join(" ").toLowerCase();
+        if (reason.includes("username_already_exists")) setStatus(createForm, "Este username já está em uso.", "error");
+        else if (reason.includes("email_already_exists") || reason.includes("user_already_exists")) setStatus(createForm, "Este e-mail já está cadastrado.", "error");
+        else if (reason.includes("admin_session")) setStatus(createForm, "A sessão ADM expirou. Desbloqueie novamente e tente outra vez.", "error");
+        else setStatus(createForm, "Não foi possível criar a conta. Confira os dados e tente novamente.", "error");
+      } finally { if (button) button.disabled = false; }
+      return;
+    }
+
     const inviteForm = event.target.closest("form[data-user-invite]");
     if (inviteForm && client) {
       event.preventDefault();
