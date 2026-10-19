@@ -13,6 +13,7 @@ test("mobile gallery exposes one filter sheet and horizontal controls", () => {
   assert.match(gallery, /data-toggle-filters/);
   assert.match(styles, /writing-mode:\s*horizontal-tb/);
   assert.match(styles, /gallery-filter-sheet/);
+  assert.match(styles, /gallery-primary-tabs \.gallery-tab\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*max-content;/s);
 });
 
 test("gallery cards expose comment presence without loading comment bodies", () => {

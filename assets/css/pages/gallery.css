@@ -1184,6 +1184,13 @@ body.gallery-viewer-open{overflow:hidden}
   text-orientation:mixed;
   line-height:1.2;
 }
+.page-gallery .gallery-primary-tabs .gallery-tab {
+  width:auto;
+  min-width:max-content;
+  height:auto;
+  flex:0 0 auto;
+  white-space:nowrap;
+}
 .page-gallery .gallery-filter-toggle { margin-left:auto; }
 .page-gallery .gallery-page-more-wrap { flex:0 0 auto; }
 .page-gallery .gallery-filter-panel { align-items:center; }
