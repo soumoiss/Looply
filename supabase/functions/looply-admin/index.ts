@@ -46,6 +46,16 @@ function decodeBase64Url(value: string) {
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
 
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function randomSessionToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 async function verifyArchivedCardPassword(password: string, saltText: string, hashText: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: decodeBase64Url(saltText), iterations: cardPasswordIterations, hash: "SHA-256" }, key, 256);
@@ -264,12 +274,108 @@ Deno.serve(async (request: Request) => {
     const { data: isAdmin, error: membershipError } = await service.rpc("is_looply_admin", { p_user_id: authData.user.id });
     if (membershipError) throw membershipError;
 
+    if (action.startsWith("admin_session_")) {
+      if (isAdmin !== true) {
+        await recordAccess(service, authData.user.id, "access_denied", "admin_session", null,
+          "Attempted protected admin session action without verified administrator membership.", requestId,
+          { action });
+        return respond(403, { error: "Administrator membership is required." });
+      }
+
+      if (action === "admin_session_status") {
+        const { data, error } = await service.rpc("looply_admin_session_status", { p_actor_id: authData.user.id });
+        if (error) throw error;
+        return respond(200, { ...data, isAdmin: true });
+      }
+
+      if (action === "admin_session_setup") {
+        const password = String(payload.password || "");
+        if (password.length < 12 || password.length > 256) {
+          return respond(400, { error: "admin_password_length" });
+        }
+        const { data: created, error } = await service.rpc("looply_admin_session_setup", {
+          p_actor_id: authData.user.id,
+          p_password: password
+        });
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, created ? "admin_session_credential_created" : "admin_session_setup_rejected",
+          "admin_session", null, "Initial protected administrator credential setup.", requestId);
+        return respond(created ? 200 : 409, { configured: created === true, error: created ? null : "already_configured" });
+      }
+
+      if (action === "admin_session_unlock") {
+        const password = String(payload.password || "");
+        if (!password || password.length > 256) return respond(400, { error: "invalid_admin_password" });
+        const token = randomSessionToken();
+        const tokenHash = await sha256Hex(token);
+        const { data, error } = await service.rpc("looply_admin_session_unlock", {
+          p_actor_id: authData.user.id,
+          p_password: password,
+          p_token_hash: tokenHash
+        });
+        if (error) throw error;
+        if (data?.ok !== true) {
+          await recordAccess(service, authData.user.id, data?.limited ? "admin_session_rate_limited" : "admin_session_unlock_failed",
+            "admin_session", null, "Protected administrator session unlock attempt.", requestId);
+          return respond(data?.limited ? 429 : 403, {
+            error: data?.limited ? "admin_session_rate_limited" : data?.configured === false ? "admin_session_not_configured" : "incorrect_admin_password",
+            retryAt: data?.retry_at || null
+          });
+        }
+        await recordAccess(service, authData.user.id, "admin_session_unlocked", "admin_session", null,
+          "Protected administrator session created with a 15-minute expiry.", requestId,
+          { expires_at: data.expires_at });
+        return respond(200, { token, expiresAt: data.expires_at });
+      }
+
+      if (action === "admin_session_revoke") {
+        const token = String(payload.token || "");
+        const tokenHash = token ? await sha256Hex(token) : null;
+        const { data: revokedCount, error } = await service.rpc("looply_admin_session_revoke", {
+          p_actor_id: authData.user.id,
+          p_token_hash: tokenHash
+        });
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "admin_session_revoked", "admin_session", null,
+          "Protected administrator session revoked by its administrator.", requestId,
+          { revoked_count: Number(revokedCount || 0), all_sessions: !token });
+        return respond(200, { revoked: Number(revokedCount || 0) });
+      }
+
+      if (action === "admin_session_validate") {
+        const token = String(payload.token || "");
+        if (!/^[0-9a-f]{64}$/.test(token)) return respond(200, { active: false });
+        const { data: active, error } = await service.rpc("looply_admin_session_validate", {
+          p_actor_id: authData.user.id,
+          p_token_hash: await sha256Hex(token)
+        });
+        if (error) throw error;
+        return respond(200, { active: active === true });
+      }
+    }
+
     if (requestedType === "status") return respond(200, { isAdmin: isAdmin === true });
     if (isAdmin !== true) {
       await recordAccess(service, authData.user.id, "access_denied", resourceType, null,
         "Attempted administrative access without a verified membership.", requestId);
       return respond(403, { error: "Administrator membership is required." });
     }
+    const adminSessionToken = String(payload.adminSessionToken || "");
+    if (!/^[0-9a-f]{64}$/.test(adminSessionToken)) {
+      return respond(423, { error: "admin_session_locked" });
+    }
+    const { data: sessionActive, error: sessionError } = await service.rpc("looply_admin_session_validate", {
+      p_actor_id: authData.user.id,
+      p_token_hash: await sha256Hex(adminSessionToken)
+    });
+    if (sessionError) throw sessionError;
+    if (sessionActive !== true) {
+      await recordAccess(service, authData.user.id, "admin_session_required", "admin_session", null,
+        "Administrative action rejected because no active protected session was presented.", requestId,
+        { action });
+      return respond(423, { error: "admin_session_expired_or_revoked" });
+    }
+
     if (!allowedResources.has(requestedType)) return respond(400, { error: "Unsupported administrative resource." });
 
     const purpose = String(payload.purpose || "").trim();
