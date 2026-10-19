@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           if compgen -G ".github/gallery-bundle/part-*.txt" > /dev/null; then
-            cat .github/gallery-bundle/part-*.txt | base64 --decode | tar -xz
+            cat .github/gallery-bundle/part-*.txt | base64 --decode | tar -xJ
           fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
