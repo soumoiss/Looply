@@ -1571,3 +1571,14 @@ body.gallery-viewer-open{overflow:hidden}
   .page-gallery .gallery-comments-dialog,
   .page-gallery .gallery-modal[data-comments-modal] { transition:none; }
 }
+
+.page-gallery .gallery-skeleton-card {
+  min-height:clamp(130px,22vw,220px);
+  overflow:hidden;
+  border-radius:15px;
+  background:var(--surface-muted,#f5f0fa);
+}
+.page-gallery .gallery-skeleton-card .gallery-skeleton {
+  min-height:clamp(130px,22vw,220px);
+  border-radius:0;
+}
