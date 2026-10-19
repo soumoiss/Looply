@@ -12,7 +12,7 @@ test("publication composer starts collapsed and opens from plus", async () => {
 });
 test("external URLs are restricted to HTTPS provider hosts and YouTube has a safe embed fallback", async () => {
   const source = await read("src/social.js");
-  assert.match(source, /allowedHosts/);
+  assert.match(source, /externalHosts/);
   assert.match(source, /youtube-nocookie\.com\/embed/);
   assert.match(source, /Abrir conteúdo original/);
   assert.match(source, /external_url/);
