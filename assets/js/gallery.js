@@ -134,7 +134,19 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         client.from("gallery_albums").select("id,owner_id,name,created_at").eq("owner_id",user.id).order("created_at",{ascending:false}),
         client.from("gallery_album_items").select("album_id,source,media_id").order("added_at",{ascending:false})
       ]);
-      if (a.error && c.error) throw a.error;
+      if (a.error && c.error) {
+        console.error("Gallery media sources failed", { archive: a.error, community: c.error });
+        throw new Error("Nenhuma fonte de mídia pôde ser consultada.");
+      }
+      const sourceWarnings = [];
+      if (a.error) {
+        console.warn("Não foi possível carregar o arquivo de mídias", a.error);
+        sourceWarnings.push("O arquivo de mídias não respondeu; exibindo os demais conteúdos disponíveis.");
+      }
+      if (c.error) {
+        console.warn("Não foi possível carregar a galeria comunitária", c.error);
+        sourceWarnings.push("A galeria comunitária não respondeu; exibindo os demais conteúdos disponíveis.");
+      }
       if (p.error) console.warn("Não foi possível carregar a lista de pessoas", p.error);
       people = p.data || people;
       people.forEach(person => peopleMap.set(person.id, person));
@@ -184,14 +196,28 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const likeMap = new Map();
       (likesA.data||[]).concat(likesC.data||[]).forEach(row=>{const key=row.media_id;const current=likeMap.get(key)||{count:0,likedByMe:false};current.count++;if(row.user_id===user.id)current.likedByMe=true;likeMap.set(key,current);});
       fresh.forEach(x=>{const info=likeMap.get(x.id)||{count:0,likedByMe:false};x.likeCount=info.count;x.likedByMe=info.likedByMe;});
-      await Promise.all(fresh.map(async x => { try { x.url = await signedUrl(x); } catch { x.url = ""; } }));
+      let signedUrlFailures = 0;
+      await Promise.all(fresh.map(async x => {
+        try {
+          x.url = await signedUrl(x);
+          if (!x.url) signedUrlFailures += 1;
+        } catch (error) {
+          signedUrlFailures += 1;
+          x.url = "";
+          console.warn("Gallery media preview unavailable", { source: x.source, mediaId: x.id, error });
+        }
+      }));
       const seen = new Set(items.map(mediaKey));
       fresh.forEach(x => { if (!seen.has(mediaKey(x))) items.push(x); });
       hasMore = (a.data || []).length === 50 || (c.data || []).length === 50;
       loadPage += 1;
       syncUserLists();
-      say("");
       draw();
+      const warnings = [...sourceWarnings];
+      if (signedUrlFailures) warnings.push(signedUrlFailures + (signedUrlFailures === 1
+        ? " mídia foi carregada, mas sua prévia não pôde ser autorizada."
+        : " mídias foram carregadas, mas suas prévias não puderam ser autorizadas."));
+      say(warnings.join(" "));
       $("[data-load-more]").hidden = !hasMore;
     } catch (error) {
       console.error("Gallery load failed", error);
