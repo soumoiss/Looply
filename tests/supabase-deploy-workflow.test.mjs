@@ -9,7 +9,7 @@ test("production backend deployment is automated without committing Supabase cre
   assert.match(workflow, /branches: \[main\]/);
   assert.match(workflow, /secrets\.SUPABASE_ACCESS_TOKEN/);
   assert.match(workflow, /secrets\.SUPABASE_DB_PASSWORD/);
-  assert.match(workflow, /secrets\.SUPABASE_PROJECT_ID/);
+  assert.match(workflow, /SUPABASE_PROJECT_ID: qixocgetiwlrsbadpbvh/);
   assert.match(workflow, /supabase db push/);
   assert.match(workflow, /functions deploy looply-admin/);
   assert.match(workflow, /functions deploy looply-youtube-playlist/);
