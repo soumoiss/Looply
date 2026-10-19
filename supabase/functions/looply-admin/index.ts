@@ -430,7 +430,7 @@ Deno.serve(async (request: Request) => {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();
       const usernameValid = /^[a-z0-9_]{3,30}$/.test(username);
-      const emailValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) && email.length <= 254;
+      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
       let usernameAvailable: boolean | null = null;
       let emailAvailable: boolean | null = null;
       if (usernameValid) {
@@ -446,7 +446,7 @@ Deno.serve(async (request: Request) => {
         const { data: authUsers, error: authUsersError } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
         if (authUsersError) throw authUsersError;
         const { data: pendingEmail, error: pendingEmailError } = await service.from("looply_user_invites")
-          .select("email").ilike("email", email).maybeSingle();
+          .select("email").eq("email", email).maybeSingle();
         if (pendingEmailError) throw pendingEmailError;
         emailAvailable = !(authUsers.users || []).some((user: any) => String(user.email || "").toLowerCase() === email) && !pendingEmail;
       }
@@ -460,7 +460,7 @@ Deno.serve(async (request: Request) => {
       const email = String(payload.email || "").trim().toLowerCase();
       const displayName = String(payload.displayName || "").trim();
       const password = String(payload.password || "");
-      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           || email.length > 254 || displayName.length < 1 || displayName.length > 80
           || password.length < 8 || password.length > 72) {
         return respond(400, { error: "invalid_user_creation_fields" });
