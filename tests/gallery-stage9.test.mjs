@@ -11,7 +11,8 @@ const [gallery, page, runtime, migration, albumMigration, cleanupMigration, pend
   readFile(new URL("../supabase/migrations/20261019025302_gallery_media_reference_cleanup.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019025446_gallery_pending_uploads.sql", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019025614_gallery_publication_state_guard.sql", import.meta.url), "utf8"),
-  readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8")
+  readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019043000_fix_gallery_publish_and_comment_permissions.sql", import.meta.url), "utf8")
 ]);
 
 test("gallery page uses the single required title and shared runtime", () => {
@@ -126,4 +127,24 @@ test("Peixinho can rotate and reposition gallery photos with shared server persi
     assert.match(styles, /gallery-photo-adjust/);
     assert.match(styles, /gallery-control-text/);
   });
+});
+
+
+test("gallery upload and comments permissions are granted to authenticated members with RLS limits", () => {
+  assert.match(t, /grant select, insert on table public\\.community_gallery_media to authenticated/);
+  assert.match(t, /grant update \\(publication_state\\)/);
+  assert.match(t, /publication_state = 'pending'/);
+  assert.match(t, /private\\.try_uuid/);
+  assert.match(t, /select private\\.can_view_community_gallery_media\\(p_media_id\\)/);
+  assert.match(t, /select private\\.can_view_archive_media\\(p_media_id\\)/);
+  assert.match(t, /grant execute on function private\\.can_comment_community_gallery_media/);
+});
+
+test("gallery toolbar actions are icon-first and adapt to the selected Looply theme", () => {
+  assert.match(gallery, /data-main="recentes" aria-label="Recentes" title="Recentes"/);
+  assert.match(gallery, /data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia"/);
+  assert.match(gallery, /data-comments-filter aria-label="Filtrar mídias com comentários"/);
+  assert.match(styles, /--gallery-action: var\\(--primary-dark, var\\(--primary/);
+  assert.match(styles, /--gallery-control-text: var\\(--text/);
+  assert.match(styles, /gallery-card-actions button\\[data-comments\\] span \\{ display: none/);
 });
