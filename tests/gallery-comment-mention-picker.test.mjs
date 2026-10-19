@@ -17,6 +17,11 @@ test("disabled community gallery comments are denied by the database helper", ()
   assert.doesNotMatch(migration, /media\.comment_access = 'disabled'\s+or/);
 });
 
+test("members-audience comments cannot bypass the parent media visibility rules", () => {
+  assert.match(migration, /comment_row\.audience in \('members', 'media_viewers'\)[\s\S]*?private\.can_view_community_gallery_media\(comment_row\.media_id\)/);
+  assert.match(migration, /comment_row\.audience in \('members', 'media_viewers'\)[\s\S]*?private\.can_view_archive_media\(comment_row\.media_id\)/);
+});
+
 test("selected community gallery commenters must be explicitly authorized", () => {
   assert.match(migration, /community_gallery_media_commenters commenter[\s\S]*?commenter\.user_id = \(select auth\.uid\(\)\)/);
 });
