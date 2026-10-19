@@ -467,7 +467,6 @@ Deno.serve(async (request: Request) => {
       }
       await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
         { action, username, email });
-      let pendingInviteCreated = false;
       let createdUserId: string | null = null;
       try {
         const [{ data: existingProfile, error: profileLookupError }, { data: existingInvite, error: inviteLookupError },
@@ -483,28 +482,21 @@ Deno.serve(async (request: Request) => {
         if ((authUsers.users || []).some((user: any) => String(user.email || "").toLowerCase() === email)) {
           return respond(409, { error: "email_already_exists" });
         }
-        const { error: inviteInsertError } = await service.from("looply_user_invites").insert({
-          username, email, display_name: displayName, invited_by: authData.user.id
-        });
-        if (inviteInsertError) {
-          if (String(inviteInsertError.code || "") === "23505") return respond(409, { error: "username_or_email_already_exists" });
-          throw inviteInsertError;
-        }
-        pendingInviteCreated = true;
-        const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") || "https://soumoiss.github.io/Looply/login.html?invite=1";
-        const { data: invited, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
-          data: { username, display_name: displayName },
-          redirectTo
-        });
-        if (inviteError) throw inviteError;
-        createdUserId = invited.user?.id || null;
-        if (!createdUserId) throw new Error("Auth user creation returned no user ID.");
-        const { error: passwordError } = await service.auth.admin.updateUserById(createdUserId, {
+        const { data: created, error: createError } = await service.auth.admin.createUser({
+          email,
           password,
           email_confirm: true,
+          app_metadata: { looply_admin_provisioned: "true" },
           user_metadata: { username, display_name: displayName }
         });
-        if (passwordError) throw passwordError;
+        if (createError) {
+          if (/already registered|already exists/i.test(String(createError.message || ""))) {
+            return respond(409, { error: "email_already_exists" });
+          }
+          throw createError;
+        }
+        createdUserId = created.user?.id || null;
+        if (!createdUserId) throw new Error("Auth user creation returned no user ID.");
         const { data: profile, error: profileError } = await service.from("profiles")
           .select("id,username,display_name").eq("id", createdUserId).maybeSingle();
         if (profileError) throw profileError;
@@ -516,9 +508,6 @@ Deno.serve(async (request: Request) => {
         if (createdUserId) {
           const { error: deleteError } = await service.auth.admin.deleteUser(createdUserId);
           if (deleteError) console.error("Looply user-create rollback failed", deleteError);
-        }
-        if (pendingInviteCreated) {
-          await service.from("looply_user_invites").delete().eq("username", username).eq("email", email);
         }
         await recordAccess(service, authData.user.id, "write_failed", "profiles", createdUserId, purpose, requestId,
           { action, username, reason: errorMessage(error, "User creation failed.").slice(0, 200) });

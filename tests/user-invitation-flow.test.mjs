@@ -6,7 +6,7 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
 
-test("new community accounts can only be created through an expiring admin invitation", async () => {
+test("new community accounts use either the protected password or expiring invitation flow", async () => {
   const [migration, admin, ui] = await Promise.all([
     read("supabase/migrations/20261019130000_invited_community_accounts.sql"),
     read("supabase/functions/looply-admin/index.ts"),
@@ -25,6 +25,7 @@ test("new community accounts can only be created through an expiring admin invit
   assert.doesNotMatch(migration, /insert into private\.admin_users/i);
   assert.match(admin, /adminSessionToken/);
   assert.match(admin, /recordAccess\(service, authData\.user\.id, "write_requested", "profiles"/);
+  assert.match(admin, /auth\.admin\.createUser\(\{/);
   assert.match(admin, /inviteUserByEmail\(email,\s*\{\s*data: \{ username, display_name: displayName \}/);
   assert.match(admin, /https:\/\/soumoiss\.github\.io\/Looply\/login\.html\?invite=1/);
   assert.match(ui, /name="username"/);
