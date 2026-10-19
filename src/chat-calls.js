@@ -364,7 +364,8 @@ export function setupChatCalls(root, client, userId) {
       return;
     }
     if (!isSignalForCall(payload, activeCall)) return; // Never let an old call control a new one.
-    if (payload.type === "answer" && activeCall.direction === "outgoing" && pc && callState === CALL_STATES.DIALING && payload.description) {
+    if (payload.type === "answer" && activeCall.direction === "outgoing" && pc
+      && [CALL_STATES.DIALING, CALL_STATES.CONNECTING].includes(callState) && payload.description) {
       try {
         clearOfferRetry();
         callTimeout = clearTimer(callTimeout);
