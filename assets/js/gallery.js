@@ -316,17 +316,18 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
   const getItem = key => items.find(x => mediaKey(x) === key);
   const openViewer = async key => {
-    viewerZoom=1;
-    const x = getItem(key); if (!x || !x.url) { say("Esta mídia não está disponível para visualização."); return; }
+    const x = getItem(key);
+    if (!x) return;
     activeKey = key;
+    viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; pointers.clear(); pinchState = null; dragState = null; swipeStart = null;
     const type = mediaType(x);
-    const media = type === "video" ? '<video src="' + esc(x.url) + '" controls autoplay playsinline></video>' : type === "audio" ? '<audio src="' + esc(x.url) + '" controls autoplay></audio>' : '<img src="' + esc(x.url) + '" alt="" draggable="false">';
-    $("[data-viewer-media]").innerHTML = media;
-    applyPhotoAdjustment(x);
+    const viewer = $("[data-viewer]");
+    const mediaHost = $("[data-viewer-media]");
+    mediaHost.innerHTML = '<span class="gallery-skeleton gallery-viewer-skeleton" aria-hidden="true"></span>';
     $("[data-photo-adjust-panel]").hidden = true;
     $("[data-open-photo-adjust]").hidden = !(isAdmin && type === "image");
     $("[data-viewer-details]").hidden = true;
-    $("[data-viewer-info]").setAttribute("aria-expanded", "false");
+    $("[data-action-details]").setAttribute("aria-expanded", "false");
     $("[data-viewer-like]").innerHTML = icon(x.likedByMe ? "starFilled" : "star") + "<span>" + (x.likedByMe ? "Curtido" : "Curtir") + "</span>";
     $("[data-viewer-like]").setAttribute("aria-pressed", String(Boolean(x.likedByMe)));
     $("[data-viewer-top-title]").textContent = type === "video" ? "Vídeo" : type === "audio" ? "Áudio" : "Foto";
@@ -336,19 +337,31 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-viewer-date]").textContent = dateLabel(x.date);
     $("[data-viewer-description]").innerHTML = descriptionMarkup(x);
     $("[data-description-form]").hidden = true;
-    $("[data-context-menu]").hidden = true;
+    $("[data-action-sheet]").hidden = true;
+    $("[data-action-sheet]").classList.remove("is-open");
     $("[data-viewer-admin-delete]").hidden = !isAdmin;
     $("[data-edit-mentions]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
     $("[data-manage-access]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
-    $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (x.isPrivate ? " Remover de Privadas" : " Mover para Privadas");
-    $("[data-viewer]").hidden = false;
+    $("[data-viewer-toggle-private]").innerHTML = icon("lock") + '<span>' + (x.isPrivate ? "Remover da pasta privada" : "Mover para pasta privada") + '</span>';
+    viewer.hidden = false;
     document.body.classList.add("gallery-viewer-open");
+    try {
+      const url = await ensureMediaUrl(x, false);
+      if (activeKey !== key || viewer.hidden) return;
+      if (!url) throw new Error("Empty signed URL");
+      const media = type === "video" ? '<video src="' + esc(url) + '" controls autoplay playsinline preload="metadata"></video>' : type === "audio" ? '<audio src="' + esc(url) + '" controls autoplay></audio>' : '<img src="' + esc(url) + '" alt="" draggable="false">';
+      mediaHost.innerHTML = media;
+      applyPhotoAdjustment(x);
+    } catch (error) {
+      console.error("Gallery viewer media failed", error);
+      if (activeKey === key) mediaHost.innerHTML = '<div class="gallery-media-fallback">' + icon("camera") + '<span>Não foi possível abrir esta mídia. Tente novamente.</span></div>';
+    }
   };
   const applyPhotoAdjustment = x => {
     const image = $("[data-viewer-media] img");
     if (!image) return;
     const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
-    image.style.transform = "translate(" + Number(adjustment.positionX || 0) + "%," + Number(adjustment.positionY || 0) + "%) rotate(" + Number(adjustment.rotation || 0) + "deg) scale(" + Number(viewerZoom || 1) + ")";
+    image.style.transform = "translate3d(" + (viewerPanX + Number(adjustment.positionX || 0) * 2) + "px," + (viewerPanY + Number(adjustment.positionY || 0) * 2) + "px,0) scale(" + Number(viewerZoom || 1) + ") rotate(" + Number(adjustment.rotation || 0) + "deg)";
     image.style.transformOrigin = "center center";
     image.dataset.zoom = String(viewerZoom || 1);
   };
@@ -380,7 +393,21 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       say("Não foi possível publicar. Confirme a conexão e a permissão administrativa.", $("[data-photo-adjust-status]"));
     } finally { button.disabled = false; }
   };
-  const closeViewer = () => { $("[data-viewer]").hidden = true; document.body.classList.remove("gallery-viewer-open"); activeKey = null; };
+  const closeViewer = () => {
+    hideSheet($("[data-action-sheet]"));
+    $("[data-viewer]").hidden = true;
+    document.body.classList.remove("gallery-viewer-open");
+    activeKey = null; viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; pointers.clear(); pinchState = null; dragState = null; swipeStart = null;
+  };
+  const revealSheet = sheet => { sheet.hidden = false; requestAnimationFrame(() => sheet.classList.add("is-open")); };
+  const hideSheet = sheet => { if (!sheet || sheet.hidden) return; sheet.classList.remove("is-open"); window.setTimeout(() => { if (!sheet.classList.contains("is-open")) sheet.hidden = true; }, 220); };
+  const openComments = async key => {
+    if (key) activeKey = key;
+    const sheet = $("[data-comments-modal]");
+    revealSheet(sheet);
+    $("[data-comments-list]").innerHTML = '<div class="gallery-skeleton gallery-comment-skeleton" role="status">Carregando comentários…</div>';
+    await loadComments();
+  };
   const togglePrivate = async key => {
     const x = getItem(key); if (!x) return;
     const next = !x.isPrivate;
@@ -394,6 +421,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
   const loadComments = async () => {
     const x = getItem(activeKey); if (!x) return;
+    $("[data-comments-modal]").hidden = false;
+    $("[data-comments-modal]").classList.add("is-open");
+    $("[data-comments-list]").innerHTML = '<div class="gallery-skeleton gallery-comment-skeleton" role="status">Carregando comentários…</div>';
     const table = x.source === "archive" ? "archive_media_comments" : "community_gallery_comments";
     const { data, error } = await client.from(table).select("id,media_id,author_id,body,audience,created_at").eq("media_id",x.id).order("created_at",{ascending:true}).limit(100);
     if (error) { console.error("Looply comments load failed", error); say(error?.code === "42501" ? "Sem permissão para ver os comentários desta mídia. Atualize a página e confirme seu acesso." : "Não foi possível carregar os comentários" + (error?.code ? " (" + error.code + ")" : "") + ".", $("[data-comment-status]")); return; }
