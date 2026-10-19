@@ -23,6 +23,19 @@ export function adminMarkup(profile = {}) {
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
     <p class="admin-description">Toda consulta a conteúdo privado exige um motivo e gera eventos na trilha de auditoria.</p>
+    <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
+      <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
+      <form class="admin-broadcast-form" data-admin-broadcast>
+        <div class="field"><label for="broadcastTitle">Título do aviso</label><input id="broadcastTitle" name="title" type="text" maxlength="120" required placeholder="Ex.: Atualização do Looply"></div>
+        <div class="field"><label for="broadcastBody">Mensagem</label><textarea id="broadcastBody" name="body" maxlength="4000" rows="4" required placeholder="Escreva a mensagem que todos os membros devem receber."></textarea></div>
+        <div class="field"><label for="broadcastExpiresAt">Expira em (opcional)</label><input id="broadcastExpiresAt" name="expiresAt" type="datetime-local"><small>Sem data de expiração, o aviso permanece ativo até ser desativado.</small></div>
+        <div class="field"><label for="broadcastPurpose">Motivo administrativo</label><textarea id="broadcastPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Explique o motivo do comunicado (mínimo de 20 caracteres)."></textarea></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Publicar comunicado</button><button class="text-button" type="button" data-broadcast-refresh>Consultar leituras</button></div>
+        <span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form>
+      <div class="admin-broadcast-results" data-broadcast-results aria-live="polite"><p>Informe o motivo administrativo e consulte o histórico para ver os recibos de leitura.</p></div>
+    </section>
     <form class="admin-read-form" data-admin-read>
       <div class="admin-form-grid">
         <div class="field"><label for="adminResource">Área</label><select id="adminResource" name="resourceType">
