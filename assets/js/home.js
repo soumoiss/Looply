@@ -2,6 +2,10 @@ import { mountAppPage } from "../../src/page-runtime.js";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
+import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
+
+// Support direct links to home.html?share_url=... without the splash screen.
+captureIncomingSharedLink();
 
 function renderWelcome(profile) {
   const name = String(profile.display_name || profile.username || "usuário");
@@ -42,6 +46,32 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   )}${socialMarkup(socialData, user.id, isAdmin)}`;
   bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
   bindSocialEvents(root, client, () => user.id, isAdmin);
+
+  // Expand and prefill the existing Feed composer. Never submit automatically.
+  const sharedUrl = takeIncomingSharedLink();
+  if (sharedUrl) {
+    const fields = root.querySelector("[data-composer-fields]");
+    const toggle = root.querySelector("[data-toggle-composer]");
+    const composer = root.querySelector("form[data-social-post]");
+    const externalUrl = root.querySelector("#postExternalUrl");
+    const status = composer?.querySelector("[data-status]");
+    if (fields && externalUrl) {
+      fields.hidden = false;
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-label", "Fechar formulário de nova publicação");
+      }
+      externalUrl.value = sharedUrl;
+      if (status) {
+        status.textContent = "Link recebido do compartilhamento. Revise a publicação e toque em Publicar para confirmar.";
+        status.dataset.kind = "success";
+      }
+      requestAnimationFrame(() => {
+        composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+        externalUrl.focus({ preventScroll: true });
+      });
+    }
+  }
   setupStoriesRealtime(client, user.id, root);
   setupSocialRealtime(client, user.id, root, isAdmin);
   window.addEventListener("pagehide", () => {

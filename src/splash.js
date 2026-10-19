@@ -1,5 +1,9 @@
 import "./theme.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
+import { captureIncomingSharedLink } from "./shared-link.js";
+
+// Capture share-sheet parameters before the splash redirects to login or home.
+captureIncomingSharedLink();
 
 export const SPLASH_DURATION_MS = 7000;
 const SESSION_CHECK_LIMIT_MS = 6000;

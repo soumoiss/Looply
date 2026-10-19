@@ -1,5 +1,9 @@
 import "./theme.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
+import { captureIncomingSharedLink } from "./shared-link.js";
+
+// Preserve shared links while the user authenticates before opening the Feed.
+captureIncomingSharedLink();
 
 const form = document.getElementById("loginForm");
 const message = document.getElementById("message");

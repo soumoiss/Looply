@@ -56,3 +56,31 @@ test("private replies use the authenticated chat edge function and internal shar
   assert.match(source, /conversa\.html\?id=/);
   assert.doesNotMatch(source, /client\.rpc\("create_direct_conversation", \{ p_target_id: authorId \}\)/);
 });
+
+
+test("shared external links are extracted from share_url, text and hash parameters", async () => {
+  const { parseIncomingSharedLink } = await import("../src/shared-link.js");
+  assert.equal(
+    parseIncomingSharedLink("https://soumoiss.github.io/Looply/?share_url=https%3A%2F%2Fwww.instagram.com%2Freel%2FABC123%2F"),
+    "https://www.instagram.com/reel/ABC123/"
+  );
+  assert.equal(
+    parseIncomingSharedLink("https://soumoiss.github.io/Looply/?text=" + encodeURIComponent("Veja isso no TikTok! https://vm.tiktok.com/ZMabc123/")),
+    "https://vm.tiktok.com/ZMabc123/"
+  );
+  assert.equal(
+    parseIncomingSharedLink("https://soumoiss.github.io/Looply/#?title=" + encodeURIComponent("Vídeo https://youtu.be/abcdefghijk")),
+    "https://youtu.be/abcdefghijk"
+  );
+});
+
+test("shared external links unwrap Instagram redirects and reject unsafe or unsupported URLs", async () => {
+  const { normalizeSharedExternalUrl, parseIncomingSharedLink } = await import("../src/shared-link.js");
+  assert.equal(
+    normalizeSharedExternalUrl("https://l.instagram.com/?u=" + encodeURIComponent("https://www.instagram.com/p/ABC123/")),
+    "https://www.instagram.com/p/ABC123/"
+  );
+  assert.equal(normalizeSharedExternalUrl("http://www.youtube.com/watch?v=abcdefghijk"), null);
+  assert.equal(normalizeSharedExternalUrl("https://example.com/post"), null);
+  assert.equal(parseIncomingSharedLink("https://soumoiss.github.io/Looply/?text=sem%20link"), null);
+});
