@@ -20,6 +20,9 @@ test("gallery page uses the single required title and shared runtime", () => {
   assert.match(gallery, /<h1 class="gallery-title">GALERIA<\/h1>/);
   assert.doesNotMatch(gallery, /gallery-card-title/);
   assert.doesNotMatch(runtime, /Seu espaço compartilhado|Fotos, vídeos e lembranças da comunidade Looply/);
+  assert.match(runtime, /supabase\.auth\.getSession\(\)/);
+  assert.match(runtime, /sessionData\?\.session\?\.user/);
+  assert.match(runtime, /getUser\(\)/);
 });
 
 test("gallery upload matches the existing private Storage policy and database schema", () => {
