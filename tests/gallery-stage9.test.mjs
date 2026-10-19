@@ -118,6 +118,7 @@ test("Peixinho can rotate and reposition gallery photos with shared server persi
     assert.match(gallery, /data-position-x/);
     assert.match(gallery, /data-position-y/);
     assert.match(gallery, /set_gallery_media_adjustment/);
+    assert.match(gallery, /transform-origin:center center/);
     assert.match(sql, /private\.is_admin\(\)/);
     assert.match(sql, /gallery_media_adjustments/);
     assert.match(sql, /position_x between -20 and 20/);
