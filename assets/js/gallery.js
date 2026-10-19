@@ -366,6 +366,35 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     } catch (error) { console.error(error); say(error?.code === "42501" ? "Não foi possível comentar: confirme que você está conectado e pode visualizar esta mídia." : "Não foi possível publicar o comentário: " + (error?.message || "erro inesperado"), $("[data-comment-status]")); }
     finally { submit.disabled = false; }
   };
+  // Use a raw binary Storage request for gallery media. The current Storage API
+  // can reject SDK multipart uploads with a misleading RLS error even when the
+  // user/path policy is correct. Do not send multipart/form-data or x-upsert.
+  const uploadGalleryObject = async (path, file, contentType) => {
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError) throw sessionError;
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) throw new Error("Sua sessão expirou. Entre novamente e tente publicar.");
+    const baseUrl = String(client.supabaseUrl || "").replace(/\\/+$/, "");
+    const apiKey = client.supabaseKey;
+    if (!baseUrl || !apiKey) throw new Error("A configuração do Supabase não está disponível.");
+    const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
+    const response = await fetch(baseUrl + "/storage/v1/object/looply-gallery/" + encodedPath, {
+      method: "POST",
+      headers: {
+        apikey: apiKey,
+        Authorization: "Bearer " + accessToken,
+        "Content-Type": contentType
+      },
+      body: file
+    });
+    const responseText = await response.text();
+    let payload = null;
+    try { payload = responseText ? JSON.parse(responseText) : null; } catch {}
+    if (!response.ok) {
+      throw new Error(payload?.message || payload?.error || ("O armazenamento recusou o arquivo (HTTP " + response.status + ")."));
+    }
+    return payload;
+  };
   const publish = async event => {
     event.preventDefault(); if (uploadBusy) return;
     const form = event.currentTarget, fd = new FormData(form), files = Array.from($("[data-files]").files || []);
@@ -393,8 +422,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
           const objectId = crypto.randomUUID();
           path = "gallery/" + user.id + "/" + objectId + "." + ext;
           const mimeType = getFileMime(file) || "application/octet-stream";
-          const { error: uploadError } = await client.storage.from("looply-gallery").upload(path,file,{contentType:mimeType,upsert:false});
-          if (uploadError) throw uploadError;
+          await uploadGalleryObject(path, file, mimeType);
           const kind = mimeType.startsWith("video/") ? "video" : mimeType.startsWith("audio/") ? "audio" : "image";
           const { data: row, error: rowError } = await client.from("community_gallery_media").insert({
             owner_id:user.id, storage_path:path, file_name:file.name, kind, mime_type:mimeType,
