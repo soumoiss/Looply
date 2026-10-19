@@ -17,10 +17,11 @@ test("chat has four real filters and removes the letter and notifications panels
 });
 
 test("chat favorites are per-user Supabase rows with Realtime synchronization", async () => {
-  const [chat, enhancements, migration] = await Promise.all([
+  const [chat, enhancements, migration, unreadMigration] = await Promise.all([
     read("src/chat.js"),
     read("src/chat-enhancements.js"),
-    read("supabase/migrations/20261019163114_conversation_favorites.sql")
+    read("supabase/migrations/20261019163114_conversation_favorites.sql"),
+    read("supabase/migrations/20261019163632_chat_unread_counts.sql")
   ]);
   assert.match(chat, /from\("conversation_favorites"\)\.select\("conversation_id"\)/);
   assert.match(enhancements, /from\("conversation_favorites"\)\.insert/);
@@ -28,6 +29,9 @@ test("chat favorites are per-user Supabase rows with Realtime synchronization", 
   assert.match(enhancements, /table: "conversation_favorites"/);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /auth\.uid\(\)/i);
+  assert.match(chat, /rpc\("get_my_conversation_unread_counts"\)/);
+  assert.match(unreadMigration, /security invoker/i);
+  assert.match(unreadMigration, /cm\.created_at > cp\.last_read_at/i);
 });
 
 test("chat signs unique private avatar paths and retains a safe image fallback", async () => {
