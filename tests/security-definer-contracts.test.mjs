@@ -33,15 +33,15 @@ test("SECURITY DEFINER RPCs keep a locked search_path and an explicit identity/o
     assert.ok(definitions.length, `missing migration definition for ${name}`);
     const body = definitions.at(-1)[0].toLowerCase();
     assert.match(body, /security definer/, `${name} must be reviewed as SECURITY DEFINER`);
-    assert.match(body, /set search_path\\s+(?:to|=)\\s*''/, `${name} must lock search_path`);
-    assert.match(body, /auth\\.uid\\(\\)/, `${name} must bind authorization to the signed-in identity`);
+    assert.match(body, /set search_path\s+(?:to|=)\s*''/, `${name} must lock search_path`);
+    assert.match(body, /auth\.uid\(\)/, `${name} must bind authorization to the signed-in identity`);
     assert.match(body, guard, `${name} must keep its operation-specific guard`);
     assert.ok(
-      statements.some((statement) => /revoke\\s+all\\s+on\\s+function/i.test(statement) && statement.includes(`public.${name}(`)),
+      statements.some((statement) => /revoke\s+all\s+on\s+function/i.test(statement) && statement.includes(`public.${name}(`)),
       `${name} must explicitly revoke default/public execution grants`
     );
     assert.ok(
-      statements.some((statement) => /grant\\s+execute\\s+on\\s+function/i.test(statement) && statement.includes(`public.${name}(`) && /to\\s+authenticated/i.test(statement)),
+      statements.some((statement) => /grant\s+execute\s+on\s+function/i.test(statement) && statement.includes(`public.${name}(`) && /to\s+authenticated/i.test(statement)),
       `${name} must explicitly grant only the intended authenticated RPC access`
     );
   }
