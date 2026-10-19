@@ -19,7 +19,7 @@ test("gallery upload infers common device formats when browser MIME is empty", (
   for (const ext of ["gif", "avif", "heic", "heif", "tiff", "bmp", "mov", "mkv", "avi", "3gp", "mts", "flac", "opus"]) {
     assert.ok(gallery.includes(ext + ":") || gallery.includes("\"" + ext + "\":"), "Missing MIME inference for " + ext);
   }
-  assert.match(gallery, /contentType:mimeType/);
+  assert.match(gallery, /"Content-Type": contentType/);
   assert.match(gallery, /mime_type:mimeType/);
 });
 
