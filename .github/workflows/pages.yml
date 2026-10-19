@@ -1,4 +1,4 @@
-# Deploy the latest gallery upload and RLS fixes from main.
+# Deploy the latest gallery, authentication, theme, and chat fixes from main.
 name: Deploy Looply to GitHub Pages
 
 on:
@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -27,12 +28,17 @@ jobs:
           node-version: 22
       - name: Build site and run tests
         run: npm test
-      - name: Verify chat assets are included in the deployment artifact
+      - name: Verify deployment artifact contains key pages and chat assets
         run: |
+          test -s dist/index.html
+          test -s dist/login.html
+          test -s dist/home.html
           test -s dist/chat.html
+          test -s dist/src/splash.js
           test -s dist/src/chat.js
           test -s dist/src/chat-enhancements.js
           test -s dist/assets/css/pages/chat.css
+          test -s dist/assets/css/splash.css
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
@@ -45,6 +51,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
     needs: build
     steps:
       - name: Deploy to GitHub Pages
