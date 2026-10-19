@@ -27,6 +27,7 @@ export function setupChatEnhancements(root, client, userId) {
   const nicknameKey = key(userId, "nicknames");
   const wallpaperKey = key(userId, "wallpapers");
   const favorites = new Set();
+  let favoritesLoaded = false;
   let favoritesChannel = null;
   const nicknames = read(nicknameKey, {});
   const wallpapers = read(wallpaperKey, {});
@@ -167,7 +168,7 @@ export function setupChatEnhancements(root, client, userId) {
       const label = item.querySelector(".chat-conversation-copy strong");
       if (label && !label.dataset.originalName) label.dataset.originalName = label.textContent;
       if (label && nicknames[id]) label.textContent = nicknames[id];
-      item.dataset.isFavorite = String(favorites.has(id));
+      if (favoritesLoaded) item.dataset.isFavorite = String(favorites.has(id));
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
@@ -175,9 +176,11 @@ export function setupChatEnhancements(root, client, userId) {
         item.append(button);
       }
       const currentStar = item.querySelector("[data-v2-favorite]");
-      currentStar.innerHTML = icon(favorites.has(id) ? "starFilled" : "star");
-      currentStar.setAttribute("aria-pressed", String(favorites.has(id)));
-      currentStar.setAttribute("aria-label", favorites.has(id) ? "Remover conversa dos favoritos" : "Favoritar conversa");
+      const isFavorite = favoritesLoaded ? favorites.has(id) : item.dataset.isFavorite === "true";
+      const starIcon = icon(isFavorite ? "starFilled" : "star");
+      if (currentStar.innerHTML !== starIcon) currentStar.innerHTML = starIcon;
+      currentStar.setAttribute("aria-pressed", String(isFavorite));
+      currentStar.setAttribute("aria-label", isFavorite ? "Remover conversa dos favoritos" : "Favoritar conversa");
     });
     if (topHeading) {
       const home = topHeading.querySelector("[data-v2-home]");
@@ -210,7 +213,7 @@ export function setupChatEnhancements(root, client, userId) {
       const matchesFilter = activeFilter === "all"
         || (activeFilter === "unread" && isUnread)
         || (activeFilter === "groups" && isGroupItem)
-        || (activeFilter === "favorites" && favorites.has(id));
+        || (activeFilter === "favorites" && (favoritesLoaded ? favorites.has(id) : item.dataset.isFavorite === "true"));
       const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
       item.hidden = !(matchesFilter && matchesQuery);
       if (!item.hidden) visible += 1;
@@ -351,6 +354,7 @@ export function setupChatEnhancements(root, client, userId) {
     }
     favorites.clear();
     for (const row of data || []) favorites.add(row.conversation_id);
+    favoritesLoaded = true;
     renderTools();
     applyFilters();
   };

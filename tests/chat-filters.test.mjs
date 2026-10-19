@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { avatarMarkup, filterConversations } from "../src/chat.js";
 
 const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
@@ -39,4 +40,22 @@ test("chat signs unique private avatar paths and retains a safe image fallback",
   assert.match(chat, /storage\.from\("looply-avatars"\)\.createSignedUrls\(paths, 1800\)/);
   assert.match(chat, /profile\.avatarUrl = urlsByPath\.get\(profile\.avatar_path\) \|\| ""/);
   assert.match(chat, /image\.replaceWith\(fallback\)/);
+});
+
+test("conversation filters derive from server state and keep newest conversations first", () => {
+  const conversations = [
+    { id: "old", kind: "direct", updated_at: "2026-10-18T10:00:00Z", unreadCount: 0, isFavorite: true },
+    { id: "group", kind: "group", updated_at: "2026-10-19T09:00:00Z", unreadCount: 2, isFavorite: false },
+    { id: "new", kind: "direct", updated_at: "2026-10-19T11:00:00Z", unreadCount: 1, isFavorite: true }
+  ];
+  assert.deepEqual(filterConversations(conversations, "all").map((item) => item.id), ["new", "group", "old"]);
+  assert.deepEqual(filterConversations(conversations, "groups").map((item) => item.id), ["group"]);
+  assert.deepEqual(filterConversations(conversations, "unread").map((item) => item.id), ["new", "group"]);
+  assert.deepEqual(filterConversations(conversations, "favorites").map((item) => item.id), ["new", "old"]);
+});
+
+test("avatar markup includes a safe initial fallback for broken or missing Storage images", () => {
+  assert.match(avatarMarkup({ display_name: "Maria Silva", avatarUrl: "https://example.com/avatar.jpg" }), /data-avatar-fallback="MS"/);
+  assert.match(avatarMarkup({ display_name: "Maria Silva", avatarUrl: "" }), />MS</);
+  assert.match(avatarMarkup({ isGroup: true }), /aria-label="Conversa em grupo"/);
 });

@@ -14,7 +14,7 @@ test("chat page has a home link and conversation filters apply consistently", as
   assert.match(enhancements, /home\.href = "home\.html"/);
   assert.match(enhancements, /data-v2-home/);
   assert.match(enhancements, /activeFilter === "groups" && isGroupItem/);
-  assert.match(enhancements, /activeFilter === "favorites" && favorites\.has\(id\)/);
+  assert.match(enhancements, /activeFilter === "favorites" && \(favoritesLoaded \? favorites\.has\(id\) : item\.dataset\.isFavorite === "true"\)/);
   assert.match(enhancements, /item\.hidden = !\(matchesFilter && matchesQuery\)/);
   assert.match(enhancements, /if \(noMatches\.textContent !== message\) noMatches\.textContent = message/);
   assert.match(enhancements, /renderTools\(\);\s*applyFilters\(\);/);
