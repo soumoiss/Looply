@@ -234,8 +234,10 @@ export function setupChatCalls(root, client, userId) {
         showModal(`<span class="chat-v2-kicker">Permissão necessária</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Permita o acesso ao microfone${callMode === "video" ? " e à câmera" : ""} no navegador e toque em Atender para continuar.</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
         return;
       }
-      await send("decline");
-      await endCall(false, "Não foi possível atender a chamada. Confira a conexão e os dispositivos.");
+      // A technical setup failure is not a user decline. Keep the outcomes distinct
+      // so the caller never receives a false "A chamada foi recusada" notification.
+      await send("failed", { reason: error?.name || "CallSetupError" });
+      await endCall(false, "Não foi possível atender a chamada. Confira a conexão, as permissões e os dispositivos.");
     }
   };
   const restorePendingIncomingCall = (conversationId) => {
@@ -299,6 +301,8 @@ export function setupChatCalls(root, client, userId) {
         else pendingCandidates.push(payload.candidate);
       } else if (payload.type === "decline") {
         await endCall(false, "A chamada foi recusada.");
+      } else if (payload.type === "failed") {
+        await endCall(false, "A outra pessoa não conseguiu iniciar a chamada. Confira as permissões e a conexão.");
       } else if (payload.type === "hangup") {
         await endCall(false, "A outra pessoa encerrou a chamada.");
       }
