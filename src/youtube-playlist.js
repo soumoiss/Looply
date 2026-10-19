@@ -15,13 +15,36 @@ function escapeHtml(value) {
   })[character]);
 }
 
-export function playlistIdFor(username) {
+export function normalizeYouTubePlaylistUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" || !["youtube.com", "www.youtube.com", "music.youtube.com"].includes(hostname)
+        || url.pathname !== "/playlist") return "";
+    const id = url.searchParams.get("list") || "";
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return "";
+    return `https://www.youtube.com/playlist?list=${id}`;
+  } catch {
+    return "";
+  }
+}
+
+export function playlistIdFromUrl(value) {
+  const normalized = normalizeYouTubePlaylistUrl(value);
+  return normalized ? new URL(normalized).searchParams.get("list") || "" : "";
+}
+
+export function playlistIdFor(username, playlistUrl = "") {
+  const configuredId = playlistIdFromUrl(playlistUrl);
+  if (configuredId) return configuredId;
   const key = String(username || "").trim().toLowerCase();
   return playlists[key] || fallbackPlaylist;
 }
 
 export function playlistMarkup(profile) {
-  const id = playlistIdFor(profile.username);
+  const id = playlistIdFor(profile.username, profile.playlist_url);
   const title = escapeHtml(profile.display_name || profile.username || "Usuário");
   const embed = `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&listType=playlist`;
   return `<section class="panel youtube-playlist" aria-labelledby="youtubePlaylistTitle" data-youtube-playlist="${escapeHtml(id)}">

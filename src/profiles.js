@@ -1,4 +1,6 @@
 import { icon } from "./icons.js";
+import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -42,6 +44,7 @@ export function profileAreaMarkup(profile) {
           <div class="field"><label for="editDisplayName">Nome de exibição</label><input id="editDisplayName" name="displayName" value="${displayName}" maxlength="80" required></div>
         </div>
         <div class="field"><label for="editBio">Sobre mim</label><textarea id="editBio" name="bio" maxlength="280" rows="3">${bio}</textarea></div>
+        <div class="field"><label for="editPlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="editPlaylistUrl" name="playlistUrl" type="url" maxlength="260" value="${escapeHtml(profile.playlist_url || "")}" placeholder="https://www.youtube.com/playlist?list=..."><span class="field-hint">Use uma playlist pública do YouTube para personalizar a aba Música.</span></div>
         <div class="profile-privacy-field"><div><label for="profileVisibility">Quem pode encontrar seu perfil?</label><span class="field-hint">A visibilidade do perfil não altera as permissões de cada story ou mídia.</span></div>
           <select id="profileVisibility" name="visibility">
             <option value="members" ${visibility === "members" ? "selected" : ""}>Membros</option>
@@ -305,13 +308,15 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
       if (form.matches("[data-profile-edit]")) {
         const displayName = String(values.get("displayName") || "").trim();
         const bio = String(values.get("bio") || "").trim();
+        const playlistUrlInput = String(values.get("playlistUrl") || "").trim();
+        const playlistUrl = normalizeYouTubePlaylistUrl(playlistUrlInput);
         const visibility = String(values.get("visibility") || "members");
         const avatarFile = values.get("avatar");
         const hasAvatarFile = avatarFile instanceof File && avatarFile.size > 0;
         const removeAvatar = String(values.get("removeAvatar") || "false") === "true" && !hasAvatarFile;
         if (removeAvatar) throw new Error("avatar-replacement-required");
         if (form.dataset.hasAvatar !== "true" && !hasAvatarFile) throw new Error("avatar-required");
-        if (!displayName || displayName.length > 80 || bio.length > 280) throw new Error("profile-fields");
+        if (!displayName || displayName.length > 80 || bio.length > 280 || (playlistUrlInput && !playlistUrl)) throw new Error("profile-fields");
         const userId = (await client.auth.getUser()).data.user?.id;
         if (!userId) throw new Error("session expired");
         let newAvatarPath = null;
@@ -335,6 +340,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
           if (!uploadData?.path || uploadData.path !== newAvatarPath) throw new Error("avatar-upload-invalid-result");
         }
         const updates = { display_name: displayName, bio, profile_visibility: visibility };
+        updates.playlist_url = playlistUrl || null;
         if (hasAvatarFile || removeAvatar) updates.avatar_path = newAvatarPath;
         const { data: updatedProfile, error: updateError } = await client.from("profiles")
           .update(updates).eq("id", userId).select("id,avatar_path").maybeSingle();

@@ -40,13 +40,15 @@ export function adminMarkup(profile = {}) {
     <div data-admin-controls hidden>
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
-      <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. Toda ação exige justificativa e fica registrada na auditoria. A criação de conta respeita as identidades Looply autorizadas.</p>
+      <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. A criação usa o backend administrativo, preserva a sessão do Peixinho e registra a operação na auditoria.</p>
       <form class="admin-broadcast-form" data-user-create>
         <h4>Cadastrar novo usuário</h4>
         <div class="field"><label for="adminCreateUsername">Username</label><input id="adminCreateUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva" aria-describedby="adminCreateUsernameStatus"><small>Digite sem @; serão aceitos 3–30 caracteres: letras, números e sublinhado. O sistema salva em minúsculas.</small><small id="adminCreateUsernameStatus" data-availability="username" class="form-status" role="status" aria-live="polite"></small></div>
         <div class="field"><label for="adminCreateEmail">E-mail</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" required placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
         <div class="field"><label for="adminCreateDisplayName">Nome completo / de exibição</label><input id="adminCreateDisplayName" name="displayName" type="text" maxlength="80" autocomplete="off" required></div>
+        <div class="field"><label for="adminCreatePlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="adminCreatePlaylistUrl" name="playlistUrl" type="url" maxlength="260" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=..."><small>A playlist personalizada substitui a lista padrão deste perfil.</small></div>
         <div class="field"><label for="adminCreatePassword">Senha inicial</label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><small>Use de 8 a 72 caracteres. Entregue a senha inicial ao usuário por um canal seguro.</small></div>
+        <div class="field"><label for="adminCreateConfirmPassword">Confirmar senha inicial</label><input id="adminCreateConfirmPassword" name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></div>
         <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo usa o backend administrativo e não altera a sessão do Peixinho.</p>
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
@@ -246,7 +248,8 @@ export function bindAdminEvents(root, client) {
         form.dataset.userId = user.id;
         const fields = [
           ["displayName", "Nome de exibição", user.display_name || "", 80],
-          ["bio", "Biografia", user.bio || "", 500]
+          ["bio", "Biografia", user.bio || "", 500],
+          ["playlistUrl", "URL da playlist do YouTube", user.playlist_url || "", 260]
         ];
         for (const [name, labelText, value, max] of fields) {
           const field = document.createElement("div");
@@ -575,10 +578,13 @@ export function bindAdminEvents(root, client) {
       const email = String(values.get("email") || "").trim().toLowerCase();
       const displayName = String(values.get("displayName") || "").trim();
       const password = String(values.get("password") || "");
+      const confirmPassword = String(values.get("confirmPassword") || "");
+      const playlistUrl = String(values.get("playlistUrl") || "").trim();
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
       if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-          || displayName.length < 1 || displayName.length > 80 || password.length < 8 || password.length > 72) {
-        setStatus(createForm, "Confira o username, o e-mail, o nome e a senha (8–72 caracteres).", "error");
+          || displayName.length < 1 || displayName.length > 80 || password.length < 8 || password.length > 72 || password !== confirmPassword
+          || (playlistUrl && !/^https:\/\/(?:www\.|music\.)?youtube\.com\/playlist\?list=[A-Za-z0-9_-]{1,100}(?:&[^#]*)?$/.test(playlistUrl))) {
+        setStatus(createForm, password !== confirmPassword ? "As senhas não coincidem." : "Confira o username, o e-mail, o nome, a senha e a URL da playlist.", "error");
         return;
       }
       const button = createForm.querySelector('button[type="submit"]');
@@ -587,7 +593,7 @@ export function bindAdminEvents(root, client) {
       try {
         const { data, error } = await invokeAdmin({
           action: "user_create_with_password", resourceType: "profiles",
-          username, email, displayName, password, purpose
+          username, email, displayName, password, playlistUrl, purpose
         });
         if (error) throw error;
         createForm.reset();
@@ -622,6 +628,7 @@ export function bindAdminEvents(root, client) {
           action: "user_update_profile", resourceType: "profiles", userId: userProfileForm.dataset.userId,
           displayName: String(values.get("displayName") || "").trim(),
           bio: String(values.get("bio") || "").trim(),
+          playlistUrl: String(values.get("playlistUrl") || "").trim(),
           profileVisibility: String(values.get("profileVisibility") || ""), purpose
         });
         if (error) throw error;

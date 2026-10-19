@@ -571,9 +571,11 @@ Deno.serve(async (request: Request) => {
       const email = String(payload.email || "").trim().toLowerCase();
       const displayName = String(payload.displayName || "").trim();
       const password = String(payload.password || "");
+      const playlistUrl = String(payload.playlistUrl || "").trim();
       if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
           || email.length > 254 || displayName.length < 1 || displayName.length > 80
-          || password.length < 8 || password.length > 72) {
+          || password.length < 8 || password.length > 72
+          || (playlistUrl && !/^https:\/\/(?:www\.|music\.)?youtube\.com\/playlist\?list=[A-Za-z0-9_-]{1,100}(?:&[^#]*)?$/.test(playlistUrl))) {
         return respond(400, { error: "invalid_user_creation_fields" });
       }
       await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
@@ -612,9 +614,14 @@ Deno.serve(async (request: Request) => {
           .select("id,username,display_name").eq("id", createdUserId).maybeSingle();
         if (profileError) throw profileError;
         if (!profile) throw new Error("Auth profile trigger did not create a Looply profile.");
+        if (playlistUrl) {
+          const { error: playlistError } = await service.from("profiles")
+            .update({ playlist_url: playlistUrl }).eq("id", createdUserId);
+          if (playlistError) throw playlistError;
+        }
         await recordAccess(service, authData.user.id, "write_completed", "profiles", createdUserId, purpose, requestId,
           { action, username, email });
-        return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, created: true });
+        return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, playlistUrl: playlistUrl || null, created: true });
       } catch (error) {
         if (createdUserId) {
           const { error: deleteError } = await service.auth.admin.deleteUser(createdUserId);
@@ -711,7 +718,7 @@ Deno.serve(async (request: Request) => {
       await recordAccess(service, authData.user.id, "read_requested", "profiles", null, purpose, requestId, { action });
       try {
         const [{ data: profiles, error: profilesError }, { data: authUsers, error: authUsersError }] = await Promise.all([
-          service.from("profiles").select("id,username,display_name,bio,profile_visibility,created_at,updated_at").order("username").limit(500),
+          service.from("profiles").select("id,username,display_name,bio,profile_visibility,playlist_url,created_at,updated_at").order("username").limit(500),
           service.auth.admin.listUsers({ page: 1, perPage: 1000 })
         ]);
         if (profilesError) throw profilesError;
@@ -787,17 +794,19 @@ Deno.serve(async (request: Request) => {
       const userId = String(payload.userId || "");
       const displayName = String(payload.displayName || "").trim();
       const bio = String(payload.bio || "").trim();
+      const playlistUrl = String(payload.playlistUrl || "").trim();
       const profileVisibility = String(payload.profileVisibility || "");
       if (!uuidPattern.test(userId) || displayName.length < 1 || displayName.length > 80
-          || bio.length > 500 || !["members", "private"].includes(profileVisibility)) {
+          || bio.length > 500 || !["members", "private"].includes(profileVisibility)
+          || (playlistUrl && !/^https:\/\/(?:www\.|music\.)?youtube\.com\/playlist\?list=[A-Za-z0-9_-]{1,100}(?:&[^#]*)?$/.test(playlistUrl))) {
         return respond(400, { error: "invalid_user_profile_update" });
       }
       await recordAccess(service, authData.user.id, "write_requested", "profiles", userId, purpose, requestId,
         { action, display_name: displayName, profile_visibility: profileVisibility });
       try {
         const { data, error } = await service.from("profiles")
-          .update({ display_name: displayName, bio, profile_visibility: profileVisibility, updated_at: new Date().toISOString() })
-          .eq("id", userId).select("id,username,display_name,bio,profile_visibility,updated_at").maybeSingle();
+          .update({ display_name: displayName, bio, playlist_url: playlistUrl || null, profile_visibility: profileVisibility, updated_at: new Date().toISOString() })
+          .eq("id", userId).select("id,username,display_name,bio,playlist_url,profile_visibility,updated_at").maybeSingle();
         if (error) throw error;
         if (!data) return respond(404, { error: "profile_not_found" });
         await recordAccess(service, authData.user.id, "write_completed", "profiles", userId, purpose, requestId,

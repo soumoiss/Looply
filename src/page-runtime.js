@@ -62,7 +62,7 @@ function headerMarkup(page, profile, admin, unreadCount) {
 
 async function loadProfile(userId) {
   const { data, error } = await supabase.from("profiles")
-    .select("id,username,display_name,bio,profile_visibility,avatar_path,theme,font_family,font_size")
+    .select("id,username,display_name,bio,profile_visibility,playlist_url,avatar_path,theme,font_family,font_size")
     .eq("id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("O perfil desta conta não foi encontrado.");
