@@ -83,6 +83,10 @@ export async function mountGlobalAnnouncements({ client, user }) {
     presentNext();
   }
 
+  const channel = client.channel(`looply-announcements-${user.id}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "global_announcements" }, ({ new: announcement }) => enqueue(announcement))
+    .subscribe();
+
   try {
     const now = new Date().toISOString();
     const { data: announcements, error } = await client.from("global_announcements")
@@ -104,10 +108,6 @@ export async function mountGlobalAnnouncements({ client, user }) {
   } catch (error) {
     console.warn("Looply global announcements could not be loaded", error);
   }
-
-  const channel = client.channel(`looply-announcements-${user.id}`)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "global_announcements" }, ({ new: announcement }) => enqueue(announcement))
-    .subscribe();
 
   return () => {
     disposed = true;
