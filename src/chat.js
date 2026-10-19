@@ -61,7 +61,7 @@ export async function loadChatData(client, userId) {
   if (ids.length) {
     const { data, error } = await client.from("conversations")
       .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
-      .in("id", ids).order("updated_at", { ascending: false }).limit(50);
+      .in("id", ids).order("updated_at", { ascending: false }).limit(1000);
     if (error) throw error;
     conversations = data || [];
     const { data: latest, error: messagesError } = await client.from("chat_messages")
