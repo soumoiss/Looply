@@ -1,3 +1,4 @@
+# Redeploy responsive gallery updates from main.
 name: Deploy Looply to GitHub Pages
 
 on:
