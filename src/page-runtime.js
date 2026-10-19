@@ -126,20 +126,24 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    // The gallery must remain visibly usable as a landing page when a session expires.
-    // Other authenticated pages keep the existing sign-in redirect.
+  // Prefer the persisted session first. getUser() validates against the Auth server and
+  // can fail transiently on mobile networks; that must not be mistaken for a signed-out user.
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  let user = sessionData?.session?.user || null;
+  if (!user && !sessionError) {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (!userError) user = userData?.user || null;
+  }
+
+  if (!user) {
     if (page === "gallery") {
-      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Entre na sua conta Looply para acessar as mídias.</p></section>`;
+      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Sua sessão não foi encontrada neste navegador. Entre na sua conta para carregar as mídias.</p></section>`;
       return;
     }
     await supabase.auth.signOut();
     window.location.replace("login.html");
     return;
   }
-
-  const user = userData.user;
   let profile;
   let isAdmin = false;
   try {
