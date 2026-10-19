@@ -51,6 +51,7 @@ const galleryMarkup = () => [
   '</form>',
 '</section></div>',
 '<div class="gallery-modal" data-people-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="people-title"><div class="gallery-dialog-heading"><h2 id="people-title">Filtrar por pessoas</h2><button type="button" class="gallery-icon-button" data-close-people aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar <input type="search" data-filter-user-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-filter-users></div><label class="gallery-check-row"><input type="checkbox" data-match-any> Mostrar mídias com qualquer pessoa selecionada</label><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-clear-people>Limpar</button><button type="button" class="gallery-primary" data-apply-people>Aplicar filtros</button></div></section></div>',
+'<div class="gallery-modal" data-tags-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="tags-title"><div class="gallery-dialog-heading"><h2 id="tags-title">Adicionar menções</h2><button type="button" class="gallery-icon-button" data-close-tags aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar pessoas <input type="search" data-tag-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-tag-users></div><p class="gallery-status" data-tag-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-tags>Cancelar</button><button type="button" class="gallery-primary" data-save-tags>Salvar menções</button></div></section></div>',
 '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
   '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
   '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><p class="gallery-viewer-description" data-viewer-description></p><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
@@ -81,10 +82,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const mentionQuery = $("[data-user-search]").value || "";
     const recipientQuery = $("[data-recipient-search]").value || "";
     const filterQuery = $("[data-filter-user-search]").value || "";
+    const tagQuery = $("[data-tag-search]").value || "";
+    const tagSelected = new Set(chosen("[data-tag-users]"));
     const commentSelected = new Set(chosen("[data-comment-recipients]"));
     $("[data-mention-users]").innerHTML = usersHtml(selectedPeople, mentionQuery);
     $("[data-recipient-users]").innerHTML = usersHtml(new Set(chosen("[data-recipient-users]")), recipientQuery);
     $("[data-filter-users]").innerHTML = usersHtml(filterPeople, filterQuery);
+    $("[data-tag-users]").innerHTML = usersHtml(tagSelected, tagQuery);
     $("[data-comment-recipients]").innerHTML = usersHtml(commentSelected, "");
   };
   const signedUrl = async x => {
@@ -175,7 +179,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
   const cardMedia = x => {
     const type = mediaType(x);
-    if (!x.url) return '<div class="gallery-media-fallback">' + icon("image") + '<span>Prévia indisponível</span></div>';
+    if (!x.url) return '<div class="gallery-media-fallback">' + icon("camera") + '<span>Prévia indisponível</span></div>';
     if (type === "video") return '<video src="' + esc(x.url) + '" preload="metadata" muted playsinline></video><span class="gallery-media-type">' + icon("video") + '</span>';
     if (type === "audio") return '<div class="gallery-audio-preview">' + icon("music") + '<audio src="' + esc(x.url) + '" controls preload="none"></audio></div>';
     return '<img src="' + esc(x.url) + '" alt="" loading="lazy" decoding="async">';
@@ -207,6 +211,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-description-form]").hidden = true;
     $("[data-context-menu]").hidden = true;
     $("[data-admin-delete]").hidden = !isAdmin;
+    $("[data-edit-mentions]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
     $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (x.isPrivate ? " Remover de Privadas" : " Mover para Privadas");
     $("[data-viewer]").hidden = false;
     document.body.classList.add("gallery-viewer-open");
@@ -427,7 +432,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
   $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea).value=getItem(activeKey)?.description||"";});
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.description=description;$("[data-viewer-description]").textContent=description;draw();say("Descrição salva.");e.currentTarget.hidden=true;});
-  $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;$("[data-context-menu]").hidden=true;const selected=new Set(x.peopleIds||[]);$("[data-mention-users]").innerHTML=usersHtml(selected,"");$("[data-upload-modal]").hidden=false;$("[data-upload-status]").textContent="Para alterar menções, selecione as pessoas e publique uma nova mídia; a edição de tags será habilitada em uma próxima etapa.";});
+  $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}$("[data-context-menu]").hidden=true;$("[data-tag-search]").value="";$("[data-tag-users]").innerHTML=usersHtml(new Set(x.peopleIds||[]),"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
+  $("[data-close-tags]").forEach(b=>b.addEventListener("click",()=>$("[data-tags-modal]").hidden=true));
+  $("[data-tag-search]").addEventListener("input",()=>{const selected=new Set(chosen("[data-tag-users]"));$("[data-tag-users]").innerHTML=usersHtml(selected,$("[data-tag-search]").value);});
+  $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(chosen("[data-tag-users]"));const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
   $$("[data-open-comments]").forEach(b=>b.addEventListener("click",loadComments));
   $("[data-close-comments]").addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;});
   $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{$("[data-comments-modal]").hidden=true;}));
@@ -438,7 +446,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-admin-delete]").addEventListener("click",()=>{if(activeKey)deleteMedia(activeKey);});
   $("[data-load-more]").addEventListener("click",()=>load(false));
   grid.addEventListener("click",e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const del=e.target.closest("[data-admin-delete]");if(open)openViewer(open.dataset.openMedia);else if(comments){activeKey=comments.dataset.comments;loadComments();}else if(privateButton)togglePrivate(privateButton.dataset.togglePrivate);else if(del)deleteMedia(del.dataset.adminDelete);});
-  grid.addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
+  $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)$("[data-comments-modal]").hidden=true;else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft")$("[data-previous]").click();if(!$("[data-viewer]").hidden&&e.key==="ArrowRight")$("[data-next]").click();});
   let touchX=0;
   $("[data-viewer]").addEventListener("touchstart",e=>{touchX=e.changedTouches[0]?.screenX||0;},{passive:true});
