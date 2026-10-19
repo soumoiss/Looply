@@ -6,6 +6,10 @@ import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime,
 import { loadSocialData } from "../../src/social.js";
 
 await mountAppPage({ page: "chat", render: async ({ root, client, user, profile }) => {
+        // Paint the shell before remote queries so a slow auxiliary request
+        // cannot leave the entire Chat page blank.
+        root.innerHTML = `${chatMarkup({ conversations: [], notifications: [], profiles: [] }, user.id)}`;
+
   const [dataResult, storiesResult, socialResult] = await Promise.allSettled([
     loadChatData(client, user.id), loadStories(client), loadSocialData(client)
   ]);

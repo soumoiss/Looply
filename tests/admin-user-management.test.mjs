@@ -30,12 +30,12 @@ test("user creation is invitation-only, accepts new usernames, and never grants 
   assert.match(edge, /cannot_suspend_administrator/);
 });
 
-test("user management UI exposes profile edits and access restoration without unsafe HTML rendering", async () => {
+test("user management UI exposes one password-based creation form plus profile edits", async () => {
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
-  assert.match(ui, /data-user-invite/);
+  assert.match(ui, /data-user-create/);
   assert.match(ui, /name="email"/);
-  assert.match(ui, /Convidar novo usuário comum/);
-  assert.match(ui, /convite nunca concede acesso ADM/i);
+  assert.match(ui, /name="password"/);
+  assert.match(ui, /Cadastrar novo usuário/);
   assert.match(ui, /data-user-profile-form/);
   assert.match(ui, /data-user-access-action/);
   assert.match(ui, /user_update_profile/);
@@ -43,4 +43,10 @@ test("user management UI exposes profile edits and access restoration without un
   assert.match(ui, /user_restore_access/);
   assert.match(ui, /createElement\("article"\)/);
   assert.doesNotMatch(ui, /innerHTML\s*=\s*.*user\./);
+});
+
+test("admin user creation exposes one canonical form instead of duplicate account flows", async () => {
+  const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
+  assert.equal((ui.match(/<form[^>]+data-user-create/g) || []).length, 1);
+  assert.doesNotMatch(ui, /data-user-invite|Convidar novo usuário|Enviar convite/);
 });

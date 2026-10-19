@@ -25,6 +25,13 @@ test("background refresh updates the sidebar instead of replacing the whole chat
   assert.match(refresh, /requestId !== refreshSequence/);
 });
 
+test("chat paints a visible shell before slow Supabase queries resolve", async () => {
+  const source = await read("assets/js/chat.js");
+  const shell = source.indexOf("root.innerHTML = `${chatMarkup");
+  const queries = source.indexOf("Promise.allSettled", shell);
+  assert.ok(shell >= 0 && queries >= 0 && shell < queries, "chat shell must render before data requests");
+});
+
 test("opening a conversation invalidates stale background requests and does not clear a same-chat draft", async () => {
   const source = await read("src/chat.js");
   const start = source.indexOf("async function openConversation(");

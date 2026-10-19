@@ -28,9 +28,9 @@ test("new community accounts use either the protected password or expiring invit
   assert.match(admin, /auth\.admin\.createUser\(\{/);
   assert.match(admin, /inviteUserByEmail\(email,\s*\{\s*data: \{ username, display_name: displayName \}/);
   assert.match(admin, /https:\/\/soumoiss\.github\.io\/Looply\/login\.html\?invite=1/);
-  assert.match(ui, /name="username"/);
-  assert.match(ui, /name="email"/);
-  assert.match(ui, /Convidar novo usuário comum/);
+  assert.match(ui, /data-user-create/);
+  assert.match(ui, /name="password"/);
+  assert.match(ui, /Cadastrar novo usuário/);
 });
 
 test("username login does not reveal the Auth email and delegates password checks to Supabase Auth", async () => {
