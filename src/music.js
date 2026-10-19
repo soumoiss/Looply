@@ -9,6 +9,44 @@ function person(profile) {
   return profile ? `@${escapeHtml(profile.username)}` : "perfil restrito";
 }
 
+function isDirectAudioUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" && /\.(?:mp3|m4a|aac|ogg|oga|wav|flac|webm)(?:$|[?#])/i.test(url.pathname + url.search);
+  } catch {
+    return false;
+  }
+}
+
+function formatAudioTime(value) {
+  if (!Number.isFinite(value) || value < 0) return "0:00";
+  const totalSeconds = Math.floor(value);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}:${seconds}`;
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}`;
+}
+
+function musicPlayerMarkup(item) {
+  const url = escapeHtml(item.listen_url);
+  if (!isDirectAudioUrl(item.listen_url)) {
+    return `<div class="music-player music-player-external">
+      <span class="music-player-source">Fonte externa</span>
+      <a class="music-listen" href="${url}" target="_blank" rel="noopener noreferrer">Abrir música ${icon("external")}</a>
+      <span class="music-player-hint">Links de YouTube, Spotify e similares abrem no serviço original.</span>
+    </div>`;
+  }
+  return `<div class="music-player" data-music-player>
+    <audio data-music-audio preload="metadata" src="${url}"></audio>
+    <button class="music-player-button" type="button" data-music-play aria-label="Tocar música">${icon("play")}<span>Tocar</span></button>
+    <div class="music-player-main">
+      <div class="music-player-topline"><span class="music-player-label">Player Looply</span><span data-music-time>0:00 / 0:00</span></div>
+      <input class="music-player-progress" data-music-seek type="range" min="0" max="0" step="0.1" value="0" aria-label="Posição da música">
+      <div class="music-player-bottomline"><span data-music-status role="status" aria-live="polite">Pronto para tocar</span><span class="music-player-wave" aria-hidden="true">${Array.from({ length: 9 }, (_, index) => `<i style="--music-bar-delay:${index * 70}ms"></i>`).join("")}</span></div>
+    </div>
+  </div>`;
+}
+
 export async function loadMusicData(client, userId) {
   const [peopleResult, dedicationsResult, libraryResult, generalCommentsResult] = await Promise.all([
     client.from("profiles").select("id,username,display_name").order("username").limit(100),
@@ -39,7 +77,7 @@ function libraryMarkup(items, error) {
     <div class="music-card-top"><span class="music-disc" aria-hidden="true">♫</span><span class="music-date">Na sua coleção</span></div>
     <h3>${escapeHtml(item.title)}</h3>${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${item.note ? `<p class="music-note">${escapeHtml(item.note)}</p>` : ""}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música ${icon("external")}</a>
+    ${musicPlayerMarkup(item)}
     <button class="text-button" type="button" data-music-library-delete="${escapeHtml(item.id)}">Remover da minha coleção</button>
     <span class="form-status" data-library-delete-status role="status" aria-live="polite"></span>
   </article>`).join("");
@@ -84,7 +122,7 @@ function dedicationMarkup(item, userId) {
     <h3>${escapeHtml(item.title)}</h3>
     ${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${notes}
-    <a class="music-listen" href="${escapeHtml(item.listen_url)}" target="_blank" rel="noopener noreferrer">Ouvir a música ${icon("external")}</a>
+    ${musicPlayerMarkup(item)}
     <section class="music-comments" aria-label="Comentários privados da música">
       <h4>Comentários <span>${comments.length}</span></h4>
       <div class="music-comment-list">${commentsMarkup}</div>
@@ -164,10 +202,61 @@ async function refreshMusic(root, client, userId) {
   area.setAttribute("aria-busy", "true");
   try {
     area.outerHTML = musicMarkup(await loadMusicData(client, userId), userId);
+    bindMusicPlayers(root);
   } catch (error) {
     console.error("Looply music refresh failed", error);
     area.innerHTML = `<div class="social-message social-error" role="alert">Não foi possível atualizar agora.</div>`;
   }
+}
+
+function updateMusicPlayer(player, audio) {
+  const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+  const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+  const seek = player.querySelector("[data-music-seek]");
+  const time = player.querySelector("[data-music-time]");
+  const status = player.querySelector("[data-music-status]");
+  if (seek) {
+    seek.max = String(duration);
+    seek.value = String(Math.min(current, duration || current));
+    seek.style.setProperty("--music-progress", `${duration ? (current / duration) * 100 : 0}%`);
+  }
+  if (time) time.textContent = `${formatAudioTime(current)} / ${formatAudioTime(duration)}`;
+  if (status && !audio.error && !audio.paused) status.textContent = "Reproduzindo agora";
+}
+
+function setMusicPlayerPlaying(player, playing) {
+  const button = player.querySelector("[data-music-play]");
+  if (!button) return;
+  button.innerHTML = `${icon(playing ? "pause" : "play")}<span>${playing ? "Pausar" : "Tocar"}</span>`;
+  button.setAttribute("aria-label", playing ? "Pausar música" : "Tocar música");
+  player.classList.toggle("is-playing", playing);
+}
+
+function bindMusicPlayers(root) {
+  root.querySelectorAll("[data-music-player]").forEach((player) => {
+    const audio = player.querySelector("[data-music-audio]");
+    const seek = player.querySelector("[data-music-seek]");
+    if (!audio || player.dataset.musicBound === "true") return;
+    player.dataset.musicBound = "true";
+    ["loadedmetadata", "durationchange", "timeupdate"].forEach((eventName) => audio.addEventListener(eventName, () => updateMusicPlayer(player, audio)));
+    audio.addEventListener("play", () => setMusicPlayerPlaying(player, true));
+    audio.addEventListener("pause", () => setMusicPlayerPlaying(player, false));
+    audio.addEventListener("ended", () => {
+      setMusicPlayerPlaying(player, false);
+      const status = player.querySelector("[data-music-status]");
+      if (status) status.textContent = "Música concluída — toque novamente para repetir";
+    });
+    audio.addEventListener("error", () => {
+      setMusicPlayerPlaying(player, false);
+      const status = player.querySelector("[data-music-status]");
+      if (status) status.textContent = "Não foi possível reproduzir este arquivo";
+    });
+    if (seek) seek.addEventListener("input", () => {
+      audio.currentTime = Number(seek.value) || 0;
+      updateMusicPlayer(player, audio);
+    });
+    updateMusicPlayer(player, audio);
+  });
 }
 
 function setStatus(form, message, kind = "success") {
@@ -178,6 +267,28 @@ function setStatus(form, message, kind = "success") {
 }
 
 export function bindMusicEvents(root, client, getUserId) {
+  bindMusicPlayers(root);
+  root.addEventListener("click", async (event) => {
+    const playButton = event.target.closest("[data-music-play]");
+    if (!playButton) return;
+    const player = playButton.closest("[data-music-player]");
+    const audio = player?.querySelector("[data-music-audio]");
+    if (!player || !audio) return;
+    root.querySelectorAll("[data-music-audio]").forEach((otherAudio) => {
+      if (otherAudio !== audio) otherAudio.pause();
+    });
+    if (audio.paused) {
+      try {
+        await audio.play();
+      } catch {
+        const status = player.querySelector("[data-music-status]");
+        if (status) status.textContent = "Toque novamente para iniciar a reprodução";
+      }
+    } else {
+      audio.pause();
+    }
+  });
+
   root.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-music-library-delete]");
     if (!button || !client) return;
@@ -212,7 +323,7 @@ export function bindMusicEvents(root, client, getUserId) {
         const artist = String(values.get("artist") || "").trim();
         const note = String(values.get("note") || "").trim();
         const listenUrl = String(values.get("listenUrl") || "").trim();
-        const supported = /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
+        const supported = isDirectAudioUrl(listenUrl) || /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
         if (!title || title.length > 160 || !supported) throw new Error("music-library-fields");
         const { error } = await client.from("music_library").insert({ title, artist, listen_url: listenUrl, note });
         if (error) throw error;
@@ -225,7 +336,7 @@ export function bindMusicEvents(root, client, getUserId) {
         const note = String(values.get("note") || "").trim();
         const recipientIds = values.getAll("recipientId").map(String);
         const listenUrl = String(values.get("listenUrl") || "").trim();
-        const supported = /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
+        const supported = isDirectAudioUrl(listenUrl) || /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
         const selectedRecipients = recipientIds.includes("all-users")
           ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
           : recipientIds.filter((id) => id !== userId);

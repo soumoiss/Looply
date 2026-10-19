@@ -395,6 +395,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .music-note { padding: 12px 13px; border-left: 2px solid var(--primary); border-radius: 0 10px 10px 0; color: var(--text); background: color-mix(in srgb, var(--primary) 6%, var(--surface-soft)); font-size: 10px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .music-listen { display: inline-flex; align-items: center; gap: 8px; margin-top: 13px; padding: 9px 12px; border-radius: 11px; color: #fff; background: var(--primary); font-size: 10px; font-weight: 740; text-decoration: none; }
 .music-listen:hover { background: var(--primary-dark); }
+.music-player { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--line)); border-radius: 15px; background: color-mix(in srgb, var(--primary) 5%, var(--surface-soft)); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.music-player.is-playing { border-color: color-mix(in srgb, var(--primary) 60%, var(--line)); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 14%, transparent); transform: translateY(-1px); }
+.music-player audio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.music-player-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 72px; min-height: 38px; padding: 7px 10px; border: 0; border-radius: 11px; color: #fff; background: var(--primary); cursor: pointer; font: inherit; font-size: 10px; font-weight: 760; }
+.music-player-button:hover { background: var(--primary-dark); }
+.music-player-button svg { width: 15px; height: 15px; }
+.music-player-main { min-width: 0; flex: 1; }
+.music-player-topline, .music-player-bottomline { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 8px; }
+.music-player-label { color: var(--primary); font-size: 9px; font-weight: 760; }
+.music-player-progress { display: block; width: 100%; height: 6px; margin: 9px 0 7px; accent-color: var(--primary); cursor: pointer; }
+.music-player-progress::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--primary) var(--music-progress, 0%), color-mix(in srgb, var(--primary) 15%, var(--line)) var(--music-progress, 0%)); }
+.music-player-progress::-moz-range-track { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 15%, var(--line)); }
+.music-player-progress::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--primary); }
+.music-player-wave { display: inline-flex; align-items: center; gap: 2px; height: 16px; }
+.music-player-wave i { width: 3px; height: 5px; border-radius: 999px; background: var(--primary); opacity: .45; }
+.music-player.is-playing .music-player-wave i { animation: music-wave .8s ease-in-out infinite alternate; animation-delay: var(--music-bar-delay); opacity: 1; }
+.music-player-hint { display: block; margin-top: 7px; color: var(--muted); font-size: 8px; }
+.music-player-source { display: block; color: var(--muted); font-size: 9px; }
+@keyframes music-wave { from { height: 4px; transform: translateY(3px); } to { height: 16px; transform: translateY(-2px); } }
 .music-comments { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); }
 .music-comments h4 { margin: 0 0 10px; font-size: 10px; }
 .music-comments h4 span { color: var(--muted); font-weight: 500; }
@@ -414,6 +433,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .music-comment-actions button { margin-left: auto; }
 .music-comment-form .form-status { font-size: 10px; }
 [data-music-area][aria-busy="true"] { opacity: .65; }
+@media (prefers-reduced-motion: reduce) { .music-player, .music-player-wave i { transition: none; animation: none !important; } }
 .admin-area { margin-top: 34px; padding: clamp(18px, 3vw, 25px); border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--line)); border-radius: 22px; background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 6%, var(--surface)), var(--surface)); }
 .admin-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
 .admin-heading h2 { margin: 5px 0 0; font-size: clamp(22px, 4vw, 29px); letter-spacing: -.05em; }
