@@ -26,7 +26,7 @@ test("SECURITY DEFINER RPCs keep a locked search_path and an explicit identity/o
 
   for (const [name, guard] of contracts) {
     const declaration = new RegExp(
-      `create\\s+or\\s+replace\\s+function\\s+public\\.${name}\\s*\\([\\s\\S]*?(?:\\$function\\$|\\$\\$)\\s*;`,
+      `create\\s+(?:or\\s+replace\\s+)?function\\s+public\\.${name}\\s*\\([\\s\\S]*?(?:\\$function\\$|\\$\\$)\\s*;`,
       "gi"
     );
     const definitions = [...sql.matchAll(declaration)];
