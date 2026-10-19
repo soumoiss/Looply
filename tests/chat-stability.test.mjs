@@ -180,6 +180,7 @@ test("caller processes a valid answer even if WebRTC already moved the lifecycle
   assert.match(source, /payload\.type === "answer"[\s\S]*?\[CALL_STATES\.DIALING, CALL_STATES\.CONNECTING\]\.includes\(callState\)/);
   assert.match(source, /setRemoteDescription\(payload\.description\)/);
   assert.match(source, /callTimeout = clearTimer\(callTimeout\)/);
+  assert.match(source, /activeCall\?\.id === call\.id && !pc\?\.remoteDescription/);
 });
 
 test("call controller ignores stale events and uses distinct cancel, decline, busy, and failure states", async () => {
