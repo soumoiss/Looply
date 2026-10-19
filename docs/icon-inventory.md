@@ -46,6 +46,9 @@
 | `phone` | Chamada de voz | https://icons8.com/icons/set/phone |
 | `video` | Vídeo | https://icons8.com/icons/set/video |
 | `camera` | Câmera | https://icons8.com/icons/set/camera |
+| `image` | Foto/imagem | https://icons8.com/icons/set/image |
+| `rotateLeft` | Girar foto à esquerda | https://icons8.com/icons/set/rotate-left |
+| `rotateRight` | Girar foto à direita | https://icons8.com/icons/set/rotate-right |
 | `cameraOff` | Câmera desligada | https://icons8.com/icons/set/camera-off |
 | `cameraSwitch` | Alternar câmera | https://icons8.com/icons/set/camera-switch |
 | `mic` | Microfone | https://icons8.com/icons/set/mic |
