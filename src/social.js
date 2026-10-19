@@ -3,6 +3,56 @@ import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
 import { validatePublicationInput } from "./publication-validation.js";
 
+const externalHosts = new Set([
+  "instagram.com", "www.instagram.com", "m.instagram.com", "l.instagram.com",
+  "tiktok.com", "www.tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
+  "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"
+]);
+
+export function normalizeExternalUrl(value) {
+  try {
+    let url = new URL(String(value || "").trim());
+    if (url.protocol !== "https:") return null;
+    if (url.hostname.toLowerCase() === "l.instagram.com") {
+      const target = url.searchParams.get("u");
+      if (!target) return null;
+      url = new URL(target);
+    }
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" || !externalHosts.has(hostname)) return null;
+    if (["instagram.com", "m.instagram.com"].includes(hostname)) url.hostname = "www.instagram.com";
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+export function extractExternalLinkFromText(value) {
+  const text = String(value || "").trim();
+  const match = /https?:\/\/[^\s<>"']+/i.exec(text);
+  if (!match) return { text, url: null };
+  const candidate = match[0].replace(/[),.;!?]+$/, "");
+  const url = normalizeExternalUrl(candidate);
+  if (!url) return { text, url: null };
+  const cleanText = (text.slice(0, match.index) + text.slice(match.index + match[0].length))
+    .replace(/\s+/g, " ").trim();
+  return { text: cleanText, url };
+}
+
+export function tiktokEmbedDetails(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || !["tiktok.com", "www.tiktok.com"].includes(url.hostname.toLowerCase())) return null;
+    const parts = url.pathname.split("/").filter(Boolean);
+    const videoIndex = parts.findIndex((part) => part === "video");
+    const videoId = videoIndex > 0 ? parts[videoIndex + 1] : null;
+    if (!videoId || !/^\d{8,25}$/.test(videoId) || !parts[videoIndex - 1]?.startsWith("@")) return null;
+    return { videoId, embedUrl: "https://www.tiktok.com/embed/v2/" + videoId };
+  } catch {
+    return null;
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -96,13 +146,8 @@ function postMarkup(post, userId, isAdmin = false) {
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
   const likeCount = Number(post.likeCount || 0);
-  const externalUrl = (() => {
-    try {
-      const url = new URL(post.external_url || "");
-      const hosts = ["instagram.com","www.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
-      return url.protocol === "https:" && hosts.includes(url.hostname.toLowerCase()) ? url : null;
-    } catch { return null; }
-  })();
+  const normalizedExternalUrl = normalizeExternalUrl(post.external_url);
+  const externalUrl = normalizedExternalUrl ? new URL(normalizedExternalUrl) : null;
   let externalMarkup = "";
   if (externalUrl) {
     let provider = externalUrl.hostname.includes("instagram") ? "Instagram" : externalUrl.hostname.includes("tiktok") ? "TikTok" : "Link externo";
@@ -115,10 +160,16 @@ function postMarkup(post, userId, isAdmin = false) {
       }
     } else if (externalUrl.hostname.includes("youtube.com") || externalUrl.hostname === "youtu.be") {
       const pathParts = externalUrl.pathname.split("/").filter(Boolean);
-      const id = externalUrl.hostname === "youtu.be" ? pathParts[0] : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : ["shorts", "embed"].includes(pathParts[0]) ? pathParts[1] : null;
+      const id = externalUrl.hostname === "youtu.be" ? pathParts[0] : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : ["shorts", "embed", "live"].includes(pathParts[0]) ? pathParts[1] : null;
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
         provider = "YouTube";
         embed = '<div class="post-external-embed"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      }
+    } else if (externalUrl.hostname.includes("tiktok.com")) {
+      const details = tiktokEmbedDetails(externalUrl.href);
+      if (details) {
+        provider = "TikTok";
+        embed = '<div class="post-external-embed post-tiktok-embed"><iframe src="' + escapeHtml(details.embedUrl) + '" title="Vídeo do TikTok" loading="lazy" allow="encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       }
     }
     externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ' + icon("external") + '</a></section>';
@@ -373,6 +424,8 @@ function explainWriteError(error) {
   if (/duplicate|unique/i.test(message)) return "Essa publicação ou interação já foi registrada.";
   if (/permission|policy|row-level|42501/i.test(message)) return "Sua conta não tem permissão para essa ação ou o conteúdo não está mais disponível.";
   if (/recipient|recipients/i.test(message)) return "Revise os perfis escolhidos para compartilhar.";
+  if (/unsupported external URL/i.test(message)) return "Use um link HTTPS válido do Instagram, YouTube ou TikTok.";
+  if (/empty body|media_or_text_required/i.test(message)) return "Adicione um texto, um link válido ou uma foto/vídeo antes de publicar.";
   return "Não foi possível salvar agora. Confira sua conexão e tente novamente.";
 }
 
@@ -590,27 +643,27 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     const uploadedPaths = [];
     try {
       const formData = new FormData(form);
-      const body = String(formData.get("body") || "").trim();
+      let body = String(formData.get("body") || "").trim();
       if (form.matches("[data-social-post]")) {
         const files = selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
         let externalUrl = String(formData.get("externalUrl") || "").trim();
+        // Accept both the dedicated URL field and links pasted into the post text.
+        if (!externalUrl) {
+          const extracted = extractExternalLinkFromText(body);
+          if (extracted.url) {
+            externalUrl = extracted.url;
+            body = extracted.text;
+          }
+        }
         // Media-only contract: if (!body && !externalUrl && !files.length) reject.
         const validation = validatePublicationInput({ text: body, mediaCount: files.length, externalUrl });
         if (!validation.ok) throw new Error("empty body");
         const postBody = validation.body;
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
-          let parsed;
-          try { parsed = new URL(externalUrl); } catch { throw new Error("unsupported external URL"); }
-          if (parsed.protocol === "https:" && parsed.hostname.toLowerCase() === "l.instagram.com") {
-            const sharedTarget = parsed.searchParams.get("u");
-            try { parsed = new URL(sharedTarget || ""); } catch { throw new Error("unsupported external URL"); }
-          }
-          const allowedHosts = ["instagram.com","www.instagram.com","m.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","vt.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
-          if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("unsupported external URL");
-          if (["instagram.com", "m.instagram.com"].includes(parsed.hostname.toLowerCase())) parsed.hostname = "www.instagram.com";
-          externalUrl = parsed.href;
+          externalUrl = normalizeExternalUrl(externalUrl);
+          if (!externalUrl) throw new Error("unsupported external URL");
         }
         if (visibility === "selected") {
           const recipientIds = formData.getAll("recipientIds").map(String);

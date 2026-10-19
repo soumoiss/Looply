@@ -98,3 +98,26 @@ test("canonical Instagram Reel URLs resolve to a valid embed URL", async () => {
     kind: "reel", shortcode: "ABC123xyz_-", embedUrl: "https://www.instagram.com/reel/ABC123xyz_-/embed/"
   });
 });
+
+
+test("external links pasted into post text are extracted and normalized before publication", async () => {
+  const { extractExternalLinkFromText, normalizeExternalUrl } = await import("../src/social.js");
+  assert.deepEqual(
+    extractExternalLinkFromText("Veja este vídeo https://youtu.be/abcdefghijk!"),
+    { text: "Veja este vídeo", url: "https://youtu.be/abcdefghijk" }
+  );
+  assert.deepEqual(
+    extractExternalLinkFromText("https://www.instagram.com/reel/ABC123xyz_/"),
+    { text: "", url: "https://www.instagram.com/reel/ABC123xyz_/" }
+  );
+  assert.equal(normalizeExternalUrl("https://vt.tiktok.com/ZSR123/"), "https://vt.tiktok.com/ZSR123/");
+  assert.equal(normalizeExternalUrl("http://www.youtube.com/watch?v=abcdefghijk"), null);
+});
+
+test("canonical TikTok video URLs render a provider embed", async () => {
+  const { tiktokEmbedDetails } = await import("../src/social.js");
+  assert.deepEqual(
+    tiktokEmbedDetails("https://www.tiktok.com/@sample/video/1234567890123456789"),
+    { videoId: "1234567890123456789", embedUrl: "https://www.tiktok.com/embed/v2/1234567890123456789" }
+  );
+});
