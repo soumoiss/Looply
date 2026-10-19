@@ -113,6 +113,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-comment-recipients]").innerHTML = usersHtml(commentSelected, "");
     $("[data-comment-mention-users]").innerHTML = commentMentionMarkup(commentMentionQuery);
   };
+  const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } };
   const signedUrl = async x => {
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
     const { data, error } = await client.storage.from(bucket).createSignedUrl(x.storage_path, 300);
@@ -133,7 +134,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),
         client.from("gallery_albums").select("id,owner_id,name,created_at").eq("owner_id",user.id).order("created_at",{ascending:false}),
         client.from("gallery_album_items").select("album_id,source,media_id").order("added_at",{ascending:false})
-      ]);
+      ].map(safeQuery));
       if (a.error && c.error) {
         console.error("Gallery media sources failed", { archive: a.error, community: c.error });
         throw new Error("Nenhuma fonte de mídia pôde ser consultada.");
@@ -162,7 +163,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
       const adjustmentIds = fresh.map(x => x.id);
-      const adjustmentsResult = adjustmentIds.length ? await client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds) : {data:[],error:null};
+      const adjustmentsResult = adjustmentIds.length ? await safeQuery(client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds)) : {data:[],error:null};
       const adjustmentMap = new Map((adjustmentsResult.data || []).map(row => [row.source + ":" + row.media_id, row]));
       fresh.forEach(x => { const row = adjustmentMap.get(mediaKey(x)); x.adjustment = { rotation:Number(row?.rotation || 0), positionX:Number(row?.position_x || 0), positionY:Number(row?.position_y || 0) }; x.savedAdjustment = {...x.adjustment}; });
       if (adjustmentsResult.error) console.warn("Ajustes de foto compartilhados indisponíveis", adjustmentsResult.error);
@@ -171,7 +172,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const descResults = await Promise.all([
         descArchiveIds.length ? client.from("gallery_media_descriptions").select("source,media_id,user_id,description,category,updated_at").eq("source","archive").in("media_id",descArchiveIds) : Promise.resolve({data:[],error:null}),
         descCommunityIds.length ? client.from("gallery_media_descriptions").select("source,media_id,user_id,description,category,updated_at").eq("source","community").in("media_id",descCommunityIds) : Promise.resolve({data:[],error:null})
-      ]);
+      ].map(safeQuery));
       if (!descResults.some(result=>result.error)) {
         const descriptions = new Map();
         descResults.flatMap(result=>result.data||[]).forEach(row => { const key = row.source + ":" + row.media_id; if (!descriptions.has(key)) descriptions.set(key, []); descriptions.get(key).push(row); });
@@ -189,7 +190,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         idsC.length ? client.from("community_gallery_comments").select("media_id").in("media_id",idsC) : Promise.resolve({data:[],error:null}),
         idsA.length ? client.from("archive_media_likes").select("media_id,user_id").in("media_id",idsA) : Promise.resolve({data:[],error:null}),
         idsC.length ? client.from("community_gallery_media_likes").select("media_id,user_id").in("media_id",idsC) : Promise.resolve({data:[],error:null})
-      ]);
+      ].map(safeQuery));
       (commentsA.data || []).concat(commentsC.data || []).forEach(cmt => commentIds.push(cmt.media_id));
       const commentSet = new Set(commentIds);
       fresh.forEach(x => { x.hasComments = commentSet.has(x.id); });
