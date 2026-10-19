@@ -47,7 +47,7 @@ const galleryMarkup = () => [
   '<div class="gallery-dialog-heading"><h2 id="upload-title">Adicionar mídia</h2><button type="button" class="gallery-icon-button" data-close-upload aria-label="Fechar">', icon("close"), '</button></div>',
   '<form class="gallery-form" data-upload-form novalidate>',
     '<div class="gallery-capture-actions"><button class="gallery-tool" type="button" data-camera-photo>', icon("camera"), ' Tirar foto</button><button class="gallery-tool" type="button" data-camera-video>', icon("video"), ' Gravar vídeo</button></div>',
-    '<input class="gallery-file-input" type="file" name="files" accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/webm,audio/wav,audio/aac" multiple data-files>',
+    '<input class="gallery-file-input" type="file" name="files" accept="image/*,video/*,audio/*" multiple data-files>',
     '<div class="gallery-file-preview" data-file-preview><p>Selecione um ou vários arquivos. Fotos, vídeos e áudios compatíveis são aceitos.</p></div>',
     '<label>Descrição <textarea name="description" maxlength="10000" placeholder="Adicione uma descrição (opcional)"></textarea></label>',
     '<label class="gallery-check-row"><input type="checkbox" name="mention_all" data-mention-all> Mencionar todos os usuários disponíveis</label>',
@@ -76,7 +76,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const $ = selector => root.querySelector(selector);
   const $$ = selector => Array.from(root.querySelectorAll(selector));
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
-  const allowedMime = new Set(["image/jpeg","image/png","image/webp","image/heic","video/mp4","video/webm","audio/mpeg","audio/mp4","audio/ogg","audio/webm","audio/wav","audio/aac"]);
+  const extensionMime = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",avif:"image/avif",heic:"image/heic",heif:"image/heif",tif:"image/tiff",tiff:"image/tiff",bmp:"image/bmp",svg:"image/svg+xml",ico:"image/x-icon",jxl:"image/jxl",raw:"image/x-raw",dng:"image/x-adobe-dng",cr2:"image/x-canon-cr2",nef:"image/x-nikon-nef",arw:"image/x-sony-arw",mp4:"video/mp4",m4v:"video/x-m4v",mov:"video/quicktime",qt:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska",avi:"video/x-msvideo",wmv:"video/x-ms-wmv",flv:"video/x-flv",mpeg:"video/mpeg",mpg:"video/mpeg",m2v:"video/mpeg","3gp":"video/3gpp","3g2":"video/3gpp2",mts:"video/mp2t",m2ts:"video/mp2t",ts:"video/mp2t",ogv:"video/ogg",vob:"video/dvd",asf:"video/x-ms-asf",mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",ogg:"audio/ogg",oga:"audio/ogg",opus:"audio/opus",wav:"audio/wav",flac:"audio/flac",aiff:"audio/aiff",aif:"audio/aiff",wma:"audio/x-ms-wma",amr:"audio/amr"};
+  const getFileMime = file => { const declared=String(file.type||"").toLowerCase(); if (declared.startsWith("image/") || declared.startsWith("video/") || declared.startsWith("audio/")) return declared; const ext=String(file.name||"").split(".").pop().toLowerCase(); return extensionMime[ext]||""; };
+  const isMediaFile = file => Boolean(getFileMime(file));
   const maxBytes = Infinity; // Limites reais de armazenamento são aplicados pelo provedor, não duplicados na interface.
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
@@ -369,7 +371,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const form = event.currentTarget, fd = new FormData(form), files = Array.from($("[data-files]").files || []);
     if (!files.length) { say("Selecione pelo menos um arquivo.", $("[data-upload-status]")); return; }
     for (const file of files) {
-      if (!allowedMime.has(file.type)) { say("Formato não permitido: " + file.name, $("[data-upload-status]")); return; }
+      if (!isMediaFile(file)) { say("Formato de mídia não reconhecido: " + file.name, $("[data-upload-status]")); return; }
       if (file.size <= 0) { say("O arquivo " + file.name + " está vazio ou inválido.", $("[data-upload-status]")); return; }
     }
     const exclusive = Boolean(fd.get("exclusive"));
@@ -390,11 +392,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
           const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi,"").toLowerCase();
           const objectId = crypto.randomUUID();
           path = "gallery/" + user.id + "/" + objectId + "." + ext;
-          const { error: uploadError } = await client.storage.from("looply-gallery").upload(path,file,{contentType:file.type,upsert:false});
+          const mimeType = getFileMime(file) || "application/octet-stream";
+          const { error: uploadError } = await client.storage.from("looply-gallery").upload(path,file,{contentType:mimeType,upsert:false});
           if (uploadError) throw uploadError;
-          const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "image";
+          const kind = mimeType.startsWith("video/") ? "video" : mimeType.startsWith("audio/") ? "audio" : "image";
           const { data: row, error: rowError } = await client.from("community_gallery_media").insert({
-            owner_id:user.id, storage_path:path, file_name:file.name, kind, mime_type:file.type,
+            owner_id:user.id, storage_path:path, file_name:file.name, kind, mime_type:mimeType,
             byte_size:file.size, caption:"", visibility:exclusive ? "exclusive" : "members", comment_access:"viewers", publication_state:"pending"
           }).select("id").single();
           if (rowError) throw rowError;
@@ -498,7 +501,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-file-preview]").innerHTML = files.length ? files.map((file,index) => {
       const url = URL.createObjectURL(file);
       const preview = file.type.startsWith("image/") ? '<img src="' + esc(url) + '" alt="Prévia de ' + esc(file.name) + '">' : file.type.startsWith("video/") ? '<video src="' + esc(url) + '" controls muted></video>' : '<div>' + icon(file.type.startsWith("audio/")?"music":"paperclip") + '</div>';
-      return '<article class="gallery-file-card">' + preview + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.type || "Formato desconhecido") + ' · ' + formatBytes(file.size) + '</small><button type="button" data-remove-file="' + index + '" aria-label="Remover ' + esc(file.name) + '">' + icon("close") + ' Remover</button></div></article>';
+      return '<article class="gallery-file-card">' + preview + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(getFileMime(file) || file.type || "Formato desconhecido") + ' · ' + formatBytes(file.size) + '</small><button type="button" data-remove-file="' + index + '" aria-label="Remover ' + esc(file.name) + '">' + icon("close") + ' Remover</button></div></article>';
     }).join("") : '<p>Selecione um ou vários arquivos. Fotos, vídeos e áudios compatíveis são aceitos.</p>';
   };
   const removeFile = index => { const transfer = new DataTransfer(); Array.from($("[data-files]").files).forEach((f,i)=>{if(i!==index)transfer.items.add(f)}); $("[data-files]").files=transfer.files; renderPreview(); };
