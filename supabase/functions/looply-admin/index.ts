@@ -526,8 +526,7 @@ Deno.serve(async (request: Request) => {
         if (inviteInsertError) throw inviteInsertError;
         pendingInviteCreated = true;
 
-        const siteUrl = Deno.env.get("SITE_URL") || "https://soumoiss.github.io/Looply";
-        const redirectTo = new URL("login.html?invite=1", siteUrl.endsWith("/") ? siteUrl : siteUrl + "/").toString();
+        const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") || "https://soumoiss.github.io/Looply/login.html?invite=1";
         const { data, error } = await service.auth.admin.inviteUserByEmail(email, {
           data: { username, display_name: displayName },
           redirectTo
