@@ -131,7 +131,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     // The gallery must remain visibly usable as a landing page when a session expires.
     // Other authenticated pages keep the existing sign-in redirect.
     if (page === "gallery") {
-      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><div><div class="gallery-eyebrow">Seu espaço compartilhado</div><h1 class="gallery-title">Galeria</h1><p class="gallery-subtitle">Fotos, vídeos e lembranças da comunidade Looply, reunidos em um só lugar.</p></div><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Entre na sua conta Looply para visualizar as mídias, publicar fotos e vídeos e interagir com a comunidade.</p></section>`;
+      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Entre na sua conta Looply para acessar as mídias.</p></section>`;
       return;
     }
     await supabase.auth.signOut();
