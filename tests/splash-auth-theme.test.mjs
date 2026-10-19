@@ -14,6 +14,8 @@ test("the initial route is a seven-second themed splash with an accessible anima
   assert.match(page, /class="splash-screen"/);
   assert.match(page, /data-splash-logo/);
   assert.match(page, /MoissWorld/);
+  assert.doesNotMatch(page, /Preparando seu espaço|conectando memórias/);
+  assert.match(css, /\.splash-footer span\s*\{[^}]*font-family:\s*["']Cabin Sketch/);
   assert.match(script, /const SPLASH_DURATION_MS = 7000/);
   assert.match(script, /supabase\.auth\.getSession\(\)/);
   assert.match(script, /Promise\.all\(/);

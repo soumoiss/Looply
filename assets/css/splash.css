@@ -56,6 +56,7 @@
 .splash-progress span { display: block; width: 42%; height: 100%; border-radius: inherit; background: var(--primary); box-shadow: 0 0 14px var(--primary); animation: splash-progress 2.2s ease-in-out infinite; }
 .splash-footer { display: flex; align-items: center; gap: 9px; }
 .splash-footer i { width: 3px; height: 3px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+.splash-footer span { font-family: "Cabin Sketch", ui-rounded, system-ui, sans-serif; font-size: clamp(18px, 4vw, 25px); font-weight: 700; letter-spacing: -.03em; color: var(--primary); }
 .splash-header { align-self: start; padding-top: clamp(12px, 4vh, 38px); text-align: center; }
 .splash-header h1 {
   margin: 0;
