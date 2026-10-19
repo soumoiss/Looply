@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [gallery, migration] = await Promise.all([
+const [gallery, migration, rpcMigration] = await Promise.all([
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
-  readFile(new URL("../supabase/migrations/20261019200000_fix_comment_permissions_and_mentions.sql", import.meta.url), "utf8")
+  readFile(new URL("../supabase/migrations/20261019200000_fix_comment_permissions_and_mentions.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019230000_fix_gallery_comment_rpc_rls.sql", import.meta.url), "utf8")
 ]);
 
 test("comment permission checks retain media visibility", () => {
@@ -62,4 +63,18 @@ test("comment permission failures provide actionable feedback instead of hiding 
   assert.match(gallery, /Authentication required/);
   assert.match(gallery, /Not permitted to comment/);
   assert.match(gallery, /Looply comment publish failed/);
+});
+
+
+test("comment RPCs use SECURITY DEFINER only after explicit authorization and validation", () => {
+  for (const fn of ["create_community_gallery_comment", "create_archive_media_comment"]) {
+    const start = rpcMigration.indexOf("create or replace function public." + fn);
+    assert.notEqual(start, -1, fn + " migration exists");
+    const section = rpcMigration.slice(start, rpcMigration.indexOf("$function$;", start) + "$function$;".length);
+    assert.match(section, /security definer/i, fn + " runs with definer privileges");
+    assert.match(section, /auth\.uid\(\)/, fn + " requires an authenticated identity");
+    assert.match(section, /private\.can_comment_/, fn + " checks media comment authorization");
+  }
+  assert.match(rpcMigration, /revoke all on function public\.create_archive_media_comment\(uuid, text, text, uuid\[\]\) from public, anon/i);
+  assert.match(rpcMigration, /revoke all on function public\.create_community_gallery_comment\(uuid, text, text, uuid\[\]\) from public, anon/i);
 });
