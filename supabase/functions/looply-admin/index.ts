@@ -518,7 +518,11 @@ Deno.serve(async (request: Request) => {
         const { data: existingProfile, error: profileLookupError } = await service
           .from("profiles").select("id").eq("username", username).maybeSingle();
         if (profileLookupError) throw profileLookupError;
-        if (existingProfile) return respond(409, { error: "username_already_exists" });
+        if (existingProfile) {
+          await recordAccess(service, authData.user.id, "write_failed", "profiles", existingProfile.id, purpose, requestId,
+            { action, username, reason: "username_already_exists" });
+          return respond(409, { error: "username_already_exists" });
+        }
 
         const { error: inviteInsertError } = await service.from("looply_user_invites").insert({
           username, email, display_name: displayName, invited_by: authData.user.id
