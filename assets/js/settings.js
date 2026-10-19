@@ -17,13 +17,38 @@ function settingsMarkup(profile) {
       <option value="oceano" ${theme === "oceano" ? "selected" : ""}>Oceano</option>
       <option value="rosa" ${theme === "rosa" ? "selected" : ""}>Rosa</option>
       <option value="floresta" ${theme === "floresta" ? "selected" : ""}>Floresta</option>
+      <option value="aurora" ${theme === "aurora" ? "selected" : ""}>Aurora</option>
+      <option value="coral" ${theme === "coral" ? "selected" : ""}>Coral</option>
+      <option value="menta" ${theme === "menta" ? "selected" : ""}>Menta</option>
+      <option value="sunset" ${theme === "sunset" ? "selected" : ""}>Pôr do sol</option>
+      <option value="grafite" ${theme === "grafite" ? "selected" : ""}>Grafite</option>
     </select></fieldset>
     <fieldset><legend>Texto</legend>
       <label for="settingsFont">Fonte</label><select id="settingsFont" name="font_family">
-        <option value="system" ${family === "system" ? "selected" : ""}>Sistema</option>
-        <option value="sans" ${family === "sans" ? "selected" : ""}>Arial</option>
-        <option value="serif" ${family === "serif" ? "selected" : ""}>Serifada</option>
-        <option value="rounded" ${family === "rounded" ? "selected" : ""}>Arredondada</option>
+        <optgroup label="Neutras e modernas">
+          <option value="system" ${family === "system" ? "selected" : ""}>Sistema</option>
+          <option value="sans" ${family === "sans" ? "selected" : ""}>Arial</option>
+          <option value="manrope" ${family === "manrope" ? "selected" : ""}>Manrope · limpa</option>
+          <option value="dm_sans" ${family === "dm_sans" ? "selected" : ""}>DM Sans · minimalista</option>
+          <option value="jakarta" ${family === "jakarta" ? "selected" : ""}>Plus Jakarta Sans · elegante</option>
+          <option value="space_grotesk" ${family === "space_grotesk" ? "selected" : ""}>Space Grotesk · tecnológica</option>
+          <option value="montserrat" ${family === "montserrat" ? "selected" : ""}>Montserrat · geométrica</option>
+        </optgroup>
+        <optgroup label="Arredondadas e leves">
+          <option value="rounded" ${family === "rounded" ? "selected" : ""}>Arredondada do sistema</option>
+          <option value="nunito" ${family === "nunito" ? "selected" : ""}>Nunito · amigável</option>
+          <option value="quicksand" ${family === "quicksand" ? "selected" : ""}>Quicksand · suave</option>
+        </optgroup>
+        <optgroup label="Serifadas e editoriais">
+          <option value="serif" ${family === "serif" ? "selected" : ""}>Serifada do sistema</option>
+          <option value="cormorant" ${family === "cormorant" ? "selected" : ""}>Cormorant Garamond · clássica</option>
+          <option value="playfair" ${family === "playfair" ? "selected" : ""}>Playfair Display · editorial</option>
+          <option value="fraunces" ${family === "fraunces" ? "selected" : ""}>Fraunces · sofisticada</option>
+        </optgroup>
+        <optgroup label="Expressivas">
+          <option value="caveat" ${family === "caveat" ? "selected" : ""}>Caveat · manuscrita</option>
+          <option value="syne" ${family === "syne" ? "selected" : ""}>Syne · artística</option>
+        </optgroup>
       </select>
       <label for="settingsSize">Tamanho</label><select id="settingsSize" name="font_size">
         <option value="small" ${size === "small" ? "selected" : ""}>Pequeno</option>
