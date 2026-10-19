@@ -128,7 +128,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
         client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
-        client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)").order("created_at",{ascending:false}).range(start,end),
+        client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access").order("created_at",{ascending:false}).range(start,end),
         client.from("profiles").select("id,username,display_name").order("display_name").limit(500),
         client.from("gallery_media_people").select("source,media_id,person_id"),
         client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),
@@ -160,7 +160,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       if(albums.some(a=>a.id===previousAlbum))$("[data-album-select]").value=previousAlbum;
       const fresh = [
         ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.created_at, owner_id:null})),
-        ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
+        ...(c.data || []).map(x => ({...x, owner:peopleMap.get(x.owner_id) || null, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
       const adjustmentIds = fresh.map(x => x.id);
       const adjustmentsResult = adjustmentIds.length ? await safeQuery(client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds)) : {data:[],error:null};
