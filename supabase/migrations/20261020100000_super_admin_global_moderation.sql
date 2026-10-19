@@ -21,8 +21,7 @@ alter table private.admin_audit add constraint admin_audit_resource_type_check c
     'archive_media','archive_media_comments','archived_cards','audit','announcements',
     'stories','community_gallery_media','community_letters'
   )
-  not valid
-;
+) not valid;
 
 create or replace function public.record_looply_admin_access(
   p_actor_id uuid, p_event text, p_resource_type text, p_resource_id uuid,
