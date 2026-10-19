@@ -77,7 +77,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
-  let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false;
+  let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false, signedUrlFailures = 0;
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
   const peopleMap = new Map();
   const usersHtml = (selected = new Set(), query = "") => {
@@ -136,7 +136,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     if (loading) return;
     loading = true;
     if (reset) {
-      loadPage = 0; hasMore = true; items = []; privateKeys.clear(); say("Carregando mídias…");
+      loadPage = 0; hasMore = true; items = []; privateKeys.clear(); signedUrlFailures = 0; say("Carregando mídias…");
       grid.innerHTML = Array.from({length:8}, () => '<div class="gallery-card gallery-skeleton-card" aria-hidden="true"><span class="gallery-skeleton"></span></div>').join("");
     }
     try {
@@ -277,7 +277,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         const url = await ensureMediaUrl(x, mediaType(x) === "image");
         if (slot.isConnected) slot.innerHTML = mediaPreviewMarkup(x, url, mediaType(x) === "image");
       } catch (error) {
+        signedUrlFailures += 1;
         console.warn("Gallery media preview unavailable", { mediaId: x.id, source: x.source, error });
+        say(signedUrlFailures + (signedUrlFailures === 1 ? " mídia teve falha ao carregar a prévia." : " mídias tiveram falha ao carregar as prévias."));
         if (slot.isConnected) slot.innerHTML = mediaPreviewMarkup(x, "", true);
       }
     };
