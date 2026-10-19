@@ -137,7 +137,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   if (!user) {
     if (page === "gallery") {
-      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Sua sessão não foi encontrada neste navegador. Entre na sua conta para carregar as mídias.</p></section>`;
+      root.innerHTML = `<section class="gallery-shell"><div class="gallery-hero"><h1 class="gallery-title">GALERIA</h1><a class="gallery-primary" href="login.html?next=galeria.html">Entrar para acessar a galeria</a></div><p class="gallery-notice" role="status">Sua sessão não foi encontrada neste navegador. Entre na sua conta para carregar as mídias.</p></section>`;
       return;
     }
     await supabase.auth.signOut();
