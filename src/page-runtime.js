@@ -8,13 +8,15 @@ const navigation = [
   ["home", "Início", "home.html"],
   ["letters", "Cartas", "cartas.html"],
   ["music", "Músicas", "musicas.html"],
+  ["gallery", "Galeria", "galeria.html"],
   ["chat", "Chat", "chat.html"],
   ["notifications", "Notificações", "notificacoes.html"]
 ];
-const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", music: "Músicas", home: "Início" };
+const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", music: "Músicas", gallery: "Galeria", home: "Início" };
 const navigationIcons = {
   home: icon("home"),
   music: icon("music"),
+  gallery: icon("image"),
   chat: icon("chat"),
   profile: icon("user"),
   letters: icon("mail"),
