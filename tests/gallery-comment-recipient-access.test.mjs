@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const migration = await readFile(new URL("../supabase/migrations/20261019100000_guard_selected_comment_media_access.sql", import.meta.url), "utf8");
+const migration = await readFile(new URL("../supabase/migrations/20261019100001_guard_selected_comment_media_access.sql", import.meta.url), "utf8");
 
 test("selected archive comments require access to the parent media", () => {
   assert.match(migration, /comment_row\.audience = 'selected'[\s\S]*?private\.can_view_archive_media\(comment_row\.media_id\)[\s\S]*?archive_media_comment_recipients/);

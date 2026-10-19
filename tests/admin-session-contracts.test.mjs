@@ -6,7 +6,7 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 
 test("protected admin sessions keep credentials, attempts, and token hashes private", async () => {
-  const migration = await readFile(resolve(root, "supabase/migrations/20261019060000_protected_admin_sessions.sql"), "utf8");
+  const migration = await readFile(resolve(root, "supabase/migrations/20261019060001_protected_admin_sessions.sql"), "utf8");
   for (const table of [
     "private.looply_admin_session_credentials",
     "private.looply_admin_sessions",
@@ -23,7 +23,7 @@ test("protected admin sessions keep credentials, attempts, and token hashes priv
 });
 
 test("admin session RPCs lock search_path and are service-role-only", async () => {
-  const migration = await readFile(resolve(root, "supabase/migrations/20261019060000_protected_admin_sessions.sql"), "utf8");
+  const migration = await readFile(resolve(root, "supabase/migrations/20261019060001_protected_admin_sessions.sql"), "utf8");
   const names = ["status", "setup", "unlock", "validate", "revoke"];
   for (const name of names) {
     const pattern = new RegExp(
@@ -39,14 +39,14 @@ test("admin session RPCs lock search_path and are service-role-only", async () =
   }
 });
 
-test("Edge Function only returns a raw token at unlock and validates its hash server-side", async () => {
+test("Edge Function only returns a raw token after verified admin membership", async () => {
   const edge = await readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8");
   assert.match(edge, /crypto\.getRandomValues\(new Uint8Array\(32\)\)/);
   assert.match(edge, /crypto\.subtle\.digest\("SHA-256"/);
-  assert.match(edge, /admin_session_unlock/);
+  assert.match(edge, /admin_session_auto_unlock/);
   assert.match(edge, /admin_session_validate/);
   assert.match(edge, /looply_admin_session_validate/);
-  assert.match(edge, /Protected administrator session created with a 15-minute expiry/);
+  assert.match(edge, /Automatic administrator session created after verified account authentication/);
 });
 
 test("privileged admin actions require a live server-validated session", async () => {
@@ -57,8 +57,9 @@ test("privileged admin actions require a live server-validated session", async (
   assert.match(edge, /looply_admin_session_validate/);
   assert.match(edge, /admin_session_expired_or_revoked/);
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
-  assert.match(ui, /data-admin-session-setup/);
-  assert.match(ui, /data-admin-session-unlock/);
+  assert.doesNotMatch(ui, /data-admin-session-setup/);
+  assert.doesNotMatch(ui, /data-admin-session-unlock/);
+  assert.match(ui, /admin_session_auto_unlock/);
   assert.match(ui, /data-admin-session-exit/);
   assert.match(ui, /adminSessionToken: token/);
   const imports = await readFile(resolve(root, "src/archive-import.js"), "utf8");
