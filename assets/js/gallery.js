@@ -631,7 +631,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-position-x]").addEventListener("input",e=>draftPhotoAdjustment({positionX:Number(e.currentTarget.value)}));
   $("[data-position-y]").addEventListener("input",e=>draftPhotoAdjustment({positionY:Number(e.currentTarget.value)}));
   $("[data-reset-photo-adjust]").addEventListener("click",()=>draftPhotoAdjustment({rotation:0,positionX:0,positionY:0}));
-  $("[data-cancel-photo-adjust]").addEventListener("click",()=>{const x=getItem(activeKey);if(x){x.adjustment={...(x.savedAdjustment||{rotation:0,positionX:0,positionY:0})};applyPhotoAdjustment(x);}$("[data-photo-adjust-panel]").hidden=true;});
+  $("[data-cancel-photo-adjust]").forEach(button=>button.addEventListener("click",()=>{const x=getItem(activeKey);if(x){x.adjustment={...(x.savedAdjustment||{rotation:0,positionX:0,positionY:0})};applyPhotoAdjustment(x);}$("[data-photo-adjust-panel]").hidden=true;}));
   $("[data-save-photo-adjust]").addEventListener("click",savePhotoAdjustment);
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
   $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea").value=getItem(activeKey)?.description||"";});
