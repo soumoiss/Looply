@@ -42,11 +42,14 @@ function formatMessageDay(value) {
 }
 
 export async function loadChatData(client, userId) {
-  const [participantResult, profilesResult] = await Promise.all([
+  const [participantResult, profilesResult, favoritesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
-    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
+    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100),
+    client.from("conversation_favorites").select("conversation_id").eq("user_id", userId)
   ]);
   if (participantResult.error) throw participantResult.error;
+  if (favoritesResult.error) throw favoritesResult.error;
+  const favoriteIds = new Set((favoritesResult.data || []).map((row) => row.conversation_id));
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
   if (ids.length) {
@@ -104,7 +107,8 @@ export async function loadChatData(client, userId) {
     ...conversation,
     lastMessage: latestByConversation.get(conversation.id) || null,
     lastReadAt: readByConversation.get(conversation.id),
-    unreadCount: unreadByConversation.get(conversation.id) || 0
+    unreadCount: unreadByConversation.get(conversation.id) || 0,
+    isFavorite: favoriteIds.has(conversation.id)
   })).sort((a, b) => {
     const aTime = new Date(a.lastMessage?.created_at || a.updated_at || a.created_at || 0).getTime();
     const bTime = new Date(b.lastMessage?.created_at || b.updated_at || b.created_at || 0).getTime();
@@ -155,7 +159,7 @@ function notificationsMarkup(notifications) {
 export function chatMarkup(data, userId) {
   if (data.error) return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Chats</h2></div></div><div class="chat-empty" role="alert">Não foi possível carregar as conversas. Atualize a página e tente novamente.</div></section>`;
   const conversations = data.conversations.length
-    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
+    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}" data-is-favorite="${String(Boolean(conversation.isFavorite))}">
         ${conversationAvatar(conversation, userId)}
         <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
@@ -178,7 +182,7 @@ export function chatMarkup(data, userId) {
   </article>`).join("");
   const searchMessage = data.profilesError
     ? `<p class="chat-empty" role="alert">Não foi possível carregar os perfis para iniciar uma conversa.</p>`
-    : `<div class="chat-people-list" data-chat-people>${people || `<p class="chat-empty">Nenhum outro perfil está visível agora.</p>`}</div>`;
+    : `<div class="chat-people-list" data-chat-people hidden>${people || `<p class="chat-empty">Nenhum outro perfil está visível agora.</p>`}</div>`;
   const groupProfiles = (data.profiles || []).filter((profile) => profile.id !== userId);
   const groupOptions = groupProfiles.map((profile) => {
     const name = profile.display_name || profile.username;
@@ -879,7 +883,10 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.from("profiles").select("id,username,display_name").ilike("username", `${query}%`).neq("id", userId).order("username").limit(20);
         if (error) throw error;
         const container = root.querySelector("[data-chat-people]");
-        if (container) container.innerHTML = (data || []).map((profile) => `<article class="chat-person"><span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        if (container) {
+          container.hidden = false;
+          container.innerHTML = (data || []).map((profile) => `<article class="chat-person"><span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        }
         setStatus(form, `${(data || []).length} perfil(is) encontrado(s).`);
       } else if (form.matches("[data-letter-send]")) {
         const subject = String(values.get("subject") || "").trim();
@@ -950,13 +957,6 @@ function applyConversationFilter(root) {
   let visible = 0;
   const query = conversationSearch.trim().toLocaleLowerCase("pt-BR");
   const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || conversationFilter;
-  const favorites = new Set();
-  try {
-    const userId = root.dataset.chatUserId || "";
-    const stored = userId ? localStorage.getItem(`looply-chat-v2:${userId}:favorites`) : null;
-    const parsed = stored ? JSON.parse(stored) : [];
-    if (Array.isArray(parsed)) parsed.forEach((id) => favorites.add(String(id)));
-  } catch { /* Local favorites are optional; other filters remain usable. */ }
   for (const item of items) {
     const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
     const isGroup = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
@@ -964,7 +964,7 @@ function applyConversationFilter(root) {
     const matchesFilter = activeFilter === "all"
       || (activeFilter === "unread" && isUnread)
       || (activeFilter === "groups" && isGroup)
-      || (activeFilter === "favorites" && favorites.has(item.dataset.chatOpen));
+      || (activeFilter === "favorites" && item.dataset.isFavorite === "true");
     item.hidden = !(matchesQuery && matchesFilter);
     if (!item.hidden) visible += 1;
   }
