@@ -137,6 +137,16 @@ export function setupChatEnhancements(root, client, userId) {
   };
   const renderTools = () => {
     const topHeading = root.querySelector(".chat-heading");
+    if (topHeading && !topHeading.querySelector("[data-v2-home]")) {
+      const home = document.createElement("a");
+      home.href = "home.html";
+      home.className = "chat-v2-icon-button chat-v2-home-button";
+      home.dataset.v2Home = "";
+      home.setAttribute("aria-label", "Ir para a página inicial");
+      home.title = "Página inicial";
+      home.innerHTML = icon("home");
+      topHeading.prepend(home);
+    }
     if (topHeading && !topHeading.querySelector("[data-v2-settings]")) {
       const button = document.createElement("button");
       button.type = "button"; button.className = "chat-v2-icon-button chat-v2-menu-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.title = "Configurações"; button.innerHTML = icon("menu");
@@ -166,7 +176,12 @@ export function setupChatEnhancements(root, client, userId) {
         item.append(button);
       }
     });
+    if (topHeading) {
+      const home = topHeading.querySelector("[data-v2-home]");
+      if (home && topHeading.firstElementChild !== home) topHeading.prepend(home);
+    }
     applyWallpaper();
+    applyFilters();
   };
   const renderSettings = (conversationOnly = false) => {
     settingsScope = conversationOnly ? selectedConversation() : "*";
@@ -183,12 +198,30 @@ export function setupChatEnhancements(root, client, userId) {
   };
   const applyFilters = () => {
     const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || "all";
-    root.querySelectorAll("[data-chat-open]").forEach((item) => {
+    const items = root.querySelectorAll("[data-chat-conversations] [data-chat-open]");
+    let visible = 0;
+    items.forEach((item) => {
       const id = item.dataset.chatOpen;
-      const isGroupItem = item.querySelector(".chat-group-avatar") || /grupo/i.test(item.getAttribute("aria-label") || "");
-      const matches = activeFilter === "all" || (activeFilter === "unread" && Boolean(item.querySelector(".chat-unread"))) || (activeFilter === "groups" && Boolean(isGroupItem)) || (activeFilter === "favorites" && favorites.has(id));
-      if (activeFilter === "groups" || activeFilter === "favorites") item.hidden = !matches;
+      const isGroupItem = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
+      const isUnread = Boolean(item.querySelector(".chat-unread"));
+      const matches = activeFilter === "all"
+        || (activeFilter === "unread" && isUnread)
+        || (activeFilter === "groups" && isGroupItem)
+        || (activeFilter === "favorites" && favorites.has(id));
+      item.hidden = !matches;
+      if (matches) visible += 1;
     });
+    const noMatches = root.querySelector("[data-chat-no-matches]");
+    if (noMatches) {
+      noMatches.textContent = activeFilter === "favorites"
+        ? "Nenhuma conversa favorita. Toque na estrela de uma conversa para favoritar."
+        : activeFilter === "groups"
+          ? "Nenhum grupo encontrado."
+          : activeFilter === "unread"
+            ? "Nenhuma mensagem não lida."
+            : "Nenhuma conversa corresponde ao filtro.";
+      noMatches.hidden = !items.length || visible > 0;
+    }
   };
   root.addEventListener("click", (event) => {
     const favorite = event.target.closest("[data-v2-favorite]");

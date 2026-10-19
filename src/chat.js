@@ -614,6 +614,7 @@ export function disposeChatRealtime(client) {
 }
 
 export function bindChatEvents(root, client, getUserId) {
+  root.dataset.chatUserId = getUserId?.() || "";
   // Signed avatar URLs may expire or the stored object may be missing. Replace only
   // failed images with the same visual fallback used when no avatar is configured.
   root.addEventListener("error", (event) => {
@@ -936,13 +937,35 @@ function applyConversationFilter(root) {
   const items = [...root.querySelectorAll("[data-chat-conversations] [data-chat-open]")];
   let visible = 0;
   const query = conversationSearch.trim().toLocaleLowerCase("pt-BR");
+  const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || conversationFilter;
+  const favorites = new Set();
+  try {
+    const userId = root.dataset.chatUserId || "";
+    const stored = userId ? localStorage.getItem(`looply-chat-v2:${userId}:favorites`) : null;
+    const parsed = stored ? JSON.parse(stored) : [];
+    if (Array.isArray(parsed)) parsed.forEach((id) => favorites.add(String(id)));
+  } catch { /* Local favorites are optional; other filters remain usable. */ }
   for (const item of items) {
     const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
-    const matchesFilter = conversationFilter !== "unread" || Boolean(item.querySelector(".chat-unread"));
+    const isGroup = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
+    const isUnread = Boolean(item.querySelector(".chat-unread"));
+    const matchesFilter = activeFilter === "all"
+      || (activeFilter === "unread" && isUnread)
+      || (activeFilter === "groups" && isGroup)
+      || (activeFilter === "favorites" && favorites.has(item.dataset.chatOpen));
     item.hidden = !(matchesQuery && matchesFilter);
     if (!item.hidden) visible += 1;
   }
   const noMatches = root.querySelector("[data-chat-no-matches]");
-  if (noMatches) noMatches.hidden = !items.length || visible > 0;
+  if (noMatches) {
+    noMatches.textContent = activeFilter === "favorites"
+      ? "Nenhuma conversa favorita. Toque na estrela de uma conversa para favoritar."
+      : activeFilter === "groups"
+        ? "Nenhum grupo encontrado."
+        : activeFilter === "unread"
+          ? "Nenhuma mensagem não lida."
+          : "Nenhuma conversa corresponde à busca.";
+    noMatches.hidden = !items.length || visible > 0;
+  }
 }
 
