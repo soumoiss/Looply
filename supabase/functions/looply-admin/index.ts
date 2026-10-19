@@ -360,6 +360,22 @@ Deno.serve(async (request: Request) => {
         "Attempted administrative access without a verified membership.", requestId);
       return respond(403, { error: "Administrator membership is required." });
     }
+    const adminSessionToken = String(payload.adminSessionToken || "");
+    if (!/^[0-9a-f]{64}$/.test(adminSessionToken)) {
+      return respond(423, { error: "admin_session_locked" });
+    }
+    const { data: sessionActive, error: sessionError } = await service.rpc("looply_admin_session_validate", {
+      p_actor_id: authData.user.id,
+      p_token_hash: await sha256Hex(adminSessionToken)
+    });
+    if (sessionError) throw sessionError;
+    if (sessionActive !== true) {
+      await recordAccess(service, authData.user.id, "admin_session_required", "admin_session", null,
+        "Administrative action rejected because no active protected session was presented.", requestId,
+        { action });
+      return respond(423, { error: "admin_session_expired_or_revoked" });
+    }
+
     if (!allowedResources.has(requestedType)) return respond(400, { error: "Unsupported administrative resource." });
 
     const purpose = String(payload.purpose || "").trim();
