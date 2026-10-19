@@ -374,7 +374,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     if (sessionError) throw sessionError;
     const accessToken = sessionData?.session?.access_token;
     if (!accessToken) throw new Error("Sua sessão expirou. Entre novamente e tente publicar.");
-    const baseUrl = String(client.supabaseUrl || "").replace(/\\/+$/, "");
+    const baseUrl = String(client.supabaseUrl || "").replace(/\/+$/, "");
     const apiKey = client.supabaseKey;
     if (!baseUrl || !apiKey) throw new Error("A configuração do Supabase não está disponível.");
     const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
