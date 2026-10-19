@@ -90,8 +90,35 @@ jobs:
           fi
 
           # The repaired history can contain a newer remote version while
-          # local migrations still need to be applied before it.
-          supabase db push --include-all
+          # local migrations still need to be applied before it. If the
+          # schema already contains one of these migrations under a different
+          # remote timestamp, record the local versions as applied and retry.
+          set +e
+          include_output="$(supabase db push --include-all 2>&1)"
+          include_status=$?
+          set -e
+          printf '%s\n' "$include_output"
+
+          if [ "$include_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if ! grep -q 'already exists' <<< "$include_output"; then
+            exit "$include_status"
+          fi
+
+          supabase migration repair \
+            20261016150614 20261016171658 20261016180000 \
+            20261018115000 20261018120000 20261018130000 20261018140000 \
+            20261018160000 20261018170000 20261018191500 20261018194500 \
+            20261018235900 20261019040000 20261019042000 20261019043000 \
+            20261019050000 20261019054000 20261019060000 20261019070000 \
+            20261019075000 20261019080000 20261019090000 20261019100000 \
+            20261019112000 20261019120000 20261019130000 20261019143000 \
+            20261019145000 \
+            --status applied
+
+          supabase db push
 
       - name: Deploy protected Edge Functions
         run: |
