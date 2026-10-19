@@ -42,9 +42,8 @@ function formatMessageDay(value) {
 }
 
 export async function loadChatData(client, userId) {
-  const [participantResult, notificationResult, profilesResult] = await Promise.all([
+  const [participantResult, profilesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
-    client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").order("created_at", { ascending: false }).limit(50),
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
   if (participantResult.error) throw participantResult.error;
@@ -63,8 +62,8 @@ export async function loadChatData(client, userId) {
     if (error) throw error;
     conversations = data || [];
     const { data: latest, error: messagesError } = await client.from("chat_messages")
-      .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
-      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
+      .select("conversation_id,body,created_at,sender_id,read_at,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(1000);
     if (messagesError) throw messagesError;
     latestMessages = latest || [];
   }
@@ -72,31 +71,48 @@ export async function loadChatData(client, userId) {
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const unreadByConversation = new Map();
-  for (const notification of notificationResult.data || []) {
-    if (!notification.read_at) unreadByConversation.set(notification.conversation_id, (unreadByConversation.get(notification.conversation_id) || 0) + 1);
-  }
-  const profiles = profilesResult.data || [];
-  const avatarProfiles = new Map();
-  for (const profile of profiles) if (profile.avatar_path) avatarProfiles.set(profile.id, profile);
-  for (const conversation of conversations) {
-    for (const participant of conversation.participants || []) {
-      if (participant.profile?.avatar_path) avatarProfiles.set(participant.profile.id, participant.profile);
+  for (const message of latestMessages) {
+    const lastReadAt = readByConversation.get(message.conversation_id);
+    if (message.sender_id !== userId && (!lastReadAt || new Date(message.created_at) > new Date(lastReadAt))) {
+      unreadByConversation.set(message.conversation_id, (unreadByConversation.get(message.conversation_id) || 0) + 1);
     }
   }
-  const avatarList = [...avatarProfiles.values()];
-  if (avatarList.length) {
-    const { data: signed } = await client.storage.from("looply-avatars")
-      .createSignedUrls(avatarList.map((profile) => profile.avatar_path), 1800);
-    if (signed) avatarList.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+
+  // Sign each unique avatar object path once, then apply the URL to every profile
+  // instance (top-level search results and nested conversation participants).
+  const profiles = (profilesResult.data || []).map((profile) => ({ ...profile, avatarUrl: "" }));
+  const profileInstances = [...profiles];
+  for (const conversation of conversations) {
+    for (const participant of conversation.participants || []) {
+      if (participant.profile) {
+        participant.profile.avatarUrl = "";
+        profileInstances.push(participant.profile);
+      }
+    }
   }
+  const paths = [...new Set(profileInstances.map((profile) => profile.avatar_path).filter((path) => typeof path === "string" && path.trim()))];
+  if (paths.length) {
+    const { data: signed, error: signedError } = await client.storage.from("looply-avatars").createSignedUrls(paths, 1800);
+    if (!signedError && signed) {
+      const urlsByPath = new Map(paths.map((path, index) => [path, signed[index]?.signedUrl || ""]));
+      for (const profile of profileInstances) profile.avatarUrl = urlsByPath.get(profile.avatar_path) || "";
+    } else {
+      console.warn("Looply chat avatar signing failed", signedError);
+    }
+  }
+  const sortedConversations = conversations.map((conversation) => ({
+    ...conversation,
+    lastMessage: latestByConversation.get(conversation.id) || null,
+    lastReadAt: readByConversation.get(conversation.id),
+    unreadCount: unreadByConversation.get(conversation.id) || 0
+  })).sort((a, b) => {
+    const aTime = new Date(a.lastMessage?.created_at || a.updated_at || a.created_at || 0).getTime();
+    const bTime = new Date(b.lastMessage?.created_at || b.updated_at || b.created_at || 0).getTime();
+    return bTime - aTime;
+  });
   return {
-    conversations: conversations.map((conversation) => ({
-      ...conversation,
-      lastMessage: latestByConversation.get(conversation.id) || null,
-      lastReadAt: readByConversation.get(conversation.id),
-      unreadCount: unreadByConversation.get(conversation.id) || 0
-    })),
-    notifications: notificationResult.data || [],
+    conversations: sortedConversations,
+    notifications: [],
     profiles,
     profilesError: profilesResult.error
   };
@@ -150,7 +166,9 @@ export function chatMarkup(data, userId) {
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
     <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
       <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
+      <button type="button" data-chat-filter="groups" aria-pressed="${conversationFilter === "groups"}">Grupos</button>
       <button type="button" data-chat-filter="unread" aria-pressed="${conversationFilter === "unread"}">Não lidas</button>
+      <button type="button" data-chat-filter="favorites" aria-pressed="${conversationFilter === "favorites"}">Favoritas</button>
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
@@ -179,25 +197,17 @@ export function chatMarkup(data, userId) {
     </form>
   </details>`;
   return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle">
-    <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
+    <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
     <div class="chat-layout">
       <aside class="chat-sidebar">
-        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
-        <details class="chat-panel chat-search-panel"><summary>Encontrar uma pessoa</summary>
-          <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Username</label><input id="chatSearch" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar pelo username"><button class="text-button" type="submit">Buscar</button></form>
+        <section class="chat-panel chat-search-panel" aria-label="Buscar contatos">
+          <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Buscar contato pelo username</label><input id="chatSearch" name="query" type="search" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar contato pelo username"><button class="text-button" type="submit">Buscar contato</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
           ${searchMessage}
-        </details>
+        </section>
+        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
         ${groupCompose}
-        <details class="chat-panel letter-compose-panel"><summary>Escrever uma carta para Peixinho</summary>
-          <form class="letter-form" data-letter-send><div class="field"><label for="letterSubject">Assunto</label><input id="letterSubject" name="subject" maxlength="120" required placeholder="Um título para sua carta"></div>
-            <div class="field"><label for="letterBody">Mensagem</label><textarea id="letterBody" name="body" maxlength="5000" rows="5" required placeholder="Escreva sua carta"></textarea></div>
-            <p class="field-hint">Somente você e Peixinho poderão abrir esta carta. A resposta continuará na conversa privada.</p>
-            <button class="primary-button compact-button" type="submit">Enviar carta ${icon("send")}</button><span class="form-status" data-status role="status" aria-live="polite"></span>
-          </form>
-        </details>
-        <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
       </aside>
-      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div></div></section>
+      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou busque um contato.</span></div></div></section>
     </div>
   </section>`;
 }
@@ -622,7 +632,7 @@ export function bindChatEvents(root, client, getUserId) {
     if (!(image instanceof HTMLImageElement) || !image.matches(".chat-conversation-avatar, .chat-person-avatar, .chat-group-option-avatar, .chat-thread-avatar, .chat-message-avatar")) return;
     const container = image.closest(".chat-conversation, .chat-person, .chat-group-option, .chat-thread-heading, .chat-message-row");
     const label = container?.querySelector(".chat-conversation-copy strong, .chat-person strong, .chat-group-option strong, .chat-thread-heading strong, .chat-message-meta strong");
-    const initial = (label?.textContent?.trim() || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+    const initial = Array.from((label?.textContent?.trim() || "?"))[0]?.toLocaleUpperCase("pt-BR") || "?";
     const fallback = document.createElement("span");
     fallback.className = image.className;
     fallback.setAttribute("aria-hidden", "true");
@@ -670,8 +680,10 @@ export function bindChatEvents(root, client, getUserId) {
     const userId = getUserId?.();
     if (!client || !userId) return;
     if (conversationFilterButton) {
-      conversationFilter = conversationFilterButton.dataset.chatFilter === "unread" ? "unread" : "all";
-      root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
+      const nextFilter = conversationFilterButton.dataset.chatFilter;
+      if (!["all", "groups", "unread", "favorites"].includes(nextFilter)) return;
+      conversationFilter = nextFilter;
+      root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.chatFilter === conversationFilter)));
       applyConversationFilter(root);
       return;
     }
