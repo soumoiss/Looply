@@ -97,3 +97,10 @@ test("published gallery media cannot be downgraded to pending to bypass deletion
   assert.match(publicationGuard, /new\.publication_state<>'published'/);
   assert.match(publicationGuard, /before update of publication_state/);
 });
+
+test("gallery binds multi-control groups with querySelectorAll instead of querySelector", () => {
+  for (const selector of ["[data-kind]", "[data-main]", "[data-close-access]", "[data-close-tags]", "[data-close-album]"]) {
+    assert.ok(gallery.includes('$$("' + selector + '").forEach('), "Expected all controls for " + selector);
+    assert.ok(!gallery.includes('$("' + selector + '").forEach('), "Single-element query used for " + selector);
+  }
+});
