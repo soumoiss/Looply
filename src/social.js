@@ -47,7 +47,7 @@ export function tiktokEmbedDetails(value) {
     const videoIndex = parts.findIndex((part) => part === "video");
     const videoId = videoIndex > 0 ? parts[videoIndex + 1] : null;
     if (!videoId || !/^\d{8,25}$/.test(videoId) || !parts[videoIndex - 1]?.startsWith("@")) return null;
-    return { videoId, embedUrl: "https://www.tiktok.com/embed/v2/" + videoId };
+    return { videoId, embedUrl: "https://www.tiktok.com/player/v1/" + videoId + "?music_info=1&description=1" };
   } catch {
     return null;
   }
@@ -167,9 +167,12 @@ function postMarkup(post, userId, isAdmin = false) {
       }
     } else if (externalUrl.hostname.includes("tiktok.com")) {
       const details = tiktokEmbedDetails(externalUrl.href);
+      provider = "TikTok";
       if (details) {
-        provider = "TikTok";
         embed = '<div class="post-external-embed post-tiktok-embed"><iframe src="' + escapeHtml(details.embedUrl) + '" title="Vídeo do TikTok" loading="lazy" allow="encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      } else {
+        // TikTok share URLs are often shortened. Resolve them with TikTok's public oEmbed endpoint after rendering.
+        embed = '<div class="post-external-embed post-tiktok-embed" data-tiktok-preview data-tiktok-url="' + escapeHtml(externalUrl.href) + '"><p>Carregando pré-visualização do TikTok…</p></div>';
       }
     }
     externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ' + icon("external") + '</a></section>';
@@ -429,6 +432,34 @@ function explainWriteError(error) {
   return "Não foi possível salvar agora. Confira sua conexão e tente novamente.";
 }
 
+export async function hydrateTikTokEmbeds(root) {
+  if (!root) return;
+  const placeholders = [...root.querySelectorAll("[data-tiktok-preview]")];
+  await Promise.all(placeholders.map(async (placeholder) => {
+    const sharedUrl = placeholder.dataset.tiktokUrl;
+    if (!sharedUrl || placeholder.dataset.loading === "true") return;
+    placeholder.dataset.loading = "true";
+    try {
+      const endpoint = "https://www.tiktok.com/oembed?url=" + encodeURIComponent(sharedUrl);
+      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "omit" });
+      if (!response.ok) throw new Error("TikTok preview unavailable");
+      const payload = await response.json();
+      const videoId = /data-video-id=["'](\d{8,25})["']/.exec(String(payload?.html || ""))?.[1];
+      if (!videoId || !placeholder.isConnected) throw new Error("TikTok embed id unavailable");
+      const iframe = document.createElement("iframe");
+      iframe.src = "https://www.tiktok.com/player/v1/" + videoId + "?music_info=1&description=1";
+      iframe.title = "Vídeo do TikTok";
+      iframe.loading = "lazy";
+      iframe.allow = "encrypted-media; picture-in-picture; web-share";
+      iframe.referrerPolicy = "strict-origin-when-cross-origin";
+      iframe.allowFullscreen = true;
+      placeholder.replaceChildren(iframe);
+    } catch {
+      if (placeholder.isConnected) placeholder.textContent = "A pré-visualização não está disponível para este link. Abra o conteúdo original.";
+    }
+  }));
+}
+
 export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   const feed = root.querySelector("[data-social-feed]");
   if (!feed || !client) return;
@@ -437,6 +468,7 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
+    void hydrateTikTokEmbeds(feed);
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
   } finally {
@@ -445,6 +477,7 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
 }
 
 export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
+  void hydrateTikTokEmbeds(root.querySelector("[data-social-feed]"));
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
     if (!toggle) return;

@@ -121,3 +121,12 @@ test("canonical TikTok video URLs render a provider embed", async () => {
     { videoId: "1234567890123456789", embedUrl: "https://www.tiktok.com/embed/v2/1234567890123456789" }
   );
 });
+
+
+test("TikTok share links use the official player and hydrate shortened URLs through oEmbed", async () => {
+  const source = await read("src/social.js");
+  assert.match(source, /https:\/\/www\.tiktok\.com\/oembed\?url=/);
+  assert.match(source, /data-tiktok-preview/);
+  assert.match(source, /https:\/\/www\.tiktok\.com\/player\/v1\//);
+  assert.match(source, /export async function hydrateTikTokEmbeds/);
+});
