@@ -42,14 +42,17 @@ function formatMessageDay(value) {
 }
 
 export async function loadChatData(client, userId) {
-  const [participantResult, profilesResult, favoritesResult] = await Promise.all([
+  const [participantResult, profilesResult, favoritesResult, unreadResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100),
-    client.from("conversation_favorites").select("conversation_id").eq("user_id", userId)
+    client.from("conversation_favorites").select("conversation_id").eq("user_id", userId),
+    client.rpc("get_my_conversation_unread_counts")
   ]);
   if (participantResult.error) throw participantResult.error;
   if (favoritesResult.error) throw favoritesResult.error;
+  if (unreadResult.error) throw unreadResult.error;
   const favoriteIds = new Set((favoritesResult.data || []).map((row) => row.conversation_id));
+  const unreadByConversation = new Map((unreadResult.data || []).map((row) => [row.conversation_id, Number(row.unread_count) || 0]));
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
   if (ids.length) {
@@ -80,13 +83,6 @@ export async function loadChatData(client, userId) {
   const latestByConversation = new Map();
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
-  const unreadByConversation = new Map();
-  for (const message of latestMessages) {
-    const lastReadAt = readByConversation.get(message.conversation_id);
-    if (message.sender_id !== userId && (!lastReadAt || new Date(message.created_at) > new Date(lastReadAt))) {
-      unreadByConversation.set(message.conversation_id, (unreadByConversation.get(message.conversation_id) || 0) + 1);
-    }
-  }
 
   // Sign each unique avatar object path once, then apply the URL to every profile
   // instance (top-level search results and nested conversation participants).
