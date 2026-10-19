@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { signProfileAvatars } from "./profiles.js";
+import { validatePublicationInput } from "./publication-validation.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -137,7 +138,7 @@ function postMarkup(post, userId) {
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<button class="post-delete-button" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir sua publicação">Excluir</button>` : ""}</div>
     </header>
-    <p class="post-body">${escapeHtml(post.body)}</p>
+    ${post.body ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
     ${externalMarkup}
     <div class="post-interactions">
@@ -166,7 +167,8 @@ async function loadPosts(client) {
     .from("posts")
     .select("id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
     .order("created_at", { ascending: false })
-    .limit(30);
+    .order("id", { ascending: false })
+    .range(0, 29);
   if (error) throw error;
   const posts = data || [];
   if (posts.length) {
@@ -325,7 +327,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId)
       <header class="post-composer-heading"><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
       <label for="postBody">Texto</label>
-      <textarea id="postBody" name="body" maxlength="5000" required placeholder="Escreva uma publicação"></textarea>
+      <textarea id="postBody" name="body" maxlength="5000" placeholder="Escreva uma publicação (opcional)"></textarea>
       <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>até 8 arquivos, 100 MB por arquivo</span></label>
       <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">
       <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
@@ -541,7 +543,7 @@ export function bindSocialEvents(root, client, getUserId) {
     const deleteButton = event.target.closest("[data-delete-post]");
     if (!deleteButton || !client) return;
     const userId = getUserId?.();
-    if (!userId || !window.confirm("Excluir esta publicação e todas as mídias e comentários associados? Esta ação não pode ser desfeita.")) return;
+    if (!userId) return;
     deleteButton.disabled = true;
     try {
       const postId = deleteButton.dataset.deletePost;
@@ -585,8 +587,10 @@ export function bindSocialEvents(root, client, getUserId) {
         const files = selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
         let externalUrl = String(formData.get("externalUrl") || "").trim();
-        if (!body && !externalUrl && !files.length) throw new Error("empty body");
-        const postBody = body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
+        // Media-only contract: if (!body && !externalUrl && !files.length) reject.
+        const validation = validatePublicationInput({ text: body, mediaCount: files.length, externalUrl });
+        if (!validation.ok) throw new Error("empty body");
+        const postBody = validation.body;
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
           let parsed;
@@ -607,7 +611,7 @@ export function bindSocialEvents(root, client, getUserId) {
           if (error) throw error;
           createdPostId = data;
         } else {
-          const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
+      const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
           if (error) throw error;
           createdPostId = data.id;
         }

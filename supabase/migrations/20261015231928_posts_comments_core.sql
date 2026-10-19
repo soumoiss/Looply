@@ -4,12 +4,12 @@ create table public.posts (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null default auth.uid()
     references public.profiles (id) on delete cascade,
-  body text not null,
+  body text default '',
   visibility text not null default 'public'
     check (visibility in ('public', 'private', 'selected')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint posts_body_length check (char_length(btrim(body)) between 1 and 5000)
+  constraint posts_body_length check (body is null or char_length(btrim(body)) between 0 and 5000)
 );
 
 create index posts_author_created_idx on public.posts (author_id, created_at desc);
@@ -94,7 +94,8 @@ begin
   if actor_id is null then
     raise exception 'Authentication required' using errcode = '42501';
   end if;
-  if p_body is null or char_length(btrim(p_body)) not between 1 and 5000 then
+  -- p_body is null or char_length(btrim(p_body)) between 0 and 5000
+  if p_body is not null and char_length(btrim(p_body)) not between 0 and 5000 then
     raise exception 'Post text must contain 1 to 5000 characters' using errcode = '22023';
   end if;
   if p_recipient_ids is null or cardinality(p_recipient_ids) < 1
@@ -121,7 +122,7 @@ begin
   end if;
 
   insert into public.posts (author_id, body, visibility)
-  values (actor_id, btrim(p_body), 'selected')
+  values (actor_id, nullif(btrim(p_body), ''), 'selected')
   returning id into new_post_id;
 
   insert into public.post_recipients (post_id, recipient_id)

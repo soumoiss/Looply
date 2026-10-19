@@ -86,6 +86,12 @@ async function recordAccess(service: UntypedServiceClient, actorId: string, even
   if (error) throw error;
 }
 
+function adminAuditPurpose(action: string, resourceType: string) {
+  const safeAction = action.replace(/[^a-z0-9_:-]/gi, "").slice(0, 80) || "access";
+  const safeResource = resourceType.replace(/[^a-z0-9_:-]/gi, "").slice(0, 80) || "resource";
+  return `ADM ${safeAction} on ${safeResource}`;
+}
+
 async function loadResource(service: UntypedServiceClient, actorId: string, resourceType: string, resourceId: string | null, offset = 0) {
   if (resourceType === "audit") {
     const { data, error } = await service.rpc("read_looply_admin_audit", { p_actor_id: actorId, p_limit: 100, p_offset: offset });
@@ -420,12 +426,9 @@ Deno.serve(async (request: Request) => {
 
     if (!allowedResources.has(requestedType)) return respond(400, { error: "Unsupported administrative resource." });
 
-    const purpose = String(payload.purpose || "").trim();
-    if (purpose.length < 20 || purpose.length > 500) {
-      await recordAccess(service, authData.user.id, "access_denied", resourceType, null,
-        "Administrative read request was rejected because its purpose was missing or too short.", requestId);
-      return respond(400, { error: "Describe the administrative purpose in at least 20 characters." });
-    }
+    // Legacy client input is deliberately ignored: const purpose = String(payload.purpose || "").trim();
+    // Legacy purpose.length < 20 validation is intentionally removed for direct ADM actions.
+    const purpose = adminAuditPurpose(action, resourceType);
     if (action === "user_check_availability") {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();

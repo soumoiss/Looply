@@ -17,6 +17,7 @@ for (const file of ["index.html", "login.html", "home.html", "musicas.html", "ch
 }
 
 await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config.js"));
+await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });

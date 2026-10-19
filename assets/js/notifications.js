@@ -11,9 +11,9 @@ const dateLabel = (value) => {
 async function loadNotifications(client) {
   const [appResult, chatResult] = await Promise.all([
     client.from("notifications").select("id,kind,resource_id,event_id,preview,created_at,read_at,actor:profiles!notifications_actor_id_fkey(username,display_name)")
-      .order("created_at", { ascending: false }).limit(100),
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(0, 99),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at")
-      .order("created_at", { ascending: false }).limit(100)
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(0, 99)
   ]);
   if (appResult.error) throw appResult.error;
   if (chatResult.error) throw chatResult.error;

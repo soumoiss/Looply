@@ -126,6 +126,18 @@ class MainActivity : Activity() {
                 )
             }
         }
+        handleNotificationRoute(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent != null) { setIntent(intent); handleNotificationRoute(intent) }
+    }
+
+    private fun handleNotificationRoute(intent: Intent) {
+        val route = intent.getStringExtra("looply_route") ?: return
+        if (!route.matches(Regex("(?:conversa|notificacoes|home)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
+        webView.post { webView.loadUrl("https://appassets.androidplatform.net/$route") }
     }
 
     override fun onStart() {

@@ -4,6 +4,8 @@ import { checkAdminAccess } from "./admin.js";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
+import { registerLooplyServiceWorker } from "./service-worker.js";
+import { notificationBus } from "./notification-bus.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
@@ -118,6 +120,7 @@ function prefetchNavigation(header) {
 }
 
 export async function mountAppPage({ page, adminOnly = false, render }) {
+  void registerLooplyServiceWorker();
   const root = document.getElementById("pageContent");
   const header = document.querySelector("[data-site-header]");
   if (!root || !header) return;
@@ -210,9 +213,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     if (event === "SIGNED_OUT" || !session) window.location.replace("login.html");
   });
 
+  let badgeTimer = null;
+  const refreshBadgeSoon = () => { clearTimeout(badgeTimer); badgeTimer = setTimeout(() => { void refreshUnreadBadge(header, supabase); }, 150); notificationBus.emit({ type: "notification-changed" }); };
   const activityChannel = supabase.channel(`looply-activity-${user.id}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, () => refreshUnreadBadge(header, supabase))
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, () => refreshUnreadBadge(header, supabase))
+    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, refreshBadgeSoon)
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, refreshBadgeSoon)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, ({ new: updated }) => {
       if (updated) applyProfilePreferences(updated);
     })
@@ -235,6 +240,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
+    clearTimeout(badgeTimer);
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();

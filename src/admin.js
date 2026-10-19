@@ -41,7 +41,6 @@ export function adminMarkup(profile = {}) {
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. Toda ação exige justificativa e fica registrada na auditoria. A criação de conta respeita as identidades Looply autorizadas.</p>
-      <div class="field"><label for="adminUsersPurpose">Justificativa administrativa (obrigatória)</label><input id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" placeholder="Descreva o motivo da consulta ou alteração" required></div>
       <form class="admin-broadcast-form" data-user-create>
         <h4>Cadastrar novo usuário</h4>
         <div class="field"><label for="adminCreateUsername">Username</label><input id="adminCreateUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva" aria-describedby="adminCreateUsernameStatus"><small>Digite sem @; serão aceitos 3–30 caracteres: letras, números e sublinhado. O sistema salva em minúsculas.</small><small id="adminCreateUsernameStatus" data-availability="username" class="form-status" role="status" aria-live="polite"></small></div>
@@ -60,7 +59,6 @@ export function adminMarkup(profile = {}) {
         <div class="field"><label for="broadcastTitle">Título do aviso</label><input id="broadcastTitle" name="title" type="text" maxlength="120" required placeholder="Ex.: Atualização do Looply"></div>
         <div class="field"><label for="broadcastBody">Mensagem</label><textarea id="broadcastBody" name="body" maxlength="4000" rows="4" required placeholder="Escreva a mensagem que todos os membros devem receber."></textarea></div>
         <div class="field"><label for="broadcastExpiresAt">Expira em (opcional)</label><input id="broadcastExpiresAt" name="expiresAt" type="datetime-local"><small>Sem data de expiração, o aviso permanece ativo até ser desativado.</small></div>
-        <div class="field"><label for="broadcastPurpose">Motivo administrativo</label><textarea id="broadcastPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Explique o motivo do comunicado (mínimo de 20 caracteres)."></textarea></div>
         <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Publicar comunicado</button><button class="text-button" type="button" data-broadcast-refresh>Consultar leituras</button></div>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
@@ -86,7 +84,6 @@ export function adminMarkup(profile = {}) {
         <div class="field" data-admin-id-field><label for="adminResourceId">UUID específico (opcional)</label><input id="adminResourceId" name="resourceId" type="text" maxlength="36" placeholder="Deixe vazio para consultar a lista recente"></div>
         <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>O histórico e as mídias são exibidos em grupos de 100; para o histórico, informe a posição inicial.</small></div>
       </div>
-      <div class="field"><label for="adminPurpose">Motivo da consulta</label><textarea id="adminPurpose" name="purpose" minlength="20" maxlength="500" rows="3" required placeholder="Descreva por que esta consulta é necessária (mínimo de 20 caracteres)."></textarea></div>
       <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
@@ -208,10 +205,6 @@ export function bindAdminEvents(root, client) {
     const results = root.querySelector("[data-users-results]");
     const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
     if (!results) return;
-    if (purpose.length < 20) {
-      results.textContent = "Informe uma justificativa de pelo menos 20 caracteres antes de consultar ou alterar contas.";
-      return;
-    }
     results.textContent = "Carregando contas…";
     try {
       const { data, error } = await invokeAdmin({ action: "users_list", resourceType: "profiles", purpose });
@@ -309,7 +302,8 @@ export function bindAdminEvents(root, client) {
   async function invokeAdmin(body) {
     const token = sessionStorage.getItem("looplyAdminSessionToken") || "";
     if (!token) throw new Error("admin_session_locked");
-    return client.functions.invoke("looply-admin", { body: { ...body, adminSessionToken: token } });
+    const { purpose: _ignoredPurpose, ...action } = body || {};
+    return client.functions.invoke("looply-admin", { body: { ...action, adminSessionToken: token } });
   }
 
   function showSessionState(state, message = "") {
@@ -370,7 +364,7 @@ export function bindAdminEvents(root, client) {
     if (emailStatus) { emailStatus.textContent = ""; emailStatus.dataset.kind = ""; }
     if (availabilityTimer) clearTimeout(availabilityTimer);
     const requestNumber = ++availabilityRequest;
-    if (purpose.length < 20 || (!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return;
+    if (!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
     if (usernameStatus && /^[a-z0-9_]{3,30}$/.test(username)) usernameStatus.textContent = "Verificando disponibilidade…";
     if (emailStatus && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) emailStatus.textContent = "Verificando disponibilidade…";
     availabilityTimer = setTimeout(async () => {
@@ -403,10 +397,6 @@ export function bindAdminEvents(root, client) {
   async function loadBroadcasts(form, showStatus = true) {
     const purpose = String(form?.elements.purpose?.value || "").trim();
     const results = root.querySelector("[data-broadcast-results]");
-    if (purpose.length < 20 || purpose.length > 500) {
-      if (form) setStatus(form, "Informe o motivo administrativo (20–500 caracteres) antes de consultar.", "error");
-      return false;
-    }
     const refreshButton = form?.querySelector("[data-broadcast-refresh]");
     if (refreshButton) refreshButton.disabled = true;
     if (showStatus && form) setStatus(form, "Consultando comunicados e recibos de leitura…", "info");
@@ -472,11 +462,6 @@ export function bindAdminEvents(root, client) {
     const accessAction = event.target.closest("[data-user-access-action]");
     if (accessAction && client) {
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
-      if (purpose.length < 20) {
-        const results = root.querySelector("[data-users-results]");
-        if (results) results.textContent = "Informe uma justificativa de pelo menos 20 caracteres.";
-        return;
-      }
       accessAction.disabled = true;
       try {
         const action = accessAction.dataset.userAccessAction === "suspend" ? "user_set_suspended" : "user_restore_access";
@@ -514,11 +499,6 @@ export function bindAdminEvents(root, client) {
     const deactivateBroadcast = event.target.closest("[data-broadcast-deactivate]");
     if (deactivateBroadcast && client) {
       event.preventDefault();
-      const purpose = String(broadcastForm?.elements.purpose?.value || "").trim();
-      if (purpose.length < 20 || purpose.length > 500) {
-        if (broadcastForm) setStatus(broadcastForm, "Informe o motivo administrativo (20–500 caracteres) antes de desativar.", "error");
-        return;
-      }
       deactivateBroadcast.disabled = true;
       try {
         const { error } = await invokeAdmin({ action: "broadcast_deactivate", resourceType: "announcements", announcementId: deactivateBroadcast.dataset.broadcastDeactivate, purpose });
@@ -577,10 +557,6 @@ export function bindAdminEvents(root, client) {
         setStatus(createForm, "Confira o username, o e-mail, o nome e a senha (8–72 caracteres).", "error");
         return;
       }
-      if (purpose.length < 20 || purpose.length > 500) {
-        setStatus(createForm, "Informe uma justificativa de 20 a 500 caracteres no campo acima.", "error");
-        return;
-      }
       const button = createForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       setStatus(createForm, "Criando a conta e o perfil…", "info");
@@ -615,10 +591,6 @@ export function bindAdminEvents(root, client) {
       event.preventDefault();
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
       const values = new FormData(userProfileForm);
-      if (purpose.length < 20) {
-        setStatus(userProfileForm, "Informe uma justificativa de pelo menos 20 caracteres.", "error");
-        return;
-      }
       const button = userProfileForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       try {
@@ -693,7 +665,6 @@ export function bindAdminEvents(root, client) {
         const body = String(values.get("body") || "").trim();
         const purpose = String(values.get("purpose") || "").trim();
         const expiresText = String(values.get("expiresAt") || "").trim();
-        if (purpose.length < 20 || purpose.length > 500) throw new Error("purpose");
         if (!title || title.length > 120 || !body || body.length > 4000) throw new Error("content");
         const expiresAt = expiresText ? new Date(expiresText) : null;
         if (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now())) throw new Error("expiry");
@@ -731,7 +702,6 @@ export function bindAdminEvents(root, client) {
       try {
         const purpose = String(root.querySelector('[data-admin-read] textarea[name="purpose"]')?.value || "").trim();
         const body = String(new FormData(archiveCommentForm).get("body") || "").trim();
-        if (purpose.length < 20 || purpose.length > 500) throw new Error("purpose");
         if (!body || body.length > 2000) throw new Error("comment");
         const { data, error } = await invokeAdmin({ action: "comment_archive_media", resourceType: "archive_media", mediaId: archiveCommentForm.dataset.mediaId, body, purpose });
         if (error) throw error;
@@ -760,7 +730,6 @@ export function bindAdminEvents(root, client) {
       try {
         const purpose = String(root.querySelector('[data-admin-read] textarea[name="purpose"]')?.value || "").trim();
         const body = String(new FormData(commentForm).get("body") || "").trim();
-        if (purpose.length < 20 || purpose.length > 500) throw new Error("purpose");
         if (!body || body.length > 2000) throw new Error("comment");
         const { data, error } = await invokeAdmin({ action: "comment", resourceType: "posts", postId: commentForm.dataset.postId, body, purpose });
         if (error) throw error;
@@ -795,7 +764,6 @@ export function bindAdminEvents(root, client) {
       const resourceId = String(values.get("resourceId") || "").trim() || null;
       const offset = Number(values.get("offset") || 0);
       const purpose = String(values.get("purpose") || "").trim();
-      if (purpose.length < 20) throw new Error("purpose");
       if (!Number.isInteger(offset) || offset < 0 || offset > 10000) throw new Error("offset");
       const { data, error } = await invokeAdmin({ resourceType, resourceId: resourceType === "audit" ? null : resourceId, offset, purpose });
       if (error) throw error;

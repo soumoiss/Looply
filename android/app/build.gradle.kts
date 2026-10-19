@@ -53,6 +53,8 @@ android {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.15.0")
+    implementation("androidx.core:core-ktx:1.16.0")
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
 }
 
 tasks.named("preBuild").configure {

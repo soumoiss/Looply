@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { uploadResumable } from "./social.js";
+import { validatePublicationInput } from "./publication-validation.js";
 
 const maxStoryBytes = 100 * 1024 * 1024;
 const storyMimeTypes = new Map([
@@ -135,7 +136,8 @@ export async function loadStories(client) {
     .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,alt_text,created_at)")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: true })
-    .limit(500);
+    .order("id", { ascending: true })
+    .range(0, 499);
   if (error) throw error;
 
   const rows = data || [];

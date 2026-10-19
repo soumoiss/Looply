@@ -424,3 +424,5 @@ verify_jwt = true
 
 [functions.looply-youtube-playlist]
 verify_jwt = true
+[functions.looply-push]
+verify_jwt = true
