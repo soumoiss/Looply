@@ -172,3 +172,10 @@ test("gallery load tolerates rejected ancillary queries and keeps thumbnail grid
   assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-card-body{display:none}"));
   assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-media{aspect-ratio:1/1"));
 });
+
+test("gallery selected-checkbox helper queries all matches instead of calling map on one element", () => {
+  assert.match(gallery, /const chosen = selector => \$\$\(selector \+ " input\[type=checkbox\]:checked"\)\.map\(el => el\.value\);/);
+  assert.doesNotMatch(gallery, /const chosen = selector => \$\(selector \+ " input\[type=checkbox\]:checked"\)\.map/);
+  assert.match(gallery, /const syncUserLists = \(\) =>/);
+  assert.match(gallery, /syncUserLists\(\);\s*draw\(\);/);
+});
