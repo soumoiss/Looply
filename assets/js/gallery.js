@@ -160,7 +160,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const idsC = fresh.filter(x=>x.source==="community").map(x=>x.id);
       const [commentsA, commentsC, likesA, likesC] = await Promise.all([
         idsA.length ? client.from("archive_media_comments").select("media_id").in("media_id",idsA) : Promise.resolve({data:[],error:null}),
-        idsC.length ? client.from("community_gallery_comments").select("media_id").in("media_id",idsC) : Promise.resolve({data:[],error:null})
+        idsC.length ? client.from("community_gallery_comments").select("media_id").in("media_id",idsC) : Promise.resolve({data:[],error:null}),
+        idsA.length ? client.from("archive_media_likes").select("media_id,user_id").in("media_id",idsA) : Promise.resolve({data:[],error:null}),
+        idsC.length ? client.from("community_gallery_media_likes").select("media_id,user_id").in("media_id",idsC) : Promise.resolve({data:[],error:null})
       ]);
       (commentsA.data || []).concat(commentsC.data || []).forEach(cmt => commentIds.push(cmt.media_id));
       const commentSet = new Set(commentIds);
