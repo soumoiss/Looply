@@ -2,11 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [gallery, page, runtime, migration, styles] = await Promise.all([
+const [gallery, page, runtime, migration, albumMigration, styles] = await Promise.all([
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
   readFile(new URL("../galeria.html", import.meta.url), "utf8"),
   readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8"),
   readFile(new URL("../supabase/migrations/20261019022000_gallery_private_folder_admin_delete.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019030000_gallery_albums.sql", import.meta.url), "utf8"),
   readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8")
 ]);
 
@@ -41,4 +42,15 @@ test("gallery includes accessible responsive controls and reduced-motion support
   }
   assert.match(styles, /prefers-reduced-motion:reduce/);
   assert.match(styles, /env\(safe-area-inset-top\)/);
+});
+
+
+test("gallery albums are persisted and scoped to their owner", () => {
+  assert.match(albumMigration, /create table if not exists public\.gallery_albums/);
+  assert.match(albumMigration, /owner_id=\(select auth\.uid\(\)\)/);
+  assert.match(albumMigration, /create table if not exists public\.gallery_album_items/);
+  assert.match(albumMigration, /private\.can_view_community_gallery_media/);
+  assert.match(gallery, /data-create-album/);
+  assert.match(gallery, /data-open-album/);
+  assert.match(gallery, /data-album-add=/);
 });
