@@ -491,9 +491,33 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-close-viewer]").addEventListener("click",closeViewer);
   $("[data-toggle-menu]").addEventListener("click",()=>{$("[data-context-menu]").hidden=!$("[data-context-menu]").hidden;});
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
-  $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea).value=getItem(activeKey)?.description||"";});
+  $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea").value=getItem(activeKey)?.description||"";});
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.myDescription=description;x.descriptions=(x.descriptions||[]).filter(row=>row.user_id!==user.id);if(description)x.descriptions.push({user_id:user.id,description,updated_at:new Date().toISOString()});x.peopleLookup=peopleMap;x.description=[x.sourceDescription,...x.descriptions.map(row=>row.description)].filter(Boolean).join(" ");$("[data-viewer-description]").innerHTML=descriptionMarkup(x);draw();say("Descrição salva.");e.currentTarget.hidden=true;});
-  $("[data-manage-access]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Você não pode administrar o acesso desta mídia.");return;}$("[data-context-menu]").hidden=true;selectedAccessRecipients.clear();try{const table=x.source==="archive"?"archive_media_recipients":"community_gallery_media_recipients";const {data,error}=await client.from(table).select("user_id").eq("media_id",x.id);if(error)throw error;(data||[]).forEach(row=>selectedAccessRecipients.add(row.user_id));}catch(error){console.warn("Could not load current media audience",error);}const form=$("[data-access-form"]);form.elements.visibility.value=x.visibility==="exclusive"?"exclusive":"members";$("[data-access-search]").value="";syncUserLists();$("[data-access-status]").textContent="";$("[data-access-modal]").hidden=false;});
+  $("[data-manage-access]").addEventListener("click", async () => {
+    const x = getItem(activeKey);
+    if (!x) return;
+    const canManage = isAdmin || (x.source === "community" && x.owner_id === user.id);
+    if (!canManage) {
+      say("Você não pode administrar o acesso desta mídia.");
+      return;
+    }
+    $("[data-context-menu]").hidden = true;
+    selectedAccessRecipients.clear();
+    try {
+      const table = x.source === "archive" ? "archive_media_recipients" : "community_gallery_media_recipients";
+      const { data, error } = await client.from(table).select("user_id").eq("media_id", x.id);
+      if (error) throw error;
+      (data || []).forEach((row) => selectedAccessRecipients.add(row.user_id));
+    } catch (error) {
+      console.warn("Could not load current media audience", error);
+    }
+    const form = $("[data-access-form]");
+    form.elements.visibility.value = x.visibility === "exclusive" ? "exclusive" : "members";
+    $("[data-access-search]").value = "";
+    syncUserLists();
+    $("[data-access-status]").textContent = "";
+    $("[data-access-modal]").hidden = false;
+  });
   $("[data-close-access]").forEach(b=>b.addEventListener("click",()=>$("[data-access-modal]").hidden=true));
   $("[data-access-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const visibility=e.currentTarget.elements.visibility.value;const viewerIds=[...selectedAccessRecipients];if(visibility==="exclusive"&&!viewerIds.length){say("Selecione pelo menos uma pessoa.",$("[data-access-status]"));return;}if(viewerIds.length>100){say("Selecione no máximo 100 pessoas.",$("[data-access-status]"));return;}const button=e.currentTarget.querySelector('[type="submit"]');button.disabled=true;try{const {error}=await client.rpc("set_gallery_media_permissions",{p_source:x.source,p_media_id:x.id,p_visibility:visibility,p_comment_access:"viewers",p_viewer_ids:visibility==="exclusive"?viewerIds:[],p_commenter_ids:[]});if(error)throw error;x.visibility=visibility;$("[data-access-modal]").hidden=true;draw();say("Permissões da mídia atualizadas.");}catch(error){console.error(error);say("Não foi possível alterar o acesso. Verifique a autorização e os destinatários.",$("[data-access-status]"));}finally{button.disabled=false;}});
   $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}$("[data-context-menu]").hidden=true;$("[data-tag-search]").value="";$("[data-tag-users]").innerHTML=usersHtml(new Set(x.peopleIds||[]),"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
