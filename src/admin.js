@@ -23,15 +23,15 @@ export function adminMarkup(profile = {}) {
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
     <p class="admin-description">O modo protegido exige uma senha administrativa separada, expira em 15 minutos e registra as ações privilegiadas.</p>
-    <section class="admin-session-panel" data-admin-session-panel aria-labelledby="adminSessionTitle">
+    <section class="admin-session-panel admin-broadcast-panel" data-admin-session-panel aria-labelledby="adminSessionTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Sessão temporária</span><h3 id="adminSessionTitle">Modo ADM protegido</h3></div></div>
       <p class="admin-description" data-admin-session-message>Verificando a autorização e o estado da sessão…</p>
-      <form class="admin-session-form" data-admin-session-setup hidden>
+      <form class="admin-session-form admin-broadcast-form" data-admin-session-setup hidden>
         <div class="field"><label for="adminSessionSetupPassword">Criar senha administrativa separada</label><input id="adminSessionSetupPassword" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required><small>Use pelo menos 12 caracteres. A senha não é a senha de login.</small></div>
         <div class="field"><label for="adminSessionSetupConfirm">Confirmar senha</label><input id="adminSessionSetupConfirm" name="confirmPassword" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></div>
         <button class="primary-button compact-button" type="submit">Configurar senha ADM</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
-      <form class="admin-session-form" data-admin-session-unlock hidden>
+      <form class="admin-session-form admin-broadcast-form" data-admin-session-unlock hidden>
         <div class="field"><label for="adminSessionPassword">Senha administrativa</label><input id="adminSessionPassword" name="password" type="password" maxlength="256" autocomplete="current-password" required></div>
         <button class="primary-button compact-button" type="submit">Desbloquear por 15 minutos</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
