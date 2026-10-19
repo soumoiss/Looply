@@ -59,11 +59,18 @@ export async function loadChatData(client, userId) {
   let conversations = [];
   let latestMessages = [];
   if (ids.length) {
-    const { data, error } = await client.from("conversations")
-      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
-      .in("id", ids).order("updated_at", { ascending: false }).limit(1000);
-    if (error) throw error;
-    conversations = data || [];
+    const pageSize = 500;
+    let offset = 0;
+    while (true) {
+      const { data, error } = await client.from("conversations")
+        .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
+        .in("id", ids).order("updated_at", { ascending: false }).range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const page = data || [];
+      conversations.push(...page);
+      if (page.length < pageSize) break;
+      offset += page.length;
+    }
     const { data: latest, error: messagesError } = await client.from("chat_messages")
       .select("conversation_id,body,created_at,sender_id,read_at,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
       .in("conversation_id", ids).order("created_at", { ascending: false }).limit(1000);
