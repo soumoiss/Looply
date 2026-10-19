@@ -38,6 +38,19 @@ export function adminMarkup(profile = {}) {
       <div class="admin-session-active" data-admin-session-active hidden><p>Modo ADM desbloqueado nesta aba. A autorização é validada pelo servidor em cada operação.</p><button class="text-button" type="button" data-admin-session-exit>Encerrar sessão ADM</button></div>
     </section>
     <div data-admin-controls hidden>
+    <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
+      <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. Toda ação exige justificativa e fica registrada na auditoria. A criação de conta respeita as identidades Looply autorizadas.</p>
+      <div class="field"><label for="adminUsersPurpose">Justificativa administrativa (obrigatória)</label><input id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" placeholder="Descreva o motivo da consulta ou alteração" required></div>
+      <form class="admin-broadcast-form" data-user-invite>
+        <h4>Convidar uma conta Looply autorizada</h4>
+        <div class="field"><label for="adminInviteUsername">Identidade</label><select id="adminInviteUsername" name="username" required><option value="">Selecione</option><option value="patati">Patati</option><option value="misol">Misol</option><option value="yara">Yara</option><option value="peixinho">Peixinho</option></select></div>
+        <div class="field"><label for="adminInviteDisplayName">Nome de exibição</label><input id="adminInviteDisplayName" name="displayName" maxlength="80" required></div>
+        <p class="admin-description">O convite será enviado para a identidade @loooply.app selecionada; não é possível criar contas arbitrárias nem conceder privilégios de administrador por aqui.</p>
+        <button class="primary-button compact-button" type="submit">Enviar convite</button><span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form>
+      <div class="admin-results" data-users-results aria-live="polite"><p>Desbloqueie o Modo ADM e atualize a lista para consultar as contas.</p></div>
+    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
       <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
@@ -182,6 +195,108 @@ function renderResults(container, resourceType, data) {
 }
 
 export function bindAdminEvents(root, client) {
+  async function loadUsers() {
+    const results = root.querySelector("[data-users-results]");
+    const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+    if (!results) return;
+    if (purpose.length < 20) {
+      results.textContent = "Informe uma justificativa de pelo menos 20 caracteres antes de consultar ou alterar contas.";
+      return;
+    }
+    results.textContent = "Carregando contas…";
+    try {
+      const { data, error } = await invokeAdmin({ action: "users_list", resourceType: "profiles", purpose });
+      if (error) throw error;
+      results.replaceChildren();
+      const users = data?.users || [];
+      if (!users.length) {
+        results.textContent = "Nenhuma conta encontrada.";
+        return;
+      }
+      for (const user of users) {
+        const card = document.createElement("article");
+        card.className = "admin-user-card";
+        const heading = document.createElement("div");
+        heading.className = "admin-broadcast-heading";
+        const title = document.createElement("h4");
+        title.textContent = user.display_name + " · @" + user.username;
+        const status = document.createElement("span");
+        status.className = "admin-badge";
+        status.textContent = user.suspended ? "Suspensa" : user.emailConfirmed ? "Ativa" : "Convite pendente";
+        heading.append(title, status);
+        const email = document.createElement("p");
+        email.textContent = user.email || "E-mail indisponível";
+        const lastSignIn = document.createElement("p");
+        lastSignIn.className = "admin-description";
+        lastSignIn.textContent = user.lastSignInAt ? "Último acesso: " + dateTime(user.lastSignInAt) : "Ainda não há acesso registrado.";
+        const form = document.createElement("form");
+        form.className = "admin-broadcast-form";
+        form.dataset.userProfileForm = "";
+        form.dataset.userId = user.id;
+        const fields = [
+          ["displayName", "Nome de exibição", user.display_name || "", 80],
+          ["bio", "Biografia", user.bio || "", 500]
+        ];
+        for (const [name, labelText, value, max] of fields) {
+          const field = document.createElement("div");
+          field.className = "field";
+          const label = document.createElement("label");
+          label.textContent = labelText;
+          const input = name === "bio" ? document.createElement("textarea") : document.createElement("input");
+          input.name = name;
+          input.value = value;
+          input.maxLength = max;
+          if (name === "displayName") input.required = true;
+          label.htmlFor = "user-" + user.id + "-" + name;
+          input.id = label.htmlFor;
+          field.append(label, input);
+          form.append(field);
+        }
+        const visibilityField = document.createElement("div");
+        visibilityField.className = "field";
+        const visibilityLabel = document.createElement("label");
+        visibilityLabel.textContent = "Visibilidade do perfil";
+        visibilityLabel.htmlFor = "user-" + user.id + "-visibility";
+        const visibility = document.createElement("select");
+        visibility.id = visibilityLabel.htmlFor;
+        visibility.name = "profileVisibility";
+        for (const [value, labelText] of [["members", "Membros"], ["private", "Privado"]]) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = labelText;
+          option.selected = user.profile_visibility === value;
+          visibility.append(option);
+        }
+        visibilityField.append(visibilityLabel, visibility);
+        form.append(visibilityField);
+        const save = document.createElement("button");
+        save.type = "submit";
+        save.className = "primary-button compact-button";
+        save.textContent = "Salvar perfil";
+        const feedback = document.createElement("span");
+        feedback.className = "form-status";
+        feedback.dataset.status = "";
+        feedback.setAttribute("role", "status");
+        form.append(save, feedback);
+        const actions = document.createElement("div");
+        actions.className = "admin-user-actions";
+        if (user.id !== (root.dataset.currentUserId || "")) {
+          const accessButton = document.createElement("button");
+          accessButton.type = "button";
+          accessButton.className = "text-button";
+          accessButton.dataset.userAccessAction = user.suspended ? "restore" : "suspend";
+          accessButton.dataset.userId = user.id;
+          accessButton.textContent = user.suspended ? "Restaurar acesso" : "Suspender acesso";
+          actions.append(accessButton);
+        }
+        card.append(heading, email, lastSignIn, form, actions);
+        results.append(card);
+      }
+    } catch (error) {
+      results.textContent = /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível carregar as contas. Verifique a justificativa e tente novamente.";
+    }
+  }
+
   async function invokeAdmin(body) {
     const token = sessionStorage.getItem("looplyAdminSessionToken") || "";
     if (!token) throw new Error("admin_session_locked");
@@ -264,6 +379,31 @@ export function bindAdminEvents(root, client) {
   }
 
   root.addEventListener("click", async (event) => {
+    const refreshUsers = event.target.closest("[data-users-refresh]");
+    if (refreshUsers && client) {
+      await loadUsers();
+      return;
+    }
+    const accessAction = event.target.closest("[data-user-access-action]");
+    if (accessAction && client) {
+      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+      if (purpose.length < 20) {
+        const results = root.querySelector("[data-users-results]");
+        if (results) results.textContent = "Informe uma justificativa de pelo menos 20 caracteres.";
+        return;
+      }
+      accessAction.disabled = true;
+      try {
+        const action = accessAction.dataset.userAccessAction === "suspend" ? "user_set_suspended" : "user_restore_access";
+        const { data, error } = await invokeAdmin({ action, resourceType: "profiles", userId: accessAction.dataset.userId, purpose });
+        if (error) throw error;
+        await loadUsers();
+      } catch (error) {
+        const results = root.querySelector("[data-users-results]");
+        if (results) results.textContent = "Não foi possível alterar o acesso. Verifique a justificativa e a autorização.";
+      } finally { accessAction.disabled = false; }
+      return;
+    }
     const exitSession = event.target.closest("[data-admin-session-exit]");
     if (exitSession && client) {
       exitSession.disabled = true;
@@ -338,6 +478,58 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const inviteForm = event.target.closest("form[data-user-invite]");
+    if (inviteForm && client) {
+      event.preventDefault();
+      const values = new FormData(inviteForm);
+      const username = String(values.get("username") || "");
+      const displayName = String(values.get("displayName") || "").trim();
+      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+      if (purpose.length < 20) {
+        setStatus(inviteForm, "Informe uma justificativa de pelo menos 20 caracteres.", "error");
+        return;
+      }
+      const button = inviteForm.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        const { data, error } = await invokeAdmin({ action: "user_create_invite", resourceType: "profiles", username, email: username + "@loooply.app", displayName, purpose });
+        if (error) throw error;
+        inviteForm.reset();
+        setStatus(inviteForm, "Convite enviado para " + (data?.email || username + "@loooply.app") + ".", "success");
+        await loadUsers();
+      } catch (error) {
+        setStatus(inviteForm, "Não foi possível enviar o convite. A identidade pode já existir ou não estar disponível.", "error");
+      } finally { if (button) button.disabled = false; }
+      return;
+    }
+
+    const userProfileForm = event.target.closest("form[data-user-profile-form]");
+    if (userProfileForm && client) {
+      event.preventDefault();
+      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+      const values = new FormData(userProfileForm);
+      if (purpose.length < 20) {
+        setStatus(userProfileForm, "Informe uma justificativa de pelo menos 20 caracteres.", "error");
+        return;
+      }
+      const button = userProfileForm.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        const { error } = await invokeAdmin({
+          action: "user_update_profile", resourceType: "profiles", userId: userProfileForm.dataset.userId,
+          displayName: String(values.get("displayName") || "").trim(),
+          bio: String(values.get("bio") || "").trim(),
+          profileVisibility: String(values.get("profileVisibility") || ""), purpose
+        });
+        if (error) throw error;
+        setStatus(userProfileForm, "Perfil atualizado.", "success");
+        await loadUsers();
+      } catch {
+        setStatus(userProfileForm, "Não foi possível salvar o perfil.", "error");
+      } finally { if (button) button.disabled = false; }
+      return;
+    }
+
     const setupForm = event.target.closest("form[data-admin-session-setup]");
     if (setupForm && client) {
       event.preventDefault();
