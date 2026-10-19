@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -90,6 +90,78 @@ function adminAuditPurpose(action: string, resourceType: string) {
   const safeAction = action.replace(/[^a-z0-9_:-]/gi, "").slice(0, 80) || "access";
   const safeResource = resourceType.replace(/[^a-z0-9_:-]/gi, "").slice(0, 80) || "resource";
   return `ADM ${safeAction} on ${safeResource}`;
+}
+
+async function removeStoragePaths(service: UntypedServiceClient, bucket: string, paths: string[]) {
+  const uniquePaths = [...new Set(paths.map(String).filter(Boolean))];
+  if (!uniquePaths.length) return;
+  const { error } = await service.storage.from(bucket).remove(uniquePaths);
+  if (error) throw error;
+}
+
+async function deleteContent(service: UntypedServiceClient, contentType: string, contentId: string) {
+  const storage: Array<{ bucket: string; paths: string[] }> = [];
+  const removeRows = async (table: string, column = "id", value = contentId) => {
+    const { error } = await service.from(table).delete().eq(column, value);
+    if (error) throw error;
+  };
+  if (contentType === "post") {
+    const [{ data: media, error: mediaError }, { data: commentMedia, error: commentMediaError }] = await Promise.all([
+      service.from("post_media").select("storage_path").eq("post_id", contentId),
+      service.from("comment_media").select("storage_path").eq("post_id", contentId)
+    ]);
+    if (mediaError) throw mediaError;
+    if (commentMediaError) throw commentMediaError;
+    storage.push({ bucket: "looply-media", paths: [...(media || []), ...(commentMedia || [])].map((row: any) => row.storage_path) });
+    await removeStoragePaths(service, "looply-media", storage[0].paths);
+    await removeRows("posts");
+  } else if (contentType === "comment") {
+    const { data: media, error } = await service.from("comment_media").select("storage_path").eq("comment_id", contentId);
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-media", (media || []).map((row: any) => row.storage_path));
+    await removeRows("comments");
+  } else if (contentType === "story") {
+    const { data: media, error } = await service.from("story_media").select("storage_path").eq("story_id", contentId);
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-media", (media || []).map((row: any) => row.storage_path));
+    await removeRows("stories");
+  } else if (contentType === "community_gallery_media") {
+    const { data: media, error } = await service.from("community_gallery_media").select("storage_path").eq("id", contentId).maybeSingle();
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-gallery", media ? [media.storage_path] : []);
+    await removeRows("community_gallery_media");
+  } else if (contentType === "archive_media") {
+    const { data: media, error } = await service.from("archive_media").select("storage_path").eq("id", contentId).maybeSingle();
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-media", media ? [media.storage_path] : []);
+    await removeRows("archive_media");
+  } else if (contentType === "chat_message") {
+    const { data: media, error } = await service.from("chat_media").select("storage_path").eq("message_id", contentId);
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-chat", (media || []).map((row: any) => row.storage_path));
+    await removeRows("chat_messages");
+  } else if (contentType === "chat_media") {
+    const { data: media, error } = await service.from("chat_media").select("storage_path").eq("id", contentId).maybeSingle();
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-chat", media ? [media.storage_path] : []);
+    await removeRows("chat_media");
+  } else if (contentType === "conversation") {
+    const { data: media, error } = await service.from("chat_media").select("storage_path").eq("conversation_id", contentId);
+    if (error) throw error;
+    await removeStoragePaths(service, "looply-chat", (media || []).map((row: any) => row.storage_path));
+    await removeRows("conversations");
+  } else if (contentType === "community_letter") {
+    await removeRows("community_letters");
+  } else if (contentType === "music_dedication") {
+    await removeRows("music_dedications");
+  } else if (contentType === "music_library") {
+    await removeRows("music_library");
+  } else if (contentType === "music_page_comment") {
+    await removeRows("music_page_comments");
+  } else {
+    throw new Error("unsupported_content_deletion");
+  }
+  return { contentType, contentId, storageCleaned: storage.length > 0 };
 }
 
 async function loadResource(service: UntypedServiceClient, actorId: string, resourceType: string, resourceId: string | null, offset = 0) {
@@ -229,6 +301,42 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     const result = resourceId ? await query.maybeSingle() : await query;
     if (result.error) throw result.error;
     return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+  }
+
+  if (resourceType === "stories") {
+    let query = service.from("stories")
+      .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name),media:story_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
+      .order("created_at", { ascending: false });
+    if (resourceId) query = query.eq("id", resourceId);
+    const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 49);
+    if (result.error) throw result.error;
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    if (rows.length) {
+      const { data: flags, error } = await service.from("looply_content_moderation")
+        .select("content_id").eq("content_type", "story").in("content_id", rows.map((row: any) => row.id));
+      if (error) throw error;
+      const hidden = new Set((flags || []).map((flag: any) => flag.content_id));
+      rows.forEach((row) => { row.moderated = hidden.has(row.id); });
+    }
+    return rows;
+  }
+
+  if (resourceType === "community_gallery_media") {
+    let query = service.from("community_gallery_media")
+      .select("id,owner_id,storage_path,file_name,kind,mime_type,byte_size,caption,publication_state,created_at,owner:profiles!community_gallery_media_owner_id_fkey(id,username,display_name)")
+      .order("created_at", { ascending: false });
+    if (resourceId) query = query.eq("id", resourceId);
+    const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 49);
+    if (result.error) throw result.error;
+    const rows: any[] = result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+    if (rows.length) {
+      const { data: flags, error } = await service.from("looply_content_moderation")
+        .select("content_id").eq("content_type", "community_gallery_media").in("content_id", rows.map((row: any) => row.id));
+      if (error) throw error;
+      const hidden = new Set((flags || []).map((flag: any) => flag.content_id));
+      rows.forEach((row) => { row.moderated = hidden.has(row.id); row.bucket_id = "looply-gallery"; });
+    }
+    return rows;
   }
 
   if (resourceType === "letters") {
@@ -527,7 +635,8 @@ Deno.serve(async (request: Request) => {
       const contentType = String(payload.contentType || "");
       const contentId = String(payload.contentId || "");
       const hidden = payload.hidden === true;
-      const reason = String(payload.reason || "").trim();
+      const suppliedReason = String(payload.reason || "").trim();
+      const reason = suppliedReason || adminAuditPurpose(action, contentType);
       const tableByContentType: Record<string, string> = {
         post: "posts",
         comment: "comments",
@@ -535,14 +644,20 @@ Deno.serve(async (request: Request) => {
         archive_media_comment: "archive_media_comments",
         music_page_comment: "music_page_comments"
       };
+      const auditResourceByContentType: Record<string, string> = {
+        post: "posts", comment: "posts", archive_media: "archive_media",
+        archive_media_comment: "archive_media_comments", music_page_comment: "youtube_track_comments",
+        story: "stories", community_gallery_media: "community_gallery_media"
+      };
       const tableName = tableByContentType[contentType];
-      if (!tableName || !uuidPattern.test(contentId) || reason.length < 20 || reason.length > 500) {
+      const auditResourceType = auditResourceByContentType[contentType];
+      if (!tableName || !uuidPattern.test(contentId) || suppliedReason.length > 500) {
         return respond(400, { error: "invalid_moderation_request" });
       }
       const { data: target, error: targetError } = await service.from(tableName).select("id").eq("id", contentId).maybeSingle();
       if (targetError) throw targetError;
       if (!target) return respond(404, { error: "content_not_found" });
-      await recordAccess(service, authData.user.id, "moderation_requested", "posts", contentId, reason, requestId,
+      await recordAccess(service, authData.user.id, "moderation_requested", auditResourceType, contentId, reason, requestId,
         { action, content_type: contentType, hidden });
       try {
         if (hidden) {
@@ -555,12 +670,39 @@ Deno.serve(async (request: Request) => {
             .delete().eq("content_type", contentType).eq("content_id", contentId);
           if (error) throw error;
         }
-        await recordAccess(service, authData.user.id, "moderation_completed", "posts", contentId, reason, requestId,
+        await recordAccess(service, authData.user.id, "moderation_completed", auditResourceType, contentId, reason, requestId,
           { action, content_type: contentType, hidden });
         return respond(200, { requestId, contentType, contentId, hidden });
       } catch (error) {
-        await recordAccess(service, authData.user.id, "moderation_failed", "posts", contentId, reason, requestId,
+        await recordAccess(service, authData.user.id, "moderation_failed", auditResourceType, contentId, reason, requestId,
           { action, content_type: contentType, hidden, reason_error: errorMessage(error, "Moderation failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "delete_content") {
+      const contentType = String(payload.contentType || "");
+      const contentId = String(payload.contentId || "");
+      if (!payload.confirmDelete || !uuidPattern.test(contentId)
+          || !["post", "comment", "story", "community_gallery_media", "archive_media", "chat_message", "chat_media", "conversation", "community_letter", "music_dedication", "music_library", "music_page_comment"].includes(contentType)) {
+        return respond(400, { error: "explicit_delete_confirmation_required" });
+      }
+      const resourceType = contentType === "post" || contentType === "comment" ? "posts"
+        : contentType === "story" ? "stories"
+          : contentType === "community_gallery_media" ? "community_gallery_media"
+            : contentType === "archive_media" ? "archive_media"
+              : contentType === "chat_message" || contentType === "chat_media" || contentType === "conversation" ? "chat_messages"
+              : contentType === "music_page_comment" ? "youtube_track_comments"
+                : contentType === "community_letter" ? "community_letters"
+                  : contentType === "music_dedication" ? "music_dedications" : contentType;
+      const purpose = adminAuditPurpose(action, resourceType);
+      await recordAccess(service, authData.user.id, "write_requested", resourceType, contentId, purpose, requestId, { action, content_type: contentType });
+      try {
+        const result = await deleteContent(service, contentType, contentId);
+        await recordAccess(service, authData.user.id, "write_completed", resourceType, contentId, purpose, requestId, { action, ...result });
+        return respond(200, { requestId, deleted: true, ...result });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", resourceType, contentId, purpose, requestId, { action, reason: errorMessage(error, "Content deletion failed.").slice(0, 200) });
         throw error;
       }
     }
@@ -956,15 +1098,18 @@ Deno.serve(async (request: Request) => {
       const postMediaRows = rows.flatMap((row: any) => Array.isArray(row.media)
         ? row.media.map((media: any) => ({ ...media, bucket_id: "looply-media", audit_resource_type: "post_media" }))
         : requestedType === "post_media" ? [{ ...row, bucket_id: "looply-media", audit_resource_type: "post_media" }]
-          : requestedType === "archive_media" ? [{ ...row, bucket_id: "looply-media", audit_resource_type: "archive_media" }] : []);
+          : requestedType === "archive_media" ? [{ ...row, bucket_id: "looply-media", audit_resource_type: "archive_media" }]
+            : requestedType === "community_gallery_media" ? [{ ...row, bucket_id: "looply-gallery", audit_resource_type: "community_gallery_media" }] : []);
+      const storyMediaRows = rows.flatMap((row: any) => requestedType === "stories" && Array.isArray(row.media)
+        ? row.media.map((media: any) => ({ ...media, bucket_id: "looply-media", audit_resource_type: "stories" })) : []);
       const chatMediaRows = rows.flatMap((row: any) => Array.isArray(row.media) ? row.media.map((media: any) => ({ ...media, bucket_id: "looply-chat" })) : []);
-      const mediaRows = [...postMediaRows, ...chatMediaRows];
+      const mediaRows = [...postMediaRows, ...storyMediaRows, ...chatMediaRows];
       if (mediaRows.length) {
         const mediaAudit = await Promise.all(mediaRows.map((media: any) =>
           recordAccess(service, authData.user.id, "read_completed", media.bucket_id === "looply-chat" ? "chat_media" : media.audit_resource_type || "post_media", media.id, purpose, requestId, { delivery: "signed_url" })
         ));
         void mediaAudit;
-        for (const bucketId of ["looply-media", "looply-chat"]) {
+      for (const bucketId of ["looply-media", "looply-chat", "looply-gallery"]) {
           const bucketMedia = mediaRows.filter((media: any) => media.bucket_id === bucketId);
           if (!bucketMedia.length) continue;
           const expiresIn = requestedType === "archive_media" ? 300 : 1800;

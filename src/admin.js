@@ -79,6 +79,8 @@ export function adminMarkup(profile = {}) {
           <option value="archived_cards">Cartas antigas</option>
           <option value="archive_media">Mídias antigas</option>
           <option value="archive_media_comments">Comentários das mídias antigas</option>
+          <option value="stories">Stories</option>
+          <option value="community_gallery_media">Galeria comunitária</option>
           <option value="audit">Trilha de auditoria</option>
         </select></div>
         <div class="field" data-admin-id-field><label for="adminResourceId">UUID específico (opcional)</label><input id="adminResourceId" name="resourceId" type="text" maxlength="36" placeholder="Deixe vazio para consultar a lista recente"></div>
@@ -119,8 +121,8 @@ function mediaMarkup(media) {
 
 function moderationFormMarkup(contentType, contentId, hidden) {
   return `<form class="admin-comment-form" data-moderate-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}" data-hidden="${hidden ? "true" : "false"}">
-    <label>Justificativa (mínimo 20 caracteres)<input name="reason" minlength="20" maxlength="500" required placeholder="Motivo da moderação"></label>
     <button class="text-button" type="submit">${hidden ? "Restaurar conteúdo" : "Ocultar conteúdo"}</button>
+    <button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}">Excluir definitivamente</button>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
 }
 
@@ -155,6 +157,13 @@ function itemMarkup(resourceType, item) {
   if (resourceType === "post_media") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.kind)} · ${escapeHtml(item.mime_type)}</strong><span>${escapeHtml(String(Math.ceil(item.byte_size / 1024)))} KiB</span></div>
       ${mediaMarkup(item)}<p>${escapeHtml(item.post?.body || "")}</p><small>Mídia UUID: ${escapeHtml(item.id)} · Post UUID: ${escapeHtml(item.post_id)}</small></article>`;
+  }
+  if (resourceType === "stories") {
+    const media = (item.media || []).map(mediaMarkup).join("");
+    return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")} · Story</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body || "")}</p>${media ? `<div class="admin-media-grid">${media}</div>` : ""}${moderationFormMarkup("story", item.id, item.moderated)}<small>Story UUID: ${escapeHtml(item.id)}</small></article>`;
+  }
+  if (resourceType === "community_gallery_media") {
+    return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.file_name)} · ${escapeHtml(item.kind)}</strong><span>@${escapeHtml(item.owner?.username || "perfil restrito")}</span></div>${mediaMarkup(item)}${moderationFormMarkup("community_gallery_media", item.id, item.moderated)}<p>${escapeHtml(item.caption || "")}</p><small>Mídia UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "archived_cards") {
     const recipient = item.recipient?.display_name || item.recipient?.username || "Perfil";
@@ -425,35 +434,50 @@ export function bindAdminEvents(root, client) {
     const form = event.target.closest("[data-moderate-content]");
     if (!form || !client) return;
     event.preventDefault();
-    const reason = String(form.elements.reason?.value || "").trim();
-    if (reason.length < 20 || reason.length > 500) {
-      setStatus(form, "A justificativa deve conter de 20 a 500 caracteres.", "error");
-      return;
-    }
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
     setStatus(form, "Registrando moderação…", "info");
     try {
       const { data, error } = await invokeAdmin({
-        action: "moderate_content", resourceType: "posts", purpose: reason,
+        action: "moderate_content", resourceType: form.dataset.contentType || "posts",
         contentType: form.dataset.contentType, contentId: form.dataset.contentId,
-        hidden: form.dataset.hidden !== "true", reason
+        hidden: form.dataset.hidden !== "true"
       });
       if (error) throw error;
       setStatus(form, data?.hidden ? "Conteúdo ocultado e ação auditada." : "Conteúdo restaurado e ação auditada.");
       const readForm = root.querySelector("[data-admin-read]");
       if (readForm) {
         const readPurpose = readForm.querySelector('[name="purpose"]');
-        if (readPurpose && !String(readPurpose.value || "").trim()) readPurpose.value = reason;
         readForm.requestSubmit();
       }
     } catch (error) {
-      setStatus(form, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível moderar o conteúdo. Confira a sessão e tente novamente.", "error");
+        setStatus(form, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível moderar o conteúdo. Confira a sessão e tente novamente.", "error");
       if (button) button.disabled = false;
     }
   });
 
   root.addEventListener("click", async (event) => {
+    const deleteContent = event.target.closest("[data-delete-content]");
+    if (deleteContent && client) {
+      deleteContent.disabled = true;
+      try {
+        const { data, error } = await invokeAdmin({
+          action: "delete_content",
+          contentType: deleteContent.dataset.contentType,
+          contentId: deleteContent.dataset.contentId,
+          confirmDelete: true
+        });
+        if (error) throw error;
+        if (data?.deleted !== true) throw new Error("delete_not_confirmed");
+        deleteContent.closest(".admin-record")?.remove();
+      } catch (error) {
+        console.error("Looply administrative content deletion failed", error);
+        deleteContent.disabled = false;
+        const record = deleteContent.closest(".admin-record");
+        if (record) setStatus(record, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou." : "A exclusão não foi confirmada pelo servidor.", "error");
+      }
+      return;
+    }
     const refreshUsers = event.target.closest("[data-users-refresh]");
     if (refreshUsers && client) {
       await loadUsers();

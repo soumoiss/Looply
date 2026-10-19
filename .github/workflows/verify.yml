@@ -42,6 +42,12 @@ jobs:
           node --check src/login.js
           node --check src/theme.js
           node --check src/youtube-playlist.js
+          node --check src/admin-mode.js
+          node --check src/web-push.js
+          node --check src/service-worker.js
+          node --check src/notification-bus.js
+          node --check src/pagination.js
+          node --check src/media-urls.js
           node --check assets/js/admin.js
           node --check assets/js/chat.js
           node --check assets/js/conversation.js
@@ -60,6 +66,8 @@ jobs:
           deno check --no-lock --config supabase/functions/looply-login/deno.json supabase/functions/looply-login/index.ts
           deno check --no-lock --config supabase/functions/looply-chat/deno.json supabase/functions/looply-chat/index.ts
           deno check --no-lock --config supabase/functions/looply-stories-cleanup/deno.json supabase/functions/looply-stories-cleanup/index.ts
+          deno check --no-lock --config supabase/functions/looply-push/deno.json supabase/functions/looply-push/index.ts
+          deno check --no-lock --config supabase/functions/looply-admin/deno.json supabase/functions/looply-admin/index.ts
       - name: Build static site
         run: npm run build
       - name: Run security contract tests

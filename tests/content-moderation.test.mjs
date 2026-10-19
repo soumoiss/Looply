@@ -24,7 +24,8 @@ test("moderation actions require protected admin session and audit interventions
   assert.match(edge, /moderation_completed/);
   assert.match(edge, /moderation_failed/);
   assert.match(edge, /post: "posts"[\s\S]*comment: "comments"[\s\S]*archive_media: "archive_media"[\s\S]*archive_media_comment: "archive_media_comments"[\s\S]*music_page_comment: "music_page_comments"/);
-  assert.match(edge, /reason.length < 20/);
+  assert.match(edge, /suppliedReason.length > 500/);
+  assert.match(edge, /adminAuditPurpose\(action, contentType\)/);
 });
 
 test("moderation controls are available for posts and comments", async () => {

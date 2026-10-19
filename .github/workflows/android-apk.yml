@@ -3,6 +3,7 @@ name: Build Looply Android APK
 on:
   push:
     branches:
+      - main
       - codex/android-3.0.1
     paths:
       - "android/**"

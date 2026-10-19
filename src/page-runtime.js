@@ -6,6 +6,7 @@ import { setupGlobalCallListener } from "./global-call-listener.js";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { notificationBus } from "./notification-bus.js";
+import { bindAdminModeSync } from "./admin-mode.js";
 
 const navigation = [
   ["home", "Início", "home.html"],
@@ -52,7 +53,7 @@ function headerMarkup(page, profile, admin, unreadCount) {
   const settingsCurrent = page === "settings" ? " aria-current=\"page\"" : "";
   const usersCurrent = page === "users" ? " aria-current=\"page\"" : "";
   const adminCurrent = page === "admin" ? " aria-current=\"page\"" : "";
-  const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">${icon("user")}Meu perfil</a><a class="account-menu-link"${usersCurrent} href="usuarios.html">${icon("users")}Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">${icon("settings")}Configurações</a>${admin ? `<a class="account-menu-link"${adminCurrent} href="admin.html">${icon("shield")}Administração</a>` : ""}`;
+  const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">${icon("user")}Meu perfil</a><a class="account-menu-link"${usersCurrent} href="usuarios.html">${icon("users")}Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">${icon("settings")}Configurações</a>${admin ? `<button class="account-menu-link admin-mode-toggle" type="button" data-admin-mode-toggle aria-pressed="false">Ativar ADM</button><a class="account-menu-link"${adminCurrent} href="admin.html">${icon("shield")}Administração</a>` : ""}`;
   return `${page === "home" ? "" : `<a class="header-action header-back-button" href="home.html" data-page-back aria-label="Voltar para o início" title="Voltar para o início"><span aria-hidden="true">${navigationIcons.back}</span><span class="back-label">Início</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav>
     <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">${icon("menu")}</span></summary>
@@ -183,6 +184,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
+  const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
@@ -244,6 +246,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
+    stopAdminModeSync();
   }, { once: true });
 }
 
