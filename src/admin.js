@@ -52,7 +52,7 @@ export function adminMarkup(profile = {}) {
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
       <form class="admin-broadcast-form" data-user-invite>
-        <h4>Ou enviar convite por e-mail</h4>
+        <h4>Convidar novo usuário comum — por convite</h4>
         <div class="field"><label for="adminInviteUsername">Nome de usuário para login</label><input id="adminInviteUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva"><small>3–30 letras, números ou sublinhados. O nome será convertido para minúsculas.</small></div>
         <div class="field"><label for="adminInviteEmail">E-mail para receber o convite</label><input id="adminInviteEmail" name="email" type="email" maxlength="254" autocomplete="email" required placeholder="pessoa@exemplo.com"></div>
         <div class="field"><label for="adminInviteDisplayName">Nome de exibição</label><input id="adminInviteDisplayName" name="displayName" maxlength="80" required></div>
