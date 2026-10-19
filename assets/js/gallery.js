@@ -95,7 +95,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const list = people.filter(p => !q || [p.display_name,p.username].some(v => String(v || "").toLocaleLowerCase("pt-BR").includes(q)));
     return list.map(p => '<button type="button" class="gallery-tool" data-comment-username="' + esc(p.username) + '">@' + esc(p.username) + ' <small>' + esc(p.display_name || p.username) + '</small></button>').join("") || '<p class="gallery-empty-small">Nenhuma pessoa encontrada.</p>';
   };
-  const chosen = selector => $(selector + " input[type=checkbox]:checked").map(el => el.value);
+  const chosen = selector => $$(selector + " input[type=checkbox]:checked").map(el => el.value);
   const syncUserLists = () => {
     const mentionQuery = $("[data-user-search]").value || "";
     const recipientQuery = $("[data-recipient-search]").value || "";
