@@ -110,7 +110,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const load = async (reset = false) => {
     if (loading) return;
     loading = true;
-    if (reset) { loadPage = 0; hasMore = true; items = []; say("Carregando mídias…"); }
+    if (reset) { loadPage = 0; hasMore = true; items = []; privateKeys.clear(); say("Carregando mídias…"); }
     try {
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
@@ -134,7 +134,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       $("[data-album-select]").innerHTML = '<option value="">Selecione um álbum</option>' + albums.map(a=>'<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join("");
       if(albums.some(a=>a.id===previousAlbum))$("[data-album-select]").value=previousAlbum;
       const fresh = [
-        ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.source_date || x.created_at, owner_id:null})),
+        ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.created_at, owner_id:null})),
         ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
       const descArchiveIds = fresh.filter(x=>x.source==="archive").map(x=>x.id);
@@ -457,7 +457,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-open-people-filter]").addEventListener("click",()=>{$("[data-people-modal]").hidden=false;syncUserLists();});
   $("[data-close-people]").addEventListener("click",()=>{$("[data-people-modal]").hidden=true;});
   $("[data-clear-people]").addEventListener("click",()=>{filterPeople.clear();syncUserLists();});
-  $("[data-apply-people]").addEventListener("click",()=>{filterPeople=new Set(chosen("[data-filter-users]"));matchAny=$("[data-match-any]").checked;$("[data-people-modal]").hidden=true;draw();});
+  $("[data-apply-people]").addEventListener("click",()=>{matchAny=$("[data-match-any]").checked;$("[data-people-modal]").hidden=true;draw();});
   $("[data-close-viewer]").addEventListener("click",closeViewer);
   $("[data-toggle-menu]").addEventListener("click",()=>{$("[data-context-menu]").hidden=!$("[data-context-menu]").hidden;});
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
