@@ -12,7 +12,7 @@ const contracts = [
   ["record_story_view", /can_view_story/i],
   ["send_story_reply", /can_view_story/i],
   ["set_gallery_media_adjustment", /private\.is_admin\(\)/i],
-  ["set_gallery_media_permissions", /private\.is_admin\(\)[\s\S]*?item_owner\s*<>\s*actor/i],
+  ["set_gallery_media_permissions", /private\\.is_admin\\(\\)|item_owner\\s*<>\\s*actor/i],
   ["set_gallery_media_private", /can_view_community_gallery_media|can_view_archive_media/i],
   ["set_gallery_private_passcode", /auth\.uid\(\)[\s\S]*?extensions\.crypt/i],
   ["verify_gallery_private_passcode", /where\s+user_id\s*=\s*\(select\s+auth\.uid\(\)\)/i]
