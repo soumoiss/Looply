@@ -181,7 +181,6 @@ export function setupChatEnhancements(root, client, userId) {
       if (home && topHeading.firstElementChild !== home) topHeading.prepend(home);
     }
     applyWallpaper();
-    applyFilters();
   };
   const renderSettings = (conversationOnly = false) => {
     settingsScope = conversationOnly ? selectedConversation() : "*";
@@ -213,13 +212,14 @@ export function setupChatEnhancements(root, client, userId) {
     });
     const noMatches = root.querySelector("[data-chat-no-matches]");
     if (noMatches) {
-      noMatches.textContent = activeFilter === "favorites"
+      const emptyMessage = activeFilter === "favorites"
         ? "Nenhuma conversa favorita. Toque na estrela de uma conversa para favoritar."
         : activeFilter === "groups"
           ? "Nenhum grupo encontrado."
           : activeFilter === "unread"
             ? "Nenhuma mensagem não lida."
             : "Nenhuma conversa corresponde ao filtro.";
+      if (noMatches.textContent !== emptyMessage) noMatches.textContent = emptyMessage;
       noMatches.hidden = !items.length || visible > 0;
     }
   };
@@ -331,4 +331,5 @@ export function setupChatEnhancements(root, client, userId) {
   observer.observe(root, { childList: true, subtree: true });
   window.addEventListener("pagehide", () => { observer.disconnect(); closeChannel(); }, { once: true });
   renderTools();
+  applyFilters();
 }
