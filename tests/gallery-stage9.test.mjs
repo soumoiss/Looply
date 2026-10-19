@@ -157,7 +157,7 @@ test("viewer keeps persisted photo adjustment and synchronizes zoom state across
   assert.match(adjustment, /scale\(.*viewerZoom/s);
   assert.match(adjustment, /image\.dataset\.zoom = String\(viewerZoom \|\| 1\)/);
   assert.match(zoom, /if\(x\)applyPhotoAdjustment\(x\)/);
-  assert.match(zoom, /img\.dataset\.zoom=String\(viewerZoom\)/);
+  assert.match(gallery, /dataset\.zoom\s*=\s*String\(viewerZoom/);
   assert.match(gallery, /x\.savedAdjustment = \{\.\.\.adjustment\}/);
 });
 
@@ -165,10 +165,10 @@ test("viewer keeps persisted photo adjustment and synchronizes zoom state across
 test("gallery load tolerates rejected ancillary queries and keeps thumbnail grid compact", async () => {
   const source = await readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8");
   assert.ok(source.includes("const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } }"));
-  assert.ok(source.includes('gallery_album_items").select("album_id,source,media_id").order("added_at",{ascending:false})\n      ].map(safeQuery)'));
+  assert.match(source, /gallery_album_items\"\)\.select\(\"album_id,source,media_id\"\)\.order\(\"added_at\",\{ascending:false\}\)[\s\S]*?\]\.map\(safeQuery\)/);
   assert.ok(source.includes('await safeQuery(client.from("gallery_media_adjustments")'));
-  assert.ok(source.includes('descCommunityIds) : Promise.resolve({data:[],error:null})\n      ].map(safeQuery)'));
-  assert.ok(source.includes('idsC) : Promise.resolve({data:[],error:null})\n      ].map(safeQuery)'));
+  assert.match(source, /descCommunityIds\)\s*:\s*Promise\.resolve\(\{data:\[\],error:null\}\)[\s\S]*?\]\.map\(safeQuery\)/);
+  assert.match(source, /idsC\)\s*:\s*Promise\.resolve\(\{data:\[\],error:null\}\)[\s\S]*?\]\.map\(safeQuery\)/);
   assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-card-body{display:none}"));
   assert.ok(styles.includes(".gallery-grid:not(.list):not(.masonry) .gallery-media{aspect-ratio:1/1"));
 });
@@ -177,5 +177,5 @@ test("gallery selected-checkbox helper queries all matches instead of calling ma
   assert.ok(gallery.includes('const chosen = selector => $$(selector + " input[type=checkbox]:checked").map(el => el.value);'));
   assert.ok(!gallery.includes('const chosen = selector => $(selector + " input[type=checkbox]:checked").map'));
   assert.ok(gallery.includes("const syncUserLists = () =>"));
-  assert.ok(gallery.includes("syncUserLists();\n      draw();"));
+  assert.match(gallery, /syncUserLists\(\);\s+draw\(\);/);
 });

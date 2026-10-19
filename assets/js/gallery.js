@@ -1,5 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { icon } from "../../src/icons.js";
+import { createGalleryGestureController } from "./gallery-gestures.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const dateLabel = value => {
@@ -23,7 +24,8 @@ const galleryMarkup = () => [
   '<div class="gallery-hero"><h1 class="gallery-title">Galeria</h1><button class="gallery-primary" type="button" data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia">', icon("plus"), '</button></div>',
   '<div class="gallery-main-controls" aria-label="Navegação e filtros da galeria">',
     '<div class="gallery-primary-tabs"><button class="gallery-tab active" type="button" data-main="recentes" aria-label="Recentes" title="Recentes">', icon("refresh"), '<span>Recentes</span></button><button class="gallery-tab" type="button" data-main="privadas" aria-label="Privadas" title="Privadas">', icon("lock"), '<span>Privadas</span></button><button class="gallery-tab" type="button" data-main="exclusivos" aria-label="Exclusivos" title="Exclusivos">', icon("shield"), '<span>Exclusivos</span></button><button class="gallery-tab gallery-filter-toggle" type="button" data-toggle-filters aria-expanded="false" aria-controls="galleryFilterPanel">', icon("filter"), '<span>Filtros</span></button><div class="gallery-page-more-wrap"><button class="gallery-tab gallery-page-more-toggle" type="button" data-toggle-page-menu aria-expanded="false" aria-label="Mais ações da galeria" title="Mais ações">', icon("more"), '</button><div class="gallery-page-more-menu" data-page-menu hidden><button type="button" data-main="favoritos" aria-label="Favoritos">', icon("star"), '<span>Favoritos</span></button><button type="button" data-open-people-filter>', icon("users"), '<span>Filtrar por pessoas</span></button><button type="button" data-shuffle>', icon("sync"), '<span>Embaralhar mídias</span></button><button type="button" data-create-album>', icon("plus"), '<span>Criar álbum</span></button></div></div></div>',
-    '<div class="gallery-filter-panel" id="galleryFilterPanel" data-filter-panel hidden>',
+    '<div class="gallery-filter-panel gallery-filter-sheet" id="galleryFilterPanel" data-filter-panel data-filter-sheet role="dialog" aria-modal="true" aria-labelledby="galleryFilterTitle" hidden>',
+      '<h2 id="galleryFilterTitle" class="gallery-filter-sheet-title">Filtros</h2>',
       '<label class="gallery-select-label">', icon("filter"), '<span>Tipo</span><select data-title-filter aria-label="Filtrar por formato"><option value="all">Todos</option><option value="image">Fotos</option><option value="video">Vídeos</option><option value="album">Álbuns</option><option value="audio">Áudios</option></select></label>',
       '<div class="gallery-filter-group" aria-label="Tipo de mídia"><button class="gallery-chip active" type="button" data-kind="all">Todas</button><button class="gallery-chip" type="button" data-kind="image">Fotos</button><button class="gallery-chip" type="button" data-kind="video">Vídeos</button><button class="gallery-chip" type="button" data-comments-filter aria-label="Filtrar mídias com comentários" title="Com comentários" aria-pressed="false">', icon("comment"), '<span>Com comentários</span></button></div>',
 
@@ -77,7 +79,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
-  let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false, signedUrlFailures = 0;
+  let activeKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false, signedUrlFailures = 0;
+  let gestureController = null;
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
   const peopleMap = new Map();
   const usersHtml = (selected = new Set(), query = "") => {
@@ -314,7 +317,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const author = x.owner?.display_name || x.owner?.username || "Galeria compartilhada";
       const privateIcon = x.isPrivate ? '<span class="gallery-private-indicator" title="Na sua pasta privada" aria-label="Na sua pasta privada">' + icon("lock") + '</span>' : "";
       const exclusiveIcon = x.visibility === "exclusive" ? '<span class="gallery-private-indicator" title="Mídia exclusiva" aria-label="Mídia exclusiva">' + icon("shield") + '</span>' : "";
-      return '<article class="gallery-card" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
+      return '<article class="gallery-card" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" class="gallery-comment-button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + (x.hasComments ? '<span class="gallery-comment-dot" aria-label="Há comentários" title="Há comentários"></span>' : '') + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
     }).join("") : '<div class="gallery-empty">' + (main === "privadas" ? "Sua pasta privada ainda não tem mídias." : "Nenhuma mídia encontrada. Ajuste os filtros ou adicione uma lembrança.") + '</div>';
     observePreviewSlots();
     $$(".gallery-tab[data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === main));
@@ -327,7 +330,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const x = getItem(key);
     if (!x) return;
     activeKey = key;
-    viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; pointers.clear(); pinchState = null; dragState = null; swipeStart = null;
+    viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; gestureController?.reset();
     const type = mediaType(x);
     const viewer = $("[data-viewer]");
     const mediaHost = $("[data-viewer-media]");
@@ -405,7 +408,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     hideSheet($("[data-action-sheet]"));
     $("[data-viewer]").hidden = true;
     document.body.classList.remove("gallery-viewer-open");
-    activeKey = null; viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; pointers.clear(); pinchState = null; dragState = null; swipeStart = null;
+    activeKey = null; viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; gestureController?.reset();
+    const trigger = viewerTrigger;
+    viewerTrigger = null;
+    trigger?.focus();
   };
   const revealSheet = sheet => { sheet.hidden = false; requestAnimationFrame(() => sheet.classList.add("is-open")); };
   const hideSheet = sheet => { if (!sheet || sheet.hidden) return; sheet.classList.remove("is-open"); window.setTimeout(() => { if (!sheet.classList.contains("is-open")) sheet.hidden = true; }, 220); };
@@ -666,7 +672,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   ["[data-mention-users]","[data-recipient-users]","[data-filter-users]","[data-comment-recipients]","[data-tag-users]","[data-access-users]"].forEach(sel=>$(sel).addEventListener("change",e=>{const input=e.target.closest('input[type="checkbox"]');if(!input)return;const set=sel==="[data-mention-users]"?selectedPeople:sel==="[data-recipient-users]"?selectedRecipients:sel==="[data-filter-users]"?filterPeople:sel==="[data-tag-users]"?selectedTagPeople:sel==="[data-access-users]"?selectedAccessRecipients:null;if(set){if(input.checked)set.add(input.value);else set.delete(input.value);}}));
   $("[data-title-filter]").addEventListener("change",e=>{kind=e.target.value;if(kind!=="album")activeAlbumId=null;draw();});
   $("[data-search]").addEventListener("input",draw);
-  $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");panel.hidden=!panel.hidden;$("[data-toggle-filters]").setAttribute("aria-expanded",String(!panel.hidden));});
+  $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");panel.hidden=!panel.hidden;panel.classList.toggle("is-open",!panel.hidden);$("[data-toggle-filters]").setAttribute("aria-expanded",String(!panel.hidden));if(!panel.hidden)panel.querySelector("select,button")?.focus();});
   $("[data-toggle-page-menu]").addEventListener("click",()=>{const menu=$("[data-page-menu]");menu.hidden=!menu.hidden;$("[data-toggle-page-menu]").setAttribute("aria-expanded",String(!menu.hidden));});
   $$("[data-page-menu] button").forEach(button=>button.addEventListener("click",()=>{$("[data-page-menu]").hidden=true;$("[data-toggle-page-menu]").setAttribute("aria-expanded","false");}));
   $("[data-action-details]").addEventListener("click",()=>{const details=$("[data-viewer-details]");details.hidden=!details.hidden;$("[data-action-details]").setAttribute("aria-expanded",String(!details.hidden));});
@@ -771,90 +777,60 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     draw();
   });
   grid.addEventListener("click",async e=>{const openAlbum=e.target.closest("[data-open-album]");const deleteAlbum=e.target.closest("[data-delete-album]");const add=e.target.closest("[data-album-add]");const remove=e.target.closest("[data-album-remove]");if(openAlbum){activeAlbumId=openAlbum.dataset.openAlbum;kind="album";$("[data-title-filter]").value="album";draw();return;}if(deleteAlbum){const album=albums.find(a=>a.id===deleteAlbum.dataset.deleteAlbum);if(!album||!confirm('Excluir o álbum "'+album.name+'"? As mídias originais não serão apagadas.'))return;const {error}=await client.from("gallery_albums").delete().eq("id",album.id).eq("owner_id",user.id);if(error){say("Não foi possível excluir o álbum.");return;}albums=albums.filter(a=>a.id!==album.id);albumItemKeys.delete(album.id);if(activeAlbumId===album.id)activeAlbumId=null;draw();say("Álbum excluído; as mídias originais foram preservadas.");return;}if(add){const albumId=$("[data-album-select]").value;if(!albumId){say("Selecione um álbum na barra de álbuns antes de adicionar mídia.");return;}const x=getItem(add.dataset.albumAdd);if(!x)return;const {error}=await client.from("gallery_album_items").upsert({album_id:albumId,source:x.source,media_id:x.id},{onConflict:"album_id,source,media_id"});if(error){say("Não foi possível adicionar esta mídia ao álbum.");return;}if(!albumItemKeys.has(albumId))albumItemKeys.set(albumId,new Set());albumItemKeys.get(albumId).add(mediaKey(x));draw();say("Mídia adicionada ao álbum.");return;}if(remove&&activeAlbumId){const x=getItem(remove.dataset.albumRemove);if(!x)return;const {error}=await client.from("gallery_album_items").delete().eq("album_id",activeAlbumId).eq("source",x.source).eq("media_id",x.id);if(error){say("Não foi possível remover a mídia do álbum.");return;}albumItemKeys.get(activeAlbumId)?.delete(mediaKey(x));draw();say("Mídia removida do álbum; o arquivo original foi preservado.");return;}});
-  grid.addEventListener("click",async e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const like=e.target.closest("[data-like]");const del=e.target.closest("[data-admin-delete]");if(open){openViewer(open.dataset.openMedia);return;}if(comments){openComments(comments.dataset.comments);return;}if(privateButton){togglePrivate(privateButton.dataset.togglePrivate);return;}if(del){deleteMedia(del.dataset.adminDelete);return;}if(like){const x=getItem(like.dataset.like);if(!x)return;const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";like.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}draw();say(x.likedByMe?"Curtida registrada.":"Curtida removida.");}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{like.disabled=false;}}});
+  grid.addEventListener("click",async e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const like=e.target.closest("[data-like]");const del=e.target.closest("[data-admin-delete]");if(open){viewerTrigger=open;openViewer(open.dataset.openMedia);return;}if(comments){openComments(comments.dataset.comments);return;}if(privateButton){togglePrivate(privateButton.dataset.togglePrivate);return;}if(del){deleteMedia(del.dataset.adminDelete);return;}if(like){const x=getItem(like.dataset.like);if(!x)return;const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";like.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}draw();say(x.likedByMe?"Curtida registrada.":"Curtida removida.");}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{like.disabled=false;}}});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)hideSheet($("[data-comments-modal]"));else if(!$("[data-action-sheet]").hidden)hideSheet($("[data-action-sheet]"));else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>0)openViewer(mediaKey(list[index-1]));}if(!$("[data-viewer]").hidden&&e.key==="ArrowRight"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)hideSheet($("[data-comments-modal]"));else if(!$("[data-action-sheet]").hidden)hideSheet($("[data-action-sheet]"));else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-filter-panel]").hidden){$("[data-filter-panel]").hidden=true;$("[data-filter-panel]").classList.remove("is-open");$("[data-toggle-filters]").setAttribute("aria-expanded","false");}else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>0)openViewer(mediaKey(list[index-1]));}if(!$("[data-viewer]").hidden&&e.key==="ArrowRight"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));}});
   let viewerZoom = 1, viewerPanX = 0, viewerPanY = 0;
-  const pointers = new Map();
-  let pinchState = null, dragState = null, swipeStart = null;
-  const clampPan = () => {
-    const host = $("[data-viewer-media]"), img = host.querySelector("img");
-    if (!img || viewerZoom <= 1) { viewerPanX = 0; viewerPanY = 0; return; }
-    const rect = host.getBoundingClientRect();
-    const imageWidth = img.offsetWidth || rect.width;
-    const imageHeight = img.offsetHeight || rect.height;
-    const maxX = Math.max(0, (imageWidth * viewerZoom - rect.width) / 2);
-    const maxY = Math.max(0, (imageHeight * viewerZoom - rect.height) / 2);
-    viewerPanX = Math.max(-maxX, Math.min(maxX, viewerPanX));
-    viewerPanY = Math.max(-maxY, Math.min(maxY, viewerPanY));
+  const viewerMedia = $("[data-viewer-media]");
+  gestureController = createGalleryGestureController({
+    getBounds: () => {
+      const image = viewerMedia.querySelector("img");
+      const rect = viewerMedia.getBoundingClientRect();
+      return {
+        stageWidth: rect.width,
+        stageHeight: rect.height,
+        mediaWidth: image?.offsetWidth || rect.width,
+        mediaHeight: image?.offsetHeight || rect.height
+      };
+    }
+  });
+  const syncGestureState = () => {
+    const next = gestureController.getTransform();
+    viewerZoom = next.scale;
+    viewerPanX = next.x;
+    viewerPanY = next.y;
+    const x = getItem(activeKey);
+    if (x) applyPhotoAdjustment(x);
+    return gestureController.getState();
   };
   const setZoom = (next, focalX = 0, focalY = 0) => {
     if (!$("[data-viewer-media] img")) return;
-    const previous = viewerZoom;
-    viewerZoom = Math.min(5, Math.max(1, next));
-    if (viewerZoom <= 1) { viewerPanX = 0; viewerPanY = 0; }
-    else if (previous > 0) {
-      viewerPanX = focalX - (focalX - viewerPanX) * (viewerZoom / previous);
-      viewerPanY = focalY - (focalY - viewerPanY) * (viewerZoom / previous);
-    }
-    clampPan();
-    const img = $("[data-viewer-media] img");
-    if (img) img.dataset.zoom=String(viewerZoom);
-    const x = getItem(activeKey);
-    if (x) applyPhotoAdjustment(x);
+    gestureController.setScale(next, focalX, focalY);
+    syncGestureState();
+    const x = getItem(activeKey); if(x)applyPhotoAdjustment(x);
   };
-  const viewerMedia = $("[data-viewer-media]");
   viewerMedia.addEventListener("pointerdown", e => {
     if (!$("[data-viewer-media] img")) return;
     viewerMedia.setPointerCapture?.(e.pointerId);
-    pointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
-    if (pointers.size === 2) {
-      const pair = [...pointers.values()];
-      const rect = viewerMedia.getBoundingClientRect();
-      const cx = (pair[0].x + pair[1].x) / 2, cy = (pair[0].y + pair[1].y) / 2;
-      pinchState = {distance:Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y),zoom:viewerZoom,panX:viewerPanX,panY:viewerPanY,focalX:cx-rect.left-rect.width/2,focalY:cy-rect.top-rect.height/2};
-      dragState = null; swipeStart = null;
-    } else if (pointers.size === 1) {
-      const point = pointers.get(e.pointerId);
-      dragState = {x:point.x,y:point.y,panX:viewerPanX,panY:viewerPanY};
-      swipeStart = {x:point.x,y:point.y};
-    }
+    gestureController.beginPointer(e.pointerId, e.clientX, e.clientY);
   });
   viewerMedia.addEventListener("pointermove", e => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if (pointers.size >= 2 && pinchState) {
-      e.preventDefault();
-      const pair = [...pointers.values()].slice(0,2);
-      const distance = Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y);
-      viewerZoom = Math.min(5,Math.max(1,pinchState.zoom * distance / Math.max(1,pinchState.distance)));
-      viewerPanX = pinchState.focalX - (pinchState.focalX - pinchState.panX) * (viewerZoom / pinchState.zoom);
-      viewerPanY = pinchState.focalY - (pinchState.focalY - pinchState.panY) * (viewerZoom / pinchState.zoom);
-      clampPan(); const x=getItem(activeKey); if(x)applyPhotoAdjustment(x);
-    } else if (pointers.size === 1 && viewerZoom > 1 && dragState) {
-      e.preventDefault();
-      viewerPanX = dragState.panX + e.clientX - dragState.x;
-      viewerPanY = dragState.panY + e.clientY - dragState.y;
-      clampPan(); const x=getItem(activeKey); if(x)applyPhotoAdjustment(x);
-    }
+    const before = gestureController.getState();
+    if (before.mode === "pinch" || before.mode === "pan") e.preventDefault();
+    gestureController.movePointer(e.pointerId, e.clientX, e.clientY);
+    syncGestureState();
   });
   const endPointer = e => {
-    const point = pointers.get(e.pointerId);
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinchState = null;
-    if (pointers.size === 1) {
-      const remaining = [...pointers.values()][0];
-      dragState = {x:remaining.x,y:remaining.y,panX:viewerPanX,panY:viewerPanY};
-    } else dragState = null;
-    if (point && swipeStart && viewerZoom <= 1.02 && pointers.size === 0) {
-      const dx = point.x - swipeStart.x;
+    const state = gestureController.endPointer(e.pointerId);
+    syncGestureState();
+    if (state.swipeX && viewerZoom <= 1.02) {
+      const dx = state.swipeX;
       if (Math.abs(dx) > 75) {
         const list = visible(), index = list.findIndex(item => mediaKey(item) === activeKey);
         if (dx < 0 && index >= 0 && index < list.length-1) openViewer(mediaKey(list[index+1]));
         else if (dx > 0 && index > 0) openViewer(mediaKey(list[index-1]));
       }
     }
-    if (!pointers.size) swipeStart = null;
   };
   viewerMedia.addEventListener("pointerup",endPointer);
   viewerMedia.addEventListener("pointercancel",endPointer);
