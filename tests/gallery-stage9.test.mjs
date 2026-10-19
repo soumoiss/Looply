@@ -107,3 +107,22 @@ test("gallery binds multi-control groups with querySelectorAll instead of queryS
     assert.ok(!lines.some(line => line.startsWith(singleQuery)), "Single-element query used for " + selector);
   }
 });
+
+
+test("Peixinho can rotate and reposition gallery photos with shared server persistence", () => {
+  const adjustmentMigration = readFile(new URL("../supabase/migrations/20261019042000_gallery_admin_photo_adjustments.sql", import.meta.url), "utf8");
+  return adjustmentMigration.then(sql => {
+    assert.match(gallery, /data-open-photo-adjust/);
+    assert.match(gallery, /data-rotate-left/);
+    assert.match(gallery, /data-rotate-right/);
+    assert.match(gallery, /data-position-x/);
+    assert.match(gallery, /data-position-y/);
+    assert.match(gallery, /set_gallery_media_adjustment/);
+    assert.match(sql, /private\.is_admin\(\)/);
+    assert.match(sql, /gallery_media_adjustments/);
+    assert.match(sql, /position_x between -20 and 20/);
+    assert.match(sql, /position_y between -20 and 20/);
+    assert.match(styles, /gallery-photo-adjust/);
+    assert.match(styles, /gallery-control-text/);
+  });
+});
