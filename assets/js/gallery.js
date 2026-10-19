@@ -39,6 +39,7 @@ const galleryMarkup = () => [
   '<div class="gallery-filters" aria-label="Filtros de mídia">',
     '<button class="gallery-chip active" type="button" data-kind="all">Todas</button><button class="gallery-chip" type="button" data-kind="video">Vídeos</button><button class="gallery-chip" type="button" data-kind="image">Fotos</button><button class="gallery-chip" type="button" data-comments-filter aria-pressed="false">', icon("comment"), ' Com comentários</button>',
   '</div>',
+  '<div class="gallery-album-toolbar" data-album-toolbar><label>Álbum <select data-album-select aria-label="Álbum selecionado"><option value="">Selecione um álbum</option></select></label><button class="gallery-tool" type="button" data-create-album>', icon("plus"), ' Criar álbum</button><button class="gallery-tool" type="button" data-back-albums hidden>Voltar aos álbuns</button></div>',
   '<p class="gallery-status" data-status role="status" aria-live="polite"></p><div class="gallery-count" data-count></div><div class="gallery-grid" data-grid aria-live="polite"></div>',
   '<div class="gallery-load-more-wrap"><button class="gallery-tool" type="button" data-load-more hidden>Carregar mais</button></div>',
 '</section>',
@@ -59,6 +60,7 @@ const galleryMarkup = () => [
   '</form>',
 '</section></div>',
 '<div class="gallery-modal" data-people-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="people-title"><div class="gallery-dialog-heading"><h2 id="people-title">Filtrar por pessoas</h2><button type="button" class="gallery-icon-button" data-close-people aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar <input type="search" data-filter-user-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-filter-users></div><label class="gallery-check-row"><input type="checkbox" data-match-any> Mostrar mídias com qualquer pessoa selecionada</label><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-clear-people>Limpar</button><button type="button" class="gallery-primary" data-apply-people>Aplicar filtros</button></div></section></div>',
+'<div class="gallery-modal" data-album-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="album-title"><div class="gallery-dialog-heading"><h2 id="album-title">Criar álbum</h2><button type="button" class="gallery-icon-button" data-close-album aria-label="Fechar">', icon("close"), '</button></div><form class="gallery-form" data-album-form><label>Nome do álbum <input name="name" maxlength="80" required placeholder="Ex.: Viagem de férias"></label><p class="gallery-status" data-album-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-album>Cancelar</button><button type="submit" class="gallery-primary">Criar álbum</button></div></form></section></div>',
 '<div class="gallery-modal" data-tags-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="tags-title"><div class="gallery-dialog-heading"><h2 id="tags-title">Adicionar menções</h2><button type="button" class="gallery-icon-button" data-close-tags aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar pessoas <input type="search" data-tag-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-tag-users></div><p class="gallery-status" data-tag-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-tags>Cancelar</button><button type="button" class="gallery-primary" data-save-tags>Salvar menções</button></div></section></div>',
 '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
   '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
@@ -75,7 +77,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
   const allowedMime = new Set(["image/jpeg","image/png","image/webp","image/heic","video/mp4","video/webm","audio/mpeg","audio/mp4","audio/ogg","audio/webm","audio/wav","audio/aac"]);
   const maxBytes = isAdmin ? 200 * 1024 * 1024 : 100 * 1024 * 1024;
-  let items = [], people = [], privateKeys = new Set(), selectedPeople = new Set(), filterPeople = new Set();
+  let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), filterPeople = new Set();
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
   let activeKey = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false;
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
@@ -111,18 +113,26 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     if (reset) { loadPage = 0; hasMore = true; items = []; say("Carregando mídias…"); }
     try {
       const start = loadPage * 50, end = start + 49;
-      const [a, c, p, tags, privateRows] = await Promise.all([
+      const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
         client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
         client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,created_at,comment_access,owner:profiles!community_gallery_media_owner_id_fkey(username,display_name)").order("created_at",{ascending:false}).range(start,end),
         client.from("profiles").select("id,username,display_name").order("display_name").limit(500),
         client.from("gallery_media_people").select("source,media_id,person_id"),
-        client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id)
+        client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),
+        client.from("gallery_albums").select("id,owner_id,name,created_at").eq("owner_id",user.id).order("created_at",{ascending:false}),
+        client.from("gallery_album_items").select("album_id,source,media_id").order("added_at",{ascending:false})
       ]);
       if (a.error && c.error) throw a.error;
       if (p.error) console.warn("Não foi possível carregar a lista de pessoas", p.error);
       people = p.data || people;
       people.forEach(person => peopleMap.set(person.id, person));
       (privateRows.data || []).forEach(row => privateKeys.add(row.source + ":" + row.media_id));
+      albums = albumsResult.data || albums;
+      albumItemKeys = new Map();
+      (albumItemsResult.data || []).forEach(row=>{if(!albumItemKeys.has(row.album_id))albumItemKeys.set(row.album_id,new Set());albumItemKeys.get(row.album_id).add(row.source+":"+row.media_id);});
+      const previousAlbum = $("[data-album-select]").value;
+      $("[data-album-select]").innerHTML = '<option value="">Selecione um álbum</option>' + albums.map(a=>'<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join("");
+      if(albums.some(a=>a.id===previousAlbum))$("[data-album-select]").value=previousAlbum;
       const fresh = [
         ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.source_date || x.created_at, owner_id:null})),
         ...(c.data || []).map(x => ({...x, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
@@ -433,11 +443,11 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-mention-all]").addEventListener("change",e=>{ $("[data-mention-users]").hidden=e.target.checked; });
   ["[data-user-search]","[data-recipient-search]","[data-filter-user-search]"].forEach(sel=>$(sel).addEventListener("input",syncUserLists));
   ["[data-mention-users]","[data-recipient-users]","[data-filter-users]","[data-comment-recipients]"].forEach(sel=>$(sel).addEventListener("change",()=>{ if(sel==="[data-mention-users]") selectedPeople=new Set(chosen(sel)); if(sel==="[data-filter-users]") filterPeople=new Set(chosen(sel)); }));
-  $("[data-title-filter]").addEventListener("change",e=>{kind=e.target.value;draw();});
+  $("[data-title-filter]").addEventListener("change",e=>{kind=e.target.value;if(kind!=="album")activeAlbumId=null;draw();});
   $("[data-search]").addEventListener("input",draw);
-  $$("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;draw();}));
+  $("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
   $$("[data-view]").forEach(b=>b.addEventListener("click",()=>{view=b.dataset.view;$$("[data-view]").forEach(v=>{v.classList.toggle("active",v===b);v.setAttribute("aria-pressed",String(v===b));});draw();}));
-  $$("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;shuffled=false;draw();}));
+  $("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;activeAlbumId=null;shuffled=false;draw();}));
   $("[data-shuffle]").addEventListener("click",()=>{shuffled=!shuffled;$("[data-shuffle]").classList.toggle("active",shuffled);draw();});
   $("[data-comments-filter]").addEventListener("click",()=>{commentsOnly=!commentsOnly;$("[data-comments-filter]").setAttribute("aria-pressed",String(commentsOnly));draw();});
   $("[data-open-people-filter]").addEventListener("click",()=>{$("[data-people-modal]").hidden=false;syncUserLists();});
@@ -462,6 +472,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-next]").addEventListener("click",()=>{const list=visible(),index=list.findIndex(x=>mediaKey(x)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));});
   $("[data-viewer-admin-delete]").addEventListener("click",()=>{if(activeKey)deleteMedia(activeKey);});
   $("[data-load-more]").addEventListener("click",()=>load(false));
+  $("[data-create-album]").addEventListener("click",()=>{$("[data-album-modal]").hidden=false;$("[data-album-status]").textContent="";});
+  $("[data-close-album]").forEach(b=>b.addEventListener("click",()=>$("[data-album-modal]").hidden=true));
+  $("[data-album-form]").addEventListener("submit",async e=>{e.preventDefault();const form=e.currentTarget;const name=String(new FormData(form).get("name")||"").trim();if(!name||name.length>80){say("O nome deve ter de 1 a 80 caracteres.",$("[data-album-status]"));return;}const button=form.querySelector('[type="submit"]');button.disabled=true;try{const {data,error}=await client.from("gallery_albums").insert({owner_id:user.id,name}).select("id,owner_id,name,created_at").single();if(error)throw error;albums.unshift(data);activeAlbumId=null;kind="album";$("[data-title-filter]").value="album";$("[data-album-select]").innerHTML='<option value="">Selecione um álbum</option>'+albums.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>').join("");$("[data-album-select]").value=data.id;form.reset();$("[data-album-modal]").hidden=true;draw();say("Álbum criado.");}catch(error){say("Não foi possível criar o álbum.",$("[data-album-status]"));}finally{button.disabled=false;}});
+  $("[data-back-albums]").addEventListener("click",()=>{activeAlbumId=null;kind="album";draw();});
+  $("[data-album-select]").addEventListener("change",()=>{});
+  grid.addEventListener("click",async e=>{const openAlbum=e.target.closest("[data-open-album]");const deleteAlbum=e.target.closest("[data-delete-album]");const add=e.target.closest("[data-album-add]");const remove=e.target.closest("[data-album-remove]");if(openAlbum){activeAlbumId=openAlbum.dataset.openAlbum;kind="album";$("[data-title-filter]").value="album";draw();return;}if(deleteAlbum){const album=albums.find(a=>a.id===deleteAlbum.dataset.deleteAlbum);if(!album||!confirm('Excluir o álbum "'+album.name+'"? As mídias originais não serão apagadas.'))return;const {error}=await client.from("gallery_albums").delete().eq("id",album.id).eq("owner_id",user.id);if(error){say("Não foi possível excluir o álbum.");return;}albums=albums.filter(a=>a.id!==album.id);albumItemKeys.delete(album.id);if(activeAlbumId===album.id)activeAlbumId=null;draw();say("Álbum excluído; as mídias originais foram preservadas.");return;}if(add){const albumId=$("[data-album-select]").value;if(!albumId){say("Selecione um álbum na barra de álbuns antes de adicionar mídia.");return;}const x=getItem(add.dataset.albumAdd);if(!x)return;const {error}=await client.from("gallery_album_items").upsert({album_id:albumId,source:x.source,media_id:x.id},{onConflict:"album_id,source,media_id"});if(error){say("Não foi possível adicionar esta mídia ao álbum.");return;}if(!albumItemKeys.has(albumId))albumItemKeys.set(albumId,new Set());albumItemKeys.get(albumId).add(mediaKey(x));draw();say("Mídia adicionada ao álbum.");return;}if(remove&&activeAlbumId){const x=getItem(remove.dataset.albumRemove);if(!x)return;const {error}=await client.from("gallery_album_items").delete().eq("album_id",activeAlbumId).eq("source",x.source).eq("media_id",x.id);if(error){say("Não foi possível remover a mídia do álbum.");return;}albumItemKeys.get(activeAlbumId)?.delete(mediaKey(x));draw();say("Mídia removida do álbum; o arquivo original foi preservado.");return;}});
   grid.addEventListener("click",e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const del=e.target.closest("[data-admin-delete]");if(open)openViewer(open.dataset.openMedia);else if(comments){activeKey=comments.dataset.comments;loadComments();}else if(privateButton)togglePrivate(privateButton.dataset.togglePrivate);else if(del)deleteMedia(del.dataset.adminDelete);});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)$("[data-comments-modal]").hidden=true;else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft")$("[data-previous]").click();if(!$("[data-viewer]").hidden&&e.key==="ArrowRight")$("[data-next]").click();});
