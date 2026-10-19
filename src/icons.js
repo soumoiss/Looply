@@ -36,6 +36,7 @@ const paths = Object.freeze({
   pause: '<path d="M8 5h3v14H8zM15 5h3v14h-3z" fill="currentColor" stroke="none"/>',
   phone: '<path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 3a14 14 0 0 1-6-6l3-2z"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
   camera: '<path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/>',
   cameraOff: '<path d="M3 3 21 21M4 7h3l2-3h6l2 3h3v13H7"/><circle cx="12" cy="13" r="3"/>',
   cameraSwitch: '<path d="M4 8h5l2-3h4l2 3h3v11H4z"/><path d="m8 13-2 2 2 2m8-4 2-2-2-2"/>',
