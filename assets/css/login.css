@@ -1,1 +1,30 @@
-/* Referência visual do login legado do Looply. */
+/* Login e fluxo de convite respeitam os tokens do tema global do Looply. */
+.login-card {
+  color: var(--text);
+  border-color: var(--line);
+  background: var(--surface-strong);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.login-logo { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.login-brand-name, .login-footer strong { color: var(--primary); }
+.login-brand-subtitle, .login-footer { color: var(--muted); }
+.input-wrap .input {
+  color: var(--text);
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+.input-wrap .input::placeholder { color: var(--muted); opacity: .8; }
+.toggle-password { color: var(--muted); }
+.toggle-password:hover { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+.login-button {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.login-button:hover { background: var(--primary-dark); }
+.form-message[data-kind="success"] {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+html[data-theme="noite"] .login-button { color: #170b25; }
+@media (prefers-reduced-motion: reduce) { .login-logo .circle { animation: none; } }
