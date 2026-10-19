@@ -18,5 +18,5 @@ test("gallery recipient policies separate SELECT access from write authorization
     assert.match(migration, new RegExp("create policy [\\w]+_delete\\s+on public\\." + table + "\\s+for delete to authenticated"));
   }
   assert.equal((migration.match(/for select/gi) || []).length, 0);
-  assert.equal((migration.match(/private\\.can_manage_community_gallery_(?:comment|media)\\(/g) || []).length, 9);
+  assert.equal((migration.match(/private\\.can_manage_community_gallery_(?:comment|media)\\(/g) || []).length, 12);
 });
