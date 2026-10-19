@@ -52,7 +52,7 @@ const galleryMarkup = () => [
 '</section></div>',
 '<div class="gallery-modal" data-people-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="people-title"><div class="gallery-dialog-heading"><h2 id="people-title">Filtrar por pessoas</h2><button type="button" class="gallery-icon-button" data-close-people aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar <input type="search" data-filter-user-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-filter-users></div><label class="gallery-check-row"><input type="checkbox" data-match-any> Mostrar mídias com qualquer pessoa selecionada</label><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-clear-people>Limpar</button><button type="button" class="gallery-primary" data-apply-people>Aplicar filtros</button></div></section></div>',
 '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
-  '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
+  '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Fechar visualização">', icon("close"), '</button><div class="gallery-viewer-menu-wrap"><button type="button" data-toggle-menu aria-label="Mais opções" title="Mais opções">', icon("more"), '</button><div class="gallery-context-menu" data-context-menu hidden><button type="button" data-edit-description>', icon("pencil"), ' Adicionar descrição</button><button type="button" data-edit-mentions>', icon("users"), ' Adicionar menções</button><button type="button" data-viewer-toggle-private>', icon("lock"), ' Mover para Privadas</button><button type="button" data-open-comments>', icon("comment"), ' Ver comentários / comentar</button><button type="button" data-admin-delete hidden>', icon("trash"), ' Excluir mídia</button></div></div></div>',
   '<button type="button" class="gallery-viewer-nav previous" data-previous aria-label="Mídia anterior">', icon("back"), '</button><div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media></div><div class="gallery-viewer-details"><p class="gallery-viewer-date" data-viewer-date></p><p class="gallery-viewer-description" data-viewer-description></p><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form><button type="button" class="gallery-tool" data-open-comments>', icon("comment"), ' Comentários</button></div></div><button type="button" class="gallery-viewer-nav next" data-next aria-label="Próxima mídia">', icon("forward"), '</button>',
 '</div>',
 '<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Seu comentário <textarea name="body" maxlength="2000" required placeholder="Escreva um comentário…"></textarea></label><label>Quem pode ver?<select name="audience"><option value="media_viewers">Todos que podem ver a mídia</option><option value="author_only">Somente eu e o autor da mídia</option><option value="selected">Pessoas selecionadas</option></select></label><div class="gallery-user-list" data-comment-recipients hidden></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-comments>Fechar</button><button type="submit" class="gallery-primary">Comentar</button></div></form></section></div>',
@@ -153,6 +153,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     let list = items.filter(x => {
       const type = mediaType(x), key = mediaKey(x);
       if (main === "privadas" && !x.isPrivate) return false;
+      if (x.visibility === "exclusive" && main !== "exclusivos" && main !== "privadas") return false;
       if (main === "exclusivos" && x.visibility !== "exclusive") return false;
       if (main !== "privadas" && x.isPrivate) return false;
       if (kind !== "all" && type !== kind) return false;
@@ -206,7 +207,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-description-form]").hidden = true;
     $("[data-context-menu]").hidden = true;
     $("[data-admin-delete]").hidden = !isAdmin;
-    $("[data-toggle-private]").innerHTML = icon("lock") + (x.isPrivate ? " Remover de Privadas" : " Mover para Privadas");
+    $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (x.isPrivate ? " Remover de Privadas" : " Mover para Privadas");
     $("[data-viewer]").hidden = false;
     document.body.classList.add("gallery-viewer-open");
   };
@@ -220,7 +221,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     x.isPrivate = next;
     say(next ? "Mídia movida para Privadas." : "Mídia removida de Privadas.");
     draw();
-    if (activeKey === key) $("[data-toggle-private]").innerHTML = icon("lock") + (next ? " Remover de Privadas" : " Mover para Privadas");
+    if (activeKey === key) $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (next ? " Remover de Privadas" : " Mover para Privadas");
   };
   const loadComments = async () => {
     const x = getItem(activeKey); if (!x) return;
@@ -423,8 +424,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   $("[data-apply-people]").addEventListener("click",()=>{filterPeople=new Set(chosen("[data-filter-users]"));matchAny=$("[data-match-any]").checked;$("[data-people-modal]").hidden=true;draw();});
   $("[data-close-viewer]").addEventListener("click",closeViewer);
   $("[data-toggle-menu]").addEventListener("click",()=>{$("[data-context-menu]").hidden=!$("[data-context-menu]").hidden;});
-  $("[data-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
-  $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form"] textarea).value=getItem(activeKey)?.description||"";});
+  $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
+  $("[data-edit-description]").addEventListener("click",()=>{$("[data-context-menu]").hidden=true;$("[data-description-form]").hidden=false;$("[data-description-form] textarea).value=getItem(activeKey)?.description||"";});
   $("[data-description-form]").addEventListener("submit",async e=>{e.preventDefault();const x=getItem(activeKey);if(!x)return;const description=e.currentTarget.elements.description.value.trim();const {error}=await client.from("gallery_media_descriptions").upsert({user_id:user.id,source:x.source,media_id:x.id,description,category:mediaType(x)==="video"?"video":mediaType(x)==="audio"?"audio":"photo"},{onConflict:"user_id,source,media_id"});if(error){say("Não foi possível salvar a descrição.");return;}x.description=description;$("[data-viewer-description]").textContent=description;draw();say("Descrição salva.");e.currentTarget.hidden=true;});
   $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;$("[data-context-menu]").hidden=true;const selected=new Set(x.peopleIds||[]);$("[data-mention-users]").innerHTML=usersHtml(selected,"");$("[data-upload-modal]").hidden=false;$("[data-upload-status]").textContent="Para alterar menções, selecione as pessoas e publique uma nova mídia; a edição de tags será habilitada em uma próxima etapa.";});
   $$("[data-open-comments]").forEach(b=>b.addEventListener("click",loadComments));
