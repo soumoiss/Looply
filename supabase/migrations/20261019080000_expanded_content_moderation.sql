@@ -40,6 +40,7 @@ as $function$
     select 1 from public.archive_media_comments comment_row
     where comment_row.id = p_comment_id
       and not private.looply_content_is_hidden('archive_media_comment', comment_row.id)
+      and not private.looply_content_is_hidden('archive_media', comment_row.media_id)
       and (
         comment_row.author_id = (select auth.uid())
         or (select private.is_admin())
