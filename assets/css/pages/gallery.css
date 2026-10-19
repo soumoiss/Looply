@@ -25,6 +25,12 @@
 .page-gallery .gallery-grid.list .gallery-card{display:grid;grid-template-columns:minmax(150px,260px) 1fr}
 .page-gallery .gallery-grid.list .gallery-media{height:100%;min-height:160px;aspect-ratio:auto}
 .page-gallery .gallery-card-body{padding:14px}
+.page-gallery .gallery-album-card{display:flex;flex-direction:column;min-height:190px}
+.page-gallery .gallery-album-open{display:flex;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;width:100%;padding:20px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.page-gallery .gallery-album-open strong{font-size:16px;overflow-wrap:anywhere}
+.page-gallery .gallery-album-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--accent-soft,#f0eafb);color:var(--accent,#8062bd)}
+.page-gallery .gallery-album-icon svg{width:24px;height:24px}
+.page-gallery .gallery-album-card .gallery-card-actions{padding:0 14px 14px;margin-top:0}
 .page-gallery .gallery-card-title{font-size:14px;font-weight:800;margin:0 0 6px;overflow-wrap:anywhere}
 .page-gallery .gallery-meta,.page-gallery .gallery-description{font-size:12px;line-height:1.6;color:var(--muted,#81768e)}
 .page-gallery .gallery-description{margin:8px 0}
