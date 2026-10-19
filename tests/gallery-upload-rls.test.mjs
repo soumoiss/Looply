@@ -50,7 +50,7 @@ const ownerReadMigration = await readFile(
 );
 
 test("gallery owner can read pending media for INSERT RETURNING without exposing it to other users", () => {
-  assert.match(ownerReadMigration, /create policy community_gallery_members_read[\\s\\S]*?for select\\s+to authenticated/i);
-  assert.match(ownerReadMigration, /owner_id = \\(select auth\\.uid\\(\\)\\)/);
-  assert.match(ownerReadMigration, /or \\(select private\\.can_view_community_gallery_media\\(community_gallery_media\\.id\\)\\)/);
+  assert.match(ownerReadMigration, /create policy community_gallery_members_read[\s\S]*?for select\s+to authenticated/i);
+  assert.match(ownerReadMigration, /owner_id = \(select auth\.uid\(\)\)/);
+  assert.match(ownerReadMigration, /or \(select private\.can_view_community_gallery_media\(community_gallery_media\.id\)\)/);
 });
