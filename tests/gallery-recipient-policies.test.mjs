@@ -12,7 +12,7 @@ test("gallery recipient policies separate SELECT access from write authorization
     "community_gallery_media_commenters",
     "community_gallery_media_recipients"
   ]) {
-    assert.match(migration, new RegExp("drop policy if exists [\\w]+ on public\\." + table));
+    assert.match(migration, new RegExp("drop policy if exists [\\w]+\\s+on public\\." + table));
     assert.match(migration, new RegExp("create policy [\\w]+_insert\\s+on public\\." + table + "\\s+for insert to authenticated"));
     assert.match(migration, new RegExp("create policy [\\w]+_update\\s+on public\\." + table + "\\s+for update to authenticated"));
     assert.match(migration, new RegExp("create policy [\\w]+_delete\\s+on public\\." + table + "\\s+for delete to authenticated"));
