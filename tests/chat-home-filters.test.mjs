@@ -30,6 +30,8 @@ test("chat page has a home link and all conversation filters apply consistently"
 
 test("chat keeps the global header and gives the send icon a fixed size", async () => {
   const css = await read("assets/css/pages/chat.css");
+  const page = await read("chat.html");
   assert.doesNotMatch(css, /\.page-chat \.page-header[^\n]*display:none/);
   assert.match(css, /chat-message-actions \.primary-button \.looply-icon \{ width:18px; height:18px/);
+  assert.match(page, /data-site-header>[\s\S]*brand-mark-animated/);
 });
