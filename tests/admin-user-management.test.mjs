@@ -35,7 +35,7 @@ test("user management UI exposes profile edits and access restoration without un
   assert.match(ui, /data-user-invite/);
   assert.match(ui, /name="email"/);
   assert.match(ui, /Convidar novo usuário comum/);
-  assert.match(ui, /O convite nunca concede acesso ADM/);
+  assert.match(ui, /convite nunca concede acesso ADM/i);
   assert.match(ui, /data-user-profile-form/);
   assert.match(ui, /data-user-access-action/);
   assert.match(ui, /user_update_profile/);
