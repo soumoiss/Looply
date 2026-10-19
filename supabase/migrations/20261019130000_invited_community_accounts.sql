@@ -31,68 +31,8 @@ begin
 
   if new.invited_at is null
     or new.email is null
-    or new.email !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+
-    raise exception 'A valid Looply invitation is required';
-  end if;
-
-  select invitation.* into invite_row
-  from public.looply_user_invites as invitation
-  where invitation.username = requested_username
-    and lower(invitation.email) = lower(new.email)
-    and invitation.expires_at > now()
-  for update;
-
-  if not found then
-    raise exception 'A valid Looply invitation is required';
-  end if;
-
-  if char_length(requested_display_name) = 0 then
-    requested_display_name := invite_row.display_name;
-  end if;
-
-  insert into public.profiles (id, username, display_name)
-  values (new.id, requested_username, left(requested_display_name, 80));
-
-  delete from public.looply_user_invites where username = invite_row.username;
-
-  -- Intentionally do not add this account to private.admin_users.
-  return new;
-end;
-$function$;
-
-revoke all on function private.handle_new_auth_user() from public, anon, authenticated;
-
-    or requested_username !~ '^[a-z0-9_]{3,30}
-    raise exception 'A valid Looply invitation is required';
-  end if;
-
-  select invitation.* into invite_row
-  from public.looply_user_invites as invitation
-  where invitation.username = requested_username
-    and lower(invitation.email) = lower(new.email)
-    and invitation.expires_at > now()
-  for update;
-
-  if not found then
-    raise exception 'A valid Looply invitation is required';
-  end if;
-
-  if char_length(requested_display_name) = 0 then
-    requested_display_name := invite_row.display_name;
-  end if;
-
-  insert into public.profiles (id, username, display_name)
-  values (new.id, requested_username, left(requested_display_name, 80));
-
-  delete from public.looply_user_invites where username = invite_row.username;
-
-  -- Intentionally do not add this account to private.admin_users.
-  return new;
-end;
-$function$;
-
-revoke all on function private.handle_new_auth_user() from public, anon, authenticated;
- then
+    or new.email !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+    or requested_username !~ '^[a-z0-9_]{3,30}$' then
     raise exception 'A valid Looply invitation is required';
   end if;
 
