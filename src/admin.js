@@ -22,20 +22,11 @@ export function adminMarkup(profile = {}) {
   return `<section class="admin-area" aria-labelledby="adminTitle">
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
-    <p class="admin-description">O modo protegido exige uma senha administrativa separada, expira em 15 minutos e registra as ações privilegiadas.</p>
+    <p class="admin-description">Acesso ADM verificado pelo servidor. A sessão é ativada automaticamente após o login da conta administrativa e expira por segurança.</p>
     <section class="admin-session-panel admin-broadcast-panel" data-admin-session-panel aria-labelledby="adminSessionTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Sessão temporária</span><h3 id="adminSessionTitle">Modo ADM protegido</h3></div></div>
       <p class="admin-description" data-admin-session-message>Verificando a autorização e o estado da sessão…</p>
-      <form class="admin-session-form admin-broadcast-form" data-admin-session-setup hidden>
-        <div class="field"><label for="adminSessionSetupPassword">Criar senha administrativa separada</label><input id="adminSessionSetupPassword" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required><small>Use pelo menos 12 caracteres. A senha não é a senha de login.</small></div>
-        <div class="field"><label for="adminSessionSetupConfirm">Confirmar senha</label><input id="adminSessionSetupConfirm" name="confirmPassword" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></div>
-        <button class="primary-button compact-button" type="submit">Configurar senha ADM</button><span class="form-status" data-status role="status" aria-live="polite"></span>
-      </form>
-      <form class="admin-session-form admin-broadcast-form" data-admin-session-unlock hidden>
-        <div class="field"><label for="adminSessionPassword">Senha administrativa</label><input id="adminSessionPassword" name="password" type="password" maxlength="256" autocomplete="current-password" required></div>
-        <button class="primary-button compact-button" type="submit">Desbloquear por 15 minutos</button><span class="form-status" data-status role="status" aria-live="polite"></span>
-      </form>
-      <div class="admin-session-active" data-admin-session-active hidden><p>Modo ADM desbloqueado nesta aba. A autorização é validada pelo servidor em cada operação.</p><button class="text-button" type="button" data-admin-session-exit>Encerrar sessão ADM</button></div>
+      <div class="admin-session-active" data-admin-session-active hidden><p>Modo ADM ativo. A autorização é validada pelo servidor em cada operação.</p><button class="text-button" type="button" data-admin-session-exit>Encerrar sessão ADM</button></div>
     </section>
     <div data-admin-controls hidden>
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
@@ -52,7 +43,7 @@ export function adminMarkup(profile = {}) {
         <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo usa o backend administrativo e não altera a sessão do Peixinho.</p>
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
-      <div class="admin-results" data-users-results aria-live="polite"><p>Desbloqueie o Modo ADM e atualize a lista para consultar as contas.</p></div>
+    <div class="admin-results" data-users-results aria-live="polite"><p>O Modo ADM será ativado automaticamente para administradores autorizados.</p></div>
     </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
@@ -319,41 +310,26 @@ export function bindAdminEvents(root, client) {
   }
 
   function showSessionState(state, message = "") {
-    const setup = root.querySelector("[data-admin-session-setup]");
-    const unlock = root.querySelector("[data-admin-session-unlock]");
     const active = root.querySelector("[data-admin-session-active]");
     const controls = root.querySelector("[data-admin-controls]");
     const note = root.querySelector("[data-admin-session-message]");
-    if (!setup || !unlock || !active || !controls || !note) return;
-    setup.hidden = state !== "setup";
-    unlock.hidden = state !== "locked";
+    if (!active || !controls || !note) return;
     active.hidden = state !== "active";
     controls.hidden = state !== "active";
-    note.textContent = message || (state === "setup" ? "Configure uma senha separada antes de usar ferramentas administrativas."
-      : state === "locked" ? "A sessão ADM está bloqueada. Desbloqueie para continuar."
-      : state === "active" ? "Sessão ADM ativa por tempo limitado." : "Não foi possível verificar a sessão.");
+    note.textContent = message || (state === "active" ? "Sessão ADM ativa por tempo limitado." : "Não foi possível verificar a sessão.");
   }
 
   async function refreshAdminSession() {
     if (!client) return;
     try {
-      const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_status" } });
+      const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_auto_unlock" } });
       if (error || data?.isAdmin !== true) {
         showSessionState("unavailable", "A identidade administrativa não foi confirmada pelo servidor.");
         return;
       }
-      const token = sessionStorage.getItem("looplyAdminSessionToken") || "";
-      if (data.configured && token) {
-        const { data: validation, error: validationError } = await client.functions.invoke("looply-admin", {
-          body: { action: "admin_session_validate", token }
-        });
-        if (!validationError && validation?.active === true) {
-          showSessionState("active", "Sessão ADM validada pelo servidor.");
-          return;
-        }
-        sessionStorage.removeItem("looplyAdminSessionToken");
-      }
-      showSessionState(data.configured ? "locked" : "setup");
+      if (!data?.token) throw new Error("admin_auto_unlock_failed");
+      sessionStorage.setItem("looplyAdminSessionToken", data.token);
+      showSessionState("active", "Modo ADM ativado automaticamente para esta conta autorizada.");
     } catch {
       showSessionState("unavailable", "O serviço de sessão protegida está indisponível. Tente novamente.");
     }
@@ -636,51 +612,6 @@ export function bindAdminEvents(root, client) {
         await loadUsers();
       } catch {
         setStatus(userProfileForm, "Não foi possível salvar o perfil.", "error");
-      } finally { if (button) button.disabled = false; }
-      return;
-    }
-
-    const setupForm = event.target.closest("form[data-admin-session-setup]");
-    if (setupForm && client) {
-      event.preventDefault();
-      const values = new FormData(setupForm);
-      const password = String(values.get("password") || "");
-      const confirmation = String(values.get("confirmPassword") || "");
-      if (password.length < 12 || password.length > 256 || password !== confirmation) {
-        setStatus(setupForm, password !== confirmation ? "As senhas não coincidem." : "Use uma senha de 12 a 256 caracteres.", "error");
-        return;
-      }
-      const button = setupForm.querySelector('button[type="submit"]');
-      if (button) button.disabled = true;
-      try {
-        const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_setup", password } });
-        if (error) throw error;
-        if (data?.configured !== true) throw new Error(data?.error || "setup_failed");
-        setupForm.reset();
-        showSessionState("locked", "Senha configurada. Desbloqueie o modo ADM para iniciar uma sessão temporária.");
-      } catch (error) {
-        setStatus(setupForm, /already_configured/.test(String(error?.message || "")) ? "A senha já foi configurada. Use o formulário de desbloqueio." : "Não foi possível configurar a senha. Confirme sua autorização e tente novamente.", "error");
-        await refreshAdminSession();
-      } finally { if (button) button.disabled = false; }
-      return;
-    }
-
-    const unlockForm = event.target.closest("form[data-admin-session-unlock]");
-    if (unlockForm && client) {
-      event.preventDefault();
-      const password = String(new FormData(unlockForm).get("password") || "");
-      const button = unlockForm.querySelector('button[type="submit"]');
-      if (button) button.disabled = true;
-      try {
-        const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_unlock", password } });
-        if (error) throw error;
-        if (!data?.token) throw new Error(data?.error || "unlock_failed");
-        sessionStorage.setItem("looplyAdminSessionToken", data.token);
-        unlockForm.reset();
-        showSessionState("active", "Sessão ADM desbloqueada até " + dateTime(data.expiresAt) + ".");
-      } catch (error) {
-        const reason = String(error?.message || "");
-        setStatus(unlockForm, /429|rate_limited/.test(reason) ? "Muitas tentativas. Aguarde antes de tentar novamente." : "Senha incorreta ou sessão indisponível.", "error");
       } finally { if (button) button.disabled = false; }
       return;
     }

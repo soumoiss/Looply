@@ -444,44 +444,19 @@ Deno.serve(async (request: Request) => {
         return respond(200, { ...data, isAdmin: true });
       }
 
-      if (action === "admin_session_setup") {
-        const password = String(payload.password || "");
-        if (password.length < 12 || password.length > 256) {
-          return respond(400, { error: "admin_password_length" });
-        }
-        const { data: created, error } = await service.rpc("looply_admin_session_setup", {
-          p_actor_id: authData.user.id,
-          p_password: password
-        });
-        if (error) throw error;
-        await recordAccess(service, authData.user.id, created ? "admin_session_credential_created" : "admin_session_setup_rejected",
-          "admin_session", null, "Initial protected administrator credential setup.", requestId);
-        return respond(created ? 200 : 409, { configured: created === true, error: created ? null : "already_configured" });
-      }
-
-      if (action === "admin_session_unlock") {
-        const password = String(payload.password || "");
-        if (!password || password.length > 256) return respond(400, { error: "invalid_admin_password" });
+      if (action === "admin_session_auto_unlock") {
         const token = randomSessionToken();
         const tokenHash = await sha256Hex(token);
-        const { data, error } = await service.rpc("looply_admin_session_unlock", {
+        const { data, error } = await service.rpc("looply_admin_session_auto_unlock", {
           p_actor_id: authData.user.id,
-          p_password: password,
           p_token_hash: tokenHash
         });
         if (error) throw error;
-        if (data?.ok !== true) {
-          await recordAccess(service, authData.user.id, data?.limited ? "admin_session_rate_limited" : "admin_session_unlock_failed",
-            "admin_session", null, "Protected administrator session unlock attempt.", requestId);
-          return respond(data?.limited ? 429 : 403, {
-            error: data?.limited ? "admin_session_rate_limited" : data?.configured === false ? "admin_session_not_configured" : "incorrect_admin_password",
-            retryAt: data?.retry_at || null
-          });
-        }
+        if (data?.ok !== true) return respond(403, { error: "admin_auto_unlock_failed" });
         await recordAccess(service, authData.user.id, "admin_session_unlocked", "admin_session", null,
-          "Protected administrator session created with a 15-minute expiry.", requestId,
-          { expires_at: data.expires_at });
-        return respond(200, { token, expiresAt: data.expires_at });
+          "Automatic administrator session created after verified account authentication.", requestId,
+          { expires_at: data.expires_at, method: "verified_membership" });
+        return respond(200, { token, expiresAt: data.expires_at, active: true, isAdmin: true });
       }
 
       if (action === "admin_session_revoke") {
