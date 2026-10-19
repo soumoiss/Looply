@@ -5,6 +5,11 @@ import { setupChatCalls } from "../../src/chat-calls.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
 import { loadSocialData } from "../../src/social.js";
 
+const chatRoot = document.getElementById("pageContent");
+if (chatRoot) {
+  chatRoot.innerHTML = `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Chats</h2></div></div><div class="chat-empty" role="status">Carregando conversas…</div></section>`;
+}
+
 await mountAppPage({ page: "chat", render: async ({ root, client, user, profile }) => {
         // Paint the shell before remote queries so a slow auxiliary request
         // cannot leave the entire Chat page blank.

@@ -32,6 +32,13 @@ test("chat paints a visible shell before slow Supabase queries resolve", async (
   assert.ok(shell >= 0 && queries >= 0 && shell < queries, "chat shell must render before data requests");
 });
 
+test("chat paints a loading state before authentication and profile lookups", async () => {
+  const source = await read("assets/js/chat.js");
+  const firstMount = source.indexOf("await mountAppPage");
+  const loadingShell = source.indexOf("Carregando conversas", 0);
+  assert.ok(loadingShell >= 0 && loadingShell < firstMount, "chat loading state must render before app mount");
+});
+
 test("opening a conversation invalidates stale background requests and does not clear a same-chat draft", async () => {
   const source = await read("src/chat.js");
   const start = source.indexOf("async function openConversation(");
