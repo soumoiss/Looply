@@ -520,3 +520,99 @@ body.gallery-viewer-open{overflow:hidden}
   .page-gallery .gallery-shell button,
   .page-gallery .gallery-viewer button { transition: none !important; }
 }
+
+
+/* Looply Gallery — consistent high contrast and polished administrator photo tools. */
+.page-gallery .gallery-shell button,
+.page-gallery .gallery-shell select,
+.page-gallery .gallery-viewer button {
+  -webkit-tap-highlight-color: transparent;
+}
+.page-gallery .gallery-shell .gallery-select-label {
+  color: #3d1758;
+  background: #f0e7f8;
+  border-color: #bda2d3;
+}
+.page-gallery .gallery-shell .gallery-select-label select {
+  color: #3d1758;
+  background-color: #f0e7f8;
+}
+.page-gallery .gallery-shell .gallery-main-controls .gallery-tab.active,
+.page-gallery .gallery-shell .gallery-filters .gallery-chip.active,
+.page-gallery .gallery-shell .gallery-actions .gallery-tool.active {
+  color: #fff !important;
+  background: #7010b0 !important;
+  border-color: #7010b0 !important;
+}
+.page-gallery .gallery-shell .gallery-card-actions button {
+  color: #3d1758;
+  background: #f0e7f8;
+  border-color: #bda2d3;
+}
+.page-gallery .gallery-shell .gallery-card-actions button:hover {
+  color: #301044;
+  background: #e3d2f2;
+  border-color: #9470b4;
+}
+.page-gallery .gallery-viewer-details .gallery-photo-adjust {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #8b7a9c;
+  border-radius: 15px;
+  background: #241b30;
+  color: #fff;
+  text-align: left;
+}
+.page-gallery .gallery-photo-adjust[hidden] { display: none !important; }
+.page-gallery .gallery-photo-adjust-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.page-gallery .gallery-photo-adjust-heading strong { font-size: 14px; color: #fff; }
+.page-gallery .gallery-photo-adjust-heading span { font-size: 11px; color: #d8cfe1; }
+.page-gallery .gallery-photo-adjust-actions,
+.page-gallery .gallery-photo-adjust-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.page-gallery .gallery-photo-adjust label {
+  display: grid;
+  gap: 6px;
+  color: #f4ecfa;
+  font-size: 12px;
+  font-weight: 700;
+}
+.page-gallery .gallery-photo-adjust input[type="range"] {
+  width: 100%;
+  accent-color: #d6b5f0;
+}
+.page-gallery .gallery-photo-adjust .gallery-tool {
+  color: #fff !important;
+  background: #30243e !important;
+  border-color: #8b7a9c !important;
+}
+.page-gallery .gallery-photo-adjust .gallery-primary {
+  color: #fff !important;
+  background: #7010b0 !important;
+  border-color: #b78bd4 !important;
+}
+.page-gallery .gallery-photo-adjust .gallery-status { margin: 0; color: #f4ecfa; font-size: 12px; }
+.page-gallery .gallery-viewer-media { overflow: hidden; }
+.page-gallery .gallery-viewer-media img {
+  max-width: 88%;
+  max-height: 88%;
+  object-fit: contain;
+  will-change: transform;
+}
+@media (max-width: 640px) {
+  .page-gallery .gallery-viewer-details .gallery-photo-adjust { padding: 10px; gap: 8px; }
+  .page-gallery .gallery-photo-adjust-footer > * { flex: 1 1 120px; }
+}
