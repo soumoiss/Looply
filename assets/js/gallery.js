@@ -224,7 +224,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     if (!x.url) return '<div class="gallery-media-fallback">' + icon("camera") + '<span>Prévia indisponível</span></div>';
     if (type === "video") return '<video src="' + esc(x.url) + '" preload="metadata" muted playsinline></video><span class="gallery-media-type">' + icon("video") + '</span>';
     if (type === "audio") return '<div class="gallery-audio-preview">' + icon("music") + '<audio src="' + esc(x.url) + '" controls preload="none"></audio></div>';
-    return '<img src="' + esc(x.url) + '" alt="" loading="lazy" decoding="async">';
+    const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
+    const transform = "translate(" + Number(adjustment.positionX || 0) + "%," + Number(adjustment.positionY || 0) + "%) rotate(" + Number(adjustment.rotation || 0) + "deg)";
+    return '<img src="' + esc(x.url) + '" alt="" loading="lazy" decoding="async" style="transform:' + esc(transform) + ';transform-origin:center center">';
   };
   const draw = () => {
     grid.className = "gallery-grid" + (view === "list" ? " list" : view === "masonry" ? " masonry" : "");
