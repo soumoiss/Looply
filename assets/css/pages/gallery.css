@@ -956,3 +956,47 @@ body.gallery-viewer-open{overflow:hidden}
  .page-gallery .gallery-photo-adjust-actions button,.page-gallery .gallery-photo-adjust-footer button{min-height:34px;padding:6px 8px}
 }
 @media(max-width:380px){.page-gallery .gallery-grid,.page-gallery .gallery-grid.masonry{grid-template-columns:repeat(2,minmax(0,1fr))}.page-gallery .gallery-card-actions button{font-size:11px}}
+
+
+/* Compact gallery refresh: inherit the app's live typography setting and prioritize thumbnails. */
+.page-gallery .gallery-shell{font-family:var(--looply-font-family,Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+.page-gallery .gallery-title{font-family:var(--looply-font-family,Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif);font-size:clamp(23px,3.2vw,32px);font-weight:800;letter-spacing:-.035em;text-transform:none;line-height:1.15}
+.page-gallery .gallery-hero{align-items:center;margin-bottom:12px;gap:10px}
+.page-gallery .gallery-main-controls{gap:6px;margin-bottom:9px;padding-bottom:9px}
+.page-gallery .gallery-main-controls .gallery-tab,.page-gallery .gallery-primary,.page-gallery .gallery-tool,.page-gallery .gallery-chip{min-height:36px;padding:7px 10px;border-radius:11px}
+.page-gallery .gallery-select-label{min-height:36px;padding:5px 8px;gap:6px}
+.page-gallery .gallery-toolbar{gap:8px;margin:9px 0}
+.page-gallery .gallery-search-wrap{min-height:40px;padding-inline:10px}
+.page-gallery .gallery-search{padding:8px 4px;font-size:13px}
+.page-gallery .gallery-actions{gap:3px;padding:3px}
+.page-gallery .gallery-actions .gallery-tool{width:34px;height:33px;min-height:33px;padding:6px}
+.page-gallery .gallery-filters{gap:6px;margin:8px 0}
+.page-gallery .gallery-chip{font-size:12px;padding:6px 10px}
+.page-gallery .gallery-album-toolbar{gap:8px;padding:10px;border-radius:14px}
+.page-gallery .gallery-album-toolbar label{gap:8px;font-size:12px}
+.page-gallery .gallery-album-toolbar select{max-width:min(48vw,220px);padding:8px 10px;border-radius:10px}
+.page-gallery .gallery-count{margin:7px 0 5px}
+.page-gallery .gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.page-gallery .gallery-card{border-radius:11px;box-shadow:none}
+.page-gallery .gallery-media{aspect-ratio:1/1;border-radius:0;background:var(--surface-muted,#f5f0fa)}
+.page-gallery .gallery-media img,.page-gallery .gallery-media video{width:100%;height:100%;object-fit:cover}
+.page-gallery .gallery-grid:not(.list):not(.masonry) .gallery-card-body{display:none}
+.page-gallery .gallery-grid:not(.list):not(.masonry) .gallery-private-indicator,.page-gallery .gallery-grid:not(.list):not(.masonry) .gallery-media-type{width:24px;height:24px;top:5px;right:5px}
+.page-gallery .gallery-grid:not(.list):not(.masonry) .gallery-private-indicator{right:auto;left:5px}
+.page-gallery .gallery-grid.list .gallery-card-body{display:grid}
+.page-gallery .gallery-grid.masonry .gallery-card-body{display:grid}
+.page-gallery .gallery-load-more-wrap{padding:12px}
+@media(max-width:720px){
+ .page-gallery .gallery-shell{padding:12px}
+ .page-gallery .gallery-main-controls{gap:5px}
+ .page-gallery .gallery-main-controls .gallery-tab{min-height:34px;padding:6px 8px}
+ .page-gallery .gallery-grid,.page-gallery .gallery-grid.masonry{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .page-gallery .gallery-card{border-radius:8px}
+ .page-gallery .gallery-album-toolbar{padding:8px;gap:6px}
+ .page-gallery .gallery-album-toolbar label{flex-wrap:wrap}
+}
+@media(max-width:380px){
+ .page-gallery .gallery-grid,.page-gallery .gallery-grid.masonry{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+ .page-gallery .gallery-title{font-size:23px}
+ .page-gallery .gallery-select-label select{max-width:88px}
+}
