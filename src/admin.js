@@ -522,23 +522,29 @@ export function bindAdminEvents(root, client) {
     if (inviteForm && client) {
       event.preventDefault();
       const values = new FormData(inviteForm);
-      const username = String(values.get("username") || "");
+      const username = String(values.get("username") || "").trim().toLowerCase();
+      const email = String(values.get("email") || "").trim().toLowerCase();
       const displayName = String(values.get("displayName") || "").trim();
       const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
-      if (purpose.length < 20) {
-        setStatus(inviteForm, "Informe uma justificativa de pelo menos 20 caracteres.", "error");
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || displayName.length < 1 || displayName.length > 80) {
+        setStatus(inviteForm, "Informe um usuário válido, um e-mail válido e um nome de exibição.", "error");
+        return;
+      }
+      if (purpose.length < 20 || purpose.length > 500) {
+        setStatus(inviteForm, "Informe uma justificativa de 20 a 500 caracteres.", "error");
         return;
       }
       const button = inviteForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       try {
-        const { data, error } = await invokeAdmin({ action: "user_create_invite", resourceType: "profiles", username, email: username + "@loooply.app", displayName, purpose });
+        const { data, error } = await invokeAdmin({ action: "user_create_invite", resourceType: "profiles", username, email, displayName, purpose });
         if (error) throw error;
         inviteForm.reset();
-        setStatus(inviteForm, "Convite enviado para " + (data?.email || username + "@loooply.app") + ".", "success");
+        setStatus(inviteForm, "Convite enviado para " + (data?.email || email) + ". A pessoa poderá definir a senha pelo link recebido.", "success");
         await loadUsers();
       } catch (error) {
-        setStatus(inviteForm, "Não foi possível enviar o convite. A identidade pode já existir ou não estar disponível.", "error");
+        console.error("Looply common-user invitation failed", error);
+        setStatus(inviteForm, "Não foi possível enviar o convite. Verifique se o usuário ou e-mail já existe e se o e-mail de convite está configurado.", "error");
       } finally { if (button) button.disabled = false; }
       return;
     }
