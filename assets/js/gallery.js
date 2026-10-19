@@ -180,12 +180,16 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const visible = () => {
     let list = items.filter(x => {
       const type = mediaType(x), key = mediaKey(x);
-      if (main === "privadas" && !x.isPrivate) return false;
-      if (x.visibility === "exclusive" && main !== "exclusivos" && main !== "privadas") return false;
-      if (main === "exclusivos" && x.visibility !== "exclusive") return false;
-      if (main !== "privadas" && x.isPrivate) return false;
-      if (kind !== "all" && type !== kind) return false;
-      if (kind === "album") return false;
+      if (activeAlbumId) {
+        if (!(albumItemKeys.get(activeAlbumId) || new Set()).has(key)) return false;
+      } else {
+        if (main === "privadas" && !x.isPrivate) return false;
+        if (x.visibility === "exclusive" && main !== "exclusivos" && main !== "privadas") return false;
+        if (main === "exclusivos" && x.visibility !== "exclusive") return false;
+        if (main !== "privadas" && x.isPrivate) return false;
+        if (kind !== "all" && type !== kind) return false;
+        if (kind === "album") return false;
+      }
       if (commentsOnly && !x.hasComments) return false;
       if (filterPeople.size) {
         const ids = new Set(x.peopleIds || []);
