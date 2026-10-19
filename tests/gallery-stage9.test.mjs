@@ -6,8 +6,8 @@ const [gallery, page, runtime, migration, albumMigration, styles] = await Promis
   readFile(new URL("../assets/js/gallery.js", import.meta.url), "utf8"),
   readFile(new URL("../galeria.html", import.meta.url), "utf8"),
   readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8"),
-  readFile(new URL("../supabase/migrations/20261019022000_gallery_private_folder_admin_delete.sql", import.meta.url), "utf8"),
-  readFile(new URL("../supabase/migrations/20261019030000_gallery_albums.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019024037_gallery_private_folder_admin_delete.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20261019024648_gallery_albums.sql", import.meta.url), "utf8"),
   readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8")
 ]);
 
