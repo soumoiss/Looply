@@ -62,3 +62,16 @@ using (
   (select private.can_view_post(post_id))
   and not (select private.looply_content_is_hidden('comment', id))
 );
+
+-- Extend the audit event contract for reversible content moderation.
+alter table private.admin_audit drop constraint if exists admin_audit_event_check;
+alter table private.admin_audit add constraint admin_audit_event_check check (
+  event in (
+    'access_denied','read_requested','read_completed','read_failed',
+    'write_requested','write_completed','write_failed',
+    'admin_session_credential_created','admin_session_setup_rejected',
+    'admin_session_rate_limited','admin_session_unlock_failed',
+    'admin_session_unlocked','admin_session_revoked','admin_session_required',
+    'moderation_requested','moderation_completed','moderation_failed'
+  )
+);
