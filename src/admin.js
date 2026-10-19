@@ -82,7 +82,7 @@ export function adminMarkup(profile = {}) {
           <option value="audit">Trilha de auditoria</option>
         </select></div>
         <div class="field" data-admin-id-field><label for="adminResourceId">UUID específico (opcional)</label><input id="adminResourceId" name="resourceId" type="text" maxlength="36" placeholder="Deixe vazio para consultar a lista recente"></div>
-        <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>As mídias são exibidas em grupos de 100.</small></div>
+        <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>O histórico e as mídias são exibidos em grupos de 100; para o histórico, informe a posição inicial.</small></div>
       </div>
       <div class="field"><label for="adminPurpose">Motivo da consulta</label><textarea id="adminPurpose" name="purpose" minlength="20" maxlength="500" rows="3" required placeholder="Descreva por que esta consulta é necessária (mínimo de 20 caracteres)."></textarea></div>
       <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
@@ -510,9 +510,9 @@ export function bindAdminEvents(root, client) {
       const field = root.querySelector("[data-admin-id-field]");
       if (field) field.hidden = event.target.value === "audit";
       const offsetField = root.querySelector("[data-admin-offset-field]");
-      if (offsetField) offsetField.hidden = event.target.value !== "archive_media";
+      if (offsetField) offsetField.hidden = !["archive_media", "audit"].includes(event.target.value);
       const offset = root.querySelector("#adminOffset");
-      if (offset && event.target.value === "archive_media") offset.value = "0";
+      if (offset && ["archive_media", "audit"].includes(event.target.value)) offset.value = "0";
     }
   });
 
