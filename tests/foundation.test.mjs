@@ -424,9 +424,10 @@ test("chat, letters, notifications, and attachments are private to conversation 
 
 test("the original login keeps its recovery link without requiring SMTP for sign-in", async () => {
   const [login, page] = await Promise.all([read("src/login.js"), read("login.html")]);
-  assert.match(login, /signInWithPassword/);
+  assert.match(login, /functions\.invoke\("looply-login"/);
   assert.match(page, /Esqueci minha senha/);
-  assert.doesNotMatch(login, /resetPasswordForEmail|auth\.updateUser/);
+  assert.match(login, /auth\.updateUser\(\{ password: newPassword \}\)/);
+  assert.doesNotMatch(login, /resetPasswordForEmail/);
   assert.doesNotMatch(login, /localStorage\.(?:getItem|setItem)\(["'](?:username|password|isLoggedIn)/i);
 });
 
