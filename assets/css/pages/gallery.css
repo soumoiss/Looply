@@ -619,3 +619,149 @@ body.gallery-viewer-open{overflow:hidden}
 
 .page-gallery .gallery-context-menu button[hidden] { display: none !important; }
 .page-gallery .gallery-photo-adjust[hidden] { display: none !important; }
+
+
+/* Gallery controls inherit the live Looply theme tokens, including green, pink,
+   ocean, lilac and dark/system themes. Never pin Gallery to a single accent. */
+.page-gallery {
+  --gallery-action: var(--primary-dark, var(--primary, #5f1098));
+  --gallery-action-hover: var(--primary-deep, var(--primary-dark, #503090));
+  --gallery-action-text: #fff;
+  --gallery-control-bg: color-mix(in srgb, var(--primary, #7010b0) 9%, var(--surface, #fff));
+  --gallery-control-bg-hover: color-mix(in srgb, var(--primary, #7010b0) 17%, var(--surface, #fff));
+  --gallery-control-text: var(--text, #29252f);
+  --gallery-control-border: color-mix(in srgb, var(--primary, #7010b0) 48%, var(--border, #bda2d3));
+}
+.page-gallery .gallery-shell .gallery-primary,
+.page-gallery .gallery-shell .gallery-main-controls .gallery-primary,
+.page-gallery .gallery-viewer .gallery-primary,
+.page-gallery .gallery-photo-adjust .gallery-primary {
+  color: var(--gallery-action-text) !important;
+  background: var(--gallery-action) !important;
+  border-color: var(--gallery-action) !important;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary, #7010b0) 24%, transparent);
+}
+.page-gallery .gallery-shell .gallery-tool,
+.page-gallery .gallery-shell .gallery-icon-button,
+.page-gallery .gallery-shell .gallery-tab,
+.page-gallery .gallery-shell .gallery-chip,
+.page-gallery .gallery-shell .gallery-main-controls button:not(.gallery-primary),
+.page-gallery .gallery-album-toolbar button {
+  color: var(--gallery-control-text) !important;
+  background: var(--gallery-control-bg) !important;
+  border-color: var(--gallery-control-border) !important;
+}
+.page-gallery .gallery-shell .gallery-tab.active,
+.page-gallery .gallery-shell .gallery-chip.active,
+.page-gallery .gallery-shell .gallery-tab[aria-pressed="true"],
+.page-gallery .gallery-shell .gallery-chip[aria-pressed="true"] {
+  color: #fff !important;
+  background: var(--gallery-action) !important;
+  border-color: var(--gallery-action) !important;
+}
+.page-gallery .gallery-shell button:hover,
+.page-gallery .gallery-viewer .gallery-context-menu button:hover {
+  border-color: var(--primary, #7010b0);
+}
+.page-gallery .gallery-shell button:focus-visible,
+.page-gallery .gallery-viewer button:focus-visible {
+  outline: 3px solid var(--primary, #7010b0) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--surface, #fff);
+}
+.page-gallery .gallery-main-controls { gap: 6px; }
+.page-gallery .gallery-main-controls .gallery-tab {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  flex: 0 0 40px;
+}
+.page-gallery .gallery-main-controls .gallery-tab .looply-icon { width: 18px; height: 18px; }
+.page-gallery .gallery-hero [data-open-upload] {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  font-size: 0;
+}
+.page-gallery .gallery-hero [data-open-upload] .looply-icon { width: 19px; height: 19px; }
+.page-gallery .gallery-filters [data-comments-filter] {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  font-size: 0;
+}
+.page-gallery .gallery-filters [data-comments-filter] .looply-icon { width: 17px; height: 17px; }
+.page-gallery .gallery-card-actions { gap: 5px; }
+.page-gallery .gallery-card-actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--gallery-control-border);
+  border-radius: 10px;
+  color: var(--gallery-control-text);
+  background: var(--gallery-control-bg);
+}
+.page-gallery .gallery-card-actions button[data-like] {
+  display: inline-flex;
+  width: auto;
+  min-width: 34px;
+  padding: 0 8px;
+}
+.page-gallery .gallery-card-actions button[data-comments] span { display: none; }
+.page-gallery .gallery-card-actions button .looply-icon { width: 16px; height: 16px; }
+.page-gallery .gallery-album-toolbar [data-create-album] {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  font-size: 0;
+}
+.page-gallery .gallery-album-toolbar [data-create-album] .looply-icon { width: 17px; height: 17px; }
+.page-gallery .gallery-viewer-top button,
+.page-gallery .gallery-viewer-nav {
+  color: #fff !important;
+  background: color-mix(in srgb, var(--primary, #7010b0) 30%, #17111f) !important;
+  border-color: color-mix(in srgb, var(--primary, #7010b0) 70%, #fff) !important;
+}
+.page-gallery .gallery-viewer .gallery-context-menu {
+  border-color: color-mix(in srgb, var(--primary, #7010b0) 70%, #fff);
+  box-shadow: 0 12px 40px #0007;
+}
+.page-gallery .gallery-viewer .gallery-context-menu button {
+  color: #fff !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.page-gallery .gallery-viewer .gallery-context-menu button:hover {
+  background: color-mix(in srgb, var(--primary, #7010b0) 35%, #282130) !important;
+}
+@media (max-width: 640px) {
+  .page-gallery .gallery-main-controls { gap: 5px; }
+  .page-gallery .gallery-main-controls .gallery-tab {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    flex-basis: 36px;
+  }
+  .page-gallery .gallery-hero [data-open-upload] { width: 38px; height: 38px; min-width: 38px; min-height: 38px; }
+  .page-gallery .gallery-card-actions button { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+}
