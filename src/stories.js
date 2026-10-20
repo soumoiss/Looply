@@ -1095,6 +1095,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     submit.disabled = true;
     let storyId = null;
     let uploadedPath = null;
+    let storyCommitted = false;
     try {
       const formData = new FormData(form);
       const body = String(formData.get("body") || "").trim().slice(0, 1000);
@@ -1136,19 +1137,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (mediaError) throw mediaError;
       }
 
+      storyCommitted = true;
       form.reset();
       closeStoryDialog(createDialog);
       await refresh();
       showStatus("Story publicado. Ele expira após 24 horas.");
     } catch (error) {
       console.error("Looply story creation failed.", error);
-      if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
-      if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
-      const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
-        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 100 MB."
-          : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
-            : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
-      setFormStatus(form, message, true);
+      if (!storyCommitted) {
+        if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
+        if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
+        const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
+          : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 100 MB."
+            : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
+              : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
+        setFormStatus(form, message, true);
+      } else {
+        setFormStatus(form, "Story salvo, mas a lista não atualizou automaticamente. Atualize os stories.", true);
+        showStatus("Story publicado, mas a lista não atualizou automaticamente. Atualize os stories.", true);
+      }
     } finally {
       submit.disabled = false;
     }
