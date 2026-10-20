@@ -712,3 +712,28 @@ html[data-theme="noite"] .card-row, html[data-theme="noite"] .track-card { box-s
 .admin-broadcast-media-preview-content { display:block; max-width:100%; max-height:260px; margin:auto; border-radius:10px; object-fit:contain; }
 .admin-broadcast-media-link { display:block; margin:12px 0; }
 .admin-broadcast-media-link img { display:block; max-width:100%; max-height:240px; border-radius:12px; object-fit:contain; }
+
+
+/* Global controls: theme-aware Home banners and non-dismissible maintenance screen. */
+.looply-maintenance-screen { position:fixed; inset:0; z-index:2147483000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:28px 24px; text-align:center; background:var(--background,var(--surface)); color:var(--text); }
+.looply-maintenance-icon { display:grid; place-items:center; width:82px; height:82px; border-radius:26px; background:var(--primary); color:var(--on-primary,#fff); font-size:42px; box-shadow:0 12px 36px color-mix(in srgb,var(--primary) 30%,transparent); }
+.looply-maintenance-screen h1 { margin:0; font-family:var(--font-heading,inherit); font-size:clamp(30px,7vw,44px); }
+.looply-maintenance-screen p { width:min(100%,460px); margin:0; font-size:clamp(16px,4vw,20px); line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+.looply-welcome-banner { margin:0 0 14px; padding:14px 18px; border:1px solid color-mix(in srgb,var(--primary) 25%,var(--border)); border-radius:16px; background:color-mix(in srgb,var(--primary) 8%,var(--surface)); color:var(--text); font-size:clamp(14px,3.5vw,17px); font-weight:650; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.looply-music-of-day { display:flex; align-items:center; gap:14px; margin:0 0 18px; padding:15px 17px; border:1px solid var(--border); border-radius:18px; background:var(--surface); color:var(--text); text-decoration:none; box-shadow:0 8px 24px #0000000b; transition:transform .18s ease,border-color .18s ease; }
+.looply-music-of-day:hover { transform:translateY(-1px); border-color:var(--primary); }
+.looply-music-of-day-icon { display:grid; place-items:center; flex:0 0 44px; height:44px; border-radius:14px; background:var(--primary); color:var(--on-primary,#fff); font-size:26px; }
+.looply-music-of-day-copy { display:grid; gap:4px; min-width:0; flex:1; }
+.looply-music-of-day-copy small { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.12em; }
+.looply-music-of-day-copy strong { overflow-wrap:anywhere; line-height:1.4; }
+.looply-music-of-day-play { color:var(--primary); font-size:19px; }
+.admin-maintenance-toggle { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.looply-switch { display:inline-flex; align-items:center; gap:10px; cursor:pointer; font-weight:750; }
+.looply-switch input { position:absolute; width:1px; height:1px; opacity:0; }
+.looply-switch-track { position:relative; width:48px; height:28px; border-radius:99px; background:var(--border); transition:background .2s ease; }
+.looply-switch-track::after { content:""; position:absolute; top:4px; left:4px; width:20px; height:20px; border-radius:50%; background:white; box-shadow:0 1px 4px #0003; transition:transform .2s ease; }
+.looply-switch input:checked + .looply-switch-track { background:var(--primary); }
+.looply-switch input:checked + .looply-switch-track::after { transform:translateX(20px); }
+.looply-switch input:focus-visible + .looply-switch-track { outline:2px solid var(--primary); outline-offset:3px; }
+.looply-switch-label { min-width:72px; font-size:13px; }
+@media (prefers-reduced-motion:reduce) { .looply-music-of-day,.looply-switch-track,.looply-switch-track::after { transition:none; } }
