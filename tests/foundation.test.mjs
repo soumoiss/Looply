@@ -827,6 +827,9 @@ test("global announcements are admin-published, RLS-protected, realtime, and ind
   ]);
   assert.match(migration, /create table if not exists public\.global_announcements/i);
   assert.match(migration, /create table if not exists public\.global_announcement_reads/i);
+  const mediaMigration = await read("supabase/migrations/20261020180000_global_announcements_media.sql");
+  assert.match(mediaMigration, /add column if not exists media_url text/i);
+  assert.match(mediaMigration, /looply_announcements_admin_upload[\\s\\S]*?private\\.is_admin\\(\\)/i);
   assert.match(migration, /alter table public\.global_announcements enable row level security/i);
   assert.match(migration, /global_announcement_reads_insert_own[\s\S]*?user_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /record_looply_admin_access[\s\S]*?announcements/i);
@@ -837,6 +840,10 @@ test("global announcements are admin-published, RLS-protected, realtime, and ind
   assert.match(announcementClient, /global_announcement_reads/);
   assert.match(announcementClient, /table: "global_announcements"/);
   assert.match(announcementClient, /textContent = announcement\.body/);
+  assert.match(announcementClient, /looply-announcement-close/);
+  assert.match(announcementClient, /media_url/);
+  assert.match(admin, /data-broadcast-media-preview/);
+  assert.match(edge, /media_url: mediaUrl/);
   assert.match(runtime, /mountGlobalAnnouncements/);
   assert.match(admin, /data-admin-broadcast[\s\S]*?data-broadcast-refresh/);
   assert.match(admin, /data-broadcast-deactivate/);
