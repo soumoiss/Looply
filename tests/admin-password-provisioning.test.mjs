@@ -25,3 +25,23 @@ test("ADM provisions a confirmed common user through the server-only Auth admin 
   assert.match(ui, /sessionStorage\.getItem\("looplyAdminSessionToken"\)/);
   assert.doesNotMatch(ui, /auth\.signUp\(/);
 });
+
+test("ADM provisioning is authorized by a one-time server-only record bound to the Auth user ID", async () => {
+  const [migration, edge] = await Promise.all([
+    read("supabase/migrations/20261020193655_admin_user_provisioning.sql"),
+    read("supabase/functions/looply-admin/index.ts")
+  ]);
+
+  assert.match(migration, /create table private\.looply_admin_user_provisions/i);
+  assert.match(migration, /user_id uuid primary key/i);
+  assert.match(migration, /grant execute on function public\.prepare_looply_admin_user_provision\(uuid, text, text, text\) to service_role/i);
+  assert.match(migration, /provision\.user_id = new\.id/i);
+  assert.match(migration, /delete from private\.looply_admin_user_provisions/i);
+  assert.match(migration, /revoke all on function public\.prepare_looply_admin_user_provision/i);
+  assert.match(migration, /discard_looply_admin_user_provision/i);
+  assert.doesNotMatch(migration, /insert into private\.admin_users/i);
+  assert.match(edge, /prepare_looply_admin_user_provision/);
+  assert.match(edge, /p_user_id:\s*proposedUserId/);
+  assert.match(edge, /id:\s*proposedUserId/);
+});
+
