@@ -862,17 +862,17 @@ test("global app settings are singleton, admin-writable, maintenance-gated, and 
     read("supabase/functions/looply-admin/index.ts"),
     read("assets/css/app.css")
   ]);
-  assert.match(migration, /create table if not exists public\\.app_settings/i);
-  assert.match(migration, /check \\(id = 1\\)/i);
-  assert.match(migration, /app_settings_authenticated_read[\\s\\S]*?for select to authenticated/i);
-  assert.match(migration, /app_settings_admin_update[\\s\\S]*?private\\.is_admin\\(\\)/i);
+  assert.match(migration, /create table if not exists public\.app_settings/i);
+  assert.match(migration, /check \(id = 1\)/i);
+  assert.match(migration, /app_settings_authenticated_read[\s\S]*?for select to authenticated/i);
+  assert.match(migration, /app_settings_admin_update[\s\S]*?private\.is_admin\(\)/i);
   assert.match(runtime, /readGlobalSettings/);
-  assert.match(runtime, /settings\\?\\.maintenance_mode === true/);
+  assert.match(runtime, /settings\?\.maintenance_mode === true/);
   assert.match(runtime, /renderMaintenanceScreen/);
   assert.match(runtime, /maintenanceChannel/);
   assert.match(admin, /data-app-settings-form/);
   assert.match(admin, /app_settings_update/);
-  assert.match(edge, /action === "app_settings_update"[\\s\\S]*?service\\.from\\("app_settings"\\)\\.update/);
+  assert.match(edge, /action === "app_settings_update"[\s\S]*?service\.from\("app_settings"\)\.update/);
   assert.match(home, /data-global-welcome/);
   assert.match(home, /data-global-music/);
   assert.match(home, /looply-home-global-settings/);
