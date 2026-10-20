@@ -62,19 +62,6 @@ export function adminMarkup(profile = {}) {
         <span class="form-status" data-app-settings-status role="status" aria-live="polite"></span>
       </form>
     </section>
-    <section class="admin-broadcast-panel" aria-labelledby="secretVipTitle">
-      <div class="admin-broadcast-heading"><div><span class="section-kicker">Mensagem individual</span><h3 id="secretVipTitle">💌 Enviar Recado Secreto VIP</h3></div><button class="text-button" type="button" data-secret-refresh>Atualizar histórico</button></div>
-      <p class="admin-description">O recado aparece somente para a pessoa escolhida quando ela abrir a Home.</p>
-      <form class="admin-broadcast-form" data-secret-message-form>
-        <div class="field"><label for="secretRecipient">Destinatário</label><select id="secretRecipient" name="recipient_id" required><option value="">Carregando usuários…</option></select></div>
-        <div class="field"><label for="secretTitle">Título do recado (opcional)</label><input id="secretTitle" name="title" maxlength="120" placeholder="Psiu... Olha só isso!"></div>
-        <div class="field"><label for="secretContent">Mensagem</label><textarea id="secretContent" name="content" rows="4" maxlength="4000" required placeholder="Escreva seu recado especial…"></textarea></div>
-        <div class="field"><label for="secretMedia">Foto opcional</label><input id="secretMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div data-secret-preview class="admin-broadcast-media-preview" hidden></div></div>
-        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Enviar Recado Secreto ✨</button></div>
-        <span class="form-status" data-secret-status role="status" aria-live="polite"></span>
-      </form>
-      <div data-secret-history aria-live="polite"><p>Carregando histórico…</p></div>
-    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
       <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
@@ -667,14 +654,15 @@ export function bindAdminEvents(root, client) {
       return;
     }
     const refreshSecret = event.target.closest("[data-secret-refresh]");
-    if (refreshSecret && client) { event.preventDefault(); await loadSecretMessages(); return; }
+    if (refreshSecret && client) { event.preventDefault(); await loadSecretHistory(); return; }
     const cancelSecret = event.target.closest("[data-secret-delete]");
     if (cancelSecret && client) {
       cancelSecret.disabled = true;
       try {
-        const { error } = await invokeAdmin({ action: "secret_message_delete", messageId: cancelSecret.dataset.secretDelete });
+        const { error } = await client.from("secret_messages").delete()
+          .eq("id", cancelSecret.dataset.secretDelete).eq("is_read", false);
         if (error) throw error;
-        await loadSecretMessages();
+        await loadSecretHistory();
       } catch (error) { console.error("Secret message delete failed", error); const status=root.querySelector("[data-secret-status]"); if(status){status.textContent="Não foi possível apagar o recado.";status.dataset.kind="error";} }
       finally { cancelSecret.disabled = false; }
       return;
@@ -950,39 +938,6 @@ export function bindAdminEvents(root, client) {
       }
       return;
     }
-    const secretForm = event.target.closest("form[data-secret-message-form]");
-    if (secretForm && client) {
-      event.preventDefault();
-      const button = secretForm.querySelector('button[type="submit"]');
-      if (button) { button.disabled = true; button.textContent = "Enviando…"; }
-      try {
-        const values = new FormData(secretForm);
-        const recipientId = String(values.get("recipient_id") || "");
-        const content = String(values.get("content") || "").trim();
-        if (!recipientId || !content) throw new Error("required");
-        let mediaUrl = "";
-        const file = values.get("media");
-        if (file instanceof File && file.size) {
-          if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 10 * 1024 * 1024) throw new Error("media");
-          const path = "secret-messages/" + crypto.randomUUID() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const { data: uploaded, error: uploadError } = await client.storage.from("community-media").upload(path, file, { contentType: file.type, upsert: false });
-          if (uploadError) throw uploadError;
-          const { data: publicUrl } = client.storage.from("community-media").getPublicUrl(uploaded.path);
-          mediaUrl = publicUrl?.publicUrl || "";
-        }
-        const { data, error } = await invokeAdmin({ action: "secret_message_create", recipientId, title: String(values.get("title") || "").trim(), content, mediaUrl });
-        if (error) throw error;
-        secretForm.reset();
-        const status = root.querySelector("[data-secret-status]");
-        if (status) { status.textContent = "Recado secreto enviado!"; status.dataset.kind = "success"; }
-        await loadSecretMessages();
-      } catch (error) {
-        console.error("Secret message send failed", error);
-        const status = root.querySelector("[data-secret-status]");
-        if (status) { status.textContent = /media/.test(String(error?.message||"")) ? "Use uma imagem válida de até 10 MB." : "Não foi possível enviar. Confira os campos e tente novamente."; status.dataset.kind = "error"; }
-      } finally { if (button) { button.disabled = false; button.textContent = "Enviar Recado Secreto ✨"; } }
-      return;
-    }
     const form = event.target.closest("form[data-admin-read]");
     if (!form || !client) return;
     event.preventDefault();
@@ -1018,4 +973,5 @@ export function bindAdminEvents(root, client) {
     }
   });
 }
+
 
