@@ -467,7 +467,7 @@ function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}" aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
+    <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -694,6 +694,13 @@ export function bindChatEvents(root, client, getUserId) {
   });
 
   root.addEventListener("click", async (event) => {
+    const chooseFilesButton = event.target.closest("[data-chat-choose-files]");
+    if (chooseFilesButton) {
+      // Invoke the hidden input synchronously within the real click gesture for WebView pickers.
+      const fileInput = chooseFilesButton.closest("[data-chat-send]")?.querySelector('input[name="files"]');
+      fileInput?.click();
+      return;
+    }
     const openButton = event.target.closest("[data-chat-open]");
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
