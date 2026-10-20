@@ -323,7 +323,7 @@ export async function uploadResumable(client, path, file, onProgress) {
   if (error || !accessToken) throw new Error("session expired");
   const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
   if (!publishableKey) throw new Error("Supabase publishable key is missing.");
-  if (file.size <= 6 * 1024 * 1024 && !file.type.startsWith("video/")) {
+  if (file.size <= 6 * 1024 * 1024) {
     const { error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
       cacheControl: "3600",
       contentType: file.type || "application/octet-stream",
@@ -691,30 +691,27 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     let createdPostId = null;
     let createdCommentId = null;
     const uploadedPaths = [];
-    let publicationCommitted = false;
     try {
       const formData = new FormData(form);
-      let body = String(formData.get("body") || "").trim();
+      const body = String(formData.get("body") || "").trim();
       if (form.matches("[data-social-post]")) {
         const files = selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
         let externalUrl = String(formData.get("externalUrl") || "").trim();
-        // Accept both the dedicated URL field and links pasted into the post text.
-        if (!externalUrl) {
-          const extracted = extractExternalLinkFromText(body);
-          if (extracted.url) {
-            externalUrl = extracted.url;
-            body = extracted.text;
-          }
-        }
-        // Media-only contract: if (!body && !externalUrl && !files.length) reject.
-        const validation = validatePublicationInput({ text: body, mediaCount: files.length, externalUrl });
-        if (!validation.ok) throw new Error("empty body");
-        const postBody = validation.body;
+        if (!body && !externalUrl && !files.length) throw new Error("empty body");
+        const postBody = body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
-          externalUrl = normalizeExternalUrl(externalUrl);
-          if (!externalUrl) throw new Error("unsupported external URL");
+          let parsed;
+          try { parsed = new URL(externalUrl); } catch { throw new Error("unsupported external URL"); }
+          if (parsed.protocol === "https:" && parsed.hostname.toLowerCase() === "l.instagram.com") {
+            const sharedTarget = parsed.searchParams.get("u");
+            try { parsed = new URL(sharedTarget || ""); } catch { throw new Error("unsupported external URL"); }
+          }
+          const allowedHosts = ["instagram.com","www.instagram.com","m.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"];
+          if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("unsupported external URL");
+          if (["instagram.com", "m.instagram.com"].includes(parsed.hostname.toLowerCase())) parsed.hostname = "www.instagram.com";
+          externalUrl = parsed.href;
         }
         if (visibility === "selected") {
           const recipientIds = formData.getAll("recipientIds").map(String);
@@ -723,7 +720,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           if (error) throw error;
           createdPostId = data;
         } else {
-      const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
+          const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
           if (error) throw error;
           createdPostId = data.id;
         }
@@ -751,7 +748,6 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           const { error: linkError } = await client.from("posts").update({ external_url: externalUrl }).eq("id", createdPostId);
           if (linkError) throw linkError;
         }
-        publicationCommitted = true;
         form.reset();
         const composerFields = root.querySelector("[data-composer-fields]");
         const composerToggle = root.querySelector("[data-toggle-composer]");
@@ -777,13 +773,12 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           });
           if (mediaError) throw mediaError;
         }
-        publicationCommitted = true;
         form.reset();
         setStatus(form, parentCommentId ? "Sua resposta foi salva." : "Seu comentário foi salvo.");
       }
-      await refreshSocialFeed(root, client, userId, isAdmin);
+      await refreshSocialFeed(root, client);
     } catch (error) {
-      if (!publicationCommitted && createdPostId) {
+      if (createdPostId) {
         if (uploadedPaths.length) {
           const { error: cleanupError } = await client.storage.from("looply-media").remove(uploadedPaths);
           if (cleanupError) console.error("Could not clean up uploaded media", cleanupError);
@@ -791,7 +786,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const { error: deleteError } = await client.from("posts").delete().eq("id", createdPostId);
         if (deleteError) console.error("Could not clean up partially created post", deleteError);
       }
-      if (!publicationCommitted && createdCommentId) {
+      if (createdCommentId) {
         if (uploadedPaths.length) {
           const { error: cleanupError } = await client.storage.from("looply-media").remove(uploadedPaths);
           if (cleanupError) console.error("Could not clean up uploaded comment media", cleanupError);
@@ -799,11 +794,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const { error: deleteError } = await client.from("comments").delete().eq("id", createdCommentId);
         if (deleteError) console.error("Could not clean up partially created comment", deleteError);
       }
-      if (publicationCommitted) {
-        setStatus(form, "Conteúdo salvo, mas o feed não atualizou automaticamente. Use “Atualizar feed” para carregar a publicação.", true);
-      } else {
-        setStatus(form, explainWriteError(error), true);
-      }
+      setStatus(form, explainWriteError(error), true);
       if (button) button.disabled = false;
     } finally {
       if (button) button.disabled = false;
