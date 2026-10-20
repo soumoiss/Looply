@@ -337,13 +337,7 @@ export async function uploadResumable(client, path, file, onProgress) {
   const endpoint = projectUrl.hostname.endsWith(".supabase.co")
     ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
     : new URL("/storage/v1/upload/resumable", projectUrl).toString();
-  let tus;
-  try {
-    tus = await import("https://esm.sh/tus-js-client@4.3.1");
-  } catch (importError) {
-    // A remote ESM import can fail in embedded/mobile browsers before any upload request is sent.
-    // Preserve the publication flow by falling back to Supabase Storage direct upload.
-    console.warn("Looply resumable upload module unavailable; trying standard storage upload.", importError);
+  const uploadDirect = async () => {
     const { error: fallbackError } = await client.storage.from("looply-media").upload(path, file, {
       cacheControl: "3600",
       contentType: file.type || "application/octet-stream",
@@ -351,23 +345,38 @@ export async function uploadResumable(client, path, file, onProgress) {
     });
     if (fallbackError) throw fallbackError;
     onProgress(100);
+  };
+  let tus;
+  try {
+    tus = await import("https://esm.sh/tus-js-client@4.3.1");
+  } catch (importError) {
+    // A remote ESM import can fail in embedded/mobile browsers before any upload request is sent.
+    console.warn("Looply resumable upload module unavailable; trying standard storage upload.", importError);
+    await uploadDirect();
     return;
   }
-  await new Promise((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: { authorization: `Bearer ${accessToken}`, apikey: publishableKey },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      chunkSize: 6 * 1024 * 1024,
-      metadata: { bucketName: "looply-media", objectName: path, contentType: file.type, cacheControl: "3600" },
-      onError: reject,
-      onProgress: (uploaded, total) => onProgress(Math.floor((uploaded / total) * 100)),
-      onSuccess: resolve
+  try {
+    await new Promise((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: { authorization: `Bearer ${accessToken}`, apikey: publishableKey },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        chunkSize: 6 * 1024 * 1024,
+        metadata: { bucketName: "looply-media", objectName: path, contentType: file.type, cacheControl: "3600" },
+        onError: reject,
+        onProgress: (uploaded, total) => onProgress(Math.floor((uploaded / total) * 100)),
+        onSuccess: resolve
+      });
+      upload.start();
     });
-    upload.start();
-  });
+  } catch (tusError) {
+    // TUS can fail after its module loads (for example in embedded browsers or on unstable mobile networks).
+    // Try the standard Storage transport before rolling back the Story/Feed record.
+    console.warn("Looply resumable upload failed; trying standard storage upload.", tusError);
+    await uploadDirect();
+  }
 }
 
 export async function loadSocialData(client) {
