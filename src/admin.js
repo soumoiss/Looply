@@ -58,6 +58,21 @@ export function adminMarkup(profile = {}) {
       </form>
     <div class="admin-results" data-users-results aria-live="polite"><p>O Modo ADM será ativado automaticamente para administradores autorizados.</p></div>
     </section>
+    <section class="admin-broadcast-panel admin-settings-panel" aria-labelledby="appSettingsTitle" data-app-settings-panel>
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Configurações globais</span><h3 id="appSettingsTitle">Controles do aplicativo</h3></div></div>
+      <p class="admin-description">As alterações são salvas no Supabase e aplicadas aos usuários ao abrir as páginas. O ADM permanece com acesso durante a manutenção.</p>
+      <form class="admin-broadcast-form" data-app-settings-form>
+        <div class="field admin-maintenance-toggle"><label for="maintenanceMode">Modo de manutenção</label><label class="looply-switch"><input id="maintenanceMode" name="maintenance_mode" type="checkbox"><span class="looply-switch-track" aria-hidden="true"></span><span class="looply-switch-label" data-maintenance-label>Desativado</span></label></div>
+        <div class="field"><label for="maintenanceMessage">Mensagem de manutenção</label><textarea id="maintenanceMessage" name="maintenance_message" rows="2" maxlength="500">Sistema em atualização rápida por Peixinho</textarea></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="button" data-maintenance-save>Salvar modo de manutenção</button></div>
+        <div class="field"><label for="musicOfDayTitle">Música do dia — título/dedicatória</label><input id="musicOfDayTitle" name="music_of_the_day_title" type="text" maxlength="180" placeholder="Dedicada a você!"></div>
+        <div class="field"><label for="musicOfDayUrl">Link do YouTube</label><input id="musicOfDayUrl" name="music_of_the_day_url" type="url" maxlength="1000" placeholder="https://www.youtube.com/watch?v=..."></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="button" data-music-save>Atualizar Música do Dia</button></div>
+        <div class="field"><label for="welcomeBannerText">Mensagem de boas-vindas da Home</label><textarea id="welcomeBannerText" name="welcome_banner_text" rows="3" maxlength="500" placeholder="Escreva a mensagem que aparecerá no topo da Home."></textarea></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="button" data-welcome-save>Salvar Mensagem de Boas-Vindas</button></div>
+        <span class="form-status" data-app-settings-status role="status" aria-live="polite"></span>
+      </form>
+    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
       <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
@@ -444,6 +459,60 @@ export function bindAdminEvents(root, client) {
     mediaPreview.append(preview);
     mediaPreview.hidden = false;
   });
+  const settingsForm = root.querySelector("[data-app-settings-form]");
+  if (settingsForm && client) {
+    const status = settingsForm.querySelector("[data-app-settings-status]");
+    const modeInput = settingsForm.elements.maintenance_mode;
+    const modeLabel = settingsForm.querySelector("[data-maintenance-label]");
+    const setSettingsStatus = (message, kind = "success") => { if (status) { status.textContent = message; status.dataset.kind = kind; } };
+    const updateSettings = async (patch, button) => {
+      if (button) button.disabled = true;
+      setSettingsStatus("Salvando configurações…", "info");
+      try {
+        const { data, error } = await invokeAdmin({ action: "app_settings_update", resourceType: "settings", settings: patch });
+        if (error) throw error;
+        const saved = data?.settings;
+        if (saved) {
+          modeInput.checked = saved.maintenance_mode === true;
+          settingsForm.elements.maintenance_message.value = saved.maintenance_message || "Sistema em atualização rápida por Peixinho";
+          settingsForm.elements.music_of_the_day_title.value = saved.music_of_the_day_title || "";
+          settingsForm.elements.music_of_the_day_url.value = saved.music_of_the_day_url || "";
+          settingsForm.elements.welcome_banner_text.value = saved.welcome_banner_text || "";
+        }
+        if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado" : "Desativado";
+        setSettingsStatus("Configurações salvas com sucesso.");
+      } catch (error) {
+        console.error("Looply app settings save failed", error);
+        setSettingsStatus("Não foi possível salvar. Verifique a sessão ADM e tente novamente.", "error");
+      } finally { if (button) button.disabled = false; }
+    };
+    const loadSettings = async () => {
+      try {
+        const { data, error } = await client.from("app_settings").select("id,maintenance_mode,maintenance_message,music_of_the_day_title,music_of_the_day_url,welcome_banner_text").eq("id", 1).maybeSingle();
+        if (error) throw error;
+        if (!data) return;
+        modeInput.checked = data.maintenance_mode === true;
+        settingsForm.elements.maintenance_message.value = data.maintenance_message || "Sistema em atualização rápida por Peixinho";
+        settingsForm.elements.music_of_the_day_title.value = data.music_of_the_day_title || "";
+        settingsForm.elements.music_of_the_day_url.value = data.music_of_the_day_url || "";
+        settingsForm.elements.welcome_banner_text.value = data.welcome_banner_text || "";
+        if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado" : "Desativado";
+      } catch (error) { console.warn("Looply app settings could not load", error); setSettingsStatus("Não foi possível carregar as configurações.", "error"); }
+    };
+    modeInput.addEventListener("change", () => {
+      if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado" : "Desativado";
+      updateSettings({ maintenance_mode: modeInput.checked, maintenance_message: settingsForm.elements.maintenance_message.value.trim() || "Sistema em atualização rápida por Peixinho" }, settingsForm.querySelector("[data-maintenance-save]"));
+    });
+    settingsForm.querySelector("[data-maintenance-save]")?.addEventListener("click", (event) => updateSettings({ maintenance_mode: modeInput.checked, maintenance_message: settingsForm.elements.maintenance_message.value.trim() || "Sistema em atualização rápida por Peixinho" }, event.currentTarget));
+    settingsForm.querySelector("[data-music-save]")?.addEventListener("click", (event) => {
+      const rawUrl = settingsForm.elements.music_of_the_day_url.value.trim();
+      if (rawUrl) { try { const url = new URL(rawUrl); if (url.protocol !== "https:" || !/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(url.hostname)) throw new Error("invalid"); } catch { setSettingsStatus("Informe um link HTTPS válido do YouTube.", "error"); return; } }
+      updateSettings({ music_of_the_day_title: settingsForm.elements.music_of_the_day_title.value.trim(), music_of_the_day_url: rawUrl }, event.currentTarget);
+    });
+    settingsForm.querySelector("[data-welcome-save]")?.addEventListener("click", (event) => updateSettings({ welcome_banner_text: settingsForm.elements.welcome_banner_text.value.trim() }, event.currentTarget));
+    void loadSettings();
+  }
+
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("[data-moderate-content]");
     if (!form || !client) return;

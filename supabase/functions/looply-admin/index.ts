@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters", "settings"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -825,6 +825,54 @@ Deno.serve(async (request: Request) => {
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "profiles", userId, purpose, requestId,
           { action, reason: errorMessage(error, "User access update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
+    if (action === "app_settings_update") {
+      const settings = payload.settings && typeof payload.settings === "object" ? payload.settings : {};
+      const patch: Record<string, unknown> = {};
+      if (Object.hasOwn(settings, "maintenance_mode")) {
+        if (typeof settings.maintenance_mode !== "boolean") return respond(400, { error: "invalid_maintenance_mode" });
+        patch.maintenance_mode = settings.maintenance_mode;
+      }
+      if (Object.hasOwn(settings, "maintenance_message")) {
+        const message = String(settings.maintenance_message ?? "").trim() || "Sistema em atualização rápida por Peixinho";
+        if (message.length > 500) return respond(400, { error: "invalid_maintenance_message" });
+        patch.maintenance_message = message;
+      }
+      if (Object.hasOwn(settings, "music_of_the_day_title")) {
+        const title = String(settings.music_of_the_day_title ?? "").trim();
+        if (title.length > 180) return respond(400, { error: "invalid_music_title" });
+        patch.music_of_the_day_title = title || null;
+      }
+      if (Object.hasOwn(settings, "music_of_the_day_url")) {
+        const rawUrl = String(settings.music_of_the_day_url ?? "").trim();
+        if (rawUrl) {
+          let parsed: URL;
+          try { parsed = new URL(rawUrl); } catch { return respond(400, { error: "invalid_music_url" }); }
+          if (parsed.protocol !== "https:" || !/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(parsed.hostname)) {
+            return respond(400, { error: "invalid_music_url" });
+          }
+        }
+        if (rawUrl.length > 1000) return respond(400, { error: "invalid_music_url" });
+        patch.music_of_the_day_url = rawUrl || null;
+      }
+      if (Object.hasOwn(settings, "welcome_banner_text")) {
+        const text = String(settings.welcome_banner_text ?? "").trim();
+        if (text.length > 500) return respond(400, { error: "invalid_welcome_message" });
+        patch.welcome_banner_text = text || null;
+      }
+      if (!Object.keys(patch).length) return respond(400, { error: "empty_settings_patch" });
+      await recordAccess(service, authData.user.id, "write_requested", "settings", "1", purpose, requestId, { action, fields: Object.keys(patch) });
+      try {
+        const { data, error } = await service.from("app_settings").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", 1)
+          .select("id,updated_at,maintenance_mode,maintenance_message,music_of_the_day_title,music_of_the_day_url,welcome_banner_text").single();
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "settings", "1", purpose, requestId, { action, fields: Object.keys(patch) });
+        return respond(200, { requestId, settings: data });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "settings", "1", purpose, requestId, { action, reason: errorMessage(error, "Settings update failed.").slice(0, 200) });
         throw error;
       }
     }

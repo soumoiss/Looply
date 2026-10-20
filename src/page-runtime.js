@@ -41,6 +41,28 @@ function notice(root, text, kind = "info") {
   root.innerHTML = `<section class="panel page-notice" role="${kind === "error" ? "alert" : "status"}">${escapeHtml(text)}</section>`;
 }
 
+
+function renderMaintenanceScreen(root, header, message) {
+  header.innerHTML = "";
+  root.innerHTML = "";
+  const overlay = document.createElement("section");
+  overlay.className = "looply-maintenance-screen";
+  overlay.setAttribute("role", "alertdialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "looplyMaintenanceTitle");
+  const iconNode = document.createElement("div");
+  iconNode.className = "looply-maintenance-icon";
+  iconNode.textContent = "⚙";
+  iconNode.setAttribute("aria-hidden", "true");
+  const title = document.createElement("h1");
+  title.id = "looplyMaintenanceTitle";
+  title.textContent = "Looply";
+  const copy = document.createElement("p");
+  copy.textContent = message || "Sistema em atualização rápida por Peixinho";
+  overlay.append(iconNode, title, copy);
+  root.append(overlay);
+}
+
 function headerMarkup(page, profile, admin, unreadCount) {
   const username = escapeHtml(profile.username);
   const name = escapeHtml(profile.display_name || profile.username);
@@ -182,6 +204,25 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
+  let maintenanceChannel = null;
+  const readGlobalSettings = async () => {
+    const { data, error } = await supabase.from("app_settings")
+      .select("maintenance_mode,maintenance_message").eq("id", 1).maybeSingle();
+    if (error) throw error;
+    return data;
+  };
+  if (!isAdmin) {
+    try {
+      const settings = await readGlobalSettings();
+      if (settings?.maintenance_mode === true) {
+        renderMaintenanceScreen(root, header, settings.maintenance_message);
+        return;
+      }
+    } catch (error) {
+      console.warn("Looply maintenance state unavailable; continuing with page access", error);
+    }
+  }
+
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
   const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
@@ -225,6 +266,15 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     })
     .subscribe();
 
+  maintenanceChannel = supabase.channel("looply-app-settings-runtime")
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: settings }) => {
+      if (!isAdmin && settings?.maintenance_mode === true) {
+        renderMaintenanceScreen(root, header, settings.maintenance_message);
+      } else if (!isAdmin && settings?.maintenance_mode === false && root.querySelector(".looply-maintenance-screen")) {
+        window.location.reload();
+      }
+    }).subscribe();
+
   try {
     await render({ root, client: supabase, user, profile, isAdmin });
   } catch (error) {
@@ -247,6 +297,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
     stopAdminModeSync();
+    if (maintenanceChannel) supabase.removeChannel(maintenanceChannel);
   }, { once: true });
 }
 
