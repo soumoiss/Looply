@@ -308,7 +308,10 @@ class MainActivity : Activity() {
             domStorageEnabled = true
             databaseEnabled = false
             allowFileAccess = false
-            allowContentAccess = false
+            // HTML file inputs return content:// URIs from Android's system picker.
+            // WebView must be allowed to read those user-selected content URIs for uploads.
+            // File URLs and cross-origin file access remain disabled below.
+            allowContentAccess = true
             allowFileAccessFromFileURLs = false
             allowUniversalAccessFromFileURLs = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -706,10 +709,37 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_FILE_CHOOSER) return
         val callback = fileChooserCallback ?: return
+        // Clear the callback before delivery so this chooser can never complete twice.
         fileChooserCallback = null
-        callback.onReceiveValue(
-            if (resultCode == RESULT_OK) FileChooserParams.parseResult(resultCode, data) else null
-        )
+
+        val selectedUris = if (resultCode == RESULT_OK && data != null) {
+            // Prefer WebView's documented parser, then merge the common provider result
+            // forms as a compatibility fallback for OEM file pickers and Photo Picker.
+            val uris = linkedSetOf<Uri>()
+            try {
+                FileChooserParams.parseResult(resultCode, data)?.forEach { uri -> uris.add(uri) }
+            } catch (_: Exception) {
+                // Some vendor pickers return a URI form that the WebView parser does not handle.
+            }
+            data.data?.let { uris.add(it) }
+            data.clipData?.let { clip ->
+                for (index in 0 until clip.itemCount) {
+                    clip.getItemAt(index).uri?.let { uris.add(it) }
+                }
+            }
+            uris.toTypedArray().takeIf { it.isNotEmpty() }
+        } else {
+            null
+        }
+
+        if (resultCode == RESULT_OK && selectedUris.isNullOrEmpty()) {
+            Toast.makeText(
+                this,
+                "O seletor não retornou o arquivo. Abra Arquivos e tente selecionar novamente.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        callback.onReceiveValue(selectedUris)
     }
 
     override fun onDestroy() {
