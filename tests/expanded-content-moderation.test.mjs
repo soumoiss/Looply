@@ -10,7 +10,7 @@ test('archive and music moderation are included in the server allowlist', async 
   for (const type of ['archive_media', 'archive_media_comment', 'music_page_comment']) {
     assert.ok(edge.includes(type), `missing content type: ${type}`);
   }
-  assert.match(edge, /adminSessionToken = String\(payload\.adminSessionToken \|\| ""\)/);
+  assert.match(edge, /if \\(isAdmin !== true\\)/);\n  assert.doesNotMatch(edge, /adminSessionToken = String\\(payload\\.adminSessionToken/);
   assert.match(edge, /moderation_completed/);
 });
 
