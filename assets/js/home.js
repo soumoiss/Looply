@@ -20,7 +20,7 @@ function renderGlobalHomeSettings(settings = {}) {
   let musicUrl = "";
   try {
     const url = new URL(rawUrl);
-    if (url.protocol === "https:" && (/(^|\\.)youtube\\.com$/.test(url.hostname) || /(^|\\.)youtu\\.be$/.test(url.hostname))) musicUrl = url.href;
+    if (url.protocol === "https:" && (/(^|\.)youtube\.com$/.test(url.hostname) || /(^|\.)youtu\.be$/.test(url.hostname))) musicUrl = url.href;
   } catch {}
   return `${welcome ? `<section class="looply-welcome-banner" data-global-welcome>${escapeSettingsHtml(welcome)}</section>` : `<section data-global-welcome hidden></section>`}${musicUrl ? `<a class="looply-music-of-day" data-global-music href="${escapeSettingsHtml(musicUrl)}" target="_blank" rel="noopener noreferrer"><span class="looply-music-of-day-icon" aria-hidden="true">♫</span><span class="looply-music-of-day-copy"><small>MÚSICA DO DIA</small><strong>${escapeSettingsHtml(title || "Ouça a música de hoje")}</strong></span><span class="looply-music-of-day-play" aria-hidden="true">▶</span></a>` : `<section data-global-music hidden></section>`}`;
 }
