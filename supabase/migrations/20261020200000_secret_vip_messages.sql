@@ -40,4 +40,7 @@ create policy "secret_messages_recipient_mark_read"
   with check (recipient_id = auth.uid());
 
 revoke all on public.secret_messages from anon;
-grant select, insert, update, delete on public.secret_messages to authenticated;
+grant select on public.secret_messages to authenticated;
+grant insert, delete on public.secret_messages to authenticated;
+revoke update on public.secret_messages from authenticated;
+grant update (is_read, read_at) on public.secret_messages to authenticated;
