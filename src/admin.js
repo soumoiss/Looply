@@ -990,10 +990,12 @@ export function bindAdminEvents(root, client) {
         const file = values.get("media");
         if (file instanceof File && file.size) {
           if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 10 * 1024 * 1024) throw new Error("media");
-          const path = "secret-messages/" + crypto.randomUUID() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const { data: uploaded, error: uploadError } = await client.storage.from("community-media").upload(path, file, { contentType: file.type, upsert: false });
+          const { data: authState, error: authError } = await client.auth.getUser();
+          if (authError || !authState?.user?.id) throw new Error("auth");
+          const path = authState.user.id + "/" + crypto.randomUUID() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const { data: uploaded, error: uploadError } = await client.storage.from("looply-announcements").upload(path, file, { contentType: file.type, upsert: false });
           if (uploadError) throw uploadError;
-          const { data: publicUrl } = client.storage.from("community-media").getPublicUrl(uploaded.path);
+          const { data: publicUrl } = client.storage.from("looply-announcements").getPublicUrl(uploaded.path);
           mediaUrl = publicUrl?.publicUrl || "";
         }
         const { data, error } = await invokeAdmin({ action: "secret_message_create", recipientId, title: String(values.get("title") || "").trim(), content, mediaUrl });
