@@ -699,3 +699,22 @@ summary:focus-visible,
     animation: none;
   }
 }
+
+
+/* Private VIP message modal */
+.secret-vip-overlay{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:18px;background:rgba(18,13,30,.72);backdrop-filter:blur(9px);animation:secretVipFade .22s ease both}
+.secret-vip-modal{position:relative;width:min(100%,520px);max-height:min(88dvh,780px);overflow:auto;padding:30px 24px 24px;border:1px solid color-mix(in srgb,var(--accent,#8a69d4) 45%,transparent);border-radius:28px;background:var(--surface,#fff);color:var(--text,#29243a);box-shadow:0 20px 80px rgba(20,10,40,.32),0 0 28px color-mix(in srgb,var(--accent,#8a69d4) 20%,transparent)}
+.secret-vip-close{position:absolute;right:12px;top:10px;width:40px;height:40px;border:0;border-radius:50%;font-size:28px;background:var(--surface-muted,#f0edf6);color:inherit;cursor:pointer}
+.secret-vip-seal{margin:8px 32px 12px 0;color:var(--accent,#7956c7);font-size:.82rem;font-weight:800;letter-spacing:.04em}
+.secret-vip-modal h2{margin:0 0 16px;font-family:var(--font-display,inherit);font-size:clamp(1.45rem,5vw,2rem);line-height:1.2}
+.secret-vip-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;font-size:1rem;margin:0 0 18px}
+.secret-vip-media-button{display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;margin:0 0 20px}
+.secret-vip-media-button img{display:block;width:100%;max-height:36dvh;object-fit:contain;border-radius:16px}
+.secret-vip-read{width:100%;min-height:48px}
+.secret-vip-status{min-height:1.2em;margin:10px 0 0;text-align:center;font-size:.9rem}
+.secret-vip-modal.is-reading{animation:secretVipHeart .6s ease both}
+@keyframes secretVipFade{from{opacity:0}to{opacity:1}}
+@keyframes secretVipHeart{50%{transform:scale(1.025);filter:drop-shadow(0 0 16px #e98ab6)}}
+.admin-secret-history{display:grid;gap:10px;margin-top:18px}
+.admin-secret-history .admin-record{padding:14px;border:1px solid var(--border-color,#ded8eb);border-radius:14px}
+@media(prefers-reduced-motion:reduce){.secret-vip-overlay,.secret-vip-modal.is-reading{animation:none}}
