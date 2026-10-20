@@ -737,3 +737,30 @@ html[data-theme="noite"] .card-row, html[data-theme="noite"] .track-card { box-s
 .looply-switch input:focus-visible + .looply-switch-track { outline:2px solid var(--primary); outline-offset:3px; }
 .looply-switch-label { min-width:72px; font-size:13px; }
 @media (prefers-reduced-motion:reduce) { .looply-music-of-day,.looply-switch-track,.looply-switch-track::after { transition:none; } }
+
+
+/* Secret VIP direct-message modal: theme-aware, private, and mobile-first. */
+body.secret-vip-open { overflow:hidden; }
+.secret-vip-overlay { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; overflow-y:auto; background:color-mix(in srgb,#171321 72%,transparent); backdrop-filter:blur(9px); animation:secretVipFadeIn .22s ease both; }
+.secret-vip-modal { position:relative; width:min(100%,520px); max-height:min(88dvh,850px); overflow:auto; padding:clamp(24px,5vw,38px); border:1px solid color-mix(in srgb,var(--primary) 42%,var(--border)); border-radius:28px; background:var(--surface); color:var(--text); box-shadow:0 24px 90px #0005,0 0 34px color-mix(in srgb,var(--primary) 20%,transparent); text-align:center; animation:secretVipRise .3s cubic-bezier(.2,.8,.2,1) both; }
+.secret-vip-close { position:absolute; top:12px; right:14px; display:grid; place-items:center; width:42px; height:42px; border:1px solid var(--border); border-radius:50%; background:var(--surface); color:var(--text); font-size:28px; cursor:pointer; }
+.secret-vip-seal { display:grid; place-items:center; width:66px; height:66px; margin:0 auto 12px; border-radius:22px; background:color-mix(in srgb,var(--primary) 12%,var(--surface)); font-size:34px; }
+.secret-vip-kicker { margin:0 0 8px; color:var(--primary); font-size:11px; font-weight:850; letter-spacing:.15em; }
+.secret-vip-modal h2 { margin:0 auto 18px; max-width:90%; font-family:var(--font-heading,inherit); font-size:clamp(22px,5.4vw,30px); line-height:1.25; overflow-wrap:anywhere; }
+.secret-vip-content { margin:0 0 20px; text-align:left; white-space:pre-wrap; overflow-wrap:anywhere; font-size:16px; line-height:1.8; }
+.secret-vip-media-link { display:block; margin:0 auto 8px; width:fit-content; max-width:100%; }
+.secret-vip-media { display:block; max-width:100%; max-height:36dvh; object-fit:contain; border-radius:16px; border:1px solid var(--border); }
+.secret-vip-media-hint { margin:0 0 18px; color:var(--muted); font-size:12px; }
+.secret-vip-read { width:100%; min-height:48px; border-radius:15px; }
+.secret-vip-status { min-height:1.2em; margin:10px 0 0; color:var(--muted); font-size:13px; }
+.secret-vip-celebrate .secret-vip-seal { animation:secretVipHeart .55s ease-in-out 2; }
+.secret-vip-overlay.is-closing { animation:secretVipFadeOut .18s ease both; }
+.secret-vip-overlay.is-closing .secret-vip-modal { animation:secretVipDrop .18s ease both; }
+.secret-media-preview, .secret-vip-admin [data-secret-media-preview] { margin-top:10px; }
+.secret-vip-admin [data-secret-media-preview] img { display:block; max-width:100%; max-height:220px; object-fit:contain; border-radius:14px; border:1px solid var(--border); }
+@keyframes secretVipFadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes secretVipFadeOut { to { opacity:0; } }
+@keyframes secretVipRise { from { opacity:0; transform:translateY(16px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes secretVipDrop { to { opacity:0; transform:translateY(8px) scale(.99); } }
+@keyframes secretVipHeart { 50% { transform:scale(1.12) rotate(-5deg); } }
+@media (prefers-reduced-motion:reduce) { .secret-vip-overlay,.secret-vip-modal,.secret-vip-seal { animation:none!important; } }
