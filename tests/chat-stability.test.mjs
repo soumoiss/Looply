@@ -209,11 +209,11 @@ test("audio and video call controls remain available and stop media on hangup", 
   assert.match(css, /\.chat-call-backdrop\s*\{\s*position:\s*fixed/);
 });
 
-
-test("chat paperclip opens the hidden attachment input directly from the click gesture", async () => {
+test("chat paperclip picker is isolated from conversation and call click handling", async () => {
   const source = await read("src/chat.js");
   assert.match(source, /data-chat-choose-files/);
-  assert.match(source, /const chooseFilesButton = event\.target\.closest\("\[data-chat-choose-files\]"\)/);
-  assert.match(source, /fileInput\?\.click\(\)/);
-  assert.match(source, /input\[name="files"\]/);
+  assert.match(source, /root\.addEventListener\("click", \(event\) => \{/);
+  assert.match(source, /const input = button\.closest\("\[data-chat-send\]"\)\?\.querySelector\('input\[name="files"\]'\)/);
+  assert.match(source, /input\?\.click\(\)/);
+  assert.doesNotMatch(source, /const chooseFilesButton = event\.target\.closest/);
 });
