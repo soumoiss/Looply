@@ -62,6 +62,19 @@ export function adminMarkup(profile = {}) {
         <span class="form-status" data-app-settings-status role="status" aria-live="polite"></span>
       </form>
     </section>
+    <section class="admin-broadcast-panel" aria-labelledby="secretVipTitle">
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Mensagem individual</span><h3 id="secretVipTitle">💌 Enviar Recado Secreto VIP</h3></div><button class="text-button" type="button" data-secret-refresh>Atualizar histórico</button></div>
+      <p class="admin-description">O recado aparece somente para a pessoa escolhida quando ela abrir a Home.</p>
+      <form class="admin-broadcast-form" data-secret-message-form>
+        <div class="field"><label for="secretRecipient">Destinatário</label><select id="secretRecipient" name="recipient_id" required><option value="">Carregando usuários…</option></select></div>
+        <div class="field"><label for="secretTitle">Título do recado (opcional)</label><input id="secretTitle" name="title" maxlength="120" placeholder="Psiu... Olha só isso!"></div>
+        <div class="field"><label for="secretContent">Mensagem</label><textarea id="secretContent" name="content" rows="4" maxlength="4000" required placeholder="Escreva seu recado especial…"></textarea></div>
+        <div class="field"><label for="secretMedia">Foto opcional</label><input id="secretMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div data-secret-preview class="admin-broadcast-media-preview" hidden></div></div>
+        <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Enviar Recado Secreto ✨</button></div>
+        <span class="form-status" data-secret-status role="status" aria-live="polite"></span>
+      </form>
+      <div data-secret-history aria-live="polite"><p>Carregando histórico…</p></div>
+    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminBroadcastTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Aviso para todas as contas</span><h3 id="adminBroadcastTitle">Comunicado global</h3></div></div>
       <p class="admin-description">O aviso aparece como uma janela dentro do Looply. Cada conta registra sua própria leitura, e o histórico mostra quem leu e quem ainda não leu.</p>
@@ -74,6 +87,18 @@ export function adminMarkup(profile = {}) {
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
       <div class="admin-broadcast-results" data-broadcast-results aria-live="polite"><p>Informe o motivo administrativo e consulte o histórico para ver os recibos de leitura.</p></div>
+    </section>
+    <section class="admin-broadcast-panel secret-vip-admin" aria-labelledby="secretVipTitle">
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Mensagem individual</span><h3 id="secretVipTitle">💌 Enviar Recado Secreto VIP</h3></div><button class="text-button" type="button" data-secret-refresh>Atualizar histórico</button></div>
+      <p class="admin-description">O recado só pode ser consultado pelo destinatário escolhido e reaparece até ser guardado como lido.</p>
+      <form class="admin-broadcast-form" data-secret-message-form>
+        <div class="field"><label for="secretRecipient">Destinatário</label><select id="secretRecipient" name="recipient_id" required><option value="">Carregando usuários…</option></select></div>
+        <div class="field"><label for="secretTitle">Título do recado (opcional)</label><input id="secretTitle" name="title" maxlength="160" placeholder="Psiu... Olha só isso!"></div>
+        <div class="field"><label for="secretContent">Conteúdo do recado</label><textarea id="secretContent" name="content" rows="4" maxlength="5000" required placeholder="Escreva seu recado especial…"></textarea></div>
+        <div class="field"><label for="secretMedia">Foto ou imagem opcional</label><input id="secretMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>Imagem de até 10 MB. A mídia fica em armazenamento privado e só o destinatário e o ADM podem acessá-la.</small><div class="secret-media-preview" data-secret-media-preview hidden></div></div>
+        <button class="primary-button compact-button" type="submit">Enviar Recado Secreto ✨</button><span class="form-status" data-secret-status role="status" aria-live="polite"></span>
+      </form>
+      <div class="admin-broadcast-results" data-secret-history aria-live="polite"><p>Carregando histórico de recados…</p></div>
     </section>
     <form class="admin-read-form" data-admin-read>
       <div class="admin-form-grid">
@@ -220,6 +245,70 @@ function renderResults(container, resourceType, data) {
 }
 
 export function bindAdminEvents(root, client) {
+  const secretForm = root.querySelector("[data-secret-message-form]");
+  const secretRecipient = root.querySelector("[data-secret-message-form] select[name='recipient_id']");
+  const secretMediaInput = root.querySelector("#secretMedia");
+  const secretPreview = root.querySelector("[data-secret-media-preview]");
+  let selectedSecretMedia = null;
+
+  async function loadSecretRecipients() {
+    if (!secretRecipient) return;
+    try {
+      const { data, error } = await client.from("profiles").select("id,username,display_name").order("username");
+      if (error) throw error;
+      secretRecipient.replaceChildren(new Option("Escolha um usuário…", ""));
+      for (const person of data || []) secretRecipient.add(new Option(`${person.display_name || person.username} · @${person.username}`, person.id));
+    } catch (error) {
+      console.error("Secret VIP recipients unavailable", error);
+      secretRecipient.replaceChildren(new Option("Não foi possível carregar usuários", ""));
+    }
+  }
+
+  async function loadSecretHistory() {
+    const history = root.querySelector("[data-secret-history]");
+    if (!history) return;
+    history.textContent = "Carregando histórico…";
+    try {
+      const { data, error } = await client.from("secret_messages")
+        .select("id,created_at,title,content,is_read,read_at,recipient:profiles!secret_messages_recipient_id_fkey(username,display_name)")
+        .order("created_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      history.replaceChildren();
+      if (!data?.length) { history.textContent = "Ainda não há recados enviados."; return; }
+      for (const item of data) {
+        const card = document.createElement("article"); card.className = "admin-record";
+        const top = document.createElement("div"); top.className = "admin-record-top";
+        const who = document.createElement("strong"); who.textContent = `${item.recipient?.display_name || item.recipient?.username || "Destinatário"} · @${item.recipient?.username || "usuário"}`;
+        const status = document.createElement("span"); status.textContent = item.is_read ? `Lido em ${dateTime(item.read_at)} ✅` : "Aguardando leitura ⏳";
+        top.append(who, status);
+        const title = document.createElement("h4"); title.textContent = item.title || "Recado secreto";
+        const body = document.createElement("p"); body.className = "admin-record-body"; body.textContent = item.content;
+        card.append(top, title, body);
+        if (!item.is_read) {
+          const remove = document.createElement("button"); remove.type = "button"; remove.className = "text-button admin-danger-action"; remove.dataset.secretDelete = item.id; remove.textContent = "Cancelar recado não lido"; card.append(remove);
+        }
+        history.append(card);
+      }
+    } catch (error) {
+      console.error("Secret VIP history unavailable", error);
+      history.textContent = "Não foi possível carregar o histórico. Confira a migração e as permissões no Supabase.";
+    }
+  }
+
+  if (secretForm) {
+    void loadSecretRecipients();
+    void loadSecretHistory();
+    secretMediaInput?.addEventListener("change", () => {
+      selectedSecretMedia = secretMediaInput.files?.[0] || null;
+      if (secretPreview) {
+        secretPreview.replaceChildren(); secretPreview.hidden = !selectedSecretMedia;
+        if (selectedSecretMedia) {
+          const img = document.createElement("img"); img.alt = "Prévia do recado VIP"; img.src = URL.createObjectURL(selectedSecretMedia);
+          img.onload = () => URL.revokeObjectURL(img.src); secretPreview.append(img);
+        }
+      }
+    });
+  }
   async function loadUsers() {
     const results = root.querySelector("[data-users-results]");
     const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
@@ -577,6 +666,19 @@ export function bindAdminEvents(root, client) {
       } finally { deactivateBroadcast.disabled = false; }
       return;
     }
+    const refreshSecret = event.target.closest("[data-secret-refresh]");
+    if (refreshSecret && client) { event.preventDefault(); await loadSecretMessages(); return; }
+    const cancelSecret = event.target.closest("[data-secret-delete]");
+    if (cancelSecret && client) {
+      cancelSecret.disabled = true;
+      try {
+        const { error } = await invokeAdmin({ action: "secret_message_delete", messageId: cancelSecret.dataset.secretDelete });
+        if (error) throw error;
+        await loadSecretMessages();
+      } catch (error) { console.error("Secret message delete failed", error); const status=root.querySelector("[data-secret-status]"); if(status){status.textContent="Não foi possível apagar o recado.";status.dataset.kind="error";} }
+      finally { cancelSecret.disabled = false; }
+      return;
+    }
     const button = event.target.closest("[data-admin-chat-start]");
     if (!button || !client) return;
     button.disabled = true;
@@ -609,6 +711,61 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const secretMessageForm = event.target.closest("form[data-secret-message-form]");
+    if (secretMessageForm && client) {
+      event.preventDefault();
+      const submitButton = secretMessageForm.querySelector('button[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+      const status = secretMessageForm.querySelector("[data-secret-status]");
+      try {
+        const values = new FormData(secretMessageForm);
+        const recipientId = String(values.get("recipient_id") || "");
+        const title = String(values.get("title") || "").trim();
+        const content = String(values.get("content") || "").trim();
+        if (!recipientId || !content || content.length > 5000 || title.length > 160) throw new Error("validation");
+        let mediaUrl = null;
+        if (selectedSecretMedia) {
+          if (!selectedSecretMedia.type.startsWith("image/") || selectedSecretMedia.size > 10 * 1024 * 1024) throw new Error("media");
+          const { data: authData, error: authError } = await client.auth.getUser();
+          if (authError || !authData?.user?.id) throw new Error("auth");
+          const path = `${recipientId}/${crypto.randomUUID()}-${selectedSecretMedia.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || "image"}`;
+          const { data: upload, error: uploadError } = await client.storage.from("looply-secret-messages").upload(path, selectedSecretMedia, { upsert: false, contentType: selectedSecretMedia.type });
+          if (uploadError) throw uploadError;
+          mediaUrl = upload.path;
+        }
+        const { data: authData, error: authError } = await client.auth.getUser();
+        if (authError || !authData?.user?.id) throw new Error("auth");
+        const { error } = await client.from("secret_messages").insert({ sender_id: authData.user.id, recipient_id: recipientId, title: title || null, content, media_url: mediaUrl });
+        if (error) throw error;
+        secretMessageForm.reset(); selectedSecretMedia = null;
+        if (secretPreview) { secretPreview.replaceChildren(); secretPreview.hidden = true; }
+        if (status) { status.textContent = "Recado secreto guardado para " + (secretRecipient.selectedOptions[0]?.textContent || "o usuário") + "!"; status.dataset.kind = "success"; }
+        await loadSecretHistory();
+      } catch (error) {
+        console.error("Secret VIP message send failed", error);
+        if (status) { status.textContent = error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : "Não foi possível enviar. Verifique a migration e as permissões do Supabase."; status.dataset.kind = "error"; }
+      } finally { if (submitButton) submitButton.disabled = false; }
+      return;
+    }
+
+    const secretDelete = event.target.closest("[data-secret-delete]");
+    if (secretDelete && client) {
+      secretDelete.disabled = true;
+      try {
+        const { error } = await client.from("secret_messages").delete().eq("id", secretDelete.dataset.secretDelete).eq("is_read", false);
+        if (error) throw error;
+        await loadSecretHistory();
+      } catch (error) {
+        console.error("Secret VIP cancel failed", error);
+        secretDelete.disabled = false;
+        alert("Não foi possível cancelar o recado.");
+      }
+      return;
+    }
+    if (event.target.closest("[data-secret-refresh]")) {
+      void loadSecretRecipients(); void loadSecretHistory(); return;
+    }
+
     const createForm = event.target.closest("form[data-user-create]");
     if (createForm && client) {
       event.preventDefault();
@@ -791,6 +948,39 @@ export function bindAdminEvents(root, client) {
       } finally {
         if (button) button.disabled = false;
       }
+      return;
+    }
+    const secretForm = event.target.closest("form[data-secret-message-form]");
+    if (secretForm && client) {
+      event.preventDefault();
+      const button = secretForm.querySelector('button[type="submit"]');
+      if (button) { button.disabled = true; button.textContent = "Enviando…"; }
+      try {
+        const values = new FormData(secretForm);
+        const recipientId = String(values.get("recipient_id") || "");
+        const content = String(values.get("content") || "").trim();
+        if (!recipientId || !content) throw new Error("required");
+        let mediaUrl = "";
+        const file = values.get("media");
+        if (file instanceof File && file.size) {
+          if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 10 * 1024 * 1024) throw new Error("media");
+          const path = "secret-messages/" + crypto.randomUUID() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const { data: uploaded, error: uploadError } = await client.storage.from("community-media").upload(path, file, { contentType: file.type, upsert: false });
+          if (uploadError) throw uploadError;
+          const { data: publicUrl } = client.storage.from("community-media").getPublicUrl(uploaded.path);
+          mediaUrl = publicUrl?.publicUrl || "";
+        }
+        const { data, error } = await invokeAdmin({ action: "secret_message_create", recipientId, title: String(values.get("title") || "").trim(), content, mediaUrl });
+        if (error) throw error;
+        secretForm.reset();
+        const status = root.querySelector("[data-secret-status]");
+        if (status) { status.textContent = "Recado secreto enviado!"; status.dataset.kind = "success"; }
+        await loadSecretMessages();
+      } catch (error) {
+        console.error("Secret message send failed", error);
+        const status = root.querySelector("[data-secret-status]");
+        if (status) { status.textContent = /media/.test(String(error?.message||"")) ? "Use uma imagem válida de até 10 MB." : "Não foi possível enviar. Confira os campos e tente novamente."; status.dataset.kind = "error"; }
+      } finally { if (button) { button.disabled = false; button.textContent = "Enviar Recado Secreto ✨"; } }
       return;
     }
     const form = event.target.closest("form[data-admin-read]");

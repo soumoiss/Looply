@@ -14,6 +14,11 @@ create table if not exists public.secret_messages (
 create index if not exists secret_messages_recipient_unread_idx on public.secret_messages (recipient_id, created_at desc) where is_read = false;
 create index if not exists secret_messages_sender_created_idx on public.secret_messages (sender_id, created_at desc);
 
+-- ADM can resolve every profile in the recipient selector, including private profiles.
+drop policy if exists profiles_admin_select_all on public.profiles;
+create policy profiles_admin_select_all on public.profiles
+for select to authenticated using (private.is_admin());
+
 alter table public.secret_messages enable row level security;
 revoke all on public.secret_messages from anon;
 grant select, insert, update, delete on public.secret_messages to authenticated;
