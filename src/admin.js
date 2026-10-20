@@ -775,7 +775,6 @@ export function bindAdminEvents(root, client) {
 
     const secretDelete = event.target.closest("[data-secret-delete]");
     if (secretDelete && client) {
-      if (!confirm("Cancelar este recado secreto não lido?")) return;
       secretDelete.disabled = true;
       try {
         const { error } = await client.from("secret_messages").delete().eq("id", secretDelete.dataset.secretDelete).eq("is_read", false);
