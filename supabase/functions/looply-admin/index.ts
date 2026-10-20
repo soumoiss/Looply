@@ -832,9 +832,12 @@ Deno.serve(async (request: Request) => {
     if (action === "broadcast_create") {
       const title = String(payload.title || "").trim();
       const body = String(payload.body || "").trim();
+      const mediaUrl = String(payload.mediaUrl || "").trim() || null;
+      const allowedMediaPrefix = `${Deno.env.get("SUPABASE_URL") || ""}/storage/v1/object/public/looply-announcements/`;
       const expiresText = String(payload.expiresAt || "").trim();
       const expiresAt = expiresText ? new Date(expiresText) : null;
       if (title.length < 1 || title.length > 120 || body.length < 1 || body.length > 4000
+          || (mediaUrl && (!allowedMediaPrefix || !mediaUrl.startsWith(allowedMediaPrefix)))
           || (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now()))) {
         return respond(400, { error: "invalid_broadcast_content_or_expiry" });
       }
@@ -842,8 +845,8 @@ Deno.serve(async (request: Request) => {
         { action, title, expires_at: expiresAt?.toISOString() || null });
       try {
         const { data: announcement, error } = await service.from("global_announcements")
-          .insert({ title, body, created_by: authData.user.id, expires_at: expiresAt?.toISOString() || null })
-          .select("id,title,body,created_at,expires_at,is_active").single();
+          .insert({ title, body, media_url: mediaUrl, created_by: authData.user.id, expires_at: expiresAt?.toISOString() || null })
+          .select("id,title,body,media_url,created_at,expires_at,is_active").single();
         if (error) throw error;
         await recordAccess(service, authData.user.id, "write_completed", "announcements", announcement.id, purpose, requestId,
           { action, title });
@@ -859,7 +862,7 @@ Deno.serve(async (request: Request) => {
       await recordAccess(service, authData.user.id, "read_requested", "announcements", null, purpose, requestId, { action });
       try {
         const { data: announcements, error } = await service.from("global_announcements")
-          .select("id,title,body,created_at,starts_at,expires_at,is_active,created_by")
+          .select("id,title,body,media_url,created_at,starts_at,expires_at,is_active,created_by")
           .order("created_at", { ascending: false }).limit(50);
         if (error) throw error;
         const ids = (announcements || []).map((item: any) => item.id);
