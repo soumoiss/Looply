@@ -26,6 +26,11 @@ export async function mountGlobalAnnouncements({ client, user }) {
     card.setAttribute("role", "dialog");
     card.setAttribute("aria-modal", "true");
     card.setAttribute("aria-labelledby", "looply-announcement-title");
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "looply-announcement-close";
+    closeButton.setAttribute("aria-label", "Fechar temporariamente");
+    closeButton.textContent = "×";
     const kicker = document.createElement("p");
     kicker.className = "looply-announcement-kicker";
     kicker.textContent = "Comunicado Looply";
@@ -35,6 +40,26 @@ export async function mountGlobalAnnouncements({ client, user }) {
     const body = document.createElement("p");
     body.className = "looply-announcement-body";
     body.textContent = announcement.body;
+    let media = null;
+    if (announcement.media_url) {
+      const mediaLink = document.createElement("a");
+      mediaLink.className = "looply-announcement-media-link";
+      mediaLink.href = announcement.media_url;
+      mediaLink.target = "_blank";
+      mediaLink.rel = "noopener noreferrer";
+      mediaLink.setAttribute("aria-label", "Abrir mídia do comunicado em tamanho original");
+      media = document.createElement("img");
+      media.className = "looply-announcement-media";
+      media.src = announcement.media_url;
+      media.alt = "Mídia do comunicado";
+      media.loading = "lazy";
+      mediaLink.append(media);
+      mediaLink.addEventListener("click", (event) => { if (event.target === media) { /* open original in a new tab */ } });
+      card.append(closeButton);
+      card.append(kicker, title, body, mediaLink);
+    } else {
+      card.append(closeButton, kicker, title, body);
+    }
     const status = document.createElement("p");
     status.className = "looply-announcement-status";
     status.setAttribute("role", "status");
@@ -43,12 +68,24 @@ export async function mountGlobalAnnouncements({ client, user }) {
     actions.className = "looply-announcement-actions";
     const readButton = document.createElement("button");
     readButton.type = "button";
-    readButton.textContent = "Li o comunicado";
+    readButton.textContent = "Marcar como lido";
     actions.append(readButton);
-    card.append(kicker, title, body, status, actions);
+    card.append(status, actions);
     overlay.append(card);
     document.body.append(overlay);
     currentOverlay = overlay;
+    closeButton.addEventListener("click", () => {
+      overlay.classList.add("is-closing");
+      window.setTimeout(() => {
+        if (currentOverlay !== overlay) return;
+        overlay.remove();
+        currentOverlay = null;
+        presentNext();
+      }, 180);
+    });
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) closeButton.click();
+    });
     readButton.focus();
 
     readButton.addEventListener("click", async () => {
@@ -90,11 +127,11 @@ export async function mountGlobalAnnouncements({ client, user }) {
   try {
     const now = new Date().toISOString();
     const { data: announcements, error } = await client.from("global_announcements")
-      .select("id,title,body,created_at,starts_at,expires_at,is_active")
+      .select("id,title,body,media_url,created_at,starts_at,expires_at,is_active")
       .eq("is_active", true)
       .lte("starts_at", now)
       .or(`expires_at.is.null,expires_at.gt.${now}`)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw error;
     const ids = (announcements || []).map((item) => item.id);
