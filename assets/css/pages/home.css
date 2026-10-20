@@ -236,3 +236,63 @@
 .story-dialog-fallback-open { position: fixed !important; inset: 0 !important; z-index: 10000 !important; display: block !important; margin: auto !important; }
 .story-viewer-dialog.story-dialog-fallback-open { width: min(100vw, 520px); height: min(100dvh, 900px); max-height: 100dvh; overflow: hidden; background: #100e15; color: #fff; }
 .story-viewer-dialog.story-dialog-fallback-open::backdrop { background: #100d18b8; }
+
+
+/* Admin-only story viewer polish: preserve media behavior and existing controls. */
+.story-viewer-dialog[data-admin="true"] {
+  width: min(100vw - 24px, 560px);
+  height: min(94dvh, 900px);
+  border-radius: 18px;
+}
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+  background: #100e15;
+}
+.story-viewer-dialog[data-admin="true"] .story-viewer-owner-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.story-viewer-dialog[data-admin="true"] .story-insights-button,
+.story-viewer-dialog[data-admin="true"] .story-delete-button {
+  min-height: 42px;
+}
+.story-viewer-dialog[data-admin="true"] .story-insights-panel {
+  max-height: min(58%, 480px);
+  padding: 16px 18px max(16px, env(safe-area-inset-bottom));
+}
+.story-viewer-dialog[data-admin="true"] .story-insights-panel > ul > li {
+  min-height: 42px;
+}
+@media (max-width: 560px) {
+  .story-viewer-dialog[data-admin="true"] {
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .story-viewer-dialog[data-admin="true"] .story-viewer-header {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .story-viewer-dialog[data-admin="true"] .story-viewer-owner-actions {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+  }
+  .story-viewer-dialog[data-admin="true"] .story-insights-button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+  }
+  .story-viewer-dialog[data-admin="true"] .story-delete-button {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+}
