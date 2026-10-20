@@ -19,8 +19,9 @@ test("new themes and fonts are applied from the profile and the service worker r
   assert.match(settings, /value="sunset"/);
   assert.match(settings, /value="syne"/);
   assert.match(css, /--looply-font-family/);
-  assert.match(worker, /looply-shell-v2/);
+  assert.match(worker, /looply-shell-v3/);
   assert.match(worker, /caches\.delete/);
+  assert.match(worker, /cache: "no-cache"/);
   assert.match(worker, /return network \|\| cached/);
 });
 
@@ -38,3 +39,4 @@ test("ADM can provision a normal account without a manual password and delete fe
   assert.match(stories, /contentType: "story"/);
   assert.match(home, /isAdmin/);
 });
+
