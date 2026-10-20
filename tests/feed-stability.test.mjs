@@ -30,6 +30,17 @@ test("media uploads normalize Android content URIs and retain private RETURNING 
   assert.match(migration, /story\.author_id = \(select auth\.uid\(\)\)/);
   assert.match(migration, /comment\.author_id = \(select auth\.uid\(\)\)/);
 });
+test("video uploads use resumable transport and successful publications survive refresh failures", async () => {
+  const social = await read("src/social.js");
+  const stories = await read("src/stories.js");
+  assert.match(social, /file\.size <= 6 \* 1024 \* 1024 && !file\.type\.startsWith\("video\/"\)/);
+  assert.match(social, /let publicationCommitted = false/);
+  assert.match(social, /if \(!publicationCommitted && createdPostId\)/);
+  assert.match(social, /if \(!publicationCommitted && createdCommentId\)/);
+  assert.match(stories, /let storyCommitted = false/);
+  assert.match(stories, /if \(!storyCommitted\)/);
+});
+
 test("post and comment avatars use signed profile avatar URLs", async () => {
   const source = await read("src/social.js");
   assert.match(source, /signProfileAvatars/);
