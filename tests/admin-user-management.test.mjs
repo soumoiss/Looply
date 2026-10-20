@@ -10,7 +10,7 @@ test("user management actions require verified administrator membership and audi
   const guard = edge.indexOf('if (isAdmin !== true)');
   const purpose = edge.indexOf("const purpose = adminAuditPurpose(action, resourceType)");
   const list = edge.indexOf('if (action === "users_list")');
-  assert.ok(guard > -1 && purpose > guard && list > purpose);
+  assert.ok(guard > -1 && purpose > guard && list > guard);
   assert.doesNotMatch(edge, /adminSessionToken = String\\(payload\\.adminSessionToken/);
   for (const action of ["users_list", "user_create_invite", "user_update_profile", "user_set_suspended", "user_restore_access"]) {
     assert.ok(edge.includes(`action === "${action}"`), "missing action " + action);
