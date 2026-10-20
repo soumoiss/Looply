@@ -55,6 +55,21 @@ test("mobile chat uses list-first navigation and keeps the composer controls ava
   assert.match(source, /Anexar mídia/);
 });
 
+test("chat attachments normalize Android content-provider files and keep browser, Storage, and RLS allowlists aligned", async () => {
+  const [chat, migration] = await Promise.all([
+    read("src/chat.js"), read("supabase/migrations/20261020140000_chat_attachment_mime_reliability.sql")
+  ]);
+  assert.match(chat, /function normalizedAttachment\(file\)/);
+  assert.match(chat, /mimeTypesByExtension/);
+  assert.match(chat, /new File\(\[file\]/);
+  assert.match(chat, /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+  assert.match(chat, /Seleção de arquivo cancelada/);
+  assert.match(migration, /chat_media_mime_type_check/);
+  assert.match(migration, /looply_chat_insert_own_message/);
+  assert.match(migration, /application\/msword/);
+  assert.match(migration, /conversation_id::text/);
+});
+
 test("Stories remain in the conversation list and survive Realtime sidebar refreshes", async () => {
   const [page, controller] = await Promise.all([
     read("assets/js/chat.js"),

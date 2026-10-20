@@ -3,8 +3,12 @@ const fileExtensions = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"], ["audio/mp4", "mp4"],
   ["audio/mpeg", "mp3"], ["audio/ogg", "ogg"], ["audio/webm", "webm"],
-  ["application/pdf", "pdf"], ["text/plain", "txt"]
+  ["application/pdf", "pdf"], ["text/plain", "txt"], ["text/csv", "csv"],
+  ["application/msword", "doc"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
+  ["application/rtf", "rtf"]
 ]);
+const mimeTypesByExtension = new Map([...fileExtensions].map(([mimeType, extension]) => [extension, mimeType]));
 const maxFileSize = 100 * 1024 * 1024;
 const maxFilesPerMessage = 8;
 
@@ -209,9 +213,24 @@ function setStatus(form, message, kind = "success") {
   status.dataset.kind = kind;
 }
 
+function normalizedAttachment(file) {
+  const suppliedType = String(file.type || "").split(";")[0].toLocaleLowerCase("en-US");
+  const extension = String(file.name || "").split(".").pop()?.toLocaleLowerCase("en-US") || "";
+  const mimeType = fileExtensions.has(suppliedType) ? suppliedType : mimeTypesByExtension.get(extension);
+  if (!mimeType) return null;
+  // Android document providers sometimes omit File.type for content:// URIs. A new
+  // File preserves the bytes while supplying the validated type used by Storage.
+  return suppliedType === mimeType ? file : new File([file], file.name || `arquivo.${fileExtensions.get(mimeType)}`, {
+    type: mimeType,
+    lastModified: file.lastModified || Date.now()
+  });
+}
+
 function selectedFiles(formData) {
-  const files = formData.getAll("files").filter((file) => file instanceof File && file.size > 0);
-  if (files.length > maxFilesPerMessage || files.some((file) => !fileExtensions.has(file.type.split(";")[0]) || file.size > maxFileSize)) {
+  const files = formData.getAll("files")
+    .filter((file) => file instanceof File && file.size > 0)
+    .map(normalizedAttachment);
+  if (files.some((file) => !file) || files.length > maxFilesPerMessage || files.some((file) => file.size > maxFileSize)) {
     throw new Error("unsupported attachment");
   }
   return files;
@@ -448,7 +467,7 @@ function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}" aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
+    <div class="chat-message-actions"><label class="chat-attachment-label" for="files-${escapeHtml(conversationId)}" aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</label><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -850,9 +869,26 @@ export function bindChatEvents(root, client, getUserId) {
 
   root.addEventListener("change", (event) => {
     const select = event.target.closest("[data-chat-audio-rate]");
-    if (!select) return;
-    const audio = select.closest(".chat-audio-player")?.querySelector("audio");
-    if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, Number(select.value) || 1));
+    if (select) {
+      const audio = select.closest(".chat-audio-player")?.querySelector("audio");
+      if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, Number(select.value) || 1));
+      return;
+    }
+    const attachmentInput = event.target.closest('input[name="files"]');
+    if (!attachmentInput) return;
+    const form = attachmentInput.closest("[data-chat-send]");
+    if (!form) return;
+    const files = [...attachmentInput.files];
+    if (!files.length) {
+      setStatus(form, "Seleção de arquivo cancelada.", "info");
+      return;
+    }
+    try {
+      const accepted = selectedFiles(new FormData(form));
+      setStatus(form, `${accepted.length} arquivo${accepted.length === 1 ? "" : "s"} pronto${accepted.length === 1 ? "" : "s"} para enviar.`, "info");
+    } catch {
+      setStatus(form, "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.", "error");
+    }
   });
 
   root.addEventListener("submit", async (event) => {

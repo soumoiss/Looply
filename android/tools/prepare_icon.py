@@ -2,7 +2,7 @@ from pathlib import Path
 from PIL import Image
 
 ANDROID_DIR = Path(__file__).resolve().parents[1]
-SOURCE = ANDROID_DIR / "icon-source" / "Looply-original.jpeg"
+SOURCE = ANDROID_DIR / "icon-source" / "Looply-original.png"
 RES = ANDROID_DIR / "app" / "src" / "main" / "res"
 
 
