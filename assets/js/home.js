@@ -7,14 +7,21 @@ import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/sha
 // Support direct links to home.html?share_url=... without the splash screen.
 captureIncomingSharedLink();
 
-function escapeSettingsHtml(value) { return String(value ?? "").replace(/[&<>"\']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '" ': "&quot;", "\'": "&#39;" }[c])); }
+function escapeSettingsHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
 
 function renderGlobalHomeSettings(settings = {}) {
   const welcome = String(settings.welcome_banner_text || "").trim();
   const title = String(settings.music_of_the_day_title || "").trim();
   const rawUrl = String(settings.music_of_the_day_url || "").trim();
   let musicUrl = "";
-  try { const url = new URL(rawUrl); if (url.protocol === "https:" && (/(^|\\.)youtube\\.com$/.test(url.hostname) || /(^|\\.)youtu\\.be$/.test(url.hostname))) musicUrl = url.href; } catch {}
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol === "https:" && (/(^|\\.)youtube\\.com$/.test(url.hostname) || /(^|\\.)youtu\\.be$/.test(url.hostname))) musicUrl = url.href;
+  } catch {}
   return `${welcome ? `<section class="looply-welcome-banner" data-global-welcome>${escapeSettingsHtml(welcome)}</section>` : `<section data-global-welcome hidden></section>`}${musicUrl ? `<a class="looply-music-of-day" data-global-music href="${escapeSettingsHtml(musicUrl)}" target="_blank" rel="noopener noreferrer"><span class="looply-music-of-day-icon" aria-hidden="true">♫</span><span class="looply-music-of-day-copy"><small>MÚSICA DO DIA</small><strong>${escapeSettingsHtml(title || "Ouça a música de hoje")}</strong></span><span class="looply-music-of-day-play" aria-hidden="true">▶</span></a>` : `<section data-global-music hidden></section>`}`;
 }
 
@@ -66,22 +73,14 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   bindSocialEvents(root, client, () => user.id, isAdmin);
   const globalSettingsChannel = client.channel("looply-home-global-settings")
     .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: updated }) => {
-      const holder = document.createElement("template");
-      holder.innerHTML = renderGlobalHomeSettings(updated || {});
-      root.querySelector("[data-global-welcome]")?.replaceWith(holder.content.firstElementChild);
-      root.querySelector("[data-global-music]")?.replaceWith(holder.content.firstElementChild);
-      // Replace both nodes together so empty/non-empty states update consistently.
-      const currentWelcome = root.querySelector("[data-global-welcome]");
-      const currentMusic = root.querySelector("[data-global-music]");
       const next = document.createElement("template");
       next.innerHTML = renderGlobalHomeSettings(updated || {});
-      const nextWelcome = next.content.firstElementChild;
-      const nextMusic = next.content.lastElementChild;
-      if (currentWelcome) currentWelcome.replaceWith(nextWelcome);
-      if (currentMusic) currentMusic.replaceWith(nextMusic);
+      const nextWelcome = next.content.querySelector("[data-global-welcome]");
+      const nextMusic = next.content.querySelector("[data-global-music]");
+      root.querySelector("[data-global-welcome]")?.replaceWith(nextWelcome);
+      root.querySelector("[data-global-music]")?.replaceWith(nextMusic);
     }).subscribe();
   window.addEventListener("pagehide", () => client.removeChannel(globalSettingsChannel), { once: true });
-
 
   // Expand and prefill the existing Feed composer. Never submit automatically.
   const sharedUrl = takeIncomingSharedLink();
