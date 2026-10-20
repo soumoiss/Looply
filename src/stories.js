@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { invokeAdminAction } from "./admin.js";
-import { uploadResumable } from "./social.js";
+import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
 
 const maxStoryBytes = 100 * 1024 * 1024;
@@ -795,8 +795,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.previewUrl = null;
       preview?.replaceChildren();
       const file = event.target.files?.[0];
+      const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
       if (!file || !preview) return;
-      if (!storyMimeTypes.has(file.type) || file.size > maxStoryBytes) {
+      if (!media || !storyMimeTypes.has(media.type) || media.size > maxStoryBytes) {
         preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM de até 100 MB.";
         return;
       }
@@ -1098,9 +1099,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const formData = new FormData(form);
       const body = String(formData.get("body") || "").trim().slice(0, 1000);
       const file = formData.get("media");
-      const media = file instanceof File && file.size ? file : null;
+      const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
       const visibility = String(formData.get("visibility") || "public");
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
+      if (file instanceof File && file.size && !media) throw new Error("invalid_media");
       if (media && (!storyMimeTypes.has(media.type) || media.size > maxStoryBytes)) throw new Error("invalid_media");
       if (!body && !media) throw new Error("empty_story");
       if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");

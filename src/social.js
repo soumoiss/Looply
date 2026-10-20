@@ -278,24 +278,41 @@ const mediaExtensions = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"]
 ]);
+const mediaMimeTypesByExtension = new Map([...mediaExtensions].map(([mimeType, extension]) => [extension, mimeType]));
 const maxMediaBytes = 100 * 1024 * 1024;
 const maxMediaCount = 8;
 const maxCommentMediaCount = 4;
 
+export function normalizePublicationMedia(file) {
+  const declaredType = String(file?.type || "").split(";")[0].toLocaleLowerCase("en-US");
+  if (mediaExtensions.has(declaredType)) return file;
+  // Android document providers commonly return an empty/generic MIME type for a
+  // user-selected content:// URI. Infer only that narrow case from an allowlisted
+  // extension; explicit unsupported types are still rejected.
+  if (declaredType && declaredType !== "application/octet-stream") return null;
+  const extension = String(file?.name || "").split(".").pop()?.toLocaleLowerCase("en-US") || "";
+  const mimeType = mediaMimeTypesByExtension.get(extension);
+  if (!mimeType) return null;
+  return new File([file], file.name || `midia.${mediaExtensions.get(mimeType)}`, {
+    type: mimeType,
+    lastModified: file.lastModified || Date.now()
+  });
+}
+
 function selectedMedia(formData) {
-  const files = formData.getAll("media").filter((file) => file instanceof File && file.size > 0);
+  const files = formData.getAll("media").filter((file) => file instanceof File && file.size > 0).map(normalizePublicationMedia);
   if (files.length > maxMediaCount) throw new Error("too many files");
   for (const file of files) {
-    if (!mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
+    if (!file || !mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
   }
   return files;
 }
 
 function selectedCommentMedia(formData) {
-  const files = formData.getAll("commentMedia").filter((file) => file instanceof File && file.size > 0);
+  const files = formData.getAll("commentMedia").filter((file) => file instanceof File && file.size > 0).map(normalizePublicationMedia);
   if (files.length > maxCommentMediaCount) throw new Error("too many comment files");
   for (const file of files) {
-    if (!mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
+    if (!file || !mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
   }
   return files;
 }

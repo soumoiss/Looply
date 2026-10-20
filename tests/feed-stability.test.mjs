@@ -17,6 +17,19 @@ test("external URLs are restricted to HTTPS provider hosts and YouTube has a saf
   assert.match(source, /Abrir conteúdo original/);
   assert.match(source, /external_url/);
 });
+test("media uploads normalize Android content URIs and retain private RETURNING access while metadata is pending", async () => {
+  const [social, stories, migration] = await Promise.all([
+    read("src/social.js"), read("src/stories.js"), read("supabase/migrations/20261020131415_fix_story_media_upload_returning.sql")
+  ]);
+  assert.match(social, /export function normalizePublicationMedia\(file\)/);
+  assert.match(social, /declaredType !== "application\/octet-stream"/);
+  assert.match(social, /new File\(\[file\]/);
+  assert.match(stories, /normalizePublicationMedia\(file\)/);
+  assert.match(migration, /looply_media_read_own_unregistered_story_upload/);
+  assert.match(migration, /looply_media_read_own_unregistered_comment_upload/);
+  assert.match(migration, /story\.author_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /comment\.author_id = \(select auth\.uid\(\)\)/);
+});
 test("post and comment avatars use signed profile avatar URLs", async () => {
   const source = await read("src/social.js");
   assert.match(source, /signProfileAvatars/);
