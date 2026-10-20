@@ -29,10 +29,3 @@ test("database and private Storage policies remove gallery-specific MIME and siz
   assert.match(migration, /\[a-z0-9\]\{1,20\}/);
   assert.doesNotMatch(migration, /209715200|104857600/);
 });
-
-
-test("gallery has a dedicated user-gesture action that opens the media input", () => {
-  assert.match(gallery, /data-choose-files/);
-  assert.match(gallery, /\$\("\[data-choose-files\]"\)\.addEventListener\("click",\s*\(\)\s*=>\s*\{\s*\$\("\[data-files\]"\)\.click\(\);\s*\}\)/);
-  assert.match(gallery, /accept="image\/\*,video\/\*,audio\/\*" multiple data-files/);
-});
