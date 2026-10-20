@@ -49,19 +49,21 @@ test("Edge Function only returns a raw token after verified admin membership", a
   assert.match(edge, /Automatic administrator session created after verified account authentication/);
 });
 
-test("privileged admin actions require a live server-validated session", async () => {
+test("privileged admin actions require verified server-side administrator membership without a temporary unlock screen", async () => {
   const edge = await readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8");
-  const guardAt = edge.indexOf('const adminSessionToken = String(payload.adminSessionToken || "")');
-  const purposeAt = edge.indexOf('const purpose = String(payload.purpose || "").trim()');
-  assert.ok(guardAt > -1 && purposeAt > guardAt, "session guard must run before any privileged action");
-  assert.match(edge, /looply_admin_session_validate/);
-  assert.match(edge, /admin_session_expired_or_revoked/);
+  const membership = edge.indexOf('const { data: isAdmin, error: membershipError } = await service.rpc("is_looply_admin"');
+  const denied = edge.indexOf('if (isAdmin !== true)', membership);
+  const protectedActions = edge.indexOf('if (!allowedResources.has(requestedType))', denied);
+  assert.ok(membership > -1 && denied > membership && protectedActions > denied,
+    "server membership authorization must run before privileged actions");
+  assert.match(edge, /Administrator membership is required\./);
+  assert.match(edge, /adminAuditPurpose\(action, resourceType\)/);
+  assert.doesNotMatch(edge, /adminSessionToken = String\(payload\.adminSessionToken/);
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
-  assert.doesNotMatch(ui, /data-admin-session-setup/);
-  assert.doesNotMatch(ui, /data-admin-session-unlock/);
-  assert.match(ui, /admin_session_auto_unlock/);
-  assert.match(ui, /data-admin-session-exit/);
-  assert.match(ui, /adminSessionToken: token/);
+  assert.doesNotMatch(ui, /data-admin-controls hidden/);
+  assert.doesNotMatch(ui, /Modo ADM protegido/);
+  assert.doesNotMatch(ui, /admin_session_auto_unlock/);
+  assert.doesNotMatch(ui, /adminSessionToken: token/);
   const imports = await readFile(resolve(root, "src/archive-import.js"), "utf8");
-  assert.match(imports, /adminSessionToken: sessionStorage\.getItem\("looplyAdminSessionToken"\)/);
+  assert.doesNotMatch(imports, /adminSessionToken/);
 });

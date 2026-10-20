@@ -5,12 +5,13 @@ import test from "node:test";
 
 const root = resolve(import.meta.dirname, "..");
 
-test("user management actions are behind protected session and require audited purpose", async () => {
+test("user management actions require verified administrator membership and audited operations", async () => {
   const edge = await readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8");
-  const guard = edge.indexOf('const adminSessionToken = String(payload.adminSessionToken || "")');
-  const purpose = edge.indexOf('const purpose = String(payload.purpose || "").trim()');
+  const guard = edge.indexOf('if (isAdmin !== true)');
+  const purpose = edge.indexOf("const purpose = adminAuditPurpose(action, resourceType)");
   const list = edge.indexOf('if (action === "users_list")');
-  assert.ok(guard > -1 && purpose > guard && list > purpose);
+  assert.ok(guard > -1 && purpose > guard && list > guard);
+  assert.ok(!edge.includes("const adminSessionToken = String(payload.adminSessionToken || \"\"")); 
   for (const action of ["users_list", "user_create_invite", "user_update_profile", "user_set_suspended", "user_restore_access"]) {
     assert.ok(edge.includes(`action === "${action}"`), "missing action " + action);
   }

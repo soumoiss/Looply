@@ -19,15 +19,10 @@ export async function checkAdminAccess(client) {
 
 export async function invokeAdminAction(client, body = {}) {
   if (!client) throw new Error("admin_client_unavailable");
-  let token = sessionStorage.getItem("looplyAdminSessionToken") || "";
-  if (!token) {
-    const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_auto_unlock" } });
-    if (error || data?.isAdmin !== true || !data?.token) throw error || new Error("admin_session_locked");
-    token = String(data.token);
-    sessionStorage.setItem("looplyAdminSessionToken", token);
-  }
-  const { purpose: _ignoredPurpose, ...action } = body || {};
-  return client.functions.invoke("looply-admin", { body: { ...action, adminSessionToken: token } });
+  // Every protected operation is authorized server-side against the authenticated
+  // user's administrator membership. No separate temporary ADM unlock is needed.
+  const { purpose: _ignoredPurpose, adminSessionToken: _ignoredToken, ...action } = body || {};
+  return client.functions.invoke("looply-admin", { body: action });
 }
 
 export function adminMarkup(profile = {}) {
@@ -35,13 +30,7 @@ export function adminMarkup(profile = {}) {
   return `<section class="admin-area" aria-labelledby="adminTitle">
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
-    <p class="admin-description">Acesso ADM verificado pelo servidor. A sessão é ativada automaticamente após o login da conta administrativa e expira por segurança.</p>
-    <section class="admin-session-panel admin-broadcast-panel" data-admin-session-panel aria-labelledby="adminSessionTitle">
-      <div class="admin-broadcast-heading"><div><span class="section-kicker">Sessão temporária</span><h3 id="adminSessionTitle">Modo ADM protegido</h3></div></div>
-      <p class="admin-description" data-admin-session-message>Verificando a autorização e o estado da sessão…</p>
-      <div class="admin-session-active" data-admin-session-active hidden><p>Modo ADM ativo. A autorização é validada pelo servidor em cada operação.</p><button class="text-button" type="button" data-admin-session-exit>Encerrar sessão ADM</button></div>
-    </section>
-    <div data-admin-controls hidden>
+    <p class="admin-description">Acesso administrativo vinculado à conta Peixinho. As operações continuam sendo verificadas pelo servidor.</p>
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. A criação usa o backend administrativo, preserva a sessão do Peixinho e registra a operação na auditoria.</p>
@@ -113,7 +102,6 @@ export function adminMarkup(profile = {}) {
     </form>
     <div class="admin-results" data-admin-results aria-live="polite"><p>Consultas administrativas aparecem aqui depois de registradas.</p></div>
     <div data-archive-import></div>
-    </div>
   </section>`;
 }
 
@@ -334,35 +322,6 @@ export function bindAdminEvents(root, client) {
   async function invokeAdmin(body) {
     return invokeAdminAction(client, body);
   }
-
-  function showSessionState(state, message = "") {
-    const active = root.querySelector("[data-admin-session-active]");
-    const controls = root.querySelector("[data-admin-controls]");
-    const note = root.querySelector("[data-admin-session-message]");
-    if (!active || !controls || !note) return;
-    active.hidden = state !== "active";
-    controls.hidden = state !== "active";
-    note.textContent = message || (state === "active" ? "Sessão ADM ativa por tempo limitado." : "Não foi possível verificar a sessão.");
-  }
-
-  async function refreshAdminSession() {
-    if (!client) return;
-    try {
-      const { data, error } = await client.functions.invoke("looply-admin", { body: { action: "admin_session_auto_unlock" } });
-      if (error || data?.isAdmin !== true) {
-        showSessionState("unavailable", "A identidade administrativa não foi confirmada pelo servidor.");
-        return;
-      }
-      if (!data?.token) throw new Error("admin_auto_unlock_failed");
-      sessionStorage.setItem("looplyAdminSessionToken", data.token);
-      showSessionState("active", "Modo ADM ativado automaticamente para esta conta autorizada.");
-    } catch {
-      showSessionState("unavailable", "O serviço de sessão protegida está indisponível. Tente novamente.");
-    }
-  }
-
-
-  void refreshAdminSession();
 
   let availabilityTimer = null;
   let availabilityRequest = 0;
