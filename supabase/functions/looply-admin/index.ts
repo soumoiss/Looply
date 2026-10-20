@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters", "settings"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters", "settings", "secret_messages"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -431,7 +431,7 @@ Deno.serve(async (request: Request) => {
     }
 
     const action = String(payload.action || "");
-    const requestedType = String(payload.resourceType || (action.startsWith("broadcast_") ? "announcements" : ""));
+    const requestedType = String(payload.resourceType || (action.startsWith("broadcast_") ? "announcements" : action.startsWith("secret_message") || action.startsWith("secret_messages") ? "secret_messages" : ""));
     const resourceType = allowedResources.has(requestedType) ? requestedType : "posts";
     const { data: isAdmin, error: membershipError } = await service.rpc("is_looply_admin", { p_user_id: authData.user.id });
     if (membershipError) throw membershipError;
