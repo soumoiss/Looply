@@ -323,7 +323,7 @@ export async function uploadResumable(client, path, file, onProgress) {
   if (error || !accessToken) throw new Error("session expired");
   const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
   if (!publishableKey) throw new Error("Supabase publishable key is missing.");
-  if (file.size <= 6 * 1024 * 1024) {
+  if (file.size <= 6 * 1024 * 1024 && !file.type.startsWith("video/")) {
     const { error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
       cacheControl: "3600",
       contentType: file.type || "application/octet-stream",
@@ -691,6 +691,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     let createdPostId = null;
     let createdCommentId = null;
     const uploadedPaths = [];
+    let publicationCommitted = false;
     try {
       const formData = new FormData(form);
       let body = String(formData.get("body") || "").trim();
@@ -750,6 +751,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           const { error: linkError } = await client.from("posts").update({ external_url: externalUrl }).eq("id", createdPostId);
           if (linkError) throw linkError;
         }
+        publicationCommitted = true;
         form.reset();
         const composerFields = root.querySelector("[data-composer-fields]");
         const composerToggle = root.querySelector("[data-toggle-composer]");
@@ -775,12 +777,13 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           });
           if (mediaError) throw mediaError;
         }
+        publicationCommitted = true;
         form.reset();
         setStatus(form, parentCommentId ? "Sua resposta foi salva." : "Seu comentário foi salvo.");
       }
       await refreshSocialFeed(root, client, userId, isAdmin);
     } catch (error) {
-      if (createdPostId) {
+      if (!publicationCommitted && createdPostId) {
         if (uploadedPaths.length) {
           const { error: cleanupError } = await client.storage.from("looply-media").remove(uploadedPaths);
           if (cleanupError) console.error("Could not clean up uploaded media", cleanupError);
@@ -788,7 +791,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const { error: deleteError } = await client.from("posts").delete().eq("id", createdPostId);
         if (deleteError) console.error("Could not clean up partially created post", deleteError);
       }
-      if (createdCommentId) {
+      if (!publicationCommitted && createdCommentId) {
         if (uploadedPaths.length) {
           const { error: cleanupError } = await client.storage.from("looply-media").remove(uploadedPaths);
           if (cleanupError) console.error("Could not clean up uploaded comment media", cleanupError);
@@ -796,7 +799,11 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const { error: deleteError } = await client.from("comments").delete().eq("id", createdCommentId);
         if (deleteError) console.error("Could not clean up partially created comment", deleteError);
       }
-      setStatus(form, explainWriteError(error), true);
+      if (publicationCommitted) {
+        setStatus(form, "Conteúdo salvo, mas o feed não atualizou automaticamente. Use “Atualizar feed” para carregar a publicação.", true);
+      } else {
+        setStatus(form, explainWriteError(error), true);
+      }
       if (button) button.disabled = false;
     } finally {
       if (button) button.disabled = false;
