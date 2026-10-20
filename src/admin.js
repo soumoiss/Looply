@@ -424,7 +424,10 @@ export function bindAdminEvents(root, client) {
       if (error) throw error;
       if (select) {
         const current = select.value;
-        select.innerHTML = '<option value="">Selecione uma pessoa…</option>' + (data?.users || []).map(user => '<option value="' + escapeHtml(user.id) + '">' + escapeHtml(user.display_name || user.username || user.id) + ' (@' + escapeHtml(user.username || "membro") + ')</option>').join("");
+        select.replaceChildren(new Option("Selecione uma pessoa…", ""));
+        for (const person of data?.users || []) {
+          select.add(new Option((person.display_name || person.username || person.id) + " (@" + (person.username || "membro") + ")", person.id));
+        }
         if (current) select.value = current;
       }
       if (history) {
@@ -775,7 +778,6 @@ export function bindAdminEvents(root, client) {
 
     const secretDelete = event.target.closest("[data-secret-delete]");
     if (secretDelete && client) {
-      if (!confirm("Cancelar este recado secreto não lido?")) return;
       secretDelete.disabled = true;
       try {
         const { error } = await client.from("secret_messages").delete().eq("id", secretDelete.dataset.secretDelete).eq("is_read", false);
