@@ -414,31 +414,6 @@ export function bindAdminEvents(root, client) {
 
   let availabilityTimer = null;
   let availabilityRequest = 0;
-  async function loadSecretMessages() {
-    if (!client) return;
-    const form = root.querySelector("[data-secret-message-form]");
-    const select = form?.querySelector('[name="recipient_id"]');
-    const history = root.querySelector("[data-secret-history]");
-    try {
-      const { data, error } = await invokeAdmin({ action: "secret_messages_list" });
-      if (error) throw error;
-      if (select) {
-        const current = select.value;
-        select.innerHTML = '<option value="">Selecione uma pessoa…</option>' + (data?.users || []).map(user => '<option value="' + escapeHtml(user.id) + '">' + escapeHtml(user.display_name || user.username || user.id) + ' (@' + escapeHtml(user.username || "membro") + ')</option>').join("");
-        if (current) select.value = current;
-      }
-      if (history) {
-        const rows = data?.messages || [];
-        history.innerHTML = rows.length ? '<div class="admin-secret-history">' + rows.map(message => '<article class="admin-record"><strong>' + escapeHtml(message.title || "Recado secreto") + '</strong><p>Para: ' + escapeHtml(message.recipient_name || message.recipient_id) + '</p><p>' + (message.is_read ? 'Lido em ' + escapeHtml(message.read_at ? new Date(message.read_at).toLocaleString("pt-BR") : "data indisponível") + ' ✅' : 'Aguardando leitura ⏳') + '</p>' + (!message.is_read ? '<button class="text-button" type="button" data-secret-delete="' + escapeHtml(message.id) + '">Cancelar recado</button>' : '') + '</article>').join("") + '</div>' : '<p>Nenhum recado secreto enviado ainda.</p>';
-      }
-    } catch (error) {
-      console.error("Secret messages history failed", error);
-      if (select) select.innerHTML = '<option value="">Não foi possível carregar usuários</option>';
-      if (history) history.textContent = "Histórico indisponível no momento.";
-    }
-  }
-  void loadSecretMessages();
-
   root.addEventListener("input", (event) => {
     const form = event.target.closest("form[data-user-create]");
     if (!form || !["username", "email"].includes(event.target.name)) return;
