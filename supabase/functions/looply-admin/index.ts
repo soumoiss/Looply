@@ -14,7 +14,7 @@ const corsHeaders = {
 };
 
 const allowedResources = new Set([
-  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters", "settings"
+  "posts", "music_dedications", "music_library", "youtube_track_comments", "profiles", "post_media", "music_comments", "conversations", "letters", "chat_messages", "archive_media", "archive_media_comments", "archived_cards", "audit", "announcements", "stories", "community_gallery_media", "community_letters", "settings", "secret_messages"
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cardPasswordIterations = 210_000;
@@ -431,7 +431,7 @@ Deno.serve(async (request: Request) => {
     }
 
     const action = String(payload.action || "");
-    const requestedType = String(payload.resourceType || (action.startsWith("broadcast_") ? "announcements" : ""));
+    const requestedType = String(payload.resourceType || (action.startsWith("broadcast_") ? "announcements" : action.startsWith("secret_message") || action.startsWith("secret_messages") ? "secret_messages" : ""));
     const resourceType = allowedResources.has(requestedType) ? requestedType : "posts";
     const { data: isAdmin, error: membershipError } = await service.rpc("is_looply_admin", { p_user_id: authData.user.id });
     if (membershipError) throw membershipError;
@@ -505,6 +505,50 @@ Deno.serve(async (request: Request) => {
     // Legacy client input is deliberately ignored: const purpose = String(payload.purpose || "").trim();
     // Legacy purpose.length < 20 validation is intentionally removed for direct ADM actions.
     const purpose = adminAuditPurpose(action, resourceType);
+
+    if (action === "secret_messages_list") {
+      const [{ data: users, error: usersError }, { data: messages, error: messagesError }] = await Promise.all([
+        service.from("profiles").select("id,username,display_name").order("username").limit(1000),
+        service.from("secret_messages").select("id,created_at,recipient_id,title,content,media_url,is_read,read_at").eq("sender_id", authData.user.id).order("created_at", { ascending: false }).limit(200)
+      ]);
+      if (usersError) throw usersError;
+      if (messagesError) throw messagesError;
+      const byId = new Map((users || []).map((user: any) => [user.id, user]));
+      return respond(200, { users: users || [], messages: (messages || []).map((message: any) => ({
+        ...message,
+        recipient_name: byId.get(message.recipient_id)?.display_name || byId.get(message.recipient_id)?.username || message.recipient_id
+      })) });
+    }
+
+    if (action === "secret_message_create") {
+      const recipientId = String(payload.recipientId || "");
+      const title = String(payload.title || "").trim().slice(0, 120) || null;
+      const content = String(payload.content || "").trim();
+      const mediaUrl = String(payload.mediaUrl || "").trim() || null;
+      if (!uuidPattern.test(recipientId) || !content || content.length > 4000 ||
+          (mediaUrl && (!mediaUrl.startsWith("https://") || mediaUrl.length > 2048))) {
+        return respond(400, { error: "invalid_secret_message" });
+      }
+      const { data: recipient, error: recipientError } = await service.from("profiles").select("id,username,display_name").eq("id", recipientId).maybeSingle();
+      if (recipientError) throw recipientError;
+      if (!recipient) return respond(404, { error: "recipient_not_found" });
+      const { data: message, error } = await service.from("secret_messages").insert({
+        sender_id: authData.user.id, recipient_id: recipientId, title, content, media_url: mediaUrl
+      }).select("id,recipient_id,title,created_at,is_read").single();
+      if (error) throw error;
+      await recordAccess(service, authData.user.id, "write_completed", "secret_messages", message.id, purpose, requestId, { action, recipient_id: recipientId });
+      return respond(200, { message, recipientName: recipient.display_name || recipient.username || "usuário" });
+    }
+
+    if (action === "secret_message_delete") {
+      const messageId = String(payload.messageId || "");
+      if (!uuidPattern.test(messageId)) return respond(400, { error: "invalid_secret_message_id" });
+      const { data: deleted, error } = await service.from("secret_messages").delete()
+        .eq("id", messageId).eq("sender_id", authData.user.id).eq("is_read", false).select("id").maybeSingle();
+      if (error) throw error;
+      if (!deleted) return respond(409, { error: "secret_message_already_read_or_missing" });
+      return respond(200, { deleted: true, id: deleted.id });
+    }
     if (action === "user_check_availability") {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();
