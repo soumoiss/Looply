@@ -208,3 +208,12 @@ test("audio and video call controls remain available and stop media on hangup", 
   assert.match(source, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
   assert.match(css, /\.chat-call-backdrop\s*\{\s*position:\s*fixed/);
 });
+
+
+test("chat paperclip opens the hidden attachment input directly from the click gesture", async () => {
+  const source = await read("src/chat.js");
+  assert.match(source, /data-chat-choose-files/);
+  assert.match(source, /const chooseFilesButton = event\.target\.closest\("\[data-chat-choose-files\]"\)/);
+  assert.match(source, /fileInput\?\.click\(\)/);
+  assert.match(source, /input\[name="files"\]/);
+});
