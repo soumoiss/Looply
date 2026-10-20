@@ -879,3 +879,19 @@ test("global app settings are singleton, admin-writable, maintenance-gated, and 
   assert.match(css, /looply-maintenance-screen/);
   assert.match(css, /looply-music-of-day/);
 });
+
+
+test("Peixinho admin panel shows controls immediately and uses server-side membership authorization", async () => {
+  const [admin, edge] = await Promise.all([
+    read("src/admin.js"),
+    read("supabase/functions/looply-admin/index.ts")
+  ]);
+  assert.doesNotMatch(admin, /data-admin-controls hidden/);
+  assert.doesNotMatch(admin, /Modo ADM protegido/);
+  assert.doesNotMatch(admin, /admin_session_auto_unlock/);
+  assert.match(admin, /return client\.functions\.invoke\("looply-admin", \{ body: action \}\)/);
+  assert.match(edge, /isAdmin !== true/);
+  assert.match(edge, /Administrator membership is required\./);
+  assert.doesNotMatch(edge, /adminSessionToken = String\(payload\.adminSessionToken/);
+  assert.doesNotMatch(edge, /admin_session_expired_or_revoked/);
+});
