@@ -23,7 +23,8 @@ test("new community accounts use either the protected password or expiring invit
   assert.match(migration, /lower\(invitation\.email\) = lower\(new\.email\)/i);
   assert.match(migration, /delete from public\.looply_user_invites/i);
   assert.doesNotMatch(migration, /insert into private\.admin_users/i);
-  assert.match(admin, /if \\(isAdmin !== true\\)/);\n  assert.doesNotMatch(admin, /adminSessionToken = String\\(payload\\.adminSessionToken/);
+  assert.ok(admin.includes("if (isAdmin !== true)"));
+  assert.doesNotMatch(admin, /const adminSessionToken = String\(payload\.adminSessionToken/);
   assert.match(admin, /recordAccess\(service, authData\.user\.id, "write_requested", "profiles"/);
   assert.match(admin, /auth\.admin\.createUser\(\{/);
   assert.match(admin, /inviteUserByEmail\(email,\s*\{\s*data: \{ username, display_name: displayName \}/);
