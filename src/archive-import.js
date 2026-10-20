@@ -320,7 +320,7 @@ export function bindArchiveImport(root, client) {
       const cardResult = await processSequentially(cards, async (card, indexNumber) => {
         status.textContent = `Importando carta ${indexNumber + 1} de ${cards.length}: ${card.original_file}…`;
         const { data, error } = await client.functions.invoke("looply-admin", {
-          body: { action: "import_archived_cards", resourceType: "archived_cards", purpose, cards: [card], adminSessionToken: sessionStorage.getItem("looplyAdminSessionToken") || "" }
+          body: { action: "import_archived_cards", resourceType: "archived_cards", purpose, cards: [card] }
         });
         if (error || !Number.isFinite(Number(data?.importedCount))) {
           throw new Error(await functionFailureMessage(error, data, "Falha ao confirmar a importação da carta."));
@@ -346,7 +346,7 @@ export function bindArchiveImport(root, client) {
           });
         } catch (uploadError) {
           const { data: verification, error: verificationError } = await client.functions.invoke("looply-admin", {
-            body: { action: "verify_archive_media_upload", resourceType: "archive_media", purpose, media: item, adminSessionToken: sessionStorage.getItem("looplyAdminSessionToken") || "" }
+            body: { action: "verify_archive_media_upload", resourceType: "archive_media", purpose, media: item }
           });
           if (verificationError || !canReuseArchiveObjectAfterUploadFailure(uploadError, verification, item.byte_size)) {
             const detail = await functionFailureMessage(verificationError, verification, "O Storage não confirmou o arquivo.");
@@ -354,7 +354,7 @@ export function bindArchiveImport(root, client) {
           }
         }
         const { data, error } = await client.functions.invoke("looply-admin", {
-          body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item, adminSessionToken: sessionStorage.getItem("looplyAdminSessionToken") || "" }
+          body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item }
         });
         if (error || !data?.mediaId) {
           throw new Error(await functionFailureMessage(error, data, "O objeto não foi localizado no bucket privado."));
