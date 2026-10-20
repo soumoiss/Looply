@@ -3,6 +3,7 @@ import { welcomeGreeting } from "../../src/welcome.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
+import { mountSecretMessages } from "../../src/secret-messages.js";
 
 // Support direct links to home.html?share_url=... without the splash screen.
 captureIncomingSharedLink();
@@ -69,6 +70,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   root.innerHTML = `${renderWelcome(profile)}${renderGlobalHomeSettings(globalSettings)}${storiesMarkup(
     stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
   )}${socialMarkup(socialData, user.id, isAdmin)}`;
+  void mountSecretMessages(client, user.id, isAdmin);
   bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
   bindSocialEvents(root, client, () => user.id, isAdmin);
   const globalSettingsChannel = client.channel("looply-home-global-settings")
