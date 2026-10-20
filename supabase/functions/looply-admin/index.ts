@@ -851,7 +851,7 @@ Deno.serve(async (request: Request) => {
         if (rawUrl) {
           let parsed: URL;
           try { parsed = new URL(rawUrl); } catch { return respond(400, { error: "invalid_music_url" }); }
-          if (parsed.protocol !== "https:" || !/(^|\\.)youtube\\.com$|(^|\\.)youtu\\.be$/.test(parsed.hostname)) {
+          if (parsed.protocol !== "https:" || !/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(parsed.hostname)) {
             return respond(400, { error: "invalid_music_url" });
           }
         }
