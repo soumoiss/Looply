@@ -829,7 +829,7 @@ test("global announcements are admin-published, RLS-protected, realtime, and ind
   assert.match(migration, /create table if not exists public\.global_announcement_reads/i);
   const mediaMigration = await read("supabase/migrations/20261020180000_global_announcements_media.sql");
   assert.match(mediaMigration, /add column if not exists media_url text/i);
-  assert.match(mediaMigration, /looply_announcements_admin_upload[\\s\\S]*?private\\.is_admin\\(\\)/i);
+  assert.match(mediaMigration, /looply_announcements_admin_upload[\s\S]*?private\.is_admin\(\)/i);
   assert.match(migration, /alter table public\.global_announcements enable row level security/i);
   assert.match(migration, /global_announcement_reads_insert_own[\s\S]*?user_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /record_looply_admin_access[\s\S]*?announcements/i);
