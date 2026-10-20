@@ -693,14 +693,16 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
+  // Keep attachment selection isolated from conversation and call controls.
+  root.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-chat-choose-files]");
+    if (!button) return;
+    event.preventDefault();
+    const input = button.closest("[data-chat-send]")?.querySelector('input[name="files"]');
+    input?.click();
+  });
+
   root.addEventListener("click", async (event) => {
-    const chooseFilesButton = event.target.closest("[data-chat-choose-files]");
-    if (chooseFilesButton) {
-      // Invoke the hidden input synchronously within the real click gesture for WebView pickers.
-      const fileInput = chooseFilesButton.closest("[data-chat-send]")?.querySelector('input[name="files"]');
-      fileInput?.click();
-      return;
-    }
     const openButton = event.target.closest("[data-chat-open]");
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
