@@ -40,7 +40,7 @@ const galleryMarkup = () => [
 '<div class="gallery-modal" data-upload-modal hidden><section class="gallery-dialog gallery-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="upload-title">',
   '<div class="gallery-dialog-heading"><h2 id="upload-title">Adicionar mídia</h2><button type="button" class="gallery-icon-button" data-close-upload aria-label="Fechar">', icon("close"), '</button></div>',
   '<form class="gallery-form" data-upload-form novalidate>',
-    '<div class="gallery-capture-actions"><button class="gallery-tool" type="button" data-choose-files>', icon("plus"), ' Selecionar arquivos</button><button class="gallery-tool" type="button" data-camera-photo>', icon("camera"), ' Tirar foto</button><button class="gallery-tool" type="button" data-camera-video>', icon("video"), ' Gravar vídeo</button></div>',
+    '<div class="gallery-capture-actions"><button class="gallery-tool" type="button" data-camera-photo>', icon("camera"), ' Tirar foto</button><button class="gallery-tool" type="button" data-camera-video>', icon("video"), ' Gravar vídeo</button></div>',
     '<input class="gallery-file-input" type="file" name="files" accept="image/*,video/*,audio/*" multiple data-files>',
     '<div class="gallery-file-preview" data-file-preview><p>Selecione um ou vários arquivos. Fotos, vídeos e áudios compatíveis são aceitos.</p></div>',
     '<label>Descrição <textarea name="description" maxlength="10000" placeholder="Adicione uma descrição (opcional)"></textarea></label>',
@@ -660,10 +660,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   };
 
   $("[data-open-upload]").addEventListener("click",()=>{ $("[data-upload-modal]").hidden=false; syncUserLists(); });
-  $("[data-close-upload]").forEach(b=>b.addEventListener("click",()=>{ if (!uploadBusy) $("[data-upload-modal]").hidden=true; }));
-  // Keep the picker invocation directly inside the user's click gesture; this is more
-  // reliable in Android WebView than relying on a visually styled file-input/label path.
-  $("[data-choose-files]").addEventListener("click",()=>{ $("[data-files]").click(); });
+  $$("[data-close-upload]").forEach(b=>b.addEventListener("click",()=>{ if (!uploadBusy) $("[data-upload-modal]").hidden=true; }));
   $("[data-files]").addEventListener("change",renderPreview);
   $("[data-upload-form]").addEventListener("submit",publish);
   $("[data-camera-photo]").addEventListener("click",()=>startCamera(false));
