@@ -685,3 +685,30 @@ html[data-theme="noite"] .card-row, html[data-theme="noite"] .track-card { box-s
 @media (prefers-reduced-motion:reduce) {
   .gallery-shell *, .gallery-viewer * { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; }
 }
+
+
+/* Global announcement modal: responsive, theme-aware and accessible. */
+.looply-announcement-overlay { position:fixed; inset:0; z-index:15000; display:grid; place-items:center; padding:18px; background:rgba(12,10,18,.68); backdrop-filter:blur(7px); animation:looplyAnnouncementFade .2s ease both; }
+.looply-announcement-overlay.is-closing { animation:looplyAnnouncementFadeOut .18s ease both; }
+.looply-announcement-card { position:relative; width:min(100%,520px); max-height:min(88dvh,820px); overflow:auto; padding:clamp(22px,5vw,34px); border:1px solid color-mix(in srgb,var(--primary) 22%,var(--border)); border-radius:24px; background:var(--surface); color:var(--text); box-shadow:0 24px 90px #0005; animation:looplyAnnouncementRise .28s cubic-bezier(.2,.8,.2,1) both; }
+.looply-announcement-kicker { margin:0 42px 8px 0; color:var(--primary); font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.looply-announcement-card h2 { margin:0 34px 14px 0; font-family:var(--font-heading,inherit); font-size:clamp(24px,5vw,32px); line-height:1.15; overflow-wrap:anywhere; }
+.looply-announcement-body { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.7; color:var(--text); }
+.looply-announcement-close { position:absolute; top:12px; right:12px; width:42px; height:42px; border:1px solid var(--border); border-radius:50%; background:var(--surface-2,var(--surface)); color:var(--text); font-size:28px; line-height:1; cursor:pointer; }
+.looply-announcement-media-link { display:block; margin:18px auto 0; width:100%; text-align:center; }
+.looply-announcement-media { display:block; width:auto; max-width:100%; max-height:38dvh; margin:auto; object-fit:contain; border-radius:14px; }
+.looply-announcement-status { min-height:1.4em; margin:14px 0 0; color:var(--muted); font-size:13px; }
+.looply-announcement-actions { display:flex; justify-content:flex-end; margin-top:8px; }
+.looply-announcement-actions button { min-height:46px; padding:11px 20px; border:0; border-radius:14px; background:var(--primary); color:var(--on-primary,#fff); font:inherit; font-weight:800; cursor:pointer; }
+.looply-announcement-actions button:disabled { opacity:.65; cursor:wait; }
+@keyframes looplyAnnouncementFade { from { opacity:0; } to { opacity:1; } }
+@keyframes looplyAnnouncementFadeOut { from { opacity:1; } to { opacity:0; } }
+@keyframes looplyAnnouncementRise { from { opacity:0; transform:translateY(14px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media (max-width:560px) { .looply-announcement-overlay { padding:12px; } .looply-announcement-card { border-radius:20px; padding:25px 19px 20px; max-height:90dvh; } }
+@media (prefers-reduced-motion:reduce) { .looply-announcement-overlay,.looply-announcement-card { animation:none !important; } }
+
+.admin-broadcast-media-preview { margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
+.admin-broadcast-media-preview[hidden] { display:none !important; }
+.admin-broadcast-media-preview-content { display:block; max-width:100%; max-height:260px; margin:auto; border-radius:10px; object-fit:contain; }
+.admin-broadcast-media-link { display:block; margin:12px 0; }
+.admin-broadcast-media-link img { display:block; max-width:100%; max-height:240px; border-radius:12px; object-fit:contain; }

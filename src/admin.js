@@ -64,6 +64,7 @@ export function adminMarkup(profile = {}) {
       <form class="admin-broadcast-form" data-admin-broadcast>
         <div class="field"><label for="broadcastTitle">Título do aviso</label><input id="broadcastTitle" name="title" type="text" maxlength="120" required placeholder="Ex.: Atualização do Looply"></div>
         <div class="field"><label for="broadcastBody">Mensagem</label><textarea id="broadcastBody" name="body" maxlength="4000" rows="4" required placeholder="Escreva a mensagem que todos os membros devem receber."></textarea></div>
+        <div class="field"><label for="broadcastMedia">Mídia opcional (imagem ou vídeo)</label><input id="broadcastMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"><small>Até 20 MB. A prévia aparece antes da publicação.</small><div data-broadcast-media-preview class="admin-broadcast-media-preview" hidden></div></div>
         <div class="field"><label for="broadcastExpiresAt">Expira em (opcional)</label><input id="broadcastExpiresAt" name="expiresAt" type="datetime-local"><small>Sem data de expiração, o aviso permanece ativo até ser desativado.</small></div>
         <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Publicar comunicado</button><button class="text-button" type="button" data-broadcast-refresh>Consultar leituras</button></div>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
@@ -405,7 +406,7 @@ export function bindAdminEvents(root, client) {
       if (results) {
         results.innerHTML = announcements.length ? announcements.map((item) => {
           const readers = (item.readers || []).map((reader) => `<li><strong>@${escapeHtml(reader.username || reader.display_name || "usuário")}</strong><span>${reader.read_at ? `Lido em ${escapeHtml(dateTime(reader.read_at))}` : "Ainda não leu"}</span></li>`).join("");
-          return `<article class="admin-broadcast-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}</strong><span>${item.is_active ? "Ativo" : "Desativado"}</span></div><p class="admin-broadcast-body">${escapeHtml(item.body)}</p><p class="admin-broadcast-meta">Publicado em ${escapeHtml(dateTime(item.created_at))}${item.expires_at ? ` · Expira em ${escapeHtml(dateTime(item.expires_at))}` : ""}</p><p class="admin-broadcast-meta">Leituras: ${Number(item.read_count || 0)} de ${Number(item.recipient_count || 0)} contas</p><details><summary>Ver estado de leitura por conta</summary><ul class="admin-broadcast-readers">${readers}</ul></details>${item.is_active ? `<button class="text-button" type="button" data-broadcast-deactivate="${escapeHtml(item.id)}">Desativar comunicado</button>` : ""}</article>`;
+          return `<article class="admin-broadcast-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}</strong><span>${item.is_active ? "Ativo" : "Desativado"}</span></div><p class="admin-broadcast-body">${escapeHtml(item.body)}</p>${item.media_url ? `<a class="admin-broadcast-media-link" href="${escapeHtml(item.media_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(item.media_url)}" alt="Mídia do comunicado" loading="lazy"></a>` : ""}<p class="admin-broadcast-meta">Publicado em ${escapeHtml(dateTime(item.created_at))}${item.expires_at ? ` · Expira em ${escapeHtml(dateTime(item.expires_at))}` : ""}</p><p class="admin-broadcast-meta">Leituras: ${Number(item.read_count || 0)} de ${Number(item.recipient_count || 0)} contas</p><details><summary>Ver estado de leitura por conta</summary><ul class="admin-broadcast-readers">${readers}</ul></details>${item.is_active ? `<button class="text-button" type="button" data-broadcast-deactivate="${escapeHtml(item.id)}">Desativar comunicado</button>` : ""}</article>`;
         }).join("") : '<p class="admin-empty">Nenhum comunicado foi publicado.</p>';
       }
       if (showStatus && form) setStatus(form, `Histórico atualizado · ${announcements.length} comunicado(s).`);
@@ -419,6 +420,30 @@ export function bindAdminEvents(root, client) {
     }
   }
 
+  const mediaInput = root.querySelector("#broadcastMedia");
+  const mediaPreview = root.querySelector("[data-broadcast-media-preview]");
+  let selectedBroadcastMedia = null;
+  mediaInput?.addEventListener("change", () => {
+    const file = mediaInput.files?.[0] || null;
+    selectedBroadcastMedia = null;
+    if (mediaPreview) { mediaPreview.replaceChildren(); mediaPreview.hidden = true; }
+    if (!file) return;
+    const allowed = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm"];
+    if (!allowed.includes(file.type) || file.size > 20 * 1024 * 1024) {
+      mediaInput.value = "";
+      setStatus(mediaInput.closest("form"), "Escolha imagem/vídeo compatível de até 20 MB.", "error");
+      return;
+    }
+    selectedBroadcastMedia = file;
+    if (!mediaPreview) return;
+    const preview = document.createElement(file.type.startsWith("video/") ? "video" : "img");
+    preview.className = "admin-broadcast-media-preview-content";
+    preview.src = URL.createObjectURL(file);
+    if (preview.tagName === "VIDEO") { preview.controls = true; preview.playsInline = true; }
+    else preview.alt = "Prévia da mídia do comunicado";
+    mediaPreview.append(preview);
+    mediaPreview.hidden = false;
+  });
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("[data-moderate-content]");
     if (!form || !client) return;
@@ -644,8 +669,18 @@ export function bindAdminEvents(root, client) {
         if (!title || title.length > 120 || !body || body.length > 4000) throw new Error("content");
         const expiresAt = expiresText ? new Date(expiresText) : null;
         if (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now())) throw new Error("expiry");
+        let mediaUrl = null;
+        if (selectedBroadcastMedia) {
+          const { data: authData, error: authError } = await client.auth.getUser();
+          if (authError || !authData?.user?.id) throw new Error("media_auth");
+          const safeName = selectedBroadcastMedia.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "media";
+          const path = `${authData.user.id}/${crypto.randomUUID()}-${safeName}`;
+          const { error: uploadError } = await client.storage.from("looply-announcements").upload(path, selectedBroadcastMedia, { upsert: false, contentType: selectedBroadcastMedia.type });
+          if (uploadError) throw uploadError;
+          mediaUrl = client.storage.from("looply-announcements").getPublicUrl(path).data.publicUrl;
+        }
         const { data, error } = await invokeAdmin({
-          action: "broadcast_create", resourceType: "announcements", title, body,
+          action: "broadcast_create", resourceType: "announcements", title, body, mediaUrl,
           expiresAt: expiresAt?.toISOString() || null, purpose
         });
         if (error) throw error;
@@ -653,6 +688,9 @@ export function bindAdminEvents(root, client) {
         broadcastForm.elements.title.value = "";
         broadcastForm.elements.body.value = "";
         broadcastForm.elements.expiresAt.value = "";
+        if (mediaInput) mediaInput.value = "";
+        selectedBroadcastMedia = null;
+        if (mediaPreview) { mediaPreview.replaceChildren(); mediaPreview.hidden = true; }
         await loadBroadcasts(broadcastForm, false);
         setStatus(broadcastForm, "Comunicado publicado. O histórico de leitura foi atualizado.");
       } catch (error) {
