@@ -6,7 +6,7 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 
 test("Secret VIP messages are recipient-scoped and mark-read is column-restricted", async () => {
-  const migration = await readFile(resolve(root, "supabase/migrations/20261020180000_secret_vip_messages.sql"), "utf8");
+  const migration = await readFile(resolve(root, "supabase/migrations/20261020200000_secret_vip_messages.sql"), "utf8");
   assert.match(migration, /create table if not exists public\.secret_messages/i);
   assert.match(migration, /private\.is_admin\(\) and sender_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /recipient_id = \(select auth\.uid\(\)\) or private\.is_admin\(\)/i);
@@ -28,3 +28,19 @@ test("Secret VIP messages are recipient-scoped and mark-read is column-restricte
   const home = await readFile(resolve(root, "assets/js/home.js"), "utf8");
   assert.match(home, /mountSecretMessages\(client, user\.id, isAdmin\)/);
 });
+
+test("Secret VIP administration has one form and one private-storage send flow", async () => {
+  const admin = await readFile(resolve(root, "src/admin.js"), "utf8");
+  const secretForms = admin.match(/<form\b[^>]*data-secret-message-form/g) || [];
+  assert.equal(secretForms.length, 1, "there must be one canonical Secret VIP form");
+
+  for (const id of ["secretVipTitle", "secretRecipient", "secretTitle", "secretContent", "secretMedia"]) {
+    assert.equal((admin.match(new RegExp(`id=\"${id}\"`, "g")) || []).length, 1, `${id} must be unique`);
+  }
+
+  assert.doesNotMatch(admin, /secret_message_create|secret_message_delete|community-media|loadSecretMessages/);
+  assert.match(admin, /storage\.from\("looply-secret-messages"\)\.upload/);
+  assert.match(admin, /from\("secret_messages"\)\.insert/);
+  assert.match(admin, /from\("secret_messages"\)\.delete\(\)[\s\S]*?\.eq\("is_read", false\)/);
+});
+
