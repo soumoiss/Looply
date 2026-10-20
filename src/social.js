@@ -337,7 +337,22 @@ export async function uploadResumable(client, path, file, onProgress) {
   const endpoint = projectUrl.hostname.endsWith(".supabase.co")
     ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
     : new URL("/storage/v1/upload/resumable", projectUrl).toString();
-  const tus = await import("https://esm.sh/tus-js-client@4.3.1");
+  let tus;
+  try {
+    tus = await import("https://esm.sh/tus-js-client@4.3.1");
+  } catch (importError) {
+    // A remote ESM import can fail in embedded/mobile browsers before any upload request is sent.
+    // Preserve the publication flow by falling back to Supabase Storage direct upload.
+    console.warn("Looply resumable upload module unavailable; trying standard storage upload.", importError);
+    const { error: fallbackError } = await client.storage.from("looply-media").upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "application/octet-stream",
+      upsert: false
+    });
+    if (fallbackError) throw fallbackError;
+    onProgress(100);
+    return;
+  }
   await new Promise((resolve, reject) => {
     const upload = new tus.Upload(file, {
       endpoint,
