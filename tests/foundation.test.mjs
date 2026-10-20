@@ -851,3 +851,31 @@ test("global announcements are admin-published, RLS-protected, realtime, and ind
   assert.match(adminCss, /admin-broadcast-readers/);
   assert.match(appCss, /looply-announcement-overlay/);
 });
+
+
+test("global app settings are singleton, admin-writable, maintenance-gated, and reflected on Home", async () => {
+  const [migration, runtime, admin, home, edge, css] = await Promise.all([
+    read("supabase/migrations/20261020190000_app_settings.sql"),
+    read("src/page-runtime.js"),
+    read("src/admin.js"),
+    read("assets/js/home.js"),
+    read("supabase/functions/looply-admin/index.ts"),
+    read("assets/css/app.css")
+  ]);
+  assert.match(migration, /create table if not exists public\\.app_settings/i);
+  assert.match(migration, /check \\(id = 1\\)/i);
+  assert.match(migration, /app_settings_authenticated_read[\\s\\S]*?for select to authenticated/i);
+  assert.match(migration, /app_settings_admin_update[\\s\\S]*?private\\.is_admin\\(\\)/i);
+  assert.match(runtime, /readGlobalSettings/);
+  assert.match(runtime, /settings\\?\\.maintenance_mode === true/);
+  assert.match(runtime, /renderMaintenanceScreen/);
+  assert.match(runtime, /maintenanceChannel/);
+  assert.match(admin, /data-app-settings-form/);
+  assert.match(admin, /app_settings_update/);
+  assert.match(edge, /action === "app_settings_update"[\\s\\S]*?service\\.from\\("app_settings"\\)\\.update/);
+  assert.match(home, /data-global-welcome/);
+  assert.match(home, /data-global-music/);
+  assert.match(home, /looply-home-global-settings/);
+  assert.match(css, /looply-maintenance-screen/);
+  assert.match(css, /looply-music-of-day/);
+});
