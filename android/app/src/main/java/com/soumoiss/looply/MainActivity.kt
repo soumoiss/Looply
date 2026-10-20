@@ -407,22 +407,68 @@ class MainActivity : Activity() {
                 callback: ValueCallback<Array<Uri>>,
                 params: FileChooserParams
             ): Boolean {
+                // Resolve the previous WebView callback before accepting a new chooser request.
                 fileChooserCallback?.onReceiveValue(null)
                 fileChooserCallback = callback
-                return try {
-                    val picker = params.createIntent().apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        if (type.isNullOrBlank()) type = "*/*"
-                    }
-                    val chooser = Intent.createChooser(picker, "Selecionar foto, vídeo ou arquivo")
-                    startActivityForResult(chooser, REQUEST_FILE_CHOOSER)
-                    true
+
+                val intents = mutableListOf<Intent>()
+                try {
+                    // Android's documented WebView flow: launch createIntent() directly,
+                    // rather than wrapping it in a second chooser intent.
+                    intents += params.createIntent()
                 } catch (_: Exception) {
-                    fileChooserCallback?.onReceiveValue(null)
-                    fileChooserCallback = null
-                    Toast.makeText(this@MainActivity, "Não foi possível abrir os arquivos.", Toast.LENGTH_LONG).show()
-                    false
+                    // Older/custom WebView implementations may not provide a usable intent.
                 }
+
+                // Fallbacks support Android Photo Picker / DocumentsUI on vendor builds
+                // where the WebView-generated intent cannot be resolved.
+                val mimeTypes = params.acceptTypes
+                    .flatMap { it.split(",") }
+                    .map { it.trim().substringBefore(";") }
+                    .filter { it.isNotBlank() && (it == "*/*" || it.contains("/")) }
+                    .distinct()
+                    .toTypedArray()
+                val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mimeTypes.firstOrNull() ?: "*/*"
+                    if (mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+                    if (params.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                }
+                intents += fallback
+
+                val documentIntent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mimeTypes.firstOrNull() ?: "*/*"
+                    if (mimeTypes.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+                    if (params.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                }
+                intents += documentIntent
+
+                for (pickerIntent in intents.distinctBy { it.action to it.type }) {
+                    try {
+                        startActivityForResult(pickerIntent, REQUEST_FILE_CHOOSER)
+                        return true
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        // Try the next compatible system picker.
+                    } catch (_: SecurityException) {
+                        // Continue to the system picker fallback.
+                    } catch (_: Exception) {
+                        // OEM picker incompatibility; try the next intent.
+                    }
+                }
+
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = null
+                Toast.makeText(
+                    this@MainActivity,
+                    "Nenhum seletor de arquivos compatível foi encontrado no dispositivo.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return true
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
@@ -698,5 +744,3 @@ class MainActivity : Activity() {
         private const val REQUEST_POST_NOTIFICATIONS = 704
     }
 }
-
-
