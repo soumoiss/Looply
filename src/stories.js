@@ -331,6 +331,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const status = root.querySelector("[data-story-feed-status]");
   const createDialog = root.querySelector("[data-story-create-dialog]");
   const viewer = root.querySelector("[data-story-viewer]");
+  if (viewer) viewer.dataset.admin = isAdmin ? "true" : "false";
   if (!list || !viewer || !createDialog) return;
 
   const state = {
@@ -646,7 +647,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const canDelete = story.author_id === userId || isAdmin;
     viewer.querySelector("[data-story-delete]").hidden = !canDelete;
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
-    viewer.querySelector("[data-story-owner-actions]").hidden = !canDelete;
+    viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
+    const insightsButton = viewer.querySelector("[data-story-insights-open]");
+    if (insightsButton) insightsButton.setAttribute("aria-label", isAdmin && story.author_id !== userId ? "Ver visualizações do story do membro" : "Ver visualizações");
     viewer.querySelector("[data-story-reply-actions]").hidden = story.author_id === userId;
     viewer.querySelector("[data-story-insights-panel]").hidden = true;
     const replyStatus = viewer.querySelector("[data-story-reply-status]");
@@ -666,7 +669,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (error) console.warn("Looply story view could not be recorded.", error);
       }).catch((error) => console.warn("Looply story view could not be recorded.", error));
     }
-    if (story.author_id === userId) {
+    if (story.author_id === userId || isAdmin) {
       const viewCount = viewer.querySelector("[data-story-view-count]");
       viewCount.textContent = "Carregando visualizações…";
       void client.from("story_views").select("viewer_id", { count: "exact", head: true }).eq("story_id", story.id)
@@ -776,7 +779,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
-    if (story?.author_id === userId && !viewer.querySelector("[data-story-insights-panel]").hidden) {
+    if (story && (story.author_id === userId || isAdmin) && !viewer.querySelector("[data-story-insights-panel]").hidden) {
       void loadStoryInsights(story);
     }
   };
@@ -959,7 +962,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     if (event.target.closest("[data-story-insights-open]")) {
       const story = currentStory();
-      if (story?.author_id === userId) await loadStoryInsights(story);
+      if (story && (story.author_id === userId || isAdmin)) await loadStoryInsights(story);
       return;
     }
     if (event.target.closest("[data-story-insights-close]")) {

@@ -664,13 +664,15 @@ test("stories expose private replies, likes, camera capture, viewer history, and
   assert.match(profile, /data-avatar-remove/);
 });
 
-test("story engagement tables reveal views only to the viewer and story author", async () => {
+test("story engagement views are visible to viewers, authors, and authorized admins", async () => {
   const names = await readdir(resolve(projectRoot, "supabase/migrations"));
   const migrationName = names.find((name) => name.endsWith("_story_engagement_private_replies.sql"));
   assert.ok(migrationName);
   const migration = await read("supabase/migrations/" + migrationName);
   assert.match(migration, /alter table public\.story_views enable row level security/i);
   assert.match(migration, /story_views_select_viewer_or_author[\s\S]*?viewer_id = \(select auth\.uid\(\)\)[\s\S]*?s\.author_id = \(select auth\.uid\(\)\)/i);
+  const adminViews = await read("supabase/migrations/20261020170000_admin_story_views_read.sql");
+  assert.match(adminViews, /create policy story_views_select_admin[\s\S]*?using \(\(select private\.is_admin\(\)\)\)/i);
   assert.match(migration, /private\.can_view_story\(p_story_id\)/i);
   assert.match(migration, /create or replace function public\.record_story_view\(p_story_id uuid\)/i);
   assert.match(migration, /create or replace function public\.send_story_reply\(p_story_id uuid, p_body text\)/i);
@@ -684,6 +686,9 @@ test("Home and Cartas retain separate page responsibilities", async () => {
     read("assets/js/home.js"), read("assets/js/letters.js")
   ]);
   assert.match(home, /storiesMarkup/);
+  const stories = await read("src/stories.js");
+  assert.match(stories, /story\.author_id === userId \|\| isAdmin/);
+  assert.match(stories, /viewer\.dataset\.admin = isAdmin \? "true" : "false"/);
   assert.match(home, /socialMarkup/);
   assert.doesNotMatch(home, /archivedCardsMarkup|loadArchivedCards/);
   assert.match(letters, /archivedCardsMarkup/);
