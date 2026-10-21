@@ -46,6 +46,35 @@ test("post and comment avatars use signed profile avatar URLs", async () => {
   assert.match(source, /avatar_path/);
   assert.match(source, /post\.author\?\.avatarUrl/);
 });
+
+test("comments expose owner-only edit/delete controls backed by comments RLS", async () => {
+  const [source, migration, css] = await Promise.all([
+    read("src/social.js"), read("supabase/migrations/20261015231928_posts_comments_core.sql"), read("assets/css/pages/home.css")
+  ]);
+  assert.match(source, /data-edit-comment/);
+  assert.match(source, /data-delete-comment/);
+  assert.match(source, /\.update\(\{ body: nextBody\.trim\(\) \}\)\.eq\("id", commentId\)\.eq\("author_id", userId\)/);
+  assert.match(source, /client\.from\("comment_media"\)\.select\("storage_path"\)/);
+  assert.match(source, /\.in\("comment_id", commentIds\)/);
+  assert.match(source, /\.delete\(\)\.eq\("id", commentId\)\.eq\("author_id", userId\)/);
+  assert.match(migration, /comments_update_own_with_post[\s\S]*?author_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /comments_delete_own_with_post[\s\S]*?author_id = \(select auth\.uid\(\)\)/);
+  assert.match(css, /\.comment-media-grid img[\s\S]*?object-fit:cover/);
+  assert.match(css, /\.comment-media-grid video[\s\S]*?max-height:120px/);
+});
+
+test("comment owner controls render only for the matching signed-in author", async () => {
+  const { socialMarkup } = await import("../src/social.js");
+  const comment = { id: "c1", post_id: "p1", author_id: "u1", body: "Comentário próprio", created_at: "2026-01-01T00:00:00Z", author: { username: "u1" } };
+  const post = { id: "p1", author_id: "u2", body: "Publicação", visibility: "public", created_at: "2026-01-01T00:00:00Z", comments: [comment] };
+  const page = (userId) => socialMarkup({ people: [], posts: [post] }, userId);
+  const ownerMarkup = page("u1");
+  const otherMarkup = page("u3");
+  assert.match(ownerMarkup, /data-edit-comment="c1"/);
+  assert.match(ownerMarkup, /data-delete-comment="c1"/);
+  assert.doesNotMatch(otherMarkup, /data-edit-comment="c1"|data-delete-comment="c1"/);
+});
+
 test("likes use persistent unique post/user records and realtime updates", async () => {
   const source = await read("src/social.js");
   const migration = await read("supabase/migrations/20261019100000_feed_publication_interactions.sql");

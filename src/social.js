@@ -109,7 +109,7 @@ function commentAttachmentField(commentId, postId) {
     <input class="visually-hidden" id="${escapeHtml(id)}" name="commentMedia" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">`;
 }
 
-function commentMarkup(comment, canReply) {
+function commentMarkup(comment, canReply, userId) {
   const replyForm = canReply
     ? `<details class="reply-details"><summary>Responder</summary>
         <form class="comment-form reply-form" data-social-comment data-post-id="${escapeHtml(comment.post_id)}" data-parent-comment-id="${escapeHtml(comment.id)}">
@@ -122,9 +122,12 @@ function commentMarkup(comment, canReply) {
       </details>`
     : "";
 
-  return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}">
-    <div class="comment-meta"><strong>${profileLabel(comment.author)}</strong><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time></div>
-    <p>${escapeHtml(comment.body)}</p>${commentMediaMarkup(comment.media)}${replyForm}
+  const ownerActions = comment.author_id === userId
+    ? `<div class="comment-owner-actions"><button class="text-button" type="button" data-edit-comment="${escapeHtml(comment.id)}">Editar</button><button class="text-button" type="button" data-delete-comment="${escapeHtml(comment.id)}">Excluir</button></div>`
+    : "";
+  return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
+    <div class="comment-meta"><strong>${profileLabel(comment.author)}</strong><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>${ownerActions}</div>
+    <p data-comment-body>${escapeHtml(comment.body)}</p>${commentMediaMarkup(comment.media)}<span class="form-status" data-comment-status role="status" aria-live="polite"></span>${replyForm}
   </article>`;
 }
 
@@ -141,7 +144,7 @@ function postMarkup(post, userId, isAdmin = false) {
   }
   const roots = comments.filter((comment) => !comment.parent_comment_id);
   const commentList = roots.length
-    ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false)).join("")}</div>`).join("")
+    ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true, userId)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false, userId)).join("")}</div>`).join("")
     : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
@@ -544,6 +547,62 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
   });
 
   root.addEventListener("click", async (event) => {
+    const editCommentButton = event.target.closest("[data-edit-comment]");
+    if (editCommentButton && client) {
+      const userId = getUserId?.();
+      const commentId = editCommentButton.dataset.editComment;
+      const article = editCommentButton.closest(".comment-item");
+      const body = article?.querySelector("[data-comment-body]")?.textContent || "";
+      if (!userId || !commentId || editCommentButton.disabled) return;
+      const nextBody = window.prompt("Edite seu comentário:", body);
+      if (nextBody === null) return;
+      if (!nextBody.trim() || nextBody.trim().length > 2000) {
+        const status = article?.querySelector("[data-comment-status]");
+        if (status) status.textContent = "O comentário deve ter entre 1 e 2.000 caracteres.";
+        return;
+      }
+      editCommentButton.disabled = true;
+      try {
+        const { error } = await client.from("comments").update({ body: nextBody.trim() }).eq("id", commentId).eq("author_id", userId);
+        if (error) throw error;
+        await refreshSocialFeed(root, client, userId, isAdmin);
+      } catch (error) {
+        console.error("Looply comment edit failed", error);
+        const status = article?.querySelector("[data-comment-status]");
+        if (status) status.textContent = "Não foi possível editar o comentário. Ele continua salvo; tente novamente.";
+      } finally { editCommentButton.disabled = false; }
+      return;
+    }
+    const deleteCommentButton = event.target.closest("[data-delete-comment]");
+    if (deleteCommentButton && client) {
+      const userId = getUserId?.();
+      const commentId = deleteCommentButton.dataset.deleteComment;
+      const article = deleteCommentButton.closest(".comment-item");
+      if (!userId || !commentId || deleteCommentButton.disabled) return;
+      if (!window.confirm("Excluir este comentário? As respostas vinculadas também serão removidas.")) return;
+      deleteCommentButton.disabled = true;
+      try {
+        const thread = article?.closest(".comment-thread");
+        const commentIds = article?.classList.contains("comment-reply")
+          ? [commentId]
+          : [...(thread?.querySelectorAll(".comment-item") || [])].map((item) => item.id.replace(/^comment-/, ""));
+        const { data: media, error: mediaError } = await client.from("comment_media").select("storage_path").in("comment_id", commentIds);
+        if (mediaError) throw mediaError;
+        const { error } = await client.from("comments").delete().eq("id", commentId).eq("author_id", userId);
+        if (error) throw error;
+        const paths = (media || []).map((item) => item.storage_path).filter(Boolean);
+        if (paths.length) {
+          const { error: storageError } = await client.storage.from("looply-media").remove(paths);
+          if (storageError) console.error("Looply comment media cleanup failed", storageError);
+        }
+        await refreshSocialFeed(root, client, userId, isAdmin);
+      } catch (error) {
+        console.error("Looply comment deletion failed", error);
+        const status = article?.querySelector("[data-comment-status]");
+        if (status) status.textContent = "Não foi possível excluir o comentário. Ele continua salvo; tente novamente.";
+      } finally { deleteCommentButton.disabled = false; }
+      return;
+    }
     if (event.target.closest('[data-social-action="refresh"]')) refreshSocialFeed(root, client, getUserId?.(), isAdmin);
     const internalShare = event.target.closest("[data-share-in-app]");
     if (internalShare && client) {
