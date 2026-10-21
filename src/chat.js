@@ -1,4 +1,39 @@
 import { icon } from "./icons.js";
+const CHAT_EMOJI_CATEGORIES = {
+  "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
+  "Pessoas": [["👋","aceno"],["👋🏻","aceno pele clara"],["👋🏼","aceno pele média clara"],["👋🏽","aceno pele média"],["👋🏾","aceno pele média escura"],["👋🏿","aceno pele escura"],["🙏","oração"],["👏","palmas"],["👍","positivo"],["👎","negativo"],["🤝","aperto de mãos"],["💪","força"],["🤦","facepalm"],["🤷","tanto faz"],["🙋","mão levantada"],["🙌","comemoração"],["🫶","coração com as mãos"],["🧑‍🤝‍🧑","pessoas de mãos dadas"],["👩‍❤️‍👨","casal"],["💃","dança"],["🕺","dançarino"]],
+  "Animais": [["🐱","gato"],["🐶","cachorro"],["🐭","rato"],["🐹","hamster"],["🐰","coelho"],["🦊","raposa"],["🐻","urso"],["🐼","panda"],["🐨","coala"],["🐯","tigre"],["🦁","leão"],["🐮","vaca"],["🐸","sapo"],["🐵","macaco"],["🐔","galinha"],["🐧","pinguim"],["🦋","borboleta"],["🐢","tartaruga"],["🐬","golfinho"],["🐳","baleia"],["🌈","arco-íris"],["🌸","flor"],["🌻","girassol"],["🌙","lua"],["☀️","sol"],["🌍","terra"]],
+  "Comidas": [["🍎","maçã"],["🍓","morango"],["🍉","melancia"],["🍕","pizza"],["🍔","hambúrguer"],["🍟","batata frita"],["🌮","taco"],["🍣","sushi"],["🍰","bolo"],["🎂","aniversário"],["🍩","rosquinha"],["🍪","biscoito"],["🍫","chocolate"],["☕","café"],["🧋","chá com leite"],["🥤","bebida"],["🍺","cerveja"],["🍷","vinho"]],
+  "Atividades": [["⚽","futebol"],["🏀","basquete"],["🏐","vôlei"],["🎾","tênis"],["🏆","troféu"],["🎮","videogame"],["🎯","alvo"],["🎨","arte"],["🎤","microfone"],["🎧","fone de ouvido"],["🎵","música"],["🎶","notas musicais"],["🎬","filme"],["🎹","piano"]],
+  "Lugares": [["🚗","carro"],["🚕","táxi"],["🚌","ônibus"],["🚲","bicicleta"],["✈️","avião"],["🚀","foguete"],["🏠","casa"],["🏖️","praia"],["🏕️","acampamento"],["🏙️","cidade"],["🗽","estátua da liberdade"],["🗺️","mapa"],["🌋","vulcão"]],
+  "Objetos": [["💌","carta de amor"],["📸","câmera"],["📱","celular"],["💻","computador"],["⌚","relógio"],["🎁","presente"],["💡","lâmpada"],["📚","livros"],["✏️","lápis"],["🔑","chave"],["🔒","cadeado"],["💎","diamante"],["🧸","ursinho"]],
+  "Símbolos": [["❤️","coração vermelho"],["🧡","coração laranja"],["💛","coração amarelo"],["💚","coração verde"],["💙","coração azul"],["💜","coração roxo"],["🖤","coração preto"],["🤍","coração branco"],["💔","coração partido"],["💕","dois corações"],["💞","corações girando"],["💖","coração brilhante"],["🔥","fogo"],["✨","brilhos"],["⭐","estrela"],["🎉","confete"],["💯","cem"],["✅","certo"],["❌","errado"],["♻️","reciclagem"],["⚠️","atenção"]],
+  "Bandeiras": [["🇧🇷","Brasil"],["🇵🇹","Portugal"],["🇺🇸","Estados Unidos"],["🇬🇧","Reino Unido"],["🇦🇷","Argentina"],["🇲🇽","México"],["🇯🇵","Japão"],["🇫🇷","França"],["🇮🇹","Itália"],["🇪🇸","Espanha"],["🇩🇪","Alemanha"],["🇨🇦","Canadá"]]
+};
+function renderChatEmojiChoices(picker, category, query, recent = []) {
+  const grid = picker.querySelector("[data-chat-emoji-grid]");
+  if (!grid) return;
+  const normalizedQuery = String(query || "").trim().toLocaleLowerCase("pt-BR");
+  const entries = category === "Recentes"
+    ? recent.map((emoji) => [emoji, "recente"])
+    : CHAT_EMOJI_CATEGORIES[category] || [];
+  const filtered = entries.filter(([emoji, name]) => !normalizedQuery || `${emoji} ${name}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+  grid.replaceChildren(...filtered.map(([emoji, name]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.chatEmojiChoice = emoji;
+    button.setAttribute("aria-label", `Inserir ${name}`);
+    button.title = name;
+    button.textContent = emoji;
+    return button;
+  }));
+  if (!filtered.length) {
+    const empty = document.createElement("p");
+    empty.className = "chat-emoji-empty";
+    empty.textContent = "Nenhum emoji encontrado.";
+    grid.append(empty);
+  }
+}
 const fileExtensions = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"], ["audio/mp4", "mp4"],
@@ -734,7 +769,25 @@ export function bindChatEvents(root, client, getUserId) {
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.focus();
       }
+      const recentKey = `looply-chat-emoji-recent:${getUserId?.() || "guest"}`;
+      let recent = [];
+      try { const stored = JSON.parse(localStorage.getItem(recentKey) || "[]"); if (Array.isArray(stored)) recent = stored.filter((emoji) => typeof emoji === "string").slice(0, 24); } catch { /* Recents are optional. */ }
+      const selectedEmoji = emojiChoice.dataset.chatEmojiChoice;
+      try { localStorage.setItem(recentKey, JSON.stringify([selectedEmoji, ...recent.filter((emoji) => emoji !== selectedEmoji)].slice(0, 24))); } catch { /* Recents are optional. */ }
       picker?.remove();
+      return;
+    }
+    const emojiCategory = event.target.closest("[data-chat-emoji-category]");
+    if (emojiCategory) {
+      const picker = emojiCategory.closest("[data-chat-emoji-picker]");
+      picker?.querySelectorAll("[data-chat-emoji-category]").forEach((button) => button.setAttribute("aria-pressed", String(button === emojiCategory)));
+      if (picker) {
+        picker.dataset.activeCategory = emojiCategory.dataset.chatEmojiCategory;
+        const userKey = `looply-chat-emoji-recent:${getUserId?.() || "guest"}`;
+        let recent = [];
+        try { const stored = JSON.parse(localStorage.getItem(userKey) || "[]"); if (Array.isArray(stored)) recent = stored.filter((emoji) => typeof emoji === "string").slice(0, 24); } catch { /* Recents are optional. */ }
+        renderChatEmojiChoices(picker, picker.dataset.activeCategory, picker.querySelector("[data-chat-emoji-search]")?.value, recent);
+      }
       return;
     }
     const emojiButton = event.target.closest("[data-chat-emoji]");
@@ -742,15 +795,39 @@ export function bindChatEvents(root, client, getUserId) {
       const form = emojiButton.closest("[data-chat-send]");
       const existing = form?.querySelector("[data-chat-emoji-picker]");
       if (existing) { existing.remove(); emojiButton.setAttribute("aria-expanded", "false"); return; }
-      const emojis = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","🥰","😘","😋","😎","🤩","🥳","😭","🥹","😢","😡","🤔","🤗","🤭","😴","🙏","👏","👍","👎","❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","💕","💞","💖","🔥","✨","⭐","🎉","🎂","🌹","🌷","☀️","🌙","☕","🍕","🍰","⚽","🎮","🎵","🎶","🐱","🐶","🦋","🌈","💯","✅","❌","👋","🤝","💪","🤦","🤷","💌","📸","🎁"];
       const picker = document.createElement("div");
       picker.className = "chat-emoji-picker";
       picker.dataset.chatEmojiPicker = "";
       picker.setAttribute("role", "group");
       picker.setAttribute("aria-label", "Escolher emoji");
-      picker.innerHTML = emojis.map((emoji) => `<button type="button" data-chat-emoji-choice="${emoji}" aria-label="Inserir ${emoji}">${emoji}</button>`).join("");
+      picker.dataset.activeCategory = "Carinhas";
+      const search = document.createElement("input");
+      search.type = "search";
+      search.placeholder = "Buscar emoji";
+      search.setAttribute("aria-label", "Buscar emoji");
+      search.dataset.chatEmojiSearch = "";
+      const categoryNav = document.createElement("nav");
+      categoryNav.className = "chat-emoji-categories";
+      categoryNav.setAttribute("aria-label", "Categorias de emojis");
+      for (const category of ["Recentes", ...Object.keys(CHAT_EMOJI_CATEGORIES)]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.chatEmojiCategory = category;
+        button.setAttribute("aria-label", category);
+        button.setAttribute("aria-pressed", String(category === "Carinhas"));
+        button.textContent = category === "Recentes" ? "◷" : category === "Carinhas" ? "😀" : category === "Pessoas" ? "👋" : category === "Animais" ? "🐱" : category === "Comidas" ? "🍕" : category === "Atividades" ? "⚽" : category === "Lugares" ? "🚗" : category === "Objetos" ? "💡" : category === "Símbolos" ? "❤️" : "🇧🇷";
+        categoryNav.append(button);
+      }
+      const grid = document.createElement("div");
+      grid.className = "chat-emoji-grid";
+      grid.dataset.chatEmojiGrid = "";
+      picker.append(search, categoryNav, grid);
+      let recent = [];
+      try { const stored = JSON.parse(localStorage.getItem(`looply-chat-emoji-recent:${getUserId?.() || "guest"}`) || "[]"); if (Array.isArray(stored)) recent = stored.filter((emoji) => typeof emoji === "string").slice(0, 24); } catch { /* Recents are optional. */ }
+      renderChatEmojiChoices(picker, "Carinhas", "", recent);
       emojiButton.insertAdjacentElement("afterend", picker);
       emojiButton.setAttribute("aria-expanded", "true");
+      search.focus();
       return;
     }
     if (copyButton) {
@@ -871,9 +948,18 @@ export function bindChatEvents(root, client, getUserId) {
   });
 
   root.addEventListener("input", (event) => {
-    if (!event.target.matches("[data-chat-conversation-search]")) return;
-    conversationSearch = event.target.value;
-    applyConversationFilter(root);
+    if (event.target.matches("[data-chat-conversation-search]")) {
+      conversationSearch = event.target.value;
+      applyConversationFilter(root);
+      return;
+    }
+    if (event.target.matches("[data-chat-emoji-search]")) {
+      const picker = event.target.closest("[data-chat-emoji-picker]");
+      const userKey = `looply-chat-emoji-recent:${getUserId?.() || "guest"}`;
+      let recent = [];
+      try { const stored = JSON.parse(localStorage.getItem(userKey) || "[]"); if (Array.isArray(stored)) recent = stored.filter((emoji) => typeof emoji === "string").slice(0, 24); } catch { /* Recents are optional. */ }
+      if (picker) renderChatEmojiChoices(picker, picker.dataset.activeCategory, event.target.value, recent);
+    }
   });
 
   root.addEventListener("change", (event) => {
