@@ -72,6 +72,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   root.innerHTML = galleryMarkup();
   const $ = selector => root.querySelector(selector);
   const $$ = selector => Array.from(root.querySelectorAll(selector));
+  const uploaderInfo = document.createElement("div");
+  uploaderInfo.className = "gallery-viewer-uploader";
+  uploaderInfo.dataset.viewerUploader = "";
+  $("[data-viewer-description]")?.before(uploaderInfo);
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
   const extensionMime = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",avif:"image/avif",heic:"image/heic",heif:"image/heif",tif:"image/tiff",tiff:"image/tiff",bmp:"image/bmp",svg:"image/svg+xml",ico:"image/x-icon",jxl:"image/jxl",raw:"image/x-raw",dng:"image/x-adobe-dng",cr2:"image/x-canon-cr2",nef:"image/x-nikon-nef",arw:"image/x-sony-arw",mp4:"video/mp4",m4v:"video/x-m4v",mov:"video/quicktime",qt:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska",avi:"video/x-msvideo",wmv:"video/x-ms-wmv",flv:"video/x-flv",mpeg:"video/mpeg",mpg:"video/mpeg",m2v:"video/mpeg","3gp":"video/3gpp","3g2":"video/3gpp2",mts:"video/mp2t",m2ts:"video/mp2t",ts:"video/mp2t",ogv:"video/ogg",vob:"video/dvd",asf:"video/x-ms-asf",mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",ogg:"audio/ogg",oga:"audio/ogg",opus:"audio/opus",wav:"audio/wav",flac:"audio/flac",aiff:"audio/aiff",aif:"audio/aiff",wma:"audio/x-ms-wma",amr:"audio/amr"};
   const getFileMime = file => { const declared=String(file.type||"").toLowerCase(); if (declared.startsWith("image/") || declared.startsWith("video/") || declared.startsWith("audio/")) return declared; const ext=String(file.name||"").split(".").pop().toLowerCase(); return extensionMime[ext]||""; };
@@ -147,8 +151,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
         client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
-        client.from("community_gallery_media").select("id,owner_id,storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access").order("created_at",{ascending:false}).range(start,end),
-        client.from("profiles").select("id,username,display_name").order("display_name").limit(500),
+        client.from("community_gallery_media").select("id,owner_id,owner:profiles!community_gallery_media_owner_id_fkey(id,username,display_name,avatar_path),storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access").order("created_at",{ascending:false}).range(start,end),
+        client.from("profiles").select("id,username,display_name,avatar_path").order("display_name").limit(500),
         client.from("gallery_media_people").select("source,media_id,person_id"),
         client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),
         client.from("gallery_albums").select("id,owner_id,name,created_at").eq("owner_id",user.id).order("created_at",{ascending:false}),
@@ -179,8 +183,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       if(albums.some(a=>a.id===previousAlbum))$("[data-album-select]").value=previousAlbum;
       const fresh = [
         ...(a.data || []).map(x => ({...x, source:"archive", title:"", sourceDescription:x.description || "", description:x.description || "", date:x.created_at, owner_id:null})),
-        ...(c.data || []).map(x => ({...x, owner:peopleMap.get(x.owner_id) || null, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
+        ...(c.data || []).map(x => ({...x, owner:x.owner || peopleMap.get(x.owner_id) || null, source:"community", title:"", sourceDescription:x.caption || "", description:x.caption || "", date:x.created_at}))
       ];
+      const uploaderProfiles = [...new Map(fresh.map(x => x.owner).filter(profile => profile?.avatar_path).map(profile => [profile.id, profile])).values()];
+      if (uploaderProfiles.length) {
+        const avatarResult = await safeQuery(client.storage.from("looply-avatars").createSignedUrls(uploaderProfiles.map(profile => profile.avatar_path), 1800));
+        if (!avatarResult.error) uploaderProfiles.forEach((profile, index) => { profile.avatarUrl = avatarResult.data?.[index]?.signedUrl || ""; });
+      }
       const adjustmentIds = fresh.map(x => x.id);
       const adjustmentsResult = adjustmentIds.length ? await safeQuery(client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds)) : {data:[],error:null};
       const adjustmentMap = new Map((adjustmentsResult.data || []).map(row => [row.source + ":" + row.media_id, row]));
@@ -347,6 +356,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     $("[data-position-y]").value = String(x.adjustment?.positionY || 0);
     $("[data-photo-adjust-status]").textContent = "";
     $("[data-viewer-date]").textContent = dateLabel(x.date);
+    const uploader = x.owner;
+    const uploaderName = uploader?.display_name || (uploader?.username ? "@" + uploader.username : "Responsável não registrado");
+    $("[data-viewer-uploader]").innerHTML = x.source === "community"
+      ? (uploader?.avatarUrl
+        ? '<img src="' + esc(uploader.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer"><span>Enviado por <strong>' + esc(uploaderName) + '</strong></span>'
+        : '<span class="gallery-uploader-fallback" aria-hidden="true">' + esc((uploaderName.replace(/^@/, "").slice(0, 1) || "?").toLocaleUpperCase("pt-BR")) + '</span><span>Enviado por <strong>' + esc(uploaderName) + '</strong></span>')
+      : '<span class="gallery-uploader-fallback" aria-hidden="true">?</span><span>Enviado por <strong>Responsável não registrado</strong></span>';
     $("[data-viewer-description]").innerHTML = descriptionMarkup(x);
     $("[data-description-form]").hidden = true;
     $("[data-action-sheet]").hidden = true;

@@ -34,6 +34,16 @@ test("gallery upload matches the existing private Storage policy and database sc
   assert.match(gallery, /createSignedUrl\(x\.storage_path, 300\)/);
 });
 
+test("gallery details show the uploader from the media owner relation with a safe fallback for legacy archive rows", () => {
+  assert.match(gallery, /owner:profiles!community_gallery_media_owner_id_fkey\(id,username,display_name,avatar_path\)/);
+  assert.match(gallery, /owner:x\.owner \|\| peopleMap\.get\(x\.owner_id\) \|\| null/);
+  assert.match(gallery, /createSignedUrls\(uploaderProfiles\.map\(profile => profile\.avatar_path\), 1800\)/);
+  assert.match(gallery, /data-viewer-uploader/);
+  assert.match(gallery, /Enviado por <strong>/);
+  assert.match(gallery, /Responsável não registrado/);
+  assert.match(styles, /gallery-viewer-uploader img/);
+});
+
 test("private-folder access and administrator deletion are enforced in SQL", () => {
   assert.match(migration, /private_owner_id is null/);
   assert.match(migration, /private\.can_view_community_gallery_media/);

@@ -420,6 +420,9 @@ body.gallery-viewer-open{overflow:hidden}
   min-width: 0;
 }
 .page-gallery .gallery-viewer-date { color: #d8cfe1 !important; margin: 0; }
+.page-gallery .gallery-viewer-uploader { display:flex; align-items:center; gap:9px; margin:8px 0; color:#d8cfe1; font-size:12px; }
+.page-gallery .gallery-viewer-uploader img,.page-gallery .gallery-uploader-fallback { display:grid; width:32px; height:32px; flex:0 0 32px; place-items:center; border-radius:50%; object-fit:cover; color:#fff; background:#7c3aed; font-weight:700; }
+.page-gallery .gallery-viewer-uploader strong { color:#fff; }
 .page-gallery .gallery-viewer-description { color: #fff !important; }
 .page-gallery .gallery-viewer-details .gallery-tool,
 .page-gallery .gallery-viewer-details .gallery-icon-button {
