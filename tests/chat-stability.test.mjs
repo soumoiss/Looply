@@ -99,12 +99,28 @@ test("emoji picker has searchable categories, per-user recents, skin tones, flag
   assert.match(css, /\.chat-emoji-grid/);
 });
 
+test("chat stickers use a dedicated native file picker, enforce safe static image formats and render compactly", async () => {
+  const [source, css, migration] = await Promise.all([
+    read("src/chat.js"), read("assets/css/pages/chat.css"),
+    read("supabase/migrations/20261020140000_chat_attachment_mime_reliability.sql")
+  ]);
+  assert.match(source, /data-chat-choose-sticker/);
+  assert.match(source, /name="sticker" type="file" accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(source, /Escolha uma imagem JPG, PNG ou WebP de até 10 MiB/);
+  assert.match(source, /Figurinhas animadas ainda não são aceitas/);
+  assert.match(source, /`sticker-\$\{Date\.now\(\)\}\./);
+  assert.match(source, /class="chat-sticker"/);
+  assert.match(css, /\.chat-message-media img\.chat-sticker[^\{]*\{[^}]*max-width:min\(160px, 48vw\)/);
+  assert.match(migration, /'image\/jpeg', 'image\/png', 'image\/webp'/);
+  assert.doesNotMatch(source, /image\/gif|image\/webp.*image\/gif/);
+});
+
 test("chat emoji picker updates invalidate static page, stylesheet and module caches", async () => {
   const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
-  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /emoji-picker-20261021/);
-  assert.match(serviceWorker, /looply-shell-v4/);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-stickers-20261021/);
+  assert.match(serviceWorker, /looply-shell-v5/);
 });
 
 test("chat avatars fall back only after an image fails to load", async () => {

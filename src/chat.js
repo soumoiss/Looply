@@ -432,7 +432,10 @@ function renderMedia(media) {
   if (!media.signedUrl) return `<span class="chat-media-unavailable">Anexo temporariamente indisponível.</span>`;
   const url = escapeHtml(media.signedUrl);
   const fileName = escapeHtml(media.file_name);
-  if (media.mime_type.startsWith("image/")) return `<a class="chat-image-link" href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${fileName}" loading="lazy" referrerpolicy="no-referrer"></a>`;
+  if (media.mime_type.startsWith("image/")) {
+    const sticker = media.file_name?.startsWith("sticker-") === true;
+    return `<a class="chat-image-link${sticker ? " chat-sticker-link" : ""}" href="${url}" target="_blank" rel="noopener noreferrer"${sticker ? ' aria-label="Figurinha"' : ""}><img${sticker ? ' class="chat-sticker"' : ""} src="${url}" alt="${sticker ? "Figurinha" : fileName}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>`;
+  }
   if (media.mime_type.startsWith("video/")) return `<video src="${url}" controls preload="metadata" aria-label="${fileName}"></video>`;
   if (media.mime_type.startsWith("audio/")) return `<div class="chat-audio-player"><audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio><label>Velocidade <select data-chat-audio-rate aria-label="Velocidade do áudio"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>`;
   return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">${icon("external")} ${fileName}</a>`;
@@ -502,7 +505,7 @@ function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
+    <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -730,6 +733,12 @@ export function bindChatEvents(root, client, getUserId) {
 
   // Keep attachment selection isolated from conversation and call controls.
   root.addEventListener("click", (event) => {
+    const stickerButton = event.target.closest("[data-chat-choose-sticker]");
+    if (stickerButton) {
+      const input = stickerButton.closest("[data-chat-send]")?.querySelector('input[name="sticker"]');
+      input?.click();
+      return;
+    }
     const button = event.target.closest("[data-chat-choose-files]");
     if (!button) return;
     event.preventDefault();
@@ -970,6 +979,31 @@ export function bindChatEvents(root, client, getUserId) {
       return;
     }
     const attachmentInput = event.target.closest('input[name="files"]');
+    const stickerInput = event.target.closest('input[name="sticker"]');
+    if (stickerInput) {
+      const form = stickerInput.closest("[data-chat-send]");
+      const file = stickerInput.files?.[0];
+      if (!form) return;
+      if (!file) { setStatus(form, "Seleção de figurinha cancelada.", "info"); return; }
+      const normalized = normalizedAttachment(file);
+      if (!normalized || !normalized.type.startsWith("image/") || !["image/jpeg", "image/png", "image/webp"].includes(normalized.type) || normalized.size > 10 * 1024 * 1024) {
+        stickerInput.value = "";
+        setStatus(form, "Escolha uma imagem JPG, PNG ou WebP de até 10 MiB. Figurinhas animadas ainda não são aceitas pelo armazenamento seguro do chat.", "error");
+        return;
+      }
+      const filesInput = form.querySelector('input[name="files"]');
+      if (filesInput) {
+        const transfer = new DataTransfer();
+        for (const existing of filesInput.files) transfer.items.add(existing);
+        const stickerFile = new File([normalized], `sticker-${Date.now()}.${fileExtensions.get(normalized.type)}`, { type: normalized.type, lastModified: Date.now() });
+        transfer.items.add(stickerFile);
+        filesInput.files = transfer.files;
+      }
+      stickerInput.value = "";
+      setStatus(form, "Figurinha pronta para enviar.", "info");
+      form.querySelector('textarea[name="body"]')?.focus();
+      return;
+    }
     if (!attachmentInput) return;
     const form = attachmentInput.closest("[data-chat-send]");
     if (!form) return;
