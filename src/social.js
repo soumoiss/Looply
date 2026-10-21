@@ -592,6 +592,9 @@ export async function hydrateTikTokEmbeds(root) {
       if (placeholder.isConnected) placeholder.textContent = "A pré-visualização não está disponível para este link. Abra o conteúdo original.";
     }
   }));
+  // Short TikTok share URLs become controllable players only after hydration.
+  // Rebind so the newly inserted iframe participates in hover/visibility autoplay.
+  bindFeedVideoAutoplay(root);
 }
 
 export async function refreshSocialFeed(root, client, userId, isAdmin = false) {

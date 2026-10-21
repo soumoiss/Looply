@@ -211,6 +211,7 @@ test("TikTok share links use the official player and hydrate shortened URLs thro
   assert.match(source, /data-tiktok-preview/);
   assert.match(source, /https:\/\/www\.tiktok\.com\/player\/v1\//);
   assert.match(source, /export async function hydrateTikTokEmbeds/);
+  assert.match(source, /Short TikTok share URLs become controllable players only after hydration\.[\s\S]*?bindFeedVideoAutoplay\(root\);/);
 });
 
 test("large media upload falls back to direct Storage upload if the remote TUS module cannot load", async () => {
