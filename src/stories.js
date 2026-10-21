@@ -705,10 +705,20 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     clearTimer();
     try {
       const { data, error } = await client.from("story_views")
-        .select("viewed_at,viewer:profiles!story_views_viewer_id_fkey(username,display_name)")
+        .select("viewed_at,viewer:profiles!story_views_viewer_id_fkey(username,display_name,avatar_path)")
         .eq("story_id", story.id).order("viewed_at", { ascending: false }).limit(500);
       if (error) throw error;
       const views = data || [];
+      const avatarPaths = [...new Set(views.map((view) => view.viewer?.avatar_path).filter(Boolean))];
+      const avatarUrls = new Map();
+      if (avatarPaths.length) {
+        const { data: signedAvatars, error: avatarError } = await client.storage.from("looply-avatars")
+          .createSignedUrls(avatarPaths, 1800);
+        if (!avatarError) avatarPaths.forEach((path, index) => {
+          const url = signedAvatars?.[index]?.signedUrl;
+          if (url) avatarUrls.set(path, url);
+        });
+      }
       summary.textContent = views.length === 1 ? "1 pessoa viu este story." : `${views.length} pessoas viram este story.`;
       if (!views.length) {
         const empty = document.createElement("li");
@@ -718,7 +728,22 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       for (const view of views) {
         const item = document.createElement("li");
+        const avatar = document.createElement("span");
+        avatar.className = "story-insights-avatar";
+        const avatarUrl = avatarUrls.get(view.viewer?.avatar_path);
+        if (avatarUrl) {
+          const image = document.createElement("img");
+          image.src = avatarUrl;
+          image.alt = "";
+          image.loading = "lazy";
+          image.referrerPolicy = "no-referrer";
+          avatar.append(image);
+        } else {
+          avatar.textContent = initials(profileName(view.viewer));
+          avatar.setAttribute("aria-hidden", "true");
+        }
         const person = document.createElement("span");
+        person.className = "story-insights-person";
         const name = document.createElement("strong");
         const username = document.createElement("small");
         const viewedAt = document.createElement("time");
@@ -728,7 +753,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         viewedAt.dateTime = view.viewed_at;
         viewedAt.textContent = exactTime;
         person.append(name, username);
-        item.append(person, viewedAt);
+        item.append(avatar, person, viewedAt);
         list.append(item);
       }
     } catch (error) {

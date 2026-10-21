@@ -22,6 +22,17 @@ test("Story creation can switch between front and rear cameras without replacing
   assert.match(source, /from\("story_media"\)/);
 });
 
+test("story view insights show signed viewer avatars with initials as a privacy-safe fallback", async () => {
+  const source = await read("src/stories.js");
+  const css = await read("assets/css/pages/home.css");
+  assert.match(source, /viewer:profiles!story_views_viewer_id_fkey\(username,display_name,avatar_path\)/);
+  assert.match(source, /client\.storage\.from\("looply-avatars"\)[\s\S]*?createSignedUrls\(avatarPaths, 1800\)/);
+  assert.match(source, /avatar\.textContent = initials\(profileName\(view\.viewer\)\)/);
+  assert.match(source, /image\.referrerPolicy = "no-referrer"/);
+  assert.match(css, /\.story-insights-avatar img[^{]*\{[^}]*object-fit:\s*cover/);
+  assert.match(css, /grid-template-columns:\s*38px minmax\(0, 1fr\) auto/);
+});
+
 test("Story viewer supports tap-to-pause and resume without intercepting action buttons", async () => {
   const source = await read("src/stories.js");
   assert.match(source, /data-story-play-toggle/);

@@ -274,8 +274,17 @@
   padding: 16px 18px max(16px, env(safe-area-inset-bottom));
 }
 .story-viewer-dialog[data-admin="true"] .story-insights-panel > ul > li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   min-height: 42px;
 }
+.story-insights-avatar { display: grid; width: 36px; height: 36px; place-items: center; overflow: hidden; border: 1px solid #ffffff38; border-radius: 50%; background: #ffffff18; color: #fff; font-size: 12px; font-weight: 700; }
+.story-insights-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.story-insights-person { display: grid; min-width: 0; }
+.story-insights-person strong, .story-insights-person small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story-insights-panel time { font-size: 11px; }
 @media (max-width: 560px) {
   .story-viewer-dialog[data-admin="true"] {
     inset: 0;
