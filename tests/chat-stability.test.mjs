@@ -99,6 +99,14 @@ test("emoji picker has searchable categories, per-user recents, skin tones, flag
   assert.match(css, /\.chat-emoji-grid/);
 });
 
+test("chat emoji picker updates invalidate static page, stylesheet and module caches", async () => {
+  const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
+    read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
+  ]);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /emoji-picker-20261021/);
+  assert.match(serviceWorker, /looply-shell-v4/);
+});
+
 test("chat avatars fall back only after an image fails to load", async () => {
   const source = await read("src/chat.js");
   assert.match(source, /root\.addEventListener\("error", \(event\) =>/);

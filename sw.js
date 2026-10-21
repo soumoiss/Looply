@@ -1,4 +1,4 @@
-const CACHE = "looply-shell-v3";
+const CACHE = "looply-shell-v4";
 const STATIC = /\.(?:html|css|js|svg|png|jpg|jpeg|webp|woff2?)$/i;
 self.addEventListener("install", (event) => { event.waitUntil(self.skipWaiting()); });
 self.addEventListener("activate", (event) => {
