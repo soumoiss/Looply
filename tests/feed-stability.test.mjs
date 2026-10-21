@@ -17,6 +17,32 @@ test("external URLs are restricted to HTTPS provider hosts and YouTube has a saf
   assert.match(source, /Abrir conteúdo original/);
   assert.match(source, /external_url/);
 });
+
+test("feed videos autoplay muted on hover or visibility and pause when no longer active", async () => {
+  const source = await read("src/social.js");
+  assert.match(source, /data-feed-video controls muted playsinline preload="metadata"/);
+  assert.match(source, /data-feed-embed data-video-provider="youtube"/);
+  assert.match(source, /data-feed-embed data-video-provider="tiktok"/);
+  assert.match(source, /addEventListener\("pointerenter", \(\) => \{ void play\(item\); \}/);
+  assert.match(source, /intersectionRatio >= 0\.6/);
+  assert.match(source, /pause\(active\)/);
+  assert.match(source, /prefers-reduced-motion: reduce/);
+  assert.match(source, /enablejsapi=1/);
+  assert.match(source, /iframe\.allow = "autoplay; encrypted-media/);
+});
+
+test("official external player control messages are limited to YouTube and TikTok embeds", async () => {
+  const { externalPlayerMessage } = await import("../src/social.js");
+  assert.deepEqual(externalPlayerMessage("youtube", "play"), {
+    targetOrigin: "https://www.youtube-nocookie.com",
+    payload: JSON.stringify({ event: "command", func: "playVideo", args: [] })
+  });
+  assert.deepEqual(externalPlayerMessage("tiktok", "mute"), {
+    targetOrigin: "https://www.tiktok.com",
+    payload: { "x-tiktok-player": true, type: "mute", value: null }
+  });
+  assert.equal(externalPlayerMessage("instagram", "play"), null);
+});
 test("media uploads normalize Android content URIs and retain private RETURNING access while metadata is pending", async () => {
   const [social, stories, migration] = await Promise.all([
     read("src/social.js"), read("src/stories.js"), read("supabase/migrations/20261020131415_fix_story_media_upload_returning.sql")

@@ -53,6 +53,93 @@ export function tiktokEmbedDetails(value) {
   }
 }
 
+export function externalPlayerMessage(provider, action) {
+  if (provider === "youtube" && ["play", "pause"].includes(action)) {
+    return {
+      targetOrigin: "https://www.youtube-nocookie.com",
+      payload: JSON.stringify({ event: "command", func: action === "play" ? "playVideo" : "pauseVideo", args: [] })
+    };
+  }
+  if (provider === "tiktok" && ["play", "pause", "mute"].includes(action)) {
+    return { targetOrigin: "https://www.tiktok.com", payload: { "x-tiktok-player": true, type: action, value: null } };
+  }
+  return null;
+}
+
+function bindFeedVideoAutoplay(root) {
+  root.__looplyVideoAutoplayDispose?.();
+  const media = [...root.querySelectorAll("video[data-feed-video], [data-feed-embed]")];
+  if (!media.length || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  let active = null;
+  const controller = new AbortController();
+  let observer = null;
+
+  const sendFrameCommand = (frame, provider, action) => {
+    const message = externalPlayerMessage(provider, action);
+    if (!message || !frame?.contentWindow) return;
+    frame.contentWindow.postMessage(message.payload, message.targetOrigin);
+  };
+  const pause = (item) => {
+    if (!item) return;
+    if (item.matches("video")) item.pause();
+    else sendFrameCommand(item.querySelector("iframe"), item.dataset.videoProvider, "pause");
+  };
+  const play = async (item) => {
+    if (!item?.isConnected || active === item) return;
+    pause(active);
+    active = item;
+    if (item.matches("video")) {
+      item.muted = true;
+      item.playsInline = true;
+      try { await item.play(); } catch { /* Autoplay can be blocked; native controls remain available. */ }
+      return;
+    }
+    const frame = item.querySelector("iframe");
+    const provider = item.dataset.videoProvider;
+    for (const delay of [0, 250, 750]) {
+      setTimeout(() => {
+        if (active !== item) return;
+        if (provider === "tiktok") sendFrameCommand(frame, provider, "mute");
+        sendFrameCommand(frame, provider, "play");
+      }, delay);
+    }
+  };
+
+  for (const item of media) {
+    const hoverTarget = item.matches("video") ? item : item;
+    hoverTarget.addEventListener("pointerenter", () => { void play(item); }, { passive: true, signal: controller.signal });
+    hoverTarget.addEventListener("pointerleave", () => {
+      if (active === item) { pause(item); active = null; }
+    }, { passive: true, signal: controller.signal });
+    hoverTarget.addEventListener("focusin", () => { void play(item); }, { signal: controller.signal });
+    hoverTarget.addEventListener("focusout", (event) => {
+      if (!hoverTarget.contains(event.relatedTarget) && active === item) { pause(item); active = null; }
+    }, { signal: controller.signal });
+  }
+
+  if ("IntersectionObserver" in window) {
+    observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.intersectionRatio >= 0.6) void play(entry.target);
+        else if (active === entry.target) { pause(active); active = null; }
+      }
+    }, { threshold: [0, 0.6] });
+    media.forEach((item) => observer.observe(item));
+  }
+  root.__looplyVideoAutoplayDispose = () => {
+    pause(active);
+    active = null;
+    observer?.disconnect();
+    controller.abort();
+    root.ownerDocument.removeEventListener("visibilitychange", handleVisibilityChange);
+    root.__looplyVideoAutoplayDispose = null;
+  };
+  function handleVisibilityChange() {
+    if (root.ownerDocument.hidden) { pause(active); active = null; }
+  }
+  root.ownerDocument.addEventListener("visibilitychange", handleVisibilityChange, { signal: controller.signal });
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -166,13 +253,14 @@ function postMarkup(post, userId, isAdmin = false) {
       const id = externalUrl.hostname === "youtu.be" ? pathParts[0] : externalUrl.pathname === "/watch" ? externalUrl.searchParams.get("v") : ["shorts", "embed", "live"].includes(pathParts[0]) ? pathParts[1] : null;
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
         provider = "YouTube";
-        embed = '<div class="post-external-embed"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+        const origin = typeof location !== "undefined" ? "&origin=" + encodeURIComponent(location.origin) : "";
+        embed = '<div class="post-external-embed" data-feed-embed data-video-provider="youtube"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '?enablejsapi=1' + origin + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       }
     } else if (externalUrl.hostname.includes("tiktok.com")) {
       const details = tiktokEmbedDetails(externalUrl.href);
       provider = "TikTok";
       if (details) {
-        embed = '<div class="post-external-embed post-tiktok-embed"><iframe src="' + escapeHtml(details.embedUrl) + '" title="Vídeo do TikTok" loading="lazy" allow="encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+        embed = '<div class="post-external-embed post-tiktok-embed" data-feed-embed data-video-provider="tiktok"><iframe src="' + escapeHtml(details.embedUrl) + '" title="Vídeo do TikTok" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       } else {
         // TikTok share URLs are often shortened. Resolve them with TikTok's public oEmbed endpoint after rendering.
         embed = '<div class="post-external-embed post-tiktok-embed" data-tiktok-preview data-tiktok-url="' + escapeHtml(externalUrl.href) + '"><p>Carregando pré-visualização do TikTok…</p></div>';
@@ -185,7 +273,7 @@ function postMarkup(post, userId, isAdmin = false) {
     const source = escapeHtml(item.signedUrl);
     const alt = escapeHtml(item.alt_text || (item.kind === "video" ? "Vídeo compartilhado no Looply" : "Imagem compartilhada no Looply"));
     return item.kind === "video"
-      ? `<figure class="post-media"><video src="${source}" controls preload="metadata" aria-label="${alt}"></video>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
+      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}"></video>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
@@ -494,9 +582,11 @@ export async function hydrateTikTokEmbeds(root) {
       iframe.src = "https://www.tiktok.com/player/v1/" + videoId + "?music_info=1&description=1";
       iframe.title = "Vídeo do TikTok";
       iframe.loading = "lazy";
-      iframe.allow = "encrypted-media; picture-in-picture; web-share";
+      iframe.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
       iframe.referrerPolicy = "strict-origin-when-cross-origin";
       iframe.allowFullscreen = true;
+      placeholder.dataset.feedEmbed = "";
+      placeholder.dataset.videoProvider = "tiktok";
       placeholder.replaceChildren(iframe);
     } catch {
       if (placeholder.isConnected) placeholder.textContent = "A pré-visualização não está disponível para este link. Abra o conteúdo original.";
@@ -512,6 +602,7 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
+    bindFeedVideoAutoplay(feed);
     void hydrateTikTokEmbeds(feed);
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
@@ -521,6 +612,7 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
 }
 
 export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
+  bindFeedVideoAutoplay(root);
   void hydrateTikTokEmbeds(root.querySelector("[data-social-feed]"));
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
