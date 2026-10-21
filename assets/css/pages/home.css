@@ -3,6 +3,10 @@
 .comment-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
 .comment-owner-actions { display:inline-flex; align-items:center; gap:8px; margin-left:auto; }
 .comment-owner-actions .text-button { min-height:36px; padding:6px 10px; }
+.comment-edit-form { display:grid; gap:8px; margin:8px 0; }
+.comment-edit-form[hidden] { display:none; }
+.comment-edit-form textarea { width:100%; min-height:76px; resize:vertical; }
+.comment-edit-form > div { display:flex; flex-wrap:wrap; gap:8px; }
 .comment-item [data-comment-status]:empty { display:none; }
 .comment-item [data-comment-status][data-kind="error"] { color:#a13f59; }
 .comment-media-grid { display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px; margin-top:8px; }

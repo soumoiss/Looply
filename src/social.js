@@ -127,7 +127,7 @@ function commentMarkup(comment, canReply, userId) {
     : "";
   return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
     <div class="comment-meta"><strong>${profileLabel(comment.author)}</strong><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>${ownerActions}</div>
-    <p data-comment-body>${escapeHtml(comment.body)}</p>${commentMediaMarkup(comment.media)}<span class="form-status" data-comment-status role="status" aria-live="polite"></span>${replyForm}
+    <p data-comment-body>${escapeHtml(comment.body)}</p><form class="comment-edit-form" data-comment-edit-form hidden><label class="visually-hidden" for="edit-comment-${escapeHtml(comment.id)}">Editar comentário</label><textarea id="edit-comment-${escapeHtml(comment.id)}" name="body" maxlength="2000" required></textarea><div><button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-comment-edit>Cancelar</button></div></form>${commentMediaMarkup(comment.media)}<span class="form-status" data-comment-status role="status" aria-live="polite"></span>${replyForm}
   </article>`;
 }
 
@@ -552,25 +552,24 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       const userId = getUserId?.();
       const commentId = editCommentButton.dataset.editComment;
       const article = editCommentButton.closest(".comment-item");
-      const body = article?.querySelector("[data-comment-body]")?.textContent || "";
       if (!userId || !commentId || editCommentButton.disabled) return;
-      const nextBody = window.prompt("Edite seu comentário:", body);
-      if (nextBody === null) return;
-      if (!nextBody.trim() || nextBody.trim().length > 2000) {
-        const status = article?.querySelector("[data-comment-status]");
-        if (status) status.textContent = "O comentário deve ter entre 1 e 2.000 caracteres.";
-        return;
-      }
-      editCommentButton.disabled = true;
-      try {
-        const { error } = await client.from("comments").update({ body: nextBody.trim() }).eq("id", commentId).eq("author_id", userId);
-        if (error) throw error;
-        await refreshSocialFeed(root, client, userId, isAdmin);
-      } catch (error) {
-        console.error("Looply comment edit failed", error);
-        const status = article?.querySelector("[data-comment-status]");
-        if (status) status.textContent = "Não foi possível editar o comentário. Ele continua salvo; tente novamente.";
-      } finally { editCommentButton.disabled = false; }
+      const form = article?.querySelector("[data-comment-edit-form]");
+      const textarea = form?.querySelector("textarea");
+      const body = article?.querySelector("[data-comment-body]");
+      if (!form || !textarea || !body) return;
+      textarea.value = body.textContent || "";
+      form.hidden = false;
+      editCommentButton.hidden = true;
+      textarea.focus();
+      return;
+    }
+    const cancelEdit = event.target.closest("[data-cancel-comment-edit]");
+    if (cancelEdit) {
+      const article = cancelEdit.closest(".comment-item");
+      const form = article?.querySelector("[data-comment-edit-form]");
+      if (form) form.hidden = true;
+      const editButton = article?.querySelector("[data-edit-comment]");
+      if (editButton) editButton.hidden = false;
       return;
     }
     const deleteCommentButton = event.target.closest("[data-delete-comment]");
@@ -763,6 +762,37 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     } finally {
       deleteButton.disabled = false;
     }
+  });
+
+  root.addEventListener("submit", async (event) => {
+    const editForm = event.target.closest("[data-comment-edit-form]");
+    if (!editForm || !client) return;
+    event.preventDefault();
+    const article = editForm.closest(".comment-item");
+    const editButton = article?.querySelector("[data-edit-comment]");
+    const userId = getUserId?.();
+    const commentId = editButton?.dataset.editComment;
+    const textarea = editForm.querySelector("textarea");
+    const nextBody = textarea?.value.trim() || "";
+    const status = article?.querySelector("[data-comment-status]");
+    if (!userId || !commentId || !textarea) return;
+    if (!nextBody || nextBody.length > 2000) {
+      if (status) status.textContent = "O comentário deve ter entre 1 e 2.000 caracteres.";
+      textarea.focus();
+      return;
+    }
+    const saveButton = editForm.querySelector('[type="submit"]');
+    if (saveButton?.disabled) return;
+    if (saveButton) saveButton.disabled = true;
+    if (editButton) editButton.disabled = true;
+    try {
+      const { error } = await client.from("comments").update({ body: nextBody }).eq("id", commentId).eq("author_id", userId);
+      if (error) throw error;
+      await refreshSocialFeed(root, client, userId, isAdmin);
+    } catch (error) {
+      console.error("Looply comment edit failed", error);
+      if (status) status.textContent = "Não foi possível editar o comentário. Ele continua salvo; tente novamente.";
+    } finally { if (saveButton) saveButton.disabled = false; if (editButton) editButton.disabled = false; }
   });
 
   root.addEventListener("submit", async (event) => {

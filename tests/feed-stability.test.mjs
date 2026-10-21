@@ -53,7 +53,11 @@ test("comments expose owner-only edit/delete controls backed by comments RLS", a
   ]);
   assert.match(source, /data-edit-comment/);
   assert.match(source, /data-delete-comment/);
-  assert.match(source, /\.update\(\{ body: nextBody\.trim\(\) \}\)\.eq\("id", commentId\)\.eq\("author_id", userId\)/);
+  assert.match(source, /data-comment-edit-form/);
+  assert.match(source, /data-cancel-comment-edit/);
+  assert.match(source, /root\.addEventListener\("submit", async \(event\) =>/);
+  assert.doesNotMatch(source, /window\.prompt\("Edite seu comentário:/);
+  assert.match(source, /\.update\(\{ body: nextBody \}\)\.eq\("id", commentId\)\.eq\("author_id", userId\)/);
   assert.match(source, /client\.from\("comment_media"\)\.select\("storage_path"\)/);
   assert.match(source, /\.in\("comment_id", commentIds\)/);
   assert.match(source, /\.delete\(\)\.eq\("id", commentId\)\.eq\("author_id", userId\)/);
