@@ -99,7 +99,7 @@ function adminRowsMarkup(letters, direction = "all") {
   if (!letters.length) return "<p class=\"community-letters-empty\">Nenhuma carta encontrada.</p>";
   return letters.map((letter) => {
     const label = direction === "received" ? "Carta para " + displayName(letter.recipient) : direction === "sent" ? "Carta de " + displayName(letter.sender) : "Carta para " + displayName(letter.recipient);
-    return "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(label) + "</strong><span>" + escapeHtml(letter.subject) + " · De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\"button\" class=\"text-button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">Abrir</button><button type=\"button\" class=\"icon-action\" data-admin-delete-community-letter=\"" + escapeHtml(letter.id) + "\" aria-label=\"Excluir carta como administrador\">" + icon("trash") + "</button></article>";
+    return "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(label) + "</strong><span>" + escapeHtml(letter.subject) + " · De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\"button\" class=\"text-button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">Abrir</button><button type=\"button\" class=\"text-button\" data-admin-edit-community-letter=\"" + escapeHtml(letter.id) + "\">Editar</button><button type=\"button\" class=\"icon-action\" data-admin-delete-community-letter=\"" + escapeHtml(letter.id) + "\" aria-label=\"Excluir carta como administrador\">" + icon("trash") + "</button></article>";
   }).join("");
 }
 export function communityLettersMarkup(letters, profiles, userId, isAdmin = false) {
@@ -306,7 +306,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
       if (!editingLetter) return;
       const form = root.querySelector("[data-community-letter-edit-form]");
       form.elements.subject.value = editingLetter.subject || "";
-      form.elements.body.value = editingLetter.is_protected ? "" : (editingLetter.body || "");
+      form.elements.body.value = editingLetter.body || "";
       form.elements.password.value = "";
       form.elements.password.required = Boolean(editingLetter.is_protected);
       root.querySelector("[data-admin-edit-password-wrap]").hidden = !editingLetter.is_protected;
@@ -378,7 +378,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         const values = new FormData(editForm);
         const subject = String(values.get("subject") || "").trim();
         let bodyText = String(values.get("body") || "").trim();
-        if (!subject || subject.length > 120 || !bodyText || bodyText.length > maxBodyLength) throw new Error("Preencha o assunto e o conteúdo (máximo de 5.000 caracteres).");
+        if (!subject || subject.length > 120 || bodyText.length > maxBodyLength) throw new Error("Preencha o assunto e mantenha o conteúdo abaixo de 5.000 caracteres.");
         if (editingLetter.is_protected) {
           const password = String(values.get("password") || "");
           const existing = await openProtectedLetter(editingLetter, password);
