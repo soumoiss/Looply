@@ -77,9 +77,9 @@ test("sent and received letter calendars mark days containing letters and admin 
   const [markup, css, archive] = await Promise.all([read("src/letters-community.js"), read("assets/css/pages/letters.css"), read("src/archived-cards.js")]);
   assert.match(markup, /data-community-calendar-grid/);
   assert.match(markup, /data-community-calendar-date/);
-  assert.match(markup, /has-letters/);
+  assert.match(markup, /calendar-day/);\n  assert.match(markup, /data-community-calendar-info/);
   assert.match(markup, /Carta para /);
   assert.match(markup, /Carta de /);
   assert.match(css, /community-date-calendar-grid button\.has-letters::after/);
-  assert.match(archive, /Carta para /);
+  assert.match(archive, /Carta para /);\n  assert.match(markup, /letter\\.recipient_id === user\\.id/);\n  assert.match(markup, /letter\\.sender_id === user\\.id/);\n  assert.match(markup, /data-letter-collection-panel=\\\\\"admin-all/);
 });
