@@ -53,6 +53,7 @@ export function archivedCardsMarkup() {
   </div>`;
 }
 
+// Legacy archive read shape: from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
 export async function loadArchivedCards(client, userId, isAdmin = false) {
   let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,password_hints,body,sent_date")
     .order("is_private", { ascending: false }).order("card_number", { ascending: true });

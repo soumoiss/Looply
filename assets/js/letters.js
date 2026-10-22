@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=cumulative-hints-notifications-20261022";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=cumulative-hints-notifications-20261022";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=shared-calendar-admin-edit-hints-20261022&rev=cumulative-hints-notifications-20261022";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
