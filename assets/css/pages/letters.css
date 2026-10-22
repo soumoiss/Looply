@@ -199,3 +199,25 @@
   .page-letters .letter-collection-switcher { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); }
   .page-letters .letter-collection-switcher button { padding: 8px 5px; font-size: .76rem; }
 }
+
+
+/* Letter attachments and administrator controls */
+.page-letters .letter-attachment-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 0; border-top:1px solid var(--letters-ink); }
+.page-letters .letter-attach-button { display:inline-flex; position:relative; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:7px 11px; border:2px solid var(--letters-ink); border-radius:9px; background:var(--letters-paper); color:var(--letters-ink); box-shadow:2px 2px 0 var(--letters-shadow); font:600 .78rem/1.3 "IBM Plex Mono",ui-monospace,monospace; cursor:pointer; }
+.page-letters .letter-attach-button input[type=file] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.page-letters .letter-attach-button:has(input[type=file]) { overflow:hidden; }
+.page-letters .letter-attachment-item { display:flex; align-items:center; gap:8px; max-width:100%; padding:6px 0; overflow-wrap:anywhere; font-size:.78rem; }
+.page-letters .letter-attachment-item button { width:26px; height:26px; border:1px solid var(--letters-ink); border-radius:6px; background:var(--letters-paper); cursor:pointer; }
+.page-letters .community-letter-attachments { display:grid; gap:8px; padding-top:12px; border-top:2px solid var(--letters-ink); }
+.page-letters .community-letter-attachments a { color:var(--letters-ink); text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.page-letters .community-letter-row { border-top:1px solid rgba(23,23,23,.55); }
+.page-letters .community-letter-row .text-button { border:2px solid var(--letters-ink); border-radius:8px; padding:7px 10px; background:var(--letters-paper); color:var(--letters-ink); box-shadow:2px 2px 0 var(--letters-shadow); font-family:"IBM Plex Mono",ui-monospace,monospace; }
+.page-letters .card-row { border:2px solid var(--letters-ink); border-radius:14px; background:rgba(255,255,255,.42); box-shadow:3px 3px 0 var(--letters-shadow); }
+.page-letters .card-row [data-admin-edit-card], .page-letters .card-row [data-admin-delete-card] { align-self:center; min-height:34px; padding:5px 8px; font:600 .72rem "IBM Plex Mono",ui-monospace,monospace; }
+.page-letters .card-row [data-admin-delete-card] { background:#fff0eb !important; }
+.page-letters .community-letter-compose-panel [hidden], .page-letters .community-letter-form [hidden] { display:none !important; }
+@media(max-width:600px) {
+  .page-letters .community-letter-row { flex-wrap:wrap; }
+  .page-letters .community-letter-meta { flex:1 1 100%; }
+  .page-letters .letter-attach-button { flex:1 1 auto; }
+}
