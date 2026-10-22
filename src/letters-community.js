@@ -129,7 +129,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
       letters.filter((letter) => letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true, "", isAdmin) + "</div></section>" +
     (isAdmin ? "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"admin-all\" hidden aria-labelledby=\"communityAdminAllLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Administração</span><h2 id=\"communityAdminAllLettersTitle\">Todas as cartas</h2></div><span data-letter-count=\"admin-all\">" + letters.length + "</span></div>" + dateFilterMarkup("admin-all", "todas") + "<div class=\"community-letter-list\" data-community-letter-admin-all>" + adminRowsMarkup(letters, "all") + "</div></section>" : "") +
-    (isAdmin ? "<dialog class=\"community-letter-edit-dialog\" data-community-letter-edit-dialog aria-labelledby=\"communityLetterEditTitle\"><div class=\"community-letter-dialog-card\"><button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-edit aria-label=\"Fechar editor\">×</button><span class=\"section-kicker\">Administração</span><h2 id=\"communityLetterEditTitle\">Editar carta enviada</h2><form data-community-letter-edit-form><label>Assunto<input name=\"subject\" maxlength=\"120\" required></label><label>Conteúdo completo<textarea name=\"body\" rows=\"12\" maxlength=\"5000\" required></textarea></label><label data-admin-edit-password-wrap hidden>Senha da carta protegida<input name=\"password\" type=\"password\" autocomplete=\"current-password\"></label><p data-community-letter-edit-status role=\"status\"></p><button class=\"primary-button compact-button\" type=\"submit\">Salvar alterações</button></form></div></dialog>" : "") +
+    (isAdmin ? "<dialog class=\"community-letter-edit-dialog\" data-community-letter-edit-dialog aria-labelledby=\"communityLetterEditTitle\"><div class=\"community-letter-dialog-card\"><button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-edit aria-label=\"Fechar editor\">×</button><span class=\"section-kicker\">Administração</span><h2 id=\"communityLetterEditTitle\">Editar carta enviada</h2><form data-community-letter-edit-form><label>Assunto<input name=\"subject\" maxlength=\"120\" required></label><label>Conteúdo completo<textarea name=\"body\" rows=\"12\" maxlength=\"5000\" required></textarea></label><label data-admin-edit-password-wrap hidden>Senha da carta protegida<input name=\"password\" type=\"password\" autocomplete=\"current-password\"></label><button type=\"button\" class=\"text-button\" data-admin-edit-unlock hidden>Carregar conteúdo com senha</button><p data-community-letter-edit-status role=\"status\"></p><button class=\"primary-button compact-button\" type=\"submit\">Salvar alterações</button></form></div></dialog>" : "") +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
@@ -318,6 +318,21 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     }
     const calendarToggle = event.target.closest("[data-shared-calendar-toggle]");
     if (calendarToggle) { const panel = root.querySelector("#archiveCalendar"); const open = panel?.getAttribute("aria-hidden") !== "false"; if (panel) { panel.setAttribute("aria-hidden", String(!open)); panel.classList.toggle("is-open", open); } calendarToggle.setAttribute("aria-expanded", String(open)); return; }
+    const unlockEdit = event.target.closest("[data-admin-edit-unlock]");
+    if (unlockEdit && isAdmin && editingLetter?.is_protected) {
+      const form = root.querySelector("[data-community-letter-edit-form]");
+      const status = root.querySelector("[data-community-letter-edit-status]");
+      unlockEdit.disabled = true;
+      try {
+        const content = await openProtectedLetter(editingLetter, String(form.elements.password.value || ""));
+        form.elements.body.value = content;
+        if (status) status.textContent = "Conteúdo carregado. Edite o texto e salve as alterações.";
+        form.elements.body.focus();
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Senha incorreta ou não foi possível abrir a carta.";
+      } finally { unlockEdit.disabled = false; }
+      return;
+    }
     const closeEdit = event.target.closest("[data-close-community-edit]");
     if (closeEdit) { editDialog?.close(); editingLetter = null; return; }
     const editButton = event.target.closest("[data-admin-edit-community-letter]");
@@ -330,6 +345,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
       form.elements.password.value = "";
       form.elements.password.required = Boolean(editingLetter.is_protected);
       root.querySelector("[data-admin-edit-password-wrap]").hidden = !editingLetter.is_protected;
+      root.querySelector("[data-admin-edit-unlock]").hidden = !editingLetter.is_protected;
       root.querySelector("[data-community-letter-edit-status]").textContent = editingLetter.is_protected ? "Informe a senha atual para descriptografar e salvar a carta. A proteção não pode ser ignorada." : "";
       editDialog.showModal();
       if (editingLetter.is_protected) form.elements.password.focus(); else form.elements.body.focus();
