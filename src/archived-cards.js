@@ -52,7 +52,7 @@ export function archivedCardsMarkup() {
       <article class="modal-sheet"><header class="modal-header"><div><div class="modal-label">Carta</div><h2 data-archive-card-title id="archiveCardTitle">Carta</h2><div class="modal-date" data-archive-card-date></div><div class="modal-sender">Enviada por Peixinho · ADM</div></div>
         <div class="modal-tools"><button type="button" data-card-previous aria-label="Carta anterior">${icon("back")}</button><button type="button" data-card-next aria-label="Próxima carta">${icon("forward")}</button><button class="modal-close" type="button" data-card-close aria-label="Fechar carta">${icon("close")}</button></div>
       </header>
-      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
+      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><form data-card-hint-form hidden style="margin:0 0 16px"><label class="form-label">Adicionar ou atualizar dica<input name="password_hint" maxlength="240" placeholder="Uma dica para lembrar a senha"></label><button class="letter-attach-button" type="submit">Salvar dica</button><p data-card-hint-status role="status"></p></form><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
       <div class="modal-text" data-archive-card-text id="archiveCardText" tabindex="0" aria-live="polite"></div><footer class="modal-footer"><button type="button" data-card-close>Fechar carta</button></footer>
       </article>
     </div>
@@ -234,6 +234,13 @@ function showCard(root, state, card) {
   if (title) title.textContent = locked ? "Carta protegida" : card.is_private ? "Carta privada" : titleFromBody(card.body);
   if (date) date.textContent = card.date ? formatShort(card.date) : "";
   if (hint) hint.textContent = locked ? (card.password_hint || "") : "";
+  const hintForm = $(root, "[data-card-hint-form]");
+  if (hintForm) {
+    hintForm.hidden = !(card.is_protected && (state.isAdmin || card.recipient_id === state.userId));
+    hintForm.elements.password_hint.value = card.password_hint || "";
+    const hintStatus = $(root, "[data-card-hint-status]");
+    if (hintStatus) hintStatus.textContent = "";
+  }
   if (password) password.value = "";
   if (unlockError) unlockError.textContent = "";
   if (unlock) unlock.hidden = !locked;
@@ -261,6 +268,27 @@ export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmi
   if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.`;
   renderRows(root, state);
 
+  root.addEventListener("submit", async (event) => {
+    const hintForm = event.target.closest("[data-card-hint-form]");
+    if (!hintForm) return;
+    event.preventDefault();
+    const card = state.cards.find((item) => item.id === state.modalCardId);
+    const status = $(root, "[data-card-hint-status]");
+    const button = hintForm.querySelector('button[type="submit"]') || hintForm.querySelector('button');
+    if (!card || !(state.isAdmin || card.recipient_id === state.userId) || !card.is_protected) return;
+    button.disabled = true;
+    try {
+      const password_hint = String(new FormData(hintForm).get("password_hint") || "").trim();
+      const { error } = await client.from("archived_cards").update({ password_hint }).eq("id", card.id);
+      if (error) throw error;
+      card.password_hint = password_hint;
+      const visibleHint = $(root, "[data-archive-card-hint]");
+      if (visibleHint) visibleHint.textContent = password_hint;
+      if (status) status.textContent = "Dica salva.";
+    } catch (error) {
+      if (status) status.textContent = error?.message || "Não foi possível salvar a dica.";
+    } finally { button.disabled = false; }
+  });
   root.addEventListener("click", async (event) => {
     const adminEdit = event.target.closest("[data-admin-edit-card]");
     if (adminEdit && state.isAdmin) {
