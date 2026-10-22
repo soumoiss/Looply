@@ -59,7 +59,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   const requestedLetterId=new URLSearchParams(location.search).get("letterId");
   if(requestedLetterId&&communityLetters.some(l=>l.id===requestedLetterId&&l.recipient_id===user.id))requestAnimationFrame(()=>root.querySelector('[data-open-community-letter="'+CSS.escape(requestedLetterId)+'"]')?.click());
   const requestedCardId=new URLSearchParams(location.search).get("cardId");
-  if(requestedCardId)requestAnimationFrame(()=>root.querySelector('[data-card-id="'+CSS.escape(requestedCardId)+'"]')?.click());
+  if(requestedCardId)requestAnimationFrame(()=>{root.querySelector('[data-letter-collection-select="legacy"]')?.click();root.querySelector('[data-card-id="'+CSS.escape(requestedCardId)+'"]')?.click();});
   else {
     console.error("Looply community letters load failed", communityResult.reason);
     const composer = root.querySelector(".community-letter-compose-panel");
