@@ -50,7 +50,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   ]);
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
-  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id, isAdmin) + archivedCardsMarkup();
+  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id, isAdmin, archiveResult.status === "fulfilled" && archiveResult.value.cards.length > 0) + archivedCardsMarkup();
   bindLetterCollectionSwitcher(root);
   if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters, isAdmin);
   else {
