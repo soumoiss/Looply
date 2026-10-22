@@ -376,9 +376,9 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
   if (resourceType === "letters") {
     let query = service.from("letters")
       .select("id,conversation_id,sender_id,recipient_id,subject,initial_message_id,created_at,sender:profiles!letters_sender_id_fkey(id,username,display_name),recipient:profiles!letters_recipient_id_fkey(id,username,display_name),initial_message:chat_messages!letters_initial_message_fk(id,body,created_at)")
-      .order("created_at", { ascending: false }).limit(resourceId ? 1 : 30);
+      .order("created_at", { ascending: false });
     if (resourceId) query = query.eq("id", resourceId);
-    const result = resourceId ? await query.maybeSingle() : await query;
+    const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 99);
     if (result.error) throw result.error;
     return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
   }

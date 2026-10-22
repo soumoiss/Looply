@@ -111,7 +111,7 @@ export function adminMarkup(profile = {}) {
           <option value="audit">Trilha de auditoria</option>
         </select></div>
         <div class="field" data-admin-id-field><label for="adminResourceId">UUID específico (opcional)</label><input id="adminResourceId" name="resourceId" type="text" maxlength="36" placeholder="Deixe vazio para consultar a lista recente"></div>
-        <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>Cartas importadas, mídias e auditoria são exibidas em grupos de 100.</small><div class="admin-broadcast-actions"><button class="text-button" type="button" data-admin-page="previous" disabled>Anterior</button><button class="text-button" type="button" data-admin-page="next">Próximas 100</button></div></div>
+        <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>Cartas, mídias e auditoria são exibidas em grupos de 100.</small><div class="admin-broadcast-actions"><button class="text-button" type="button" data-admin-page="previous" disabled>Anterior</button><button class="text-button" type="button" data-admin-page="next">Próximas 100</button></div></div>
       </div>
       <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
@@ -780,9 +780,9 @@ export function bindAdminEvents(root, client) {
       const field = root.querySelector("[data-admin-id-field]");
       if (field) field.hidden = event.target.value === "audit";
       const offsetField = root.querySelector("[data-admin-offset-field]");
-      if (offsetField) offsetField.hidden = !["archive_media", "archived_cards", "audit", "community_letters"].includes(event.target.value);
+      if (offsetField) offsetField.hidden = !["archive_media", "archived_cards", "audit", "community_letters", "letters"].includes(event.target.value);
       const offset = root.querySelector("#adminOffset");
-      if (offset && ["archive_media", "archived_cards", "audit", "community_letters"].includes(event.target.value)) offset.value = "0";
+      if (offset && ["archive_media", "archived_cards", "audit", "community_letters", "letters"].includes(event.target.value)) offset.value = "0";
     }
   });
 

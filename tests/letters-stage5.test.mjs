@@ -118,10 +118,12 @@ test("ADM can page through the entire imported-card collection and protected pag
   ]);
   assert.match(admin, /data-admin-page="previous"/);
   assert.match(admin, /data-admin-page="next"/);
-  assert.match(admin, /\["archive_media", "archived_cards", "audit", "community_letters"\]/);
+  assert.match(admin, /\["archive_media", "archived_cards", "audit", "community_letters", "letters"\]/);
   assert.match(admin, /offset\.value = String\(adminPage\.dataset\.adminPage === "next"[\s\S]*?requestSubmit\(\)/);
   assert.match(edge, /resourceType === "archived_cards"[\s\S]*?\.range\(offset, offset \+ 99\)/);
   assert.match(edge, /protectedCards\.map[\s\S]*?read_looply_admin_archived_cards/);
+  assert.match(edge, /if \(resourceType === "letters"\)[\s\S]*?\.range\(offset, offset \+ 99\)/);
+  assert.match(admin, /"community_letters", "letters"\]\.includes\(event\.target\.value\)/);
 });
 
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {
