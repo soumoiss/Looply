@@ -127,6 +127,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
       letters.filter((letter) => letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true) + "</div></section>" +
     (isAdmin ? "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"admin-all\" hidden aria-labelledby=\"communityAdminAllLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Administração</span><h2 id=\"communityAdminAllLettersTitle\">Todas as cartas</h2></div><span data-letter-count=\"admin-all\">" + letters.length + "</span></div>" + dateFilterMarkup("admin-all", "todas") + "<div class=\"community-letter-list\" data-community-letter-admin-all>" + adminRowsMarkup(letters, "all") + "</div></section>" : "") +
+    (isAdmin ? "<dialog class=\"community-letter-edit-dialog\" data-community-letter-edit-dialog aria-labelledby=\"communityLetterEditTitle\"><div class=\"community-letter-dialog-card\"><button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-edit aria-label=\"Fechar editor\">×</button><span class=\"section-kicker\">Administração</span><h2 id=\"communityLetterEditTitle\">Editar carta enviada</h2><form data-community-letter-edit-form><label>Assunto<input name=\"subject\" maxlength=\"120\" required></label><label>Conteúdo completo<textarea name=\"body\" rows=\"12\" maxlength=\"5000\" required></textarea></label><label data-admin-edit-password-wrap hidden>Senha da carta protegida<input name=\"password\" type=\"password\" autocomplete=\"current-password\"></label><p data-community-letter-edit-status role=\"status\"></p><button class=\"primary-button compact-button\" type=\"submit\">Salvar alterações</button></form></div></dialog>" : "") +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
@@ -155,6 +156,8 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     }
   };
   const dialog = root.querySelector("[data-community-letter-dialog]");
+  const editDialog = root.querySelector("[data-community-letter-edit-dialog]");
+  let editingLetter = null;
   const composeForm = root.querySelector("[data-community-letter-compose]");
   const composeToggle = root.querySelector("[data-toggle-community-compose]");
   const setComposeOpen = (open) => {
@@ -295,6 +298,23 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
       renderLists();
       return;
     }
+    const closeEdit = event.target.closest("[data-close-community-edit]");
+    if (closeEdit) { editDialog?.close(); editingLetter = null; return; }
+    const editButton = event.target.closest("[data-admin-edit-community-letter]");
+    if (editButton && isAdmin && editDialog) {
+      editingLetter = letters.find((letter) => letter.id === editButton.dataset.adminEditCommunityLetter);
+      if (!editingLetter) return;
+      const form = root.querySelector("[data-community-letter-edit-form]");
+      form.elements.subject.value = editingLetter.subject || "";
+      form.elements.body.value = editingLetter.is_protected ? "" : (editingLetter.body || "");
+      form.elements.password.value = "";
+      form.elements.password.required = Boolean(editingLetter.is_protected);
+      root.querySelector("[data-admin-edit-password-wrap]").hidden = !editingLetter.is_protected;
+      root.querySelector("[data-community-letter-edit-status]").textContent = editingLetter.is_protected ? "Informe a senha atual para descriptografar e salvar a carta. A proteção não pode ser ignorada." : "";
+      editDialog.showModal();
+      if (editingLetter.is_protected) form.elements.password.focus(); else form.elements.body.focus();
+      return;
+    }
     const adminDeleteButton = event.target.closest("[data-admin-delete-community-letter]");
     if (adminDeleteButton && isAdmin) {
       const letterId = adminDeleteButton.dataset.adminDeleteCommunityLetter;
@@ -348,6 +368,35 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     if (event.target.matches("[data-letter-date-filter]")) { const [year, month] = event.target.value.split("-").map(Number); if (year && month) calendarMonths[event.target.dataset.letterDateFilter] = new Date(year, month - 1, 1, 12); renderLists(); }
   });
   root.addEventListener("submit", async (event) => {
+    const editForm = event.target.closest("[data-community-letter-edit-form]");
+    if (editForm && isAdmin && editingLetter) {
+      event.preventDefault();
+      const submit = editForm.querySelector('button[type="submit"]');
+      const status = root.querySelector("[data-community-letter-edit-status]");
+      submit.disabled = true;
+      try {
+        const values = new FormData(editForm);
+        const subject = String(values.get("subject") || "").trim();
+        let bodyText = String(values.get("body") || "").trim();
+        if (!subject || subject.length > 120 || !bodyText || bodyText.length > maxBodyLength) throw new Error("Preencha o assunto e o conteúdo (máximo de 5.000 caracteres).");
+        if (editingLetter.is_protected) {
+          const password = String(values.get("password") || "");
+          const existing = await openProtectedLetter(editingLetter, password);
+          if (!bodyText) bodyText = existing;
+          const sealed = await sealLetter(bodyText, password, subject);
+          const { error } = await client.from("community_letters").update({ subject, body: sealed.body, password_salt: sealed.password_salt, password_iv: sealed.password_iv, password_ciphertext: sealed.password_ciphertext }).eq("id", editingLetter.id);
+          if (error) throw error;
+          Object.assign(editingLetter, { subject, ...sealed });
+        } else {
+          const { error } = await client.from("community_letters").update({ subject, body: bodyText }).eq("id", editingLetter.id);
+          if (error) throw error;
+          Object.assign(editingLetter, { subject, body: bodyText });
+        }
+        await reload(); editDialog.close(); editingLetter = null;
+      } catch (error) { if (status) status.textContent = error?.message || "Não foi possível salvar as alterações."; }
+      finally { submit.disabled = false; }
+      return;
+    }
     const form = event.target.closest("[data-community-letter-compose], [data-community-letter-unlock]");
     if (!form) return;
     event.preventDefault();
