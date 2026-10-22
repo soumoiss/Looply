@@ -127,7 +127,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
       "<form data-community-letter-unlock hidden><label>Senha da carta<input type=\"password\" name=\"password\" autocomplete=\"current-password\" required><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>"+ icon("eye") +"</button></label>" +
       "<button class=\"primary-button compact-button\" type=\"submit\">Desbloquear</button><p class=\"form-status\" data-community-letter-unlock-status role=\"status\" aria-live=\"polite\"></p></form>" +
-      "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre></div></dialog>";
+      "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre><div data-community-letter-attachments></div></div></dialog>";
 }
 export function bindCommunityLetters(root, client, user, profiles, initialLetters, isAdmin = false) {
   let letters = [...initialLetters];
