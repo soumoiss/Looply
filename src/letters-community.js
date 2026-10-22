@@ -342,9 +342,10 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
           for (const file of selectedAttachments) {
             const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(-100) || "anexo";
             const path = letter.id + "/" + crypto.randomUUID() + "-" + safeName;
-            const { error: uploadError } = await client.storage.from("looply-letters").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+            const safeMime = (file.type || "application/octet-stream").split(";")[0].trim().toLowerCase();
+            const { error: uploadError } = await client.storage.from("looply-letters").upload(path, file, { contentType: safeMime, upsert: false });
             if (uploadError) { attachmentWarnings.push(file.name + ": " + uploadError.message); continue; }
-            uploaded.push({ path, name: file.name, type: file.type || "application/octet-stream", size: file.size });
+            uploaded.push({ path, name: file.name, type: (file.type || "application/octet-stream").split(";")[0].trim().toLowerCase(), size: file.size });
           }
           if (uploaded.length) {
             const { error: metadataError } = await client.from("community_letters").update({ attachments: uploaded }).eq("id", letter.id).eq("sender_id", user.id);
