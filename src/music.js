@@ -18,6 +18,42 @@ function isDirectAudioUrl(value) {
   }
 }
 
+export function musicEmbedForUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (["youtube.com", "music.youtube.com", "youtu.be"].includes(host)) {
+      let id = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : url.searchParams.get("v");
+      if (!id && host !== "youtu.be") {
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (["embed", "shorts", "live"].includes(parts[0])) id = parts[1];
+      }
+      if (!/^[A-Za-z0-9_-]{11}$/.test(id || "")) return null;
+      return { provider: "youtube", height: 240, src: `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0` };
+    }
+    if (host === "open.spotify.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const index = parts.findIndex((part) => ["track", "album", "playlist", "episode", "show"].includes(part));
+      const kind = parts[index];
+      const id = parts[index + 1];
+      if (index < 0 || !/^[A-Za-z0-9]+$/.test(id || "")) return null;
+      return { provider: "spotify", height: kind === "track" ? 152 : 352, src: `https://open.spotify.com/embed/${kind}/${id}?utm_source=generator&theme=0` };
+    }
+    if (host === "soundcloud.com" && /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) {
+      const embed = new URL("https://w.soundcloud.com/player/");
+      embed.searchParams.set("url", url.origin + url.pathname);
+      embed.searchParams.set("auto_play", "false");
+      embed.searchParams.set("visual", "true");
+      return { provider: "soundcloud", height: 166, src: embed.toString() };
+    }
+    if (host === "music.apple.com" && /^\/[a-z]{2}\/(?:album|playlist)\//i.test(url.pathname)) {
+      return { provider: "apple-music", height: 450, src: `https://embed.music.apple.com${url.pathname}` };
+    }
+  } catch { /* Unsupported or malformed URLs stay on the explicit-link fallback. */ }
+  return null;
+}
+
 function formatAudioTime(value) {
   if (!Number.isFinite(value) || value < 0) return "0:00";
   const totalSeconds = Math.floor(value);
@@ -27,13 +63,17 @@ function formatAudioTime(value) {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}`;
 }
 
-function musicPlayerMarkup(item) {
+export function musicPlayerMarkup(item) {
   const url = escapeHtml(item.listen_url);
   if (!isDirectAudioUrl(item.listen_url)) {
+    const embed = musicEmbedForUrl(item.listen_url);
+    if (embed) {
+      return `<div class="music-player music-player-embed" data-provider="${embed.provider}"><iframe src="${escapeHtml(embed.src)}" title="Tocar ${escapeHtml(item.title || "música")}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen height="${embed.height}"></iframe></div>`;
+    }
     return `<div class="music-player music-player-external">
       <span class="music-player-source">Fonte externa</span>
       <a class="music-listen" href="${url}" target="_blank" rel="noopener noreferrer">Abrir música ${icon("external")}</a>
-      <span class="music-player-hint">Links de YouTube, Spotify e similares abrem no serviço original.</span>
+      <span class="music-player-hint">Este serviço não oferece um player integrado compatível.</span>
     </div>`;
   }
   return `<div class="music-player" data-music-player>

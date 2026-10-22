@@ -1,5 +1,5 @@
 import { mountAppPage } from "../../src/page-runtime.js";
-import { bindMusicEvents, disposeMusicRealtime, loadMusicData, musicMarkup, setupMusicRealtime } from "../../src/music.js";
+import { bindMusicEvents, disposeMusicRealtime, loadMusicData, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-embedded-players-20261022";
 import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js";
 
 await mountAppPage({ page: "music", render: async ({ root, client, user, profile }) => {

@@ -1,4 +1,10 @@
 .page-title-panel { margin-bottom: 16px; }
+.music-player-embed { width:100%; overflow:hidden; border-radius:14px; background:#17131b; }
+.music-player-embed iframe { display:block; width:100%; border:0; }
+.music-player-embed[data-provider="youtube"] iframe { height:auto; min-height:180px; aspect-ratio:16 / 9; }
+.music-player-embed[data-provider="spotify"] iframe { height:152px; }
+.music-player-embed[data-provider="soundcloud"] iframe { height:166px; }
+.music-player-embed[data-provider="apple-music"] iframe { height:450px; max-height:70vh; }
 .youtube-playlist { margin: 0 0 24px; padding: 18px; }
 .youtube-playlist h2 { margin: 4px 0 12px; font-size: 22px; }
 .youtube-playlist-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .85fr); gap: 16px; align-items: stretch; }
