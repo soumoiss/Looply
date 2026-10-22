@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { sealLetter } from "./letters-community.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -198,11 +199,19 @@ function itemMarkup(resourceType, item) {
     const sender = item.sender?.display_name || item.sender?.username || "perfil restrito";
     const recipient = item.recipient?.display_name || item.recipient?.username || "perfil restrito";
     const body = item.is_protected
-      ? `<p class="admin-record-body">Carta protegida por senha. O conteúdo é criptografado no navegador e não pode ser lido pelo painel.</p>`
+      ? `<p class="admin-record-body">Carta protegida. O ADM não lê o texto atual; use a edição para substituir o conteúdo e definir uma nova senha.</p>`
       : `<p class="admin-record-body">${escapeHtml(item.body)}</p>`;
     return `<article class="admin-record"><div class="admin-record-top"><strong>Carta · ${escapeHtml(item.subject)}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
       <p>${escapeHtml(sender)} (@${escapeHtml(item.sender?.username || "perfil restrito")}) → ${escapeHtml(recipient)} (@${escapeHtml(item.recipient?.username || "perfil restrito")})${item.is_protected ? " · protegida" : ""}</p>${body}
-      ${!item.is_protected ? `<button class="text-button" type="button" data-edit-community-letter>Editar carta</button><form class="admin-community-letter-edit" data-edit-community-letter-form data-letter-id="${escapeHtml(item.id)}" hidden><label>Assunto<input name="subject" maxlength="120" required value="${escapeHtml(item.subject)}"></label><label>Texto<textarea name="body" maxlength="5000" required>${escapeHtml(item.body)}</textarea></label><button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-community-letter-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>` : ""}
+      <button class="text-button" type="button" data-edit-community-letter>${item.is_protected ? "Substituir carta protegida" : "Editar carta"}</button>
+      <form class="admin-community-letter-edit" data-edit-community-letter-form data-letter-id="${escapeHtml(item.id)}" data-protected="${item.is_protected ? "true" : "false"}" hidden>
+        ${item.is_protected ? `<p class="admin-record-hint">O texto cifrado atual não pode ser recuperado. Esta operação o substitui por uma nova carta.</p>` : ""}
+        <label>Assunto<input name="subject" maxlength="120" required value="${escapeHtml(item.subject)}"></label>
+        <label>Novo texto<textarea name="body" maxlength="5000" required>${item.is_protected ? "" : escapeHtml(item.body)}</textarea></label>
+        <label>Senha para proteção<input name="password" type="password" minlength="1" maxlength="256" autocomplete="new-password" data-community-letter-password ${item.is_protected ? "required" : "disabled"}></label>
+        ${item.is_protected ? `<input type="hidden" name="is_protected" value="true">` : `<label><input type="checkbox" name="is_protected" value="true" data-community-letter-protect> Proteger carta com senha</label>`}
+        <button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-community-letter-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form>
       <button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="community_letter" data-content-id="${escapeHtml(item.id)}">Excluir carta</button>
       <small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
@@ -724,6 +733,16 @@ export function bindAdminEvents(root, client) {
     }
   });
 
+  root.addEventListener("change", (event) => {
+    const protectionToggle = event.target.closest("[data-community-letter-protect]");
+    if (!protectionToggle) return;
+    const password = protectionToggle.form?.querySelector("[data-community-letter-password]");
+    if (!password) return;
+    password.disabled = !protectionToggle.checked;
+    password.required = protectionToggle.checked;
+    if (!protectionToggle.checked) password.value = "";
+  });
+
   root.addEventListener("submit", async (event) => {
     const communityLetterForm = event.target.closest("[data-edit-community-letter-form]");
     if (communityLetterForm && client) {
@@ -732,11 +751,20 @@ export function bindAdminEvents(root, client) {
       if (button) button.disabled = true;
       try {
         const values = new FormData(communityLetterForm);
+        const subject = String(values.get("subject") || "").trim();
+        const body = String(values.get("body") || "").trim();
+        const protect = communityLetterForm.dataset.protected === "true" || values.get("is_protected") === "true";
+        const update = { subject, body, is_protected: protect };
+        if (protect) {
+          const password = String(values.get("password") || "");
+          if (!password || /\s/.test(password)) throw new Error("invalid_letter_password");
+          Object.assign(update, await sealLetter(body, password, subject));
+        } else {
+          Object.assign(update, { password_salt: null, password_iv: null, password_ciphertext: null });
+        }
         const { data, error } = await invokeAdmin({
           action: "update_community_letter", resourceType: "community_letters",
-          letterId: communityLetterForm.dataset.letterId,
-          subject: String(values.get("subject") || "").trim(),
-          body: String(values.get("body") || "").trim()
+          letterId: communityLetterForm.dataset.letterId, ...update
         });
         if (error) throw error;
         if (data?.updated !== true) throw new Error("letter_update_unconfirmed");
@@ -744,7 +772,9 @@ export function bindAdminEvents(root, client) {
         root.querySelector("form[data-admin-read]")?.requestSubmit();
       } catch (error) {
         console.error("Looply administrative letter update failed", error);
-        setStatus(communityLetterForm, "A alteração não foi salva. Cartas protegidas não podem ser editadas pelo painel.", "error");
+        setStatus(communityLetterForm, error?.message === "invalid_letter_password"
+          ? "Informe uma senha sem espaços para proteger a carta."
+          : "A alteração não foi salva. Confira o texto, a senha e a conexão.", "error");
       } finally { if (button) button.disabled = false; }
       return;
     }

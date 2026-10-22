@@ -518,22 +518,32 @@ Deno.serve(async (request: Request) => {
     if (action === "update_community_letter") {
       const letterId = String(payload.letterId || "");
       const subject = String(payload.subject || "").trim();
-      const body = String(payload.body || "").trim();
+      const isProtected = payload.is_protected === true;
+      const body = isProtected ? null : String(payload.body || "").trim();
+      const passwordSalt = isProtected ? String(payload.password_salt || "") : null;
+      const passwordIv = isProtected ? String(payload.password_iv || "") : null;
+      const passwordCiphertext = isProtected ? String(payload.password_ciphertext || "") : null;
       if (requestedType !== "community_letters" || !uuidPattern.test(letterId)
-          || subject.length < 1 || subject.length > 120 || body.length < 1 || body.length > 5000) {
+          || subject.length < 1 || subject.length > 120
+          || (isProtected
+            ? !/^[A-Za-z0-9_-]{22}$/.test(passwordSalt || "") || !/^[A-Za-z0-9_-]{16}$/.test(passwordIv || "")
+              || (passwordCiphertext || "").length < 22 || (passwordCiphertext || "").length > 7000
+              || !/^[A-Za-z0-9_-]+$/.test(passwordCiphertext || "")
+            : typeof body !== "string" || body.length < 1 || body.length > 5000
+              || payload.password_salt != null || payload.password_iv != null || payload.password_ciphertext != null)) {
         return respond(400, { error: "invalid_community_letter_update" });
       }
       await recordAccess(service, authData.user.id, "write_requested", "community_letters", letterId, purpose, requestId,
         { action, fields: ["subject", "body"] });
       try {
         const { data, error } = await service.from("community_letters")
-          .update({ subject, body })
+          .update({ subject, body, is_protected: isProtected, password_salt: passwordSalt, password_iv: passwordIv, password_ciphertext: passwordCiphertext })
           .eq("id", letterId).eq("is_protected", false)
           .select("id").maybeSingle();
         if (error) throw error;
         if (!data) throw new Error("letter_missing_or_protected");
         await recordAccess(service, authData.user.id, "write_completed", "community_letters", letterId, purpose, requestId,
-          { action, fields: ["subject", "body"] });
+          { action, fields: ["subject", "body", "is_protected"], protected: isProtected });
         return respond(200, { requestId, updated: true, letterId });
       } catch (error) {
         await recordAccess(service, authData.user.id, "write_failed", "community_letters", letterId, purpose, requestId,
