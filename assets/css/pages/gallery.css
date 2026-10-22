@@ -149,6 +149,12 @@
 .page-gallery .gallery-comment strong{font-size:12px}
 .page-gallery .gallery-comment time,.page-gallery .gallery-comment small{font-size:10px;color:var(--muted,#81768e)}
 .page-gallery .gallery-comment p{margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+.page-gallery .gallery-inline-comments{display:grid;gap:6px;max-height:180px;overflow:auto;padding-top:4px}
+.page-gallery .gallery-inline-comment{padding:8px 10px;border-left:2px solid var(--accent,#8062bd);border-radius:0 9px 9px 0;background:var(--surface-muted,#f5f0fa);overflow-wrap:anywhere}
+.page-gallery .gallery-inline-comment strong{font-size:11px}
+.page-gallery .gallery-inline-comment small{display:block;margin-top:4px;color:var(--muted,#81768e);font-size:10px}
+.page-gallery .gallery-inline-comment p{margin:3px 0 0;white-space:pre-wrap;font-size:12px;line-height:1.4}
+.page-gallery .gallery-inline-comments-more{justify-self:start;border:0;background:transparent;color:var(--accent,#8062bd);font:inherit;font-size:11px;font-weight:750;cursor:pointer}
 .page-gallery .gallery-camera-panel{width:min(760px,100%);display:grid;gap:12px;padding:14px;border-radius:20px;background:var(--surface,#fff);color:var(--text,#292235)}
 .page-gallery .gallery-camera-panel video{width:100%;max-height:65dvh;object-fit:contain;background:#100d14;border-radius:12px}
 .page-gallery .gallery-camera-panel>div{display:flex;gap:8px;flex-wrap:wrap}

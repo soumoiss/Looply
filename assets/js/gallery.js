@@ -86,6 +86,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
   let activeKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false, signedUrlFailures = 0;
   let gestureController = null;
+  const inlineComments = new Map();
+  const inlineCommentsPending = new Set();
   const say = (message, where = status) => { if (where) where.textContent = message || ""; };
   const peopleMap = new Map();
   const usersHtml = (selected = new Set(), query = "") => {
@@ -279,6 +281,16 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     return '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async" draggable="false" style="transform:' + esc(transform) + ';transform-origin:center center"' + (thumbnail ? ' data-thumbnail="true"' : '') + '>';
   };
   const cardMedia = x => '<span class="gallery-preview-slot" data-preview-slot="' + esc(mediaKey(x)) + '"><span class="gallery-skeleton" aria-hidden="true"></span></span>';
+  const inlineCommentsMarkup = x => {
+    const key = mediaKey(x);
+    const rows = inlineComments.get(key);
+    if (rows === undefined) return '<div class="gallery-inline-comments" role="status">Carregando comentários…</div>';
+    if (!rows.length) return '';
+    const preview = rows.slice(-3).map(row => '<article class="gallery-inline-comment"><strong>' + esc(row.author?.display_name || row.author?.username || "Usuário") + '</strong><p>' + esc(row.body) + '</p>' +
+      (row.audience === "selected" || row.audience === "author_only" ? '<small>Comentário restrito</small>' : "") + '</article>').join("");
+    return '<section class="gallery-inline-comments" aria-label="Comentários visíveis">' + preview +
+      (rows.length > 3 ? '<button type="button" class="gallery-inline-comments-more" data-comments="' + esc(key) + '">Abrir comentários</button>' : '') + '</section>';
+  };
   const observePreviewSlots = () => {
     previewObserver?.disconnect();
     const slots = $$("[data-preview-slot]");
@@ -327,15 +339,56 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
       const author = x.owner?.display_name || x.owner?.username || "Galeria compartilhada";
       const privateIcon = x.isPrivate ? '<span class="gallery-private-indicator" title="Na sua pasta privada" aria-label="Na sua pasta privada">' + icon("lock") + '</span>' : "";
       const exclusiveIcon = x.visibility === "exclusive" ? '<span class="gallery-private-indicator" title="Mídia exclusiva" aria-label="Mídia exclusiva">' + icon("shield") + '</span>' : "";
-      return '<article class="gallery-card" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" class="gallery-comment-button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + (x.hasComments ? '<span class="gallery-comment-dot" aria-label="Há comentários" title="Há comentários"></span>' : '') + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
+      return '<article class="gallery-card" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) + inlineCommentsMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" class="gallery-comment-button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + (x.hasComments ? '<span class="gallery-comment-dot" aria-label="Há comentários" title="Há comentários"></span>' : '') + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
     }).join("") : '<div class="gallery-empty">' + (main === "privadas" ? "Sua pasta privada ainda não tem mídias." : "Nenhuma mídia encontrada. Ajuste os filtros ou adicione uma lembrança.") + '</div>';
     observePreviewSlots();
+    if (view === "list") void loadInlineComments(list);
     $$(".gallery-tab[data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === main));
     $$(".gallery-chip[data-kind]").forEach(b => b.classList.toggle("active", b.dataset.kind === kind));
     $("[data-comments-filter]").classList.toggle("active", commentsOnly);
     $("[data-title-filter]").value = kind;
   };
   const getItem = key => items.find(x => mediaKey(x) === key);
+  const loadInlineComments = async list => {
+    const missing = list.filter(item => !inlineComments.has(mediaKey(item)) && !inlineCommentsPending.has(mediaKey(item)));
+    if (!missing.length) return;
+    missing.forEach(item => inlineCommentsPending.add(mediaKey(item)));
+    const groups = new Map();
+    for (const item of missing) {
+      const group = groups.get(item.source) || [];
+      group.push(item);
+      groups.set(item.source, group);
+    }
+    try {
+      for (const [source, group] of groups) {
+        const table = source === "archive" ? "archive_media_comments" : "community_gallery_comments";
+        const rows = [];
+        for (let index = 0; index < group.length; index += 50) {
+          const chunk = group.slice(index, index + 50);
+          const { data, error } = await client.from(table).select("id,media_id,author_id,body,created_at,audience")
+            .in("media_id", chunk.map(item => item.id)).order("created_at", { ascending: false }).limit(500);
+          if (error) throw error;
+          rows.push(...(data || []));
+        }
+        const authorIds = [...new Set(rows.map(row => row.author_id))];
+        const profiles = authorIds.length
+          ? await client.from("profiles").select("id,username,display_name").in("id", authorIds)
+          : { data: [], error: null };
+        const authors = new Map((profiles.data || []).map(profile => [profile.id, profile]));
+        for (const item of group) {
+          const key = mediaKey(item);
+          inlineComments.set(key, rows.filter(row => row.media_id === item.id)
+            .map(row => ({ ...row, author: authors.get(row.author_id) || null }))
+            .sort((first, second) => new Date(first.created_at) - new Date(second.created_at)));
+        }
+      }
+      draw();
+    } catch (error) {
+      console.warn("Gallery inline comments could not be loaded.", error);
+    } finally {
+      missing.forEach(item => inlineCommentsPending.delete(mediaKey(item)));
+    }
+  };
   const openViewer = async key => {
     const x = getItem(key);
     if (!x) return;

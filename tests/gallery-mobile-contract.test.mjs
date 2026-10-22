@@ -25,6 +25,15 @@ test("gallery cards expose comment presence without loading comment bodies", () 
   assert.doesNotMatch(gallery, /archive_media_comments.*select\([^)]*body/);
 });
 
+test("gallery list view loads RLS-visible comments inline and keeps the full comments sheet", () => {
+  assert.match(gallery, /view === "list" \? descriptionMarkup\(x\) \+ inlineCommentsMarkup\(x\)/);
+  assert.match(gallery, /if \(view === "list"\) void loadInlineComments\(list\)/);
+  assert.match(gallery, /client\.from\(table\)\.select\("id,media_id,author_id,body,created_at,audience"\)[\s\S]*?\.in\("media_id"/);
+  assert.match(gallery, /rows\.slice\(-3\)/);
+  assert.match(styles, /gallery-inline-comments/);
+  assert.match(gallery, /openComments\(comments\.dataset\.comments\)/);
+});
+
 test("gallery starts with neutral loading UI while preserving signed-out handling", () => {
   assert.match(html, /Carregando suas fotos/);
   assert.match(html, /gallery-skeleton-card/);
