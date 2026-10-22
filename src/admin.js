@@ -203,7 +203,7 @@ function itemMarkup(resourceType, item) {
         <label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label>
         <label>Nova senha ${item.is_protected ? "(obrigatória)" : "(opcional)"}<input name="password" type="password" maxlength="256" autocomplete="new-password" ${item.is_protected ? "required" : ""}></label>
         <button class="text-button" type="submit">Salvar carta</button><button class="text-button" type="button" data-cancel-archived-card-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
-      </form><small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
+      </form><button class="text-button admin-danger-action" type="button" data-delete-archived-card="${escapeHtml(item.id)}">Excluir carta importada permanentemente</button><small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "community_letters") {
     const sender = item.sender?.display_name || item.sender?.username || "perfil restrito";
@@ -607,6 +607,25 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("click", async (event) => {
+    const deleteArchivedCard = event.target.closest("[data-delete-archived-card]");
+    if (deleteArchivedCard && client) {
+      if (!window.confirm("Excluir permanentemente esta carta importada e seu conteúdo protegido? Esta ação não pode ser desfeita.")) return;
+      deleteArchivedCard.disabled = true;
+      try {
+        const { data, error } = await invokeAdmin({
+          action: "delete_archived_card", resourceType: "archived_cards", cardId: deleteArchivedCard.dataset.deleteArchivedCard
+        });
+        if (error) throw error;
+        if (data?.deleted !== true) throw new Error("delete_not_confirmed");
+        deleteArchivedCard.closest(".admin-record")?.remove();
+        root.querySelector("form[data-admin-read]")?.requestSubmit();
+      } catch (error) {
+        deleteArchivedCard.disabled = false;
+        const record = deleteArchivedCard.closest(".admin-record");
+        if (record) setStatus(record, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou." : "A exclusão da carta não foi confirmada.", "error");
+      }
+      return;
+    }
     const editArchivedCard = event.target.closest("[data-edit-archived-card]");
     if (editArchivedCard) {
       const form = editArchivedCard.parentElement?.querySelector("[data-edit-archived-card-form]");

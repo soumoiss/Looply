@@ -20,13 +20,16 @@ test("media-only publication contracts allow empty body but keep media requireme
   assert.match(validation, /mediaCount\s*>\s*0/);
 });
 
-test("ADM actions stay direct except permanent community-letter deletion, which requires confirmation", async () => {
+test("ADM write actions stay direct except permanent letter deletions, which require confirmation", async () => {
   const [admin, gallery, edge] = await Promise.all([
     read("src/admin.js"), read("assets/js/gallery.js"), read("supabase/functions/looply-admin/index.ts")
   ]);
-  const safeAdmin = admin.replace('if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;', "");
+  const safeAdmin = admin
+    .replace('if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;', "")
+    .replace('if (!window.confirm("Excluir permanentemente esta carta importada e seu conteúdo protegido? Esta ação não pode ser desfeita.")) return;', "");
   assert.doesNotMatch(safeAdmin + gallery, /prompt\(|confirm\(/);
   assert.match(admin, /if \(!window\.confirm\("Excluir esta carta permanentemente\?/);
+  assert.match(admin, /if \(!window\.confirm\("Excluir permanentemente esta carta importada/);
   assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
   assert.match(edge, /function adminAuditPurpose|const adminAuditPurpose/);
   assert.match(edge, /recordAccess\(/);

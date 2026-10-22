@@ -106,6 +106,9 @@ test("ADM can edit imported cards through the existing transactional import RPC 
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed", "archived_cards"/);
   assert.match(importer, /export async function hashArchivePassword/);
   assert.match(importer, /PBKDF2[\s\S]*?iterations: passwordIterations[\s\S]*?hash: "SHA-256"/);
+  assert.match(admin, /Excluir permanentemente esta carta importada[\s\S]*?Esta ação não pode ser desfeita/);
+  assert.match(admin, /action: "delete_archived_card", resourceType: "archived_cards"/);
+  assert.match(edge, /action === "delete_archived_card"[\s\S]*?\.from\("archived_cards"\)\.delete\(\)[\s\S]*?"write_completed", "archived_cards"/);
 });
 
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {

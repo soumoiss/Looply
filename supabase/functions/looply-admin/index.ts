@@ -603,6 +603,31 @@ Deno.serve(async (request: Request) => {
       }
     }
 
+    if (action === "delete_archived_card") {
+      const cardId = String(payload.cardId || "");
+      if (requestedType !== "archived_cards" || !uuidPattern.test(cardId)) {
+        return respond(400, { error: "invalid_archived_card_delete" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "archived_cards", cardId, purpose, requestId,
+        { action, destructive: true });
+      try {
+        const { data, error } = await service.from("archived_cards").delete().eq("id", cardId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          await recordAccess(service, authData.user.id, "write_failed", "archived_cards", cardId, purpose, requestId,
+            { action, reason: "archived_card_not_found" });
+          return respond(404, { error: "archived_card_not_found" });
+        }
+        await recordAccess(service, authData.user.id, "write_completed", "archived_cards", cardId, purpose, requestId,
+          { action, deleted: true });
+        return respond(200, { requestId, deleted: true, cardId });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "archived_cards", cardId, purpose, requestId,
+          { action, reason: errorMessage(error, "Archived card deletion failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (action === "user_check_availability") {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();
