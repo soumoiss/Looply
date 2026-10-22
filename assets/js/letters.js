@@ -43,21 +43,22 @@ function bindLetterCollectionSwitcher(root) {
   });
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
+  const isAdmin = user.id === "d218a499-e3ad-45c5-b115-26272a6f3e79";
   const [archiveResult, communityResult, profilesResult] = await Promise.allSettled([
-    loadArchivedCards(client, user.id), loadCommunityLetters(client, user.id),
+    loadArchivedCards(client, user.id, isAdmin), loadCommunityLetters(client, user.id, isAdmin),
     client.from("profiles").select("id,username,display_name").order("username").limit(100)
   ]);
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
-  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id) + archivedCardsMarkup();
+  root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id, isAdmin) + archivedCardsMarkup();
   bindLetterCollectionSwitcher(root);
-  if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters);
+  if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters, isAdmin);
   else {
     console.error("Looply community letters load failed", communityResult.reason);
     const composer = root.querySelector(".community-letter-compose-panel");
     if (composer) composer.innerHTML = "<p role=\"alert\">Não foi possível carregar as cartas da comunidade.</p>";
   }
-  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value);
+  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value, isAdmin);
   else {
     console.error("Looply archive cards load failed", archiveResult.reason);
     root.querySelector("[data-archived-cards]").innerHTML = "<p class=\"archive-media-empty\" role=\"alert\">Não foi possível carregar a coleção arquivada.</p>";
