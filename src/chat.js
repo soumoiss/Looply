@@ -491,8 +491,8 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}<p>${escapeHtml(message.body)}</p>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
-    <div class="chat-message-actions-inline"><button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
+    ${replyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
   </article></div>`;
   }).join("");
 }
@@ -781,6 +781,8 @@ export function bindChatEvents(root, client, getUserId) {
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
     const copyButton = event.target.closest("[data-chat-copy]");
+    const editOpenButton = event.target.closest("[data-chat-edit-open]");
+    const editCancelButton = event.target.closest("[data-chat-edit-cancel]");
     const conversationFilterButton = event.target.closest("[data-chat-filter]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
@@ -789,6 +791,18 @@ export function bindChatEvents(root, client, getUserId) {
     const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
+    if (editOpenButton) {
+      const message = editOpenButton.closest(".chat-message");
+      const form = message?.querySelector("[data-chat-edit-message]");
+      if (form) { form.hidden = false; editOpenButton.hidden = true; form.querySelector("textarea")?.focus(); }
+      return;
+    }
+    if (editCancelButton) {
+      const message = editCancelButton.closest(".chat-message");
+      const form = message?.querySelector("[data-chat-edit-message]");
+      if (form) { form.reset(); form.hidden = true; message.querySelector("[data-chat-edit-open]")?.removeAttribute("hidden"); }
+      return;
+    }
     if (conversationFilterButton) {
       conversationFilter = ["all", "unread", "groups", "favorites"].includes(conversationFilterButton.dataset.chatFilter)
         ? conversationFilterButton.dataset.chatFilter : "all";
@@ -1059,7 +1073,7 @@ export function bindChatEvents(root, client, getUserId) {
   });
 
   root.addEventListener("submit", async (event) => {
-    const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send]");
+    const form = event.target.closest("form[data-chat-search], form[data-chat-group-create], form[data-letter-send], form[data-chat-send], form[data-chat-edit-message]");
     const userId = getUserId?.();
     if (!form || !client || !userId) return;
     event.preventDefault();
@@ -1067,7 +1081,15 @@ export function bindChatEvents(root, client, getUserId) {
     if (button) button.disabled = true;
     try {
       const values = new FormData(form);
-      if (form.matches("[data-chat-group-create]")) {
+      if (form.matches("[data-chat-edit-message]")) {
+        const body = String(values.get("body") || "").trim();
+        if (!body) throw new Error("empty message");
+        const { data, error } = await client.from("chat_messages").update({ body })
+          .eq("id", form.dataset.messageId).eq("conversation_id", form.dataset.conversationId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data?.id) throw new Error("message update unavailable");
+        await openConversation(root, client, form.dataset.conversationId, userId);
+      } else if (form.matches("[data-chat-group-create]")) {
         const subject = String(values.get("subject") || "").trim();
         const targetIds = values.getAll("memberIds").map((value) => String(value));
         if (!subject || subject.length > 120 || targetIds.length < 2 || targetIds.length > 49 || new Set(targetIds).size !== targetIds.length) throw new Error("invalid group");
@@ -1157,6 +1179,7 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
       else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
+      else if (/message update unavailable/i.test(String(error?.message || ""))) message = "A mensagem não foi atualizada. Ela pode ter sido removida ou você não tem permissão.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");

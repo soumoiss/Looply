@@ -13,6 +13,17 @@ test("Realtime refresh preserves the existing composer DOM node", async () => {
   assert.match(source, /thread\.insertBefore\(child, currentForm\)/);
 });
 
+test("chat message edits are limited in the UI to the sender and rely on existing owner RLS", async () => {
+  const [source, schema] = await Promise.all([
+    read("src/chat.js"), read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql")
+  ]);
+  assert.match(source, /isMine \? `<button class="chat-reply-button" type="button" data-chat-edit-open=/);
+  assert.match(source, /data-chat-edit-message/);
+  assert.match(source, /\.update\(\{ body \}\)[\s\S]*?\.eq\("id", form\.dataset\.messageId\)\.eq\("conversation_id", form\.dataset\.conversationId\)/);
+  assert.match(schema, /grant update \(body\) on public\.chat_messages to authenticated/);
+  assert.match(schema, /create policy chat_messages_update_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/);
+});
+
 test("background refresh updates the sidebar instead of replacing the whole chat area", async () => {
   const source = await read("src/chat.js");
   const start = source.indexOf("async function refreshChat(");
@@ -124,7 +135,7 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
   const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
-  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-sticker-modal-20261022/);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-message-edit-20261022/);
   assert.match(serviceWorker, /looply-shell-v6/);
 });
 
