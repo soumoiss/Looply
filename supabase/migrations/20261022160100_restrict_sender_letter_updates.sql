@@ -1,4 +1,5 @@
 -- Ordinary senders may update attachment metadata only; admins may edit full letter records.
+drop policy if exists community_letters_sender_update on public.community_letters;
 create policy community_letters_sender_update on public.community_letters
   for update to authenticated
   using (sender_id = (select auth.uid()))
