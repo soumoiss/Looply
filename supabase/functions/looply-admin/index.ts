@@ -515,6 +515,33 @@ Deno.serve(async (request: Request) => {
     // Legacy client input is deliberately ignored: const purpose = String(payload.purpose || "").trim();
     // Legacy purpose.length < 20 validation is intentionally removed for direct ADM actions.
     const purpose = adminAuditPurpose(action, resourceType);
+    if (action === "update_community_letter") {
+      const letterId = String(payload.letterId || "");
+      const subject = String(payload.subject || "").trim();
+      const body = String(payload.body || "").trim();
+      if (requestedType !== "community_letters" || !uuidPattern.test(letterId)
+          || subject.length < 1 || subject.length > 120 || body.length < 1 || body.length > 5000) {
+        return respond(400, { error: "invalid_community_letter_update" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "community_letters", letterId, purpose, requestId,
+        { action, fields: ["subject", "body"] });
+      try {
+        const { data, error } = await service.from("community_letters")
+          .update({ subject, body })
+          .eq("id", letterId).eq("is_protected", false)
+          .select("id").maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("letter_missing_or_protected");
+        await recordAccess(service, authData.user.id, "write_completed", "community_letters", letterId, purpose, requestId,
+          { action, fields: ["subject", "body"] });
+        return respond(200, { requestId, updated: true, letterId });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "community_letters", letterId, purpose, requestId,
+          { action, reason: errorMessage(error, "Letter update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (action === "user_check_availability") {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();

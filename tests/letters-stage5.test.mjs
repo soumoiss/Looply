@@ -68,9 +68,13 @@ test("community letters appear in the audited admin reader and imported archive 
   assert.match(admin, /Carta protegida por senha/);
   assert.match(admin, /data-content-type="community_letter"/);
   assert.match(admin, /Excluir esta carta permanentemente/);
+  assert.match(admin, /data-edit-community-letter-form/);
+  assert.match(admin, /action: "update_community_letter"/);
   assert.match(edge, /resourceType === "community_letters"/);
   assert.match(edge, /service\.from\("community_letters"\)[\s\S]*?\.range\(offset, offset \+ 99\)/);
   assert.doesNotMatch(edge, /select\([^\n]*password_ciphertext/);
+  assert.match(edge, /action === "update_community_letter"[\s\S]*?\.eq\("is_protected", false\)/);
+  assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed", "community_letters"/);
   assert.match(archive, /Enviada por Peixinho · ADM/);
 });
 

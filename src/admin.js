@@ -202,6 +202,7 @@ function itemMarkup(resourceType, item) {
       : `<p class="admin-record-body">${escapeHtml(item.body)}</p>`;
     return `<article class="admin-record"><div class="admin-record-top"><strong>Carta · ${escapeHtml(item.subject)}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
       <p>${escapeHtml(sender)} (@${escapeHtml(item.sender?.username || "perfil restrito")}) → ${escapeHtml(recipient)} (@${escapeHtml(item.recipient?.username || "perfil restrito")})${item.is_protected ? " · protegida" : ""}</p>${body}
+      ${!item.is_protected ? `<button class="text-button" type="button" data-edit-community-letter>Editar carta</button><form class="admin-community-letter-edit" data-edit-community-letter-form data-letter-id="${escapeHtml(item.id)}" hidden><label>Assunto<input name="subject" maxlength="120" required value="${escapeHtml(item.subject)}"></label><label>Texto<textarea name="body" maxlength="5000" required>${escapeHtml(item.body)}</textarea></label><button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-community-letter-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>` : ""}
       <button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="community_letter" data-content-id="${escapeHtml(item.id)}">Excluir carta</button>
       <small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
@@ -587,6 +588,18 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("click", async (event) => {
+    const editCommunityLetter = event.target.closest("[data-edit-community-letter]");
+    if (editCommunityLetter) {
+      const form = editCommunityLetter.parentElement?.querySelector("[data-edit-community-letter-form]");
+      if (form) { form.hidden = false; editCommunityLetter.hidden = true; form.querySelector("[name=subject]")?.focus(); }
+      return;
+    }
+    const cancelCommunityLetterEdit = event.target.closest("[data-cancel-community-letter-edit]");
+    if (cancelCommunityLetterEdit) {
+      const form = cancelCommunityLetterEdit.closest("[data-edit-community-letter-form]");
+      if (form) { form.hidden = true; form.parentElement?.querySelector("[data-edit-community-letter]")?.removeAttribute("hidden"); }
+      return;
+    }
     const deleteContent = event.target.closest("[data-delete-content]");
     if (deleteContent && client) {
       if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;
@@ -712,6 +725,29 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const communityLetterForm = event.target.closest("[data-edit-community-letter-form]");
+    if (communityLetterForm && client) {
+      event.preventDefault();
+      const button = communityLetterForm.querySelector('[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        const values = new FormData(communityLetterForm);
+        const { data, error } = await invokeAdmin({
+          action: "update_community_letter", resourceType: "community_letters",
+          letterId: communityLetterForm.dataset.letterId,
+          subject: String(values.get("subject") || "").trim(),
+          body: String(values.get("body") || "").trim()
+        });
+        if (error) throw error;
+        if (data?.updated !== true) throw new Error("letter_update_unconfirmed");
+        setStatus(communityLetterForm, "Carta atualizada e ação registrada.");
+        root.querySelector("form[data-admin-read]")?.requestSubmit();
+      } catch (error) {
+        console.error("Looply administrative letter update failed", error);
+        setStatus(communityLetterForm, "A alteração não foi salva. Cartas protegidas não podem ser editadas pelo painel.", "error");
+      } finally { if (button) button.disabled = false; }
+      return;
+    }
     const secretMessageForm = event.target.closest("form[data-secret-message-form]");
     if (secretMessageForm && client) {
       event.preventDefault();
