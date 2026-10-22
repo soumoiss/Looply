@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sealLetter, openProtectedLetter, matchesLetterDate, communityLettersMarkup } from "../src/letters-community.js";
+import { hashArchivePassword } from "../src/archive-import.js";
 
 const root = process.cwd();
 
@@ -20,6 +21,18 @@ test("protected letters reject whitespace in passwords without imposing an arbit
   for (const password of [" ", "a b", "a\tb", "a\nb"]) {
     await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
+});
+
+test("edited archive-card password hashes remain compatible with the deployed PBKDF2 verifier", async () => {
+  const password = "new archive password";
+  const hash = await hashArchivePassword(password);
+  const decode = value => Uint8Array.from(atob(value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4)), character => character.charCodeAt(0));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: decode(hash.password_salt), iterations: 210000, hash: "SHA-256" }, key, 256);
+  const bytes = new Uint8Array(bits);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  assert.equal(hash.password_hash, btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, ""));
 });
 
 test("received and sent letters can be filtered by their local calendar date and cleared", () => {
@@ -77,6 +90,22 @@ test("community letters appear in the audited admin reader and imported archive 
   assert.match(edge, /action === "update_community_letter"[\s\S]*?passwordCiphertext[\s\S]*?\.update\(\{ subject, body, is_protected: isProtected/);
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed", "community_letters"/);
   assert.match(archive, /Enviada por Peixinho · ADM/);
+});
+
+test("ADM can edit imported cards through the existing transactional import RPC without a schema change", async () => {
+  const [admin, edge, importer] = await Promise.all([
+    readFile(resolve(root, "src/admin.js"), "utf8"),
+    readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8"),
+    readFile(resolve(root, "src/archive-import.js"), "utf8")
+  ]);
+  assert.match(admin, /data-edit-archived-card-form/);
+  assert.match(admin, /hashArchivePassword\(password\)/);
+  assert.match(admin, /action: "update_archived_card", resourceType: "archived_cards"/);
+  assert.match(edge, /action === "update_archived_card"[\s\S]*?is_private !== \/cartaPrivada/);
+  assert.match(edge, /service\.rpc\("import_looply_archived_cards"[\s\S]*?p_cards: \[card\]/);
+  assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed", "archived_cards"/);
+  assert.match(importer, /export async function hashArchivePassword/);
+  assert.match(importer, /PBKDF2[\s\S]*?iterations: passwordIterations[\s\S]*?hash: "SHA-256"/);
 });
 
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {

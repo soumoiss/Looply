@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { sealLetter } from "./letters-community.js";
+import { hashArchivePassword } from "./archive-import.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -193,7 +194,16 @@ function itemMarkup(resourceType, item) {
     const recipient = item.recipient?.display_name || item.recipient?.username || "Perfil";
     const body = item.body ? `<details class="admin-archive-card-body"><summary>Visualizar carta</summary><pre>${escapeHtml(item.body)}</pre></details>` : `<p class="admin-record-body">O conteúdo da carta não está disponível.</p>`;
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.original_file)} · ${escapeHtml(recipient)}</strong><span>${item.is_private ? "Privada" : "Carta"}${item.is_protected ? " · protegida" : ""}${item.sent_date ? ` · ${escapeHtml(item.sent_date)}` : ""}</span></div>
-      <p>Enviada por Peixinho · ADM</p>${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}<small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
+      <p>Enviada por Peixinho · ADM</p>${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}
+      <button class="text-button" type="button" data-edit-archived-card>${item.is_protected ? "Substituir carta protegida" : "Editar carta"}</button>
+      <form class="admin-community-letter-edit" data-edit-archived-card-form data-card-id="${escapeHtml(item.id)}" data-recipient-id="${escapeHtml(item.recipient_id)}" data-original-file="${escapeHtml(item.original_file)}" data-card-number="${escapeHtml(item.card_number)}" data-private="${item.is_private ? "true" : "false"}" data-protected="${item.is_protected ? "true" : "false"}" hidden>
+        ${item.is_protected ? `<p class="admin-record-hint">A senha antiga não pode ser recuperada. Ao salvar, defina uma nova senha para o conteúdo substituto.</p>` : ""}
+        <label>Texto da carta<textarea name="body" maxlength="100000" required>${item.is_protected ? "" : escapeHtml(item.body)}</textarea></label>
+        <label>Data da carta<input name="sent_date" type="date" value="${escapeHtml(item.sent_date || "")}"></label>
+        <label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label>
+        <label>Nova senha ${item.is_protected ? "(obrigatória)" : "(opcional)"}<input name="password" type="password" maxlength="256" autocomplete="new-password" ${item.is_protected ? "required" : ""}></label>
+        <button class="text-button" type="submit">Salvar carta</button><button class="text-button" type="button" data-cancel-archived-card-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
+      </form><small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "community_letters") {
     const sender = item.sender?.display_name || item.sender?.username || "perfil restrito";
@@ -597,6 +607,18 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("click", async (event) => {
+    const editArchivedCard = event.target.closest("[data-edit-archived-card]");
+    if (editArchivedCard) {
+      const form = editArchivedCard.parentElement?.querySelector("[data-edit-archived-card-form]");
+      if (form) { form.hidden = false; editArchivedCard.hidden = true; form.querySelector("[name=body]")?.focus(); }
+      return;
+    }
+    const cancelArchivedCardEdit = event.target.closest("[data-cancel-archived-card-edit]");
+    if (cancelArchivedCardEdit) {
+      const form = cancelArchivedCardEdit.closest("[data-edit-archived-card-form]");
+      if (form) { form.hidden = true; form.parentElement?.querySelector("[data-edit-archived-card]")?.removeAttribute("hidden"); }
+      return;
+    }
     const editCommunityLetter = event.target.closest("[data-edit-community-letter]");
     if (editCommunityLetter) {
       const form = editCommunityLetter.parentElement?.querySelector("[data-edit-community-letter-form]");
@@ -744,6 +766,49 @@ export function bindAdminEvents(root, client) {
   });
 
   root.addEventListener("submit", async (event) => {
+    const archivedCardForm = event.target.closest("[data-edit-archived-card-form]");
+    if (archivedCardForm) {
+      event.preventDefault();
+      const button = archivedCardForm.querySelector('button[type="submit"]');
+      const body = String(new FormData(archivedCardForm).get("body") || "").replace(/\r/g, "").trim();
+      const password = String(new FormData(archivedCardForm).get("password") || "");
+      const protectedCard = archivedCardForm.dataset.protected === "true" || Boolean(password);
+      if (!body || body.length > 100000 || (archivedCardForm.dataset.protected === "true" && !password)
+          || (password && (password.length > 256 || /\s/.test(password)))) {
+        setStatus(archivedCardForm, "Informe um texto válido e, para carta protegida, uma nova senha sem espaços.", "error");
+        return;
+      }
+      const payloadCard = {
+        recipient_id: archivedCardForm.dataset.recipientId,
+        original_file: archivedCardForm.dataset.originalFile,
+        card_number: Number(archivedCardForm.dataset.cardNumber),
+        is_private: archivedCardForm.dataset.private === "true",
+        is_protected: protectedCard,
+        password_hint: String(new FormData(archivedCardForm).get("password_hint") || "").trim().slice(0, 300),
+        body: protectedCard ? null : body,
+        secret_body: protectedCard ? body : null,
+        sent_date: String(new FormData(archivedCardForm).get("sent_date") || "")
+      };
+      try {
+        if (protectedCard) Object.assign(payloadCard, await hashArchivePassword(password));
+        if (button) button.disabled = true;
+        setStatus(archivedCardForm, "Salvando carta e registrando auditoria…", "info");
+        const { data, error } = await invokeAdmin({
+          action: "update_archived_card", resourceType: "archived_cards",
+          cardId: archivedCardForm.dataset.cardId, card: payloadCard
+        });
+        if (error) throw error;
+        if (data?.updated !== true) throw new Error("update_not_confirmed");
+        setStatus(archivedCardForm, "Carta atualizada e auditoria registrada.");
+        archivedCardForm.hidden = true;
+        archivedCardForm.parentElement?.querySelector("[data-edit-archived-card]")?.removeAttribute("hidden");
+        const readForm = root.querySelector("[data-admin-read]");
+        if (readForm) readForm.requestSubmit();
+      } catch (error) {
+        setStatus(archivedCardForm, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou." : "Não foi possível atualizar a carta. Confira a autorização e os dados.", "error");
+      } finally { if (button) button.disabled = false; }
+      return;
+    }
     const communityLetterForm = event.target.closest("[data-edit-community-letter-form]");
     if (communityLetterForm && client) {
       event.preventDefault();

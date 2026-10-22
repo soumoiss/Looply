@@ -62,7 +62,7 @@ function base64Url(bytes) {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-async function hashPassword(password) {
+export async function hashArchivePassword(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: passwordIterations, hash: "SHA-256" }, key, 256);
@@ -109,7 +109,7 @@ async function parseCard(file, profileByName) {
     body: isProtected ? null : body,
     secret_body: isProtected ? body : null
   };
-  if (isProtected) Object.assign(card, await hashPassword(password));
+  if (isProtected) Object.assign(card, await hashArchivePassword(password));
   return card;
 }
 

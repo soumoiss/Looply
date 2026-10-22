@@ -552,6 +552,57 @@ Deno.serve(async (request: Request) => {
       }
     }
 
+    if (action === "update_archived_card") {
+      const cardId = String(payload.cardId || "");
+      const card = payload.card && typeof payload.card === "object" ? payload.card : {};
+      if (requestedType !== "archived_cards" || !uuidPattern.test(cardId)
+          || typeof card.recipient_id !== "string" || !uuidPattern.test(card.recipient_id)
+          || typeof card.original_file !== "string" || !/^(misol|patati|yara)carta(privada)?[0-9]+\.txt$/i.test(card.original_file)
+          || !Number.isInteger(card.card_number) || card.card_number < 1 || card.card_number > 999
+          || typeof card.is_private !== "boolean" || typeof card.is_protected !== "boolean"
+          || typeof card.password_hint !== "string" || card.password_hint.length > 300
+          || typeof card.sent_date !== "string" || (card.sent_date && !/^\d{4}-\d{2}-\d{2}$/.test(card.sent_date))
+          || (card.is_protected
+            ? typeof card.secret_body !== "string" || !card.secret_body.trim() || card.secret_body.length > 100000
+              || !/^[A-Za-z0-9_-]{22}$/.test(String(card.password_salt || ""))
+              || !/^[A-Za-z0-9_-]{43}$/.test(String(card.password_hash || ""))
+              || card.body !== null
+            : typeof card.body !== "string" || !card.body.trim() || card.body.length > 100000
+              || card.secret_body != null || card.password_salt != null || card.password_hash != null)
+          || card.is_private !== /cartaPrivada[0-9]+\.txt$/i.test(card.original_file)) {
+        return respond(400, { error: "invalid_archived_card_update" });
+      }
+      await recordAccess(service, authData.user.id, "write_requested", "archived_cards", cardId, purpose, requestId,
+        { action, fields: ["body", "sent_date", "password_hint"], protected: card.is_protected });
+      try {
+        const { data: current, error: lookupError } = await service.from("archived_cards")
+          .select("id,recipient_id,original_file,card_number,is_private")
+          .eq("id", cardId).maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!current || current.recipient_id !== card.recipient_id || current.original_file !== card.original_file
+            || current.card_number !== card.card_number || current.is_private !== card.is_private) {
+          await recordAccess(service, authData.user.id, "write_failed", "archived_cards", cardId, purpose, requestId,
+            { action, reason: "archived_card_identity_mismatch" });
+          return respond(404, { error: "archived_card_not_found" });
+        }
+        const { data, error } = await service.rpc("import_looply_archived_cards", {
+          p_actor_id: authData.user.id,
+          p_purpose: purpose,
+          p_request_id: requestId,
+          p_cards: [card]
+        });
+        if (error) throw error;
+        if (Number(data || 0) !== 1) throw new Error("archived_card_update_not_confirmed");
+        await recordAccess(service, authData.user.id, "write_completed", "archived_cards", cardId, purpose, requestId,
+          { action, protected: card.is_protected });
+        return respond(200, { requestId, updated: true, cardId });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "archived_cards", cardId, purpose, requestId,
+          { action, reason: errorMessage(error, "Archived card update failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (action === "user_check_availability") {
       const username = String(payload.username || "").trim().toLowerCase();
       const email = String(payload.email || "").trim().toLowerCase();
