@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { firstDayOfMonth, formatMonthYear } from "./date-parser.js";
 const passwordIterations = 310000;
 const maxBodyLength = 5000;
 const encoder = new TextEncoder();
@@ -74,7 +75,7 @@ export function matchesLetterDate(letter, dateValue) {
   return key === dateValue;
 }
 function dateFilterMarkup(kind, label) {
-  return `<div class="community-letter-date-controls"><label for="letter-date-${kind}">Consultar por data</label><div><input id="letter-date-${kind}" type="date" data-letter-date-filter="${kind}" aria-label="Filtrar cartas ${label} por data"><button class="text-button" type="button" data-clear-letter-date="${kind}">Limpar</button></div><div class="community-date-calendar" data-community-calendar="${kind}"><div class="community-date-calendar-head"><strong data-community-calendar-month="${kind}"></strong><div><button type="button" data-community-calendar-nav="${kind}" data-month-step="-1" aria-label="Mês anterior">‹</button><button type="button" data-community-calendar-nav="${kind}" data-month-step="1" aria-label="Próximo mês">›</button></div></div><div class="community-date-calendar-weekdays" aria-hidden="true"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div><div class="community-date-calendar-grid" data-community-calendar-grid="${kind}"></div><p class="community-date-calendar-legend"><span>•</span> Dia com cartas</p></div><p data-letter-date-status="${kind}" role="status" aria-live="polite"></p></div>`;
+  return `<div class="community-letter-date-controls"><label for="letter-date-${kind}">Consultar por data</label><div><input id="letter-date-${kind}" type="date" data-letter-date-filter="${kind}" aria-label="Filtrar cartas ${label} por data"><button class="text-button" type="button" data-clear-letter-date="${kind}">Limpar</button></div><div class="calendar-panel is-open" id="communityCalendar-${kind}" aria-hidden="false"><div class="calendar-card"><div class="calendar-head"><div class="calendar-month" data-community-calendar-month="${kind}">Calendário</div><div class="calendar-nav"><button type="button" data-community-calendar-nav="${kind}" data-month-step="-1" aria-label="Mês anterior">‹</button><button type="button" data-community-calendar-nav="${kind}" data-month-step="1" aria-label="Próximo mês">›</button></div></div><div class="weekdays" aria-hidden="true"><span class="weekday">Dom</span><span class="weekday">Seg</span><span class="weekday">Ter</span><span class="weekday">Qua</span><span class="weekday">Qui</span><span class="weekday">Sex</span><span class="weekday">Sáb</span></div><div class="calendar-grid" data-community-calendar-grid="${kind}" aria-label="Calendário das cartas"></div><div class="calendar-foot"><span><strong>•</strong> dia com cartas</span><span data-community-calendar-info="${kind}">Selecione uma data</span></div></div></div><p data-letter-date-status="${kind}" role="status" aria-live="polite"></p></div>`;
 }
 function rowMarkup(letter, own) {
   const peer = own ? letter.recipient : letter.sender;
@@ -178,12 +179,12 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
   const renderLists = () => {
     const receivedDate = root.querySelector('[data-letter-date-filter="received"]')?.value || "";
     const sentDate = root.querySelector('[data-letter-date-filter="sent"]')?.value || "";
-    const receivedMatches = letters.filter((letter) => (isAdmin || letter.recipient_id === user.id) && matchesLetterDate(letter, receivedDate)).length;
-    const sentMatches = letters.filter((letter) => (isAdmin || letter.sender_id === user.id) && matchesLetterDate(letter, sentDate)).length;
+    const receivedMatches = letters.filter((letter) => letter.recipient_id === user.id && matchesLetterDate(letter, receivedDate)).length;
+    const sentMatches = letters.filter((letter) => letter.sender_id === user.id && matchesLetterDate(letter, sentDate)).length;
     const received = root.querySelector("[data-community-letter-received]");
     const sent = root.querySelector("[data-community-letter-sent]");
-    if (received) received.innerHTML = isAdmin ? adminRowsMarkup(letters.filter((letter) => matchesLetterDate(letter, receivedDate)), "received") : rowsMarkup(letters, user.id, false, receivedDate);
-    if (sent) sent.innerHTML = isAdmin ? adminRowsMarkup(letters.filter((letter) => matchesLetterDate(letter, sentDate)), "sent") : rowsMarkup(letters, user.id, true, sentDate);
+    if (received) received.innerHTML = rowsMarkup(letters, user.id, false, receivedDate);
+    if (sent) sent.innerHTML = rowsMarkup(letters, user.id, true, sentDate);
     const receivedStatus = root.querySelector('[data-letter-date-status="received"]');
     const sentStatus = root.querySelector('[data-letter-date-status="sent"]');
     if (receivedStatus) receivedStatus.textContent = receivedDate ? `${receivedMatches} carta(s) nesta data.` : "";
@@ -191,26 +192,27 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     renderCalendars();
     const receivedCount = root.querySelector('[data-letter-count="received"]');
     const sentCount = root.querySelector('[data-letter-count="sent"]');
-    if (receivedCount) receivedCount.textContent = String(letters.filter((letter) => isAdmin || letter.recipient_id === user.id).length);
-    if (sentCount) sentCount.textContent = String(letters.filter((letter) => isAdmin || letter.sender_id === user.id).length);
+    if (receivedCount) receivedCount.textContent = String(letters.filter((letter) => letter.recipient_id === user.id).length);
+    if (sentCount) sentCount.textContent = String(letters.filter((letter) => letter.sender_id === user.id).length);
   };
   const calendarMonths = { received: new Date(), sent: new Date() };
   const localISO = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
   const renderCommunityCalendar = (kind) => {
-    const grid = root.querySelector(`[data-community-calendar-grid="${kind}"]`), label = root.querySelector(`[data-community-calendar-month="${kind}"]`), input = root.querySelector(`[data-letter-date-filter="${kind}"]`);
+    const grid = root.querySelector(`[data-community-calendar-grid="${kind}"]`), label = root.querySelector(`[data-community-calendar-month="${kind}"]`), input = root.querySelector(`[data-letter-date-filter="${kind}"]`), info = root.querySelector(`[data-community-calendar-info="${kind}"]`);
     if (!grid || !label) return;
-    const month = calendarMonths[kind], year = month.getFullYear(), monthIndex = month.getMonth();
-    label.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(month);
+    const month = firstDayOfMonth(calendarMonths[kind]), year = month.getFullYear(), monthIndex = month.getMonth();
+    label.textContent = formatMonthYear(month);
     grid.replaceChildren();
-    for (let blank = 0; blank < new Date(year, monthIndex, 1).getDay(); blank++) { const spacer = document.createElement("span"); spacer.className = "community-calendar-blank"; grid.append(spacer); }
+    for (let blank = 0; blank < month.getDay(); blank++) { const spacer = document.createElement("span"); spacer.className = "calendar-blank"; grid.append(spacer); }
     const relevant = letters.filter((letter) => isAdmin || (kind === "received" ? letter.recipient_id === user.id : letter.sender_id === user.id));
     const datesWithLetters = new Set(relevant.map((letter) => { const date = new Date(letter.created_at); return Number.isNaN(date.valueOf()) ? "" : localISO(date); }).filter(Boolean));
     for (let day = 1, dayCount = new Date(year, monthIndex + 1, 0).getDate(); day <= dayCount; day++) {
       const date = new Date(year, monthIndex, day, 12), iso = localISO(date), hasLetters = datesWithLetters.has(iso), button = document.createElement("button");
-      button.type = "button"; button.className = "community-calendar-day" + (hasLetters ? " has-letters" : "") + (input?.value === iso ? " is-selected" : "");
+      button.type = "button"; button.className = "calendar-day" + (hasLetters ? " has-cards" : "") + (input?.value === iso ? " is-selected" : "");
       button.dataset.communityCalendarDate = iso; button.dataset.communityCalendarKind = kind; button.disabled = !hasLetters; button.textContent = String(day);
       button.setAttribute("aria-label", day + " de " + label.textContent + (hasLetters ? ", com cartas" : ", sem cartas")); grid.append(button);
     }
+    if (info) info.innerHTML = input?.value ? "Filtrado por " + escapeHtml(input.value) : "Selecione um dia com cartas";
   };
   const renderCalendars = () => { renderCommunityCalendar("received"); renderCommunityCalendar("sent"); };
   const reload = async () => { letters = await loadCommunityLetters(client, user.id, isAdmin); renderLists(); };
