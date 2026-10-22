@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { voiceRecordingElapsedMs } from "../src/chat.js";
 
 const read = (path) => readFile(resolve(process.cwd(), path), "utf8");
 
@@ -145,8 +146,18 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
   const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
-  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-message-actions-20261022/);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-audio-pause-20261022/);
   assert.match(serviceWorker, /looply-shell-v6/);
+});
+
+test("voice recorder pause and resume exclude paused time and expose accessible controls", async () => {
+  const source = await read("src/chat.js");
+  assert.equal(voiceRecordingElapsedMs({ startedAt: 1000, pausedAt: 3000, pausedTotal: 0 }, 5000), 2000);
+  assert.equal(voiceRecordingElapsedMs({ startedAt: 1000, pausedAt: 0, pausedTotal: 2000 }, 6000), 3000);
+  assert.match(source, /data-chat-record-pause aria-pressed="false"/);
+  assert.match(source, /state\.recorder\.pause\(\)/);
+  assert.match(source, /state\.recorder\.resume\(\)/);
+  assert.match(source, /voiceRecordingElapsedMs\(state\)/);
 });
 
 test("chat avatars fall back only after an image fails to load", async () => {

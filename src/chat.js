@@ -56,6 +56,11 @@ let activeThreadRequest = 0;
 let conversationSearch = "";
 let conversationFilter = "all";
 const voiceRecordings = new Map();
+export function voiceRecordingElapsedMs(state, now = Date.now()) {
+  if (!state || !Number.isFinite(state.startedAt)) return 0;
+  const pausedNow = state.pausedAt ? Math.max(0, now - state.pausedAt) : 0;
+  return Math.max(0, now - state.startedAt - (state.pausedTotal || 0) - pausedNow);
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -307,6 +312,8 @@ function cancelVoiceRecording(form) {
   if (preview) preview.removeAttribute("src");
   form.querySelector("[data-chat-recording]").hidden = true;
   form.querySelector("[data-chat-record-ready]").hidden = true;
+  const pauseButton = form.querySelector("[data-chat-record-pause]");
+  if (pauseButton) { pauseButton.textContent = "Pausar"; pauseButton.setAttribute("aria-pressed", "false"); }
   const startButton = form.querySelector("[data-chat-record-start]");
   startButton.hidden = false;
   startButton.textContent = "Gravar áudio";
@@ -339,7 +346,7 @@ async function startVoiceRecording(form) {
     const supportedTypes = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
     const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported?.(type));
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-    const state = { stream, recorder, chunks: [], startedAt: Date.now(), timer: null, cancelled: false };
+    const state = { stream, recorder, chunks: [], startedAt: Date.now(), pausedAt: 0, pausedTotal: 0, timer: null, cancelled: false };
     voiceRecordings.set(form, state);
     recorder.addEventListener("dataavailable", (event) => { if (event.data?.size) state.chunks.push(event.data); });
     recorder.addEventListener("error", () => {
@@ -363,6 +370,8 @@ async function startVoiceRecording(form) {
       preview.src = URL.createObjectURL(blob);
       form.querySelector("[data-chat-recording]").hidden = true;
       ready.hidden = false;
+      const pauseButton = form.querySelector("[data-chat-record-pause]");
+      if (pauseButton) { pauseButton.textContent = "Pausar"; pauseButton.setAttribute("aria-pressed", "false"); }
       startButton.hidden = false;
       startButton.textContent = "Gravar outro áudio";
       if (state.timer) clearInterval(state.timer);
@@ -376,7 +385,7 @@ async function startVoiceRecording(form) {
     startButton.hidden = true;
     state.timer = setInterval(() => {
       const time = form.querySelector("[data-chat-record-time]");
-      if (time) time.textContent = formatRecordingTime(Date.now() - state.startedAt);
+      if (time) time.textContent = formatRecordingTime(voiceRecordingElapsedMs(state));
     }, 250);
     setStatus(form, "Gravando áudio…", "info");
   } catch (error) {
@@ -507,7 +516,7 @@ function messageComposerMarkup(conversationId) {
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
     <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
     <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div><p>Escolha uma imagem estática do aparelho. A seleção de arquivo só abre depois deste passo.</p><button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Selecionar do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
-    <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
+    <div class="chat-recorder" data-chat-recording hidden><span class="chat-recording-indicator" aria-hidden="true"></span><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-pause aria-pressed="false">Pausar</button><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
 }
@@ -789,6 +798,7 @@ export function bindChatEvents(root, client, getUserId) {
     const olderButton = event.target.closest("[data-chat-load-older]");
     const recordStartButton = event.target.closest("[data-chat-record-start]");
     const recordStopButton = event.target.closest("[data-chat-record-stop]");
+    const recordPauseButton = event.target.closest("[data-chat-record-pause]");
     const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
@@ -924,6 +934,25 @@ export function bindChatEvents(root, client, getUserId) {
       const form = recordStopButton.closest("[data-chat-send]");
       const state = voiceRecordings.get(form);
       if (state?.recorder.state === "recording") state.recorder.stop();
+      return;
+    }
+    if (recordPauseButton) {
+      const form = recordPauseButton.closest("[data-chat-send]");
+      const state = voiceRecordings.get(form);
+      if (state?.recorder.state === "recording") {
+        state.recorder.pause();
+        state.pausedAt = Date.now();
+        recordPauseButton.textContent = "Retomar";
+        recordPauseButton.setAttribute("aria-pressed", "true");
+        setStatus(form, "Gravação pausada.", "info");
+      } else if (state?.recorder.state === "paused") {
+        state.recorder.resume();
+        state.pausedTotal += Math.max(0, Date.now() - state.pausedAt);
+        state.pausedAt = 0;
+        recordPauseButton.textContent = "Pausar";
+        recordPauseButton.setAttribute("aria-pressed", "false");
+        setStatus(form, "Gravando áudio…", "info");
+      }
       return;
     }
     if (recordCancelButton) {

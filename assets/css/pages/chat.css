@@ -51,6 +51,11 @@
 .page-chat .chat-recorder, .page-chat .chat-record-ready { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 0; }
 .page-chat .chat-recorder[hidden], .page-chat .chat-record-ready[hidden], .page-chat [data-chat-record-start][hidden] { display: none; }
 .page-chat .chat-recorder > span { font-variant-numeric: tabular-nums; font-weight: 800; }
+.page-chat .chat-recorder { min-height:42px; border-radius:14px; background:#f8f5ff; }
+.page-chat .chat-recording-indicator { width:9px; height:9px; flex:0 0 9px; border-radius:50%; background:#e5484d; animation:chat-recording-pulse 1.2s ease-in-out infinite; }
+.page-chat .chat-recorder [aria-pressed="true"] { color:#6b46c1; font-weight:800; }
+@keyframes chat-recording-pulse { 50% { opacity:.35; transform:scale(.82); } }
+@media (prefers-reduced-motion: reduce) { .page-chat .chat-recording-indicator { animation:none; } }
 .page-chat .chat-record-ready audio { width: min(100%, 340px); }
 .page-chat .chat-notification { text-decoration: none; }
 .page-chat .chat-notification-kind, .page-chat .chat-notification > span:nth-child(2) { font-size: 12px; }
