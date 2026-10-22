@@ -206,6 +206,18 @@
 .page-chat .chat-message-actions .chat-sticker-input { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); clip-path:inset(50%); }
 .page-chat .chat-sticker-button { display:grid; width:34px; height:34px; flex:0 0 auto; place-items:center; padding:0; border:1px solid #e2e8f0; border-radius:10px; color:#64748b; background:#f8fafc; font-size:22px; cursor:pointer; }
 .page-chat .chat-sticker-button:hover, .page-chat .chat-sticker-button:focus-visible { outline:2px solid var(--primary, #7c3aed); background:var(--surface-soft, #f3e8ff); }
+.page-chat .chat-sticker-dialog { width:min(420px, calc(100vw - 28px)); max-width:none; max-height:min(75dvh, 560px); margin:auto; padding:18px; border:1px solid var(--line, #e5e7eb); border-radius:18px; color:var(--text, #1f2937); background:var(--surface-strong, #fff); box-shadow:0 20px 60px #0f172a40; }
+.page-chat .chat-sticker-dialog::backdrop { background:#0f172a80; backdrop-filter:blur(3px); }
+.page-chat .chat-sticker-dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.page-chat .chat-sticker-dialog-heading h3 { margin:3px 0 0; font-size:18px; }
+.page-chat .chat-sticker-dialog > p { color:var(--text-muted, #64748b); font-size:13px; line-height:1.45; }
+.page-chat .chat-sticker-close { display:grid; width:40px; height:40px; place-items:center; border:0; border-radius:50%; background:var(--surface-soft, #f3f4f6); cursor:pointer; }
+.page-chat .chat-sticker-browse { display:block; width:100%; min-height:44px; border:1px dashed var(--primary, #7c3aed); border-radius:12px; color:var(--primary-dark, #6d28d9); background:var(--surface-soft, #f8f5ff); font:inherit; font-weight:650; cursor:pointer; }
+.page-chat .chat-sticker-preview { display:grid; min-height:140px; place-items:center; margin-top:12px; border-radius:14px; background:var(--surface-soft, #f8fafc); }
+.page-chat .chat-sticker-preview[hidden] { display:none; }
+.page-chat .chat-sticker-preview img { display:block; width:auto; max-width:min(180px, 55vw); max-height:180px; object-fit:contain; }
+.page-chat .chat-sticker-dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; }
+.page-chat .chat-sticker-dialog-actions .primary-button:disabled { opacity:.5; cursor:not-allowed; }
 .page-chat .chat-message-media .chat-sticker-link { display:inline-flex; max-width:min(180px, 55vw); padding:3px; border-radius:12px; background:transparent; }
 .page-chat .chat-message-media img.chat-sticker { display:block; width:auto; max-width:min(160px, 48vw); max-height:160px; object-fit:contain; border-radius:8px; }
 .page-chat .chat-message-media .chat-sticker-link:hover { background:#ffffff22; }

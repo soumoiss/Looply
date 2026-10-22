@@ -506,6 +506,7 @@ function messageComposerMarkup(conversationId) {
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
     <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
+    <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div><p>Escolha uma imagem estática do aparelho. A seleção de arquivo só abre depois deste passo.</p><button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Selecionar do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
     <div class="chat-recorder" data-chat-recording hidden><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -735,8 +736,37 @@ export function bindChatEvents(root, client, getUserId) {
   root.addEventListener("click", (event) => {
     const stickerButton = event.target.closest("[data-chat-choose-sticker]");
     if (stickerButton) {
-      const input = stickerButton.closest("[data-chat-send]")?.querySelector('input[name="sticker"]');
-      input?.click();
+      const picker = stickerButton.closest("[data-chat-send]")?.querySelector("[data-chat-sticker-picker]");
+      if (picker && !picker.open) picker.showModal();
+      return;
+    }
+    const closeStickerPicker = event.target.closest("[data-chat-sticker-close]");
+    if (closeStickerPicker) {
+      closeStickerPicker.closest("[data-chat-sticker-picker]")?.close();
+      return;
+    }
+    const browseStickers = event.target.closest("[data-chat-sticker-browse]");
+    if (browseStickers) {
+      browseStickers.closest("[data-chat-send]")?.querySelector('input[name="sticker"]')?.click();
+      return;
+    }
+    const confirmSticker = event.target.closest("[data-chat-sticker-confirm]");
+    if (confirmSticker) {
+      const picker = confirmSticker.closest("[data-chat-sticker-picker]");
+      const form = picker?.closest("[data-chat-send]");
+      const file = form?._looplyStickerFile;
+      const filesInput = form?.querySelector('input[name="files"]');
+      if (!file || !filesInput) return;
+      const transfer = new DataTransfer();
+      for (const existing of filesInput.files) transfer.items.add(existing);
+      transfer.items.add(file);
+      filesInput.files = transfer.files;
+      form._looplyStickerFile = null;
+      const preview = picker.querySelector("[data-chat-sticker-preview]");
+      if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+      picker.close();
+      setStatus(form, "Figurinha pronta para enviar.", "info");
+      form.querySelector('textarea[name="body"]')?.focus();
       return;
     }
     const button = event.target.closest("[data-chat-choose-files]");
@@ -982,8 +1012,9 @@ export function bindChatEvents(root, client, getUserId) {
     const stickerInput = event.target.closest('input[name="sticker"]');
     if (stickerInput) {
       const form = stickerInput.closest("[data-chat-send]");
+      const picker = form?.querySelector("[data-chat-sticker-picker]");
       const file = stickerInput.files?.[0];
-      if (!form) return;
+      if (!form || !picker) return;
       if (!file) { setStatus(form, "Seleção de figurinha cancelada.", "info"); return; }
       const normalized = normalizedAttachment(file);
       if (!normalized || !normalized.type.startsWith("image/") || !["image/jpeg", "image/png", "image/webp"].includes(normalized.type) || normalized.size > 10 * 1024 * 1024) {
@@ -991,17 +1022,24 @@ export function bindChatEvents(root, client, getUserId) {
         setStatus(form, "Escolha uma imagem JPG, PNG ou WebP de até 10 MiB. Figurinhas animadas ainda não são aceitas pelo armazenamento seguro do chat.", "error");
         return;
       }
-      const filesInput = form.querySelector('input[name="files"]');
-      if (filesInput) {
-        const transfer = new DataTransfer();
-        for (const existing of filesInput.files) transfer.items.add(existing);
-        const stickerFile = new File([normalized], `sticker-${Date.now()}.${fileExtensions.get(normalized.type)}`, { type: normalized.type, lastModified: Date.now() });
-        transfer.items.add(stickerFile);
-        filesInput.files = transfer.files;
+      const stickerFile = new File([normalized], `sticker-${Date.now()}.${fileExtensions.get(normalized.type)}`, { type: normalized.type, lastModified: Date.now() });
+      const preview = picker.querySelector("[data-chat-sticker-preview]");
+      if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+      const objectUrl = URL.createObjectURL(stickerFile);
+      form._looplyStickerFile = stickerFile;
+      if (preview) {
+        preview.replaceChildren();
+        const image = document.createElement("img");
+        image.src = objectUrl;
+        image.alt = "Prévia da figurinha";
+        preview.append(image);
+        preview.dataset.objectUrl = objectUrl;
+        preview.hidden = false;
       }
+      const confirm = picker.querySelector("[data-chat-sticker-confirm]");
+      if (confirm) confirm.disabled = false;
       stickerInput.value = "";
-      setStatus(form, "Figurinha pronta para enviar.", "info");
-      form.querySelector('textarea[name="body"]')?.focus();
+      setStatus(form, "Prévia pronta. Confirme para anexar a figurinha.", "info");
       return;
     }
     if (!attachmentInput) return;
@@ -1104,6 +1142,10 @@ export function bindChatEvents(root, client, getUserId) {
           if (preview?.src?.startsWith("blob:")) URL.revokeObjectURL(preview.src);
           delete form._looplyRecordedFile;
         }
+        const stickerPreview = form.querySelector("[data-chat-sticker-preview]");
+        if (stickerPreview?.dataset.objectUrl) URL.revokeObjectURL(stickerPreview.dataset.objectUrl);
+        if (stickerPreview) { stickerPreview.replaceChildren(); stickerPreview.hidden = true; delete stickerPreview.dataset.objectUrl; }
+        form._looplyStickerFile = null;
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
         await openConversation(root, client, conversationId, userId);

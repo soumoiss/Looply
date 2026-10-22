@@ -19,7 +19,7 @@ test("new themes and fonts are applied from the profile and the service worker r
   assert.match(settings, /value="sunset"/);
   assert.match(settings, /value="syne"/);
   assert.match(css, /--looply-font-family/);
-  assert.match(worker, /looply-shell-v5/);
+  assert.match(worker, /looply-shell-v6/);
   assert.match(worker, /caches\.delete/);
   assert.match(worker, /cache: "no-cache"/);
   assert.match(worker, /return network \|\| cached/);
