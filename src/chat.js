@@ -492,7 +492,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
-    <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div>
+    <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>${message.media?.length ? "" : `<button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>`}` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
 }
@@ -783,6 +783,7 @@ export function bindChatEvents(root, client, getUserId) {
     const copyButton = event.target.closest("[data-chat-copy]");
     const editOpenButton = event.target.closest("[data-chat-edit-open]");
     const editCancelButton = event.target.closest("[data-chat-edit-cancel]");
+    const deleteMessageButton = event.target.closest("[data-chat-delete]");
     const conversationFilterButton = event.target.closest("[data-chat-filter]");
     const clearReplyButton = event.target.closest("[data-chat-reply-clear]");
     const olderButton = event.target.closest("[data-chat-load-older]");
@@ -791,6 +792,24 @@ export function bindChatEvents(root, client, getUserId) {
     const recordCancelButton = event.target.closest("[data-chat-record-cancel]");
     const userId = getUserId?.();
     if (!client || !userId) return;
+    if (deleteMessageButton) {
+      if (!window.confirm("Excluir esta mensagem? Essa ação não pode ser desfeita.")) return;
+      deleteMessageButton.disabled = true;
+      try {
+        const { data, error } = await client.from("chat_messages").delete()
+          .eq("id", deleteMessageButton.dataset.chatDelete)
+          .eq("conversation_id", deleteMessageButton.dataset.conversationId).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data?.id) throw new Error("message delete unavailable");
+        await openConversation(root, client, deleteMessageButton.dataset.conversationId, userId);
+      } catch (error) {
+        console.error("Looply chat message delete failed", error);
+        deleteMessageButton.disabled = false;
+        const status = deleteMessageButton.closest(".chat-message")?.querySelector("[data-delete-status]");
+        if (status) { status.textContent = "Não foi possível excluir esta mensagem. Confira sua conexão e permissões."; status.dataset.kind = "error"; }
+      }
+      return;
+    }
     if (editOpenButton) {
       const message = editOpenButton.closest(".chat-message");
       const form = message?.querySelector("[data-chat-edit-message]");

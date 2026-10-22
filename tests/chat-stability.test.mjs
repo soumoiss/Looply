@@ -24,6 +24,16 @@ test("chat message edits are limited in the UI to the sender and rely on existin
   assert.match(schema, /create policy chat_messages_update_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/);
 });
 
+test("chat deletion requires confirmation and only exposes messages without attachments", async () => {
+  const [source, schema] = await Promise.all([
+    read("src/chat.js"), read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql")
+  ]);
+  assert.match(source, /message\.media\?\.length \? "" : `<button[^`]*data-chat-delete=/);
+  assert.match(source, /window\.confirm\("Excluir esta mensagem\?/);
+  assert.match(source, /\.delete\(\)[\s\S]*?\.eq\("id", deleteMessageButton\.dataset\.chatDelete\)[\s\S]*?\.eq\("conversation_id", deleteMessageButton\.dataset\.conversationId\)/);
+  assert.match(schema, /create policy chat_messages_delete_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/);
+});
+
 test("background refresh updates the sidebar instead of replacing the whole chat area", async () => {
   const source = await read("src/chat.js");
   const start = source.indexOf("async function refreshChat(");
@@ -135,7 +145,7 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
   const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
-  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-message-edit-20261022/);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /chat-message-actions-20261022/);
   assert.match(serviceWorker, /looply-shell-v6/);
 });
 
