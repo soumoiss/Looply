@@ -59,10 +59,12 @@ export function archivedCardsMarkup() {
   </div>`;
 }
 
-export async function loadArchivedCards(client, userId) {
+export async function loadArchivedCards(client, userId, isAdmin = false) {
+  let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
+    .order("is_private", { ascending: false }).order("card_number", { ascending: true });
+  if (!isAdmin) cardsQuery = cardsQuery.eq("recipient_id", userId);
   const [{ data: cards, error: cardsError }, { data: reads, error: readsError }] = await Promise.all([
-    client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
-      .eq("recipient_id", userId).order("is_private", { ascending: false }).order("card_number", { ascending: true }),
+    cardsQuery,
     client.from("archived_card_reads").select("card_id,read_at").eq("user_id", userId)
   ]);
   if (cardsError) throw cardsError;
@@ -109,7 +111,7 @@ function renderRows(root, state) {
     row.setAttribute("role", "button");
     const label = card.is_private ? "Carta privada" : "Carta";
     const title = card.is_protected ? (card.is_private ? "Carta privada protegida" : "Carta protegida") : titleFromBody(card.body);
-    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">Enviada por Peixinho · ADM</p></div><button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
+    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">${state.isAdmin ? "ADM · edição autorizada" : "Enviada por Peixinho · ADM"}</p></div>${state.isAdmin ? `<button type="button" class="icon-action" data-admin-edit-card="${escapeHtml(card.id)}" aria-label="Editar carta original">Editar</button><button type="button" class="icon-action" data-admin-delete-card="${escapeHtml(card.id)}" aria-label="Excluir carta original">Excluir</button>` : ""}<button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
     row.querySelector(".card-title").textContent = title;
     const date = row.querySelector(".card-date");
     date.textContent = card.date ? formatShort(card.date) : "Sem data";
@@ -247,19 +249,45 @@ function showCard(root, state, card) {
   updateModalNavigation(root, state);
 }
 
-export function bindArchivedCards(root, client, userId, { cards, reads }) {
+export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmin = false) {
   const state = {
     // The previous Looply collection placed private cards before the numbered cards.
     cards: [...cards].sort((a, b) => Number(b.is_private) - Number(a.is_private) || a.card_number - b.card_number),
     readIds: new Set(reads.map((item) => item.card_id)),
     filter: "all", filterDate: null, calendarMonth: firstDayOfMonth(cards.find((item) => item.date)?.date || new Date()),
-    modalCardId: null, client, userId
+    modalCardId: null, client, userId, isAdmin
   };
   const status = $(root, "[data-card-load-status]");
   if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.`;
   renderRows(root, state);
 
   root.addEventListener("click", async (event) => {
+    const adminEdit = event.target.closest("[data-admin-edit-card]");
+    if (adminEdit && state.isAdmin) {
+      event.stopPropagation();
+      const card = state.cards.find((item) => item.id === adminEdit.dataset.adminEditCard);
+      if (!card) return;
+      const updatedBody = window.prompt("Editar conteúdo da carta original:", card.body || "");
+      if (updatedBody === null) return;
+      const { error } = await client.from("archived_cards").update({ body: updatedBody }).eq("id", card.id);
+      if (error) { window.alert("Não foi possível salvar a carta. Verifique as permissões."); return; }
+      card.body = updatedBody;
+      renderRows(root, state);
+      if (status) status.textContent = "Carta original atualizada na nuvem.";
+      return;
+    }
+    const adminDelete = event.target.closest("[data-admin-delete-card]");
+    if (adminDelete && state.isAdmin) {
+      event.stopPropagation();
+      const card = state.cards.find((item) => item.id === adminDelete.dataset.adminDeleteCard);
+      if (!card || !window.confirm("Excluir permanentemente esta carta original?")) return;
+      const { error } = await client.from("archived_cards").delete().eq("id", card.id);
+      if (error) { window.alert("Não foi possível excluir a carta."); return; }
+      state.cards = state.cards.filter((item) => item.id !== card.id);
+      renderRows(root, state);
+      if (status) status.textContent = "Carta excluída do acervo.";
+      return;
+    }
     const readToggle = event.target.closest("[data-card-toggle-read]");
     if (readToggle) {
       event.stopPropagation();

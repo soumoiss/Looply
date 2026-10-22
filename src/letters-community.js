@@ -80,11 +80,12 @@ function rowMarkup(letter, own) {
   const peer = own ? letter.recipient : letter.sender;
   return `<article class="community-letter-row"><div class="community-letter-meta"><strong>${escapeHtml(letter.subject)}</strong><span>${own ? "Para " : "De "}${escapeHtml(displayName(peer))}${letter.is_protected ? " · protegida por senha" : ""} · ${escapeHtml(dateLabel(letter.created_at))}</span></div><button class="text-button" type="button" data-open-community-letter="${escapeHtml(letter.id)}">${letter.is_protected ? "Desbloquear" : "Ler carta"}</button>${own ? `<button class="icon-action" type="button" data-delete-community-letter="${escapeHtml(letter.id)}" aria-label="Excluir carta enviada">${icon("trash")}</button>` : ""}</article>`;
 }
-export async function loadCommunityLetters(client, userId) {
-  const { data, error } = await client.from("community_letters")
-    .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
-    .or("sender_id.eq." + userId + ",recipient_id.eq." + userId)
-    .order("created_at", { ascending: false }).limit(200);
+export async function loadCommunityLetters(client, userId, isAdmin = false) {
+  let query = client.from("community_letters")
+    .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,attachments,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
+    .order("created_at", { ascending: false }).limit(isAdmin ? 1000 : 200);
+  if (!isAdmin) query = query.or("sender_id.eq." + userId + ",recipient_id.eq." + userId);
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
@@ -93,7 +94,11 @@ function rowsMarkup(letters, userId, own, dateValue = "") {
   if (!rows.length) return "<p class=\"community-letters-empty\">" + (dateValue ? "Nenhuma carta nesta data." : "Nenhuma carta " + (own ? "enviada." : "recebida.")) + "</p>";
   return rows.map((letter) => rowMarkup(letter, own)).join("");
 }
-export function communityLettersMarkup(letters, profiles, userId) {
+function adminRowsMarkup(letters) {
+  if (!letters.length) return "<p class=\"community-letters-empty\">Nenhuma carta encontrada.</p>";
+  return letters.map((letter) => "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(letter.subject) + "</strong><span>De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\"button\" class=\"text-button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">Abrir</button><button type=\"button\" class=\"icon-action\" data-admin-delete-community-letter=\"" + escapeHtml(letter.id) + "\" aria-label=\"Excluir carta como administrador\">" + icon("trash") + "</button></article>").join("");
+}
+export function communityLettersMarkup(letters, profiles, userId, isAdmin = false) {
   const options = (profiles || []).filter((profile) => profile.id !== userId)
     .map((profile) => "<option value=\"" + escapeHtml(profile.id) + "\">" + escapeHtml(displayName(profile)) +
       " (@" + escapeHtml(profile.username) + ")</option>").join("");
@@ -105,27 +110,45 @@ export function communityLettersMarkup(letters, profiles, userId) {
       "<label>Mensagem<textarea name=\"body\" rows=\"5\" maxlength=\"5000\" required></textarea></label>" +
       "<label class=\"community-letter-protect\"><input type=\"checkbox\" name=\"is_protected\" data-letter-protected> " + icon("lock") + " Proteger a carta com senha</label>" +
       "<label data-letter-password-wrap hidden>Senha da carta<input name=\"password\" type=\"password\" autocomplete=\"new-password\" data-letter-password disabled><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>" + icon("eye") + "</button></label>" +
+      "<div class=\"letter-attachment-tools\"><label class=\"letter-attach-button\">＋ Anexar mídia/arquivo<input type=\"file\" data-letter-files multiple accept=\"image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,audio/mp4,.pdf,.txt,.csv,.doc,.docx,.rtf\"></label><button type=\"button\" class=\"letter-attach-button\" data-letter-record>● Gravar áudio</button><button type=\"button\" class=\"letter-attach-button\" data-letter-stop-record disabled>Parar gravação</button><span data-letter-record-status role=\"status\"></span><div data-letter-attachment-list></div></div>" +
       "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
       "<p class=\"form-status\" data-community-letter-compose-status role=\"status\" aria-live=\"polite\"></p>" +
     "</form></section>" +
     "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
       "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
-      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas antigas</button></nav>" +
+      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button></nav>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
-      letters.filter((letter) => letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + rowsMarkup(letters, userId, false) + "</div></section>" +
+      letters.filter((letter) => isAdmin || letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + (isAdmin ? adminRowsMarkup(letters) : rowsMarkup(letters, userId, false)) + "</div></section>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
-      letters.filter((letter) => letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true) + "</div></section>" +
+      letters.filter((letter) => isAdmin || letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + (isAdmin ? adminRowsMarkup(letters) : rowsMarkup(letters, userId, true)) + "</div></section>" +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
       "<form data-community-letter-unlock hidden><label>Senha da carta<input type=\"password\" name=\"password\" autocomplete=\"current-password\" required><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>"+ icon("eye") +"</button></label>" +
       "<button class=\"primary-button compact-button\" type=\"submit\">Desbloquear</button><p class=\"form-status\" data-community-letter-unlock-status role=\"status\" aria-live=\"polite\"></p></form>" +
-      "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre></div></dialog>";
+      "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre><div data-community-letter-attachments></div></div></dialog>";
 }
-export function bindCommunityLetters(root, client, user, profiles, initialLetters) {
+export function bindCommunityLetters(root, client, user, profiles, initialLetters, isAdmin = false) {
   let letters = [...initialLetters];
+  let selectedAttachments = [];
+  let audioRecorder = null;
+  let audioChunks = [];
   let activeLetter = null;
+  const renderLetterAttachments = async (letter, unlocked) => {
+    const box = root.querySelector("[data-community-letter-attachments]");
+    if (!box) return;
+    box.replaceChildren();
+    if (!unlocked) return;
+    for (const attachment of (letter.attachments || [])) {
+      const { data: signed, error: signedError } = await client.storage.from("looply-letters").createSignedUrl(attachment.path, 300);
+      if (signedError || !signed?.signedUrl) continue;
+      const link = document.createElement("a");
+      link.href = signed.signedUrl; link.target = "_blank"; link.rel = "noopener noreferrer";
+      link.textContent = (attachment.type || "").startsWith("audio/") ? "▶ Ouvir áudio · " + attachment.name : (attachment.type || "").startsWith("video/") ? "▶ Abrir vídeo · " + attachment.name : (attachment.type || "").startsWith("image/") ? "Ver imagem · " + attachment.name : "Baixar arquivo · " + attachment.name;
+      box.append(link);
+    }
+  };
   const dialog = root.querySelector("[data-community-letter-dialog]");
   const composeForm = root.querySelector("[data-community-letter-compose]");
   const composeToggle = root.querySelector("[data-toggle-community-compose]");
@@ -152,22 +175,71 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
   const renderLists = () => {
     const receivedDate = root.querySelector('[data-letter-date-filter="received"]')?.value || "";
     const sentDate = root.querySelector('[data-letter-date-filter="sent"]')?.value || "";
-    const receivedMatches = letters.filter((letter) => letter.recipient_id === user.id && matchesLetterDate(letter, receivedDate)).length;
-    const sentMatches = letters.filter((letter) => letter.sender_id === user.id && matchesLetterDate(letter, sentDate)).length;
+    const receivedMatches = letters.filter((letter) => (isAdmin || letter.recipient_id === user.id) && matchesLetterDate(letter, receivedDate)).length;
+    const sentMatches = letters.filter((letter) => (isAdmin || letter.sender_id === user.id) && matchesLetterDate(letter, sentDate)).length;
     const received = root.querySelector("[data-community-letter-received]");
     const sent = root.querySelector("[data-community-letter-sent]");
-    if (received) received.innerHTML = rowsMarkup(letters, user.id, false, receivedDate);
-    if (sent) sent.innerHTML = rowsMarkup(letters, user.id, true, sentDate);
+    if (received) received.innerHTML = isAdmin ? adminRowsMarkup(letters.filter((letter) => matchesLetterDate(letter, receivedDate))) : rowsMarkup(letters, user.id, false, receivedDate);
+    if (sent) sent.innerHTML = isAdmin ? adminRowsMarkup(letters.filter((letter) => matchesLetterDate(letter, sentDate))) : rowsMarkup(letters, user.id, true, sentDate);
     const receivedStatus = root.querySelector('[data-letter-date-status="received"]');
     const sentStatus = root.querySelector('[data-letter-date-status="sent"]');
     if (receivedStatus) receivedStatus.textContent = receivedDate ? `${receivedMatches} carta(s) nesta data.` : "";
     if (sentStatus) sentStatus.textContent = sentDate ? `${sentMatches} carta(s) nesta data.` : "";
     const receivedCount = root.querySelector('[data-letter-count="received"]');
     const sentCount = root.querySelector('[data-letter-count="sent"]');
-    if (receivedCount) receivedCount.textContent = String(letters.filter((letter) => letter.recipient_id === user.id).length);
-    if (sentCount) sentCount.textContent = String(letters.filter((letter) => letter.sender_id === user.id).length);
+    if (receivedCount) receivedCount.textContent = String(letters.filter((letter) => isAdmin || letter.recipient_id === user.id).length);
+    if (sentCount) sentCount.textContent = String(letters.filter((letter) => isAdmin || letter.sender_id === user.id).length);
   };
-  const reload = async () => { letters = await loadCommunityLetters(client, user.id); renderLists(); };
+  const reload = async () => { letters = await loadCommunityLetters(client, user.id, isAdmin); renderLists(); };
+  const fileInput = root.querySelector("[data-letter-files]");
+  const attachmentList = root.querySelector("[data-letter-attachment-list]");
+  const recordButton = root.querySelector("[data-letter-record]");
+  const stopRecordButton = root.querySelector("[data-letter-stop-record]");
+  const recordStatus = root.querySelector("[data-letter-record-status]");
+  const renderAttachmentList = () => {
+    if (!attachmentList) return;
+    attachmentList.innerHTML = selectedAttachments.map((file, index) => `<div class="letter-attachment-item">${escapeHtml(file.name)} · ${Math.max(1, Math.round(file.size / 1024))} KB <button type="button" data-remove-letter-attachment="${index}" aria-label="Remover anexo">×</button></div>`).join("");
+  };
+  fileInput?.addEventListener("change", () => {
+    for (const file of [...(fileInput.files || [])]) {
+      if (file.size > 50 * 1024 * 1024) { if (recordStatus) recordStatus.textContent = file.name + ": limite de 50 MB por arquivo."; continue; }
+      if (selectedAttachments.length >= 8) { if (recordStatus) recordStatus.textContent = "Limite de 8 anexos por carta."; break; }
+      selectedAttachments.push(file);
+    }
+    fileInput.value = "";
+    renderAttachmentList();
+  });
+  recordButton?.addEventListener("click", async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { if (recordStatus) recordStatus.textContent = "Gravação indisponível neste navegador. Anexe um arquivo de áudio."; return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      audioRecorder = new MediaRecorder(stream);
+      audioRecorder.ondataavailable = (event) => { if (event.data.size) audioChunks.push(event.data); };
+      audioRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: audioRecorder.mimeType || "audio/webm" });
+        if (blob.size && selectedAttachments.length < 8) {
+          selectedAttachments.push(new File([blob], "gravacao-" + Date.now() + ".webm", { type: blob.type }));
+          renderAttachmentList();
+          if (recordStatus) recordStatus.textContent = "Áudio gravado e anexado.";
+        }
+        stream.getTracks().forEach((track) => track.stop());
+        if (recordButton) recordButton.disabled = false;
+        if (stopRecordButton) stopRecordButton.disabled = true;
+      };
+      audioRecorder.start();
+      if (recordButton) recordButton.disabled = true;
+      if (stopRecordButton) stopRecordButton.disabled = false;
+      if (recordStatus) recordStatus.textContent = "Gravando áudio…";
+    } catch { if (recordStatus) recordStatus.textContent = "Permita acesso ao microfone para gravar áudio."; }
+  });
+  stopRecordButton?.addEventListener("click", () => { if (audioRecorder?.state === "recording") audioRecorder.stop(); });
+  root.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-remove-letter-attachment]");
+    if (!remove) return;
+    selectedAttachments.splice(Number(remove.dataset.removeLetterAttachment), 1);
+    renderAttachmentList();
+  });
   const protect = root.querySelector("[data-letter-protected]");
   const passwordWrap = root.querySelector("[data-letter-password-wrap]");
   const passwordInput = root.querySelector("[data-letter-password]");
@@ -185,11 +257,24 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
       renderLists();
       return;
     }
+    const adminDeleteButton = event.target.closest("[data-admin-delete-community-letter]");
+    if (adminDeleteButton && isAdmin) {
+      const letterId = adminDeleteButton.dataset.adminDeleteCommunityLetter;
+      if (!window.confirm("Excluir permanentemente esta carta e seus anexos?")) return;
+      adminDeleteButton.disabled = true;
+      const target = letters.find((letter) => letter.id === letterId);
+      for (const attachment of (target?.attachments || [])) await client.storage.from("looply-letters").remove([attachment.path]);
+      const { error } = await client.from("community_letters").delete().eq("id", letterId);
+      if (error) { adminDeleteButton.disabled = false; alert("Não foi possível excluir a carta."); return; }
+      await reload(); return;
+    }
     const deleteButton = event.target.closest("[data-delete-community-letter]");
     if (deleteButton) {
       const letterId = deleteButton.dataset.deleteCommunityLetter;
       if (!window.confirm("Excluir esta carta enviada? Esta ação não pode ser desfeita.")) return;
       deleteButton.disabled = true;
+      const target = letters.find((letter) => letter.id === letterId);
+      for (const attachment of (target?.attachments || [])) await client.storage.from("looply-letters").remove([attachment.path]);
       const { error } = await client.from("community_letters").delete().eq("id", letterId).eq("sender_id", user.id);
       if (error) {
         deleteButton.disabled = false;
@@ -217,6 +302,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     root.querySelector("[data-community-letter-unlock-status]").textContent = "";
     body.hidden = Boolean(activeLetter.is_protected);
     body.textContent = activeLetter.is_protected ? "" : (activeLetter.body || "");
+    await renderLetterAttachments(activeLetter, !activeLetter.is_protected);
     dialog.showModal();
     if (activeLetter.is_protected) unlockForm.querySelector("input").focus();
   });
@@ -246,16 +332,34 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         const rows = recipients.map((recipient) => ({
           sender_id: user.id, recipient_id: recipient.id, subject, is_protected: protectedLetter,
           body: protectedContent.body, password_salt: protectedContent.password_salt,
-          password_iv: protectedContent.password_iv, password_ciphertext: protectedContent.password_ciphertext
+          password_iv: protectedContent.password_iv, password_ciphertext: protectedContent.password_ciphertext, attachments: []
         }));
-        const { error } = await client.from("community_letters").insert(rows);
+        const { data: insertedLetters, error } = await client.from("community_letters").insert(rows).select("id,recipient_id");
         if (error) throw error;
+        const attachmentWarnings = [];
+        for (const letter of (insertedLetters || [])) {
+          const uploaded = [];
+          for (const file of selectedAttachments) {
+            const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(-100) || "anexo";
+            const path = letter.id + "/" + crypto.randomUUID() + "-" + safeName;
+            const safeMime = (file.type || "application/octet-stream").split(";")[0].trim().toLowerCase();
+            const { error: uploadError } = await client.storage.from("looply-letters").upload(path, file, { contentType: safeMime, upsert: false });
+            if (uploadError) { attachmentWarnings.push(file.name + ": " + uploadError.message); continue; }
+            uploaded.push({ path, name: file.name, type: (file.type || "application/octet-stream").split(";")[0].trim().toLowerCase(), size: file.size });
+          }
+          if (uploaded.length) {
+            const { error: metadataError } = await client.from("community_letters").update({ attachments: uploaded }).eq("id", letter.id).eq("sender_id", user.id);
+            if (metadataError) attachmentWarnings.push("Anexo enviado, mas não foi possível salvar seus metadados.");
+          }
+        }
+        selectedAttachments = []; renderAttachmentList();
+        if (recordStatus) recordStatus.textContent = attachmentWarnings.length ? "Avisos de anexos: " + attachmentWarnings.join("; ") : "";
         form.reset();
         passwordWrap.hidden = true;
         passwordInput.disabled = true;
         passwordInput.required = false;
         const status = root.querySelector("[data-community-letter-compose-status]");
-        if (status) status.textContent = "Carta enviada para " + recipients.length + " usuário(s).";
+        if (status) status.textContent = "Carta enviada para " + recipients.length + " usuário(s)." + (attachmentWarnings.length ? " Alguns anexos falharam; confira os avisos." : "");
         await reload();
       } else {
         const opened = await openProtectedLetter(activeLetter, String(values.get("password") || ""));
@@ -263,6 +367,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         body.textContent = opened;
         body.hidden = false;
         form.hidden = true;
+        await renderLetterAttachments(activeLetter, true);
       }
     } catch (error) {
       const status = form.querySelector(".form-status");

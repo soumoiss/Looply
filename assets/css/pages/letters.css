@@ -54,3 +54,170 @@
 .page-letters .letter-collection-switcher button { min-height:42px; padding:9px 14px; border:1px solid var(--line, #ded5e8); border-radius:999px; background:var(--surface, #fff); color:var(--text, #332d38); font:inherit; cursor:pointer; }
 .page-letters .letter-collection-switcher button.active, .page-letters .letter-collection-switcher button[aria-pressed="true"] { background:var(--accent, #8154a4); border-color:var(--accent, #8154a4); color:#fff; }
 .page-letters [data-letter-collection-panel][hidden] { display:none !important; }
+
+/* Retro-Tech Editorial UI — scoped to the Letters page only */
+.page-letters {
+  --letters-paper: #f5f1e9;
+  --letters-ink: #171717;
+  --letters-muted: #777773;
+  --letters-accent: #20b99a;
+  --letters-shadow: #d6d0c4;
+  background: #fff !important;
+  color: var(--letters-ink);
+  font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.page-letters .container-page { max-width: 1120px; }
+.page-letters .page-title-panel,
+.page-letters .community-letter-compose-panel,
+.page-letters .community-letter-collection,
+.page-letters .archived-cards,
+.page-letters .written-letters-panel {
+  position: relative;
+  overflow: hidden;
+  border: 4px solid var(--letters-ink) !important;
+  border-radius: 34px !important;
+  background-color: var(--letters-paper) !important;
+  background-image: repeating-linear-gradient(135deg, rgba(23,23,23,.045) 0 4px, transparent 4px 11px) !important;
+  box-shadow: 0 7px 0 var(--letters-shadow) !important;
+  color: var(--letters-ink) !important;
+}
+.page-letters .page-title-panel { padding: 18px 24px; margin-bottom: 22px; }
+.page-letters .page-title-panel .eyebrow,
+.page-letters .section-kicker,
+.page-letters .overview-label,
+.page-letters .modal-label {
+  color: var(--letters-muted) !important;
+  font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.page-letters .hero-title,
+.page-letters .community-letter-heading h2,
+.page-letters .written-letters-heading h2,
+.page-letters .lista-titulo,
+.page-letters .card-title,
+.page-letters .modal-sheet h2 {
+  color: var(--letters-ink) !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+.page-letters .community-letter-compose-panel,
+.page-letters .community-letter-collection,
+.page-letters .archived-cards,
+.page-letters .written-letters-panel { padding: clamp(16px, 3vw, 28px); }
+.page-letters .community-letter-heading { padding-bottom: 12px; border-bottom: 2px solid var(--letters-ink); }
+.page-letters .community-letter-heading h2,
+.page-letters .written-letters-heading h2 { font-size: clamp(1.25rem, 2.2vw, 1.8rem); }
+.page-letters .community-letter-compose-toggle,
+.page-letters .icon-action,
+.page-letters .card-check,
+.page-letters .modal-tools button,
+.page-letters .modal-close {
+  border: 3px solid var(--letters-ink) !important;
+  border-radius: 11px !important;
+  background: var(--letters-paper) !important;
+  color: var(--letters-ink) !important;
+  box-shadow: 3px 3px 0 var(--letters-shadow) !important;
+}
+.page-letters .community-letter-compose-toggle { width: 42px; height: 42px; background: var(--letters-accent) !important; color: #fff !important; }
+.page-letters .community-letter-form { gap: 10px; }
+.page-letters .community-letter-form label,
+.page-letters .community-letter-dialog label { font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace; font-size: .82rem; }
+.page-letters .community-letter-form input:not([type=checkbox]),
+.page-letters .community-letter-form select,
+.page-letters .community-letter-form textarea,
+.page-letters .community-letter-dialog input,
+.page-letters .community-letter-date-controls input[type="date"] {
+  border: 2px solid var(--letters-ink) !important;
+  border-radius: 9px !important;
+  background-color: rgba(255,255,255,.5) !important;
+  color: var(--letters-ink) !important;
+  font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+  box-shadow: 2px 2px 0 var(--letters-shadow);
+}
+.page-letters .primary-button,
+.page-letters .login-button,
+.page-letters .letter-collection-switcher button.active,
+.page-letters .letter-collection-switcher button[aria-pressed="true"],
+.page-letters .filter-button.active {
+  border: 3px solid var(--letters-ink) !important;
+  border-radius: 10px !important;
+  background: var(--letters-accent) !important;
+  color: #fff !important;
+  box-shadow: 3px 4px 0 var(--letters-shadow) !important;
+  font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+}
+.page-letters .letter-collection-switcher button,
+.page-letters .filter-button {
+  border: 2px solid var(--letters-ink) !important;
+  border-radius: 10px !important;
+  background: var(--letters-paper) !important;
+  color: var(--letters-ink) !important;
+  box-shadow: 2px 3px 0 var(--letters-shadow);
+  font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+}
+.page-letters .community-letter-row,
+.page-letters .written-letter-row,
+.page-letters .card-row { border-color: rgba(23,23,23,.72) !important; }
+.page-letters .community-letter-meta strong,
+.page-letters .written-letter-row strong { font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; }
+.page-letters .community-letter-meta span,
+.page-letters .written-letter-row span,
+.page-letters .community-letters-empty,
+.page-letters .written-letters-empty,
+.page-letters .community-letter-dialog [data-community-letter-byline],
+.page-letters .card-date,
+.page-letters .card-sender { color: var(--letters-muted) !important; }
+.page-letters .community-letter-dialog {
+  border: 4px solid var(--letters-ink) !important;
+  border-radius: 24px !important;
+  background-color: var(--letters-paper) !important;
+  background-image: repeating-linear-gradient(135deg, rgba(23,23,23,.04) 0 4px, transparent 4px 11px);
+  box-shadow: 8px 9px 0 var(--letters-shadow) !important;
+}
+.page-letters .community-letter-dialog::backdrop { background: rgba(23,23,23,.55); backdrop-filter: none; }
+.page-letters .community-letter-body { font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; line-height: 1.8; }
+.page-letters .card-row { background: rgba(255,255,255,.35); border: 2px solid var(--letters-ink); border-radius: 14px; margin-bottom: 10px; box-shadow: 3px 3px 0 var(--letters-shadow); }
+.page-letters .card-number { border: 2px solid var(--letters-ink); border-radius: 50%; background: var(--letters-paper); color: var(--letters-ink); }
+.page-letters .card-check.is-read { background: var(--letters-accent) !important; color: #fff !important; }
+.page-letters .modal-sheet { border: 4px solid var(--letters-ink); border-radius: 24px; background: var(--letters-paper); background-image: repeating-linear-gradient(135deg, rgba(23,23,23,.04) 0 4px, transparent 4px 11px); box-shadow: 7px 8px 0 var(--letters-shadow); }
+.page-letters .looply-footer { color: var(--letters-muted); font-family: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace; }
+.page-letters button:focus-visible,
+.page-letters a:focus-visible,
+.page-letters input:focus-visible,
+.page-letters select:focus-visible,
+.page-letters textarea:focus-visible { outline: 3px solid var(--letters-accent); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .page-letters .page-title-panel { border-radius: 24px !important; padding: 14px 17px; }
+  .page-letters .community-letter-compose-panel,
+  .page-letters .community-letter-collection,
+  .page-letters .archived-cards,
+  .page-letters .written-letters-panel { border-radius: 24px !important; padding: 15px; }
+  .page-letters .community-letter-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; }
+  .page-letters .community-letter-meta { grid-column: 1 / -1; }
+  .page-letters .letter-collection-switcher { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .page-letters .letter-collection-switcher button { padding: 8px 5px; font-size: .76rem; }
+}
+
+
+/* Letter attachments and administrator controls */
+.page-letters .letter-attachment-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 0; border-top:1px solid var(--letters-ink); }
+.page-letters .letter-attach-button { display:inline-flex; position:relative; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:7px 11px; border:2px solid var(--letters-ink); border-radius:9px; background:var(--letters-paper); color:var(--letters-ink); box-shadow:2px 2px 0 var(--letters-shadow); font:600 .78rem/1.3 "IBM Plex Mono",ui-monospace,monospace; cursor:pointer; }
+.page-letters .letter-attach-button input[type=file] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.page-letters .letter-attach-button:has(input[type=file]) { overflow:hidden; }
+.page-letters .letter-attachment-item { display:flex; align-items:center; gap:8px; max-width:100%; padding:6px 0; overflow-wrap:anywhere; font-size:.78rem; }
+.page-letters .letter-attachment-item button { width:26px; height:26px; border:1px solid var(--letters-ink); border-radius:6px; background:var(--letters-paper); cursor:pointer; }
+.page-letters .community-letter-attachments { display:grid; gap:8px; padding-top:12px; border-top:2px solid var(--letters-ink); }
+.page-letters .community-letter-attachments a { color:var(--letters-ink); text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.page-letters .community-letter-row { border-top:1px solid rgba(23,23,23,.55); }
+.page-letters .community-letter-row .text-button { border:2px solid var(--letters-ink); border-radius:8px; padding:7px 10px; background:var(--letters-paper); color:var(--letters-ink); box-shadow:2px 2px 0 var(--letters-shadow); font-family:"IBM Plex Mono",ui-monospace,monospace; }
+.page-letters .card-row { border:2px solid var(--letters-ink); border-radius:14px; background:rgba(255,255,255,.42); box-shadow:3px 3px 0 var(--letters-shadow); }
+.page-letters .card-row [data-admin-edit-card], .page-letters .card-row [data-admin-delete-card] { align-self:center; min-height:34px; padding:5px 8px; font:600 .72rem "IBM Plex Mono",ui-monospace,monospace; }
+.page-letters .card-row [data-admin-delete-card] { background:#fff0eb !important; }
+.page-letters .community-letter-compose-panel [hidden], .page-letters .community-letter-form [hidden] { display:none !important; }
+@media(max-width:600px) {
+  .page-letters .community-letter-row { flex-wrap:wrap; }
+  .page-letters .community-letter-meta { flex:1 1 100%; }
+  .page-letters .letter-attach-button { flex:1 1 auto; }
+}
