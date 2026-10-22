@@ -285,6 +285,17 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     root.querySelector("[data-community-letter-unlock-status]").textContent = "";
     body.hidden = Boolean(activeLetter.is_protected);
     body.textContent = activeLetter.is_protected ? "" : (activeLetter.body || "");
+    const attachmentsBox = root.querySelector("[data-community-letter-attachments]");
+    if (attachmentsBox) {
+      attachmentsBox.replaceChildren();
+      for (const attachment of (activeLetter.attachments || [])) {
+        const { data: signed, error: signedError } = await client.storage.from("looply-letters").createSignedUrl(attachment.path, 300);
+        if (signedError || !signed?.signedUrl) continue;
+        const link = document.createElement("a"); link.href = signed.signedUrl; link.target = "_blank"; link.rel = "noopener noreferrer";
+        link.textContent = (attachment.type || "").startsWith("audio/") ? "▶ Ouvir áudio · " + attachment.name : (attachment.type || "").startsWith("video/") ? "▶ Abrir vídeo · " + attachment.name : (attachment.type || "").startsWith("image/") ? "Ver imagem · " + attachment.name : "Baixar arquivo · " + attachment.name;
+        attachmentsBox.append(link);
+      }
+    }
     dialog.showModal();
     if (activeLetter.is_protected) unlockForm.querySelector("input").focus();
   });
