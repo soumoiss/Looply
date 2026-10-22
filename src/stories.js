@@ -2,6 +2,7 @@ import { icon } from "./icons.js";
 import { invokeAdminAction } from "./admin.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
+import { decodeStoryBody, encodeStoryBody } from "./story-text-style.js";
 
 const maxStoryBytes = 100 * 1024 * 1024;
 const storyMimeTypes = new Map([
@@ -249,6 +250,10 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
       '<form class="story-create-form" data-story-create>' +
         '<label for="storyBody">Texto <span>(opcional, até 1.000 caracteres)</span></label>' +
         '<textarea id="storyBody" name="body" maxlength="1000" rows="3" placeholder="Adicione um texto"></textarea>' +
+        '<fieldset class="story-text-style" data-story-text-style><legend>Estilo (Stories sem mídia)</legend>' +
+          '<label for="storyTextFont">Fonte<select id="storyTextFont" name="text_font"><option value="system">Moderna</option><option value="serif">Clássica</option><option value="rounded">Arredondada</option><option value="mono">Máquina de escrever</option><option value="handwritten">Manuscrita</option></select></label>' +
+          '<label for="storyTextSize">Tamanho <output data-story-text-size>20 pt</output><input id="storyTextSize" name="text_size" type="range" min="6" max="20" step="1" value="20"></label>' +
+        '</fieldset>' +
         '<div class="story-media-label"><span>Foto ou vídeo <small>(opcional, até 100 MB)</small></span><div class="story-capture-actions">' +
           '<label class="story-file-picker" for="storyMedia">Escolher arquivo ou tirar foto</label>' +
           '<button class="text-button" type="button" data-story-camera-open>Usar câmera</button></div></div>' +
@@ -352,6 +357,16 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const cameraPanel = root.querySelector("[data-story-camera]");
   const cameraPreview = root.querySelector("[data-story-camera-preview]");
   const cameraStatus = root.querySelector("[data-story-camera-status]");
+  const storyMediaInput = root.querySelector("#storyMedia");
+  const storyTextStyle = root.querySelector("[data-story-text-style]");
+  const storyTextSize = root.querySelector("#storyTextSize");
+  storyMediaInput?.addEventListener("change", () => {
+    if (storyTextStyle) storyTextStyle.hidden = Boolean(storyMediaInput.files?.[0]?.size);
+  });
+  storyTextSize?.addEventListener("input", () => {
+    const output = root.querySelector("[data-story-text-size]");
+    if (output) output.textContent = `${storyTextSize.value} pt`;
+  });
   const setCameraStatus = (message, isError = false) => {
     if (!cameraStatus) return;
     cameraStatus.textContent = message;
@@ -587,7 +602,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const avatarHost = viewer.querySelector("[data-story-viewer-avatar]");
     avatarHost.innerHTML = storyAvatar(author, "", false);
     const caption = viewer.querySelector("[data-story-viewer-caption]");
-    caption.textContent = story.body || "";
+    const storyText = decodeStoryBody(story.body || "");
+    caption.textContent = storyText.text;
+    caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
+    caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     mediaHost.querySelectorAll("video").forEach((video) => {
       video.pause();
@@ -1126,9 +1144,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     let uploadedPath = null;
     try {
       const formData = new FormData(form);
-      const body = String(formData.get("body") || "").trim().slice(0, 1000);
+      const bodyText = String(formData.get("body") || "").trim().slice(0, 1000);
       const file = formData.get("media");
       const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
+      const body = bodyText && !media
+        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"))
+        : bodyText;
       const visibility = String(formData.get("visibility") || "public");
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
       if (file instanceof File && file.size && !media) throw new Error("invalid_media");
@@ -1166,6 +1187,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
 
       form.reset();
+      if (storyTextStyle) storyTextStyle.hidden = false;
+      const storyTextSizeOutput = root.querySelector("[data-story-text-size]");
+      if (storyTextSizeOutput) storyTextSizeOutput.textContent = "20 pt";
       closeStoryDialog(createDialog);
       await refresh();
       showStatus("Story publicado. Ele expira após 24 horas.");

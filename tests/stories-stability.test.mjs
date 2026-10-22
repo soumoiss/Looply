@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { decodeStoryBody, encodeStoryBody } from "../src/story-text-style.js";
 
 const read = (path) => readFile(resolve(process.cwd(), path), "utf8");
 
@@ -11,6 +12,28 @@ test("Stories viewer has theme-aware title and safe responsive media sizing", as
   assert.match(css, /\.story-viewer-media img, \.story-viewer-media video[^{]*\{[^}]*object-fit:\s*contain/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
   assert.match(css, /\.story-viewer-caption[^{}]*\{[^}]*overflow-y:\s*auto/);
+});
+
+test("text-only Stories persist selectable fonts and bounded 6–20 pt sizing while old stories stay plain", async () => {
+  const story = await read("src/stories.js");
+  const admin = await read("src/admin.js");
+  const html = await read("home.html");
+  const css = await read("assets/css/pages/home.css");
+  const styled = decodeStoryBody(encodeStoryBody("Texto centralizado", "serif", 6));
+  assert.equal(styled.text, "Texto centralizado");
+  assert.equal(styled.font, "serif");
+  assert.equal(styled.size, 6);
+  assert.equal(styled.styled, true);
+  assert.equal(decodeStoryBody("Story antigo").text, "Story antigo");
+  assert.equal(decodeStoryBody(encodeStoryBody("Texto", "invalid", 99)).font, "system");
+  assert.equal(decodeStoryBody(encodeStoryBody("Texto", "system", 99)).size, 20);
+  assert.match(story, /data-story-text-style/);
+  assert.match(story, /name="text_size" type="range" min="6" max="20"/);
+  assert.match(story, /bodyText && !media[\s\S]*?encodeStoryBody/);
+  assert.match(story, /caption\.style\.fontSize = !media && storyText\.styled/);
+  assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
+  assert.match(css, /\.story-text-style\[hidden\]\s*\{\s*display:\s*none/);
+  assert.match(html, /story-text-styles-20261022/);
 });
 
 test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {

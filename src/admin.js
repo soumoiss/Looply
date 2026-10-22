@@ -1,6 +1,7 @@
 import { icon } from "./icons.js";
 import { sealLetter } from "./letters-community.js";
 import { hashArchivePassword } from "./archive-import.js";
+import { decodeStoryBody } from "./story-text-style.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -185,7 +186,7 @@ function itemMarkup(resourceType, item) {
   }
   if (resourceType === "stories") {
     const media = (item.media || []).map(mediaMarkup).join("");
-    return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")} · Story</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(item.body || "")}</p>${media ? `<div class="admin-media-grid">${media}</div>` : ""}${moderationFormMarkup("story", item.id, item.moderated)}<small>Story UUID: ${escapeHtml(item.id)}</small></article>`;
+    return `<article class="admin-record"><div class="admin-record-top"><strong>@${escapeHtml(item.author?.username || "perfil restrito")} · Story</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div><p class="admin-record-body">${escapeHtml(decodeStoryBody(item.body || "").text)}</p>${media ? `<div class="admin-media-grid">${media}</div>` : ""}${moderationFormMarkup("story", item.id, item.moderated)}<small>Story UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "community_gallery_media") {
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.file_name)} · ${escapeHtml(item.kind)}</strong><span>@${escapeHtml(item.owner?.username || "perfil restrito")}</span></div>${mediaMarkup(item)}${moderationFormMarkup("community_gallery_media", item.id, item.moderated)}<p>${escapeHtml(item.caption || "")}</p><small>Mídia UUID: ${escapeHtml(item.id)}</small></article>`;
