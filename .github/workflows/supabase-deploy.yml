@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate deployment secrets
         shell: bash
@@ -41,10 +43,29 @@ jobs:
       - name: Link production project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
+      - name: Detect migration changes
+        id: migrations
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- supabase/migrations/ | grep -q .; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Apply pending database migrations
+        if: steps.migrations.outputs.changed == 'true'
         # Fail closed on migration-history mismatches; never rewrite the
         # production migration ledger automatically in CI.
         run: supabase db push
+
+      - name: Skip database migrations for function-only changes
+        if: steps.migrations.outputs.changed != 'true'
+        run: echo "No migration files changed; leaving the production database untouched."
 
       - name: Deploy protected Edge Functions
         run: |

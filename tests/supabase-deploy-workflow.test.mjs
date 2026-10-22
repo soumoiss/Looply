@@ -11,6 +11,10 @@ test("production backend deployment is automated without committing Supabase cre
   assert.match(workflow, /secrets\.SUPABASE_DB_PASSWORD/);
   assert.match(workflow, /SUPABASE_PROJECT_ID: qixocgetiwlrsbadpbvh/);
   assert.match(workflow, /version: 2\.118\.0-beta\.37/);
+  assert.match(workflow, /Detect migration changes/);
+  assert.match(workflow, /git diff --name-only[\s\S]*-- supabase\/migrations\//);
+  assert.match(workflow, /if: steps\.migrations\.outputs\.changed == 'true'/);
+  assert.match(workflow, /No migration files changed; leaving the production database untouched/);
   assert.match(workflow, /supabase db push/);
   assert.match(workflow, /Fail closed on migration-history mismatches/);
   assert.doesNotMatch(workflow, /supabase migration repair|--include-all/);
