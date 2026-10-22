@@ -135,6 +135,20 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
   let audioRecorder = null;
   let audioChunks = [];
   let activeLetter = null;
+  const renderLetterAttachments = async (letter, unlocked) => {
+    const box = root.querySelector("[data-community-letter-attachments]");
+    if (!box) return;
+    box.replaceChildren();
+    if (!unlocked) return;
+    for (const attachment of (letter.attachments || [])) {
+      const { data: signed, error: signedError } = await client.storage.from("looply-letters").createSignedUrl(attachment.path, 300);
+      if (signedError || !signed?.signedUrl) continue;
+      const link = document.createElement("a");
+      link.href = signed.signedUrl; link.target = "_blank"; link.rel = "noopener noreferrer";
+      link.textContent = (attachment.type || "").startsWith("audio/") ? "▶ Ouvir áudio · " + attachment.name : (attachment.type || "").startsWith("video/") ? "▶ Abrir vídeo · " + attachment.name : (attachment.type || "").startsWith("image/") ? "Ver imagem · " + attachment.name : "Baixar arquivo · " + attachment.name;
+      box.append(link);
+    }
+  };
   const dialog = root.querySelector("[data-community-letter-dialog]");
   const composeForm = root.querySelector("[data-community-letter-compose]");
   const composeToggle = root.querySelector("[data-toggle-community-compose]");
@@ -259,6 +273,8 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
       const letterId = deleteButton.dataset.deleteCommunityLetter;
       if (!window.confirm("Excluir esta carta enviada? Esta ação não pode ser desfeita.")) return;
       deleteButton.disabled = true;
+      const target = letters.find((letter) => letter.id === letterId);
+      for (const attachment of (target?.attachments || [])) await client.storage.from("looply-letters").remove([attachment.path]);
       const { error } = await client.from("community_letters").delete().eq("id", letterId).eq("sender_id", user.id);
       if (error) {
         deleteButton.disabled = false;
@@ -286,17 +302,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     root.querySelector("[data-community-letter-unlock-status]").textContent = "";
     body.hidden = Boolean(activeLetter.is_protected);
     body.textContent = activeLetter.is_protected ? "" : (activeLetter.body || "");
-    const attachmentsBox = root.querySelector("[data-community-letter-attachments]");
-    if (attachmentsBox) {
-      attachmentsBox.replaceChildren();
-      for (const attachment of (activeLetter.attachments || [])) {
-        const { data: signed, error: signedError } = await client.storage.from("looply-letters").createSignedUrl(attachment.path, 300);
-        if (signedError || !signed?.signedUrl) continue;
-        const link = document.createElement("a"); link.href = signed.signedUrl; link.target = "_blank"; link.rel = "noopener noreferrer";
-        link.textContent = (attachment.type || "").startsWith("audio/") ? "▶ Ouvir áudio · " + attachment.name : (attachment.type || "").startsWith("video/") ? "▶ Abrir vídeo · " + attachment.name : (attachment.type || "").startsWith("image/") ? "Ver imagem · " + attachment.name : "Baixar arquivo · " + attachment.name;
-        attachmentsBox.append(link);
-      }
-    }
+    await renderLetterAttachments(activeLetter, !activeLetter.is_protected);
     dialog.showModal();
     if (activeLetter.is_protected) unlockForm.querySelector("input").focus();
   });
@@ -360,6 +366,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         body.textContent = opened;
         body.hidden = false;
         form.hidden = true;
+        await renderLetterAttachments(activeLetter, true);
       }
     } catch (error) {
       const status = form.querySelector(".form-status");
