@@ -168,6 +168,55 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     if (sentCount) sentCount.textContent = String(letters.filter((letter) => letter.sender_id === user.id).length);
   };
   const reload = async () => { letters = await loadCommunityLetters(client, user.id); renderLists(); };
+  const fileInput = root.querySelector("[data-letter-files]");
+  const attachmentList = root.querySelector("[data-letter-attachment-list]");
+  const recordButton = root.querySelector("[data-letter-record]");
+  const stopRecordButton = root.querySelector("[data-letter-stop-record]");
+  const recordStatus = root.querySelector("[data-letter-record-status]");
+  const renderAttachmentList = () => {
+    if (!attachmentList) return;
+    attachmentList.innerHTML = selectedAttachments.map((file, index) => `<div class="letter-attachment-item">${escapeHtml(file.name)} · ${Math.max(1, Math.round(file.size / 1024))} KB <button type="button" data-remove-letter-attachment="${index}" aria-label="Remover anexo">×</button></div>`).join("");
+  };
+  fileInput?.addEventListener("change", () => {
+    for (const file of [...(fileInput.files || [])]) {
+      if (file.size > 50 * 1024 * 1024) { if (recordStatus) recordStatus.textContent = file.name + ": limite de 50 MB por arquivo."; continue; }
+      if (selectedAttachments.length >= 8) { if (recordStatus) recordStatus.textContent = "Limite de 8 anexos por carta."; break; }
+      selectedAttachments.push(file);
+    }
+    fileInput.value = "";
+    renderAttachmentList();
+  });
+  recordButton?.addEventListener("click", async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { if (recordStatus) recordStatus.textContent = "Gravação indisponível neste navegador. Anexe um arquivo de áudio."; return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      audioRecorder = new MediaRecorder(stream);
+      audioRecorder.ondataavailable = (event) => { if (event.data.size) audioChunks.push(event.data); };
+      audioRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: audioRecorder.mimeType || "audio/webm" });
+        if (blob.size && selectedAttachments.length < 8) {
+          selectedAttachments.push(new File([blob], "gravacao-" + Date.now() + ".webm", { type: blob.type }));
+          renderAttachmentList();
+          if (recordStatus) recordStatus.textContent = "Áudio gravado e anexado.";
+        }
+        stream.getTracks().forEach((track) => track.stop());
+        if (recordButton) recordButton.disabled = false;
+        if (stopRecordButton) stopRecordButton.disabled = true;
+      };
+      audioRecorder.start();
+      if (recordButton) recordButton.disabled = true;
+      if (stopRecordButton) stopRecordButton.disabled = false;
+      if (recordStatus) recordStatus.textContent = "Gravando áudio…";
+    } catch { if (recordStatus) recordStatus.textContent = "Permita acesso ao microfone para gravar áudio."; }
+  });
+  stopRecordButton?.addEventListener("click", () => { if (audioRecorder?.state === "recording") audioRecorder.stop(); });
+  root.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-remove-letter-attachment]");
+    if (!remove) return;
+    selectedAttachments.splice(Number(remove.dataset.removeLetterAttachment), 1);
+    renderAttachmentList();
+  });
   const protect = root.querySelector("[data-letter-protected]");
   const passwordWrap = root.querySelector("[data-letter-password-wrap]");
   const passwordInput = root.querySelector("[data-letter-password]");
