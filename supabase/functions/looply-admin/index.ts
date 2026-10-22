@@ -193,6 +193,16 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
     return cards.map((card: any) => ({ ...card, recipient: recipients.get(card.recipient_id) || null }));
   }
 
+  if (resourceType === "community_letters") {
+    let query = service.from("community_letters")
+      .select("id,sender_id,recipient_id,subject,body,is_protected,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
+      .order("created_at", { ascending: false });
+    if (resourceId) query = query.eq("id", resourceId);
+    const result = resourceId ? await query.maybeSingle() : await query.range(offset, offset + 99);
+    if (result.error) throw result.error;
+    return result.data ? (Array.isArray(result.data) ? result.data : [result.data]) : [];
+  }
+
   if (resourceType === "archive_media") {
     let query = service.from("archive_media")
       .select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,comment_access,source_date,created_at,recipients:archive_media_recipients(user_id,profile:profiles!archive_media_recipients_user_id_fkey(username,display_name)),commenters:archive_media_commenters(user_id,profile:profiles!archive_media_commenters_user_id_fkey(username,display_name))")

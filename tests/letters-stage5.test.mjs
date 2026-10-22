@@ -50,16 +50,26 @@ test("My Letters presents received, sent, and imported archive cards in one swit
   assert.match(page, /archivedCardsMarkup\(\)/);
 });
 
-test("story music uses a user-selected local audio file and produces an existing video media type", async () => {
+test("story composer does not offer music while preserving photo and video posting", async () => {
   const story = await readFile(resolve(root, "src/stories.js"), "utf8");
-  const styles = await readFile(resolve(root, "assets/css/pages/home.css"), "utf8");
-  assert.match(story, /id="storyMusic" name="music" type="file" accept="audio\/\*"/);
-  assert.match(story, /trecho de até 15 segundos/);
-  assert.match(story, /createPhotoStoryWithMusic\(media, state\.musicFile/);
-  assert.match(story, /new File\(\[video\], `story-music-\$\{Date\.now\(\)\}\.webm`, \{ type: "video\/webm"/);
-  assert.match(story, /story_music_unsupported/);
-  assert.match(styles, /story-music-picker/);
+  assert.doesNotMatch(story, /storyMusic|story-music|createPhotoStoryWithMusic|musicFile/);
+  assert.match(story, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
+  assert.match(story, /const media = file instanceof File && file\.size \? normalizePublicationMedia\(file\) : null/);
   assert.doesNotMatch(story, /api\.deezer\.com|api\.spotify\.com|audio.*proxy/i);
+});
+
+test("community letters appear in the audited admin reader and imported archive cards credit Peixinho", async () => {
+  const [admin, edge, archive] = await Promise.all([
+    readFile(resolve(root, "src/admin.js"), "utf8"),
+    readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8"),
+    readFile(resolve(root, "src/archived-cards.js"), "utf8")
+  ]);
+  assert.match(admin, /value="community_letters"/);
+  assert.match(admin, /Carta protegida por senha/);
+  assert.match(edge, /resourceType === "community_letters"/);
+  assert.match(edge, /service\.from\("community_letters"\)[\s\S]*?\.range\(offset, offset \+ 99\)/);
+  assert.doesNotMatch(edge, /select\([^\n]*password_ciphertext/);
+  assert.match(archive, /Enviada por Peixinho · ADM/);
 });
 
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {

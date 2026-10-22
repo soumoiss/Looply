@@ -95,11 +95,12 @@ export function adminMarkup(profile = {}) {
           <option value="music_library">Coleções pessoais de músicas</option>
           <option value="youtube_track_comments">Comentários por música</option>
           <option value="letters">Cartas para Peixinho</option>
+          <option value="community_letters">Cartas da comunidade (todos os usuários)</option>
           <option value="conversations">Conversas privadas</option>
           <option value="chat_messages">Mensagens de chat e anexos</option>
           <option value="profiles">Perfis</option>
           <option value="post_media">Arquivo de mídia</option>
-          <option value="archived_cards">Cartas antigas</option>
+          <option value="archived_cards">Cartas importadas · enviadas por Peixinho</option>
           <option value="archive_media">Mídias antigas</option>
           <option value="archive_media_comments">Comentários das mídias antigas</option>
           <option value="stories">Stories</option>
@@ -191,7 +192,16 @@ function itemMarkup(resourceType, item) {
     const recipient = item.recipient?.display_name || item.recipient?.username || "Perfil";
     const body = item.body ? `<details class="admin-archive-card-body"><summary>Visualizar carta</summary><pre>${escapeHtml(item.body)}</pre></details>` : `<p class="admin-record-body">O conteúdo da carta não está disponível.</p>`;
     return `<article class="admin-record"><div class="admin-record-top"><strong>${escapeHtml(item.original_file)} · ${escapeHtml(recipient)}</strong><span>${item.is_private ? "Privada" : "Carta"}${item.is_protected ? " · protegida" : ""}${item.sent_date ? ` · ${escapeHtml(item.sent_date)}` : ""}</span></div>
-      ${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}<small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
+      <p>Enviada por Peixinho · ADM</p>${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}<small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
+  }
+  if (resourceType === "community_letters") {
+    const sender = item.sender?.display_name || item.sender?.username || "perfil restrito";
+    const recipient = item.recipient?.display_name || item.recipient?.username || "perfil restrito";
+    const body = item.is_protected
+      ? `<p class="admin-record-body">Carta protegida por senha. O conteúdo é criptografado no navegador e não pode ser lido pelo painel.</p>`
+      : `<p class="admin-record-body">${escapeHtml(item.body)}</p>`;
+    return `<article class="admin-record"><div class="admin-record-top"><strong>Carta · ${escapeHtml(item.subject)}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
+      <p>${escapeHtml(sender)} (@${escapeHtml(item.sender?.username || "perfil restrito")}) → ${escapeHtml(recipient)} (@${escapeHtml(item.recipient?.username || "perfil restrito")})${item.is_protected ? " · protegida" : ""}</p>${body}<small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "archive_media") {
     const recipients = (item.recipients || []).map((entry) => `@${escapeHtml(entry.profile?.username || "perfil restrito")}`).join(" · ");
@@ -692,9 +702,9 @@ export function bindAdminEvents(root, client) {
       const field = root.querySelector("[data-admin-id-field]");
       if (field) field.hidden = event.target.value === "audit";
       const offsetField = root.querySelector("[data-admin-offset-field]");
-      if (offsetField) offsetField.hidden = !["archive_media", "audit"].includes(event.target.value);
+      if (offsetField) offsetField.hidden = !["archive_media", "audit", "community_letters"].includes(event.target.value);
       const offset = root.querySelector("#adminOffset");
-      if (offset && ["archive_media", "audit"].includes(event.target.value)) offset.value = "0";
+      if (offset && ["archive_media", "audit", "community_letters"].includes(event.target.value)) offset.value = "0";
     }
   });
 

@@ -49,7 +49,7 @@ export function archivedCardsMarkup() {
   </section>
   <div class="modal" data-archive-card-modal aria-hidden="true" role="presentation" inert>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="archiveCardTitle" aria-describedby="archiveCardText">
-      <article class="modal-sheet"><header class="modal-header"><div><div class="modal-label">Carta</div><h2 data-archive-card-title id="archiveCardTitle">Carta</h2><div class="modal-date" data-archive-card-date></div></div>
+      <article class="modal-sheet"><header class="modal-header"><div><div class="modal-label">Carta</div><h2 data-archive-card-title id="archiveCardTitle">Carta</h2><div class="modal-date" data-archive-card-date></div><div class="modal-sender">Enviada por Peixinho · ADM</div></div>
         <div class="modal-tools"><button type="button" data-card-previous aria-label="Carta anterior">${icon("back")}</button><button type="button" data-card-next aria-label="Próxima carta">${icon("forward")}</button><button class="modal-close" type="button" data-card-close aria-label="Fechar carta">${icon("close")}</button></div>
       </header>
       <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
@@ -109,7 +109,7 @@ function renderRows(root, state) {
     row.setAttribute("role", "button");
     const label = card.is_private ? "Carta privada" : "Carta";
     const title = card.is_protected ? (card.is_private ? "Carta privada protegida" : "Carta protegida") : titleFromBody(card.body);
-    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p></div><button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
+    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">Enviada por Peixinho · ADM</p></div><button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
     row.querySelector(".card-title").textContent = title;
     const date = row.querySelector(".card-date");
     date.textContent = card.date ? formatShort(card.date) : "Sem data";

@@ -161,6 +161,7 @@ a { color: inherit; }
 .card-title { margin:0; font-family:"Quillen",Georgia,"Times New Roman",serif; font-size:clamp(18px,4.3vw,23px); line-height:1.22; font-weight:400; overflow-wrap:anywhere; }
 .card-row.is-unavailable .card-title { font-family:inherit; font-size:13px; font-weight:750; }
 .card-date { margin:5px 0 0; color:var(--muted); font-size:11px; }
+.card-sender, .modal-sender { margin:4px 0 0; color:var(--muted); font-size:11px; }
 .card-date.is-empty { color:#b0aab6; }
 .card-check { width:40px; height:40px; min-width:40px; display:grid; place-items:center; border:1px solid rgba(117,101,132,.13); border-radius:50%; background:#f7f5f8; color:#b2acb6; font-size:15px; }
 .card-check.is-read { background:var(--primary); color:#fff; border-color:var(--primary); box-shadow:0 7px 16px rgba(112,16,176,.23); }
