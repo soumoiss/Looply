@@ -129,6 +129,7 @@ function renderRows(root, state) {
 }
 
 function renderCalendar(root, state) {
+  if (root.dataset.activeLetterCollection && root.dataset.activeLetterCollection !== "legacy") return;
   const grid = $(root, "[data-calendar-grid]");
   const monthLabel = $(root, "[data-calendar-month]");
   const info = $(root, "[data-calendar-info]");
