@@ -20,7 +20,7 @@ test("Retro-Tech Letters UI exposes compact composition, file attachments, and a
   assert.match(css, /--letters-paper:\s*#f5f1e9/i);
   assert.match(css, /--letters-accent:\s*#20b99a/i);
   assert.match(css, /repeating-linear-gradient\(135deg/);
-  assert.match(page, /retro-tech-admin-media-20261022/);
+  assert.match(page, /shared-calendar-admin-edit-hints-20261022/);
 });
 
 test("admin collection reads all letters and can delete letters while RLS remains admin-backed", async () => {
