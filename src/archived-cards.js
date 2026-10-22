@@ -33,15 +33,9 @@ export function archivedCardsMarkup() {
     </div>
     <div class="filters" aria-label="Filtros das cartas">
       <button class="filter-button active" type="button" data-card-filter="all" aria-pressed="true">Todas</button>
-      <button class="filter-button" type="button" data-card-calendar-toggle aria-controls="archiveCalendar" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M8 2.8v4M16 2.8v4M3 9h18"/></svg>Filtrar por data</button>
+
       <button class="filter-button" type="button" data-card-filter="no-date" hidden aria-pressed="false">Sem data</button>
       <span class="filter-status" data-card-filter-status>Mostrando todas as cartas</span>
-    </div>
-    <div class="calendar-panel" id="archiveCalendar" aria-hidden="true">
-      <div class="calendar-card"><div class="calendar-head"><div class="calendar-month" data-calendar-month>Calendário</div><div class="calendar-nav"><button type="button" data-calendar="previous" aria-label="Mês anterior">‹</button><button type="button" data-calendar="next" aria-label="Próximo mês">›</button></div></div>
-        <div class="weekdays" aria-hidden="true"><span class="weekday">Dom</span><span class="weekday">Seg</span><span class="weekday">Ter</span><span class="weekday">Qua</span><span class="weekday">Qui</span><span class="weekday">Sex</span><span class="weekday">Sáb</span></div>
-        <div class="calendar-grid" data-calendar-grid aria-label="Calendário das cartas"></div><div class="calendar-foot"><span><strong>•</strong> dia com cartas</span><span data-calendar-info>Selecione uma data</span></div>
-      </div>
     </div>
     <div class="cartas-container" data-archived-cards aria-live="polite"><div class="loading-state">Carregando cartas…</div></div>
     <p class="loading-summary" data-card-load-status role="status" aria-live="polite"></p>
