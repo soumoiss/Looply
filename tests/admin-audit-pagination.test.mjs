@@ -18,7 +18,9 @@ test('admin edge function forwards offset to the audit RPC', async () => {
   assert.match(edge, /read_looply_admin_audit", \{ p_actor_id: actorId, p_limit: 100, p_offset: offset \}/);
 });
 
-test('admin UI makes offset field available for audit, archive media, and community letters', async () => {
+test('admin UI makes offset paging available for audit, archive media, imported cards, and community letters', async () => {
   const ui = await readFile(resolve(root, 'src/admin.js'), 'utf8');
-  assert.match(ui, /\["archive_media", "audit", "community_letters"\]\.includes\(event\.target\.value\)/);
+  assert.match(ui, /\["archive_media", "archived_cards", "audit", "community_letters"\]\.includes\(event\.target\.value\)/);
+  assert.match(ui, /data-admin-page="previous"/);
+  assert.match(ui, /data-admin-page="next"/);
 });

@@ -111,6 +111,19 @@ test("ADM can edit imported cards through the existing transactional import RPC 
   assert.match(edge, /action === "delete_archived_card"[\s\S]*?\.from\("archived_cards"\)\.delete\(\)[\s\S]*?"write_completed", "archived_cards"/);
 });
 
+test("ADM can page through the entire imported-card collection and protected pages still use the secret RPC", async () => {
+  const [admin, edge] = await Promise.all([
+    readFile(resolve(root, "src/admin.js"), "utf8"),
+    readFile(resolve(root, "supabase/functions/looply-admin/index.ts"), "utf8")
+  ]);
+  assert.match(admin, /data-admin-page="previous"/);
+  assert.match(admin, /data-admin-page="next"/);
+  assert.match(admin, /\["archive_media", "archived_cards", "audit", "community_letters"\]/);
+  assert.match(admin, /offset\.value = String\(adminPage\.dataset\.adminPage === "next"[\s\S]*?requestSubmit\(\)/);
+  assert.match(edge, /resourceType === "archived_cards"[\s\S]*?\.range\(offset, offset \+ 99\)/);
+  assert.match(edge, /protectedCards\.map[\s\S]*?read_looply_admin_archived_cards/);
+});
+
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {
   const [page, community, archive, migration, css] = await Promise.all([
     readFile(resolve(root, "assets/js/letters.js"), "utf8"),

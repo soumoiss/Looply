@@ -178,13 +178,31 @@ async function loadResource(service: UntypedServiceClient, actorId: string, reso
   }
 
   if (resourceType === "archived_cards") {
-    const { data, error } = await service.rpc("read_looply_admin_archived_cards", {
-      p_actor_id: actorId,
-      p_card_id: resourceId,
-      p_limit: resourceId ? 1 : 100
-    });
-    if (error) throw error;
-    const cards = Array.isArray(data) ? data : [];
+    let cards: any[];
+    if (resourceId) {
+      const { data, error } = await service.rpc("read_looply_admin_archived_cards", {
+        p_actor_id: actorId, p_card_id: resourceId, p_limit: 1
+      });
+      if (error) throw error;
+      cards = Array.isArray(data) ? data : [];
+    } else {
+      const { data, error } = await service.from("archived_cards")
+        .select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date,imported_at")
+        .order("imported_at", { ascending: false })
+        .range(offset, offset + 99);
+      if (error) throw error;
+      cards = data || [];
+      const protectedCards = cards.filter((card: any) => card.is_protected);
+      const secretRows = await Promise.all(protectedCards.map(async (card: any) => {
+        const { data: secret, error: secretError } = await service.rpc("read_looply_admin_archived_cards", {
+          p_actor_id: actorId, p_card_id: card.id, p_limit: 1
+        });
+        if (secretError) throw secretError;
+        return Array.isArray(secret) ? secret[0] : null;
+      }));
+      const protectedById = new Map(secretRows.filter(Boolean).map((card: any) => [card.id, card]));
+      cards = cards.map((card: any) => card.is_protected ? { ...card, ...(protectedById.get(card.id) || {}) } : card);
+    }
     const recipientIds = [...new Set(cards.map((card: any) => String(card.recipient_id || "")).filter(Boolean))];
     if (!recipientIds.length) return cards;
     const { data: profiles, error: profilesError } = await service.from("profiles").select("id,username,display_name").in("id", recipientIds);
