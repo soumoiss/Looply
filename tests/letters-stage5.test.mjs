@@ -66,6 +66,8 @@ test("community letters appear in the audited admin reader and imported archive 
   ]);
   assert.match(admin, /value="community_letters"/);
   assert.match(admin, /Carta protegida por senha/);
+  assert.match(admin, /data-content-type="community_letter"/);
+  assert.match(admin, /Excluir esta carta permanentemente/);
   assert.match(edge, /resourceType === "community_letters"/);
   assert.match(edge, /service\.from\("community_letters"\)[\s\S]*?\.range\(offset, offset \+ 99\)/);
   assert.doesNotMatch(edge, /select\([^\n]*password_ciphertext/);

@@ -201,7 +201,9 @@ function itemMarkup(resourceType, item) {
       ? `<p class="admin-record-body">Carta protegida por senha. O conteúdo é criptografado no navegador e não pode ser lido pelo painel.</p>`
       : `<p class="admin-record-body">${escapeHtml(item.body)}</p>`;
     return `<article class="admin-record"><div class="admin-record-top"><strong>Carta · ${escapeHtml(item.subject)}</strong><span>${escapeHtml(dateTime(item.created_at))}</span></div>
-      <p>${escapeHtml(sender)} (@${escapeHtml(item.sender?.username || "perfil restrito")}) → ${escapeHtml(recipient)} (@${escapeHtml(item.recipient?.username || "perfil restrito")})${item.is_protected ? " · protegida" : ""}</p>${body}<small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
+      <p>${escapeHtml(sender)} (@${escapeHtml(item.sender?.username || "perfil restrito")}) → ${escapeHtml(recipient)} (@${escapeHtml(item.recipient?.username || "perfil restrito")})${item.is_protected ? " · protegida" : ""}</p>${body}
+      <button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="community_letter" data-content-id="${escapeHtml(item.id)}">Excluir carta</button>
+      <small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
   if (resourceType === "archive_media") {
     const recipients = (item.recipients || []).map((entry) => `@${escapeHtml(entry.profile?.username || "perfil restrito")}`).join(" · ");
@@ -587,6 +589,7 @@ export function bindAdminEvents(root, client) {
   root.addEventListener("click", async (event) => {
     const deleteContent = event.target.closest("[data-delete-content]");
     if (deleteContent && client) {
+      if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;
       deleteContent.disabled = true;
       try {
         const { data, error } = await invokeAdmin({

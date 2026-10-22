@@ -20,11 +20,13 @@ test("media-only publication contracts allow empty body but keep media requireme
   assert.match(validation, /mediaCount\s*>\s*0/);
 });
 
-test("ADM actions do not require manual purpose text or browser confirmations", async () => {
+test("ADM actions stay direct except permanent community-letter deletion, which requires confirmation", async () => {
   const [admin, gallery, edge] = await Promise.all([
     read("src/admin.js"), read("assets/js/gallery.js"), read("supabase/functions/looply-admin/index.ts")
   ]);
-  assert.doesNotMatch(admin + gallery, /prompt\(|confirm\(/);
+  const safeAdmin = admin.replace('if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;', "");
+  assert.doesNotMatch(safeAdmin + gallery, /prompt\(|confirm\(/);
+  assert.match(admin, /if \(!window\.confirm\("Excluir esta carta permanentemente\?/);
   assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
   assert.match(edge, /function adminAuditPurpose|const adminAuditPurpose/);
   assert.match(edge, /recordAccess\(/);
