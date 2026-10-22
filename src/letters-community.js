@@ -95,8 +95,8 @@ function rowsMarkup(letters, userId, own, dateValue = "") {
   return rows.map((letter) => rowMarkup(letter, own)).join("");
 }
 function adminRowsMarkup(letters) {
-  if (!letters.length) return "<p class=\\\"community-letters-empty\\\">Nenhuma carta encontrada.</p>";
-  return letters.map((letter) => "<article class=\\\"community-letter-row\\\"><div class=\\\"community-letter-meta\\\"><strong>" + escapeHtml(letter.subject) + "</strong><span>De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\\\"button\\\" class=\\\"text-button\\\" data-open-community-letter=\\\"" + escapeHtml(letter.id) + "\\\">Abrir</button><button type=\\\"button\\\" class=\\\"icon-action\\\" data-admin-delete-community-letter=\\\"" + escapeHtml(letter.id) + "\\\" aria-label=\\\"Excluir carta como administrador\\\">" + icon("trash") + "</button></article>").join("");
+  if (!letters.length) return "<p class=\"community-letters-empty\">Nenhuma carta encontrada.</p>";
+  return letters.map((letter) => "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(letter.subject) + "</strong><span>De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\"button\" class=\"text-button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">Abrir</button><button type=\"button\" class=\"icon-action\" data-admin-delete-community-letter=\"" + escapeHtml(letter.id) + "\" aria-label=\"Excluir carta como administrador\">" + icon("trash") + "</button></article>").join("");
 }
 export function communityLettersMarkup(letters, profiles, userId, isAdmin = false) {
   const options = (profiles || []).filter((profile) => profile.id !== userId)
@@ -110,7 +110,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
       "<label>Mensagem<textarea name=\"body\" rows=\"5\" maxlength=\"5000\" required></textarea></label>" +
       "<label class=\"community-letter-protect\"><input type=\"checkbox\" name=\"is_protected\" data-letter-protected> " + icon("lock") + " Proteger a carta com senha</label>" +
       "<label data-letter-password-wrap hidden>Senha da carta<input name=\"password\" type=\"password\" autocomplete=\"new-password\" data-letter-password disabled><button type='button' class='icon-action' data-toggle-letter-password aria-label='Mostrar senha' aria-pressed='false'>" + icon("eye") + "</button></label>" +
-      "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
+      "<div class=\"letter-attachment-tools\"><label class=\"letter-attach-button\">＋ Anexar mídia/arquivo<input type=\"file\" data-letter-files multiple accept=\"image/*,video/*,audio/*,.pdf,.txt,.csv,.doc,.docx,.rtf\"></label><button type=\"button\" class=\"letter-attach-button\" data-letter-record>● Gravar áudio</button><button type=\"button\" class=\"letter-attach-button\" data-letter-stop-record disabled>Parar gravação</button><span data-letter-record-status role=\"status\"></span><div data-letter-attachment-list></div></div>" +\n      "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
       "<p class=\"form-status\" data-community-letter-compose-status role=\"status\" aria-live=\"polite\"></p>" +
     "</form></section>" +
     "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
@@ -118,9 +118,9 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas antigas</button></nav>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
-      letters.filter((letter) => letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + rowsMarkup(letters, userId, false) + "</div></section>" +
+      letters.filter((letter) => isAdmin || letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + rowsMarkup(letters, userId, false) + "</div></section>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
-      letters.filter((letter) => letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true) + "</div></section>" +
+      letters.filter((letter) => isAdmin || letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true) + "</div></section>" +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
