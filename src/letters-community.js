@@ -102,7 +102,7 @@ function adminRowsMarkup(letters, direction = "all") {
     return "<article class=\"community-letter-row\"><div class=\"community-letter-meta\"><strong>" + escapeHtml(label) + "</strong><span>" + escapeHtml(letter.subject) + " · De " + escapeHtml(displayName(letter.sender)) + " → Para " + escapeHtml(displayName(letter.recipient)) + " · " + escapeHtml(dateLabel(letter.created_at)) + (letter.is_protected ? " · protegida" : "") + "</span></div><button type=\"button\" class=\"text-button\" data-open-community-letter=\"" + escapeHtml(letter.id) + "\">Abrir</button><button type=\"button\" class=\"text-button\" data-admin-edit-community-letter=\"" + escapeHtml(letter.id) + "\">Editar</button><button type=\"button\" class=\"icon-action\" data-admin-delete-community-letter=\"" + escapeHtml(letter.id) + "\" aria-label=\"Excluir carta como administrador\">" + icon("trash") + "</button></article>";
   }).join("");
 }
-export function communityLettersMarkup(letters, profiles, userId, isAdmin = false) {
+export function communityLettersMarkup(letters, profiles, userId, isAdmin = false, hasOriginalCards = true) {
   const options = (profiles || []).filter((profile) => profile.id !== userId)
     .map((profile) => "<option value=\"" + escapeHtml(profile.id) + "\">" + escapeHtml(displayName(profile)) +
       " (@" + escapeHtml(profile.username) + ")</option>").join("");
@@ -121,7 +121,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
     "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
       "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
-      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button>" + (isAdmin ? "<button type=\"button\" data-letter-collection-select=\"admin-all\" aria-pressed=\"false\">Todas as cartas (admin)</button>" : "") + "</nav>" +
+      (isAdmin || hasOriginalCards ? "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button>" : "") + (isAdmin ? "<button type=\"button\" data-letter-collection-select=\"admin-all\" aria-pressed=\"false\">Todas as cartas (admin)</button>" : "") + "</nav>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
       letters.filter((letter) => letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + rowsMarkup(letters, userId, false) + "</div></section>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
