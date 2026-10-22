@@ -74,8 +74,8 @@ export function matchesLetterDate(letter, dateValue) {
   const key = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
   return key === dateValue;
 }
-function dateFilterMarkup(kind, label) {
-  return `<div class="community-letter-date-controls"><label for="letter-date-${kind}">Consultar por data</label><div><input id="letter-date-${kind}" type="date" data-letter-date-filter="${kind}" aria-label="Filtrar cartas ${label} por data"><button class="text-button" type="button" data-clear-letter-date="${kind}">Limpar</button></div><div class="calendar-panel is-open" id="communityCalendar-${kind}" aria-hidden="false"><div class="calendar-card"><div class="calendar-head"><div class="calendar-month" data-community-calendar-month="${kind}">Calendário</div><div class="calendar-nav"><button type="button" data-community-calendar-nav="${kind}" data-month-step="-1" aria-label="Mês anterior">‹</button><button type="button" data-community-calendar-nav="${kind}" data-month-step="1" aria-label="Próximo mês">›</button></div></div><div class="weekdays" aria-hidden="true"><span class="weekday">Dom</span><span class="weekday">Seg</span><span class="weekday">Ter</span><span class="weekday">Qua</span><span class="weekday">Qui</span><span class="weekday">Sex</span><span class="weekday">Sáb</span></div><div class="calendar-grid" data-community-calendar-grid="${kind}" aria-label="Calendário das cartas"></div><div class="calendar-foot"><span><strong>•</strong> dia com cartas</span><span data-community-calendar-info="${kind}">Selecione uma data</span></div></div></div><p data-letter-date-status="${kind}" role="status" aria-live="polite"></p></div>`;
+function dateFilterMarkup(kind) {
+  return `<input type="hidden" data-letter-date-filter="${kind}"><p data-letter-date-status="${kind}" role="status" aria-live="polite"></p>`;
 }
 function rowMarkup(letter, own) {
   const peer = own ? letter.recipient : letter.sender;
@@ -118,7 +118,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
       "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
       "<p class=\"form-status\" data-community-letter-compose-status role=\"status\" aria-live=\"polite\"></p>" +
     "</form></section>" +
-    "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
+     "<input type=\"hidden\" data-shared-original-date>" +\n     "<section class=\"panel shared-letter-calendar\" aria-label=\"Calendário de cartas\"><div class=\"filters\"><button class=\"filter-button\" type=\"button\" data-card-calendar-toggle aria-controls=\"archiveCalendar\" aria-expanded=\"false\">Filtrar por data</button><button class=\"filter-button\" type=\"button\" data-shared-clear-date>Limpar data</button></div><div class=\"calendar-panel\" id=\"archiveCalendar\" aria-hidden=\"true\"><div class=\"calendar-card\"><div class=\"calendar-head\"><div class=\"calendar-month\" data-calendar-month>Calendário</div><div class=\"calendar-nav\"><button type=\"button\" data-calendar=\"previous\" aria-label=\"Mês anterior\">‹</button><button type=\"button\" data-calendar=\"next\" aria-label=\"Próximo mês\">›</button></div></div><div class=\"weekdays\" aria-hidden=\"true\"><span class=\"weekday\">Dom</span><span class=\"weekday\">Seg</span><span class=\"weekday\">Ter</span><span class=\"weekday\">Qua</span><span class=\"weekday\">Qui</span><span class=\"weekday\">Sex</span><span class=\"weekday\">Sáb</span></div><div class=\"calendar-grid\" data-calendar-grid aria-label=\"Calendário das cartas\"></div><div class=\"calendar-foot\"><span><strong>•</strong> dia com cartas</span><span data-calendar-info>Selecione um dia com cartas</span></div></div></div></section>" +\n    "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
       "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
       (isAdmin || hasOriginalCards ? "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button>" : "") + (isAdmin ? "<button type=\"button\" data-letter-collection-select=\"admin-all\" aria-pressed=\"false\">Todas as cartas (admin)</button>" : "") + "</nav>" +
@@ -135,7 +135,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
       "<button class=\"primary-button compact-button\" type=\"submit\">Desbloquear</button><p class=\"form-status\" data-community-letter-unlock-status role=\"status\" aria-live=\"polite\"></p></form>" +
       "<pre class=\"community-letter-body\" data-community-letter-body hidden></pre><div data-community-letter-attachments></div></div></dialog>";
 }
-export function bindCommunityLetters(root, client, user, profiles, initialLetters, isAdmin = false) {
+export function bindCommunityLetters(root, client, user, profiles, initialLetters, isAdmin = false, originalCards = []) {
   let letters = [...initialLetters];
   let selectedAttachments = [];
   let audioRecorder = null;
@@ -206,26 +206,37 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     const adminStatus = root.querySelector('[data-letter-date-status="admin-all"]');
     if (adminStatus) adminStatus.textContent = adminDate ? `${letters.filter((letter) => matchesLetterDate(letter, adminDate)).length} carta(s) nesta data.` : "";
   };
-  const calendarMonths = { received: new Date(), sent: new Date(), "admin-all": new Date() };
+  let calendarMonth = firstDayOfMonth(originalCards.find((item) => item.date)?.date || new Date());
   const localISO = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-  const renderCommunityCalendar = (kind) => {
-    const grid = root.querySelector(`[data-community-calendar-grid="${kind}"]`), label = root.querySelector(`[data-community-calendar-month="${kind}"]`), input = root.querySelector(`[data-letter-date-filter="${kind}"]`), info = root.querySelector(`[data-community-calendar-info="${kind}"]`);
+  const activeCollection = () => root.dataset.activeLetterCollection || "received";
+  const currentCollectionItems = () => {
+    const kind = activeCollection();
+    if (kind === "legacy") return originalCards;
+    if (kind === "admin-all") return letters;
+    return letters.filter((letter) => kind === "received" ? letter.recipient_id === user.id : letter.sender_id === user.id);
+  };
+  const renderCommunityCalendar = () => {
+    const grid = root.querySelector("[data-calendar-grid]"), label = root.querySelector("[data-calendar-month]"), info = root.querySelector("[data-calendar-info]");
     if (!grid || !label) return;
-    const month = firstDayOfMonth(calendarMonths[kind]), year = month.getFullYear(), monthIndex = month.getMonth();
+    const month = firstDayOfMonth(calendarMonth), year = month.getFullYear(), monthIndex = month.getMonth(), kind = activeCollection();
+    const input = root.querySelector(`[data-letter-date-filter="${kind}"]`);
+    const selectedDate = kind === "legacy" ? (root.querySelector("[data-shared-original-date]")?.value || "") : (input?.value || "");
     label.textContent = formatMonthYear(month);
     grid.replaceChildren();
     for (let blank = 0; blank < month.getDay(); blank++) { const spacer = document.createElement("span"); spacer.className = "calendar-blank"; grid.append(spacer); }
-    const relevant = letters.filter((letter) => kind === "admin-all" ? isAdmin : (kind === "received" ? letter.recipient_id === user.id : letter.sender_id === user.id));
-    const datesWithLetters = new Set(relevant.map((letter) => { const date = new Date(letter.created_at); return Number.isNaN(date.valueOf()) ? "" : localISO(date); }).filter(Boolean));
+    const datesWithLetters = new Set(currentCollectionItems().map((item) => {
+      const date = item.date ? new Date(item.date) : new Date(item.created_at);
+      return Number.isNaN(date.valueOf()) ? "" : localISO(date);
+    }).filter(Boolean));
     for (let day = 1, dayCount = new Date(year, monthIndex + 1, 0).getDate(); day <= dayCount; day++) {
       const date = new Date(year, monthIndex, day, 12), iso = localISO(date), hasLetters = datesWithLetters.has(iso), button = document.createElement("button");
-      button.type = "button"; button.className = "calendar-day" + (hasLetters ? " has-cards" : "") + (input?.value === iso ? " selected" : "");
-      button.dataset.communityCalendarDate = iso; button.dataset.communityCalendarKind = kind; button.disabled = !hasLetters; button.textContent = String(day);
+      button.type = "button"; button.className = `calendar-day${hasLetters ? " has-cards" : ""}${selectedDate === iso ? " is-selected" : ""}`;
+      button.dataset.calendarDate = iso; button.disabled = !hasLetters; button.textContent = String(day);
       button.setAttribute("aria-label", day + " de " + label.textContent + (hasLetters ? ", com cartas" : ", sem cartas")); grid.append(button);
     }
-    if (info) info.innerHTML = input?.value ? "Filtrado por " + escapeHtml(input.value) : "Selecione um dia com cartas";
+    if (info) info.textContent = selectedDate ? "Filtrado por " + formatShort(new Date(selectedDate + "T12:00:00")) : "Selecione um dia com cartas";
   };
-  const renderCalendars = () => { renderCommunityCalendar("received"); renderCommunityCalendar("sent"); if (isAdmin) renderCommunityCalendar("admin-all"); };
+  const renderCalendars = () => renderCommunityCalendar();
   const reload = async () => { letters = await loadCommunityLetters(client, user.id, isAdmin); renderLists(); };
   const fileInput = root.querySelector("[data-letter-files]");
   const attachmentList = root.querySelector("[data-letter-attachment-list]");
@@ -286,18 +297,24 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     passwordInput.required = enabled;
   });
   root.addEventListener("click", async (event) => {
-    const calendarNav = event.target.closest("[data-community-calendar-nav]");
-    if (calendarNav) { const kind = calendarNav.dataset.communityCalendarNav, step = Number(calendarNav.dataset.monthStep) || 0; calendarMonths[kind] = new Date(calendarMonths[kind].getFullYear(), calendarMonths[kind].getMonth() + step, 1, 12); renderCommunityCalendar(kind); return; }
-    const calendarDay = event.target.closest("[data-community-calendar-date]");
-    if (calendarDay) { const kind = calendarDay.dataset.communityCalendarKind, input = root.querySelector(`[data-letter-date-filter="${kind}"]`); if (input) input.value = calendarDay.dataset.communityCalendarDate; renderLists(); return; }
-    const clearDate = event.target.closest("[data-clear-letter-date]");
-    if (clearDate) {
-      const input = root.querySelector(`[data-letter-date-filter="${clearDate.dataset.clearLetterDate}"]`);
-      if (input) input.value = "";
-      calendarMonths[clearDate.dataset.clearLetterDate] = new Date();
-      renderLists();
-      return;
+    const calendarNav = event.target.closest("[data-calendar]");
+    if (calendarNav) { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + (calendarNav.dataset.calendar === "next" ? 1 : -1), 1, 12); renderCommunityCalendar(); return; }
+    const calendarDay = event.target.closest("[data-calendar-date]");
+    if (calendarDay) {
+      const kind = activeCollection();
+      if (kind === "legacy") root.querySelector("[data-shared-original-date]").value = calendarDay.dataset.calendarDate;
+      else { const input = root.querySelector(`[data-letter-date-filter="${kind}"]`); if (input) input.value = calendarDay.dataset.calendarDate; }
+      renderLists(); return;
     }
+    const clearDate = event.target.closest("[data-shared-clear-date]");
+    if (clearDate) {
+      const kind = activeCollection();
+      if (kind === "legacy") { root.querySelector("[data-shared-original-date]").value = ""; root.querySelector('[data-card-filter="all"]')?.click(); }
+      else { const input = root.querySelector(`[data-letter-date-filter="${kind}"]`); if (input) input.value = ""; renderLists(); }
+      renderCommunityCalendar(); return;
+    }
+    const calendarToggle = event.target.closest("[data-card-calendar-toggle]");
+    if (calendarToggle) { const panel = root.querySelector("#archiveCalendar"); const open = panel?.getAttribute("aria-hidden") !== "false"; if (panel) { panel.setAttribute("aria-hidden", String(!open)); panel.classList.toggle("is-open", open); } calendarToggle.setAttribute("aria-expanded", String(open)); return; }
     const closeEdit = event.target.closest("[data-close-community-edit]");
     if (closeEdit) { editDialog?.close(); editingLetter = null; return; }
     const editButton = event.target.closest("[data-admin-edit-community-letter]");
