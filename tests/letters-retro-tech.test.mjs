@@ -73,13 +73,25 @@ test("administrator markup can list all private and public community letters", (
   assert.match(markup, /Cartas originais/);
 });
 
-test("sent and received letter calendars mark days containing letters and admin rows identify recipients", async () => {
-  const [markup, css, archive] = await Promise.all([read("src/letters-community.js"), read("assets/css/pages/letters.css"), read("src/archived-cards.js")]);
-  assert.match(markup, /data-community-calendar-grid/);
-  assert.match(markup, /data-community-calendar-date/);
-  assert.match(markup, /calendar-day/);\n  assert.match(markup, /data-community-calendar-info/);
-  assert.match(markup, /Carta para /);
-  assert.match(markup, /Carta de /);
-  assert.match(css, /community-date-calendar-grid button\.has-letters::after/);
-  assert.match(archive, /Carta para /);\n  assert.match(markup, /letter\\.recipient_id === user\\.id/);\n  assert.match(markup, /letter\\.sender_id === user\\.id/);\n  assert.match(markup, /data-letter-collection-panel=\\\\\"admin-all/);
+test("letters share the original calendar, keep inbox/outbox personal, hide empty originals, and expose admin edit and protected-card hints", async () => {
+  const [markup, archive, page, css, migration] = await Promise.all([
+    read("src/letters-community.js"), read("src/archived-cards.js"), read("assets/js/letters.js"),
+    read("assets/css/pages/letters.css"), read("supabase/migrations/20261022194500_archived_card_password_hints.sql")
+  ]);
+  assert.match(markup, /shared-letter-calendar/);
+  assert.match(markup, /data-calendar-grid/);
+  assert.doesNotMatch(markup, /data-community-calendar-grid/);
+  assert.match(markup, /letter\.recipient_id === userId/);
+  assert.match(markup, /letter\.sender_id === userId/);
+  assert.match(markup, /isAdmin \|\| hasOriginalCards/);
+  assert.match(markup, /data-admin-edit-community-letter/);
+  assert.match(markup, /data-community-letter-edit-form/);
+  assert.match(markup, /Salvar alterações/);
+  assert.match(archive, /data-card-hint-form/);
+  assert.match(archive, /data-calendar-date/);
+  assert.doesNotMatch(archive, /id="archiveCalendar"/);
+  assert.match(page, /archiveResult\.value\.cards/);
+  assert.match(css, /calendar-card/);
+  assert.match(migration, /guard_archived_card_hint_update/);
+  assert.match(migration, /archived_cards_recipient_hint_update/);
 });
