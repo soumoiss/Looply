@@ -117,7 +117,7 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
     "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
       "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
-      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas antigas</button></nav>" +
+      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button></nav>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
       letters.filter((letter) => isAdmin || letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + (isAdmin ? adminRowsMarkup(letters) : rowsMarkup(letters, userId, false)) + "</div></section>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
