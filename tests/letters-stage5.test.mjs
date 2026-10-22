@@ -18,7 +18,7 @@ test("protected letters accept 1, 2 and long non-whitespace passwords and round-
 });
 
 test("protected letters reject whitespace in passwords without imposing an arbitrary length limit", async () => {
-  for (const password of [" ", "a b", "a\tb", "a\\nb"]) {
+  for (const password of [" ", "a b", "a\tb", "a\nb"]) {
     await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
 });
@@ -88,8 +88,7 @@ test("community letters appear in the audited admin reader and imported archive 
   assert.match(admin, /sealLetter\(body, password, subject\)/);
   assert.match(edge, /resourceType === "community_letters"/);
   assert.match(edge, /service\.from\("community_letters"\)[\s\S]*?\.range\(offset, offset \+ 99\)/);
-  assert.doesNotMatch(edge, /select\([^
-]*password_ciphertext/);
+  assert.doesNotMatch(edge, /select\([^\n]*password_ciphertext/);
   assert.match(edge, /action === "update_community_letter"[\s\S]*?passwordCiphertext[\s\S]*?\.update\(\{ subject, body, is_protected: isProtected/);
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed", "community_letters"/);
   assert.match(archive, /Enviada por Peixinho · ADM/);
