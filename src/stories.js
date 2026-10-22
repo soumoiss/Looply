@@ -576,6 +576,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const author = story.author || state.active.author || {};
     const media = Array.isArray(story.media) ? story.media[0] : story.media;
     const mediaUrl = rawSignedUrl(media?.signedUrl);
+    viewer.classList.toggle("story-viewer-text-only", !media && Boolean(String(story.body || "").trim()));
     viewer.querySelector("[data-story-viewer-name]").textContent = profileName(author);
     const storyTime = viewer.querySelector("[data-story-viewer-time]");
     const timeLabels = storyTimeLabels(story.created_at);

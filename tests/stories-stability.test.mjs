@@ -69,6 +69,14 @@ test("story captions overlay the full-ratio media with a transparent gradient an
   assert.match(css, /story-viewer-caption:empty\s*\{\s*display:\s*none/);
 });
 
+test("text-only stories center their copy vertically and horizontally without changing media captions", async () => {
+  const source = await read("src/stories.js");
+  const css = await read("assets/css/pages/home.css");
+  assert.match(source, /viewer\.classList\.toggle\("story-viewer-text-only", !media && Boolean\(String\(story\.body \|\| ""\)\.trim\(\)\)\)/);
+  assert.match(css, /\.story-viewer-dialog\.story-viewer-text-only \.story-viewer-caption\s*\{[^}]*top:\s*50%;[^}]*bottom:\s*auto;[^}]*text-align:\s*center;[^}]*transform:\s*translateY\(-50%\)/);
+  assert.match(css, /font-size:\s*20pt/);
+});
+
 test("story media retries signed URLs per object and exposes a retry control when media is unavailable", async () => {
   const source = await read("src/stories.js");
   assert.match(source, /createSignedUrl\(item\.storage_path, remainingTtl\)/);
