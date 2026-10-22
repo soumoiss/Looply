@@ -50,3 +50,7 @@
 .card-check { display:inline-flex; align-items:center; justify-content:center; min-width:40px; min-height:40px; border:1px solid var(--line); border-radius:50%; color:var(--muted); background:var(--surface); cursor:pointer; }
 .card-check.is-read { color:var(--primary); border-color:var(--primary); }
 .card-check svg { display:block; }
+.page-letters .letter-collection-switcher { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+.page-letters .letter-collection-switcher button { min-height:42px; padding:9px 14px; border:1px solid var(--line, #ded5e8); border-radius:999px; background:var(--surface, #fff); color:var(--text, #332d38); font:inherit; cursor:pointer; }
+.page-letters .letter-collection-switcher button.active, .page-letters .letter-collection-switcher button[aria-pressed="true"] { background:var(--accent, #8154a4); border-color:var(--accent, #8154a4); color:#fff; }
+.page-letters [data-letter-collection-panel][hidden] { display:none !important; }

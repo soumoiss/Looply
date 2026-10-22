@@ -26,7 +26,7 @@ function titleFromBody(body) {
 }
 
 export function archivedCardsMarkup() {
-  return `<section class="panel home-card archived-cards" aria-label="Minhas cartas">
+  return `<section class="panel home-card archived-cards" data-letter-collection-panel="legacy" hidden aria-label="Cartas antigas da coleção">
     <div class="overview">
       <div class="overview-card"><div class="overview-label">Coleção</div><div class="lista-titulo">Minhas Cartas</div><div class="collection-note" data-card-collection-note>Carregando cartas…</div></div>
       <div class="contador" data-card-read-count>0/0 lidas</div>

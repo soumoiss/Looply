@@ -1,7 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
-import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js";
+import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=story-audio-20261022";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
 

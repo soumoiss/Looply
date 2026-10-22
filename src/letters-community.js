@@ -108,9 +108,13 @@ export function communityLettersMarkup(letters, profiles, userId) {
       "<button class=\"primary-button compact-button\" type=\"submit\">" + icon("send") + " Enviar carta</button>" +
       "<p class=\"form-status\" data-community-letter-compose-status role=\"status\" aria-live=\"polite\"></p>" +
     "</form></section>" +
-    "<section class=\"panel community-letter-collection\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
+    "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
+      "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
+      "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
+      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas antigas</button></nav>" +
+    "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
       letters.filter((letter) => letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + rowsMarkup(letters, userId, false) + "</div></section>" +
-    "<section class=\"panel community-letter-collection\" aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
+    "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
       letters.filter((letter) => letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + rowsMarkup(letters, userId, true) + "</div></section>" +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +

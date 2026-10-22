@@ -35,6 +35,33 @@ test("received and sent letters can be filtered by their local calendar date and
   assert.match(markup, /data-clear-letter-date="received"/);
 });
 
+test("My Letters presents received, sent, and imported archive cards in one switchable collection", async () => {
+  const [community, archive, page] = await Promise.all([
+    readFile(resolve(root, "src/letters-community.js"), "utf8"),
+    readFile(resolve(root, "src/archived-cards.js"), "utf8"),
+    readFile(resolve(root, "assets/js/letters.js"), "utf8")
+  ]);
+  const markup = communityLettersMarkup([], [], "current-user");
+  for (const name of ["received", "sent", "legacy"]) {
+    assert.match(markup + archive, new RegExp(`data-letter-collection-(?:select|panel)=\\"${name}\\"`));
+  }
+  assert.match(page, /panel\.hidden = panel\.dataset\.letterCollectionPanel !== collection/);
+  assert.match(archive, /data-letter-collection-panel="legacy" hidden/);
+  assert.match(page, /archivedCardsMarkup\(\)/);
+});
+
+test("story music uses a user-selected local audio file and produces an existing video media type", async () => {
+  const story = await readFile(resolve(root, "src/stories.js"), "utf8");
+  const styles = await readFile(resolve(root, "assets/css/pages/home.css"), "utf8");
+  assert.match(story, /id="storyMusic" name="music" type="file" accept="audio\/\*"/);
+  assert.match(story, /trecho de até 15 segundos/);
+  assert.match(story, /createPhotoStoryWithMusic\(media, state\.musicFile/);
+  assert.match(story, /new File\(\[video\], `story-music-\$\{Date\.now\(\)\}\.webm`, \{ type: "video\/webm"/);
+  assert.match(story, /story_music_unsupported/);
+  assert.match(styles, /story-music-picker/);
+  assert.doesNotMatch(story, /api\.deezer\.com|api\.spotify\.com|audio.*proxy/i);
+});
+
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {
   const [page, community, archive, migration, css] = await Promise.all([
     readFile(resolve(root, "assets/js/letters.js"), "utf8"),

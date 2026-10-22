@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=letters-date-calendar-20261022";
+import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=unified-letter-collection-20261022";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=unified-letter-collection-20261022";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -29,6 +29,19 @@ function writtenLettersMarkup(letters, userId) {
       "<a class=\"text-button\" href=\"conversa.html?id=" + encodeURIComponent(letter.conversation_id) + "\">Abrir conversa</a></article>";
   }).join("");
 }
+function bindLetterCollectionSwitcher(root) {
+  const buttons = [...root.querySelectorAll("[data-letter-collection-select]")];
+  const panels = [...root.querySelectorAll("[data-letter-collection-panel]")];
+  for (const button of buttons) button.addEventListener("click", () => {
+    const collection = button.dataset.letterCollectionSelect;
+    for (const toggle of buttons) {
+      const selected = toggle === button;
+      toggle.setAttribute("aria-pressed", String(selected));
+      toggle.classList.toggle("active", selected);
+    }
+    for (const panel of panels) panel.hidden = panel.dataset.letterCollectionPanel !== collection;
+  });
+}
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
   const [archiveResult, communityResult, profilesResult] = await Promise.allSettled([
     loadArchivedCards(client, user.id), loadCommunityLetters(client, user.id),
@@ -37,6 +50,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   const communityLetters = communityResult.status === "fulfilled" ? communityResult.value : [];
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
   root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id) + archivedCardsMarkup();
+  bindLetterCollectionSwitcher(root);
   if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters);
   else {
     console.error("Looply community letters load failed", communityResult.reason);

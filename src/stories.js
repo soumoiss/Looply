@@ -253,6 +253,11 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<label class="story-file-picker" for="storyMedia">Escolher arquivo ou tirar foto</label>' +
           '<button class="text-button" type="button" data-story-camera-open>Usar câmera</button></div></div>' +
         '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" capture="environment">' +
+        '<div class="story-music-picker"><label for="storyMusic">Música do seu dispositivo <small>(trecho de até 15 segundos, somente em foto)</small></label>' +
+          '<input id="storyMusic" name="music" type="file" accept="audio/*"><div data-story-music-tools hidden>' +
+          '<audio controls preload="metadata" data-story-music-preview></audio><label for="storyMusicStart">Início do trecho <span data-story-music-time>0:00–0:15</span></label>' +
+          '<input id="storyMusicStart" type="range" min="0" max="0" step="1" value="0" data-story-music-start aria-label="Escolher início do trecho musical"></div>' +
+          '<p class="story-music-note">Use um arquivo de áudio que você tenha direito de compartilhar. A música será incorporada à foto como vídeo.</p></div>' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video>' +
           '<div class="story-camera-actions"><button class="text-button" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">Alternar câmera</button>' +
@@ -337,6 +342,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const state = {
     groups: groupActiveStories(initialStories), active: null, index: 0, timer: null, previewUrl: null,
     viewedThisSession: new Set(), likedStories: new Set(), cameraStream: null, cameraFacing: "environment", mediaRecorder: null,
+    musicFile: null, musicDuration: 0, musicPreviewUrl: null,
     recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0, paused: false
   };
   const showStatus = (message, isError = false) => {
@@ -382,6 +388,84 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     transfer.items.add(new File([blob], filename, { type: normalizedType, lastModified: Date.now() }));
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const formatMusicTime = (seconds) => {
+    const value = Math.max(0, Math.floor(Number(seconds) || 0));
+    return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+  };
+  const renderMusicCrop = () => {
+    const tools = root.querySelector("[data-story-music-tools]");
+    const start = root.querySelector("[data-story-music-start]");
+    const label = root.querySelector("[data-story-music-time]");
+    if (!tools || !start || !label || !state.musicFile) return;
+    const maxStart = Math.max(0, Math.floor(state.musicDuration - 15));
+    start.max = String(maxStart);
+    start.value = String(Math.min(Number(start.value) || 0, maxStart));
+    label.textContent = `${formatMusicTime(start.value)}–${formatMusicTime(Math.min(state.musicDuration, Number(start.value) + 15))}`;
+    tools.hidden = false;
+  };
+  const createPhotoStoryWithMusic = async (imageFile, audioFile, startSeconds) => {
+    if (!HTMLCanvasElement.prototype.captureStream || typeof MediaRecorder !== "function") throw new Error("story_music_unsupported");
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType) throw new Error("story_music_unsupported");
+    const bitmap = await createImageBitmap(imageFile);
+    const canvas = document.createElement("canvas");
+    canvas.width = 720; canvas.height = 1280;
+    const context = canvas.getContext("2d", { alpha: false });
+    const scale = Math.max(canvas.width / bitmap.width, canvas.height / bitmap.height);
+    const width = bitmap.width * scale, height = bitmap.height * scale;
+    context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    let frameRequest = 0;
+    const paintFrame = () => {
+      context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+      frameRequest = requestAnimationFrame(paintFrame);
+    };
+    frameRequest = requestAnimationFrame(paintFrame);
+    const audioContext = new AudioContextType();
+    const audio = new Audio(URL.createObjectURL(audioFile));
+    const stream = canvas.captureStream(30);
+    const audioDestination = audioContext.createMediaStreamDestination();
+    let source;
+    let recorder;
+    const chunks = [];
+    try {
+      if (audio.readyState < 1) await new Promise((resolve, reject) => {
+        audio.addEventListener("loadedmetadata", resolve, { once: true });
+        audio.addEventListener("error", () => reject(new Error("story_music_invalid")), { once: true });
+        audio.load();
+      });
+      await audioContext.resume();
+      audio.currentTime = Math.max(0, Number(startSeconds) || 0);
+      source = audioContext.createMediaElementSource(audio);
+      source.connect(audioDestination);
+      source.connect(audioContext.destination);
+      const output = new MediaStream([...stream.getVideoTracks(), ...audioDestination.stream.getAudioTracks()]);
+      const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
+        .find((type) => MediaRecorder.isTypeSupported?.(type));
+      if (!mimeType) throw new Error("story_music_unsupported");
+      recorder = new MediaRecorder(output, { mimeType });
+      const result = new Promise((resolve, reject) => {
+        recorder.addEventListener("dataavailable", (event) => { if (event.data?.size) chunks.push(event.data); });
+        recorder.addEventListener("error", () => reject(new Error("story_music_encode_failed")), { once: true });
+        recorder.addEventListener("stop", () => resolve(new Blob(chunks, { type: recorder.mimeType || mimeType })), { once: true });
+      });
+      await audio.play();
+      recorder.start(250);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(15000, Math.max(1000, (audio.duration - audio.currentTime) * 1000))));
+      if (recorder.state !== "inactive") recorder.stop();
+      const video = await result;
+      if (!video.size) throw new Error("story_music_encode_failed");
+      return new File([video], `story-music-${Date.now()}.webm`, { type: "video/webm", lastModified: Date.now() });
+    } finally {
+      audio.pause();
+      URL.revokeObjectURL(audio.src);
+      cancelAnimationFrame(frameRequest);
+      bitmap.close?.();
+      stream.getTracks().forEach((track) => track.stop());
+      audioDestination.stream.getTracks().forEach((track) => track.stop());
+      source?.disconnect();
+      await audioContext.close().catch(() => {});
+    }
   };
   const startCamera = async (facingMode = state.cameraFacing) => {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("camera_unavailable");
@@ -837,7 +921,35 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       else item.alt = "Prévia do story";
       preview.append(item);
     }
+    if (event.target.matches("#storyMusic")) {
+      const file = event.target.files?.[0];
+      const tools = root.querySelector("[data-story-music-tools]");
+      const audioPreview = root.querySelector("[data-story-music-preview]");
+      if (state.musicPreviewUrl) URL.revokeObjectURL(state.musicPreviewUrl);
+      state.musicFile = file instanceof File && file.type.startsWith("audio/") ? file : null;
+      state.musicDuration = 0;
+      if (tools) tools.hidden = true;
+      if (audioPreview) {
+        audioPreview.removeAttribute("src");
+        audioPreview.load();
+      }
+      if (!state.musicFile) return;
+      state.musicPreviewUrl = URL.createObjectURL(state.musicFile);
+      if (audioPreview) {
+        audioPreview.src = state.musicPreviewUrl;
+        audioPreview.addEventListener("loadedmetadata", () => {
+          state.musicDuration = Number.isFinite(audioPreview.duration) ? audioPreview.duration : 0;
+          renderMusicCrop();
+        }, { once: true });
+        audioPreview.addEventListener("error", () => {
+          showStatus("Não foi possível abrir esse arquivo de áudio.", true);
+          state.musicFile = null;
+        }, { once: true });
+        audioPreview.load();
+      }
+    }
   });
+  root.querySelector("[data-story-music-start]")?.addEventListener("input", renderMusicCrop);
 
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-create-open]")) {
@@ -1128,7 +1240,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const formData = new FormData(form);
       const body = String(formData.get("body") || "").trim().slice(0, 1000);
       const file = formData.get("media");
-      const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
+      let media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
+      if (state.musicFile) {
+        if (!media || !media.type.startsWith("image/")) throw new Error("story_music_requires_photo");
+        setFormStatus(form, "Combinando a foto e o trecho musical…");
+        const composed = await createPhotoStoryWithMusic(media, state.musicFile, root.querySelector("[data-story-music-start]")?.value);
+        media = normalizePublicationMedia(composed);
+      }
       const visibility = String(formData.get("visibility") || "public");
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
       if (file instanceof File && file.size && !media) throw new Error("invalid_media");
@@ -1166,6 +1284,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
 
       form.reset();
+      if (state.musicPreviewUrl) URL.revokeObjectURL(state.musicPreviewUrl);
+      state.musicPreviewUrl = null; state.musicFile = null; state.musicDuration = 0;
+      const musicTools = root.querySelector("[data-story-music-tools]");
+      if (musicTools) musicTools.hidden = true;
       closeStoryDialog(createDialog);
       await refresh();
       showStatus("Story publicado. Ele expira após 24 horas.");
@@ -1173,7 +1295,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       console.error("Looply story creation failed.", error);
       if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
       if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
-      const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
+      const message = error?.message === "story_music_requires_photo" ? "Para adicionar música, selecione uma foto; vídeos prontos ainda não podem receber outra faixa."
+        : error?.message === "story_music_unsupported" ? "Este navegador não oferece gravação de vídeo com áudio. Publique a foto sem música ou use um navegador compatível."
+          : error?.message === "story_music_invalid" ? "Não foi possível ler o arquivo de áudio selecionado. Escolha outro arquivo."
+            : error?.message === "story_music_encode_failed" ? "Não foi possível combinar a foto e o áudio. Tente outro arquivo ou navegador."
+              : error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
         : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 100 MB."
           : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
             : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
