@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=retro-tech-admin-media-20261022";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=retro-tech-admin-media-20261022";
+import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=shared-calendar-admin-edit-hints-20261022";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=shared-calendar-admin-edit-hints-20261022";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -30,16 +30,19 @@ function writtenLettersMarkup(letters, userId) {
   }).join("");
 }
 function bindLetterCollectionSwitcher(root) {
-  root.dataset.activeLetterCollection = "received";\n  const buttons = [...root.querySelectorAll("[data-letter-collection-select]")];
+  root.dataset.activeLetterCollection = "received";
+  const buttons = [...root.querySelectorAll("[data-letter-collection-select]")];
   const panels = [...root.querySelectorAll("[data-letter-collection-panel]")];
   for (const button of buttons) button.addEventListener("click", () => {
-    const collection = button.dataset.letterCollectionSelect;\n    root.dataset.activeLetterCollection = collection;
+    const collection = button.dataset.letterCollectionSelect;
+    root.dataset.activeLetterCollection = collection;
     for (const toggle of buttons) {
       const selected = toggle === button;
       toggle.setAttribute("aria-pressed", String(selected));
       toggle.classList.toggle("active", selected);
     }
-    for (const panel of panels) panel.hidden = panel.dataset.letterCollectionPanel !== collection;\n    root.dispatchEvent(new CustomEvent("looply:letter-collection-change"));
+    for (const panel of panels) panel.hidden = panel.dataset.letterCollectionPanel !== collection;
+    root.dispatchEvent(new CustomEvent("looply:letter-collection-change"));
   });
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
