@@ -239,6 +239,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     if (info) info.textContent = selectedDate ? "Filtrado por " + formatShort(new Date(selectedDate + "T12:00:00")) : "Selecione um dia com cartas";
   };
   const renderCalendars = () => renderCommunityCalendar();
+  root.addEventListener("looply:letter-collection-change", () => renderCommunityCalendar());
   const reload = async () => { letters = await loadCommunityLetters(client, user.id, isAdmin); renderLists(); };
   const fileInput = root.querySelector("[data-letter-files]");
   const attachmentList = root.querySelector("[data-letter-attachment-list]");
