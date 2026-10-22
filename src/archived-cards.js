@@ -349,6 +349,7 @@ export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmi
     }
     const dateButton = event.target.closest("[data-calendar-date]");
     if (dateButton) {
+      if (root.dataset.activeLetterCollection !== "legacy") return;
       state.filter = "date";
       state.filterDate = dateButton.dataset.calendarDate;
       root.querySelectorAll("[data-card-filter]").forEach((button) => {
