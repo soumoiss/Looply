@@ -30,16 +30,16 @@ function writtenLettersMarkup(letters, userId) {
   }).join("");
 }
 function bindLetterCollectionSwitcher(root) {
-  const buttons = [...root.querySelectorAll("[data-letter-collection-select]")];
+  root.dataset.activeLetterCollection = "received";\n  const buttons = [...root.querySelectorAll("[data-letter-collection-select]")];
   const panels = [...root.querySelectorAll("[data-letter-collection-panel]")];
   for (const button of buttons) button.addEventListener("click", () => {
-    const collection = button.dataset.letterCollectionSelect;
+    const collection = button.dataset.letterCollectionSelect;\n    root.dataset.activeLetterCollection = collection;
     for (const toggle of buttons) {
       const selected = toggle === button;
       toggle.setAttribute("aria-pressed", String(selected));
       toggle.classList.toggle("active", selected);
     }
-    for (const panel of panels) panel.hidden = panel.dataset.letterCollectionPanel !== collection;
+    for (const panel of panels) panel.hidden = panel.dataset.letterCollectionPanel !== collection;\n    root.dispatchEvent(new CustomEvent("looply:letter-collection-change"));
   });
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
@@ -52,7 +52,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   const profiles = profilesResult.status === "fulfilled" ? profilesResult.value.data || [] : [];
   root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id, isAdmin, archiveResult.status === "fulfilled" && archiveResult.value.cards.length > 0) + archivedCardsMarkup();
   bindLetterCollectionSwitcher(root);
-  if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters, isAdmin);
+  if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters, isAdmin, archiveResult.status === "fulfilled" ? archiveResult.value.cards : []);
   else {
     console.error("Looply community letters load failed", communityResult.reason);
     const composer = root.querySelector(".community-letter-compose-panel");
