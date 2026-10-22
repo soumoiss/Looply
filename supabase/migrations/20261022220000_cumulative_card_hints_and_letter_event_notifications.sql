@@ -22,3 +22,14 @@ create or replace function public.looply_notify_new_archived_card() returns trig
 begin if new.recipient_id is not null then insert into public.letter_event_notifications(recipient_id,sender_id,letter_type,letter_id,event_type) values(new.recipient_id,null,'archived_card',new.id,'new_received') on conflict do nothing; end if; return new; end $$;
 drop trigger if exists looply_notify_new_archived_card on public.archived_cards;
 create trigger looply_notify_new_archived_card after insert on public.archived_cards for each row execute function public.looply_notify_new_archived_card();
+create or replace function public.looply_register_recipient_unlock(p_letter_id uuid) returns boolean language plpgsql security definer set search_path = '' as $$
+declare v_sender uuid; v_recipient uuid;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select sender_id,recipient_id into v_sender,v_recipient from public.community_letters where id=p_letter_id and is_protected=true;
+ if not found or v_recipient<>auth.uid() or v_sender=auth.uid() then raise exception 'not_allowed'; end if;
+ insert into public.letter_event_notifications(recipient_id,sender_id,letter_type,letter_id,event_type) values(v_recipient,v_sender,'community_letter',p_letter_id,'recipient_unlocked') on conflict do nothing;
+ return true;
+end $$;
+revoke all on function public.looply_register_recipient_unlock(uuid) from public,anon;
+grant execute on function public.looply_register_recipient_unlock(uuid) to authenticated;

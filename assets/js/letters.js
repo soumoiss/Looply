@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=cumulative-hints-notifications-20261022";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=shared-calendar-admin-edit-hints-20261022";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=cumulative-hints-notifications-20261022";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -56,6 +56,10 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
   root.innerHTML = communityLettersMarkup(communityLetters, profiles, user.id, isAdmin, archiveResult.status === "fulfilled" && archiveResult.value.cards.length > 0) + archivedCardsMarkup();
   bindLetterCollectionSwitcher(root);
   if (communityResult.status === "fulfilled") bindCommunityLetters(root, client, user, profiles, communityLetters, isAdmin, archiveResult.status === "fulfilled" ? archiveResult.value.cards : []);
+  const requestedLetterId=new URLSearchParams(location.search).get("letterId");
+  if(requestedLetterId&&communityLetters.some(l=>l.id===requestedLetterId&&l.recipient_id===user.id))requestAnimationFrame(()=>root.querySelector('[data-open-community-letter="'+CSS.escape(requestedLetterId)+'"]')?.click());
+  const requestedCardId=new URLSearchParams(location.search).get("cardId");
+  if(requestedCardId)requestAnimationFrame(()=>root.querySelector('[data-card-id="'+CSS.escape(requestedCardId)+'"]')?.click());
   else {
     console.error("Looply community letters load failed", communityResult.reason);
     const composer = root.querySelector(".community-letter-compose-panel");

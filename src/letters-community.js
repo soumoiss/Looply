@@ -483,6 +483,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         await reload();
       } else {
         const opened = await openProtectedLetter(activeLetter, String(values.get("password") || ""));
+        if(activeLetter.recipient_id===user.id&&activeLetter.sender_id!==user.id){const {error:eventError}=await client.rpc("looply_register_recipient_unlock",{p_letter_id:activeLetter.id});if(eventError)console.warn("Could not record recipient unlock",eventError);}
         const body = root.querySelector("[data-community-letter-body]");
         body.textContent = opened;
         body.hidden = false;
