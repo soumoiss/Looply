@@ -46,7 +46,7 @@ export function archivedCardsMarkup() {
       <article class="modal-sheet"><header class="modal-header"><div><div class="modal-label">Carta</div><h2 data-archive-card-title id="archiveCardTitle">Carta</h2><div class="modal-date" data-archive-card-date></div><div class="modal-sender">Enviada por Peixinho · ADM</div></div>
         <div class="modal-tools"><button type="button" data-card-previous aria-label="Carta anterior">${icon("back")}</button><button type="button" data-card-next aria-label="Próxima carta">${icon("forward")}</button><button class="modal-close" type="button" data-card-close aria-label="Fechar carta">${icon("close")}</button></div>
       </header>
-      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><form data-card-hint-form hidden style="margin:0 0 16px"><label class="form-label">Adicionar ou atualizar dica<input name="password_hint" maxlength="240" placeholder="Uma dica para lembrar a senha"></label><button class="letter-attach-button" type="submit">Salvar dica</button><p data-card-hint-status role="status"></p></form><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
+      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><form data-card-hint-form hidden style="margin:0 0 16px"><label class="form-label">Adicionar nova dica<input name="password_hint" maxlength="240" placeholder="Uma nova dica para lembrar a senha"></label><button class="letter-attach-button" type="submit">Adicionar dica</button><p data-card-hint-status role="status"></p></form><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
       <div class="modal-text" data-archive-card-text id="archiveCardText" tabindex="0" aria-live="polite"></div><footer class="modal-footer"><button type="button" data-card-close>Fechar carta</button></footer>
       </article>
     </div>
@@ -54,7 +54,7 @@ export function archivedCardsMarkup() {
 }
 
 export async function loadArchivedCards(client, userId, isAdmin = false) {
-  let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
+  let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,password_hints,body,sent_date")
     .order("is_private", { ascending: false }).order("card_number", { ascending: true });
   if (!isAdmin) cardsQuery = cardsQuery.eq("recipient_id", userId);
   const [{ data: cards, error: cardsError }, { data: reads, error: readsError }] = await Promise.all([
@@ -228,11 +228,11 @@ function showCard(root, state, card) {
   const locked = Boolean(card.is_protected && !card.unlocked);
   if (title) title.textContent = locked ? "Carta protegida" : card.is_private ? "Carta privada" : titleFromBody(card.body);
   if (date) date.textContent = card.date ? formatShort(card.date) : "";
-  if (hint) hint.textContent = locked ? (card.password_hint || "") : "";
+  if (hint) hint.textContent = locked ? (Array.isArray(card.password_hints) && card.password_hints.length ? card.password_hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · ") : (card.password_hint || "")) : "";
   const hintForm = $(root, "[data-card-hint-form]");
   if (hintForm) {
     hintForm.hidden = !(card.is_protected && (state.isAdmin || card.recipient_id === state.userId));
-    hintForm.elements.password_hint.value = card.password_hint || "";
+    hintForm.elements.password_hint.value = "";
     const hintStatus = $(root, "[data-card-hint-status]");
     if (hintStatus) hintStatus.textContent = "";
   }
@@ -274,12 +274,16 @@ export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmi
     button.disabled = true;
     try {
       const password_hint = String(new FormData(hintForm).get("password_hint") || "").trim();
-      const { error } = await client.from("archived_cards").update({ password_hint }).eq("id", card.id);
+      if (!password_hint || password_hint.length > 240) throw new Error("Digite uma dica de até 240 caracteres.");
+      const password_hints = [...(Array.isArray(card.password_hints) ? card.password_hints : (card.password_hint ? [card.password_hint] : [])), password_hint];
+      const { error } = await client.from("archived_cards").update({ password_hints, password_hint }).eq("id", card.id);
       if (error) throw error;
+      card.password_hints = password_hints;
       card.password_hint = password_hint;
       const visibleHint = $(root, "[data-archive-card-hint]");
-      if (visibleHint) visibleHint.textContent = password_hint;
-      if (status) status.textContent = "Dica salva.";
+      if (visibleHint) visibleHint.textContent = password_hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · ");
+      hintForm.reset();
+      if (status) status.textContent = "Nova dica adicionada ao histórico.";
     } catch (error) {
       if (status) status.textContent = error?.message || "Não foi possível salvar a dica.";
     } finally { button.disabled = false; }
