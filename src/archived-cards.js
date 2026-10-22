@@ -111,7 +111,7 @@ function renderRows(root, state) {
     row.setAttribute("role", "button");
     const label = card.is_private ? "Carta privada" : "Carta";
     const title = card.is_protected ? (card.is_private ? "Carta privada protegida" : "Carta protegida") : titleFromBody(card.body);
-    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">${state.isAdmin ? "ADM · edição autorizada" : "Enviada por Peixinho · ADM"}</p></div>${state.isAdmin ? `<button type="button" class="icon-action" data-admin-edit-card="${escapeHtml(card.id)}" aria-label="Editar carta original">Editar</button><button type="button" class="icon-action" data-admin-delete-card="${escapeHtml(card.id)}" aria-label="Excluir carta original">Excluir</button>` : ""}<button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
+    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">${state.isAdmin ? "Carta para " + escapeHtml(state.profiles.find((profile) => profile.id === card.recipient_id)?.display_name || state.profiles.find((profile) => profile.id === card.recipient_id)?.username || "destinatário não identificado") : "Enviada por Peixinho · ADM"}</p></div>${state.isAdmin ? `<button type="button" class="icon-action" data-admin-edit-card="${escapeHtml(card.id)}" aria-label="Editar carta original">Editar</button><button type="button" class="icon-action" data-admin-delete-card="${escapeHtml(card.id)}" aria-label="Excluir carta original">Excluir</button>` : ""}<button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
     row.querySelector(".card-title").textContent = title;
     const date = row.querySelector(".card-date");
     date.textContent = card.date ? formatShort(card.date) : "Sem data";
@@ -249,13 +249,13 @@ function showCard(root, state, card) {
   updateModalNavigation(root, state);
 }
 
-export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmin = false) {
+export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmin = false, profiles = []) {
   const state = {
     // The previous Looply collection placed private cards before the numbered cards.
     cards: [...cards].sort((a, b) => Number(b.is_private) - Number(a.is_private) || a.card_number - b.card_number),
     readIds: new Set(reads.map((item) => item.card_id)),
     filter: "all", filterDate: null, calendarMonth: firstDayOfMonth(cards.find((item) => item.date)?.date || new Date()),
-    modalCardId: null, client, userId, isAdmin
+    modalCardId: null, client, userId, isAdmin, profiles
   };
   const status = $(root, "[data-card-load-status]");
   if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.`;
