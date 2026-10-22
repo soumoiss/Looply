@@ -58,7 +58,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user }) => 
     const composer = root.querySelector(".community-letter-compose-panel");
     if (composer) composer.innerHTML = "<p role=\"alert\">Não foi possível carregar as cartas da comunidade.</p>";
   }
-  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value, isAdmin);
+  if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archiveResult.value, isAdmin, profiles);
   else {
     console.error("Looply archive cards load failed", archiveResult.reason);
     root.querySelector("[data-archived-cards]").innerHTML = "<p class=\"archive-media-empty\" role=\"alert\">Não foi possível carregar a coleção arquivada.</p>";
