@@ -121,11 +121,12 @@ export function communityLettersMarkup(letters, profiles, userId, isAdmin = fals
     "<nav class=\"letter-collection-switcher\" aria-label=\"Exibição da coleção de cartas\">" +
       "<button type=\"button\" data-letter-collection-select=\"received\" class=\"active\" aria-pressed=\"true\">Cartas recebidas</button>" +
       "<button type=\"button\" data-letter-collection-select=\"sent\" aria-pressed=\"false\">Cartas enviadas</button>" +
-      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button></nav>" +
+      "<button type=\"button\" data-letter-collection-select=\"legacy\" aria-pressed=\"false\">Cartas originais</button>" + (isAdmin ? "<button type=\"button\" data-letter-collection-select=\"admin-all\" aria-pressed=\"false\">Todas as cartas (admin)</button>" : "") + "</nav>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"received\" aria-labelledby=\"communityReceivedLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Coleção</span><h2 id=\"communityReceivedLettersTitle\">Minhas Cartas · recebidas</h2></div><span data-letter-count=\"received\">" +
       letters.filter((letter) => isAdmin || letter.recipient_id === userId).length + "</span></div>" + dateFilterMarkup("received", "recebidas") + "<div class=\"community-letter-list\" data-community-letter-received>" + (isAdmin ? adminRowsMarkup(letters, "received") : rowsMarkup(letters, userId, false)) + "</div></section>" +
     "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"sent\" hidden aria-labelledby=\"communitySentLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Arquivo</span><h2 id=\"communitySentLettersTitle\">Cartas enviadas</h2></div><span data-letter-count=\"sent\">" +
       letters.filter((letter) => isAdmin || letter.sender_id === userId).length + "</span></div>" + dateFilterMarkup("sent", "enviadas") + "<div class=\"community-letter-list\" data-community-letter-sent>" + (isAdmin ? adminRowsMarkup(letters, "sent") : rowsMarkup(letters, userId, true)) + "</div></section>" +
+    (isAdmin ? "<section class=\"panel community-letter-collection\" data-letter-collection-panel=\"admin-all\" hidden aria-labelledby=\"communityAdminAllLettersTitle\"><div class=\"community-letter-heading\"><div><span class=\"section-kicker\">Administração</span><h2 id=\"communityAdminAllLettersTitle\">Todas as cartas</h2></div><span data-letter-count=\"admin-all\">" + letters.length + "</span></div>" + dateFilterMarkup("admin-all", "todas") + "<div class=\"community-letter-list\" data-community-letter-admin-all>" + adminRowsMarkup(letters, "all") + "</div></section>" : "") +
     "<dialog class=\"community-letter-dialog\" data-community-letter-dialog aria-labelledby=\"communityLetterDialogTitle\"><div class=\"community-letter-dialog-card\">" +
       "<button type=\"button\" class=\"icon-action community-letter-close\" data-close-community-letter aria-label=\"Fechar carta\">" + icon("close") + "</button>" +
       "<span class=\"section-kicker\">Carta</span><h2 id=\"communityLetterDialogTitle\" data-community-letter-title></h2><p data-community-letter-byline></p>" +
@@ -194,8 +195,15 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     const sentCount = root.querySelector('[data-letter-count="sent"]');
     if (receivedCount) receivedCount.textContent = String(letters.filter((letter) => letter.recipient_id === user.id).length);
     if (sentCount) sentCount.textContent = String(letters.filter((letter) => letter.sender_id === user.id).length);
+    const adminAll = root.querySelector("[data-community-letter-admin-all]");
+    const adminDate = root.querySelector('[data-letter-date-filter="admin-all"]')?.value || "";
+    if (adminAll && isAdmin) adminAll.innerHTML = adminRowsMarkup(letters.filter((letter) => matchesLetterDate(letter, adminDate)), "all");
+    const adminCount = root.querySelector('[data-letter-count="admin-all"]');
+    if (adminCount) adminCount.textContent = String(letters.length);
+    const adminStatus = root.querySelector('[data-letter-date-status="admin-all"]');
+    if (adminStatus) adminStatus.textContent = adminDate ? `${letters.filter((letter) => matchesLetterDate(letter, adminDate)).length} carta(s) nesta data.` : "";
   };
-  const calendarMonths = { received: new Date(), sent: new Date() };
+  const calendarMonths = { received: new Date(), sent: new Date(), "admin-all": new Date() };
   const localISO = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
   const renderCommunityCalendar = (kind) => {
     const grid = root.querySelector(`[data-community-calendar-grid="${kind}"]`), label = root.querySelector(`[data-community-calendar-month="${kind}"]`), input = root.querySelector(`[data-letter-date-filter="${kind}"]`), info = root.querySelector(`[data-community-calendar-info="${kind}"]`);
@@ -204,7 +212,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     label.textContent = formatMonthYear(month);
     grid.replaceChildren();
     for (let blank = 0; blank < month.getDay(); blank++) { const spacer = document.createElement("span"); spacer.className = "calendar-blank"; grid.append(spacer); }
-    const relevant = letters.filter((letter) => isAdmin || (kind === "received" ? letter.recipient_id === user.id : letter.sender_id === user.id));
+    const relevant = letters.filter((letter) => kind === "admin-all" ? isAdmin : (kind === "received" ? letter.recipient_id === user.id : letter.sender_id === user.id));
     const datesWithLetters = new Set(relevant.map((letter) => { const date = new Date(letter.created_at); return Number.isNaN(date.valueOf()) ? "" : localISO(date); }).filter(Boolean));
     for (let day = 1, dayCount = new Date(year, monthIndex + 1, 0).getDate(); day <= dayCount; day++) {
       const date = new Date(year, monthIndex, day, 12), iso = localISO(date), hasLetters = datesWithLetters.has(iso), button = document.createElement("button");
@@ -214,7 +222,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     }
     if (info) info.innerHTML = input?.value ? "Filtrado por " + escapeHtml(input.value) : "Selecione um dia com cartas";
   };
-  const renderCalendars = () => { renderCommunityCalendar("received"); renderCommunityCalendar("sent"); };
+  const renderCalendars = () => { renderCommunityCalendar("received"); renderCommunityCalendar("sent"); if (isAdmin) renderCommunityCalendar("admin-all"); };
   const reload = async () => { letters = await loadCommunityLetters(client, user.id, isAdmin); renderLists(); };
   const fileInput = root.querySelector("[data-letter-files]");
   const attachmentList = root.querySelector("[data-letter-attachment-list]");
