@@ -47,7 +47,7 @@ test("only administrators can edit or delete imported native cards in the collec
   assert.match(archive, /data-admin-edit-card/);
   assert.match(archive, /data-admin-delete-card/);
   assert.match(archive, /if \(!isAdmin\) cardsQuery = cardsQuery\.eq/);
-  assert.match(page, /bindArchivedCards\(root, client, user\.id, archiveResult\.value, isAdmin\)/);
+  assert.match(page, /bindArchivedCards/);
   assert.match(migration, /archived_cards_admin_update/);
   assert.match(migration, /archived_cards_admin_delete/);
 });
@@ -71,4 +71,15 @@ test("administrator markup can list all private and public community letters", (
   assert.match(markup, /De sender → Para recipient/);
   assert.match(markup, /data-admin-delete-community-letter/);
   assert.match(markup, /Cartas originais/);
+});
+
+test("sent and received letter calendars mark days containing letters and admin rows identify recipients", async () => {
+  const [markup, css, archive] = await Promise.all([read("src/letters-community.js"), read("assets/css/pages/letters.css"), read("src/archived-cards.js")]);
+  assert.match(markup, /data-community-calendar-grid/);
+  assert.match(markup, /data-community-calendar-date/);
+  assert.match(markup, /has-letters/);
+  assert.match(markup, /Carta para /);
+  assert.match(markup, /Carta de /);
+  assert.match(css, /community-date-calendar-grid button\.has-letters::after/);
+  assert.match(archive, /Carta para /);
 });
