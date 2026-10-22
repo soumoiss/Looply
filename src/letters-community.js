@@ -487,6 +487,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     root.querySelector("[data-community-letter-body]").hidden = true;
     activeLetter = null;
   });
+  renderLists();
   const channel = client.channel("looply-community-letters-" + user.id)
     .on("postgres_changes", { event: "*", schema: "public", table: "community_letters" },
       () => reload().catch((error) => console.warn("Community letters refresh failed", error)))
