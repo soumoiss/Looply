@@ -18,8 +18,7 @@ test("protected letters accept 1, 2 and long non-whitespace passwords and round-
 });
 
 test("protected letters reject whitespace in passwords without imposing an arbitrary length limit", async () => {
-  for (const password of [" ", "a b", "a\tb", "a
-b"]) {
+  for (const password of [" ", "a b", "a\tb", "a\\nb"]) {
     await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
 });
