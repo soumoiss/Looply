@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js";
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=letters-date-calendar-20261022";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({

@@ -19,6 +19,11 @@
 .community-letter-protect input { width:18px; height:18px; accent-color:var(--primary); }
 .community-letter-form [hidden], .community-letter-dialog [hidden] { display:none !important; }
 .community-letter-list { display:grid; }
+.community-letter-date-controls { display:grid; gap:6px; margin:0 0 10px; }
+.community-letter-date-controls > label { color:var(--muted); font-size:.82rem; font-weight:700; }
+.community-letter-date-controls > div { display:flex; align-items:center; gap:8px; }
+.community-letter-date-controls input[type="date"] { min-height:40px; min-width:0; padding:7px 10px; border:1px solid var(--line); border-radius:10px; color:var(--text); background:var(--surface); font:inherit; }
+.community-letter-date-controls [data-letter-date-status] { min-height:1em; margin:0; color:var(--muted); font-size:.8rem; }
 .community-letter-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 2px; border-top:1px solid var(--line); }
 .community-letter-meta { display:grid; min-width:0; gap:4px; }
 .community-letter-meta strong { overflow-wrap:anywhere; }

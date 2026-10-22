@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { sealLetter, openProtectedLetter } from "../src/letters-community.js";
+import { sealLetter, openProtectedLetter, matchesLetterDate, communityLettersMarkup } from "../src/letters-community.js";
 
 const root = process.cwd();
 
@@ -20,6 +20,19 @@ test("protected letters reject whitespace in passwords without imposing an arbit
   for (const password of [" ", "a b", "a\tb", "a\nb"]) {
     await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
+});
+
+test("received and sent letters can be filtered by their local calendar date and cleared", () => {
+  const createdAt = new Date(2026, 9, 22, 12).toISOString();
+  const letter = { created_at: createdAt, sender_id: "sender", recipient_id: "recipient" };
+  assert.equal(matchesLetterDate(letter, "2026-10-22"), true);
+  assert.equal(matchesLetterDate(letter, "2026-10-21"), false);
+  assert.equal(matchesLetterDate(letter, ""), true);
+  assert.equal(matchesLetterDate({ created_at: "invalid" }, "2026-10-22"), false);
+  const markup = communityLettersMarkup([letter], [], "recipient");
+  assert.match(markup, /type="date" data-letter-date-filter="received"/);
+  assert.match(markup, /type="date" data-letter-date-filter="sent"/);
+  assert.match(markup, /data-clear-letter-date="received"/);
 });
 
 test("letters page keeps the archived collection and reversible read controls without the redundant conversation shortcut", async () => {
