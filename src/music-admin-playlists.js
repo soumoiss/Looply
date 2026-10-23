@@ -1,4 +1,8 @@
-import { escapeHtml } from "./utils.js";
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
 
 function playlistId(value) {
   try {
@@ -35,7 +39,6 @@ export async function mountMusicAdminPlaylistPanel(root, client) {
   (musicArea || root.firstElementChild || root).before(panel);
   const owner = panel.querySelector("#adminMusicOwner");
   const player = panel.querySelector("[data-admin-music-player]");
-  const statusNode = panel.querySelector("[data-admin-music-status]");
   const selectedPlaylist = () => owner.selectedOptions[0]?.dataset.playlist || "";
   const renderPlayer = () => {
     const id = selectedPlaylist();
