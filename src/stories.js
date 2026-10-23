@@ -427,12 +427,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const nextFacing = state.cameraFacing === "environment" ? "user" : "environment";
     const button = root.querySelector("[data-story-camera-flip]");
     if (button) button.disabled = true;
+    // Release the active camera before requesting the other lens. Several Android
+    // camera providers refuse a second getUserMedia stream while the first is open.
+    const previousFacing = state.cameraFacing;
+    state.cameraStream?.getTracks().forEach((track) => track.stop());
+    state.cameraStream = null;
+    if (cameraPreview) cameraPreview.srcObject = null;
     try {
       await startCamera(nextFacing);
       setCameraStatus(nextFacing === "user" ? "Câmera frontal ativa." : "Câmera traseira ativa.");
     } catch (error) {
       console.warn("Looply story camera switch failed.", error);
-      setCameraStatus("Não foi possível alternar a câmera neste dispositivo.", true);
+      // Try to restore the prior lens so a failed switch doesn't leave the camera dead.
+      try {
+        await startCamera(previousFacing);
+        setCameraStatus("Não foi possível alternar; a câmera anterior foi restaurada.", true);
+      } catch {
+        if (cameraPanel) cameraPanel.hidden = false;
+        setCameraStatus("Não foi possível alternar a câmera. Confira a permissão ou escolha um arquivo.", true);
+      }
     } finally {
       if (button) button.disabled = false;
     }
