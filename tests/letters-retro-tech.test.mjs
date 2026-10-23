@@ -92,6 +92,11 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   assert.match(archive, /As dicas anteriores ficam guardadas/);
   assert.match(archive, /Adicionar dica/);
   assert.match(archive, /Nova dica adicionada ao histórico/);
+  const community = await read("src/letters-community.js");
+  assert.match(community, /data-community-letter-hint-form/);
+  assert.match(community, /activeLetter\.sender_id === user\.id/);
+  assert.match(community, /password_hints: hints/);
+  assert.match(community, /modal-sheet/);
   assert.match(archive, /data-calendar-date/);
   assert.doesNotMatch(archive, /id="archiveCalendar"/);
   assert.match(page, /archiveResult\.value\.cards/);
