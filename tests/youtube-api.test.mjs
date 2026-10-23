@@ -51,6 +51,45 @@ test("YouTube playlist API validates the Supabase session and only allows config
   assert.equal(calls, 2);
 });
 
+
+test("YouTube playlist API allows a verified administrator to inspect another user's playlist", async () => {
+  const response = createResponse();
+  const calls = [];
+  await handler(createRequest("/api/youtube-playlist?playlistId=custom-user-playlist"), response, {
+    env,
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes("/auth/v1/user")) return { ok: true, status: 200, json: async () => ({ id: "admin-user" }) };
+      if (String(url).includes("/rest/v1/profiles")) return { ok: true, status: 200, json: async () => [{ playlist_url: "https://www.youtube.com/playlist?list=somebody-elses-list" }] };
+      if (String(url).includes("/functions/v1/looply-admin")) {
+        assert.equal(init.method, "POST");
+        assert.equal(init.headers.authorization, "Bearer valid-session-token");
+        assert.deepEqual(JSON.parse(init.body), { resourceType: "status" });
+        return { ok: true, status: 200, json: async () => ({ isAdmin: true }) };
+      }
+      assert.equal(new URL(String(url)).searchParams.get("playlistId"), "custom-user-playlist");
+      return { ok: true, status: 200, json: async () => ({ items: [], pageInfo: { totalResults: 0 } }) };
+    }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.some((call) => call.url.includes("/functions/v1/looply-admin")), true);
+});
+
+test("YouTube playlist API does not allow another user's playlist to a non-admin", async () => {
+  const response = createResponse();
+  await handler(createRequest("/api/youtube-playlist?playlistId=custom-user-playlist"), response, {
+    env,
+    fetchImpl: async (url) => {
+      if (String(url).includes("/auth/v1/user")) return { ok: true, status: 200, json: async () => ({ id: "ordinary-user" }) };
+      if (String(url).includes("/rest/v1/profiles")) return { ok: true, status: 200, json: async () => [{ playlist_url: "https://www.youtube.com/playlist?list=somebody-elses-list" }] };
+      if (String(url).includes("/functions/v1/looply-admin")) return { ok: true, status: 200, json: async () => ({ isAdmin: false }) };
+      throw new Error("non-admin must not reach YouTube");
+    }
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(JSON.parse(response.body).error, "youtube_playlist_not_allowed");
+});
+
 test("YouTube playlist API keeps the Google key server-side and returns normalized track data", async () => {
   const response = createResponse();
   const calls = [];
