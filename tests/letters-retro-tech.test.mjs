@@ -77,7 +77,7 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   const [markup, archive, page, css, migration, cumulativeMigration] = await Promise.all([
     read("src/letters-community.js"), read("src/archived-cards.js"), read("assets/js/letters.js"),
     read("assets/css/app.css"), read("supabase/migrations/20261022194500_archived_card_password_hints.sql"),
-    read("supabase/migrations/20261023150000_restore_cumulative_archived_card_hints.sql")
+    read("supabase/migrations/20261023181335_restore_cumulative_archived_card_hints.sql")
   ]);
   assert.match(markup, /shared-letter-calendar/);
   assert.match(markup, /data-calendar-grid/);
