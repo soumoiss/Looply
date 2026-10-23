@@ -12,9 +12,12 @@ test("administrator playlist browser is permission-gated and uses embedded playb
   assert.match(module, /status\?\.isAdmin !== true/);
   assert.match(module, /youtube-nocookie\.com\/embed\/videoseries/);
   assert.match(module, /admin_music_track_comment/);
+  assert.match(await read("src/youtube-playlist.js"), /Mensagem privada da administração/);
+  assert.match(await read("src/youtube-playlist.js"), /recipient_id,author:profiles/);
   assert.match(page, /mountMusicAdminPlaylistPanel/);
   assert.match(edge, /action === "admin_music_track_comment"/);
   assert.match(edge, /recipient_id: recipientId/);
+  assert.match(edge, /title \+ "\\n" \+ body/);
   assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed"/);
 });
 
