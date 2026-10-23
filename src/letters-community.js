@@ -83,7 +83,7 @@ function rowMarkup(letter, own, isAdmin = false) {
 }
 export async function loadCommunityLetters(client, userId, isAdmin = false) {
   let query = client.from("community_letters")
-    .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,attachments,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
+    .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,password_hints,attachments,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
     .order("created_at", { ascending: false }).limit(isAdmin ? 1000 : 200);
   if (!isAdmin) query = query.or("sender_id.eq." + userId + ",recipient_id.eq." + userId);
   const { data, error } = await query;
@@ -396,9 +396,44 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     root.querySelector("[data-community-letter-unlock-status]").textContent = "";
     body.hidden = Boolean(activeLetter.is_protected);
     body.textContent = activeLetter.is_protected ? "" : (activeLetter.body || "");
+    const hintForm = root.querySelector("[data-community-letter-hint-form]");
+    const hintDisplay = root.querySelector("[data-community-letter-hint]");
+    const mayAddHint = Boolean(activeLetter.is_protected && activeLetter.sender_id === user.id);
+    if (hintForm) { hintForm.hidden = !mayAddHint; hintForm.reset(); }
+    if (hintDisplay) {
+      const hints = Array.isArray(activeLetter.password_hints) ? activeLetter.password_hints : (activeLetter.password_hint ? [activeLetter.password_hint] : []);
+      hintDisplay.textContent = activeLetter.is_protected && hints.length ? hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · ") : "";
+      hintDisplay.hidden = !activeLetter.is_protected || !hints.length;
+    }
+    const hintStatus = root.querySelector("[data-community-letter-hint-status]");
+    if (hintStatus) hintStatus.textContent = "";
     await renderLetterAttachments(activeLetter, !activeLetter.is_protected);
     dialog.showModal();
     if (activeLetter.is_protected) unlockForm.querySelector("input").focus();
+  });
+  root.addEventListener("submit", async (event) => {
+    const hintForm = event.target.closest("[data-community-letter-hint-form]");
+    if (!hintForm) return;
+    event.preventDefault();
+    const submit = hintForm.querySelector('button[type="submit"]');
+    const status = root.querySelector("[data-community-letter-hint-status]");
+    try {
+      if (!activeLetter || !activeLetter.is_protected || activeLetter.sender_id !== user.id) throw new Error("Somente quem enviou esta carta protegida pode adicionar dicas.");
+      const hint = String(new FormData(hintForm).get("password_hint") || "").trim();
+      if (!hint || hint.length > 240) throw new Error("Digite uma dica de até 240 caracteres.");
+      submit.disabled = true;
+      const hints = [...(Array.isArray(activeLetter.password_hints) ? activeLetter.password_hints : (activeLetter.password_hint ? [activeLetter.password_hint] : [])), hint];
+      const { error } = await client.from("community_letters").update({ password_hint: hint, password_hints: hints }).eq("id", activeLetter.id).eq("sender_id", user.id);
+      if (error) throw error;
+      activeLetter.password_hint = hint;
+      activeLetter.password_hints = hints;
+      const display = root.querySelector("[data-community-letter-hint]");
+      if (display) { display.textContent = hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · "); display.hidden = false; }
+      hintForm.reset();
+      if (status) status.textContent = "Nova dica adicionada ao histórico.";
+    } catch (error) {
+      if (status) status.textContent = error?.message || "Não foi possível salvar a dica.";
+    } finally { if (submit) submit.disabled = false; }
   });
   root.addEventListener("submit", async (event) => {
     const editForm = event.target.closest("[data-community-letter-edit-form]");
@@ -502,6 +537,8 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     form.reset(); form.hidden = true;
     root.querySelector("[data-community-letter-body]").textContent = "";
     root.querySelector("[data-community-letter-body]").hidden = true;
+    const hintForm = root.querySelector("[data-community-letter-hint-form]"); if (hintForm) { hintForm.hidden = true; hintForm.reset(); }
+    const hintDisplay = root.querySelector("[data-community-letter-hint]"); if (hintDisplay) { hintDisplay.hidden = true; hintDisplay.textContent = ""; }
     activeLetter = null;
   });
   renderLists();
