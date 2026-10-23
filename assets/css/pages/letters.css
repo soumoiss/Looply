@@ -245,3 +245,7 @@
 .page-letters .archive-card-hint-title { margin: 0; font-weight: 800; color: var(--text); }
 .page-letters .archive-card-hint-help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .page-letters .archive-card-hint-form .form-label { margin: 0; }
+
+.page-letters .community-letter-dialog-card.modal-sheet { display:grid; gap:12px; max-height:90dvh; overflow-y:auto; }
+.page-letters .community-letter-dialog .archive-card-hint-form[hidden] { display:none !important; }
+.page-letters .community-letter-dialog .archive-card-hint-display { margin:0; padding:12px 14px; border:2px solid var(--letters-ink); border-radius:12px; background:var(--letters-paper); color:var(--letters-ink); white-space:pre-wrap; overflow-wrap:anywhere; }
