@@ -770,7 +770,7 @@ Deno.serve(async (request: Request) => {
         const { data, error } = await service.from("music_page_comments").insert({
           comment_type: "track", playlist_id: playlistId, video_id: videoId,
           author_id: authData.user.id, recipient_id: recipientId,
-          body: title ? title + "\\n" + body : body
+          body: title ? title + "\n" + body : body
         }).select("id,recipient_id,playlist_id,video_id,body,created_at").single();
         if (error) throw error;
         await recordAccess(service, authData.user.id, "write_completed", "youtube_track_comments", data.id, purpose, requestId,
