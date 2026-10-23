@@ -74,9 +74,10 @@ test("administrator markup can list all private and public community letters", (
 });
 
 test("letters share the original calendar, keep inbox/outbox personal, hide empty originals, and expose admin edit and protected-card hints", async () => {
-  const [markup, archive, page, css, migration] = await Promise.all([
+  const [markup, archive, page, css, migration, cumulativeMigration] = await Promise.all([
     read("src/letters-community.js"), read("src/archived-cards.js"), read("assets/js/letters.js"),
-    read("assets/css/app.css"), read("supabase/migrations/20261022194500_archived_card_password_hints.sql")
+    read("assets/css/app.css"), read("supabase/migrations/20261022194500_archived_card_password_hints.sql"),
+    read("supabase/migrations/20261023150000_restore_cumulative_archived_card_hints.sql")
   ]);
   assert.match(markup, /shared-letter-calendar/);
   assert.match(markup, /data-calendar-grid/);
@@ -88,10 +89,15 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   assert.match(markup, /data-community-letter-edit-form/);
   assert.match(markup, /Salvar alterações/);
   assert.match(archive, /data-card-hint-form/);
+  assert.match(archive, /As dicas anteriores ficam guardadas/);
+  assert.match(archive, /Adicionar dica/);
+  assert.match(archive, /Nova dica adicionada ao histórico/);
   assert.match(archive, /data-calendar-date/);
   assert.doesNotMatch(archive, /id="archiveCalendar"/);
   assert.match(page, /archiveResult\.value\.cards/);
   assert.match(css, /calendar-card/);
   assert.match(migration, /guard_archived_card_hint_update/);
   assert.match(migration, /archived_cards_recipient_hint_update/);
+  assert.match(cumulativeMigration, /old_hints \|\| jsonb_build_array\(trim\(new\.password_hint\)\)/);
+  assert.match(cumulativeMigration, /jsonb_array_length\(new\.password_hints\) = jsonb_array_length\(old_hints\) \+ 1/);
 });
