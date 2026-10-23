@@ -42,13 +42,17 @@ test("YouTube playlist API validates the Supabase session and only allows config
     fetchImpl: async (url) => {
       calls += 1;
       if (/auth\/v1\/user$/.test(String(url))) return { ok: true, status: 200, json: async () => ({ id: "authenticated-user" }) };
-      assert.match(String(url), /rest\/v1\/profiles\?id=eq\.authenticated-user/);
-      return { ok: true, status: 200, json: async () => [] };
+      if (String(url).includes("/rest/v1/profiles")) {
+        assert.match(String(url), /rest\/v1\/profiles\?id=eq\.authenticated-user/);
+        return { ok: true, status: 200, json: async () => [] };
+      }
+      if (String(url).includes("/functions/v1/looply-admin")) return { ok: true, status: 200, json: async () => ({ isAdmin: false }) };
+      throw new Error("unexpected upstream request");
     }
   });
   assert.equal(response.statusCode, 400);
   assert.equal(JSON.parse(response.body).error, "youtube_playlist_not_allowed");
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
 });
 
 
