@@ -33,3 +33,6 @@ begin
 end $$;
 revoke all on function public.looply_register_recipient_unlock(uuid) from public,anon;
 grant execute on function public.looply_register_recipient_unlock(uuid) to authenticated;
+
+-- Restore the SQL privileges required by the existing sender-scoped RLS policies.
+grant select, insert, update, delete on public.community_letters to authenticated;
