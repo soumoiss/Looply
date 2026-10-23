@@ -73,3 +73,6 @@
 .music-admin-comment-form textarea{width:100%;min-height:86px;resize:vertical}
 .music-admin-comment-form [role=status]{color:var(--muted);font-size:12px}
 @media(max-width:600px){.music-admin-playlists{padding:13px}.music-admin-playlist-player iframe{min-height:200px}}
+
+.youtube-track-comments-hint{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
+.youtube-track-comment-item{overflow-wrap:anywhere}
