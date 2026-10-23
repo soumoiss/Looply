@@ -4,6 +4,12 @@ function escapeHtml(value) {
   })[character]);
 }
 
+const defaultPlaylists = Object.freeze({
+  misol: "PLUZFdmgmipvI", yara: "PLCn4CAsA_tiM",
+  patati: "PLE0tcB0gaSzM", peixinho: "PLD5PXwJcU-Sg"
+});
+const fallbackPlaylist = "PLMeQ_QyqhY7s";
+
 function playlistId(value) {
   try {
     const url = new URL(String(value || ""));
@@ -21,13 +27,13 @@ export async function mountMusicAdminPlaylistPanel(root, client) {
     body: { action: "users_list", resourceType: "profiles" }
   });
   if (error || !Array.isArray(result?.users)) return;
-  const users = result.users.filter((user) => user.playlist_url && playlistId(user.playlist_url));
+  const users = result.users;
   const panel = document.createElement("section");
   panel.className = "music-admin-playlists";
   panel.innerHTML = `
     <div class="music-admin-playlists-heading"><span class="section-kicker">Área administrativa</span><h2>Playlists dos usuários</h2>
     <p>Ouça a playlist dentro do Looply e deixe um comentário privado sobre uma faixa. O comentário fica visível apenas para o dono da playlist.</p></div>
-    <div class="field"><label for="adminMusicOwner">Selecionar usuário</label><select id="adminMusicOwner">${users.map((user) => `<option value="${escapeHtml(user.id)}" data-playlist="${escapeHtml(playlistId(user.playlist_url))}">${escapeHtml(user.display_name || user.username)} · @${escapeHtml(user.username)}</option>`).join("")}</select></div>
+    <div class="field"><label for="adminMusicOwner">Selecionar usuário</label><select id="adminMusicOwner">${users.map((user) => `<option value="${escapeHtml(user.id)}" data-playlist="${escapeHtml(playlistId(user.playlist_url) || defaultPlaylists[String(user.username || "").toLowerCase()] || fallbackPlaylist)}">${escapeHtml(user.display_name || user.username)} · @${escapeHtml(user.username)}</option>`).join("")}</select></div>
     <div class="music-admin-playlist-player" data-admin-music-player></div>
     <form data-admin-music-comment-form class="music-admin-comment-form">
       <div class="music-form-grid"><div class="field"><label for="adminMusicVideoId">ID da faixa do YouTube</label><input id="adminMusicVideoId" name="videoId" required maxlength="11" pattern="[A-Za-z0-9_-]{11}" placeholder="ID de 11 caracteres"></div>
