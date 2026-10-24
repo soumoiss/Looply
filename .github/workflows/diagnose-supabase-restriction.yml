@@ -1,0 +1,38 @@
+name: Diagnose Supabase API restriction
+on:
+  push:
+    paths:
+      - .github/workflows/diagnose-supabase-restriction.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect public Supabase health API and restriction code
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in qixocgetiwlrsbadpbvh kgrxvsizfmaxlosiitec; do
+            echo "Project: $project"
+            status=$(curl --silent --show-error --max-time 20 -o /tmp/looply-response.json -w '%{http_code}' "https://$project.supabase.co/auth/v1/health")
+            echo "HTTP $status"
+            python3 - <<'PY'
+import json,re
+with open('/tmp/looply-response.json', encoding='utf8') as f:
+  body=f.read()
+try:
+  data=json.loads(body)
+  description=str(data.get('message') or data.get('error') or data.get('msg') or '')
+except Exception:
+  description=body
+for item in re.findall(r'(?:exceed(?:ed)?_[a-z_]+|overdue_payment|[A-Za-z_]*quota)', description):
+  print('Restriction reason:', item)
+if not re.findall(r'(?:exceed(?:ed)?_[a-z_]+|overdue_payment|[A-Za-z_]*quota)', description):
+  print('Description (first 300 chars):', description[:300])
+PY
+          done
