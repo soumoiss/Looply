@@ -1,0 +1,4 @@
+-- Applied to production through the Supabase integration on 2026-10-24.
+-- Historical marker only: the complete, repeatable definition is in
+-- 20261024234000_username_login_verified_fallback.sql.
+-- The private schema access was revoked and the verifier isolated.
