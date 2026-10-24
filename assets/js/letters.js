@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js";
+import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=unified-letter-collection-20261022";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=unified-letter-collection-20261022";
 

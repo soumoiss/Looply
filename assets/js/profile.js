@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js";
+import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js";
 
 await mountAppPage({ page: "profile", render: async ({ root, client, profile }) => {

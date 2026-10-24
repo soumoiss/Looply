@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js";
+import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { bindMusicEvents, disposeMusicRealtime, loadMusicData, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-embedded-players-20261022";
 import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js";
 

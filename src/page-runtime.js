@@ -5,7 +5,7 @@ import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
-import { notificationBus } from "./notification-bus.js";
+import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 import { bindAdminModeSync } from "./admin-mode.js";
 
 const navigation = [
@@ -257,10 +257,14 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   });
 
   let badgeTimer = null;
-  const refreshBadgeSoon = () => { clearTimeout(badgeTimer); badgeTimer = setTimeout(() => { void refreshUnreadBadge(header, supabase); }, 150); notificationBus.emit({ type: "notification-changed" }); };
+  const refreshBadgeSoon = (source) => {
+    clearTimeout(badgeTimer);
+    badgeTimer = setTimeout(() => { void refreshUnreadBadge(header, supabase); }, 150);
+    notificationBus.emit({ type: "notification-changed", source });
+  };
   const activityChannel = supabase.channel(`looply-activity-${user.id}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, refreshBadgeSoon)
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, refreshBadgeSoon)
+    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, () => refreshBadgeSoon("app"))
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, () => refreshBadgeSoon("chat"))
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, ({ new: updated }) => {
       if (updated) applyProfilePreferences(updated);
     })

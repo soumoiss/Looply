@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
   "Pessoas": [["👋","aceno"],["👋🏻","aceno pele clara"],["👋🏼","aceno pele média clara"],["👋🏽","aceno pele média"],["👋🏾","aceno pele média escura"],["👋🏿","aceno pele escura"],["🙏","oração"],["👏","palmas"],["👍","positivo"],["👎","negativo"],["🤝","aperto de mãos"],["💪","força"],["🤦","facepalm"],["🤷","tanto faz"],["🙋","mão levantada"],["🙌","comemoração"],["🫶","coração com as mãos"],["🧑‍🤝‍🧑","pessoas de mãos dadas"],["👩‍❤️‍👨","casal"],["💃","dança"],["🕺","dançarino"]],
@@ -50,6 +51,7 @@ const maxFilesPerMessage = 8;
 let activeConversationId = null;
 let realtimeChannel = null;
 let realtimeUserId = null;
+let stopNotificationChanges = null;
 let refreshTimer = null;
 let refreshSequence = 0;
 let activeThreadRequest = 0;
@@ -674,10 +676,13 @@ function scheduleRefresh(root, client, userId) {
 export function setupChatRealtime(client, userId, root) {
   if (!client || !userId || (realtimeChannel && realtimeUserId === userId)) return;
   if (realtimeChannel) client.removeChannel(realtimeChannel);
+  stopNotificationChanges?.();
+  stopNotificationChanges = notificationBus.subscribeDebounced(({ sources }) => {
+    if (sources.includes("chat")) scheduleRefresh(root, client, userId);
+  });
   realtimeUserId = userId;
   realtimeChannel = client.channel(`looply-chat-${userId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
     .subscribe((state) => {
       const status = root.querySelector("[data-chat-live]");
@@ -687,6 +692,8 @@ export function setupChatRealtime(client, userId, root) {
 
 export function disposeChatRealtime(client) {
   if (realtimeChannel && client) client.removeChannel(realtimeChannel);
+  stopNotificationChanges?.();
+  stopNotificationChanges = null;
   realtimeChannel = null;
   realtimeUserId = null;
   activeConversationId = null;

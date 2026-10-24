@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js";
+import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { icon } from "../../src/icons.js";
 import { createGalleryGestureController } from "./gallery-gestures.js";
 

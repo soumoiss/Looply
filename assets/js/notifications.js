@@ -1,4 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js";
+import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { notificationBus } from "../../src/notification-bus.js?v=notification-bus-20261022";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -41,23 +42,24 @@ function notificationMarkup(item) {
   </a>`;
 }
 
+let renderSequence = 0;
 async function render(root, client) {
+  const sequence = ++renderSequence;
   try {
     const items = await loadNotifications(client);
+    if (sequence !== renderSequence || !root.isConnected) return;
     root.innerHTML = `<section class="panel notifications-panel"><div class="notifications-toolbar"><span>${items.filter((item) => !item.read_at).length} não lidas</span><button type="button" class="text-button" data-notifications-read-all ${items.some((item) => !item.read_at) ? "" : "disabled"}>Marcar todas como lidas</button></div>
       <div class="notification-list" data-notification-list>${items.length ? items.map(notificationMarkup).join("") : `<p class="notification-empty">Nenhuma notificação</p>`}</div><p class="notification-status" data-notification-status role="status" aria-live="polite"></p></section>`;
   } catch (error) {
+    if (sequence !== renderSequence || !root.isConnected) return;
     console.error("Looply notification load failed", error);
     root.innerHTML = `<section class="panel notifications-panel"><p class="notification-empty" role="alert">Não foi possível carregar as notificações. Atualize a página e tente novamente.</p></section>`;
   }
 }
 
-await mountAppPage({ page: "notifications", render: async ({ root, client, user }) => {
+await mountAppPage({ page: "notifications", render: async ({ root, client }) => {
   await render(root, client);
-  const channel = client.channel(`looply-notifications-page-${user.id}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, () => render(root, client))
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_notifications", filter: `user_id=eq.${user.id}` }, () => render(root, client))
-    .subscribe();
+  const stopWatching = notificationBus.subscribeDebounced(() => { void render(root, client); }, 180);
   root.addEventListener("click", async (event) => {
     const markAll = event.target.closest("[data-notifications-read-all]");
     const row = event.target.closest("[data-notification-source]");
@@ -86,5 +88,5 @@ await mountAppPage({ page: "notifications", render: async ({ root, client, user 
     }
     window.location.assign(destination);
   });
-  window.addEventListener("pagehide", () => client.removeChannel(channel), { once: true });
+  window.addEventListener("pagehide", () => stopWatching(), { once: true });
 } });
