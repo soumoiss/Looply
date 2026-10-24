@@ -82,7 +82,7 @@ async function selectPaths(service: SupabaseClient<any, "public", any>, table: s
   for (let from = 0;; from += 1000) {
     const { data, error } = await service.from(table).select(column).range(from, from + 999);
     if (error) throw error;
-    const rows = (data || []) as Array<Record<string, unknown>>;
+    const rows = (data || []) as unknown as Array<Record<string, unknown>>;
     for (const row of rows) {
       const value = row[column];
       if (typeof value === "string" && value) paths.add(value);
