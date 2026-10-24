@@ -62,7 +62,7 @@ export function playlistMarkup(profile) {
     <dialog class="youtube-track-dialog" data-youtube-track-dialog aria-labelledby="youtubeTrackDialogTitle">
       <div class="youtube-track-dialog-heading"><div><span class="section-kicker">Playlist</span><h2 id="youtubeTrackDialogTitle" data-youtube-dialog-title></h2><p data-youtube-dialog-channel></p></div>
         <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">${icon("close")}</button></div>
-      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentário para Peixinho ADM</h3><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Seu comentário</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário para Peixinho ADM"></textarea><button class="primary-button compact-button" type="submit">Enviar comentário</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
+      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentários privados desta faixa</h3><p class="youtube-track-comments-hint">As mensagens da administração destinadas a você aparecem aqui. Sua resposta será enviada à administração.</p><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Mensagem para a administração</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva uma mensagem privada para a administração"></textarea><button class="primary-button compact-button" type="submit">Enviar mensagem privada</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
     </dialog>
   </section>`;
 }
@@ -262,14 +262,15 @@ export async function bindYouTubePlaylist(root, client) {
     if (!trackCommentsList) return;
     trackCommentsList.textContent = "Carregando comentários…";
     const { data, error } = await client.from("music_page_comments")
-      .select("id,body,created_at,author_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
+      .select("id,body,created_at,author_id,recipient_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
       .eq("comment_type", "track").eq("playlist_id", playlistId).eq("video_id", track.videoId).order("created_at");
     if (error) { trackCommentsList.textContent = "Não foi possível carregar os comentários."; return; }
-    if (!data?.length) { trackCommentsList.textContent = "Nenhum comentário seu ainda."; return; }
+    if (!data?.length) { trackCommentsList.textContent = "Nenhuma mensagem privada nesta faixa ainda."; return; }
     trackCommentsList.replaceChildren();
     for (const item of data) {
       const article = document.createElement("article"); article.className = "youtube-track-comment-item";
-      const strong = document.createElement("strong"); strong.textContent = item.author?.display_name || item.author?.username || "Você";
+      const strong = document.createElement("strong");
+      strong.textContent = item.recipient_id && item.recipient_id !== item.author_id ? "Mensagem privada da administração" : (item.author?.display_name || item.author?.username || "Você");
       const p = document.createElement("p"); p.textContent = item.body; article.append(strong,p); trackCommentsList.append(article);
     }
   };

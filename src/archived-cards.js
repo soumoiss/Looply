@@ -33,15 +33,9 @@ export function archivedCardsMarkup() {
     </div>
     <div class="filters" aria-label="Filtros das cartas">
       <button class="filter-button active" type="button" data-card-filter="all" aria-pressed="true">Todas</button>
-      <button class="filter-button" type="button" data-card-calendar-toggle aria-controls="archiveCalendar" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M8 2.8v4M16 2.8v4M3 9h18"/></svg>Filtrar por data</button>
+
       <button class="filter-button" type="button" data-card-filter="no-date" hidden aria-pressed="false">Sem data</button>
       <span class="filter-status" data-card-filter-status>Mostrando todas as cartas</span>
-    </div>
-    <div class="calendar-panel" id="archiveCalendar" aria-hidden="true">
-      <div class="calendar-card"><div class="calendar-head"><div class="calendar-month" data-calendar-month>Calendário</div><div class="calendar-nav"><button type="button" data-calendar="previous" aria-label="Mês anterior">‹</button><button type="button" data-calendar="next" aria-label="Próximo mês">›</button></div></div>
-        <div class="weekdays" aria-hidden="true"><span class="weekday">Dom</span><span class="weekday">Seg</span><span class="weekday">Ter</span><span class="weekday">Qua</span><span class="weekday">Qui</span><span class="weekday">Sex</span><span class="weekday">Sáb</span></div>
-        <div class="calendar-grid" data-calendar-grid aria-label="Calendário das cartas"></div><div class="calendar-foot"><span><strong>•</strong> dia com cartas</span><span data-calendar-info>Selecione uma data</span></div>
-      </div>
     </div>
     <div class="cartas-container" data-archived-cards aria-live="polite"><div class="loading-state">Carregando cartas…</div></div>
     <p class="loading-summary" data-card-load-status role="status" aria-live="polite"></p>
@@ -52,17 +46,20 @@ export function archivedCardsMarkup() {
       <article class="modal-sheet"><header class="modal-header"><div><div class="modal-label">Carta</div><h2 data-archive-card-title id="archiveCardTitle">Carta</h2><div class="modal-date" data-archive-card-date></div><div class="modal-sender">Enviada por Peixinho · ADM</div></div>
         <div class="modal-tools"><button type="button" data-card-previous aria-label="Carta anterior">${icon("back")}</button><button type="button" data-card-next aria-label="Próxima carta">${icon("forward")}</button><button class="modal-close" type="button" data-card-close aria-label="Fechar carta">${icon("close")}</button></div>
       </header>
-      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 18px;color:#8b7f72;font-size:13px;line-height:1.5"></p><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
+      <div data-archive-card-unlock hidden><div style="padding:22px"><p style="margin:0 0 6px;color:var(--paper-text);font-weight:800;font-size:16px">Esta carta está protegida.</p><p data-archive-card-hint style="margin:0 0 10px;color:#8b7f72;font-size:13px;line-height:1.6" aria-live="polite"></p><form data-card-hint-form hidden class="archive-card-hint-form" style="margin:0 0 16px"><p class="archive-card-hint-title">Adicionar uma dica</p><p class="archive-card-hint-help">As dicas anteriores ficam guardadas. Cada nova dica será acrescentada ao histórico, sem apagar as existentes.</p><label class="form-label">Nova dica<input name="password_hint" maxlength="240" placeholder="Escreva uma pista para lembrar a senha" autocomplete="off"></label><button class="letter-attach-button" type="submit">＋ Adicionar dica</button><p data-card-hint-status role="status" aria-live="polite"></p></form><div class="form-field"><label class="form-label" for="archiveCardPassword">Senha</label><div class="input-wrap"><input class="input password-input" id="archiveCardPassword" type="password" autocomplete="current-password" placeholder="Digite a senha"></div></div><button class="login-button" type="button" data-card-unlock>Desbloquear carta</button><div class="form-message" data-card-unlock-error role="alert" aria-live="assertive"></div></div></div>
       <div class="modal-text" data-archive-card-text id="archiveCardText" tabindex="0" aria-live="polite"></div><footer class="modal-footer"><button type="button" data-card-close>Fechar carta</button></footer>
       </article>
     </div>
   </div>`;
 }
 
-export async function loadArchivedCards(client, userId) {
+// Legacy archive read shape: from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
+export async function loadArchivedCards(client, userId, isAdmin = false) {
+  let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,password_hints,body,sent_date")
+    .order("is_private", { ascending: false }).order("card_number", { ascending: true });
+  if (!isAdmin) cardsQuery = cardsQuery.eq("recipient_id", userId);
   const [{ data: cards, error: cardsError }, { data: reads, error: readsError }] = await Promise.all([
-    client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
-      .eq("recipient_id", userId).order("is_private", { ascending: false }).order("card_number", { ascending: true }),
+    cardsQuery,
     client.from("archived_card_reads").select("card_id,read_at").eq("user_id", userId)
   ]);
   if (cardsError) throw cardsError;
@@ -109,7 +106,7 @@ function renderRows(root, state) {
     row.setAttribute("role", "button");
     const label = card.is_private ? "Carta privada" : "Carta";
     const title = card.is_protected ? (card.is_private ? "Carta privada protegida" : "Carta protegida") : titleFromBody(card.body);
-    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">Enviada por Peixinho · ADM</p></div><button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
+    row.innerHTML = `<div class="card-number" aria-hidden="true">${String(number).padStart(2, "0")}</div><div class="card-info"><span class="card-label">${label} ${String(number).padStart(2, "0")}${card.is_protected ? " " + icon("lock") : ""}</span><h3 class="card-title"></h3><p class="card-date"></p><p class="card-sender">${state.isAdmin ? "Carta para " + escapeHtml(state.profiles.find((profile) => profile.id === card.recipient_id)?.display_name || state.profiles.find((profile) => profile.id === card.recipient_id)?.username || "destinatário não identificado") : "Enviada por Peixinho · ADM"}</p></div>${state.isAdmin ? `<button type="button" class="icon-action" data-admin-edit-card="${escapeHtml(card.id)}" aria-label="Editar carta original">Editar</button><button type="button" class="icon-action" data-admin-delete-card="${escapeHtml(card.id)}" aria-label="Excluir carta original">Excluir</button>` : ""}<button type="button" class="card-check" data-card-toggle-read aria-label="Alterar estado de leitura"></button>`;
     row.querySelector(".card-title").textContent = title;
     const date = row.querySelector(".card-date");
     date.textContent = card.date ? formatShort(card.date) : "Sem data";
@@ -133,6 +130,7 @@ function renderRows(root, state) {
 }
 
 function renderCalendar(root, state) {
+  if (root.dataset.activeLetterCollection && root.dataset.activeLetterCollection !== "legacy") return;
   const grid = $(root, "[data-calendar-grid]");
   const monthLabel = $(root, "[data-calendar-month]");
   const info = $(root, "[data-calendar-info]");
@@ -231,7 +229,14 @@ function showCard(root, state, card) {
   const locked = Boolean(card.is_protected && !card.unlocked);
   if (title) title.textContent = locked ? "Carta protegida" : card.is_private ? "Carta privada" : titleFromBody(card.body);
   if (date) date.textContent = card.date ? formatShort(card.date) : "";
-  if (hint) hint.textContent = locked ? (card.password_hint || "") : "";
+  if (hint) hint.textContent = locked ? (Array.isArray(card.password_hints) && card.password_hints.length ? card.password_hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · ") : (card.password_hint || "")) : "";
+  const hintForm = $(root, "[data-card-hint-form]");
+  if (hintForm) {
+    hintForm.hidden = !(card.is_protected && (state.isAdmin || card.recipient_id === state.userId));
+    hintForm.elements.password_hint.value = "";
+    const hintStatus = $(root, "[data-card-hint-status]");
+    if (hintStatus) hintStatus.textContent = "";
+  }
   if (password) password.value = "";
   if (unlockError) unlockError.textContent = "";
   if (unlock) unlock.hidden = !locked;
@@ -247,19 +252,70 @@ function showCard(root, state, card) {
   updateModalNavigation(root, state);
 }
 
-export function bindArchivedCards(root, client, userId, { cards, reads }) {
+export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmin = false, profiles = []) {
   const state = {
     // The previous Looply collection placed private cards before the numbered cards.
     cards: [...cards].sort((a, b) => Number(b.is_private) - Number(a.is_private) || a.card_number - b.card_number),
     readIds: new Set(reads.map((item) => item.card_id)),
     filter: "all", filterDate: null, calendarMonth: firstDayOfMonth(cards.find((item) => item.date)?.date || new Date()),
-    modalCardId: null, client, userId
+    modalCardId: null, client, userId, isAdmin, profiles
   };
   const status = $(root, "[data-card-load-status]");
   if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.`;
   renderRows(root, state);
 
+  root.addEventListener("submit", async (event) => {
+    const hintForm = event.target.closest("[data-card-hint-form]");
+    if (!hintForm) return;
+    event.preventDefault();
+    const card = state.cards.find((item) => item.id === state.modalCardId);
+    const status = $(root, "[data-card-hint-status]");
+    const button = hintForm.querySelector('button[type="submit"]') || hintForm.querySelector('button');
+    if (!card || !(state.isAdmin || card.recipient_id === state.userId) || !card.is_protected) return;
+    button.disabled = true;
+    try {
+      const password_hint = String(new FormData(hintForm).get("password_hint") || "").trim();
+      if (!password_hint || password_hint.length > 240) throw new Error("Digite uma dica de até 240 caracteres.");
+      const password_hints = [...(Array.isArray(card.password_hints) ? card.password_hints : (card.password_hint ? [card.password_hint] : [])), password_hint];
+      const { error } = await client.from("archived_cards").update({ password_hints, password_hint }).eq("id", card.id);
+      if (error) throw error;
+      card.password_hints = password_hints;
+      card.password_hint = password_hint;
+      const visibleHint = $(root, "[data-archive-card-hint]");
+      if (visibleHint) visibleHint.textContent = password_hints.map((item, index) => `Dica ${index + 1}: ${item}`).join(" · ");
+      hintForm.reset();
+      if (status) status.textContent = "Nova dica adicionada ao histórico.";
+    } catch (error) {
+      if (status) status.textContent = error?.message || "Não foi possível salvar a dica.";
+    } finally { button.disabled = false; }
+  });
   root.addEventListener("click", async (event) => {
+    const adminEdit = event.target.closest("[data-admin-edit-card]");
+    if (adminEdit && state.isAdmin) {
+      event.stopPropagation();
+      const card = state.cards.find((item) => item.id === adminEdit.dataset.adminEditCard);
+      if (!card) return;
+      const updatedBody = window.prompt("Editar conteúdo da carta original:", card.body || "");
+      if (updatedBody === null) return;
+      const { error } = await client.from("archived_cards").update({ body: updatedBody }).eq("id", card.id);
+      if (error) { window.alert("Não foi possível salvar a carta. Verifique as permissões."); return; }
+      card.body = updatedBody;
+      renderRows(root, state);
+      if (status) status.textContent = "Carta original atualizada na nuvem.";
+      return;
+    }
+    const adminDelete = event.target.closest("[data-admin-delete-card]");
+    if (adminDelete && state.isAdmin) {
+      event.stopPropagation();
+      const card = state.cards.find((item) => item.id === adminDelete.dataset.adminDeleteCard);
+      if (!card || !window.confirm("Excluir permanentemente esta carta original?")) return;
+      const { error } = await client.from("archived_cards").delete().eq("id", card.id);
+      if (error) { window.alert("Não foi possível excluir a carta."); return; }
+      state.cards = state.cards.filter((item) => item.id !== card.id);
+      renderRows(root, state);
+      if (status) status.textContent = "Carta excluída do acervo.";
+      return;
+    }
     const readToggle = event.target.closest("[data-card-toggle-read]");
     if (readToggle) {
       event.stopPropagation();
@@ -299,6 +355,7 @@ export function bindArchivedCards(root, client, userId, { cards, reads }) {
     }
     const dateButton = event.target.closest("[data-calendar-date]");
     if (dateButton) {
+      if (root.dataset.activeLetterCollection !== "legacy") return;
       state.filter = "date";
       state.filterDate = dateButton.dataset.calendarDate;
       root.querySelectorAll("[data-card-filter]").forEach((button) => {

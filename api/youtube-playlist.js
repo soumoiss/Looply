@@ -134,7 +134,23 @@ export async function handleYouTubePlaylist(request, response, options = {}) {
       headers: { accept: "application/json", apikey: publishableKey, authorization: "Bearer " + token }
     }, 3000);
     const configuredPlaylistId = profile.response?.ok && Array.isArray(profile.data) ? playlistIdFromUrl(profile.data[0]?.playlist_url) : "";
-    if (configuredPlaylistId !== playlistId) return respond(response, 400, { error: "youtube_playlist_not_allowed" });
+    if (configuredPlaylistId !== playlistId) {
+      // Admins may inspect other users' playlists, but only after the existing
+      // server-side admin gate confirms their session. Never trust a client flag.
+      const adminStatus = await fetchJson(fetchImpl, origin + "/functions/v1/looply-admin", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          apikey: publishableKey,
+          authorization: "Bearer " + token
+        },
+        body: JSON.stringify({ resourceType: "status" })
+      }, 3000);
+      if (adminStatus.failure || !adminStatus.response?.ok || adminStatus.data?.isAdmin !== true) {
+        return respond(response, 400, { error: "youtube_playlist_not_allowed" });
+      }
+    }
   }
   const pageToken = String(requestUrl.searchParams.get("pageToken") || "");
   if (pageToken.length > 2048 || /[\u0000-\u001f\u007f]/.test(pageToken)) {

@@ -30,7 +30,9 @@ test("track comments use the exact playlist and video IDs and are sent to the ad
     read("src/admin.js")
   ]);
   assert.match(playlist, /playlist_id: playlistId, video_id: activeTrack\.videoId/);
-  assert.match(playlist, /Comentário para Peixinho ADM/);
+  assert.match(playlist, /Comentários privados desta faixa/);
+  assert.match(playlist, /recipient_id,author:profiles/);
+  assert.match(playlist, /Mensagem privada da administração/);
   assert.match(migration, /author_id = \(select auth\.uid\(\)\)/);
   assert.match(migration, /private\.is_admin\(\)/);
   assert.match(migration, /comment_type = 'general'/);

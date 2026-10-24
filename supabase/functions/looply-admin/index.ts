@@ -748,6 +748,41 @@ Deno.serve(async (request: Request) => {
     const offset = Number(payload.offset ?? 0);
     if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) return respond(400, { error: "Archive media position is invalid." });
 
+    if (action === "admin_music_track_comment") {
+      if (requestedType !== "youtube_track_comments") return respond(400, { error: "invalid_music_comment_resource" });
+      const recipientId = String(payload.recipientId || "");
+      const playlistId = String(payload.playlistId || "");
+      const videoId = String(payload.videoId || "");
+      const title = String(payload.title || "").trim();
+      const body = String(payload.body || "").trim();
+      if (!uuidPattern.test(recipientId) || !/^[A-Za-z0-9_-]{1,100}$/.test(playlistId)
+          || !/^[A-Za-z0-9_-]{11}$/.test(videoId) || title.length > 160
+          || body.length < 1 || body.length > 2000) {
+        return respond(400, { error: "invalid_music_track_comment" });
+      }
+      const { data: recipient, error: recipientError } = await service.from("profiles")
+        .select("id,username").eq("id", recipientId).maybeSingle();
+      if (recipientError) throw recipientError;
+      if (!recipient) return respond(404, { error: "music_owner_not_found" });
+      await recordAccess(service, authData.user.id, "write_requested", "youtube_track_comments", null, purpose, requestId,
+        { action, recipient_id: recipientId, playlist_id: playlistId, video_id: videoId, title });
+      try {
+        const { data, error } = await service.from("music_page_comments").insert({
+          comment_type: "track", playlist_id: playlistId, video_id: videoId,
+          author_id: authData.user.id, recipient_id: recipientId,
+          body: title ? title + "\n" + body : body
+        }).select("id,recipient_id,playlist_id,video_id,body,created_at").single();
+        if (error) throw error;
+        await recordAccess(service, authData.user.id, "write_completed", "youtube_track_comments", data.id, purpose, requestId,
+          { action, recipient_id: recipientId, playlist_id: playlistId, video_id: videoId });
+        return respond(200, { requestId, comment: data, created: true });
+      } catch (error) {
+        await recordAccess(service, authData.user.id, "write_failed", "youtube_track_comments", null, purpose, requestId,
+          { action, recipient_id: recipientId, playlist_id: playlistId, video_id: videoId, reason: errorMessage(error, "Music comment failed.").slice(0, 200) });
+        throw error;
+      }
+    }
+
     if (action === "moderate_content") {
       const contentType = String(payload.contentType || "");
       const contentId = String(payload.contentId || "");

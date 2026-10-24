@@ -43,9 +43,11 @@ test("received and sent letters can be filtered by their local calendar date and
   assert.equal(matchesLetterDate(letter, ""), true);
   assert.equal(matchesLetterDate({ created_at: "invalid" }, "2026-10-22"), false);
   const markup = communityLettersMarkup([letter], [], "recipient");
-  assert.match(markup, /type="date" data-letter-date-filter="received"/);
-  assert.match(markup, /type="date" data-letter-date-filter="sent"/);
-  assert.match(markup, /data-clear-letter-date="received"/);
+  assert.match(markup, /type="hidden" data-letter-date-filter="received"/);
+  assert.match(markup, /type="hidden" data-letter-date-filter="sent"/);
+  assert.match(markup, /data-shared-calendar-toggle/);
+  assert.match(markup, /data-calendar-grid/);
+  assert.doesNotMatch(markup, /data-community-calendar-grid/);
 });
 
 test("My Letters presents received, sent, and imported archive cards in one switchable collection", async () => {

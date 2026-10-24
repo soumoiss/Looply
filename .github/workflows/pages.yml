@@ -1,4 +1,4 @@
-# Deploy the latest gallery, authentication, theme, and chat fixes from main.
+# Deploy the latest gallery, authentication, theme, chat, and Cartas updates from main.
 name: Deploy Looply to GitHub Pages
 
 on:

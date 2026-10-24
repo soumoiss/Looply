@@ -61,3 +61,18 @@
 
 .youtube-track-share, .youtube-track-external { display:grid; width:36px; min-width:36px; min-height:42px; place-items:center; align-self:center; border:1px solid var(--border); border-radius:10px; color:var(--primary); background:var(--surface); text-decoration:none; font-size:17px; cursor:pointer; }
 .youtube-track-share:hover, .youtube-track-external:hover { background:var(--surface-raised, rgba(122,84,150,.12)); }
+
+
+/* Administrator playlist browser and owner-only track comments */
+.music-admin-playlists{display:grid;gap:14px;margin:0 0 22px;padding:18px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}
+.music-admin-playlists-heading h2{margin:4px 0 6px;font-size:clamp(19px,3vw,25px)}
+.music-admin-playlists-heading p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.music-admin-playlist-player{overflow:hidden;border-radius:14px;background:#17131b}
+.music-admin-playlist-player iframe{display:block;width:100%;aspect-ratio:16/9;min-height:240px;border:0}
+.music-admin-comment-form{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
+.music-admin-comment-form textarea{width:100%;min-height:86px;resize:vertical}
+.music-admin-comment-form [role=status]{color:var(--muted);font-size:12px}
+@media(max-width:600px){.music-admin-playlists{padding:13px}.music-admin-playlist-player iframe{min-height:200px}}
+
+.youtube-track-comments-hint{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
+.youtube-track-comment-item{overflow-wrap:anywhere}

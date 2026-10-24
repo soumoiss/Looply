@@ -33,7 +33,7 @@ test("text-only Stories persist selectable fonts and bounded 6–20 pt sizing wh
   assert.match(story, /caption\.style\.fontSize = !media && storyText\.styled/);
   assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
   assert.match(css, /\.story-text-style\[hidden\]\s*\{\s*display:\s*none/);
-  assert.match(html, /story-text-styles-20261022/);
+  assert.match(html, /stories-immersive-camera-fix-20261023/);
 });
 
 test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {
