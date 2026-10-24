@@ -10,6 +10,8 @@ const message = document.getElementById("message");
 const submit = document.getElementById("loginButton");
 const password = document.getElementById("password");
 const toggle = document.getElementById("togglePassword");
+const emailFallback = document.getElementById("emailFallback");
+const emailFallbackInput = document.getElementById("emailFallbackInput");
 const inviteForm = document.getElementById("invitePasswordForm");
 const inviteMessage = document.getElementById("inviteMessage");
 const inviteFlow = new URLSearchParams(window.location.search).get("invite") === "1";
@@ -88,7 +90,8 @@ if (!isSupabaseConfigured || !supabase) {
       const username = String(formData.get("username") || "").trim().toLowerCase();
       const secret = String(formData.get("password") || "");
       message.classList.remove("show");
-      if (!/^[a-z0-9_]{3,30}$/.test(username) || !secret || secret.length > 256) {
+      const email = String(emailFallbackInput?.value || "").trim().toLowerCase();
+      if ((!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) || !secret || secret.length > 256) {
         status(message, "Usuário ou senha incorretos.");
         return;
       }
@@ -96,6 +99,18 @@ if (!isSupabaseConfigured || !supabase) {
       submit.disabled = true;
       submit.textContent = "Entrando…";
       try {
+        if (username.includes("@")) {
+          const { error: directError } = await supabase.auth.signInWithPassword({ email: username, password: secret });
+          if (directError) throw directError;
+          window.location.replace(nextPage);
+          return;
+        }
+        if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          const { error: directError } = await supabase.auth.signInWithPassword({ email, password: secret });
+          if (directError) throw directError;
+          window.location.replace(nextPage);
+          return;
+        }
         const { data, error } = await supabase.functions.invoke("looply-login", {
           body: { username, password: secret }
         });
@@ -109,7 +124,8 @@ if (!isSupabaseConfigured || !supabase) {
       } catch (error) {
         console.error("Looply username login failed", error);
         if (isServiceUnavailable(error)) {
-          status(message, "O serviço de login do Looply está temporariamente indisponível. Suas credenciais não foram rejeitadas; tente novamente mais tarde ou avise o administrador.");
+          if (emailFallback) emailFallback.hidden = false;
+          status(message, "O acesso por nome de usuário está indisponível. Digite o e-mail da sua conta no campo alternativo e tente novamente com a mesma senha.");
         } else {
           status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme o e-mail e defina sua senha primeiro.");
         }
