@@ -370,7 +370,7 @@ const mediaExtensions = new Map([
   ["video/mp4", "mp4"], ["video/webm", "webm"]
 ]);
 const mediaMimeTypesByExtension = new Map([...mediaExtensions].map(([mimeType, extension]) => [extension, mimeType]));
-const maxMediaBytes = 100 * 1024 * 1024;
+const maxMediaBytes = 25 * 1024 * 1024;
 const maxMediaCount = 8;
 const maxCommentMediaCount = 4;
 

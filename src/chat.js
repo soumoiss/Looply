@@ -45,7 +45,7 @@ const fileExtensions = new Map([
   ["application/rtf", "rtf"]
 ]);
 const mimeTypesByExtension = new Map([...fileExtensions].map(([mimeType, extension]) => [extension, mimeType]));
-const maxFileSize = 100 * 1024 * 1024;
+const maxFileSize = 25 * 1024 * 1024;
 const maxFilesPerMessage = 8;
 
 let activeConversationId = null;

@@ -4,7 +4,7 @@ import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
 import { decodeStoryBody, encodeStoryBody } from "./story-text-style.js";
 
-const maxStoryBytes = 100 * 1024 * 1024;
+const maxStoryBytes = 25 * 1024 * 1024;
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"]

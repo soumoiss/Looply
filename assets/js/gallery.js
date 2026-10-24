@@ -80,7 +80,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const extensionMime = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",avif:"image/avif",heic:"image/heic",heif:"image/heif",tif:"image/tiff",tiff:"image/tiff",bmp:"image/bmp",svg:"image/svg+xml",ico:"image/x-icon",jxl:"image/jxl",raw:"image/x-raw",dng:"image/x-adobe-dng",cr2:"image/x-canon-cr2",nef:"image/x-nikon-nef",arw:"image/x-sony-arw",mp4:"video/mp4",m4v:"video/x-m4v",mov:"video/quicktime",qt:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska",avi:"video/x-msvideo",wmv:"video/x-ms-wmv",flv:"video/x-flv",mpeg:"video/mpeg",mpg:"video/mpeg",m2v:"video/mpeg","3gp":"video/3gpp","3g2":"video/3gpp2",mts:"video/mp2t",m2ts:"video/mp2t",ts:"video/mp2t",ogv:"video/ogg",vob:"video/dvd",asf:"video/x-ms-asf",mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",ogg:"audio/ogg",oga:"audio/ogg",opus:"audio/opus",wav:"audio/wav",flac:"audio/flac",aiff:"audio/aiff",aif:"audio/aiff",wma:"audio/x-ms-wma",amr:"audio/amr"};
   const getFileMime = file => { const declared=String(file.type||"").toLowerCase(); if (declared.startsWith("image/") || declared.startsWith("video/") || declared.startsWith("audio/")) return declared; const ext=String(file.name||"").split(".").pop().toLowerCase(); return extensionMime[ext]||""; };
   const isMediaFile = file => Boolean(getFileMime(file));
-  const maxBytes = Infinity; // Limites reais de armazenamento são aplicados pelo provedor, não duplicados na interface.
+  const maxBytes = 25 * 1024 * 1024;
+  const maxInlinePreviewBytes = 256 * 1024;
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
@@ -123,9 +124,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
     const storage = client.storage.from(bucket);
     if (thumbnail && mediaType(x) === "image") {
-      const transformed = await storage.createSignedUrl(x.storage_path, 300, { transform: { width: 480, height: 480, resize: "contain", quality: 58 } });
-      if (!transformed.error && transformed.data?.signedUrl) return transformed.data.signedUrl;
-      console.warn("Gallery thumbnail transformation unavailable; using original image.", transformed.error);
+      // Image transformations are unavailable on Supabase Free. Never fall back
+      // to multi-megabyte originals in the grid: fetch those only on explicit open.
+      if (Number(x.byte_size || 0) > maxInlinePreviewBytes) return "";
     }
     const { data, error } = await storage.createSignedUrl(x.storage_path, 300);
     if (error) throw error;
@@ -152,8 +153,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     try {
       const start = loadPage * 50, end = start + 49;
       const [a, c, p, tags, privateRows, albumsResult, albumItemsResult] = await Promise.all([
-        client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
-        client.from("community_gallery_media").select("id,owner_id,owner:profiles!community_gallery_media_owner_id_fkey(id,username,display_name,avatar_path),storage_path,file_name,kind,mime_type,caption,visibility,private_owner_id,publication_state,created_at,comment_access").order("created_at",{ascending:false}).range(start,end),
+        client.from("archive_media").select("id,source_path,file_name,description,storage_path,kind,mime_type,byte_size,visibility,source_date,created_at,comment_access").order("source_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(start,end),
+        client.from("community_gallery_media").select("id,owner_id,owner:profiles!community_gallery_media_owner_id_fkey(id,username,display_name,avatar_path),storage_path,file_name,kind,mime_type,byte_size,caption,visibility,private_owner_id,publication_state,created_at,comment_access").order("created_at",{ascending:false}).range(start,end),
         client.from("profiles").select("id,username,display_name,avatar_path").order("display_name").limit(500),
         client.from("gallery_media_people").select("source,media_id,person_id"),
         client.from("gallery_private_items").select("source,media_id,owner_private").eq("user_id",user.id),

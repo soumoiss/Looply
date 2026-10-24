@@ -258,7 +258,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
     }
     input.name = "avatar";
     const fail=(message)=>{input.value="";setStatus(form,message,"error");};
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 10 MB. Sua foto atual foi preservada.");return;}
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>2*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 2 MB. Sua foto atual foi preservada.");return;}
     try {
       const bitmap=await createImageBitmap(file);
       if(bitmap.width<128||bitmap.height<128||bitmap.width>12000||bitmap.height>12000){bitmap.close();fail("A imagem precisa ter pelo menos 128 × 128 px e no máximo 12.000 px por lado.");return;}
