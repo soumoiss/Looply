@@ -10,8 +10,6 @@ const message = document.getElementById("message");
 const submit = document.getElementById("loginButton");
 const password = document.getElementById("password");
 const toggle = document.getElementById("togglePassword");
-const emailFallback = document.getElementById("emailFallback");
-const emailFallbackInput = document.getElementById("emailFallbackInput");
 const inviteForm = document.getElementById("invitePasswordForm");
 const inviteMessage = document.getElementById("inviteMessage");
 const inviteFlow = new URLSearchParams(window.location.search).get("invite") === "1";
@@ -90,8 +88,7 @@ if (!isSupabaseConfigured || !supabase) {
       const username = String(formData.get("username") || "").trim().toLowerCase();
       const secret = String(formData.get("password") || "");
       message.classList.remove("show");
-      const email = String(emailFallbackInput?.value || "").trim().toLowerCase();
-      if ((!/^[a-z0-9_]{3,30}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) || !secret || secret.length > 256) {
+      if (!/^[a-z0-9_]{3,30}$/.test(username) || !secret || secret.length > 256) {
         status(message, "Usuário ou senha incorretos.");
         return;
       }
@@ -99,21 +96,27 @@ if (!isSupabaseConfigured || !supabase) {
       submit.disabled = true;
       submit.textContent = "Entrando…";
       try {
-        if (username.includes("@")) {
-          const { error: directError } = await supabase.auth.signInWithPassword({ email: username, password: secret });
-          if (directError) throw directError;
-          window.location.replace(nextPage);
-          return;
-        }
-        if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          const { error: directError } = await supabase.auth.signInWithPassword({ email, password: secret });
-          if (directError) throw directError;
-          window.location.replace(nextPage);
-          return;
-        }
         const { data, error } = await supabase.functions.invoke("looply-login", {
           body: { username, password: secret }
         });
+        if (error && isServiceUnavailable(error)) {
+          // The Edge Functions gateway may be unavailable while PostgREST and Auth still work.
+          // The database checks the password and returns the account email only on success.
+          // No address or password hash is published with the site.
+          const { data: resolvedEmail, error: lookupError } = await supabase.rpc("looply_login_fallback", {
+            p_username: username,
+            p_password: secret
+          });
+          if (lookupError) throw new Error("fallback_unavailable", { cause: lookupError });
+          if (typeof resolvedEmail !== "string" || !resolvedEmail) throw new Error("fallback_not_verified");
+          const { error: fallbackAuthError } = await supabase.auth.signInWithPassword({
+            email: resolvedEmail,
+            password: secret
+          });
+          if (fallbackAuthError) throw new Error("fallback_auth_failed", { cause: fallbackAuthError });
+          window.location.replace(nextPage);
+          return;
+        }
         if (error || !data?.access_token || !data?.refresh_token) throw error || new Error("invalid_credentials");
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
@@ -123,11 +126,12 @@ if (!isSupabaseConfigured || !supabase) {
         window.location.replace(nextPage);
       } catch (error) {
         console.error("Looply username login failed", error);
-        if (isServiceUnavailable(error)) {
-          if (emailFallback) emailFallback.hidden = false;
-          status(message, "O acesso por nome de usuário está indisponível. Digite o e-mail da sua conta no campo alternativo e tente novamente com a mesma senha.");
+        if (error?.message === "fallback_not_verified") {
+          status(message, "Não foi possível validar este usuário e senha. Após muitas tentativas, aguarde 15 minutos para tentar de novo.");
+        } else if (error?.message === "fallback_unavailable" || error?.message === "fallback_auth_failed" || isServiceUnavailable(error)) {
+          status(message, "O serviço de autenticação está indisponível. O acesso secundário também não conseguiu concluir sua sessão.");
         } else {
-          status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme o e-mail e defina sua senha primeiro.");
+          status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme-o e defina sua senha primeiro.");
         }
         submit.disabled = false;
         submit.textContent = "Avante!";
