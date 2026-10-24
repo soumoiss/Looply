@@ -82,6 +82,8 @@
 .page-gallery .gallery-media img{object-fit:cover}
 .page-gallery .gallery-media-type,.page-gallery .gallery-private-indicator{position:absolute;top:9px;right:9px;display:grid;place-items:center;width:30px;height:30px;border:1px solid #ffffff55;border-radius:50%;color:#fff;background:#17121e88;backdrop-filter:blur(10px)}
 .page-gallery .gallery-private-indicator{right:auto;left:9px}
+.page-gallery .gallery-pinned-indicator{left:auto;right:9px;color:#ffe68a;background:#5b451dcc}
+.page-gallery .gallery-card.is-pinned{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent),var(--shadow)}
 .page-gallery .gallery-card-body{display:grid;gap:7px}
 .page-gallery .gallery-card-author{font-size:11px;color:var(--muted,#81768e)}
 .page-gallery .gallery-card-body .gallery-meta{margin:0;font-size:12px;font-weight:700}
