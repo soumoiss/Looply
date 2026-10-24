@@ -21,6 +21,11 @@ function status(element, text, kind = "error") {
   element.classList.add("show");
 }
 
+function isServiceUnavailable(error) {
+  const statusCode = Number(error?.context?.status ?? error?.status ?? 0);
+  return statusCode === 402 || statusCode === 429 || statusCode >= 500 || error?.name === "FunctionsFetchError";
+}
+
 if (toggle && password) {
   toggle.addEventListener("click", () => {
     const showing = password.type === "text";
@@ -103,7 +108,11 @@ if (!isSupabaseConfigured || !supabase) {
         window.location.replace(nextPage);
       } catch (error) {
         console.error("Looply username login failed", error);
-        status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme o e-mail e defina sua senha primeiro.");
+        if (isServiceUnavailable(error)) {
+          status(message, "O serviço de login do Looply está temporariamente indisponível. Suas credenciais não foram rejeitadas; tente novamente mais tarde ou avise o administrador.");
+        } else {
+          status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme o e-mail e defina sua senha primeiro.");
+        }
         submit.disabled = false;
         submit.textContent = "Avante!";
       }
