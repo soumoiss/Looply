@@ -1,1 +1,1 @@
-import "../../src/login.js?v=email-fallback-20261024";
+import "../../src/login.js?v=username-fallback-20261024";
