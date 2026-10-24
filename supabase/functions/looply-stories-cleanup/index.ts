@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,10 +29,11 @@ function namedKey(pluralName: string, legacyNames: string[]) {
   return "";
 }
 
-async function cleanupOrphanAvatars(service: ReturnType<typeof createClient>) {
+async function cleanupOrphanAvatars(service: SupabaseClient<any, "public", any>) {
   const { data: profiles, error: profileError } = await service.from("profiles").select("avatar_path").not("avatar_path", "is", null);
   if (profileError) throw profileError;
-  const referenced = new Set((profiles || []).map((profile: { avatar_path: string }) => profile.avatar_path).filter(Boolean));
+  const profileRows = (profiles || []) as Array<{ avatar_path: string | null }>;
+  const referenced = new Set(profileRows.map((profile) => profile.avatar_path).filter((path): path is string => Boolean(path)));
   const bucket = service.storage.from("looply-avatars");
   const { data: owners, error: ownerError } = await bucket.list("avatars", { limit: 1000 });
   if (ownerError) throw ownerError;
