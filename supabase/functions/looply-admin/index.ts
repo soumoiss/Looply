@@ -690,6 +690,7 @@ Deno.serve(async (request: Request) => {
       }
       await recordAccess(service, authData.user.id, "write_requested", "profiles", null, purpose, requestId,
         { action, username, email });
+      const proposedUserId = crypto.randomUUID();
       let createdUserId: string | null = null;
       try {
         const [{ data: existingProfile, error: profileLookupError }, { data: existingInvite, error: inviteLookupError },
@@ -705,7 +706,15 @@ Deno.serve(async (request: Request) => {
         if ((authUsers.users || []).some((user: any) => String(user.email || "").toLowerCase() === email)) {
           return respond(409, { error: "email_already_exists" });
         }
+        const { error: provisionError } = await service.rpc("prepare_looply_admin_user_provision", {
+          p_user_id: proposedUserId,
+          p_email: email,
+          p_username: username,
+          p_display_name: displayName
+        });
+        if (provisionError) throw provisionError;
         const { data: created, error: createError } = await service.auth.admin.createUser({
+          id: proposedUserId,
           email,
           password,
           email_confirm: true,
@@ -720,6 +729,7 @@ Deno.serve(async (request: Request) => {
         }
         createdUserId = created.user?.id || null;
         if (!createdUserId) throw new Error("Auth user creation returned no user ID.");
+        if (createdUserId !== proposedUserId) throw new Error("Auth returned a different user ID than the provisioned profile.");
         const { data: profile, error: profileError } = await service.from("profiles")
           .select("id,username,display_name").eq("id", createdUserId).maybeSingle();
         if (profileError) throw profileError;
@@ -733,6 +743,10 @@ Deno.serve(async (request: Request) => {
           { action, username, email });
         return respond(200, { requestId, userId: createdUserId, username, email, displayName: profile.display_name, playlistUrl: playlistUrl || null, temporaryPassword: suppliedPassword ? null : password, created: true });
       } catch (error) {
+        const { error: provisionCleanupError } = await service.rpc("discard_looply_admin_user_provision", {
+          p_user_id: proposedUserId
+        });
+        if (provisionCleanupError) console.error("Looply user-provision cleanup failed", provisionCleanupError);
         if (createdUserId) {
           const { error: deleteError } = await service.auth.admin.deleteUser(createdUserId);
           if (deleteError) console.error("Looply user-create rollback failed", deleteError);
@@ -1344,6 +1358,7 @@ Deno.serve(async (request: Request) => {
     return respond(500, { error: "Administrative request could not be completed." });
   }
 });
+
 
 
 
