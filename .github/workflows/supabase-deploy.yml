@@ -71,4 +71,5 @@ jobs:
         run: |
           supabase functions deploy looply-admin --project-ref "$SUPABASE_PROJECT_ID"
           supabase functions deploy looply-youtube-playlist --project-ref "$SUPABASE_PROJECT_ID"
+          supabase functions deploy looply-login --project-ref "$SUPABASE_PROJECT_ID"
           supabase functions deploy looply-stories-cleanup --project-ref "$SUPABASE_PROJECT_ID"

@@ -12,6 +12,23 @@ function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+function namedKey(pluralName: string, legacyNames: string[]) {
+  const encoded = Deno.env.get(pluralName);
+  if (encoded) {
+    try {
+      const keys = JSON.parse(encoded);
+      if (typeof keys?.default === "string") return keys.default;
+    } catch (error) {
+      console.error(`Invalid ${pluralName} configuration.`, error);
+    }
+  }
+  for (const name of legacyNames) {
+    const value = Deno.env.get(name);
+    if (value) return value;
+  }
+  return "";
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return respond(405, { error: "Use POST." });
@@ -25,8 +42,8 @@ Deno.serve(async (request: Request) => {
     }
 
     const projectUrl = Deno.env.get("SUPABASE_URL") || "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const publicKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+    const serviceKey = namedKey("SUPABASE_SECRET_KEYS", ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]);
+    const publicKey = namedKey("SUPABASE_PUBLISHABLE_KEYS", ["SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY"]);
     if (!projectUrl || !serviceKey || !publicKey) {
       return respond(503, { error: "login_unavailable" });
     }

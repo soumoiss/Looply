@@ -59,6 +59,86 @@ async function cleanupOrphanAvatars(service: SupabaseClient<any, "public", any>)
   return Math.min(orphanPaths.length, 1000);
 }
 
+type StoredObject = { name: string; id?: string | null; created_at?: string | null; updated_at?: string | null };
+
+async function listFiles(bucket: ReturnType<SupabaseClient<any, "public", any>["storage"]["from"]>, prefix = "") {
+  const files: Array<{ path: string; createdAt: string | null }> = [];
+  for (let offset = 0;; offset += 1000) {
+    const { data, error } = await bucket.list(prefix, { limit: 1000, offset, sortBy: { column: "name", order: "asc" } });
+    if (error) throw error;
+    const entries = (data || []) as StoredObject[];
+    for (const entry of entries) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.id) files.push({ path, createdAt: entry.created_at || entry.updated_at || null });
+      else files.push(...await listFiles(bucket, path));
+    }
+    if (entries.length < 1000) break;
+  }
+  return files;
+}
+
+async function selectPaths(service: SupabaseClient<any, "public", any>, table: string, column = "storage_path") {
+  const paths = new Set<string>();
+  for (let from = 0;; from += 1000) {
+    const { data, error } = await service.from(table).select(column).range(from, from + 999);
+    if (error) throw error;
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    for (const row of rows) {
+      const value = row[column];
+      if (typeof value === "string" && value) paths.add(value);
+    }
+    if (rows.length < 1000) break;
+  }
+  return paths;
+}
+
+async function removeUnreferenced(
+  service: SupabaseClient<any, "public", any>,
+  bucketName: string,
+  referenced: Set<string>,
+  graceHours = 24
+) {
+  const bucket = service.storage.from(bucketName);
+  const files = await listFiles(bucket);
+  const cutoff = Date.now() - graceHours * 60 * 60 * 1000;
+  const orphanPaths = files.filter((file) => {
+    if (referenced.has(file.path)) return false;
+    const created = file.createdAt ? Date.parse(file.createdAt) : NaN;
+    return Number.isFinite(created) && created < cutoff;
+  }).map((file) => file.path);
+  for (let offset = 0; offset < orphanPaths.length; offset += 100) {
+    const { error } = await bucket.remove(orphanPaths.slice(offset, offset + 100));
+    if (error) throw error;
+  }
+  return orphanPaths.length;
+}
+
+async function cleanupAllOrphans(service: SupabaseClient<any, "public", any>) {
+  const media = new Set<string>();
+  for (const table of ["post_media", "comment_media", "story_media", "archive_media"]) {
+    for (const path of await selectPaths(service, table)) media.add(path);
+  }
+  const gallery = await selectPaths(service, "community_gallery_media");
+  const chat = await selectPaths(service, "chat_media");
+  const avatars = await selectPaths(service, "profiles", "avatar_path");
+  const secretMessages = await selectPaths(service, "secret_vip_messages", "media_url");
+  const letters = new Set<string>();
+  for (let from = 0;; from += 1000) {
+    const { data, error } = await service.from("community_letters").select("attachments").range(from, from + 999);
+    if (error) throw error;
+    const rows = (data || []) as Array<{ attachments?: Array<{ path?: unknown }> | null }>;
+    for (const row of rows) for (const item of row.attachments || []) if (typeof item.path === "string") letters.add(item.path);
+    if (rows.length < 1000) break;
+  }
+  const references = new Map<string, Set<string>>([
+    ["looply-media", media], ["looply-gallery", gallery], ["looply-chat", chat],
+    ["looply-avatars", avatars], ["looply-letters", letters], ["looply-secret-messages", secretMessages]
+  ]);
+  const deletedByBucket: Record<string, number> = {};
+  for (const [bucket, paths] of references) deletedByBucket[bucket] = await removeUnreferenced(service, bucket, paths);
+  return deletedByBucket;
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return respond(405, { error: "method_not_allowed" });
@@ -81,10 +161,12 @@ Deno.serve(async (request: Request) => {
 
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   let deletedAvatars = 0;
+  let deletedOrphans: Record<string, number> = {};
   try {
-    deletedAvatars = await cleanupOrphanAvatars(service);
+    deletedOrphans = await cleanupAllOrphans(service);
+    deletedAvatars = deletedOrphans["looply-avatars"] || 0;
   } catch (error) {
-    console.error("Avatar cleanup failed.", error);
+    console.error("Orphan cleanup failed closed; no unverified files were removed.", error);
   }
   const cutoff = new Date().toISOString();
   const { data: expired, error: selectError } = await service.from("stories")
@@ -97,7 +179,8 @@ Deno.serve(async (request: Request) => {
     return respond(500, { error: "cleanup_failed" });
   }
   const storyIds = (expired || []).map((story: { id: string }) => story.id);
-  if (!storyIds.length) return respond(200, { deletedStories: 0, deletedFiles: deletedAvatars, deletedAvatars, moreMayRemain: false });
+  const orphanCount = Object.values(deletedOrphans).reduce((total, count) => total + count, 0);
+  if (!storyIds.length) return respond(200, { deletedStories: 0, deletedFiles: orphanCount, deletedAvatars, deletedOrphans, moreMayRemain: false });
 
   const { data: media, error: mediaError } = await service.from("story_media")
     .select("storage_path")
@@ -128,8 +211,9 @@ Deno.serve(async (request: Request) => {
 
   return respond(200, {
     deletedStories: deleted?.length || 0,
-    deletedFiles: paths.length + deletedAvatars,
+    deletedFiles: paths.length + orphanCount,
     deletedAvatars,
+    deletedOrphans,
     moreMayRemain: storyIds.length === 100
   });
 });

@@ -35,3 +35,23 @@ test("deployed cleanup removes expired stories and unreferenced avatar versions"
   assert.match(cleanup, /storage\.from\("looply-media"\)\.remove\(paths\)/);
   assert.match(workflow, /functions deploy looply-stories-cleanup/);
 });
+
+test("cleanup removes only aged unreferenced objects from every application bucket", async () => {
+  const cleanup = await read("supabase/functions/looply-stories-cleanup/index.ts");
+  for (const bucket of ["looply-media", "looply-gallery", "looply-chat", "looply-avatars", "looply-letters", "looply-secret-messages"]) {
+    assert.match(cleanup, new RegExp(`\\["${bucket}"`));
+  }
+  assert.match(cleanup, /graceHours = 24/);
+  assert.match(cleanup, /referenced\.has\(file\.path\)/);
+  assert.match(cleanup, /no unverified files were removed/);
+});
+
+test("username login supports current Supabase key names and is deployed continuously", async () => {
+  const [login, workflow] = await Promise.all([
+    read("supabase/functions/looply-login/index.ts"),
+    read(".github/workflows/supabase-deploy.yml")
+  ]);
+  assert.match(login, /SUPABASE_PUBLISHABLE_KEYS/);
+  assert.match(login, /SUPABASE_SECRET_KEYS/);
+  assert.match(workflow, /functions deploy looply-login/);
+});
