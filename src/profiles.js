@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
 
 function escapeHtml(value) {
@@ -99,7 +100,7 @@ export async function signProfileAvatars(client, profiles) {
   const withUrls = (profiles || []).map((profile) => ({ ...profile, avatarUrl: "" }));
   const withAvatars = withUrls.filter((profile) => profile.avatar_path);
   if (!withAvatars.length) return withUrls;
-  const { data, error } = await client.storage.from("looply-avatars").createSignedUrls(
+  const { data, error } = await cachedSignedUrls(client, "looply-avatars", 
     withAvatars.map((profile) => profile.avatar_path),
     1800
   );
@@ -158,7 +159,7 @@ export async function showProfileInContainer(client, profileId, container, { sho
     return;
   }
   if (profile.avatar_path) {
-    const { data: signedAvatar } = await client.storage.from("looply-avatars").createSignedUrl(profile.avatar_path, 1800);
+    const { data: signedAvatar } = await cachedSignedUrl(client, "looply-avatars", profile.avatar_path, 1800);
     profile.avatarUrl = signedAvatar?.signedUrl || "";
   }
   const { data: posts, error: postsError } = await client.from("posts")
@@ -167,7 +168,7 @@ export async function showProfileInContainer(client, profileId, container, { sho
   const visiblePosts = posts || [];
   const media = visiblePosts.flatMap((post) => (post.media || []).map((item) => item));
   if (!postsError && media.length) {
-    const { data: signed, error: signedError } = await client.storage.from("looply-media").createSignedUrls(media.map((item) => item.storage_path), 1800);
+    const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-media", media.map((item) => item.storage_path), 1800);
     if (!signedError && signed) media.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
   }
   renderOpenedProfile(container, profile, visiblePosts, postsError, showBack);
@@ -355,7 +356,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
         if (newAvatarPath) {
           // Storage SELECT is intentionally allowed only after profiles.avatar_path points at this object.
           // Signing before the profile update fails the bucket's read-visible-profile RLS policy.
-          const { data: validationUrl, error: validationError } = await client.storage.from("looply-avatars").createSignedUrl(newAvatarPath, 60);
+          const { data: validationUrl, error: validationError } = await cachedSignedUrl(client, "looply-avatars", newAvatarPath, 60);
           if (validationError || !validationUrl?.signedUrl) {
             const { data: rolledBackProfile, error: rollbackError } = await client.from("profiles")
               .update({ avatar_path: oldAvatarPath }).eq("id", userId).select("id").maybeSingle();
