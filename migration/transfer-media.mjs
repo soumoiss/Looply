@@ -7,9 +7,10 @@ const SOURCE = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
 const EXECUTE = process.env.MIGRATE_MEDIA === "1";
 const CONFIRM = process.env.MIGRATION_CONFIRM === "TRANSFER_WITH_CHECKSUMS";
-const EXPECTED = Number(process.env.EXPECTED_MEDIA_COUNT || 277);
+const EXPECTED = Number(process.env.EXPECTED_MEDIA_COUNT || 272);
+// Old gallery objects are deliberately omitted for later re-upload.
 const BUCKETS = ["looply-announcements", "looply-avatars", "looply-chat",
-  "looply-gallery", "looply-letters", "looply-media", "looply-secret-messages"];
+  "looply-letters", "looply-media", "looply-secret-messages"];
 if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(SOURCE) || !KEY)
   throw new Error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY via private environment secrets.");
 if (EXECUTE && !CONFIRM)
