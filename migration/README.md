@@ -36,7 +36,7 @@ As restrições HTTP 402 do Supabase continuam impedindo operações de Storage.
 - PostgreSQL Neon: 56 tabelas públicas copiadas, Data API ativa.
 - Neon Auth: seis contas e vínculo de identidade registrado; o login real das seis **não** está confirmado; o provedor gerenciado não migra automaticamente bcrypt.
 - Object Storage Neon: sete buckets privados existentes, **zero objetos**.
-- Cloudflare Workers: gateway de leitura Neon preparado em `backend/neon-cloudflare/worker.mjs`, com testes; **não** substitui ainda o backend principal.
+- Cloudflare Workers: gateway de leitura Neon preparado em `backend/neon-cloudflare/worker.mjs` e implantado isoladamente como `looply-original-neon-staging` em `https://looply-original-neon-staging.s0upoetamoiss.workers.dev/health` (testado com HTTP 200 em 25/10/2026). O gateway usa a Neon Data API para leituras autenticadas; **não** substitui ainda o backend principal e não recebe novos uploads.
 - Cloudflare R2: não habilitado; dispensável nesta etapa porque o Neon Storage está disponível.
 - Realtime: desativado no Neon, requer adaptação para chat, notificação e sinalização de chamadas.
 
