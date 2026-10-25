@@ -78,3 +78,21 @@ Referências:
 - https://neon.com/docs/postgresql/postgres-upgrade
 - https://developers.cloudflare.com/durable-objects/best-practices/websockets/
 - https://developers.cloudflare.com/durable-objects/platform/limits/
+
+
+## Implementado em staging: Neon Auth + Cloudflare Durable Objects (25/10/2026)
+
+A alternativa de tempo real foi **implementada e publicada isoladamente**, sem atualizar PostgreSQL 17 nem substituir o aplicativo principal:
+
+- `backend/neon-cloudflare/realtime-worker.mjs`: Worker Cloudflare com `LooplyConversationRoom`, Durable Object SQLite, WebSocket hibernation, ingresso aleatório de uso único válido por 30 segundos e verificação Neon de identidade e pertencimento à conversa ANTES de emitir o ingresso. Eventos `typing`, `invalidate`, `presence` e sinalização WebRTC `signal`; **mensagens não são escritas no Durable Object**.
+- `migration/20261025_neon_realtime_authorization.sql`: duas RPCs autenticadas que já foram aplicadas ao Neon: `v3_is_conversation_member(uuid)` e `v3_list_my_conversations()`. Permissão `EXECUTE` apenas para `authenticated`. Não passam IDs de usuário escolhidos pelo cliente.
+- `tests/neon-realtime.test.mjs`: testes de origem, ausência de token, participação, erro do banco, ingresso e recusa de WebSocket não autenticado. Verificação GitHub Actions aprovada.
+- Worker publicado: `https://looply-original-realtime-staging.s0upoetamoiss.workers.dev/health`, com `LOOPLY_ROOMS` vinculado e domínio `workers.dev` habilitado.
+- Testador visual de login Neon: `login-neon.html` + `src/neon-login-staging.js` (formato visual do Looply original), publicado **somente em staging** no Worker `looply-original-login-staging`.
+- Testador de WebSockets e salas autorizadas: `realtime-neon.html` + `src/neon-realtime-staging.js`, publicado no **mesmo domínio do login de testes**, para compartilhar a sessão Neon. O domínio foi incluído nos Trusted Domains do Neon.
+- URL de teste: `https://looply-original-login-staging.s0upoetamoiss.workers.dev/login-neon.html`
+- URL de evento/chat de teste: `https://looply-original-login-staging.s0upoetamoiss.workers.dev/realtime-neon.html`
+
+**Não confundir staging com migração completa.** O frontend principal ainda usa `src/supabase.js` e chat original; sessão Neon em staging não transfere automaticamente sessão para o original. Login com contas reais, consulta de conversas por JWT, conexão entre dois navegadores, persistência de mensagens, mídias, reconexões em rede ruim, gravação de mensagens, chamadas reais WebRTC e testes de privacidade fim a fim precisam ser validados. Sem essas verificações, não promover para produção.
+
+**Fluxo de teste manual:** abrir login-neon.html; entrar com um dos 6 usuários e senha existente (não enviar senha ao ChatGPT); conferir perfil; clicar no link de teste de conversas; escolher uma sala e abrir WebSocket. Com outra conta, testar a mesma sala quando ambos forem participantes e observar presença/typing. Se a conta não tiver sala comum, não forçar acesso; deve retornar erro 403. A lista não mostra conversas de terceiros.
