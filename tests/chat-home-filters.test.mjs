@@ -25,7 +25,7 @@ test("chat page has a home link and all conversation filters apply consistently"
   assert.match(chat, /conversationFilterButton\.dataset\.chatFilter/);
   assert.match(chat, /\["all", "unread", "groups", "favorites"\]/);
   assert.match(chat, /avatar_path/);
-  assert.match(chat, /createSignedUrls\(avatarProfiles\.map\(\(profile\) => profile\.avatar_path\)/);
+  assert.match(chat, /cachedSignedUrls\(client, "looply-avatars", avatarProfiles\.map\(\(profile\) => profile\.avatar_path\)/);
 });
 
 test("chat keeps the global header and gives the send icon a fixed size", async () => {
