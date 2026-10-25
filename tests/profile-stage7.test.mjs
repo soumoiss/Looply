@@ -70,7 +70,7 @@ test("avatar validation respects the bucket read policy by updating the profile 
   const source = await read("src/profiles.js");
   const upload = source.indexOf('.storage.from("looply-avatars").upload(newAvatarPath');
   const profileUpdate = source.indexOf('.update(updates).eq("id", userId).select("id,avatar_path").maybeSingle()');
-  const signedUrl = source.indexOf('.storage.from("looply-avatars").createSignedUrl(newAvatarPath, 60)');
+  const signedUrl = source.indexOf('cachedSignedUrl(client, "looply-avatars", newAvatarPath, 60)');
   assert.ok(upload >= 0 && profileUpdate > upload && signedUrl > profileUpdate);
   assert.match(source, /profile-update-not-confirmed/);
   assert.match(source, /Could not roll back profile avatar after storage validation failed/);
