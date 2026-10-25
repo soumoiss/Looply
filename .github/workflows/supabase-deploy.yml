@@ -1,8 +1,8 @@
 name: Deploy Looply backend to Supabase
 
+# Legacy Supabase backend retained only for explicit recovery / rollback.
+# Production GitHub Pages login now uses Neon Auth.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
