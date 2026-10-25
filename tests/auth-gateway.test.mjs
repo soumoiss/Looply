@@ -25,8 +25,8 @@ function mockClient(options = {}) {
       }
     },
     functions: {
-      async invoke(name, options) {
-        calls.push(["username-gateway",name,options.body.username]);
+      async invoke(name, payload) {
+        calls.push(["username-gateway",name,payload.body.username]);
         return options.error ? {error:options.error} : {data:session};
       }
     },
