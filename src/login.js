@@ -21,9 +21,19 @@ function status(element, text, kind = "error") {
   element.classList.add("show");
 }
 
+function errorStatus(error) {
+  // Wrapping errors must not hide a quota block returned by Auth or PostgREST.
+  for (let current = error, depth = 0; current && depth < 5; current = current.cause, depth += 1) {
+    const code = Number(current.context?.status ?? current.status ?? 0);
+    if (code) return code;
+  }
+  return 0;
+}
+
 function isServiceUnavailable(error) {
-  const statusCode = Number(error?.context?.status ?? error?.status ?? 0);
-  return statusCode === 402 || statusCode === 429 || statusCode >= 500 || error?.name === "FunctionsFetchError";
+  const code = errorStatus(error);
+  return code === 402 || code >= 500 ||
+    ["FunctionsFetchError", "FunctionsRelayError", "AuthRetryableFetchError", "TypeError"].includes(error?.name);
 }
 
 if (toggle && password) {
@@ -107,31 +117,40 @@ if (!isSupabaseConfigured || !supabase) {
             p_username: username,
             p_password: secret
           });
-          if (lookupStatus === 402) throw new Error("supabase_egress_quota");
+          if (lookupStatus === 402) throw new Error("supabase_restricted", { cause: lookupError });
           if (lookupError) throw new Error("fallback_unavailable", { cause: lookupError });
           if (typeof resolvedEmail !== "string" || !resolvedEmail) throw new Error("fallback_not_verified");
-          const { error: fallbackAuthError } = await supabase.auth.signInWithPassword({
+          const { data: fallbackAuthData, error: fallbackAuthError } = await supabase.auth.signInWithPassword({
             email: resolvedEmail,
             password: secret
           });
           if (fallbackAuthError) throw new Error("fallback_auth_failed", { cause: fallbackAuthError });
+          if (!fallbackAuthData?.session?.access_token || !fallbackAuthData.session.refresh_token) {
+            throw new Error("session_not_created");
+          }
           window.location.replace(nextPage);
           return;
         }
-        if (error || !data?.access_token || !data?.refresh_token) throw error || new Error("invalid_credentials");
-        const { error: sessionError } = await supabase.auth.setSession({
+        if (error || !data?.access_token || !data?.refresh_token) throw error || new Error("session_not_created");
+        const { data: savedSessionData, error: sessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token
         });
         if (sessionError) throw sessionError;
+        if (!savedSessionData?.session?.access_token || !savedSessionData.session.refresh_token) {
+          throw new Error("session_not_created");
+        }
         window.location.replace(nextPage);
       } catch (error) {
-        console.error("Looply username login failed", error);
-        if (error?.message === "supabase_egress_quota") {
-          status(message, "O Supabase bloqueou temporariamente os acessos porque a cota gratuita de transferência de dados foi excedida. Seu nome de usuário e sua senha não foram rejeitados.");
+        // Log only a status code, never request objects, tokens, or credential payloads.
+        console.warn("Looply username login failed", { status: errorStatus(error) });
+        if (error?.message === "supabase_restricted" || errorStatus(error) === 402) {
+          status(message, "O serviço do Looply está temporariamente bloqueado pelo provedor. Não foi possível verificar seu usuário e sua senha. O acesso depende da liberação do serviço.");
+        } else if (errorStatus(error) === 429) {
+          status(message, "Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.");
         } else if (error?.message === "fallback_not_verified") {
           status(message, "Não foi possível validar este usuário e senha. Após muitas tentativas, aguarde 15 minutos para tentar de novo.");
-        } else if (error?.message === "fallback_unavailable" || error?.message === "fallback_auth_failed" || isServiceUnavailable(error)) {
+        } else if (error?.message === "fallback_unavailable" || error?.message === "fallback_auth_failed" || error?.message === "session_not_created" || isServiceUnavailable(error)) {
           status(message, "O serviço de autenticação está indisponível. O acesso secundário também não conseguiu concluir sua sessão.");
         } else {
           status(message, "Usuário ou senha incorretos. Se você acabou de receber um convite, confirme-o e defina sua senha primeiro.");

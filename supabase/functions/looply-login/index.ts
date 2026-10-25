@@ -12,6 +12,12 @@ function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+function serviceFailure(error: { status?: number } | null) {
+  if (error?.status === 402) return respond(402, { error: "service_restricted" });
+  if (error?.status === 429) return respond(429, { error: "rate_limited" });
+  return respond(503, { error: "login_unavailable" });
+}
+
 function namedKey(pluralName: string, legacyNames: string[]) {
   const encoded = Deno.env.get(pluralName);
   if (encoded) {
@@ -50,23 +56,32 @@ Deno.serve(async (request: Request) => {
 
     const service = createClient(projectUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const auth = createClient(projectUrl, publicKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: profile, error: profileError } = await service
+    const { data: profile, error: profileError, status: profileStatus } = await service
       .from("profiles").select("id").eq("username", username).maybeSingle();
-    if (profileError || !profile?.id) return respond(401, { error: "invalid_credentials" });
+    if (profileError) return serviceFailure({ status: profileStatus });
+    if (!profile?.id) return respond(401, { error: "invalid_credentials" });
 
     const { data: account, error: accountError } = await service.auth.admin.getUserById(profile.id);
     const email = account?.user?.email;
-    if (accountError || !email) return respond(401, { error: "invalid_credentials" });
+    if (accountError) return serviceFailure(accountError);
+    if (!email) return respond(401, { error: "invalid_credentials" });
 
     const { data: session, error: signInError } = await auth.auth.signInWithPassword({ email, password });
-    if (signInError || !session.session) return respond(401, { error: "invalid_credentials" });
+    if (signInError) {
+      if (signInError.status === 400 || signInError.status === 401 || signInError.status === 422) {
+        return respond(401, { error: "invalid_credentials" });
+      }
+      return serviceFailure(signInError);
+    }
+    if (!session.session) return respond(503, { error: "login_unavailable" });
     return respond(200, {
       access_token: session.session.access_token,
       refresh_token: session.session.refresh_token,
       expires_in: session.session.expires_in,
       token_type: session.session.token_type
     });
-  } catch {
-    return respond(400, { error: "invalid_request" });
+  } catch (error) {
+    if (error instanceof SyntaxError) return respond(400, { error: "invalid_request" });
+    return respond(503, { error: "login_unavailable" });
   }
 });
