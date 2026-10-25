@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#F5F0FA">
+<title>Teste de conversas — Neon / Cloudflare · Looply</title>
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+*{box-sizing:border-box}body{background:#f5f0fa;font:16px system-ui,sans-serif;color:#29252f;min-height:100vh;margin:0;padding:20px}
+main{margin:20px auto;max-width:660px;background:white;border:1px solid #e9ddf3;border-radius:25px;padding:24px;box-shadow:0 6px 28px #5030901c}
+h1{font-family:Georgia,serif;color:#7010b0}p{line-height:1.6}.label{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:#666}
+button,select,a.action{font:inherit;padding:12px 15px;border-radius:12px;border:1px solid #bda6ce;background:#faf6ff;color:#503090}
+button{cursor:pointer}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:15px 0}
+select{width:100%;max-width:100%}a{color:#7010b0}
+#events{background:#21142b;color:#f0e9f6;padding:14px;border-radius:14px;min-height:110px;white-space:pre-wrap;word-break:break-word;line-height:1.6;font:13px ui-monospace,monospace}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<div class="label">Looply original · homologação</div>
+<h1>Teste do chat em tempo real</h1>
+<p>Este teste confirma a autorização do Neon e a conexão WebSocket do Cloudflare. Ele não envia nem altera mensagens antigas.</p>
+<p><strong id="identity">Consultando a sessão Neon…</strong></p>
+<label for="conversation">Conversa autorizada</label>
+<select id="conversation" aria-label="Escolha uma conversa"><option value="">Carregando conversas…</option></select>
+<div class="actions">
+<button type="button" id="connect">Conectar ao chat</button>
+<button type="button" id="typing" disabled>Testar digitação</button>
+<button type="button" id="refresh" disabled>Enviar evento de atualização</button>
+<button type="button" id="disconnect" disabled>Desconectar</button>
+</div>
+<p class="label">Eventos e situação da conexão</p>
+<div id="events" role="status" aria-live="polite">Iniciando teste…</div>
+<p><a href="login-neon.html">Voltar ao teste de login Neon</a> · <a href="https://soumoiss.github.io/Looply/login.html">Looply original</a></p>
+</main>
+<script type="module" src="src/neon-realtime-staging.js"></script>
+</body>
+</html>
