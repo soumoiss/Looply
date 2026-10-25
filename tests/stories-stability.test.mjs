@@ -49,7 +49,7 @@ test("story view insights show signed viewer avatars with initials as a privacy-
   const source = await read("src/stories.js");
   const css = await read("assets/css/pages/home.css");
   assert.match(source, /viewer:profiles!story_views_viewer_id_fkey\(username,display_name,avatar_path\)/);
-  assert.match(source, /client\.storage\.from\("looply-avatars"\)[\s\S]*?createSignedUrls\(avatarPaths, 1800\)/);
+  assert.match(source, /cachedSignedUrls\(client, "looply-avatars", avatarPaths, 1800\)/);
   assert.match(source, /avatar\.textContent = initials\(profileName\(view\.viewer\)\)/);
   assert.match(source, /image\.referrerPolicy = "no-referrer"/);
   assert.match(css, /\.story-insights-avatar img[^{]*\{[^}]*object-fit:\s*cover/);
@@ -102,7 +102,7 @@ test("text-only stories center their copy vertically and horizontally without ch
 
 test("story media retries signed URLs per object and exposes a retry control when media is unavailable", async () => {
   const source = await read("src/stories.js");
-  assert.match(source, /createSignedUrl\(item\.storage_path, remainingTtl\)/);
+  assert.match(source, /cachedSignedUrl\(client, "looply-media", item\.storage_path, remainingTtl\)/);
   assert.match(source, /data-story-media-retry/);
   assert.match(source, /Não foi possível carregar a mídia deste story/);
 });
