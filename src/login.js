@@ -103,10 +103,11 @@ if (!isSupabaseConfigured || !supabase) {
           // The Edge Functions gateway may be unavailable while PostgREST and Auth still work.
           // The database checks the password and returns the account email only on success.
           // No address or password hash is published with the site.
-          const { data: resolvedEmail, error: lookupError } = await supabase.rpc("looply_login_fallback", {
+          const { data: resolvedEmail, error: lookupError, status: lookupStatus } = await supabase.rpc("looply_login_fallback", {
             p_username: username,
             p_password: secret
           });
+          if (lookupStatus === 402) throw new Error("supabase_egress_quota");
           if (lookupError) throw new Error("fallback_unavailable", { cause: lookupError });
           if (typeof resolvedEmail !== "string" || !resolvedEmail) throw new Error("fallback_not_verified");
           const { error: fallbackAuthError } = await supabase.auth.signInWithPassword({
@@ -126,7 +127,9 @@ if (!isSupabaseConfigured || !supabase) {
         window.location.replace(nextPage);
       } catch (error) {
         console.error("Looply username login failed", error);
-        if (error?.message === "fallback_not_verified") {
+        if (error?.message === "supabase_egress_quota") {
+          status(message, "O Supabase bloqueou temporariamente os acessos porque a cota gratuita de transferência de dados foi excedida. Seu nome de usuário e sua senha não foram rejeitados.");
+        } else if (error?.message === "fallback_not_verified") {
           status(message, "Não foi possível validar este usuário e senha. Após muitas tentativas, aguarde 15 minutos para tentar de novo.");
         } else if (error?.message === "fallback_unavailable" || error?.message === "fallback_auth_failed" || isServiceUnavailable(error)) {
           status(message, "O serviço de autenticação está indisponível. O acesso secundário também não conseguiu concluir sua sessão.");
