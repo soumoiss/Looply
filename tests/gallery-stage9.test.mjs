@@ -31,7 +31,7 @@ test("gallery upload matches the existing private Storage policy and database sc
   assert.match(gallery, /byte_size:file\.size/);
   assert.match(gallery, /set_gallery_media_permissions/);
   assert.match(gallery, /gallery_media_people/);
-  assert.match(gallery, /createSignedUrl\(x\.storage_path, 300\)/);
+  assert.match(gallery, /cachedSignedUrl\(client, bucket, x\.storage_path, 300\)/);
 });
 
 test("gallery details show the uploader from the media owner relation with a safe fallback for legacy archive rows", () => {
