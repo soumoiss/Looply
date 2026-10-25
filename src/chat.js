@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { cachedSignedUrls } from "./storage-url-cache.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
@@ -131,8 +132,7 @@ export async function loadChatData(client, userId) {
   }
   const avatarList = [...avatarProfiles.values()];
   if (avatarList.length) {
-    const { data: signed } = await client.storage.from("looply-avatars")
-      .createSignedUrls(avatarList.map((profile) => profile.avatar_path), 1800);
+    const { data: signed } = await cachedSignedUrls(client, "looply-avatars", avatarList.map((profile) => profile.avatar_path), 1800);
     if (signed) avatarList.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
   }
   return {
@@ -469,7 +469,7 @@ async function loadThread(client, conversationId, before = null) {
   const messages = (messageResult.data || []).reverse();
   const media = messages.flatMap((message) => message.media || []);
   if (media.length) {
-    const { data: signed, error: signedError } = await client.storage.from("looply-chat").createSignedUrls(media.map((item) => item.storage_path), 1800);
+    const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-chat", media.map((item) => item.storage_path), 1800);
     if (!signedError && signed) media.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
   }
   return { messages, participants: participantResult.data || [], conversation: conversationResult.data };
@@ -543,7 +543,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
 async function signThreadAvatar(client, participants) {
   const profiles = participants.map((participant) => participant.profile).filter((profile) => profile?.avatar_path);
   if (!profiles.length) return;
-  const { data } = await client.storage.from("looply-avatars").createSignedUrls(profiles.map((profile) => profile.avatar_path), 1800);
+  const { data } = await cachedSignedUrls(client, "looply-avatars", profiles.map((profile) => profile.avatar_path), 1800);
   if (data) profiles.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
 }
 
@@ -1168,8 +1168,7 @@ export function bindChatEvents(root, client, getUserId) {
         const profiles = data || [];
         const avatarProfiles = profiles.filter((profile) => profile.avatar_path);
         if (avatarProfiles.length) {
-          const { data: signed } = await client.storage.from("looply-avatars")
-            .createSignedUrls(avatarProfiles.map((profile) => profile.avatar_path), 1800);
+          const { data: signed } = await cachedSignedUrls(client, "looply-avatars", avatarProfiles.map((profile) => profile.avatar_path), 1800);
           if (signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
         }
         const container = root.querySelector("[data-chat-people]");
