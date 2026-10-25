@@ -11,7 +11,7 @@ on:
         options: [dry-run, copy]
       expected_count:
         description: "Number of source objects expected; stops if inventory differs"
-        default: "277"
+        default: "272"
         required: true
         type: string
       confirmation:
