@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { cachedSignedUrls } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
 import { validatePublicationInput } from "./publication-validation.js";
@@ -348,9 +349,7 @@ async function loadPosts(client) {
     (comment.media || []).map((item) => Object.assign(item, { commentId: comment.id }))));
   const allMedia = [...media, ...commentMedia];
   if (allMedia.length) {
-    const { data: signed, error: signedError } = await client.storage
-      .from("looply-media")
-      .createSignedUrls(allMedia.map((item) => item.storage_path), 1800);
+    const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-media", allMedia.map((item) => item.storage_path), 1800);
     if (!signedError && signed) {
       allMedia.forEach((item, index) => { item.signedUrl = signed[index]?.signedUrl || null; });
     }
