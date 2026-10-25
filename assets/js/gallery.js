@@ -1,5 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { icon } from "../../src/icons.js";
+import { cachedSignedUrl } from "../../src/storage-url-cache.js";
 import { createGalleryGestureController } from "./gallery-gestures.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -122,13 +123,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
   const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } };
   const signedUrl = async (x, thumbnail = false) => {
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
-    const storage = client.storage.from(bucket);
     if (thumbnail && mediaType(x) === "image") {
       // Image transformations are unavailable on Supabase Free. Never fall back
       // to multi-megabyte originals in the grid: fetch those only on explicit open.
       if (Number(x.byte_size || 0) > maxInlinePreviewBytes) return "";
     }
-    const { data, error } = await storage.createSignedUrl(x.storage_path, 300);
+    const { data, error } = await cachedSignedUrl(client, bucket, x.storage_path, 300);
     if (error) throw error;
     return data?.signedUrl || "";
   };
