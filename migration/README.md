@@ -18,7 +18,7 @@
 | Buckets | 7 | 7 |
 
 - Supabase Storage possui **277 objetos**, aproximadamente **369.296.700 bytes**, maior objeto ~**15.926.565 bytes**.
-- Buckets com arquivos: `looply-avatars` 24, `looply-chat` 9, `looply-gallery` 5, `looply-letters` 2, `looply-media` 236, `looply-secret-messages` 1; `looply-announcements` 0.
+- Buckets com arquivos: `looply-avatars` 24, `looply-chat` 9, `looply-gallery` 5 (**não migrar; serão reenviados**), `looply-letters` 2, `looply-media` 236, `looply-secret-messages` 1; `looply-announcements` 0.
 - Neon Object Storage já está habilitado; os sete buckets estão privados e vazios.
 - Neon Data API está ativa e apontando para o esquema público, e Managed Better Auth está provisionado.
 - Das 6 contas Neon Auth, somente **1** tinha senha cadastrada e e-mail marcado como verificado na última checagem de autenticação. Os 6 registros de vínculo na tabela de migração **não significam login funcional**.
@@ -34,7 +34,7 @@
 - `.github/workflows/migrate-private-media.yml`: execução manual com campos mode=\`dry-run\`/\`copy\`, confirmação e contagem esperada. **Somente na branch neste momento; a opção Run workflow do GitHub exige que o workflow seja promovido à main**, depois de adicionar segredos e aprovar o destino. Nenhum copy automático ou cobrança foi autorizado.
 - A página pública original NÃO passou a usar o gateway; o login existente NÃO foi substituído.
 
-## 3. Dependências para exportar 277 mídias
+## 3. Dependências para exportar 272 mídias preservadas
 
 Para o script rodar, configure num ambiente privado do GitHub Actions (`migration-media`) ou localmente:
 
@@ -46,7 +46,7 @@ Para o script rodar, configure num ambiente privado do GitHub Actions (`migratio
 | `AWS_ACCESS_KEY_ID` | Neon storage credential `token_id`, escopo `storage:write` |
 | `AWS_SECRET_ACCESS_KEY` | Neon storage credential `s3_secret_access_key` |
 | `AWS_REGION` | `us-east-1` |
-| `EXPECTED_MEDIA_COUNT` | `277` no snapshot inicial |
+| `EXPECTED_MEDIA_COUNT` | `272` (excluindo as 5 mídias da galeria) |
 
 No Actions, usar os nomes `LOOPLY_SOURCE_SERVICE_ROLE_KEY`, `LOOPLY_NEON_STORAGE_ACCESS_KEY_ID`, `LOOPLY_NEON_STORAGE_SECRET_ACCESS_KEY` que a workflow mapeia para variáveis do processo. Credenciais nunca devem entrar em `config.js`, HTML, `.env` versionado ou commit.
 
@@ -56,7 +56,7 @@ O script usa `@aws-sdk/client-s3@3.1156.0`, instala a versão fixa e executa `no
 
 1. **Validar banco e RLS**: conferir todos os 56 conjuntos de dados, políticas RLS e funções, não apenas contagens globais. Verificar cada view exposta com JWTs de contas distintas e clientes anônimos.
 2. **Autenticação real**: Managed Better Auth **não importa os hashes bcrypt do Supabase** automaticamente. Escolher reset seguro de senhas, ou implantar Better Auth auto-hospedado com verificação bcrypt e novo hashing no primeiro acesso. Validar 6 contas e sessões antes do corte.
-3. **Concluir 277 arquivos**: exportar do original para os mesmos 7 buckets Neon, verificar byte length, SHA256 e permissões de downloads/assinaturas.
+3. **Concluir 272 arquivos fora da galeria**: exportar os seis buckets com arquivos que serão mantidos, verificar byte length, SHA256 e permissões de downloads/assinaturas.
 4. **Portar serviços**: substituir `looply-admin`, `looply-login`, `looply-chat`, `looply-push`, `looply-stories-cleanup`, `looply-youtube-playlist`, web push, RPC e Storage assinada por Workers/Neon Functions equivalentes. Validar autorizações e logs sem segredos.
 5. **Substituir clientes**: separar `auth`, `from/rpc`, `storage`, `realtime` e `functions` do `src/supabase.js`; migrar cada ponto de uso com testes. `@neondatabase/neon-js` é compatível em parte para Auth/Data API, **não oferece substituição automática para Storage/Realtime/Edge Functions**.
 6. **Realtime e chamadas**: migrar assinaturas de chat, typing, mensagens, Stories, notificações e sinalização WebRTC, sem expor conversas privadas. Neon Realtime beta não implementa RLS; usar autorização de consultas no servidor.
