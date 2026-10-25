@@ -3,10 +3,12 @@ import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-test("production backend deployment is automated without committing Supabase credentials", async () => {
+test("legacy Supabase backend deployment is manual-only and never commits Supabase credentials", async () => {
   const root = resolve(import.meta.dirname, "..");
   const workflow = await readFile(resolve(root, ".github/workflows/supabase-deploy.yml"), "utf8");
-  assert.match(workflow, /branches: \[main\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s+push:\s*$/m);
+  assert.doesNotMatch(workflow, /branches: \[main\]/);
   assert.match(workflow, /secrets\.SUPABASE_ACCESS_TOKEN/);
   assert.match(workflow, /secrets\.SUPABASE_DB_PASSWORD/);
   assert.match(workflow, /SUPABASE_PROJECT_ID: qixocgetiwlrsbadpbvh/);
