@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
@@ -159,7 +160,7 @@ export async function loadStories(client) {
   }
   await Promise.all([...signGroups].map(async ([ttl, items]) => {
     const storage = client.storage.from("looply-media");
-    const { data: signed, error: signedError } = await storage.createSignedUrls(items.map((item) => item.storage_path), ttl);
+    const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-media", items.map((item) => item.storage_path), ttl);
     await Promise.all(items.map(async (item, index) => {
       item.signedUrl = !signedError ? signed?.[index]?.signedUrl || null : null;
       if (item.signedUrl) return;
@@ -167,7 +168,7 @@ export async function loadStories(client) {
       // Retry the individual path so one malformed item cannot blank every story in the group.
       const remainingTtl = storyMediaUrlTtl(item.storyExpiresAt, Date.now());
       if (!remainingTtl) return;
-      const single = await storage.createSignedUrl(item.storage_path, remainingTtl);
+      const single = await cachedSignedUrl(client, "looply-media", item.storage_path, remainingTtl);
       if (single.error) {
         console.warn("Looply story media URL could not be signed.", {
           storyId: item.storyId,
@@ -182,8 +183,7 @@ export async function loadStories(client) {
   const avatarPaths = [...new Set(rows.map((story) => story.author?.avatar_path).filter(Boolean))];
   const avatarUrls = new Map();
   if (avatarPaths.length) {
-    const { data: signed, error: signedError } = await client.storage.from("looply-avatars")
-      .createSignedUrls(avatarPaths, 1800);
+    const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-avatars", avatarPaths, 1800);
     if (!signedError) avatarPaths.forEach((path, index) => avatarUrls.set(path, signed?.[index]?.signedUrl || null));
   }
 
@@ -744,8 +744,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const avatarPaths = [...new Set(views.map((view) => view.viewer?.avatar_path).filter(Boolean))];
       const avatarUrls = new Map();
       if (avatarPaths.length) {
-        const { data: signedAvatars, error: avatarError } = await client.storage.from("looply-avatars")
-          .createSignedUrls(avatarPaths, 1800);
+        const { data: signedAvatars, error: avatarError } = await cachedSignedUrls(client, "looply-avatars", avatarPaths, 1800);
         if (!avatarError) avatarPaths.forEach((path, index) => {
           const url = signedAvatars?.[index]?.signedUrl;
           if (url) avatarUrls.set(path, url);
