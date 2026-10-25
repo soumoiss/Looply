@@ -51,3 +51,30 @@ As restrições HTTP 402 do Supabase continuam impedindo operações de Storage.
 7. Só após paridade comprovada, promover o backend novo para `soumoiss/Looply` em produção e descontinuar Supabase.
 
 Não alterar a interface original e não contratar recursos pagos sem autorização. O aplicativo **ainda não está 100% migrado**, pois o trabalho de autenticação, APIs, armazenamento de novos uploads e tempo real permanece pendente.
+
+
+## Realtime: decisão após bloqueio PostgreSQL 17 (25/10/2026)
+
+O Neon Console mostra corretamente: `Realtime requires Postgres 18. This project runs Postgres 17.`
+Confirmado por SQL: versão `17.11`; `get_realtime.enabled=false`.
+
+**Não recriar nem atualizar o projeto Neon apenas para habilitar o Realtime beta.**
+Neon bloqueia upgrades principais no mesmo projeto: PG18 exigiria outro projeto mais exportação/importação dos dados, reconfiguração de Auth, Data API e Storage.
+
+**Implementação prevista no projeto ORIGINAL Looply:**
+- Neon PostgreSQL 17 permanece fonte persistente (mensagens, usuários, comentários, posts e suas permissões);
+- Cloudflare Workers + **Durable Objects SQLite-backed** + WebSocket Hibernation gerenciam canais em tempo real;
+- autenticação e autorização obrigatórias antes da conexão, escopo de sala/conversa e checagem de participantes no Neon;
+- persistir mensagens/autoria no Neon **antes** de propagá-las ao grupo; Durable Object faz fanout de eventos, presença, typing, confirmação de entrega e sinalização WebRTC;
+- não confiar em `conversation_id` sem autorização: conferir associação do usuário em `conversation_participants`;
+- reconexão e sincronização por cursor consultando Neon, evitando perder mensagens durante desconexão/hibernação;
+- áudio e vídeo usam WebRTC e precisarão de ICE/STUN/TURN conforme teste; o WebSocket é só a sinalização, não transporta mídia;
+- implementar limites por usuário, limpeza de presença, sem expor tokens em parâmetros de URL ou logs;
+- manter interface original sem alterações visuais e não fazer corte de produção até validar dois usuários em chat/chamadas.
+
+**Estado:** arquitetura definida/documentada; ainda não existe gateway Durable Object implantado ou chat totalmente migrado.
+
+Referências:
+- https://neon.com/docs/postgresql/postgres-upgrade
+- https://developers.cloudflare.com/durable-objects/best-practices/websockets/
+- https://developers.cloudflare.com/durable-objects/platform/limits/
