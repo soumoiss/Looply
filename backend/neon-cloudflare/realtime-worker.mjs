@@ -107,7 +107,10 @@ export default {
     const matched = TICKET.exec(protocol);
     if (!matched) return respond({ error: "ticket_required" }, 401, origin);
     const stub = env.LOOPLY_ROOMS.get(env.LOOPLY_ROOMS.idFromName("conversation:" + conversationId));
-    return stub.connect(matched[1], protocol);
+    // HTTP semantics are required to tunnel WebSocket response through a Durable Object.
+    return stub.fetch(new Request("https://internal.looply/upgrade", {
+      headers: { upgrade: "websocket", "sec-websocket-protocol": protocol }
+    }));
   }
 };
 
@@ -126,6 +129,15 @@ export class LooplyConversationRoom {
     // Storage survives hibernation. Use a one-time ticket with strict TTL.
     this.ctx.storage.kv.put("ticket:" + secret, { userId, until: Date.now() + 30000 });
     return secret;
+  }
+
+  async fetch(request) {
+    const protocol = request.headers.get("sec-websocket-protocol") || "";
+    const match = TICKET.exec(protocol);
+    if (request.method !== "GET" || request.headers.get("upgrade") !== "websocket" || !match) {
+      return respond({ error: "upgrade_required" }, 426);
+    }
+    return this.connect(match[1], protocol);
   }
 
   async connect(secret, protocol) {
