@@ -13,13 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check out public client configuration
+        uses: actions/checkout@v5
       - name: Inspect public Supabase health API and restriction code
         shell: bash
         run: |
           set -euo pipefail
-          for project in qixocgetiwlrsbadpbvh kgrxvsizfmaxlosiitec; do
+          publishable_key=$(grep -oE "sb_publishable_[A-Za-z0-9_-]+" config.js | head -n 1)
+          for project in qixocgetiwlrsbadpbvh; do
             echo "Project: $project"
-            status=$(curl --silent --show-error --max-time 20 -o /tmp/looply-response.json -w '%{http_code}' "https://$project.supabase.co/auth/v1/health")
+            status=$(curl --silent --show-error --max-time 20 -H "apikey: $publishable_key" -H "Authorization: Bearer $publishable_key" -o /tmp/looply-response.json -w '%{http_code}' "https://$project.supabase.co/auth/v1/health")
             echo "HTTP $status"
             python3 -c 'import json,re; body=open("/tmp/looply-response.json", encoding="utf8").read(); data=json.loads(body); message=str(data.get("message") or data.get("error") or data.get("msg") or ""); codes=re.findall(r"exceed(?:ed)?_[a-z_]+|overdue_payment", message); print("Restriction:", ", ".join(codes) if codes else message[:250])'
           done
