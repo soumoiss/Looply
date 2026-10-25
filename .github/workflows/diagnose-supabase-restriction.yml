@@ -21,18 +21,5 @@ jobs:
             echo "Project: $project"
             status=$(curl --silent --show-error --max-time 20 -o /tmp/looply-response.json -w '%{http_code}' "https://$project.supabase.co/auth/v1/health")
             echo "HTTP $status"
-            python3 - <<'PY'
-import json,re
-with open('/tmp/looply-response.json', encoding='utf8') as f:
-  body=f.read()
-try:
-  data=json.loads(body)
-  description=str(data.get('message') or data.get('error') or data.get('msg') or '')
-except Exception:
-  description=body
-for item in re.findall(r'(?:exceed(?:ed)?_[a-z_]+|overdue_payment|[A-Za-z_]*quota)', description):
-  print('Restriction reason:', item)
-if not re.findall(r'(?:exceed(?:ed)?_[a-z_]+|overdue_payment|[A-Za-z_]*quota)', description):
-  print('Description (first 300 chars):', description[:300])
-PY
+            python3 -c 'import json,re; body=open("/tmp/looply-response.json", encoding="utf8").read(); data=json.loads(body); message=str(data.get("message") or data.get("error") or data.get("msg") or ""); codes=re.findall(r"exceed(?:ed)?_[a-z_]+|overdue_payment", message); print("Restriction:", ", ".join(codes) if codes else message[:250])'
           done
