@@ -1,0 +1,67 @@
+name: Transfer Looply private media to Neon (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run enumerates private objects; copy transfers and verifies them"
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, copy]
+      expected_count:
+        description: "Number of source objects expected; stops if inventory differs"
+        default: "272"
+        required: true
+        type: string
+      confirmation:
+        description: "For copy only: type TRANSFER_WITH_CHECKSUMS"
+        default: ""
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: looply-private-media-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: migration-media
+    steps:
+      - name: Check out only the migration branch
+        uses: actions/checkout@v5
+        with:
+          ref: migration/neon-cloudflare-full-20261025
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate migration script
+        run: node --check migration/transfer-media.mjs
+      - name: Install exact S3 client dependency
+        run: npm install --no-save --ignore-scripts @aws-sdk/client-s3@3.1156.0
+      - name: Inventory or transfer private media
+        env:
+          SUPABASE_URL: https://qixocgetiwlrsbadpbvh.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LOOPLY_SOURCE_SERVICE_ROLE_KEY }}
+          AWS_ENDPOINT_URL_S3: https://br-round-fog-b7pseu7j.storage.c-13.us-east-1.aws.neon.tech
+          AWS_ACCESS_KEY_ID: ${{ secrets.LOOPLY_NEON_STORAGE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.LOOPLY_NEON_STORAGE_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          EXPECTED_MEDIA_COUNT: ${{ inputs.expected_count }}
+          MIGRATE_MEDIA: ${{ inputs.mode == 'copy' && '1' || '0' }}
+          MIGRATION_CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "${MIGRATE_MEDIA}" = "1" ] && [ "${MIGRATION_CONFIRM}" != "TRANSFER_WITH_CHECKSUMS" ]; then
+            echo "::error::Copy requires explicit confirmation. No files changed."
+            exit 1
+          fi
+          node migration/transfer-media.mjs
