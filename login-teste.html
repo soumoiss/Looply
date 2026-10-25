@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#F5F0FA">
+  <title>Teste de acesso — Looply original</title>
+  <script src="config.js"></script>
+  <script src="src/theme-bootstrap.js"></script>
+  <link rel="stylesheet" href="assets/css/app.css">
+  <style>
+    *{box-sizing:border-box}
+    body{min-height:100svh;margin:0;padding:24px;display:grid;place-items:center;background:var(--bg,#f5f0fa);color:var(--text,#29252f);font-family:system-ui,-apple-system,sans-serif}
+    .access-card{width:min(100%,470px);background:var(--surface-strong,#fff);border:1px solid var(--line,#e3d6ec);border-radius:30px;padding:clamp(23px,5vw,40px);box-shadow:0 12px 44px #6a35901c}
+    h1{font-family:Georgia,serif;font-size:clamp(29px,7vw,42px);color:var(--primary,#7010b0);margin:10px 0}
+    p{line-height:1.55;color:var(--muted,#686072)}
+    label{display:block;font-weight:650;margin:20px 0 7px}
+    input{width:100%;font:inherit;border:1px solid #d6c7e6;border-radius:14px;padding:14px;background:var(--surface-soft,#faf7fc);color:var(--text,#29252f)}
+    .primary{display:block;text-align:center;width:100%;font:inherit;font-weight:750;padding:15px;background:var(--primary,#7010b0);border:0;border-radius:25px;color:#fff;cursor:pointer;text-decoration:none;margin-top:21px}
+    .primary:disabled{opacity:.6;cursor:wait}
+    button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #20b99a;outline-offset:3px}
+    #message{min-height:20px}#message[data-error=true]{color:#a12039}
+    .links{display:flex;flex-wrap:wrap;gap:12px 22px;margin-top:23px}
+    a{color:var(--primary,#7010b0);text-underline-offset:3px}
+    .kicker{font-size:12px;font-weight:750;letter-spacing:.12em;text-transform:uppercase;color:var(--muted,#686072)}
+    .profile{border-radius:18px;border:1px solid #e1d5eb;padding:17px;background:var(--surface-soft,#faf7fc)}
+    .profile h2{margin:4px 0 0}.profile p{overflow-wrap:anywhere;white-space:pre-wrap}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+<main class="access-card">
+  <div class="kicker">MoissWorld · Teste isolado</div>
+  <h1>Login do Looply</h1>
+  <p>Vamos conferir o acesso à sua conta no projeto original antes de migrar apenas a autenticação.</p>
+  <form id="testLogin" novalidate>
+    <label for="identity">Usuário ou e-mail cadastrado</label>
+    <input id="identity" name="identity" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required placeholder="Seu usuário ou e-mail">
+    <label for="password">Senha</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required placeholder="Sua senha">
+    <button id="submit" type="submit" class="primary">Testar meu acesso</button>
+  </form>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="loggedIn" hidden aria-label="Resultado do login">
+    <div class="profile">
+      <div class="kicker">Perfil autenticado</div>
+      <h2 id="profileName"></h2>
+      <strong id="profileUsername"></strong>
+      <p id="profileBio"></p>
+    </div>
+    <a class="primary" href="home.html">Abrir o Looply original</a>
+    <button type="button" id="logout" class="primary">Sair</button>
+  </section>
+  <div class="links">
+    <a href="login.html">Voltar ao login principal</a>
+    <a href="admin.html">Cadastrar usuário (administrador)</a>
+  </div>
+</main>
+<script type="module" src="src/login-teste.js"></script>
+</body>
+</html>
