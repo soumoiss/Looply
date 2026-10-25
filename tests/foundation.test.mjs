@@ -272,7 +272,7 @@ test("the feed escapes database text and writes through Supabase with realtime r
   assert.match(social, /rpc\("create_selected_post"/);
   assert.match(social, /postgres_changes/);
   assert.match(social, /refreshSocialFeed/);
-  assert.match(social, /createSignedUrls/);
+  assert.match(social, /cachedSignedUrls/);
   assert.match(social, /tus-js-client@4\.3\.1/);
   assert.match(social, /from\("post_media"\)\.insert/);
 });
@@ -285,7 +285,7 @@ test("comment attachments use private storage and inherit the post's visibility"
   assert.match(social, /name="commentMedia" type="file" multiple/);
   assert.match(social, /comments\/\$\{postId\}\/\$\{comment\.id\}/);
   assert.match(social, /from\("comment_media"\)\.insert/);
-  assert.match(social, /createSignedUrls\(allMedia\.map/);
+  assert.match(social, /cachedSignedUrls\(client, "looply-media", allMedia\.map/);
   assert.match(social, /table: "comment_media"/);
   assert.match(migration, /alter table public\.comment_media enable row level security/i);
   assert.match(migration, /private\.can_view_post\(post_id\)/i);
@@ -320,7 +320,7 @@ test("profile search and editing use only profile fields protected by RLS", asyn
   const profiles = await read("src/profiles.js");
   assert.match(profiles, /const updates = \{ display_name: displayName, bio, profile_visibility: visibility \}/);
   assert.match(profiles, /from\("profiles"\)[\s\S]*?\.update\(updates\)/);
-  assert.match(profiles, /storage\.from\("looply-avatars"\)\.createSignedUrls/);
+  assert.match(profiles, /cachedSignedUrls\(client, "looply-avatars"/);
   assert.match(profiles, /storage\.from\("looply-avatars"\)\.upload/);
   assert.match(profiles, /avatars\/\$\{userId\}\/\$\{crypto\.randomUUID\(\)\}/);
   assert.match(profiles, /\.ilike\("username", `\$\{query\}%`\)/);
@@ -415,7 +415,7 @@ test("chat, letters, notifications, and attachments are private to conversation 
   assert.match(hardening, /revoke all on function public\.create_direct_conversation\(uuid, uuid\)[\s\S]*?from public, anon, authenticated, service_role[\s\S]*?grant execute[\s\S]*?to service_role/i);
   assert.match(hardening, /revoke all on function public\.create_admin_letter\(uuid, text, text\)[\s\S]*?from public, anon, authenticated, service_role[\s\S]*?grant execute[\s\S]*?to service_role/i);
   assert.match(chat, /functions\.invoke\("looply-chat"/);
-  assert.match(chat, /createSignedUrls/);
+  assert.match(chat, /cachedSignedUrls/);
   assert.match(chat, /tus-js-client@4\.3\.1/);
   assert.match(chat, /last_read_at/);
   assert.match(edge, /auth\.getUser\(\)/);
@@ -456,7 +456,7 @@ test("owners can remove their own feed posts and profile pages render authorized
   assert.match(social, /post\.author_id === userId[\s\S]*?data-delete-post/);
   assert.match(social, /storage\.from\("looply-media"\)\.remove\(paths\)/);
   assert.match(social, /\.delete\(\)\.eq\("id", postId\)\.eq\("author_id", userId\)/);
-  assert.match(profiles, /createSignedUrls\(media\.map\(\(item\) => item\.storage_path\), 1800\)/);
+  assert.match(profiles, /cachedSignedUrls\(client, "looply-media", media\.map\(\(item\) => item\.storage_path\), 1800\)/);
   assert.match(profiles, /profile-post-media-grid/);
 });
 
