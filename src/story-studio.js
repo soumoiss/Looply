@@ -1,5 +1,7 @@
 import { StoryFaceLens } from "./story-ar.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
+import { encodeStorySong } from "./story-music-catalog.js";
+import { openStoryMusicPicker } from "./story-music-picker.js";
 
 const FILTERS = Object.freeze({
   none: "none", warm: "sepia(.25) saturate(1.22) contrast(1.03)",
@@ -509,39 +511,26 @@ export function bindStoryStudio(root, client, userId, refresh) {
     };
     body.querySelector("[data-layer-delete]").onclick = () => { el.remove(); modalClose(); };
   };
-  const openMusic = () => {
-    modal("Música no Loooply", '<input type="search" data-studio-music-query placeholder="Buscar uma música..." aria-label="Pesquisar trilhas"><div data-studio-music-results></div>' +
-      '<label class="studio-audio-upload">Ou escolha um áudio do dispositivo<input type="file" data-studio-audio-file accept="audio/*"></label>' +
-      '<p class="studio-hint">Trilhas instrumentais originais do aplicativo. Você também pode usar seu próprio arquivo de áudio.</p>');
-    const listing = body.querySelector("[data-studio-music-results]");
-    const render = () => {
-      const term = body.querySelector("[data-studio-music-query]").value.toLowerCase().trim();
-      listing.replaceChildren();
-      BUILTIN.filter(t => (t.title + " " + t.artist).toLowerCase().includes(term)).forEach(track => {
-        const button = document.createElement("button");
-        button.type = "button"; button.className = "studio-track";
-        button.textContent = "♫  " + track.title + " · " + track.artist;
-        button.onclick = () => {
-          music = { ...track, kind: "builtin" };
-          $("[data-studio-track-label]").textContent = track.title;
-          $("[data-studio-music-remove]").hidden = false; modalClose();
-        };
-        listing.append(button);
-      });
-      if (!listing.childElementCount) listing.textContent = "Nenhuma trilha encontrada.";
-    };
-    body.querySelector("[data-studio-music-query]").addEventListener("input", render);
-    body.querySelector("[data-studio-audio-file]").addEventListener("change", e => {
-      const audio = e.target.files?.[0];
-      if (!audio || !audio.type.startsWith("audio/") || audio.size > 15 * 1024 * 1024) {
-        status("Escolha um áudio válido de até 15 MB.", true); return;
-      }
-      music = { kind: "file", title: cleanName(audio.name), file: audio };
-      $("[data-studio-track-label]").textContent = music.title;
-      $("[data-studio-music-remove]").hidden = false; modalClose();
-    });
-    render(); body.querySelector("[data-studio-music-query]").focus();
+  const removeCatalogCredit = () => overlayRoot.querySelectorAll("[data-studio-music-credit]").forEach(el => el.remove());
+  const selectStoryMusic = track => {
+    removeCatalogCredit();
+    music = track;
+    if (track.kind === "catalog") {
+      const credit = addLayer("♪ " + track.title + " · " + track.artist, false);
+      credit.dataset.studioMusicCredit = "true";
+      credit.dataset.x = "0.5"; credit.dataset.y = "0.76"; credit.dataset.size = "18";
+      credit.style.fontSize = "18px";
+    }
+    $("[data-studio-track-label]").textContent = track.title;
+    $("[data-studio-music-remove]").hidden = false;
+    modalClose();
+    status(track.kind === "catalog"
+      ? "Música identificada no Story. Ouça o áudio pelo serviço oficial."
+      : "Áudio selecionado para o Story.");
   };
+  const openMusic = () => openStoryMusicPicker({
+    modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status
+  });
   const openAudience = () => {
     const people = $("[data-studio-people]");
     modal("Amigos próximos", '<p>Selecione de 1 a 20 pessoas que poderão assistir a este story.</p><div data-studio-audience-list></div>' +
@@ -662,9 +651,9 @@ export function bindStoryStudio(root, client, userId, refresh) {
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
     if (sourceKind === "video" && !music && !layered && editFilter === "none") return file;
-    if (sourceKind === "video") return exportVideo(null, Boolean(music));
+    if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"));
     const canvas = await renderStill();
-    if (music) return exportVideo(canvas, true);
+    if (music && music.kind !== "catalog") return exportVideo(canvas, true);
     const blob = await blobFromCanvas(canvas, "image/jpeg");
     return new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" });
   };
@@ -684,7 +673,9 @@ export function bindStoryStudio(root, client, userId, refresh) {
       if (!normalized || !FORMATS[normalized.type] || normalized.size > 100 * 1024 * 1024) {
         throw new Error("Mídia inválida ou maior que 100 MB.");
       }
-      const text = String(caption.value || "").trim().slice(0, 700);
+      const text = music?.kind === "catalog"
+        ? encodeStorySong(caption.value,music)
+        : String(caption.value || "").trim().slice(0,700);
       status("Criando story no Neon…");
       const created = await client.rpc("v5_create_story", {
         p_body: text, p_visibility: visibility, p_recipient_ids: visibility === "selected" ? selected : []
@@ -770,7 +761,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
     },
     "[data-studio-post]": () => { close(); root.querySelector("[data-toggle-composer]")?.click(); root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" }); },
     "[data-studio-music-open]": openMusic,
-    "[data-studio-music-remove]": () => { music = null; $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-music-remove]").hidden = true; },
+    "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-music-remove]").hidden = true; },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
     "[data-studio-stickers]": () => {
       modal("Figurinhas", '<div class="studio-stickers">' + ["❤️","✨","🌟","😍","🎉","🔥","🥳","💜"].map(t => '<button type="button" data-sticker="' + t + '">' + t + '</button>').join("") + '</div>');
