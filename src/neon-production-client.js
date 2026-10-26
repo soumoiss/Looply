@@ -23,7 +23,7 @@ function filtersToParams(filters = []) {
 }
 
 function createReadQuery(table) {
-  const state = { columns: "*", filters: [], ordering: [], max: null, mode: "select", head: false, count: null };
+  const state = { columns: "*", filters: [], ordering: [], max: null, range: null, mode: "select", head: false, count: null };
   const query = {
     select(columns = "*", options = {}) { state.columns = columns; state.head = options.head === true; state.count = options.count || null; return query; },
     eq(column, value) { state.filters.push(["eq", column, value]); return query; },
@@ -42,6 +42,15 @@ function createReadQuery(table) {
     delete() { state.mode = "delete"; return query; },
     order(column, options = {}) { state.ordering.push(`${column}.${options.ascending === false ? "desc" : "asc"}`); return query; },
     limit(value) { state.max = value; return query; },
+    range(from, to) {
+      const start = Number(from), end = Number(to);
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) {
+        state.range = { error: true };
+      } else {
+        state.range = { from: start, to: end };
+      }
+      return query;
+    },
     maybeSingle() { state.max = 2; return query.then(result => result.error ? result : result.data?.length > 1 ? { data: null, error: { message: "multiple_rows" } } : { data: result.data?.[0] || null, error: null }); },
     single() { state.max = 2; return query.then(result => result.error ? result : result.data?.length !== 1 ? { data: null, error: { message: "row_count_mismatch" } } : { data: result.data[0], error: null }); },
     then(resolve, reject) { return execute().then(resolve, reject); },
@@ -50,13 +59,15 @@ function createReadQuery(table) {
     try {
       if (!(await activeSession())) return { data: null, error: { message: "neon_session_required" }, count: null };
       if (state.mode !== "select") return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
+      if (state.range?.error) return { data: null, error: { message: "invalid_range" }, count: null };
       let request = neon.from(table).select(state.columns, { head: state.head, count: state.count });
       for (const [operator, column, value] of state.filters) {
         if (operator === "or") request = request.or(value);
         else request = request[operator](column, value);
       }
       for (const ordering of state.ordering) { const [column, direction] = ordering.split("."); request = request.order(column, { ascending: direction !== "desc" }); }
-      if (state.max !== null) request = request.limit(state.max);
+      if (state.range) request = request.range(state.range.from, state.range.to);
+      else if (state.max !== null) request = request.limit(state.max);
       const result = await request;
       return { ...result, data: Array.isArray(result.data) ? result.data : result.data ? [result.data] : [] };
     } catch { return { data: null, error: { message: "neon_read_unavailable" }, count: null }; }

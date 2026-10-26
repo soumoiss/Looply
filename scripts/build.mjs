@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm, readFile, writeFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,17 +22,6 @@ await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
-// The service worker may retain a previous copy of this stable URL. Give the
-// shared client a content-addressed URL so a deployment cannot mix a new page
-// runtime with an older Neon client module.
-const neonClientPath = path.join(outputDirectory, "src", "neon-production-client.js");
-const neonClient = await readFile(neonClientPath, "utf8");
-const neonClientVersion = createHash("sha256").update(neonClient).digest("hex").slice(0, 16);
-const pageRuntimePath = path.join(outputDirectory, "src", "page-runtime.js");
-const pageRuntime = await readFile(pageRuntimePath, "utf8");
-const clientImport = /from (["'])\.\/neon-production-client\.js\1;/g;
-if ([...pageRuntime.matchAll(clientImport)].length !== 1) throw new Error("Expected one Neon client import in src/page-runtime.js");
-await writeFile(pageRuntimePath, pageRuntime.replace(clientImport, `from "./neon-production-client.js?v=${neonClientVersion}";`), "utf8");
 console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration, and gallery.");
 
 
@@ -49,9 +38,38 @@ for (const file of ["index.html","login.html"]) {
   html = html.replace(oldModule,'<script type="module" src="'+script+'"></script>');
   await writeFile(filename,html,"utf8");
 }
-// Invalidate the old Supabase shell cache when GitHub Pages publishes Neon.
-const swPath=path.join(outputDirectory,"sw.js");
-let sw=await readFile(swPath,"utf8");
-sw=sw.replace('looply-shell-v7','looply-neon-shell-20261025');
-await writeFile(swPath,sw,"utf8");
-console.log("Original Looply page controllers retained; login and splash use Neon Auth.");
+// Stamp local HTML entrypoints and module imports with one content-derived
+// build id. This prevents the service worker and the browser module map from
+// combining a newly deployed adapter with older page controllers.
+async function collectAssetFiles(directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const filename = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await collectAssetFiles(filename));
+    else if (/\.(?:html|js|css)$/i.test(entry.name)) files.push(filename);
+  }
+  return files;
+}
+const assetFiles = (await collectAssetFiles(outputDirectory)).sort();
+const buildHasher = createHash("sha256");
+for (const filename of assetFiles) {
+  buildHasher.update(path.relative(outputDirectory, filename).replaceAll(path.sep, "/"));
+  buildHasher.update("\0");
+  buildHasher.update(await readFile(filename));
+}
+const buildId = buildHasher.digest("hex").slice(0, 16);
+const htmlReference = /((?:src|href)\s*=\s*["'])(?![a-z]+:|\/\/|#)([^"']+?\.(?:js|css))(?:\?[^"']*)?(["'])/gi;
+const moduleReference = /((?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)["'])(\.{1,2}\/[^"']+?\.js)(?:\?[^"']*)?(["'])/g;
+for (const filename of assetFiles.filter(value => /\.(?:html|js)$/i.test(value))) {
+  const source = await readFile(filename, "utf8");
+  const versioned = source
+    .replace(htmlReference, `$1$2?build=${buildId}$3`)
+    .replace(moduleReference, `$1$2?build=${buildId}$3`);
+  if (versioned !== source) await writeFile(filename, versioned, "utf8");
+}
+
+// A unique cache name makes the new service worker evict the previous shell.
+const swPath = path.join(outputDirectory, "sw.js");
+const sw = (await readFile(swPath, "utf8")).replace('looply-shell-v7', `looply-pages-${buildId}`);
+await writeFile(swPath, sw, "utf8");
+console.log(`Original Looply page controllers retained; local assets use build ${buildId}.`);
