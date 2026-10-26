@@ -20,6 +20,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
+      pages: read
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
