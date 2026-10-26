@@ -63,8 +63,11 @@ export async function loadArchivedCards(client, userId, isAdmin = false) {
     client.from("archived_card_reads").select("card_id,read_at").eq("user_id", userId)
   ]);
   if (cardsError) throw cardsError;
-  if (readsError) throw readsError;
-  return { cards: (cards || []).map((card) => ({ ...card, date: cardDate(card), unlocked: false })), reads: reads || [] };
+  return {
+    cards: (cards || []).map((card) => ({ ...card, date: cardDate(card), unlocked: false })),
+    reads: readsError ? [] : (reads || []),
+    readsUnavailable: Boolean(readsError)
+  };
 }
 
 function visibleCards(state) {
@@ -79,7 +82,7 @@ function updateOverview(root, state) {
   const filterStatus = $(root, "[data-card-filter-status]");
   const noDateButton = $(root, '[data-card-filter="no-date"]');
   const readCount = state.readIds.size;
-  if (count) count.textContent = `${readCount}/${state.cards.length} lidas`;
+  if (count) count.textContent = state.readsUnavailable ? `—/${state.cards.length} lidas` : `${readCount}/${state.cards.length} lidas`;
   if (note) note.textContent = `${state.cards.length} cartas`;
   if (noDateButton) noDateButton.hidden = !state.cards.some((card) => !card.date);
   if (filterStatus) {
@@ -115,7 +118,8 @@ function renderRows(root, state) {
     const isRead = state.readIds.has(card.id);
     check.innerHTML = cardIcon(isRead ? "read" : "unread");
     check.classList.toggle("is-read", isRead);
-    check.setAttribute("aria-label", isRead ? "Marcar carta como não lida" : "Marcar carta como lida");
+    check.disabled = state.readsUnavailable;
+    check.setAttribute("aria-label", state.readsUnavailable ? "Estado de leitura indisponível" : isRead ? "Marcar carta como não lida" : "Marcar carta como lida");
     check.setAttribute("aria-pressed", String(isRead));
     container.append(row);
   }
@@ -205,7 +209,7 @@ async function toggleRead(root, client, userId, state, card) {
 }
 
 async function markRead(root, client, userId, state, card) {
-  if (state.readIds.has(card.id)) return;
+  if (state.readsUnavailable || state.readIds.has(card.id)) return;
   const { error } = await client.from("archived_card_reads").upsert({ card_id: card.id, user_id: userId, read_at: new Date().toISOString() }, { onConflict: "card_id,user_id" });
   if (error) {
     const status = $(root, "[data-card-load-status]");
@@ -252,16 +256,17 @@ function showCard(root, state, card) {
   updateModalNavigation(root, state);
 }
 
-export function bindArchivedCards(root, client, userId, { cards, reads }, isAdmin = false, profiles = []) {
+export function bindArchivedCards(root, client, userId, { cards, reads, readsUnavailable = false }, isAdmin = false, profiles = []) {
   const state = {
     // The previous Looply collection placed private cards before the numbered cards.
     cards: [...cards].sort((a, b) => Number(b.is_private) - Number(a.is_private) || a.card_number - b.card_number),
     readIds: new Set(reads.map((item) => item.card_id)),
+    readsUnavailable,
     filter: "all", filterDate: null, calendarMonth: firstDayOfMonth(cards.find((item) => item.date)?.date || new Date()),
     modalCardId: null, client, userId, isAdmin, profiles
   };
   const status = $(root, "[data-card-load-status]");
-  if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.`;
+  if (status) status.textContent = `${cards.length} carta(s) carregada(s) da nuvem.${readsUnavailable ? " O estado de leitura não pôde ser carregado." : ""}`;
   renderRows(root, state);
 
   root.addEventListener("submit", async (event) => {
