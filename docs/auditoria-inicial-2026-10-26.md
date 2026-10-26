@@ -60,16 +60,16 @@ Esta atualização compara o escopo integral do prompt com alterações efetivam
 | Menções em Stories e notificações | PR #143 adicionou seletor com pesquisa/avatar, IDs persistidos, RPC que valida autoria/expiração/privacidade, notificação deduplicada e link para o Story. A migração foi testada numa branch Neon de auditoria e aplicada ao branch principal. As concessões foram verificadas: inserção direta de menção/notificação negada e atualização do campo de leitura restrita ao destinatário. | Falta exercitar o fluxo em duas contas autenticadas e confirmar notificação e abertura do Story no navegador da aplicação. Republicação de Stories ainda não está implementada. |
 | Publicação | PRs #135–#143 foram integradas. Os arquivos de Stories da PR #143 foram observados servidos no GitHub Pages. | A navegação autenticada continua bloqueada sem sessão de teste. |
 
-### Em andamento
+### Publicações progressivas
 
-- PR #144 adiciona um visualizador vertical para vídeos reais que já estão no feed, com navegação por gesto/botões, curtida, painel de comentários, compartilhamento interno/externo e retorno ao feed.
-- Build, parse de módulos, testes npm e workflow de segurança passaram na primeira execução da PR. A validação especializada do FaceLandmarker teve uma falha transitória sem resultado do bundle/modelo externo; a repetição completou com sucesso. Depois de um ajuste no ciclo de vida do player e no teste correspondente, a PR está novamente em validação.
-- A PR não adiciona controle de salvar: o esquema e endpoint autorizados para salvamento ainda precisam ser desenhados e validados.
+- PR #144 foi integrada no commit `679feb876e36556f5352147db73bf66251e03439`. O visualizador vertical usa vídeos próprios já autorizados no feed, oferece navegação, curtida, comentários e compartilhamento e restaura a posição anterior do feed. Os dois workflows de validação passaram. A implantação Pages #485 terminou com sucesso; o CSS servido com uma URL nova contém o seletor `.reels-viewer`. A UI autenticada não foi testada por falta de sessão.
+- PR #145 foi integrada no commit `401e6229c52385d7493a644731fec7821a04aebd`. Removeu o texto automático “Compartilhou uma publicação externa”, reduziu a atribuição ao provedor e preservou a incorporação oficial autorizada. Testes de feed, ícones e apresentação passaram; implantação Pages em curso/verificação final pendente.
+- PR #146 está em revisão com o salvamento persistente do feed e Reels. O código mantém o controle oculto se a consulta à tabela não estiver disponível. Migração aditiva validada numa branch temporária do Neon: RLS habilitado, três policies presentes, acesso de leitura/escrita para autenticados e leitura pública negada. O branch principal do Neon ainda não foi modificado; a política usa a identidade mapeada `public.looply_legacy_uid()` e a regra real `public.v3_can_view_post()`.
 
 ### Ainda falta executar do prompt
 
 1. Stories: política de republicação configurável pelo autor, fluxo para adicionar ao próprio Story, preservação da autoria original e bloqueio de Stories privados; teste real do áudio depois de publicação e teste autenticado em contas separadas.
-2. Feed/Reels: salvar com persistência e autorização, verificar contagens em banco e testar navegação/mídia em navegador autenticado e celular.
+2. Feed/Reels: concluir aprovação/aplicação da migração salvaPosts no branch Neon principal; testar salvamento/remoção com duas contas e verificar navegação/mídia em navegador autenticado e celular.
 3. Administração: endpoint seguro para moderação e operações administrativas; testar requisições diretas como usuário comum e administrador.
 4. Cartas: corrigir o carregamento inicial que ainda falha; editor responsivo completo, títulos, dicas e alteração segura de senha privada; testar conta Peixinho e destinatário sem recarregar a página.
 5. Músicas: pesquisa como seletor para dedicatórias, visualizações recebidas/enviadas, playlists administrativas, comentários por faixa e validação real de reprodução por provedor.
