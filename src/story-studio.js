@@ -656,7 +656,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
   const exportFinal = async () => {
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
-    if (sourceKind === "video" && !music && !layered && editFilter === "none") return file;
+    if (sourceKind === "video" && (!music || music.kind === "catalog") && !layered && editFilter === "none") return file;
     if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"));
     const canvas = await renderStill();
     if (music && music.kind !== "catalog") return exportVideo(canvas, true);
