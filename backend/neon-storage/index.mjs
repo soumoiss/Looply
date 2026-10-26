@@ -100,6 +100,47 @@ async function canSignObject(token,profileId,bucket,path) {
   return (await rowsFor(token,table,params)).length>0;
 }
 
+// Playlist metadata is fetched server-side; the browser never calls a Supabase
+// Edge Function, and no Google API key is embedded in static assets.
+function parseYouTubeFeed(xml) {
+  const decode = value => String(value||"").replace(/&(?:amp|lt|gt|quot|apos|#(\d+)|#x([a-f0-9]+));/gi,(full,decimal,hex)=>{
+    if(decimal||hex){const cp=parseInt(decimal||hex,hex?16:10);return Number.isInteger(cp)&&cp>0&&cp<=1114111?String.fromCodePoint(cp):"";}
+    return {"&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&apos;":"'"}[full]||full;
+  });
+  const entries=xml.match(/<entry\b[^>]*>[\s\S]*?<\/entry>/gi)||[];
+  return entries.map((entry,index)=>{
+    const videoId=/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/.exec(entry)?.[1]||"";
+    const title=decode(/<title\b[^>]*>([\s\S]*?)<\/title>/.exec(entry)?.[1]||"").trim();
+    const channel=decode(/<name\b[^>]*>([\s\S]*?)<\/name>/.exec(entry)?.[1]||"").trim();
+    return {videoId,title,channel,position:index,thumbnail:videoId?"https://i.ytimg.com/vi/"+videoId+"/hqdefault.jpg":""};
+  }).filter(item=>item.videoId&&item.title&&!/^(Private|Deleted) video$/i.test(item.title));
+}
+async function youtubePlaylist(request, headers) {
+  const target=new URL(request.url), playlistId=target.searchParams.get("playlistId")||"";
+  const pageToken=target.searchParams.get("pageToken")||"";
+  if (!/^[A-Za-z0-9_-]{11,100}$/.test(playlistId)||pageToken.length>300) return json({error:"youtube_playlist_not_allowed"},400,headers);
+  try{
+    if(process.env.YOUTUBE_API_KEY){
+      const args=new URLSearchParams({part:"snippet",playlistId,maxResults:"50",key:process.env.YOUTUBE_API_KEY});
+      if(pageToken)args.set("pageToken",pageToken);
+      const response=await fetch("https://www.googleapis.com/youtube/v3/playlistItems?"+args,{signal:AbortSignal.timeout(10000)});
+      const data=await response.json();
+      if(!response.ok) return json({error:"youtube_upstream_failed"},502,headers);
+      return json({items:(data.items||[]).map(i=>({
+        videoId:i.snippet?.resourceId?.videoId||"",title:i.snippet?.title||"",
+        channel:i.snippet?.videoOwnerChannelTitle||i.snippet?.channelTitle||"",
+        position:i.snippet?.position||0,
+        thumbnail:i.snippet?.thumbnails?.medium?.url||""
+      })),nextPageToken:data.nextPageToken||""},200,{...headers,"cache-control":"private, max-age=600"});
+    }
+    if(pageToken)return json({items:[],nextPageToken:""},200,headers);
+    const response=await fetch("https://www.youtube.com/feeds/videos.xml?playlist_id="+encodeURIComponent(playlistId),{signal:AbortSignal.timeout(10000)});
+    if(!response.ok) return json({error:"youtube_public_feed_unavailable"},502,headers);
+    const xml=await response.text();
+    if(xml.length>300000)return json({error:"youtube_public_feed_too_large"},502,headers);
+    return json({items:parseYouTubeFeed(xml),nextPageToken:"",partial:true},200,{...headers,"cache-control":"private, max-age=600"});
+  }catch{return json({error:"youtube_upstream_unavailable"},503,headers);}
+}
 async function identity(request) { const match = /^Bearer\s+([^\s]+)$/i.exec(request.headers.get("authorization") || ""); if (!match) return null; try { const response = await fetch(`${process.env.NEON_DATA_API_URL}/v3_self_profile?select=id&limit=1`, { headers: { authorization: `Bearer ${match[1]}`, accept: "application/json" } }); const profileId = response.ok ? (await response.json())?.[0]?.id : null; return /^[0-9a-f-]{36}$/i.test(String(profileId || "")) ? profileId : null; } catch { return null; } }
 export default { async fetch(request) {
   const origin = request.headers.get("origin") || "", headers = cors(origin === allowedOrigin ? origin : "null");
@@ -107,6 +148,7 @@ export default { async fetch(request) {
   if (origin !== allowedOrigin) return json({ error: "origin_not_allowed" }, 403, headers);
   if (![process.env.NEON_DATA_API_URL, process.env.AWS_ENDPOINT_URL_S3, process.env.AWS_ACCESS_KEY_ID, process.env.AWS_SECRET_ACCESS_KEY, process.env.AWS_REGION].every(Boolean)) return json({ error: "storage_not_configured" }, 503, headers);
   const profileId = await identity(request); if (!profileId) return json({ error: "unauthorized" }, 401, headers);
+  if (new URL(request.url).pathname.endsWith("/youtube/playlist") && request.method === "GET") return youtubePlaylist(request,headers);
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
   if (!safeObjectPath(path) || !["looply-avatars", "looply-gallery", "looply-media", "looply-chat", "looply-letters"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
