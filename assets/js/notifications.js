@@ -27,13 +27,14 @@ function notificationHref(item) {
   if (item.source === "chat") return `conversa.html?id=${encodeURIComponent(item.conversation_id)}`;
   if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `home.html#post-${encodeURIComponent(item.resource_id)}`;
   if (item.kind === "story_like") return "home.html#stories";
+  if (item.kind === "story_mention") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "music_dedication") return `musicas.html#dedication-${encodeURIComponent(item.resource_id)}`;
   if (item.kind === "gallery_comment" || item.kind === "gallery_tag") return "galeria.html";
   return "#";
 }
 
 function notificationMarkup(item) {
-  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
+  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", story_mention: "Menção em story", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
   const actor = item.actor ? (item.actor.display_name || item.actor.username) : "Looply";
   return `<a class="notification-row ${item.read_at ? "is-read" : "is-unread"}" href="${notificationHref(item)}"
       data-notification-source="${item.source}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(notificationHref(item))}">
