@@ -31,7 +31,10 @@ test("Neon modules use an authenticated shared client and retain the six migrate
  const runtime=await readFile(path.join(dist,"src/page-runtime.js"),"utf8");
  assert.match(runtime,/selfProfile/);
  assert.match(runtime,/headerMarkup/);
- assert.match(client,/v3_self_profile/);
+ const identity=await readFile(path.join(dist,"src/neon-identity.js"),"utf8");
+ assert.match(client,/fetchLinkedNeonProfile/);
+ assert.match(identity,/v3_self_profile/);
+ assert.match(identity,/Bearer/);
  assert.match(client,/lte\(column, value\)/);
  assert.match(client,/or\(expression\)/);
  assert.match(client,/range\(from, to\)/);
