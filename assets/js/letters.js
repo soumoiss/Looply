@@ -1,5 +1,5 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=shared-calendar-admin-edit-hints-20261022-notification-bus-20261024";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=restore-cumulative-hints-20261023";
+import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=card-read-state-fallback-20261026";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 
 function escapeHtml(value) {
