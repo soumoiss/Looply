@@ -146,7 +146,8 @@ test("the removed account is absent from active frontend code and page copy", as
   const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/conversation.js", "assets/js/letters.js", "assets/js/notifications.js", "assets/js/users.js", "assets/js/settings.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html"];
   const contents = await Promise.all(files.map(read));
   const removedUsername = ["li", "li", "ka"].join("");
-  assert.doesNotMatch(contents.join("\n"), new RegExp(removedUsername, "i"));
+  assert.doesNotMatch(contents.join("
+"), new RegExp(removedUsername, "i"));
 });
 
 test("the build emits all independent pages and their assets", async () => {
@@ -581,7 +582,8 @@ test("all resumable uploads include the publishable key and archive retries use 
     read("src/archive-import.js"), read("src/social.js"), read("src/chat.js"),
     read("supabase/functions/looply-admin/index.ts")
   ]);
-  assert.match(archive, /apikey: publishableKey/);\n  for (const source of [social, chat]) {assert.doesNotMatch(source, /apikey: publishableKey|tus-js-client/);assert.match(source,/client\.auth\.getSession\(\)/);}
+  assert.match(archive, /apikey: publishableKey/);
+  for (const source of [social, chat]) {assert.doesNotMatch(source, /apikey: publishableKey|tus-js-client/);assert.match(source,/client\.auth\.getSession\(\)/);}
   assert.match(archive, /client\.functions\.invoke\("looply-admin", \{[\s\S]*?verify_archive_media_upload/);
   assert.match(admin, /payload\.action === "verify_archive_media_upload"/);
   assert.match(admin, /service\.storage\.from\("looply-media"\)\.list\(folder/);
@@ -808,7 +810,8 @@ test("the removed real-time status slogan is absent without removing Supabase re
     read("src/page-runtime.js"), read("src/chat.js"), read("src/music.js"),
     read("assets/js/conversation.js"), read("src/chat-enhancements.js")
   ]);
-  const activeUi = [runtime, chat, music, conversation, enhancements].join("\\n");
+  const activeUi = [runtime, chat, music, conversation, enhancements].join("\
+");
   assert.doesNotMatch(activeUi, /atualizações em tempo real ativas/i);
   assert.match(runtime, /\.subscribe\(\)/);
   assert.match(chat, /postgres_changes|\.subscribe\(/);
