@@ -28,13 +28,11 @@ const repairedMigration = await readFile(
   "utf8"
 );
 
-test("gallery upload sends raw binary using the authenticated session", () => {
+test("gallery upload uses the Neon authenticated storage adapter and preserves the binary body", () => {
   assert.match(gallerySource, /const uploadGalleryObject = async \(path, file, contentType\)/);
-  assert.match(gallerySource, /Authorization:\s*"Bearer " \+ accessToken/);
-  assert.match(gallerySource, /"Content-Type": contentType/);
-  assert.match(gallerySource, /body:\s*file/);
+  assert.match(gallerySource, /client\.storage\.from\("looply-gallery"\)\.upload\(path, file, \{ contentType, upsert: false \}\)/);
   assert.match(gallerySource, /await uploadGalleryObject\(path, file, mimeType\)/);
-  assert.doesNotMatch(gallerySource, /client\.storage\.from\("looply-gallery"\)\.upload\(/);
+  assert.doesNotMatch(gallerySource, /supabaseUrl|supabaseKey|storage\/v1\/object/);
 });
 
 test("gallery Storage policy does not depend on Storage-generated size metadata", () => {

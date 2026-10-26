@@ -26,8 +26,8 @@ test("gallery page uses the single required title and shared runtime", () => {
   assert.match(runtime, /getUser\(\)/);
 });
 
-test("gallery upload matches the existing private Storage policy and database schema", () => {
-  assert.match(gallery, /"gallery\/" \+ user\.id \+ "\/" \+ objectId/);
+test("gallery upload matches the Neon identity mapping and existing database schema", () => {
+  assert.match(gallery, /"gallery\/" \+ profile\.id \+ "\/" \+ objectId/);
   assert.match(gallery, /byte_size:file\.size/);
   assert.match(gallery, /set_gallery_media_permissions/);
   assert.match(gallery, /gallery_media_people/);

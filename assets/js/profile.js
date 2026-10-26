@@ -8,5 +8,5 @@ await mountAppPage({ page: "profile", render: async ({ root, client, profile }) 
     return;
   }
   root.innerHTML = profileAreaMarkup(profile);
-  bindProfileEvents(root, client, () => window.location.reload());
+  bindProfileEvents(root, client, () => window.location.reload(), profile.id);
 } });

@@ -28,7 +28,7 @@ export function profileAreaMarkup(profile) {
     </article>
     <section class="profile-editor-card" id="profileEditor" aria-labelledby="profileEditorTitle">
       <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Editar perfil</h2><p>Atualize seu nome, foto, apresentação e privacidade.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
-      <form class="profile-editor-form" data-profile-edit data-has-avatar="${profile.avatar_path ? "true" : "false"}">
+      <form class="profile-editor-form" data-profile-edit data-profile-id="${escapeHtml(profile.id)}" data-has-avatar="${profile.avatar_path ? "true" : "false"}">
         <div class="profile-avatar-editor">
           <div class="profile-avatar-edit-preview" data-avatar-preview data-original-avatar-url="${avatarUrl}">${avatar}</div>
           <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG ou WebP · até 10 MB</span></div>
@@ -174,7 +174,7 @@ export async function showProfileInContainer(client, profileId, container, { sho
   renderOpenedProfile(container, profile, visiblePosts, postsError, showBack);
 }
 
-export function bindProfileEvents(root, client, onProfileUpdated) {
+export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
   const syncProfileOverview = (form) => {
     const area = form.closest(".profile-page-area");
     const preview = form.querySelector("[data-avatar-preview]");
@@ -318,7 +318,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
         if (removeAvatar) throw new Error("avatar-replacement-required");
         if (form.dataset.hasAvatar !== "true" && !hasAvatarFile) throw new Error("avatar-required");
         if (!displayName || displayName.length > 80 || bio.length > 280 || (playlistUrlInput && !playlistUrl)) throw new Error("profile-fields");
-        const userId = (await client.auth.getUser()).data.user?.id;
+        const userId = profileId || form.dataset.profileId;
         if (!userId) throw new Error("session expired");
         let newAvatarPath = null;
         let oldAvatarPath = null;
@@ -335,7 +335,7 @@ export function bindProfileEvents(root, client, onProfileUpdated) {
           const squareValid = validatedBitmap.width === 512 && validatedBitmap.height === 512;
           validatedBitmap.close();
           if (!squareValid) throw new Error("avatar-not-square");
-          newAvatarPath = `avatars/${userId}/${crypto.randomUUID()}.${extension}`;
+        newAvatarPath = `avatars/${userId}/${crypto.randomUUID()}.${extension}`;
           const { data: uploadData, error: uploadError } = await client.storage.from("looply-avatars").upload(newAvatarPath, avatarFile, { contentType: avatarFile.type, upsert: false, cacheControl: "3600" });
           if (uploadError) throw uploadError;
           if (!uploadData?.path || uploadData.path !== newAvatarPath) throw new Error("avatar-upload-invalid-result");

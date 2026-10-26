@@ -1,6 +1,7 @@
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
 import { isExplicitAdminResult } from "./neon-admin-result.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
+const storageFunction="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
 export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",misol:"misol@loooply.app",yara:"yara@loooply.app",peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"});
 export function emailOf(value){const v=String(value||"").trim().toLowerCase();return accounts[v]||(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)?v:null)}
@@ -24,7 +25,7 @@ function filtersToParams(filters = []) {
 }
 
 function createReadQuery(table) {
-  const state = { columns: "*", filters: [], ordering: [], max: null, range: null, mode: "select", head: false, count: null };
+  const state = { columns: "*", filters: [], ordering: [], max: null, range: null, mode: "select", payload: null, head: false, count: null };
   const query = {
     select(columns = "*", options = {}) { state.columns = columns; state.head = options.head === true; state.count = options.count || null; return query; },
     eq(column, value) { state.filters.push(["eq", column, value]); return query; },
@@ -37,9 +38,9 @@ function createReadQuery(table) {
     lte(column, value) { state.filters.push(["lte", column, value]); return query; },
     ilike(column, value) { state.filters.push(["ilike", column, value]); return query; },
     or(expression) { state.filters.push(["or", null, expression]); return query; },
-    insert() { state.mode = "insert"; return query; },
+    insert(payload) { state.mode = "insert"; state.payload = payload; return query; },
     upsert() { state.mode = "upsert"; return query; },
-    update() { state.mode = "update"; return query; },
+    update(payload) { state.mode = "update"; state.payload = payload; return query; },
     delete() { state.mode = "delete"; return query; },
     order(column, options = {}) { state.ordering.push(`${column}.${options.ascending === false ? "desc" : "asc"}`); return query; },
     limit(value) { state.max = value; return query; },
@@ -59,9 +60,18 @@ function createReadQuery(table) {
   async function execute() {
     try {
       if (!(await activeSession())) return { data: null, error: { message: "neon_session_required" }, count: null };
-      if (state.mode !== "select") return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
+      const allowedWrites = table === "profiles" && state.mode === "update"
+        ? ["display_name", "bio", "profile_visibility", "playlist_url", "avatar_path"]
+        : table === "community_gallery_media" && ["insert", "update"].includes(state.mode)
+          ? ["owner_id", "storage_path", "file_name", "kind", "mime_type", "byte_size", "caption", "visibility", "comment_access", "private_owner_id", "publication_state"]
+          : null;
+      if (state.mode !== "select" && (!allowedWrites || (state.mode === "update" && !state.filters.some(([op, column]) => op === "eq" && column === "id")) || (state.mode === "insert" && !Array.isArray(state.payload) && table !== "community_gallery_media"))) return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
       if (state.range?.error) return { data: null, error: { message: "invalid_range" }, count: null };
-      let request = neon.from(table).select(state.columns, { head: state.head, count: state.count });
+      let request = state.mode === "select"
+        ? neon.from(table).select(state.columns, { head: state.head, count: state.count })
+        : state.mode === "insert"
+          ? neon.from(table).insert(Array.isArray(state.payload) ? state.payload : [state.payload]).select(state.columns)
+          : neon.from(table).update(state.payload).select(state.columns);
       for (const [operator, column, value] of state.filters) {
         if (operator === "or") request = request.or(value);
         else request = request[operator](column, value);
@@ -77,6 +87,53 @@ function createReadQuery(table) {
 }
 
 const blocked = async () => ({ data: null, error: { message: "neon_feature_not_migrated" } });
+async function storageRequest(action, bucket, path, options = {}) {
+  try {
+    const session = await activeSession();
+    if (!session?.access_token) return { data: null, error: { message: "neon_session_required", status: 401 } };
+    const response = await fetch(storageFunction + "/storage/" + action, {
+      method: action === "upload" ? "PUT" : "POST",
+      headers: {
+        authorization: "Bearer " + session.access_token,
+        "content-type": options.contentType || "application/json",
+        "x-looply-bucket": bucket,
+        "x-looply-path": path
+      },
+      body: action === "upload" ? options.file : action === "remove" ? undefined : JSON.stringify({ expiresIn: options.expiresIn || 1800 })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return { data: null, error: { message: payload.error || "neon_storage_request_failed", status: response.status } };
+    return { data: payload, error: null };
+  } catch { return { data: null, error: { message: "neon_storage_unavailable" } }; }
+}
+function storageBucket(bucket) {
+  return Object.freeze({
+    upload: async (path, file, options = {}) => {
+      const result = await storageRequest("upload", bucket, path, { file, contentType: options.contentType || file?.type || "application/octet-stream" });
+      return result.error ? result : { data: { path: result.data.path }, error: null };
+    },
+    createSignedUrl: async (path, expiresIn = 1800) => {
+      const result = await storageRequest("sign", bucket, path, { expiresIn });
+      return result.error ? result : { data: { signedUrl: result.data.signedUrl }, error: null };
+    },
+    createSignedUrls: async (paths, expiresIn = 1800) => {
+      const values = await Promise.all(paths.map(path => storageBucket(bucket).createSignedUrl(path, expiresIn)));
+      const error = values.find(value => value.error)?.error || null;
+      return { data: values.map(value => value.data), error };
+    },
+    remove: async paths => {
+      for (const path of paths) { const result = await storageRequest("remove", bucket, path); if (result.error) return result; }
+      return { data: paths.map(name => ({ name })), error: null };
+    }
+  });
+}
+async function cleanupPendingGalleryMedia(name, args) {
+  if (name !== "cleanup_pending_gallery_media" || !args?.p_media_id) return blocked();
+  try {
+    const response = await neon.rpc("v3_cleanup_pending_gallery_media", { p_media_id: args.p_media_id });
+    return { data: response.data, error: response.error || null };
+  } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
+}
 async function adminRpc(name, args) {
   if (name !== "v3_self_is_admin" || Object.keys(args || {}).length !== 0) return blocked();
   try {
@@ -101,9 +158,9 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: adminRpc,
+  rpc: async (name, args) => name === "v3_self_is_admin" ? adminRpc(name, args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: blocked }),
-  storage: Object.freeze({ from: () => ({ createSignedUrl: blocked, upload: blocked, remove: blocked, list: blocked }) }),
+  storage: Object.freeze({ from: storageBucket }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),
   removeChannel: () => {},
 });
