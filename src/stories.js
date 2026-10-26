@@ -1300,14 +1300,17 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const bodyText = String(formData.get("body") || "").trim().slice(0, 1000);
       const file = formData.get("media");
       const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
-      const body = bodyText && !media
-        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"), String(formData.get("music_track_id") || ""))
+      const musicTrackId = String(formData.get("music_track_id") || "");
+      // Keep the selected track in the existing story envelope even for camera
+      // photos/videos; otherwise media stories would silently lose their music.
+      const body = (bodyText && !media) || musicTrackId
+        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"), musicTrackId)
         : bodyText;
       const visibility = String(formData.get("visibility") || "public");
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
       if (file instanceof File && file.size && !media) throw new Error("invalid_media");
       if (media && !storyMimeTypes.has(media.type)) throw new Error("invalid_media");
-      if (String(formData.get("music_track_id") || "").trim() && !spotifyTrackId(formData.get("music_track_id"))) throw new Error("invalid_music");
+      if (musicTrackId.trim() && !spotifyTrackId(musicTrackId)) throw new Error("invalid_music");
       if (!body && !media) throw new Error("empty_story");
       if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");
 

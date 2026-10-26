@@ -54,6 +54,7 @@ test("Story music uses an authenticated in-app search and face lenses use landma
   ]);
   assert.match(story, /id="storyMusicQuery" type="search"/);
   assert.match(story, /spotify\/search\?q=/);
+  assert.match(story, /\(bodyText && !media\) \|\| musicTrackId/);
   assert.match(story, /data-story-lens="glasses"/);
   assert.match(story, /new StoryFaceLens/);
   assert.match(story, /composite\.captureStream\(30\)/);
