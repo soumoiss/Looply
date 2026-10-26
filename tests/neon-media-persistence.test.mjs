@@ -97,3 +97,10 @@ test("production media controllers do not call legacy Supabase upload endpoints"
   assert.match(backend,/looply-letters/);
   assert.match(backend,/canSignObject/);
 });
+
+test("Neon letters filter encodes grouped OR to recover sent and received archives",async()=>{
+  const m=mock("community_letters");
+  const result=await m.query.select("id,sender_id,recipient_id").or("sender_id.eq.owner,recipient_id.eq.owner").order("created_at",{ascending:false});
+  assert.equal(result.error,null);
+  assert.equal(m.sent[0].url.searchParams.get("or"),"(sender_id.eq.owner,recipient_id.eq.owner)");
+});

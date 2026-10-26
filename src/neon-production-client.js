@@ -83,6 +83,23 @@ async function cleanupPendingGalleryMedia(name, args) {
     return { data: response.data, error: response.error || null };
   } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
 }
+const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media"]);
+async function ownerPublicationRpc(name,args) {
+  if(!publicationRpcNames.has(name)) return blocked();
+  try {
+    const session=await activeSession();
+    if(!session?.access_token) return {data:null,error:{message:"neon_session_required",status:401}};
+    const response=await fetch(config.data+"/rpc/"+name,{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify(args||{})
+    });
+    const value=await response.json().catch(()=>null);
+    if(!response.ok) return {data:null,error:{message:value?.message||"neon_publication_rejected",status:response.status,code:value?.code||""}};
+    if(typeof value!=="string") return {data:null,error:{message:"neon_publication_missing_id"}};
+    return {data:value,error:null};
+  } catch(error) {return {data:null,error:{message:"neon_publication_network_error",details:error?.message||""}};}
+}
 async function selectedPostRpc(name,args){
   if(name!=="create_selected_post" || typeof args?.p_body!=="string" || !Array.isArray(args?.p_recipient_ids)) return blocked();
   try{
@@ -163,7 +180,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),

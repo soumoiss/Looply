@@ -123,11 +123,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } };
   const signedUrl = async (x, thumbnail = false) => {
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
-    if (thumbnail && mediaType(x) === "image") {
-      // Image transformations are unavailable on Supabase Free. Never fall back
-      // to multi-megabyte originals in the grid: fetch those only on explicit open.
-      if (Number(x.byte_size || 0) > maxInlinePreviewBytes) return "";
-    }
+    // Neon Storage issues signed URLs to originals. A 256-KiB thumbnail guard
+    // previously caused almost every actual gallery photo to render as unavailable.
+    // Native lazy-loading keeps cards responsive without hiding existing media.
     const { data, error } = await cachedSignedUrl(client, bucket, x.storage_path, 300);
     if (error) throw error;
     return data?.signedUrl || "";

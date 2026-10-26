@@ -136,8 +136,8 @@ test("account playlists play tracks in an in-app dialog and never link out to Yo
   assert.match(playlists, /youtube-playlist-timeout/);
   assert.match(playlists, /playlistCachePrefix/);
   assert.match(playlists, /authorization: "Bearer " \+ accessToken/);
-  assert.match(playlists, /LOOPLY_CONFIG\?\.supabaseUrl/);
-  assert.match(playlists, /functions\/v1\/looply-youtube-playlist/);
+  assert.doesNotMatch(playlists, /LOOPLY_CONFIG\?\.supabaseUrl/);
+  assert.match(playlists, /looplystorage\.compute/);
   assert.match(musicPage, /assets\/js\/music\.js/);
   assert.doesNotMatch(playlists, /AIza[\w-]{20,}/);
 });
@@ -224,11 +224,11 @@ test("YouTube playlist loading paginates, ignores unavailable videos, and explai
     return { ok: true, status: 200, json: async () => pagesFromApi[requests.length - 1] };
   });
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url.pathname, "/functions/v1/looply-youtube-playlist");
+  assert.equal(requests[0].url.pathname, "/youtube/playlist");
   assert.equal(requests[0].url.searchParams.get("playlistId"), "PLD5PXwJcU-Sg");
   assert.equal(requests[0].url.searchParams.has("key"), false);
   assert.equal(requests[0].options.headers.authorization, "Bearer unit-test-token");
-  assert.equal(typeof requests[0].options.headers.apikey, "string");
+  assert.equal(requests[0].options.headers.apikey, undefined);
   assert.equal(requests[1].url.searchParams.get("pageToken"), "page-2");
   assert.deepEqual(tracks.map((track) => track.title), ["Faixa 1", "Faixa 2"]);
   assert.match(youtubeApiErrorMessage(502, { error: "youtube_quota_exceeded", reason: "quotaExceeded" }), /cota diária/i);
@@ -264,7 +264,7 @@ test("the social schema scopes posts and comments to the post audience", async (
   assert.doesNotMatch(sql, /insert into private\.admin_users/i);
 });
 
-test("the feed escapes database text and writes through Supabase with realtime refresh", async () => {
+test("the feed escapes database text and publishes through Neon owner-checked RPCs", async () => {
   const social = await read("src/social.js");
   assert.match(social, /function escapeHtml\(value\)/);
   assert.match(social, /from\("posts"\)/);
@@ -274,7 +274,7 @@ test("the feed escapes database text and writes through Supabase with realtime r
   assert.match(social, /refreshSocialFeed/);
   assert.match(social, /cachedSignedUrls/);
   assert.match(social, /storage\.from\("looply-media"\)\.upload/);
-  assert.match(social, /from\("post_media"\)\.insert/);
+  assert.match(social, /rpc\("v5_attach_post_media"/);
 });
 
 test("comment attachments use private storage and inherit the post's visibility", async () => {
