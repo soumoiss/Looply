@@ -505,6 +505,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (!waitsForVideo) void music.play().catch(() => { music.dataset.playback = "gesture-required"; });
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
+    const slideAudio = viewer.querySelector("#story-audio");
     mediaHost.querySelectorAll("video").forEach((video) => {
       video.pause();
       video.removeAttribute("src");
@@ -526,7 +527,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (Number.isFinite(video.duration) && video.duration > 0) setProgressDuration(video.duration * 1000);
         }, { once: true });
         video.addEventListener("playing", () => {
-          const songAudio = viewer.querySelector("#story-audio");
+          if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
+          const songAudio = slideAudio;
           if (songAudio?.paused && !state.paused) {
             // Start the soundtrack only after the video really starts, including
             // after a browser requires a tap to permit video playback.
@@ -547,8 +549,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           }
         });
         video.addEventListener("pause", () => {
+          if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
           clearTimer();
-          const songAudio = viewer.querySelector("#story-audio");
+          const songAudio = slideAudio;
           if (songAudio && !songAudio.paused) songAudio.pause();
         });
         video.addEventListener("ended", () => advance(1), { once: true });
