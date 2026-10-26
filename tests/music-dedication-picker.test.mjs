@@ -81,7 +81,7 @@ test("catalog selector uses the existing official unified search and only normal
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
   });
-  assert.match(requestedUrl, /\\?q=artista%20teste/);
+  assert.match(requestedUrl, /\?q=artista%20teste/);
   assert.equal(items.length, 1);
   assert.equal(items[0].title, "Música teste");
   assert.equal(items[0].provider, "apple");
@@ -91,10 +91,10 @@ test("catalog selector uses the existing official unified search and only normal
 
 test("dedication saves only the selected normalized catalog song, not editable manual metadata", async () => {
   const source = await (await import("node:fs/promises")).readFile(new URL("../src/music.js", import.meta.url), "utf8");
-  assert.match(source, /const song = normalizeStorySong\\(selectedDedicationSong\\)/);
+  assert.match(source, /const song = normalizeStorySong\(selectedDedicationSong\)/);
   assert.match(source, /listen_url: listenUrl/);
-  assert.match(source, /searchStorySongs\\(normalized, \\{ signal: catalogSearchController.signal \\}\\)/);
+  assert.match(source, /searchStorySongs\(normalized, \{ signal: catalogSearchController.signal \}\)/);
   assert.match(source, /catalogSearchSequence/);
-  assert.match(source, /catalogSearchController\\?\\.abort\\(\\)/);
+  assert.match(source, /catalogSearchController\?\.abort\(\)/);
   assert.match(source, /safeMusicArtwork/);
 });
