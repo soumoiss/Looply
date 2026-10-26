@@ -6,13 +6,13 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
 
-test("free-plan gallery never replaces unavailable thumbnails with full-size originals", async () => {
+test("gallery shows confirmed existing Neon originals when no thumbnail is available", async () => {
   const gallery = await read("assets/js/gallery.js");
-  assert.match(gallery, /const maxInlinePreviewBytes = 256 \* 1024/);
-  assert.match(gallery, /Number\(x\.byte_size \|\| 0\) > maxInlinePreviewBytes\) return ""/);
-  assert.match(gallery, /archive_media"\)\.select\("[^"]*byte_size/);
-  assert.match(gallery, /community_gallery_media"\)\.select\("[^"]*byte_size/);
-  assert.doesNotMatch(gallery, /thumbnail transformation unavailable; using original image/i);
+  assert.doesNotMatch(gallery, /Number\\(x\\.byte_size \\|\\| 0\\) > maxInlinePreviewBytes\\) return ""/);
+  assert.match(gallery, /cachedSignedUrl\\(client, bucket, x\\.storage_path, 300\\)/);
+  assert.match(gallery, /loading="lazy"/);
+  assert.match(gallery, /archive_media"\\)\\.select\\("[^"]*byte_size/);
+  assert.match(gallery, /community_gallery_media"\\)\\.select\\("[^"]*byte_size/);
 });
 
 test("new uploads have free-tier egress guardrails", async () => {
