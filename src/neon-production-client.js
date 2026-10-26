@@ -83,6 +83,22 @@ async function cleanupPendingGalleryMedia(name, args) {
     return { data: response.data, error: response.error || null };
   } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
 }
+async function selectedPostRpc(name,args){
+  if(name!=="create_selected_post" || typeof args?.p_body!=="string" || !Array.isArray(args?.p_recipient_ids)) return blocked();
+  try{
+    const session=await activeSession();
+    if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+    const response=await fetch(config.data+"/rpc/v4_create_selected_post",{
+      method:"POST",cache:"no-store",
+      headers: {authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_body:args.p_body,p_recipient_ids:args.p_recipient_ids})
+    });
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok)return {data:null,error:{message:payload?.message||"neon_selected_post_failed",code:payload?.code||"",status:response.status}};
+    if(typeof payload!=="string")return {data:null,error:{message:"neon_selected_post_invalid_result"}};
+    return {data:payload,error:null};
+  }catch{return {data:null,error:{message:"neon_selected_post_unavailable"}};}
+}
 async function adminRpc(name, args) {
   if (name !== "v3_self_is_admin" || Object.keys(args || {}).length !== 0) return blocked();
   try {
@@ -126,7 +142,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => name === "v3_self_is_admin" ? adminRpc(name, args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: blocked }),
   storage: Object.freeze({ from: storageBucket }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),
