@@ -81,6 +81,11 @@ test("recipient selection is searchable, avatar based, multi-select, and profile
   assert.match(markup, /data-music-recipient-all/);
   assert.match(markup, /name="recipientId"/);
   assert.doesNotMatch(markup, /<select[^>]+multiple/);
+  const source = await (await import("node:fs/promises")).readFile(new URL("../src/music.js", import.meta.url), "utf8");
+  assert.match(source, /\.in\("profile_visibility", \["members", "public"\]\)/);
+  assert.match(source, /selectedRecipientIds\.add\(id\)/);
+  assert.match(source, /recipientIds\.includes\("all-users"\)/);
+  assert.match(source, /resolvedRecipientIds\.map\(\(recipient_id\)/);
 });
 
 test("catalog selector uses the existing official unified search and only normalizes provider URLs", async () => {
