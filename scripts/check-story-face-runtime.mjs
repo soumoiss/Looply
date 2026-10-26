@@ -24,8 +24,8 @@ document.getElementById("result").textContent="READY_RESULT:"+JSON.stringify(rep
 const dir=await mkdtemp(join(tmpdir(),"looply-face-smoke-"));
 try {const file=join(dir,"smoke.html");await writeFile(file,html);
 const r=spawnSync(browser,["--headless=new","--no-sandbox","--enable-unsafe-swiftshader","--use-angle=swiftshader","--disable-dev-shm-usage","--disable-background-networking","--virtual-time-budget=25000","--dump-dom","file://"+file],{encoding:"utf8",timeout:35000,maxBuffer:1024*1024});
-const m=r.stdout.match(/READY_RESULT:([^<]+)/);
+const m=r.stdout.match(/<pre id="result">READY_RESULT:([^<]*)<\/pre>/);
 if(m){const value=JSON.parse(m[1].replaceAll("&quot;",'"'));console.log("Face init smoke",value);
 assert.ok(value.steps.includes("FACE_TRACKING_READY"),"Model did not initialize: "+JSON.stringify(value));}
-else {console.log("Face init smoke no result",r.stderr.slice(-1000),r.stdout.slice(-500));throw Error("No result");}
+else {console.log("Face init smoke no result",r.stderr.slice(-1000),r.stdout.slice(-1400));throw Error("No result");}
 }finally{await rm(dir,{recursive:true,force:true});}
