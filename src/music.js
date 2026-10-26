@@ -403,11 +403,11 @@ export function bindMusicEvents(root, client, getUserId) {
     const picker = root.querySelector("[data-music-picker]");
     if (picker) picker.hidden = true;
   };
-  const selectedRecipients = new Set();
+  const selectedRecipientIds = new Set();
   let allRecipientsSelected = false;
   const updateRecipientSelection = () => {
     root.querySelectorAll("[data-music-recipient-id]").forEach((button) => {
-      const selected = selectedRecipients.has(button.dataset.musicRecipientId);
+      const selected = selectedRecipientIds.has(button.dataset.musicRecipientId);
       button.setAttribute("aria-pressed", String(selected));
     });
     const allButton = root.querySelector("[data-music-recipient-all]");
@@ -415,7 +415,7 @@ export function bindMusicEvents(root, client, getUserId) {
     const inputs = root.querySelector("[data-music-recipient-inputs]");
     if (inputs) {
       inputs.replaceChildren();
-      const values = allRecipientsSelected ? ["all-users"] : [...selectedRecipients];
+      const values = allRecipientsSelected ? ["all-users"] : [...selectedRecipientIds];
       values.forEach((id) => {
         const input = document.createElement("input");
         input.type = "hidden";
@@ -429,14 +429,14 @@ export function bindMusicEvents(root, client, getUserId) {
     if (allRecipientsSelected) {
       if (selectedBox) { selectedBox.hidden = false; selectedBox.textContent = "Todos os perfis visíveis"; }
       if (openButton) openButton.textContent = "Todos os perfis visíveis";
-    } else if (selectedRecipients.size) {
-      const names = [...selectedRecipients].map((id) => {
+    } else if (selectedRecipientIds.size) {
+      const names = [...selectedRecipientIds].map((id) => {
         const profile = [...root.querySelectorAll("[data-music-recipient-id]")].find((button) => button.dataset.musicRecipientId === id);
         return profile?.querySelector(".music-recipient-copy strong")?.textContent || "Perfil";
       });
       const summary = names.length > 3 ? names.slice(0, 3).join(", ") + ` e mais ${names.length - 3}` : names.join(", ");
       if (selectedBox) { selectedBox.hidden = false; selectedBox.textContent = summary; }
-      if (openButton) openButton.textContent = `${selectedRecipients.size} destinatário${selectedRecipients.size === 1 ? "" : "s"}`;
+      if (openButton) openButton.textContent = `${selectedRecipientIds.size} destinatário${selectedRecipientIds.size === 1 ? "" : "s"}`;
     } else {
       if (selectedBox) { selectedBox.hidden = true; selectedBox.textContent = ""; }
       if (openButton) openButton.textContent = "Escolher destinatários";
@@ -562,7 +562,7 @@ export function bindMusicEvents(root, client, getUserId) {
     const allRecipientsButton = event.target.closest("[data-music-recipient-all]");
     if (allRecipientsButton) {
       allRecipientsSelected = !allRecipientsSelected;
-      if (allRecipientsSelected) selectedRecipients.clear();
+      if (allRecipientsSelected) selectedRecipientIds.clear();
       updateRecipientSelection();
       return;
     }
@@ -570,14 +570,14 @@ export function bindMusicEvents(root, client, getUserId) {
     if (recipientButton) {
       allRecipientsSelected = false;
       const id = recipientButton.dataset.musicRecipientId;
-      if (selectedRecipients.has(id)) selectedRecipients.delete(id);
-      else selectedRecipients.add(id);
+      if (selectedRecipientIds.has(id)) selectedRecipientIds.delete(id);
+      else selectedRecipientIds.add(id);
       updateRecipientSelection();
       return;
     }
     const confirmRecipients = event.target.closest("[data-music-recipient-confirm]");
     if (confirmRecipients) {
-      if (!selectedRecipients.size && !allRecipientsSelected) {
+      if (!selectedRecipientIds.size && !allRecipientsSelected) {
         const status = root.querySelector("[data-music-recipient-status]");
         if (status) status.textContent = "Escolha ao menos uma pessoa ou todos os perfis visíveis.";
         return;
@@ -753,22 +753,22 @@ export function bindMusicEvents(root, client, getUserId) {
         const recipientIds = values.getAll("recipientId").map(String);
         const listenUrl = song?.url || "";
         const supported = Boolean(song);
-        const selectedRecipients = recipientIds.includes("all-users")
+        const resolvedRecipientIds = recipientIds.includes("all-users")
           ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
           : recipientIds.filter((id) => id !== userId);
-        if (!title || title.length > 160 || !selectedRecipients.length || !supported) throw new Error("music-fields");
-        const rows = selectedRecipients.map((recipient_id) => ({ sender_id:userId, recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
+        if (!title || title.length > 160 || !resolvedRecipientIds.length || !supported) throw new Error("music-fields");
+        const rows = resolvedRecipientIds.map((recipient_id) => ({ sender_id:userId, recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
         const { error } = await client.from("music_dedications").insert(rows);
         if (error) throw error;
         form.reset();
-        selectedRecipients.clear();
+        selectedRecipientIds.clear();
         allRecipientsSelected = false;
         updateRecipientSelection();
         selectedDedicationSong = null;
         const selectedSongLabel = form.querySelector("[data-music-selected-song]");
         if (selectedSongLabel) { selectedSongLabel.hidden = true; selectedSongLabel.textContent = ""; }
         closeCatalogPicker();
-        setStatus(form, "Dedicatória enviada para " + selectedRecipients.length + " pessoa(s).");
+        setStatus(form, "Dedicatória enviada para " + resolvedRecipientIds.length + " pessoa(s).");
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-general-comment]")) {
         if (!body || body.length > 2000) throw new Error("comment-fields");
