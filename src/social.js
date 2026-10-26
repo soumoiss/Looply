@@ -880,9 +880,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           if (error) throw error;
           createdPostId = data;
         } else {
-          const { data, error } = await client.from("posts").insert({ author_id: getUserId?.(), body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
+          const { data, error } = await client.rpc("v5_create_post", { p_body: postBody, p_visibility: visibility, p_external_url: externalUrl || null });
           if (error) throw error;
-          createdPostId = data.id;
+          createdPostId = data;
         }
         const altText = String(formData.get("altText") || "").trim().slice(0, 500);
         for (const [index, file] of files.entries()) {
@@ -894,13 +894,13 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           await uploadResumable(client, path, file, (percentage) => {
             setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`);
           });
-          const { error: mediaError } = await client.from("post_media").insert({
-            post_id: createdPostId,
-            storage_path: path,
-            kind: file.type.startsWith("video/") ? "video" : "image",
-            mime_type: file.type,
-            byte_size: file.size,
-            alt_text: altText
+          const { error: mediaError } = await client.rpc("v5_attach_post_media", {
+            p_post_id: createdPostId,
+            p_storage_path: path,
+            p_kind: file.type.startsWith("video/") ? "video" : "image",
+            p_mime_type: file.type,
+            p_byte_size: file.size,
+            p_alt_text: altText
           });
           if (mediaError) throw mediaError;
         }
