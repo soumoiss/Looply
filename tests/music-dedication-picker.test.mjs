@@ -63,6 +63,31 @@ test("unavailable received or sent views have explicit empty states", () => {
   assert.match(markup, /Você ainda não dedicou músicas/);
 });
 
+test("recipient selection is searchable, avatar based, multi-select, and profile visibility scoped", async () => {
+  const data = {
+    people: [
+      { id: "recipient-1", username: "ana", display_name: "Ana", avatarUrl: "https://cdn.example/avatar.jpg" },
+      { id: "recipient-2", username: "bia", display_name: "Bia", avatarUrl: "" }
+    ],
+    peopleError: null, dedications: [], dedicationsError: null,
+    library: [], libraryError: null, generalComments: [], generalCommentsError: null
+  };
+  const markup = musicMarkup(data, userId);
+  assert.match(markup, /data-music-open-recipients/);
+  assert.match(markup, /data-music-recipient-query/);
+  assert.match(markup, /data-music-recipient-id="recipient-1"/);
+  assert.match(markup, /<img src="https:\/\/cdn\.example\/avatar\.jpg"/);
+  assert.match(markup, /music-recipient-fallback/);
+  assert.match(markup, /data-music-recipient-all/);
+  assert.doesNotMatch(markup, /<select[^>]+multiple/);
+  const source = await (await import("node:fs/promises")).readFile(new URL("../src/music.js", import.meta.url), "utf8");
+  assert.match(source, /\.in\("profile_visibility", \["members", "public"\]\)/);
+  assert.match(source, /input\.name = "recipientId"/);
+  assert.match(source, /selectedRecipientIds\.add\(id\)/);
+  assert.match(source, /recipientIds\.includes\("all-users"\)/);
+  assert.match(source, /resolvedRecipientIds\.map\(\(recipient_id\)/);
+});
+
 test("catalog selector uses the existing official unified search and only normalizes provider URLs", async () => {
   let requestedUrl = "";
   const { items } = await searchStorySongs("artista teste", {
