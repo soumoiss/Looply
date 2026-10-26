@@ -1,6 +1,7 @@
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
+import { saveNeonProfile } from "./neon-avatar-profile.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -87,6 +88,8 @@ function avatarSaveErrorMessage(error) {
   if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto anterior foi preservada; tente novamente.";
   if (message === "avatar-rollback-failed") return "Não foi possível confirmar a restauração da foto anterior. Recarregue o perfil antes de tentar novamente; nenhuma confirmação de sucesso foi exibida.";
   if (message === "profile-update-not-confirmed") return "O servidor não confirmou a atualização do perfil. Nenhuma alteração de foto foi considerada concluída.";
+  if (message === "profile-not-owned" || message === "profile_permission_denied") return "A autenticação não autorizou a atualização deste perfil. Entre novamente e tente salvar.";
+  if (message === "neon_profile_network_unavailable") return "Não foi possível conectar ao Neon. Verifique sua conexão e tente novamente.";
   if (message.includes("session expired") || status === 401) return "Sua sessão expirou. Entre novamente e tente salvar a foto.";
   if (status === 403 || code.includes("42501") || message.includes("row-level security") || message.includes("permission")) return "Sua conta não tem permissão para salvar a foto. A foto atual foi preservada.";
   if (status === 413 || code.includes("file_size") || message.includes("too large") || message.includes("payload too large")) return "A imagem excede o limite aceito pelo armazenamento. Escolha uma imagem menor que 10 MB.";
@@ -259,7 +262,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
     }
     input.name = "avatar";
     const fail=(message)=>{input.value="";setStatus(form,message,"error");};
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>2*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 2 MB. Sua foto atual foi preservada.");return;}
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 10 MB. Sua foto atual foi preservada.");return;}
     try {
       const bitmap=await createImageBitmap(file);
       if(bitmap.width<128||bitmap.height<128||bitmap.width>12000||bitmap.height>12000){bitmap.close();fail("A imagem precisa ter pelo menos 128 × 128 px e no máximo 12.000 px por lado.");return;}
@@ -320,60 +323,24 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         if (!displayName || displayName.length > 80 || bio.length > 280 || (playlistUrlInput && !playlistUrl)) throw new Error("profile-fields");
         const userId = profileId || form.dataset.profileId;
         if (!userId) throw new Error("session expired");
-        let newAvatarPath = null;
-        let oldAvatarPath = null;
-        if (hasAvatarFile || removeAvatar) {
-          const { data: currentProfile, error: currentError } = await client.from("profiles").select("avatar_path").eq("id", userId).single();
-          if (currentError) throw currentError;
-          oldAvatarPath = currentProfile.avatar_path;
-        }
         if (hasAvatarFile) {
-          const extensions = new Map([["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"]]);
-          const extension = extensions.get(avatarFile.type);
-          if (!extension || avatarFile.size > 10 * 1024 * 1024) throw new Error("unsupported avatar");
           const validatedBitmap = await createImageBitmap(avatarFile);
           const squareValid = validatedBitmap.width === 512 && validatedBitmap.height === 512;
           validatedBitmap.close();
           if (!squareValid) throw new Error("avatar-not-square");
-        newAvatarPath = `avatars/${userId}/${crypto.randomUUID()}.${extension}`;
-          const { data: uploadData, error: uploadError } = await client.storage.from("looply-avatars").upload(newAvatarPath, avatarFile, { contentType: avatarFile.type, upsert: false, cacheControl: "3600" });
-          if (uploadError) throw uploadError;
-          if (!uploadData?.path || uploadData.path !== newAvatarPath) throw new Error("avatar-upload-invalid-result");
         }
-        const updates = { display_name: displayName, bio, profile_visibility: visibility };
-        updates.playlist_url = playlistUrl || null;
-        if (hasAvatarFile || removeAvatar) updates.avatar_path = newAvatarPath;
-        const { data: updatedProfile, error: updateError } = await client.from("profiles")
-          .update(updates).eq("id", userId).select("id,avatar_path").maybeSingle();
-        if (updateError || !updatedProfile) {
-          if (newAvatarPath) {
-            const { error: cleanupError } = await client.storage.from("looply-avatars").remove([newAvatarPath]);
-            if (cleanupError) console.error("Could not clean up uncommitted profile avatar", cleanupError);
-          }
-          if (updateError) throw updateError;
-          throw new Error("profile-update-not-confirmed");
-        }
-        if (newAvatarPath) {
-          // Storage SELECT is intentionally allowed only after profiles.avatar_path points at this object.
-          // Signing before the profile update fails the bucket's read-visible-profile RLS policy.
-          const { data: validationUrl, error: validationError } = await cachedSignedUrl(client, "looply-avatars", newAvatarPath, 60);
-          if (validationError || !validationUrl?.signedUrl) {
-            const { data: rolledBackProfile, error: rollbackError } = await client.from("profiles")
-              .update({ avatar_path: oldAvatarPath }).eq("id", userId).select("id").maybeSingle();
-            if (!rollbackError && rolledBackProfile) {
-              const { error: cleanupError } = await client.storage.from("looply-avatars").remove([newAvatarPath]);
-              if (cleanupError) console.error("Could not clean up rolled-back profile avatar", cleanupError);
-              throw new Error("avatar-upload-validation-failed");
-            }
-            console.error("Could not roll back profile avatar after storage validation failed", rollbackError);
-            throw new Error("avatar-rollback-failed");
-          }
-        }
-        if (newAvatarPath) form.dataset.hasAvatar = "true";
-        if (oldAvatarPath && (newAvatarPath || removeAvatar)) {
-          const { error: removeError } = await client.storage.from("looply-avatars").remove([oldAvatarPath]);
-          if (removeError) console.error("Could not remove previous profile avatar", removeError);
-        }
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) throw new Error("session expired");
+        const updates = {
+          display_name: displayName, bio,
+          profile_visibility: visibility, playlist_url: playlistUrl || null
+        };
+        await saveNeonProfile({
+          profileId: userId, session: sessionData.session,
+          dataApiUrl: client.dataApiUrl, storage: client.storage,
+          updates, avatarFile: hasAvatarFile ? avatarFile : null
+        });
+        if (hasAvatarFile) form.dataset.hasAvatar = "true";
         const previewUrl = form.dataset.avatarPreviewUrl;
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         setStatus(form, "Perfil atualizado.");

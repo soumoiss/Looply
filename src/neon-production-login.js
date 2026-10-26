@@ -15,7 +15,7 @@ form?.addEventListener("submit",async ev=>{
  try{
    const result=await neon.auth.signInWithPassword({email,password:secret});
    if(result.error||!result.data?.session)throw Error("Usuário ou senha incorretos.");
-   await selfProfile();
+   await selfProfile(result.data.session);
    location.replace(redirect);
  }catch(e){status(e.message||"Não foi possível acessar o Neon. Tente novamente.");submit.disabled=false;submit.textContent="Avante!"}
  finally{password.value=""}

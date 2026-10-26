@@ -46,5 +46,5 @@ test("Neon page runtime resolves the existing profile identity and retains the p
   assert.match(runtime, /await selfProfile\(\)/);
   assert.match(profiles, /name="playlistUrl"/);
   assert.match(profiles, /normalizeYouTubePlaylistUrl/);
-  assert.match(profiles, /updates\.playlist_url = playlistUrl \|\| null/);
+  assert.match(profiles, /playlist_url: playlistUrl \|\| null/);
 });
