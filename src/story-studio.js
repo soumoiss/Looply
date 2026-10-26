@@ -88,10 +88,13 @@ export function storyStudioMarkup(recipientOptions) {
 function blobFromCanvas(canvas, type, quality = .89) {
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Falha na conversão de imagem.")), type, quality));
 }
-function videoFormat() {
+function videoFormat(withAudio=false) {
   if (typeof MediaRecorder !== "function") return null;
-  return ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
-    .find(type => MediaRecorder.isTypeSupported(type)) || null;
+  const audioFirst = ["video/webm;codecs=vp8,opus","video/webm;codecs=vp9,opus",
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',"video/mp4","video/webm"];
+  const videoFirst = ["video/mp4","video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9,opus","video/webm"];
+  return (withAudio?audioFirst:videoFirst).find(type=>MediaRecorder.isTypeSupported(type))||null;
 }
 function waitEvent(target, event) {
   return new Promise((resolve, reject) => {
@@ -136,8 +139,9 @@ function cleanName(value) {
   return String(value || "").replace(/[\u0000-\u001F<>]/g, "").slice(0, 120);
 }
 
-export function bindStoryStudio(root, client, userId, refresh) {
+export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) {
   const dialog = root.querySelector("[data-story-create-dialog]");
+  if (dialog) dialog.dataset.admin = isAdmin ? "true" : "false";
   if (!dialog?.classList.contains("story-studio")) return () => {};
   const $ = selector => dialog.querySelector(selector);
   const stage = $("[data-studio-stage]");
@@ -158,7 +162,11 @@ export function bindStoryStudio(root, client, userId, refresh) {
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
   const status = (text, bad = false) => {
-    feedback.textContent = text; feedback.dataset.error = bad ? "true" : "false";
+    // Technical diagnostics belong to ADM. Ordinary members never see
+    // internal providers, storage paths, browser errors or deployment details.
+    feedback.textContent = isAdmin ? text : "";
+    feedback.dataset.error = bad ? "true" : "false";
+    if(bad) console.warn("Loooply Stories:",text);
   };
   const showMode = name => {
     mode = name;
@@ -524,16 +532,12 @@ export function bindStoryStudio(root, client, userId, refresh) {
     $("[data-studio-track-label]").textContent = track.title;
     $("[data-studio-music-remove]").hidden = false;
     modalClose();
-    status(track.kind === "catalog"
-      ? track.provider === "audius"
-        ? "Música selecionada. A reprodução do Audius será tentada automaticamente no Story."
-        : "Música identificada; apenas o player oficial pode reproduzir a prévia."
-      : "Música adicionada ao Story: o áudio será incorporado à mídia publicada.");
+    if(isAdmin)status("ADM: áudio selecionado para publicação: "+track.kind+" / "+(track.provider||"local"));
   };
   const openMusic = () => {
     stopMusicPreview();
     stopMusicPreview = openStoryMusicPicker({
-      modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status
+      modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status, isAdmin
     });
   };
   const openAudience = () => {
@@ -584,8 +588,8 @@ export function bindStoryStudio(root, client, userId, refresh) {
     } else await fillCanvas(canvas, null, editFilter);
     return canvas;
   };
-  const exportVideo = async (still, withMusic) => {
-    const mime = videoFormat();
+  const exportVideo = async (still, withMusic, armedAudioContext = null) => {
+    const mime = videoFormat(Boolean(withMusic));
     if (!mime) throw new Error("Não é possível exportar o vídeo com edição neste navegador.");
     const canvas = still || makeCanvas();
     const ctx = canvas.getContext("2d", { alpha: false });
@@ -607,7 +611,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
       if (withMusic || videoMedia) {
         const AudioEngine = window.AudioContext || window.webkitAudioContext;
         if (!AudioEngine) throw new Error("Este navegador não suporta edição de áudio.");
-        audioCtx = new AudioEngine();
+        audioCtx = armedAudioContext || new AudioEngine();
         const destination = audioCtx.createMediaStreamDestination();
         if (videoMedia) audioCtx.createMediaElementSource(videoMedia).connect(destination);
         if (withMusic) {
@@ -618,7 +622,11 @@ export function bindStoryStudio(root, client, userId, refresh) {
           source.connect(destination);
         }
         destination.stream.getAudioTracks().forEach(t => framesStream.addTrack(t));
-        await audioCtx.resume(); if (source) source.start();
+        await audioCtx.resume();
+        if (audioCtx.state !== "running") throw new Error("A captura de áudio não foi ativada.");
+        if(withMusic && !framesStream.getAudioTracks().some(t=>t.readyState==="live"))
+          throw new Error("O gravador não recebeu a trilha de áudio.");
+        if(source) source.start();
       }
       recorded = new MediaRecorder(framesStream, { mimeType: mime });
       const received = [];
@@ -652,19 +660,32 @@ export function bindStoryStudio(root, client, userId, refresh) {
       if (audioCtx) await audioCtx.close().catch(() => {});
     }
   };
-  const exportFinal = async () => {
+  const exportFinal = async (armedAudioContext = null) => {
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
     if (sourceKind === "video" && (!music || music.kind === "catalog") && !layered && editFilter === "none") return file;
-    if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"));
+    if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"), armedAudioContext);
     const canvas = await renderStill();
-    if (music && music.kind !== "catalog") return exportVideo(canvas, true);
+    if (music && music.kind !== "catalog") return exportVideo(canvas, true, armedAudioContext);
     const blob = await blobFromCanvas(canvas, "image/jpeg");
     return new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" });
   };
   const publish = async () => {
     if (publishing) return;
     publishing = true;
+    // Start WebAudio directly within the Publish tap, BEFORE awaiting image
+    // encoding/Neon calls. Mobile browsers may suspend contexts created after
+    // the transient gesture, resulting in an apparently valid but silent video.
+    let armedAudioContext = null;
+    if (music && (music.kind === "builtin" || music.kind === "file")) {
+      const AudioEngine = window.AudioContext || window.webkitAudioContext;
+      if (AudioEngine) {
+        armedAudioContext = new AudioEngine();
+        void armedAudioContext.resume().catch(error => {
+          if (isAdmin) status("ADM: falha ao liberar captura sonora: "+error.message,true);
+        });
+      }
+    }
     const buttons = dialog.querySelectorAll("button");
     buttons.forEach(b => { b.disabled = true; });
     let storyId = null, uploadedPath = null;
@@ -673,7 +694,13 @@ export function bindStoryStudio(root, client, userId, refresh) {
       const selected = [...$("[data-studio-people]").selectedOptions].map(o => o.value);
       if (visibility === "selected" && !selected.length) throw new Error("Escolha seus amigos próximos.");
       status("Preparando sua mídia…");
-      const media = await exportFinal();
+      // Never publish only catalog metadata: this used to produce silent
+      // Apple/Deezer Stories because their previews cannot be synchronized.
+      if(music?.kind==="catalog" && music.provider!=="audius")
+        throw new Error("Selecione um arquivo de áudio próprio para publicar esta música.");
+      if(music?.kind==="catalog" && music.provider==="audius" && !music.id)
+        throw new Error("A faixa selecionada não possui áudio disponível para o Story.");
+      const media = await exportFinal(armedAudioContext);
       const normalized = normalizePublicationMedia(media);
       if (!normalized || !FORMATS[normalized.type] || normalized.size > 100 * 1024 * 1024) {
         throw new Error("Mídia inválida ou maior que 100 MB.");
@@ -702,7 +729,12 @@ export function bindStoryStudio(root, client, userId, refresh) {
       if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
       if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
       status(error.message || "Não foi possível publicar. Tente novamente.", true);
-    } finally { publishing = false; buttons.forEach(b => { b.disabled = false; }); }
+    } finally {
+      if(armedAudioContext && armedAudioContext.state!=="closed")
+        void armedAudioContext.close().catch(()=>{});
+      publishing = false;
+      buttons.forEach(b=>{b.disabled=false;});
+    }
   };
   const activateShutter = async e => {
     if (mode !== "camera") return;

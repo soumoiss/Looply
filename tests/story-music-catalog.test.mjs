@@ -146,6 +146,6 @@ test("Android music cards have separate grid action row, readable text, and visi
   assert.match(picker,/void el\.play\(\)\.then/);
   assert.match(picker,/el\.addEventListener\("error"/);
   assert.match(picker,/const listen=addText\(actions,"button","▶ Ouvir prévia"/);
-  assert.match(picker,/const choose=addText\(actions,"button","Escolher"/);
+  assert.match(picker,/const choose=addText\(actions,"button",needsOwnAudio\(track\)\?"Adicionar áudio":"Escolher"/);
   assert.match(picker,/stopPreview/);
 });
