@@ -613,3 +613,15 @@
 .reels-status { position:absolute; z-index:11; left:15%; right:15%; top:calc(env(safe-area-inset-top) + 68px); color:#fff; text-align:center; text-shadow:0 1px 6px #000; font-size:12px; pointer-events:none; }
 .reels-status:empty { display:none; }
 @media(max-width:360px) { .reels-actions { right:7px; gap:8px; } .reels-actions button { width:44px; min-height:44px; } .reels-details { left:11px; right:63px; } .reels-nav { left:8px; } }
+
+
+/* External posts: keep attribution secondary and let the authorized media dominate. */
+.post-external { gap:8px; margin:10px 0; padding:0; overflow:hidden; border:0; border-radius:12px; background:transparent; }
+.post-external-credit { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; padding:0 2px; color:var(--muted); font-size:11px; }
+.post-external-credit > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.post-external-credit a { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
+.post-external-embed { width:min(100%,560px); margin-inline:auto; aspect-ratio:9/16; max-height:min(78dvh,760px); border-radius:12px; background:#08080a; }
+.post-instagram-embed { aspect-ratio:4/5; max-height:min(82dvh,760px); background:#101014; }
+.post-external-unavailable { margin:0; padding:16px; border-radius:12px; background:var(--surface-soft); color:var(--muted); font-size:13px; }
+.post-body { overflow-wrap:anywhere; }
+@media(max-width:560px){.post-external{margin:8px 0}.post-external-embed{width:min(100%,460px);max-height:78dvh}.post-instagram-embed{max-height:82dvh}}
