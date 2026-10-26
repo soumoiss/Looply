@@ -3,7 +3,7 @@ import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { decodeStoryBody } from "./story-text-style.js";
-import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=portrait-capture-20261026";
+import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=story-mentions-20261026";
 
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
@@ -225,7 +225,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
     person.id !== userId && person.profile_visibility !== "private"
   );
   const recipientOptions = eligiblePeople.map((person) =>
-    '<option value="' + escapeHtml(person.id) + '">' +
+    '<option value="' + escapeHtml(person.id) + '" data-username="' + escapeHtml(person.username) + '" data-display-name="' + escapeHtml(person.display_name || person.username) + '" data-avatar="' + escapeHtml(person.avatarUrl || "") + '">' +
       escapeHtml(person.display_name || person.username) + " · @" + escapeHtml(person.username) +
     "</option>"
   ).join("");
@@ -977,6 +977,27 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
 
   });
+  const requestedStoryId = new URL(window.location.href).searchParams.get("storyId");
+  if (requestedStoryId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedStoryId)) {
+    void (async () => {
+      let group = state.groups.find(item => item.stories.some(story => story.id === requestedStoryId));
+      if (!group) {
+        await refresh();
+        group = state.groups.find(item => item.stories.some(story => story.id === requestedStoryId));
+      }
+      const activeStories = group ? activeStoriesFor(group) : [];
+      const storyIndex = activeStories.findIndex(story => story.id === requestedStoryId);
+      if (!group || storyIndex < 0) {
+        showStatus("Este story não está mais disponível.");
+        return;
+      }
+      state.active = { ...group, stories: activeStories };
+      state.index = storyIndex;
+      renderSlide();
+      openStoryDialog(viewer);
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
+    })();
+  }
 }
 
 export function setupStoriesRealtime(client, userId, root) {

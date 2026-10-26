@@ -6,6 +6,7 @@ import { openStoryMusicPicker } from "./story-music-picker.js";
 
 const FILTERS = Object.freeze({ none:"none" });
 const LIMIT = 30_000;
+const escapeHtml = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 export const STORY_CANVAS_SIZE = Object.freeze({ width: 720, height: 1280 });
 export function containRect(sourceWidth, sourceHeight, targetWidth, targetHeight) {
   if (![sourceWidth, sourceHeight, targetWidth, targetHeight].every(value => Number.isFinite(value) && value > 0)) return null;
@@ -73,6 +74,7 @@ export function storyStudioMarkup(recipientOptions) {
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
           '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♪</button>' +
+          '<button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button>' +
 
         '</div>' +
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
@@ -177,6 +179,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
+  let selectedMentionIds = [];
   let stopMusicPreview = () => {};
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
@@ -202,7 +205,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const revokeUrl = () => { if (url) URL.revokeObjectURL(url); url = null; };
   const clearPreview = () => {
     edits.replaceChildren(); edits.hidden = true; revokeUrl();
-    overlayRoot.replaceChildren(); file = null; sourceKind = "none";
+    overlayRoot.replaceChildren(); file = null; sourceKind = "none"; selectedMentionIds = [];
   };
   const flashButton = $("[data-studio-flash]");
   const resetFlash = () => {
@@ -593,6 +596,62 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Story para " + ids.length + " pessoas selecionadas.");
     };
   };
+  const openMentions = () => {
+    const people = [...$("[data-studio-people]").options];
+    const visibility = $("[data-studio-visibility]").value;
+    if (visibility === "private") { status("Menções ficam disponíveis em Stories públicos ou para destinatários selecionados.", true); return; }
+    const allowed = visibility === "selected"
+      ? new Set([...$("[data-studio-people]").selectedOptions].map(option => option.value))
+      : null;
+    let chosen = new Set(selectedMentionIds);
+    modal("Mencionar pessoas", '<label class="visually-hidden" for="studioMentionSearch">Pesquisar pessoas</label><input id="studioMentionSearch" type="search" placeholder="Pesquisar nome ou @usuário..." autocomplete="off"><div class="studio-mention-list" data-studio-mention-list role="listbox" aria-label="Perfis visíveis"></div><div class="studio-modal-actions"><button type="button" data-studio-mention-cancel>Cancelar</button><button type="button" class="studio-modal-primary" data-studio-mention-done>Confirmar seleção</button></div>');
+    const search = body.querySelector("#studioMentionSearch");
+    const list = body.querySelector("[data-studio-mention-list]");
+    const renderPeople = () => {
+      const term = String(search.value || "").trim().toLocaleLowerCase("pt-BR").replace(/^@/, "");
+      const matches = people.filter(option => {
+        if (allowed && !allowed.has(option.value)) return false;
+        const value = ((option.textContent || "") + " " + (option.dataset.username || "")).toLocaleLowerCase("pt-BR");
+        return !term || value.includes(term);
+      });
+      list.innerHTML = matches.length ? matches.map(option => {
+        const id = escapeHtml(option.value);
+        const name = escapeHtml(option.dataset.displayName || option.textContent.split(" · @")[0] || "Membro");
+        const username = escapeHtml(option.dataset.username || "");
+        const avatar = option.dataset.avatar || "";
+        let safeAvatar = "";
+        try { const parsed = new URL(avatar); if (parsed.protocol === "https:") safeAvatar = escapeHtml(parsed.href); } catch {}
+        const image = safeAvatar ? '<img src="' + safeAvatar + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span aria-hidden="true">' + escapeHtml(name.slice(0,1).toLocaleUpperCase("pt-BR")) + '</span>';
+        const checked = chosen.has(option.value);
+        return '<button type="button" class="studio-mention-person' + (checked ? ' is-selected' : '') + '" role="option" aria-selected="' + checked + '" data-mention-person="' + id + '">' + image + '<span><strong>' + name + '</strong><small>@' + username + '</small></span><span class="studio-mention-check" aria-hidden="true">' + (checked ? '✓' : '') + '</span></button>';
+      }).join("") : '<p class="studio-mention-empty">Nenhuma pessoa encontrada.</p>';
+    };
+    renderPeople();
+    search.addEventListener("input", renderPeople);
+    list.addEventListener("click", event => {
+      const option = event.target.closest("[data-mention-person]");
+      if (!option) return;
+      const id = option.dataset.mentionPerson;
+      if (chosen.has(id)) chosen.delete(id);
+      else if (chosen.size >= 20) { status("Selecione no máximo 20 pessoas.", true); return; }
+      else chosen.add(id);
+      renderPeople();
+    });
+    body.querySelector("[data-studio-mention-cancel]").onclick = modalClose;
+    body.querySelector("[data-studio-mention-done]").onclick = () => {
+      selectedMentionIds = [...chosen];
+      overlayRoot.querySelectorAll("[data-story-mention-layer]").forEach(layer => layer.remove());
+      for (const id of selectedMentionIds) {
+        const option = people.find(item => item.value === id);
+        if (!option) continue;
+        const layer = addLayer("@" + String(option.dataset.username || ""));
+        layer.dataset.storyMentionLayer = "";
+        layer.dataset.mentionUserId = id;
+      }
+      modalClose();
+      status(selectedMentionIds.length ? selectedMentionIds.length + " menção(ões) adicionada(s). Arraste para posicionar." : "Menções removidas.");
+    };
+  };
   const makeCanvas = (w = STORY_CANVAS_SIZE.width, h = STORY_CANVAS_SIZE.height) => {
     const c = document.createElement("canvas");
     c.width = Math.min(1080, w); c.height = Math.min(1920, h);
@@ -723,6 +782,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     try {
       const visibility = $("[data-studio-visibility]").value;
       const selected = [...$("[data-studio-people]").selectedOptions].map(o => o.value);
+      const mentionIds = [...new Set(selectedMentionIds)];
+      if (mentionIds.length && visibility === "private") throw new Error("Menções ficam disponíveis em Stories públicos ou para destinatários selecionados.");
+      if (visibility === "selected" && mentionIds.some(id => !selected.includes(id))) throw new Error("Mencione apenas pessoas selecionadas para ver este Story.");
       if (visibility === "selected" && !selected.length) throw new Error("Escolha seus amigos próximos.");
       status("Preparando sua mídia…");
       // Never publish only catalog metadata: this used to produce silent
@@ -753,6 +815,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         p_mime_type: normalized.type, p_byte_size: normalized.size
       });
       if (attached.error) throw attached.error;
+      if (mentionIds.length) {
+        const mentioned = await client.rpc("v5_add_story_mentions", { p_story_id: storyId, p_user_ids: mentionIds });
+        if (mentioned.error) throw mentioned.error;
+      }
       status("Story publicado!");
       publishing = false; close(); await refresh();
     } catch (error) {
@@ -831,6 +897,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     "[data-studio-music-open]": openMusic,
     "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-music-remove]").hidden = true; },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
+    "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
       modal("Figurinhas", '<div class="studio-stickers">' + ["❤️","✨","🌟","😍","🎉","🔥","🥳","💜"].map(t => '<button type="button" data-sticker="' + t + '">' + t + '</button>').join("") + '</div>');
       body.querySelectorAll("[data-sticker]").forEach(b => b.onclick = () => { addLayer(b.dataset.sticker, true); modalClose(); });
