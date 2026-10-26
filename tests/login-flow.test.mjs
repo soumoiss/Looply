@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 // Execute the actual form handler with an in-memory DOM and mocked service replies.
 // These tests cover routing/error semantics, not a real production authentication.
 const source = (await readFile(new URL('../src/login.js', import.meta.url), 'utf8'))
-  .replace(/^import .*;\n/gm, '');
+  .replace(/^import .*;\r?\n/gm, '');
 const run = Object.getPrototypeOf(async function () {}).constructor(
   'document', 'window', 'supabase', 'isSupabaseConfigured', 'captureIncomingSharedLink', 'FormData', 'console', source
 );

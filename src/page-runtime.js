@@ -1,6 +1,5 @@
 import { icon } from "./icons.js";
-import { isSupabaseConfigured, supabase } from "./supabase.js";
-import { checkAdminAccess } from "./admin.js";
+import { looplyClient as supabase, selfProfile } from "./neon-production-client.js";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
@@ -83,12 +82,9 @@ function headerMarkup(page, profile, admin, unreadCount) {
 }
 
 async function loadProfile(userId) {
-  const { data, error } = await supabase.from("profiles")
-    .select("id,username,display_name,bio,profile_visibility,playlist_url,avatar_path,theme,font_family,font_size")
-    .eq("id", userId).maybeSingle();
-  if (error) throw error;
+  const data = await selfProfile();
   if (!data) throw new Error("O perfil desta conta não foi encontrado.");
-  return data;
+  return { profile_visibility: "private", playlist_url: null, font_family: "system", font_size: "normal", ...data };
 }
 
 async function loadProfileAvatar(profile) {
@@ -150,11 +146,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   const header = document.querySelector("[data-site-header]");
   if (!root || !header) return;
 
-  if (!isSupabaseConfigured || !supabase) {
-    notice(root, "A configuração pública do Supabase está ausente ou inválida.", "error");
-    return;
-  }
-
   // Prefer the persisted session first. getUser() validates against the Auth server and
   // can fail transiently on mobile networks; that must not be mistaken for a signed-out user.
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -186,11 +177,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   let isAdmin = false;
   try {
     const [profileResult, adminResult] = await Promise.allSettled([
-      loadProfile(user.id), checkAdminAccess(supabase)
+      loadProfile(user.id), Promise.resolve({ data: user.role === "admin" })
     ]);
     if (profileResult.status === "rejected") throw profileResult.reason;
     profile = profileResult.value;
-    isAdmin = adminResult.status === "fulfilled" && Boolean(adminResult.value);
+    isAdmin = adminResult.status === "fulfilled" && Boolean(adminResult.value?.data);
   } catch (error) {
     notice(root, error?.message || "Não foi possível carregar o perfil.", "error");
     return;

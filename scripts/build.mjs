@@ -24,14 +24,12 @@ await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"),
 console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration, and gallery.");
 
 
-// GitHub Pages now boots with Neon Auth. Keep the original HTML/CSS design while
-// swapping the un-migrated Supabase controllers for the isolated Neon shell.
-const appPages = new Set(["home.html","musicas.html","chat.html","conversa.html","cartas.html","notificacoes.html","usuarios.html","configuracoes.html","perfil.html","admin.html","galeria.html"]);
-for (const file of ["index.html","login.html",...appPages]) {
+// Keep the original application controllers and presentation. The shared
+// runtime supplies the Neon identity adapter; each page keeps its own UI.
+for (const file of ["index.html","login.html"]) {
   const filename = path.join(outputDirectory,file);
   let html = await readFile(filename,"utf8");
-  const script = file === "index.html" ? "src/neon-production-splash.js" :
-    file === "login.html" ? "src/neon-production-login.js" : "src/neon-production-pages.js";
+  const script = file === "index.html" ? "src/neon-production-splash.js" : "src/neon-production-login.js";
   // Pages were built with one entrypoint at the bottom; reject unexpected layouts.
   const oldModule = /<script\s+type="module"\s+src="[^"]+"\s*><\/script>/g;
   const existing = [...html.matchAll(oldModule)];
@@ -44,4 +42,4 @@ const swPath=path.join(outputDirectory,"sw.js");
 let sw=await readFile(swPath,"utf8");
 sw=sw.replace('looply-shell-v7','looply-neon-shell-20261025');
 await writeFile(swPath,sw,"utf8");
-console.log("GitHub Pages entries routed to Neon Auth; original CSS and HTML preserved.");
+console.log("Original Looply page controllers retained; login and splash use Neon Auth.");
