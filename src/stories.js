@@ -442,7 +442,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     }
   };
-  root.querySelector("[data-story-music-open]")?.addEventListener("click", searchSpotify);
+  const musicSearchButton = root.querySelector("[data-story-music-open]");
+  musicSearchButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (musicPicker) musicPicker.hidden = false;
+    void searchSpotify();
+  });
+  root.querySelector("#storyMusicQuery")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (musicPicker) musicPicker.hidden = false;
+      void searchSpotify();
+    }
+  });
   const toggleMusicPicker = () => { if (musicPicker) musicPicker.hidden = !musicPicker.hidden; };
   root.querySelectorAll("[data-story-music-toggle]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
