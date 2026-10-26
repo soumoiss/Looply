@@ -55,15 +55,28 @@ test("Output applies edits to exported media, not just CSS preview", () => {
   assert.match(studio, /ctx\.putImageData\(image/);
 });
 
-test("Camera is mirrored only in front mode and mobile layout is isolated", () => {
-  assert.match(studio, /facing === "user" \? "scaleX\(-1\)" : "none"/);
-  assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*transform:scaleX\(-1\)/);
+test("Front mirror, real torch, screen flash and pinch zoom use supported camera APIs", () => {
+  assert.match(studio, /facing: "user"/);
+  assert.match(studio, /"scaleX\(-1\) "/);
+  assert.match(studio, /data-studio-screen-light/);
+  assert.match(studio, /stage\.dataset\.screenFlash = "firing"/);
+  assert.match(studio, /await track\.applyConstraints\(\{ advanced: \[\{ torch: turnOn \}\] \}\)/);
+  assert.match(studio, /track\.getSettings\?\.\(\)\.torch/);
+  assert.match(studio, /resizeMode: \{ ideal: "none" \}/);
+  assert.match(studio, /zoomBase \* settings\.zoom/);
+  assert.match(studio, /stage\.addEventListener\("touchstart"/);
+  assert.match(studio, /stage\.addEventListener\("touchmove"/);
+  assert.match(studio, /const cropW = sourceW \/ factor/);
+  assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
+  assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
   assert.match(styles, /safe-area-inset-bottom/);
 });
 
-test("Options without a migrated backend are not misleading clickable actions", () => {
-  assert.match(studio, /REEL<\/span>/);
-  assert.match(studio, /LIVE<\/span>/);
-  assert.match(studio, /aria-disabled="true"/);
+test("Only POST and STORY modes are visible", async () => {
+  const { storyStudioMarkup } = await import("../src/story-studio.js");
+  const markup = storyStudioMarkup("");
+  assert.match(markup, /data-studio-post/);
+  assert.match(markup, /<b>STORY<\/b>/);
+  assert.doesNotMatch(markup, /\bREEL\b|\bLIVE\b|data-studio-reel|data-studio-live/);
 });
