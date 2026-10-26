@@ -257,7 +257,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<div class="story-media-label"><span>Foto ou vídeo <small>(opcional, até 25 MB)</small></span><div class="story-capture-actions">' +
           '<label class="story-file-picker" for="storyMedia">Escolher arquivo ou tirar foto</label>' +
           '<button class="text-button" type="button" data-story-camera-open>Usar câmera</button></div></div>' +
-        '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" capture="environment">' +
+        '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video>' +
           '<div class="story-camera-actions"><button class="text-button" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">Alternar câmera</button>' +
