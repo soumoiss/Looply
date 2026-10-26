@@ -25,7 +25,7 @@ async function profileRequest({ dataApiUrl, token, profileId, fetchImpl, method 
     url.searchParams.set("avatar_path", expectedAvatarPath === null ? "is.null" : "eq." + expectedAvatarPath);
   }
   url.searchParams.set("select", "id,avatar_path,display_name,bio,profile_visibility,playlist_url");
-  url.searchParams.set("limit", "2");
+  if (method === "GET") url.searchParams.set("limit", "2");
   let response;
   try {
     response = await fetchImpl(url.toString(), {
