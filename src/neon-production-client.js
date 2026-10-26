@@ -97,7 +97,7 @@ async function cleanupPendingGalleryMedia(name, args) {
     return { data: response.data, error: response.error || null };
   } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
 }
-const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media"]);
+const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media","v5_add_story_mentions"]);
 async function ownerPublicationRpc(name,args) {
   if(!publicationRpcNames.has(name)) return blocked();
   try {
@@ -110,7 +110,7 @@ async function ownerPublicationRpc(name,args) {
     });
     const value=await response.json().catch(()=>null);
     if(!response.ok) return {data:null,error:{message:value?.message||"neon_publication_rejected",status:response.status,code:value?.code||""}};
-    if(typeof value!=="string") return {data:null,error:{message:"neon_publication_missing_id"}};
+    if(typeof value!=="string" && !(name==="v5_add_story_mentions" && Number.isInteger(value))) return {data:null,error:{message:"neon_publication_missing_id"}};
     return {data:value,error:null};
   } catch(error) {return {data:null,error:{message:"neon_publication_network_error",details:error?.message||""}};}
 }
