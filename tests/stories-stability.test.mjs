@@ -50,10 +50,10 @@ test("Stories persist only valid Spotify track embeds and preserve the styled te
 });
 
 test("Story music is local to the app and AR uses face landmarks rather than fake CSS-only lenses", async () => {
-  const [studio, lenses] = await Promise.all([read("src/story-studio.js"), read("src/story-ar.js")]);
-  assert.match(studio, /data-studio-music-query/);
-  assert.match(studio, /BUILTIN\.filter\(t =>/);
-  assert.match(studio, /data-studio-audio-file/);
+  const [studio, lenses, picker] = await Promise.all([read("src/story-studio.js"), read("src/story-ar.js"), read("src/story-music-picker.js")]);
+  assert.match(picker, /data-studio-music-query/);
+  assert.match(picker, /builtin\.filter\(t=>/);
+  assert.match(picker, /data-studio-audio-file/);
   assert.match(studio, /makeSynthBuffer\(audioCtx, music\)/);
   assert.match(studio, /data-studio-face="eyes"/);
   assert.match(studio, /new StoryFaceLens/);
