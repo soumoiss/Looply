@@ -6,6 +6,14 @@ import { openStoryMusicPicker } from "./story-music-picker.js";
 
 const FILTERS = Object.freeze({ none:"none" });
 const LIMIT = 30_000;
+export const STORY_CANVAS_SIZE = Object.freeze({ width: 720, height: 1280 });
+export function containRect(sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  if (![sourceWidth, sourceHeight, targetWidth, targetHeight].every(value => Number.isFinite(value) && value > 0)) return null;
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  return { x: (targetWidth - width) / 2, y: (targetHeight - height) / 2, width, height };
+}
 const FORMATS = Object.freeze({
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
   "video/mp4": "mp4", "video/webm": "webm"
@@ -21,6 +29,7 @@ export function storyStudioMarkup(recipientOptions) {
   return '<dialog class="story-studio" data-story-create-dialog aria-label="Criar story">' +
     '<form class="studio-shell" data-studio-form novalidate>' +
       '<div class="studio-stage" data-studio-stage>' +
+        '<video class="studio-camera-backdrop studio-camera-only" data-studio-backdrop-video autoplay playsinline muted aria-hidden="true"></video>' +
         '<video class="studio-camera" data-studio-video autoplay playsinline muted></video>' +
         '<canvas class="studio-lens" data-studio-lens aria-hidden="true"></canvas>' +
         '<div class="studio-screen-light" data-studio-screen-light aria-hidden="true"></div>' +
@@ -156,6 +165,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const $ = selector => dialog.querySelector(selector);
   const stage = $("[data-studio-stage]");
   const video = $("[data-studio-video]");
+  const backdropVideo = $("[data-studio-backdrop-video]");
   const lens = $("[data-studio-lens]");
   const edits = $("[data-studio-edited]");
   const overlayRoot = $("[data-studio-overlays]");
@@ -204,8 +214,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const updateZoomPreview = () => {
     const digitalFactor = zoomMode === "digital" ? settings.zoom : 1;
-    video.style.transform = (settings.facing === "user" ? "scaleX(-1) " : "") + "scale(" + digitalFactor + ")";
-    lens.style.transform = "scale(" + digitalFactor + ")";
+    const mirror = settings.facing === "user" ? "scaleX(-1) " : "";
+    video.style.transform = mirror + "scale(" + digitalFactor + ")";
+    backdropVideo.style.transform = mirror + "scale(" + digitalFactor * 1.08 + ")";
+    lens.style.transform = mirror + "scale(" + digitalFactor + ")";
   };
   const setZoom = amount => {
     if (!stream || mode !== "camera") return;
@@ -244,26 +256,34 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (!sourceW || !sourceH) throw new Error("A câmera ainda não está pronta.");
     const factor = zoomMode === "digital" ? settings.zoom : 1;
     const cropW = sourceW / factor, cropH = sourceH / factor;
+    const sx = (sourceW - cropW) / 2, sy = (sourceH - cropH) / 2;
+    const frame = containRect(cropW, cropH, canvas.width, canvas.height);
+    if (!frame) throw new Error("Não foi possível preparar o enquadramento.");
+    const cover = Math.max(canvas.width / cropW, canvas.height / cropH) * 1.12;
+    const coverW = cropW * cover, coverH = cropH * cover;
     ctx.save();
-    ctx.filter = "none";
-    if (settings.facing === "user") {
-      ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, (sourceW - cropW) / 2, (sourceH - cropH) / 2,
-      cropW, cropH, 0, 0, canvas.width, canvas.height);
+    ctx.filter = "blur(28px) brightness(.58)";
+    ctx.drawImage(video, sx, sy, cropW, cropH,
+      (canvas.width - coverW) / 2, (canvas.height - coverH) / 2, coverW, coverH);
     ctx.restore();
-    if (lens.width && lens.height) {
-      // Apply the same digital crop to the facial layer as to the camera frame.
-      const x = lens.width * (1 - 1 / factor) / 2;
-      const y = lens.height * (1 - 1 / factor) / 2;
-      ctx.drawImage(lens, x, y, lens.width / factor, lens.height / factor,
-        0, 0, canvas.width, canvas.height);
-    }
+    const drawLayer = layer => {
+      const scaleX = layer.width / sourceW, scaleY = layer.height / sourceH;
+      ctx.save();
+      if (settings.facing === "user") {
+        ctx.translate(frame.x * 2 + frame.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(layer, sx * scaleX, sy * scaleY, cropW * scaleX, cropH * scaleY,
+        frame.x, frame.y, frame.width, frame.height);
+      ctx.restore();
+    };
+    drawLayer(video);
+    if (lens.width && lens.height) drawLayer(lens);
   };
   const stopCamera = () => {
     if (recorder?.state === "recording") recorder.stop();
     stream?.getTracks().forEach(t => t.stop()); stream = null;
-    video.srcObject = null; face?.stop(); face = null; lensReady = false;
+    video.srcObject = null; backdropVideo.srcObject = null; face?.stop(); face = null; lensReady = false;
     zoomTrack = null; zoomPending = null; pinch = null; zoomMode = "digital";
     settings.zoom = 1; resetFlash(); updateZoomPreview();
   };
@@ -301,11 +321,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       } catch { /* Inaccessible sensor zoom: pinch uses the digital fallback. */ }
     }
     video.srcObject = stream;
+    backdropVideo.srcObject = stream;
     updateZoomPreview();
     video.style.filter = "none";
     resetFlash();
     showMode("camera");
     try { await video.play(); } catch {}
+    try { await backdropVideo.play(); } catch {}
     face = new StoryFaceLens(video, lens, () => settings.facing);
     face.start();
     if(settings.face!=="none"){
@@ -368,8 +390,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     await flashPhoto();
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = Math.min(video.videoWidth, 1080);
-      canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
+      canvas.width = STORY_CANVAS_SIZE.width;
+      canvas.height = STORY_CANVAS_SIZE.height;
       const ctx = canvas.getContext("2d");
       drawLiveFrame(ctx, canvas);
       const blob = await blobFromCanvas(canvas, "image/jpeg");
@@ -415,12 +437,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const mime = videoFormat();
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
     const canvas = document.createElement("canvas");
-    canvas.width = Math.min(video.videoWidth, 1080);
-    canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
+    canvas.width = STORY_CANVAS_SIZE.width;
+    canvas.height = STORY_CANVAS_SIZE.height;
     const ctx = canvas.getContext("2d", { alpha: false });
     const savedFrames = [];
     const snap = document.createElement("canvas");
-    snap.width = 360; snap.height = Math.round(360 * canvas.height / canvas.width);
+    snap.width = 360; snap.height = 640;
     const snapContext = snap.getContext("2d");
     let lastFrame = 0;
     const loop = () => {
@@ -571,7 +593,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Story para " + ids.length + " pessoas selecionadas.");
     };
   };
-  const makeCanvas = (w = 720, h = 1280) => {
+  const makeCanvas = (w = STORY_CANVAS_SIZE.width, h = STORY_CANVAS_SIZE.height) => {
     const c = document.createElement("canvas");
     c.width = Math.min(1080, w); c.height = Math.min(1920, h);
     return c;
