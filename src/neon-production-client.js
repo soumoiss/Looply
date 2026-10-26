@@ -1,4 +1,5 @@
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
+import { isExplicitAdminResult } from "./neon-admin-result.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
 export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",misol:"misol@loooply.app",yara:"yara@loooply.app",peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"});
@@ -80,7 +81,9 @@ async function adminRpc(name, args) {
   if (name !== "v3_self_is_admin" || Object.keys(args || {}).length !== 0) return blocked();
   try {
     const result = await neon.rpc(name);
-    return { data: result.data === true, error: result.error || null };
+    // Neon Data API versions may expose a scalar boolean as a bare value,
+    // a one-row array, or a named RPC result. Accept only explicit true.
+    return { data: isExplicitAdminResult(result.data), error: result.error || null };
   } catch {
     return { data: false, error: { message: "neon_admin_check_unavailable" } };
   }
