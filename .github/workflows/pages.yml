@@ -63,6 +63,9 @@ jobs:
           test -s stories-preview-src/dist/assets/css/pages/story-studio.css
           mkdir -p dist/preview/stories
           cp -a stories-preview-src/dist/. dist/preview/stories/
+          # Preview must not register a second service worker that clears the
+          # stable app's origin-wide CacheStorage.
+          printf '%s\n' 'export async function registerLooplyServiceWorker() { return null; }' > dist/preview/stories/src/service-worker.js
           test -s dist/preview/stories/home.html
           test -s dist/preview/stories/src/story-studio.js
       - name: Configure Pages
