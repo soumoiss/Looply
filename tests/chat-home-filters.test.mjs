@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(path, `file://${process.cwd()}/`), "utf8");
 
-test("chat page has a home link and all conversation filters apply consistently", async () => {
+test("chat renders explicit conversation metadata and applies shared data filters", async () => {
   const [chat, enhancements] = await Promise.all([
     read("src/chat.js"),
     read("src/chat-enhancements.js")
@@ -12,15 +12,15 @@ test("chat page has a home link and all conversation filters apply consistently"
 
   assert.match(enhancements, /home\.href = "home\.html"/);
   assert.match(enhancements, /data-v2-home/);
-  assert.match(enhancements, /activeFilter === "groups" && isGroup/);
-  assert.match(enhancements, /activeFilter === "favorites" && favorites\.has\(id\)/);
+  assert.match(enhancements, /matchesConversationFilter\(/);
   assert.match(enhancements, /item\.hidden = !matches/);
   assert.match(enhancements, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
   assert.doesNotMatch(enhancements, /applyWallpaper\(\);\s*applyFilters\(\);\s*\};\s*const renderSettings/);
   assert.match(enhancements.replace(/\r\n/g, "\n"), /  renderTools\(\);\n  applyFilters\(\);\n\}/);
-  assert.match(chat, /localStorage\.getItem/);
-  assert.match(chat, /activeFilter === "groups" && isGroup/);
-  assert.match(chat, /activeFilter === "favorites" && favorites\.has/);
+  assert.match(chat, /matchesConversationFilter\(/);
+  assert.match(chat, /data-chat-kind=/);
+  assert.match(chat, /data-chat-unread-count=/);
+  assert.doesNotMatch(chat, /Boolean\(item\.querySelector\("\.chat-unread"\)\)/);
   assert.match(chat, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
   assert.match(chat, /conversationFilterButton\.dataset\.chatFilter/);
   assert.match(chat, /\["all", "unread", "groups", "favorites"\]/);
