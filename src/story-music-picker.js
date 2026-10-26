@@ -2,7 +2,7 @@ import { PROVIDER_NAMES, officialSongPreview, searchStorySongs, storySongSearchL
 
 // Catalog previews use provider-owned official embeds or permitted streaming.
 // Never download/cache the external audio or merge commercial clips into Stories.
-export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
+export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false}) {
   modal("Escolher música",
     '<div class="studio-music-picker">' +
     '<label class="studio-music-search-label"><span>Pesquisar em várias plataformas</span>' +
@@ -18,7 +18,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
     '<div class="studio-music-results" data-studio-music-results></div>' +
     '<div class="studio-music-external" data-studio-music-external></div>' +
     '<label class="studio-audio-upload">Ou escolha seu áudio para ouvir antes de usar<input type="file" data-studio-audio-file accept="audio/*"></label>' +
-    '<p class="studio-hint">Pré-escute aqui antes de escolher. Apple Music e Deezer usam o reprodutor oficial; a prévia pode exigir um toque nele. Faixas comerciais não são copiadas para os Stories. Trilhas originais, arquivos próprios e transmissões autorizadas têm reprodução conforme a origem.</p>' +
+    (isAdmin ? '<p class="studio-hint">ADM: Apple/Deezer são catálogos de busca, não trilhas autorizadas para Stories. É necessário associar um áudio pessoal autorizado. Audius usa streaming; as faixas originais e arquivos próprios são incorporados ao vídeo.</p>' : '') +
     '</div>');
   const input=body.querySelector("[data-studio-music-query]");
   const listing=body.querySelector("[data-studio-music-results]");
@@ -28,7 +28,18 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
   const tabs=body.querySelectorAll("[data-studio-provider]");
   let provider="all",items=[],seq=0,timer=null,controller=null;
   let audio=null,soundContext=null,soundSource=null,fileUrl=null,previewToken=0;
-  let currentTrack=null;
+  let currentTrack=null,pendingCatalog=null;
+  const fileInput=body.querySelector("[data-studio-audio-file]");
+  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
+  const chooseForStory=track=>{
+    if(needsOwnAudio(track)){
+      pendingCatalog=track;
+      fileInput.value="";
+      fileInput.click();
+      return;
+    }
+    stopPreview();onSelect(track);
+  };
 
   const addText=(parent,tag,text,cls)=>{
     const el=document.createElement(tag);el.textContent=text;
@@ -74,9 +85,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
     const token=previewToken;
     player.hidden=false;
     addText(player,"strong",track.title+" · "+(track.artist||"Áudio do dispositivo"),"studio-music-preview-title");
-    const message=addText(player,"p","Carregando prévia…","studio-music-preview-hint");
+    const message=addText(player,"p",isAdmin?"Carregando prévia…":"","studio-music-preview-hint");
     const mark=text=>{
-      if(token===previewToken && message.isConnected) message.textContent=text;
+      if(token===previewToken && message.isConnected) message.textContent=isAdmin?text:"";
     };
     const makeAudio=(src,loop=false)=>{
       audio=document.createElement("audio");
@@ -122,11 +133,11 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
         "Abrir no "+PROVIDER_NAMES[track.provider]+" ↗","studio-music-preview-source");
       link.href=track.url;link.target="_blank";link.rel="noopener noreferrer";
       if(track.provider==="apple")
-        addText(player,"small","Prévia promocional cedida pelo iTunes, somente para identificar a faixa. O áudio não é incorporado ao Story.","studio-music-preview-hint");
+        addText(player,"small","Prévia: cortesia do iTunes.","studio-music-preview-hint");
     }
     const actions=document.createElement("div");actions.className="studio-music-preview-actions";
-    const choose=addText(actions,"button","Usar esta música","studio-catalog-select");
-    choose.type="button";choose.onclick=()=>{stopPreview();onSelect(track);};
+    const choose=addText(actions,"button",needsOwnAudio(track)?"Adicionar meu áudio":"Usar esta música","studio-catalog-select");
+    choose.type="button";choose.onclick=()=>chooseForStory(track);
     const stop=addText(actions,"button","Parar prévia","studio-music-stop");
     stop.type="button";stop.onclick=stopPreview;
     player.append(actions);
@@ -146,9 +157,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
       const listen=addText(actions,"button","▶ Ouvir prévia","studio-music-listen");
       listen.type="button";listen.setAttribute("aria-label","Ouvir prévia de "+track.title);
       listen.onclick=()=>preview(track);
-      const choose=addText(actions,"button","Escolher","studio-catalog-select");
-      choose.type="button";choose.setAttribute("aria-label","Escolher "+track.title);
-      choose.onclick=()=>{stopPreview();onSelect(track);};
+      const choose=addText(actions,"button",needsOwnAudio(track)?"Adicionar áudio":"Escolher","studio-catalog-select");
+      choose.type="button";choose.setAttribute("aria-label",needsOwnAudio(track)?"Adicionar áudio pessoal para "+track.title:"Escolher "+track.title);
+      choose.onclick=()=>chooseForStory(track);
       actions.append(listen,choose);article.append(actions);
       listing.append(article);count++;
     };
@@ -197,12 +208,14 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
     tabs.forEach(t=>t.setAttribute("aria-pressed",String(t===tab)));
     stopPreview();draw();
   }));
-  body.querySelector("[data-studio-audio-file]").addEventListener("change",event=>{
+  fileInput.addEventListener("change",event=>{
     const file=event.target.files?.[0];
     if(!file||!file.type.startsWith("audio/")||file.size>15*1024*1024){
-      onStatus("Escolha um áudio válido de até 15 MB.",true);return;
+      onStatus("Escolha um áudio válido de até 15 MB.",true);pendingCatalog=null;return;
     }
-    preview({kind:"file",title:file.name.slice(0,120),artist:"Arquivo pessoal",file});
+    const track=pendingCatalog;pendingCatalog=null;
+    preview({kind:"file",title:track?.title||file.name.slice(0,120),
+      artist:track?.artist||"Arquivo pessoal",file,sourceProvider:track?.provider||"file"});
   });
   draw();input.focus();return cleanup;
 }
