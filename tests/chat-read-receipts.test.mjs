@@ -68,7 +68,7 @@ test("the Neon migration scopes receipt mutations and chat notifications to the 
     "chat_notifications_recipient_read", "chat_notifications_recipient_update",
     "grant update (read_at) on table public.chat_notifications to authenticated"
   ]) assert.ok(migration.includes(requirement), "missing migration guard: " + requirement);
-  assert.match(migration, /cardinality\(p_conversation_ids\), 0\) > 50/);
+  assert.match(migration, /cardinality\(p_conversation_ids\), 0\) <= 50/);
   assert.match(migration, /user_id = \(select public\.looply_legacy_uid\(\)\)/);
   assert.doesNotMatch(migration, /drop table|truncate|delete from public\.chat_messages/i);
 });
