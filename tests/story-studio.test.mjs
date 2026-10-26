@@ -22,7 +22,7 @@ test("Home loads the new editor and cache-busted controller", () => {
   assert.match(home, /story-studio\.css/);
   assert.match(homeEntrypoint, /stories\.js\?v=studio-neon-20261026/);
   assert.match(stories, /storyStudioMarkup\(recipientOptions\)/);
-  assert.match(stories, /bindStoryStudio\(root, client, userId, refresh\)/);
+  assert.match(stories, /bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
   assert.doesNotMatch(stories, /story-create-dialog"/);
 });
 
