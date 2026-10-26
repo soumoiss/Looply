@@ -1,15 +1,15 @@
-# Deploy the latest gallery, authentication, theme, chat, and Cartas updates from main.
+# Publish stable main and a separately testable Stories preview.
+# The preview is bundled into the same GitHub Pages artifact; it never replaces main.
 name: Deploy Looply to GitHub Pages
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+  workflow_run:
+    workflows: ["Stories Studio validation"]
+    types: [completed]
+    branches: [feat/stories-studio-neon-20261026]
 
 concurrency:
   group: pages
@@ -17,19 +17,25 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Check out repository
+      - name: Check out stable main
         uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
           package-manager-cache: false
-      - name: Build site and run tests
+      - name: Build production site and run tests
         run: npm test
-      - name: Verify deployment artifact contains key pages and chat assets
+      - name: Verify production files
         run: |
           test -s dist/index.html
           test -s dist/login.html
@@ -40,6 +46,25 @@ jobs:
           test -s dist/src/chat-enhancements.js
           test -s dist/assets/css/pages/chat.css
           test -s dist/assets/css/splash.css
+      - name: Check out Stories preview branch
+        uses: actions/checkout@v5
+        with:
+          ref: feat/stories-studio-neon-20261026
+          path: stories-preview-src
+          persist-credentials: false
+      - name: Validate and build Stories preview separately
+        working-directory: stories-preview-src
+        run: npm test
+      - name: Add Stories preview without changing production
+        run: |
+          set -euo pipefail
+          test -s stories-preview-src/dist/home.html
+          test -s stories-preview-src/dist/src/story-studio.js
+          test -s stories-preview-src/dist/assets/css/pages/story-studio.css
+          mkdir -p dist/preview/stories
+          cp -a stories-preview-src/dist/. dist/preview/stories/
+          test -s dist/preview/stories/home.html
+          test -s dist/preview/stories/src/story-studio.js
       - name: Configure Pages
         uses: actions/configure-pages@v6
       - name: Upload Pages artifact
@@ -48,11 +73,15 @@ jobs:
           path: dist
 
   deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 5
+    timeout-minutes: 7
     needs: build
     steps:
       - name: Deploy to GitHub Pages
