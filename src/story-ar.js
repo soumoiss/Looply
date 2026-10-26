@@ -1,110 +1,116 @@
-// Face-anchored Story lenses. This intentionally uses MediaPipe's FaceLandmarker
-// rather than CSS filters: every accessory is positioned from live face landmarks.
+// Open-source mobile AR camera: MediaPipe Face Landmarker + WebGL + Three.js.
+// All effects render on-device; face video never leaves the user's browser.
+import {FaceWarpGPU,fallbackFaceWarp} from "./story-ar-warp.js";
+import {paintFaceEffect} from "./story-ar-paint.js";
+import {StoryGlasses3D} from "./story-ar-3d.js";
 const TASKS_VERSION = "0.10.22";
-const TASKS_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VERSION}`;
-const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VERSION}/wasm`;
+const TASKS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + TASKS_VERSION;
+const WASM_URL = TASKS_URL + "/wasm";
 const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
-
-function point(landmarks, index, width, height, mirrored) {
-  const landmark = landmarks[index];
-  if (!landmark) return null;
-  return { x: (mirrored ? 1 - landmark.x : landmark.x) * width, y: landmark.y * height };
-}
-
-function distance(left, right) {
-  return Math.hypot(left.x - right.x, left.y - right.y);
-}
-
-function drawLens(context, landmarks, width, height, lens, mirrored) {
-  if (!landmarks?.length || lens === "none") return;
-  const leftEye = point(landmarks, 33, width, height, mirrored);
-  const rightEye = point(landmarks, 263, width, height, mirrored);
-  const forehead = point(landmarks, 10, width, height, mirrored);
-  const chin = point(landmarks, 152, width, height, mirrored);
-  if (!leftEye || !rightEye || !forehead || !chin) return;
-  const faceWidth = distance(leftEye, rightEye) * 2.25;
-  const eyeDistance = distance(leftEye, rightEye);
-  context.save();
-  if (lens === "glasses") {
-    const radius = Math.max(15, eyeDistance * .39);
-    context.lineWidth = Math.max(3, radius * .13);
-    context.strokeStyle = "#17131de6";
-    context.fillStyle = "#6ca9d244";
-    for (const eye of [leftEye, rightEye]) {
-      context.beginPath(); context.arc(eye.x, eye.y, radius, 0, Math.PI * 2);
-      context.fill(); context.stroke();
-    }
-    context.beginPath(); context.moveTo(leftEye.x + radius, leftEye.y); context.lineTo(rightEye.x - radius, rightEye.y); context.stroke();
-  } else if (lens === "halo") {
-    const y = forehead.y - faceWidth * .18;
-    context.lineWidth = Math.max(5, faceWidth * .08);
-    context.strokeStyle = "#ffe680e8";
-    context.shadowColor = "#ffcf3f"; context.shadowBlur = faceWidth * .16;
-    context.beginPath(); context.ellipse(forehead.x, y, faceWidth * .34, faceWidth * .1, 0, 0, Math.PI * 2); context.stroke();
-  } else if (lens === "mask") {
-    const centerX = (forehead.x + chin.x) / 2;
-    const centerY = (forehead.y + chin.y) / 2;
-    context.fillStyle = "#a273ef42";
-    context.strokeStyle = "#f0dcffcc";
-    context.lineWidth = Math.max(2, faceWidth * .025);
-    context.beginPath(); context.ellipse(centerX, centerY, faceWidth * .42, Math.abs(chin.y - forehead.y) * .55, 0, 0, Math.PI * 2); context.fill(); context.stroke();
-  } else if (lens === "eyes") {
-    const radius = Math.max(18, eyeDistance * .42);
-    context.fillStyle = "#fff";
-    context.strokeStyle = "#7041c7";
-    context.lineWidth = Math.max(3, radius * .12);
-    for (const eye of [leftEye, rightEye]) {
-      context.beginPath(); context.arc(eye.x, eye.y, radius, 0, Math.PI * 2); context.fill(); context.stroke();
-      context.fillStyle = "#191426"; context.beginPath(); context.arc(eye.x, eye.y, radius * .28, 0, Math.PI * 2); context.fill(); context.fillStyle = "#fff";
-    }
-  }
-  context.restore();
-}
-
 export class StoryFaceLens {
-  constructor(video, canvas, getFacingMode) {
-    this.video = video; this.canvas = canvas; this.getFacingMode = getFacingMode;
-    this.lens = "none"; this.running = false; this.faceLandmarker = null; this.frame = null;
-    this.ready = false; this.lastError = null;
+  constructor(video,canvas,getFacingMode){
+    this.video=video;this.canvas=canvas;this.getFacingMode=getFacingMode;
+    this.lens="none";this.effect={id:"none",type:"none",strength:0,params:{}};
+    this.running=false;this.faceLandmarker=null;this.frame=null;
+    this.ready=false;this.lastError=null;this.lastDetect=0;this.lastDraw=0;this.lastVideoTime=-1;
+    this.landmarks=null;this.warper=null;this.glasses=null;this.source=document.createElement("canvas");
+    this.selectionSerial=0;
   }
-
-  async prepare() {
-    if (this.faceLandmarker) return true;
-    try {
-      const vision = await import(TASKS_URL);
-      const fileset = await vision.FilesetResolver.forVisionTasks(WASM_URL);
-      this.faceLandmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" }, runningMode: "VIDEO",
-        numFaces: 1, outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true
-      });
-      this.ready = true; this.lastError = null;
-      return true;
-    } catch (error) {
-      this.lastError = error; this.ready = false;
-      console.warn("Looply face lenses could not initialize.", error);
-      return false;
-    }
-  }
-
-  setLens(lens) { this.lens = ["none", "glasses", "halo", "mask", "eyes"].includes(lens) ? lens : "none"; }
-  start() { if (!this.running) { this.running = true; this.render(); } }
-  stop() { this.running = false; if (this.frame) cancelAnimationFrame(this.frame); this.frame = null; this.clear(); }
-  clear() { const ctx = this.canvas?.getContext("2d"); if (ctx) ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); }
-  render() {
-    if (!this.running) return;
-    const video = this.video, canvas = this.canvas;
-    if (video?.videoWidth && video?.videoHeight && canvas) {
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
-      const context = canvas.getContext("2d"); context.clearRect(0, 0, canvas.width, canvas.height);
-      if (this.lens !== "none" && this.faceLandmarker) {
-        const result = this.faceLandmarker.detectForVideo(video, performance.now());
-        drawLens(context, result.faceLandmarks?.[0], canvas.width, canvas.height, this.lens, this.getFacingMode() === "user");
+  async prepare(){
+    if(this.faceLandmarker)return true;
+    try{
+      const vision=await import(TASKS_URL);
+      const fileset=await vision.FilesetResolver.forVisionTasks(WASM_URL);
+      const options={
+        baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",
+        numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:true
+      };
+      try{this.faceLandmarker=await vision.FaceLandmarker.createFromOptions(fileset,options);}
+      catch(error){
+        // Some older Android/iOS GPUs cannot run the MediaPipe GPU delegate.
+        options.baseOptions.delegate="CPU";
+        this.faceLandmarker=await vision.FaceLandmarker.createFromOptions(fileset,options);
       }
+      this.ready=true;this.lastError=null;return true;
+    }catch(error){
+      this.lastError=error;this.ready=false;
+      console.warn("Loooply: não foi possível inicializar AR",error);return false;
     }
-    this.frame = requestAnimationFrame(() => this.render());
+  }
+  async setLens(effect){
+    const manifest=typeof effect==="string"
+      ? {id:effect,type:effect==="none"?"none":"paint",strength:.45,params:{}}
+      : effect;
+    this.effect=manifest||{id:"none",type:"none",strength:0,params:{}};
+    this.lens=this.effect.id;
+    const serial=++this.selectionSerial;
+    this.clear();
+    if(this.lens==="sunglasses"&&!this.glasses){
+      try{
+        const glasses=new StoryGlasses3D();
+        await glasses.prepare();
+        if(serial===this.selectionSerial&&this.running)this.glasses=glasses;
+        else glasses.dispose();
+      }catch(error){this.lastError=error;console.warn("Lente 3D: usando alternativa Canvas",error);}
+    }
+  }
+  start(){if(!this.running){this.running=true;this.render();}}
+  stop(){
+    this.running=false;this.selectionSerial++;
+    if(this.frame)cancelAnimationFrame(this.frame);this.frame=null;
+    this.clear();this.landmarks=null;this.lastDetect=0;this.lastVideoTime=-1;
+    this.faceLandmarker?.close?.();this.faceLandmarker=null;this.ready=false;
+    this.warper?.dispose();this.warper=null;this.glasses?.dispose();this.glasses=null;
+  }
+  clear(){const ctx=this.canvas?.getContext("2d");ctx?.clearRect(0,0,this.canvas.width,this.canvas.height);}
+  render(){
+    if(!this.running)return;
+    const video=this.video,canvas=this.canvas,now=performance.now();
+    // Draw at most 30 fps; inference runs at most 15 fps on mobile.
+    if(this.lens!=="none"&&this.faceLandmarker&&video?.videoWidth&&video?.videoHeight&&now-this.lastDraw>=33){
+      this.lastDraw=now;
+      const w=Math.min(720,video.videoWidth),h=Math.max(1,Math.round(w*video.videoHeight/video.videoWidth));
+      if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+      if(this.source.width!==w||this.source.height!==h){this.source.width=w;this.source.height=h;}
+      const ctx=canvas.getContext("2d"),source=this.source.getContext("2d",{alpha:false});
+      if(now-this.lastDetect>=64&&video.currentTime!==this.lastVideoTime){
+        try{
+          const result=this.faceLandmarker.detectForVideo(video,now);
+          this.landmarks=result.faceLandmarks?.[0]||null;
+          this.lastDetect=now;this.lastVideoTime=video.currentTime;
+        }catch(error){this.lastError=error;this.landmarks=null;}
+      }
+      ctx.clearRect(0,0,w,h);
+      if(this.landmarks){
+        const mirrored=this.getFacingMode()==="user";
+        source.save();
+        if(mirrored){source.translate(w,0);source.scale(-1,1);}
+        source.drawImage(video,0,0,w,h);
+        source.restore();
+        if(this.effect.type==="warp"){
+          let warped=false;
+          try{
+            if(!this.warper)this.warper=new FaceWarpGPU();
+            warped=this.warper.draw(this.source,this.landmarks,this.lens,this.effect.strength,mirrored);
+            if(warped)ctx.drawImage(this.warper.canvas,0,0,w,h);
+          }catch(error){
+            this.lastError=error;this.warper?.dispose();this.warper=null;
+          }
+          if(!warped){
+            ctx.drawImage(this.source,0,0,w,h);
+            fallbackFaceWarp(ctx,this.source,this.landmarks,this.lens,this.effect.strength,mirrored);
+          }
+        }else{
+          ctx.drawImage(this.source,0,0,w,h);
+          if(!(this.lens==="sunglasses"&&this.glasses?.paint(ctx,this.landmarks,w,h,mirrored)))
+            paintFaceEffect(ctx,this.landmarks,w,h,mirrored,this.effect);
+        }
+      }
+    }else if(this.lens==="none"&&canvas.width&&canvas.height)this.clear();
+    this.frame=requestAnimationFrame(()=>this.render());
   }
 }
-
-export function drawStoryLens(context, overlayCanvas, targetWidth, targetHeight) {
-  if (overlayCanvas?.width && overlayCanvas?.height) context.drawImage(overlayCanvas, 0, 0, targetWidth, targetHeight);
+export function drawStoryLens(context,overlayCanvas,targetWidth,targetHeight){
+  if(overlayCanvas?.width&&overlayCanvas?.height)
+    context.drawImage(overlayCanvas,0,0,targetWidth,targetHeight);
 }

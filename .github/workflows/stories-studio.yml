@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'src/story-studio.js'
+      - 'src/story-ar*.js'
+      - 'assets/story-effects/**'
+      - 'scripts/check-story-ar-browser.mjs'
+      - 'tests/story-ar-open.test.mjs'
       - 'src/story-music-catalog.js'
       - 'src/story-music-picker.js'
       - 'backend/story-music-discovery/worker.mjs'
@@ -34,6 +38,8 @@ jobs:
           node-version: '22'
       - name: Build and execute test suite
         run: npm test
+      - name: Verify live AR pixel deformation in headless Chrome
+        run: node scripts/check-story-ar-browser.mjs
       - name: Verify mobile song cards in headless Chrome
         run: node scripts/check-story-music-layout.mjs
       - name: Check live multi-provider music search

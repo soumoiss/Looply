@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "big-eyes",
+  "type": "warp",
+  "strength": 0.72,
+  "params": {},
+  "assets": {
+    "model": null,
+    "texture": null
+  },
+  "license": "original-looply-procedural"
+}

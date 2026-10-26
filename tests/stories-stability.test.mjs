@@ -55,12 +55,13 @@ test("Story music is local to the app and AR uses face landmarks rather than fak
   assert.match(picker, /builtin\.filter\(t=>/);
   assert.match(picker, /data-studio-audio-file/);
   assert.match(studio, /makeSynthBuffer\(audioCtx, music\)/);
-  assert.match(studio, /data-studio-face="eyes"/);
+  assert.match(studio, /data-studio-lens-chooser/);
+  assert.match(studio, /loadStoryEffectManifest/);
   assert.match(studio, /new StoryFaceLens/);
   assert.match(studio, /canvas\.captureStream\(24\)/);
   assert.match(lenses, /FaceLandmarker\.createFromOptions/);
   assert.match(lenses, /detectForVideo/);
-  assert.match(lenses, /outputFaceBlendshapes: true/);
+  assert.match(lenses, /outputFaceBlendshapes:\s*true/);
   assert.doesNotMatch(studio, /spotify|supabase/i);
 });
 test("new camera defaults to front mirror, flips physically and publishes via Neon", async () => {

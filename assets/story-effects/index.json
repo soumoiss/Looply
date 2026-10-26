@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "engine": "mediapipe-face-landmarker",
+  "version": "2026.10",
+  "effects": [
+    {
+      "id": "none",
+      "name": "Original",
+      "symbol": "◎",
+      "type": "none",
+      "file": "none.json"
+    },
+    {
+      "id": "big-eyes",
+      "name": "Zoião",
+      "symbol": "👀",
+      "type": "warp",
+      "file": "big-eyes.json"
+    },
+    {
+      "id": "big-mouth",
+      "name": "Bocão",
+      "symbol": "😮",
+      "type": "warp",
+      "file": "big-mouth.json"
+    },
+    {
+      "id": "clown",
+      "name": "Clown",
+      "symbol": "🤡",
+      "type": "paint",
+      "file": "clown.json"
+    },
+    {
+      "id": "sunglasses",
+      "name": "Óculos 3D",
+      "symbol": "🕶️",
+      "type": "accessory",
+      "file": "sunglasses.json"
+    },
+    {
+      "id": "skincare",
+      "name": "Skincare",
+      "symbol": "🫧",
+      "type": "paint",
+      "file": "skincare.json"
+    }
+  ]
+}
