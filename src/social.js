@@ -424,11 +424,12 @@ export async function uploadResumable(client, path, file, onProgress) {
 
 export async function loadSocialData(client) {
   const [peopleResult, postsResult] = await Promise.all([
-    client.from("profiles").select("id,username,display_name,profile_visibility").order("username").limit(100),
+    client.from("profiles").select("id,username,display_name,profile_visibility,avatar_path").order("username").limit(100),
     loadPosts(client).then((posts) => ({ posts }), (error) => ({ error }))
   ]);
+  const people = await signProfileAvatars(client, peopleResult.data || []);
   return {
-    people: peopleResult.data || [],
+    people,
     peopleError: peopleResult.error,
     posts: postsResult.posts || [],
     postsError: postsResult.error
