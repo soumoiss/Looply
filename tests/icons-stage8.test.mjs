@@ -94,7 +94,7 @@ test("Stage 8 uses the shared registry instead of improvised UI glyphs", async (
     read("src/social.js"), read("src/chat-enhancements.js"), read("src/chat.js"),
     read("src/music.js"), read("src/admin.js")
   ]);
-  assert.match(social, /Abrir conteúdo original '\s*\+ icon\("external"\)/);
+  assert.match(social, /Abrir original '\s*\+ icon\("external"\)/);
   assert.match(enhancements, /button\.innerHTML = icon\("menu"\)/);
   assert.match(enhancements, /icon\(favorites\.has\(id\) \? "starFilled" : "star"\)/);
   assert.match(enhancements, /\+ icon\("more"\) \+/);
@@ -104,5 +104,5 @@ test("Stage 8 uses the shared registry instead of improvised UI glyphs", async (
   assert.match(admin, /icon\("external"\)/);
   assert.doesNotMatch(enhancements, /button\.textContent = "☰"|favorites\.has\(id\) \? "★" : "☆"|>⋯<|>▦<|>\$\{icon\("(?:more|grid)"\)\}<\/button>/);
   assert.doesNotMatch(chat, /data-chat-back[^>]*>←</);
-  assert.doesNotMatch(social, /Abrir conteúdo original ↗/);
+  assert.doesNotMatch(social, /Abrir original ↗/);
 });
