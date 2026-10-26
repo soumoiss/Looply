@@ -9,8 +9,8 @@ const read = (path) => readFile(resolve(root, path), "utf8");
 test("gallery shows confirmed existing Neon originals when no thumbnail is available", async () => {
   const gallery = await read("assets/js/gallery.js");
   assert.ok(!gallery.includes("if (Number(x.byte_size || 0) > maxInlinePreviewBytes) return"));
-  assert.match(gallery, /cachedSignedUrl\\(client, bucket, x\\.storage_path, 300\\)/);
-  assert.match(gallery, /loading="lazy"/);
+  assert.ok(gallery.includes("cachedSignedUrl(client, bucket, x.storage_path, 300)"));
+  assert.ok(gallery.includes('loading="lazy"'));
   assert.ok(gallery.includes('client.from("archive_media").select('));
   assert.ok(gallery.includes('client.from("community_gallery_media").select('));
 });
