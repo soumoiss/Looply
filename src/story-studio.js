@@ -1,13 +1,10 @@
 import { StoryFaceLens } from "./story-ar.js";
+import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest } from "./story-ar-catalog.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { encodeStorySong } from "./story-music-catalog.js";
 import { openStoryMusicPicker } from "./story-music-picker.js";
 
-const FILTERS = Object.freeze({
-  none: "none", warm: "sepia(.25) saturate(1.22) contrast(1.03)",
-  cool: "hue-rotate(175deg) saturate(.83) contrast(1.07)",
-  mono: "grayscale(1) contrast(1.12)", vivid: "saturate(1.55) contrast(1.09)"
-});
+const FILTERS = Object.freeze({ none:"none" });
 const LIMIT = 30_000;
 const FORMATS = Object.freeze({
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
@@ -42,15 +39,11 @@ export function storyStudioMarkup(recipientOptions) {
           '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade">⊞</button>' +
         '</div>' +
         '<section class="studio-camera-bottom studio-camera-only">' +
-          '<div class="studio-lens-chooser" aria-label="Filtros e lentes">' +
-            '<button type="button" class="is-active" data-studio-filter="none">Original</button>' +
-            '<button type="button" data-studio-filter="warm">Quente</button>' +
-            '<button type="button" data-studio-filter="cool">Frio</button>' +
-            '<button type="button" data-studio-filter="mono">P&B</button>' +
-            '<button type="button" data-studio-filter="vivid">Vivo</button>' +
-            '<button type="button" data-studio-face="eyes">Olhos</button>' +
-            '<button type="button" data-studio-face="halo">Brilho</button>' +
-            '<button type="button" data-studio-face="none">Sem lente</button>' +
+          '<div class="studio-lens-chooser" data-studio-lens-chooser aria-label="Efeitos AR para o rosto">' +
+            DEFAULT_STORY_EFFECTS.map(effect =>
+              '<button type="button" data-studio-lens="' + effect.id + '"' + (effect.id === "none" ? ' class="is-active" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
+              '<span class="studio-lens-thumbnail" aria-hidden="true">' + effect.symbol + '</span>' +
+              '<span class="studio-lens-title">' + effect.name + '</span></button>').join("") +
           '</div>' +
           '<div class="studio-capture-row">' +
             '<label class="studio-gallery-button" title="Abrir galeria"><span data-studio-thumb>▧</span><input type="file" data-studio-file accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" aria-label="Selecionar da galeria"></label>' +
@@ -71,7 +64,7 @@ export function storyStudioMarkup(recipientOptions) {
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
           '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♪</button>' +
-          '<button type="button" class="studio-icon" data-studio-enhance aria-label="Aprimorar visual">✦</button>' +
+
         '</div>' +
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
@@ -155,7 +148,8 @@ export function bindStoryStudio(root, client, userId, refresh) {
   const body = $("[data-studio-modal-body]");
   const feedback = $("[data-studio-status]");
   const caption = $("[data-studio-caption]");
-  const settings = { facing: "user", filter: "none", face: "none", grid: false, flash: "off", zoom: 1, maxDuration: 30000 };
+  const settings = { facing: "user", face: "none", grid: false, flash: "off", zoom: 1, maxDuration: 30000 };
+  let availableEffects = DEFAULT_STORY_EFFECTS, selectedManifest = {id:"none",type:"none",strength:0,params:{}};
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
@@ -232,7 +226,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
     const factor = zoomMode === "digital" ? settings.zoom : 1;
     const cropW = sourceW / factor, cropH = sourceH / factor;
     ctx.save();
-    ctx.filter = FILTERS[settings.filter];
+    ctx.filter = "none";
     if (settings.facing === "user") {
       ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
     }
@@ -289,13 +283,18 @@ export function bindStoryStudio(root, client, userId, refresh) {
     }
     video.srcObject = stream;
     updateZoomPreview();
-    video.style.filter = FILTERS[settings.filter];
+    video.style.filter = "none";
     resetFlash();
     showMode("camera");
     try { await video.play(); } catch {}
     face = new StoryFaceLens(video, lens, () => settings.facing);
-    face.setLens(settings.face);
     face.start();
+    if(settings.face!=="none"){
+      const current=face;
+      void current.prepare().then(ok=>{
+        if(ok&&face===current)void current.setLens(selectedManifest);
+      });
+    }
   };
   const open = async () => {
     if (active) return;
@@ -773,10 +772,6 @@ export function bindStoryStudio(root, client, userId, refresh) {
       modal("Figurinhas", '<div class="studio-stickers">' + ["❤️","✨","🌟","😍","🎉","🔥","🥳","💜"].map(t => '<button type="button" data-sticker="' + t + '">' + t + '</button>').join("") + '</div>');
       body.querySelectorAll("[data-sticker]").forEach(b => b.onclick = () => { addLayer(b.dataset.sticker, true); modalClose(); });
     },
-    "[data-studio-enhance]": () => {
-      const keys = Object.keys(FILTERS); editFilter = keys[(keys.indexOf(editFilter) + 1) % keys.length];
-      edits.style.filter = FILTERS[editFilter]; status("Ajuste visual: " + (editFilter === "none" ? "original" : editFilter));
-    },
     "[data-studio-modal-close]": modalClose,
     "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; void publish(); },
     "[data-studio-friends]": openAudience
@@ -791,18 +786,53 @@ export function bindStoryStudio(root, client, userId, refresh) {
   $("[data-studio-file]").addEventListener("change", e => {
     if (e.target.files?.[0]) chooseFile(e.target.files[0]);
   });
-  dialog.querySelectorAll("[data-studio-filter]").forEach(button => button.onclick = () => {
-    settings.filter = button.dataset.studioFilter; video.style.filter = FILTERS[settings.filter];
-    dialog.querySelectorAll("[data-studio-filter]").forEach(b => b.classList.toggle("is-active", b === button));
-  });
-  dialog.querySelectorAll("[data-studio-face]").forEach(button => button.onclick = async () => {
-    settings.face = button.dataset.studioFace;
-    if (settings.face !== "none") {
-      status("Ativando lente facial…");
-      const ok = await face?.prepare();
-      if (!ok) { status("Lentes faciais indisponíveis neste navegador.", true); settings.face = "none"; return; }
+  const lensChooser=$("[data-studio-lens-chooser]");
+  const renderLensCatalog=options=>{
+    lensChooser.replaceChildren();
+    for(const effect of options){
+      const b=document.createElement("button");
+      b.type="button";b.dataset.studioLens=effect.id;
+      b.setAttribute("aria-pressed",String(effect.id===settings.face));
+      b.classList.toggle("is-active",effect.id===settings.face);
+      const icon=document.createElement("span");icon.className="studio-lens-thumbnail";
+      icon.setAttribute("aria-hidden","true");icon.textContent=effect.symbol;
+      const title=document.createElement("span");title.className="studio-lens-title";title.textContent=effect.name;
+      b.append(icon,title);lensChooser.append(b);
     }
-    face?.setLens(settings.face); status("Lente: " + settings.face);
+  };
+  void loadStoryEffectCatalog().then(items=>{
+    availableEffects=items;
+    if(dialog.isConnected)renderLensCatalog(items);
+  });
+  let lensSelection=0;
+  lensChooser.addEventListener("click",async event=>{
+    const button=event.target.closest("[data-studio-lens]");
+    if(!button)return;
+    const item=availableEffects.find(x=>x.id===button.dataset.studioLens);
+    if(!item)return;
+    const ticket=++lensSelection;
+    if(item.id==="none"){
+      settings.face="none";selectedManifest={id:"none",type:"none",strength:0,params:{}};
+      await face?.setLens(selectedManifest);
+      renderLensCatalog(availableEffects);status("Sem lente.");
+      return;
+    }
+    status("Carregando lente "+item.name+"…");
+    try{
+      const manifest=await loadStoryEffectManifest(item);
+      if(ticket!==lensSelection)return;
+      const current=face;
+      if(!current)throw new Error("Ative a câmera para escolher um efeito.");
+      const ok=await current.prepare();
+      if(!ok)throw new Error("O rastreamento facial não foi iniciado neste aparelho.");
+      if(ticket!==lensSelection||face!==current)return;
+      selectedManifest=manifest;settings.face=item.id;
+      await current.setLens(manifest);
+      renderLensCatalog(availableEffects);
+      status("Lente "+item.name+" ativada.");
+    }catch(error){
+      status(error.message||"Não foi possível carregar a lente.",true);
+    }
   });
   // No zoom on load; only a deliberate two-finger pinch changes magnification.
   const distance = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
