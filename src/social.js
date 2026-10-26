@@ -341,7 +341,7 @@ async function loadPosts(client) {
       post.likeCount = counts.get(post.id) || 0;
       post.likedByMe = mineIds.has(post.id);
       post.savedByMe = savedIds.has(post.id);
-      post.savedPostsAvailable = !savedResult.error;
+      post.savedPostsAvailable = Boolean(currentUserId && !savedResult.error);
     }
   }
   const profileRows = [];
