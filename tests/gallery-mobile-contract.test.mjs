@@ -19,11 +19,11 @@ test("mobile gallery exposes one filter sheet and horizontal controls", () => {
 });
 
 test("gallery controls render the requested 3-by-2 action layout", () => {
-  assert.match(gallery, /gallery-action-row[\\s\\S]*data-open-upload[\\s\\S]*data-toggle-filters[\\s\\S]*data-toggle-page-menu/);
-  assert.match(gallery, /gallery-category-row[\\s\\S]*data-main="recentes"[\\s\\S]*data-main="privadas"[\\s\\S]*data-main="exclusivos"/);
-  assert.match(styles, /gallery-action-row[^\\{]*\\{[^}]*grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
-  assert.match(styles, /gallery-category-row[^\\{]*\\{[^}]*grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
-  assert.match(gallery, /data-toggle-page-menu[\\s\\S]*data-open-people-filter[\\s\\S]*data-shuffle[\\s\\S]*data-create-album/);
+  assert.match(gallery, /gallery-action-row[\s\S]*data-open-upload[\s\S]*data-toggle-filters[\s\S]*data-toggle-page-menu/);
+  assert.match(gallery, /gallery-category-row[\s\S]*data-main="recentes"[\s\S]*data-main="privadas"[\s\S]*data-main="exclusivos"/);
+  assert.match(styles, /\.page-gallery \.gallery-action-row[^{}]*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.page-gallery \.gallery-category-row[^{}]*\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(gallery, /data-toggle-page-menu[\s\S]*data-open-people-filter[\s\S]*data-shuffle[\s\S]*data-create-album/);
 });
 
 test("gallery cards expose comment presence without loading comment bodies", () => {
