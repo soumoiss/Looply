@@ -6,12 +6,14 @@ const studio=file("src/story-studio.js");
 const viewer=file("src/stories.js");
 const picker=file("src/story-music-picker.js");
 
-test("Only publish catalog songs as guaranteed audio when the source is streamable",()=>{
+test("Catalog music selection stays in app and never opens the device picker automatically",()=>{
  assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
- assert.match(studio,/Selecione um arquivo de áudio próprio/);
+ assert.match(studio,/Este serviço não autoriza incorporar essa música ao Story/);
  assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog" && track\.provider!=="audius"/);
- assert.match(picker,/fileInput\.click\(\)/);
- assert.match(picker,/preview\(\{kind:"file",title:track\?\.title/);
+ assert.match(picker,/onSelect\(track\)/);
+ assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+ assert.match(picker,/data-studio-audio-file/);
+ assert.match(picker,/Adicionar áudio próprio \(opcional\)/);
  assert.match(studio,/music\.kind === "file"/);
 });
 
@@ -38,11 +40,12 @@ test("Story player unblocks sound without auto-pausing it on same tap, and pause
  assert.match(viewer,/resumeStoryTimer\(\);/);
 });
 
-test("Operational/provider errors visible to ADM only; no promo banners to members",()=>{
- assert.match(studio,/feedback\.textContent = isAdmin \? text : ""/);
+test("Catalog limitations are clear to members without exposing provider diagnostics",()=>{
+ assert.match(studio,/feedback\.textContent = message/);
+ assert.match(studio,/Não foi possível concluir essa ação/);
  assert.match(studio,/onStatus: status, isAdmin/);
  assert.match(viewer,/bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
- assert.match(picker,/isAdmin \? '<p class="studio-hint"/);
+ assert.match(picker,/Esta faixa pode ser ouvida aqui/);
  assert.doesNotMatch(picker,/Prévia promocional/);
  assert.match(picker,/isAdmin&&down\.length/);
 });
