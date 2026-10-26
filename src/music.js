@@ -101,7 +101,7 @@ export function musicPlayerMarkup(item) {
 
 export async function loadMusicData(client, userId) {
   const [peopleResult, dedicationsResult, libraryResult, generalCommentsResult] = await Promise.all([
-    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(250),
+    client.from("profiles").select("id,username,display_name,avatar_path").in("profile_visibility", ["members", "public"]).order("username").limit(250),
     client.from("music_dedications")
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
       .order("created_at", { ascending: false }).limit(50),
