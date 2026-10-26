@@ -481,6 +481,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.addEventListener("pause", clearTimer);
         video.addEventListener("ended", () => advance(1), { once: true });
         mediaHost.append(video);
+        // Browsers can reject unmuted autoplay. A single gesture unlocks playback;
+        // never leave an invisible, stalled video with no way to start it.
+        const unlock = document.createElement("button");
+        unlock.type = "button"; unlock.className = "story-start-audio";
+        unlock.textContent = "▶ Toque para assistir com som";
+        unlock.addEventListener("click", (event) => {
+          event.stopPropagation();
+          void video.play().then(() => unlock.remove()).catch(() => {
+            unlock.textContent = "Não foi possível iniciar o vídeo.";
+          });
+        });
+        void video.play().catch(() => { if (video.isConnected) mediaHost.append(unlock); });
       } else {
         const image = document.createElement("img");
         image.src = mediaUrl;
