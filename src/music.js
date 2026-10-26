@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -6,7 +7,17 @@ function escapeHtml(value) {
 }
 
 function person(profile) {
-  return profile ? `@${escapeHtml(profile.username)}` : "perfil restrito";
+  return profile ? "@" + escapeHtml(profile.username) : "perfil restrito";
+}
+
+function safeMusicArtwork(value) {
+  try {
+    const url = new URL(String(value || ""));
+    const host = url.hostname.toLowerCase();
+    const allowed = ["mzstatic.com", "itunes.apple.com", "deezer.com", "dzcdn.net", "audius.co"];
+    return url.protocol === "https:" && allowed.some((suffix) => host === suffix || host.endsWith("." + suffix))
+      ? url.href : "";
+  } catch { return ""; }
 }
 
 function isDirectAudioUrl(value) {
@@ -192,11 +203,8 @@ function musicContent(data, userId) {
   if (data.dedicationsError) {
     return `<div class="social-message social-error" role="alert">Não foi possível carregar suas músicas. Confira a conexão e tente novamente.</div>`;
   }
-  const incoming = data.dedications.filter((item) => item.recipient_id === userId).length;
-  const outgoing = data.dedications.filter((item) => item.sender_id === userId).length;
-  const list = data.dedications.length
-    ? data.dedications.map((item) => dedicationMarkup(item, userId)).join("")
-    : `<div class="social-message"><strong>Nenhuma dedicatória recebida ou enviada.</strong></div>`;
+  const received = data.dedications.filter((item) => item.recipient_id === userId);
+  const sent = data.dedications.filter((item) => item.sender_id === userId);
   const choices = data.people.filter((profile) => profile.id !== userId).map((profile) =>
     `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name)} · @${escapeHtml(profile.username)}</option>`
   ).join("");
@@ -204,31 +212,55 @@ function musicContent(data, userId) {
     ? `<span class="field-hint field-error">A lista de perfis não carregou; atualize a página para dedicar uma música.</span>`
     : choices ? `<span class="field-hint">A dedicatória fica visível apenas para você e o perfil escolhido.</span>`
       : `<span class="field-hint">Ainda não há outros perfis visíveis para receber uma dedicatória.</span>`;
+  const directionPanel = (items, key, emptyText) => `<section data-music-direction-panel="${key}" ${key === "sent" ? "hidden" : ""}>${items.length
+    ? items.map((item) => dedicationMarkup(item, userId)).join("")
+    : `<div class="music-empty-state"><strong>${emptyText}</strong></div>`}</section>`;
 
   return `<section class="music-area" data-music-area aria-labelledby="musicTitle">
     <div class="music-heading"><div><span class="section-kicker">Biblioteca</span><h2 id="musicTitle">Músicas e dedicatórias</h2></div>
-      <span class="music-count">${incoming} recebida${incoming === 1 ? "" : "s"} · ${outgoing} enviada${outgoing === 1 ? "" : "s"}</span></div>
+      <span class="music-count">${received.length} recebida${received.length === 1 ? "" : "s"} · ${sent.length} enviada${sent.length === 1 ? "" : "s"}</span></div>
     ${personalLibraryMarkup(data)}
     <section class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
       <h3 id="musicGeneralCommentsTitle">Comentários gerais</h3>
       <div class="music-general-comment-list" data-music-general-comment-list>${generalCommentsMarkup(data)}</div>
       <form data-music-general-comment class="music-comment-form"><label for="musicGeneralCommentBody">Comentar na página de músicas</label><textarea id="musicGeneralCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário geral"></textarea><button class="text-button" type="submit">Enviar comentário geral</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
     </section>
-    <details class="music-composer"><summary>Dedicar uma música</summary>
+    <details class="music-composer"><summary>＋ Dedicar uma música</summary>
       <form data-music-send>
         <div class="field"><label for="musicRecipient">Para quem é esta música?</label><select id="musicRecipient" name="recipientId" multiple size="5" required ${choices ? "" : "disabled"}><option value="all-users">Todos os usuários</option>${choices}</select>${recipientHint}</div>
-        <div class="music-form-grid">
-          <div class="field"><label for="musicTitle">Música</label><input id="musicTitle" name="title" type="text" maxlength="160" required placeholder="Nome da música"></div>
-          <div class="field"><label for="musicArtist">Artista</label><input id="musicArtist" name="artist" type="text" maxlength="120" placeholder="Nome do artista"></div>
+        <div class="field music-song-selection">
+          <span class="field-label">Música</span>
+          <button class="music-song-picker-open" type="button" data-music-open-search>⌕ Pesquisar músicas</button>
+          <input id="musicTitle" name="title" type="hidden">
+          <input id="musicArtist" name="artist" type="hidden">
+          <input id="musicUrl" name="listenUrl" type="hidden">
+          <div class="music-selected-song" data-music-selected-song hidden aria-live="polite"></div>
         </div>
-        <div class="field"><label for="musicUrl">Link para ouvir</label><input id="musicUrl" name="listenUrl" type="url" maxlength="1000" required placeholder="YouTube, Spotify, Apple Music ou SoundCloud"></div>
         <div class="field"><label for="musicNote">Uma dedicatória (opcional)</label><textarea id="musicNote" name="note" maxlength="1000" rows="3" placeholder="Por que esta música lembrou essa pessoa?"></textarea></div>
         <button class="primary-button compact-button" type="submit">Enviar dedicatória ${icon("send")}</button>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     </details>
-    <div class="music-list" data-music-list>${list}</div>
+    <nav class="music-direction-tabs" role="tablist" aria-label="Músicas recebidas e enviadas">
+      <button type="button" role="tab" data-music-direction="received" aria-selected="true">Recebidas <span>${received.length}</span></button>
+      <button type="button" role="tab" data-music-direction="sent" aria-selected="false">Enviadas <span>${sent.length}</span></button>
+    </nav>
+    <div class="music-list" data-music-list>
+      ${directionPanel(received, "received", "Você ainda não recebeu músicas dedicadas.")}
+      ${directionPanel(sent, "sent", "Você ainda não dedicou músicas.")}
+    </div>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
+    <div class="music-picker-backdrop" data-music-picker hidden>
+      <section class="music-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="musicPickerTitle">
+        <header><div><span class="section-kicker">Catálogo musical</span><h3 id="musicPickerTitle">Escolher música</h3></div><button type="button" class="music-picker-close" data-music-picker-close aria-label="Fechar">×</button></header>
+        <label for="musicCatalogQuery">Pesquisar por música ou artista</label>
+        <input id="musicCatalogQuery" type="search" maxlength="70" autocomplete="off" placeholder="Ex.: nome da música ou artista" data-music-catalog-query>
+        <p class="music-picker-help" data-music-search-status role="status" aria-live="polite">Digite ao menos duas letras para pesquisar no catálogo.</p>
+        <div class="music-picker-results" data-music-search-results></div>
+        <div class="music-picker-preview" data-music-search-preview aria-live="polite"></div>
+        <footer><button type="button" class="text-button" data-music-picker-close>Cancelar</button><button type="button" class="primary-button compact-button" data-music-picker-confirm disabled>Usar música selecionada</button></footer>
+      </section>
+    </div>
   </section>`;
 }
 
@@ -308,7 +340,201 @@ function setStatus(form, message, kind = "success") {
 
 export function bindMusicEvents(root, client, getUserId) {
   bindMusicPlayers(root);
+  let selectedDedicationSong = null;
+  let catalogSongs = [];
+  let selectedCatalogIndex = -1;
+  let catalogSearchSequence = 0;
+  let catalogSearchTimer = null;
+  let catalogSearchController = null;
+  let catalogPreview = null;
+
+  const stopCatalogPreview = () => {
+    if (catalogPreview instanceof HTMLAudioElement) {
+      catalogPreview.pause();
+      catalogPreview.removeAttribute("src");
+      catalogPreview.load();
+    }
+    catalogPreview = null;
+    root.querySelector("[data-music-search-preview]")?.replaceChildren();
+  };
+  const closeCatalogPicker = () => {
+    clearTimeout(catalogSearchTimer);
+    catalogSearchSequence += 1;
+    catalogSearchController?.abort();
+    stopCatalogPreview();
+    const picker = root.querySelector("[data-music-picker]");
+    if (picker) picker.hidden = true;
+  };
+  const renderCatalogResults = (songs) => {
+    const list = root.querySelector("[data-music-search-results]");
+    if (!list) return;
+    list.replaceChildren();
+    songs.forEach((song, index) => {
+      const card = document.createElement("article");
+      card.className = "music-catalog-result";
+      const artworkUrl = safeMusicArtwork(song.artwork);
+      if (artworkUrl) {
+        const artwork = document.createElement("img");
+        artwork.src = artworkUrl;
+        artwork.alt = "";
+        artwork.loading = "lazy";
+        artwork.referrerPolicy = "no-referrer";
+        card.append(artwork);
+      } else {
+        const artwork = document.createElement("span");
+        artwork.className = "music-catalog-artwork-fallback";
+        artwork.setAttribute("aria-hidden", "true");
+        artwork.textContent = "♫";
+        card.append(artwork);
+      }
+      const copy = document.createElement("div");
+      copy.className = "music-catalog-copy";
+      const title = document.createElement("strong");
+      title.textContent = song.title;
+      const artist = document.createElement("small");
+      artist.textContent = song.artist;
+      const provider = document.createElement("span");
+      provider.textContent = PROVIDER_NAMES[song.provider] || "Catálogo";
+      copy.append(title, artist, provider);
+      card.append(copy);
+      const select = document.createElement("button");
+      select.type = "button";
+      select.dataset.musicSongSelect = String(index);
+      select.setAttribute("aria-pressed", String(index === selectedCatalogIndex));
+      select.textContent = index === selectedCatalogIndex ? "Selecionada" : "Selecionar";
+      card.append(select);
+      const preview = document.createElement("button");
+      preview.type = "button";
+      preview.dataset.musicSongPreview = String(index);
+      preview.disabled = !officialSongPreview(song);
+      preview.textContent = "Prévia";
+      preview.setAttribute("aria-label", "Ouvir prévia de " + song.title);
+      card.append(preview);
+      list.append(card);
+    });
+  };
+  const searchCatalog = (query, sequence) => {
+    clearTimeout(catalogSearchTimer);
+    catalogSearchController?.abort();
+    stopCatalogPreview();
+    const status = root.querySelector("[data-music-search-status]");
+    const list = root.querySelector("[data-music-search-results]");
+    catalogSongs = [];
+    selectedCatalogIndex = -1;
+    const term = String(query || "").trim();
+    renderCatalogResults(catalogSongs);
+    const normalized = term.toLocaleLowerCase("pt-BR");
+    if (normalized.length < 2) {
+      if (status) status.textContent = "Digite ao menos duas letras para pesquisar no catálogo.";
+      return;
+    }
+    if (status) status.textContent = "Pesquisando músicas…";
+    catalogSearchTimer = setTimeout(async () => {
+      catalogSearchController = new AbortController();
+      try {
+        const result = await searchStorySongs(normalized, { signal: catalogSearchController.signal });
+        if (sequence !== catalogSearchSequence) return;
+        catalogSongs = result.items.map(normalizeStorySong).filter(Boolean);
+        renderCatalogResults(catalogSongs);
+        if (status) status.textContent = catalogSongs.length
+          ? "Selecione uma música. A prévia, quando disponível, usa o player oficial."
+          : "Nenhuma música encontrada. Tente buscar pelo nome do artista.";
+      } catch (error) {
+        if (error?.name === "AbortError" || sequence !== catalogSearchSequence) return;
+        if (status) status.textContent = "A busca está indisponível agora. Tente novamente em instantes.";
+        if (list) list.replaceChildren();
+      }
+    }, 260);
+  };
+
   root.addEventListener("click", async (event) => {
+    const openPicker = event.target.closest("[data-music-open-search]");
+    if (openPicker) {
+      const picker = root.querySelector("[data-music-picker]");
+      if (picker) picker.hidden = false;
+      const query = root.querySelector("[data-music-catalog-query]");
+      if (query) {
+        query.focus();
+        if (query.value.trim().length >= 2) {
+          const sequence = ++catalogSearchSequence;
+          searchCatalog(query.value, sequence);
+        }
+      }
+      return;
+    }
+    const closePicker = event.target.closest("[data-music-picker-close]");
+    if (closePicker || event.target.matches("[data-music-picker]")) {
+      closeCatalogPicker();
+      return;
+    }
+    const direction = event.target.closest("[data-music-direction]");
+    if (direction) {
+      const selected = direction.dataset.musicDirection;
+      root.querySelectorAll("[data-music-direction]").forEach((button) => button.setAttribute("aria-selected", String(button === direction)));
+      root.querySelectorAll("[data-music-direction-panel]").forEach((panel) => { panel.hidden = panel.dataset.musicDirectionPanel !== selected; });
+      return;
+    }
+    const songSelect = event.target.closest("[data-music-song-select]");
+    if (songSelect) {
+      selectedCatalogIndex = Number(songSelect.dataset.musicSongSelect);
+      root.querySelectorAll("[data-music-song-select]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button === songSelect));
+        button.textContent = button === songSelect ? "Selecionada" : "Selecionar";
+      });
+      const confirm = root.querySelector("[data-music-picker-confirm]");
+      if (confirm) confirm.disabled = !catalogSongs[selectedCatalogIndex];
+      return;
+    }
+    const songPreview = event.target.closest("[data-music-song-preview]");
+    if (songPreview) {
+      const song = catalogSongs[Number(songPreview.dataset.musicSongPreview)];
+      const preview = song && officialSongPreview(song);
+      const target = root.querySelector("[data-music-search-preview]");
+      if (!preview || !target) return;
+      stopCatalogPreview();
+      if (preview.kind === "audio") {
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.preload = "none";
+        audio.src = preview.src;
+        catalogPreview = audio;
+        target.append(audio);
+        try { await audio.play(); }
+        catch {
+          const hint = document.createElement("span");
+          hint.textContent = "Toque em reproduzir para ouvir a prévia.";
+          target.append(hint);
+        }
+      } else if (preview.kind === "embed") {
+        const frame = document.createElement("iframe");
+        frame.src = preview.src;
+        frame.title = "Player oficial de " + song.title;
+        frame.loading = "lazy";
+        frame.referrerPolicy = "strict-origin-when-cross-origin";
+        frame.allow = "autoplay; encrypted-media";
+        frame.height = "110";
+        catalogPreview = frame;
+        target.append(frame);
+      }
+      return;
+    }
+    const confirmPicker = event.target.closest("[data-music-picker-confirm]");
+    if (confirmPicker) {
+      const song = normalizeStorySong(catalogSongs[selectedCatalogIndex]);
+      const form = root.querySelector("form[data-music-send]");
+      if (!song || !form) return;
+      selectedDedicationSong = song;
+      form.elements.title.value = song.title;
+      form.elements.artist.value = song.artist;
+      form.elements.listenUrl.value = song.url;
+      const selected = form.querySelector("[data-music-selected-song]");
+      if (selected) {
+        selected.hidden = false;
+        selected.textContent = song.title + " · " + song.artist + " · " + (PROVIDER_NAMES[song.provider] || "Catálogo");
+      }
+      closeCatalogPicker();
+      return;
+    }
     const playButton = event.target.closest("[data-music-play]");
     if (!playButton) return;
     const player = playButton.closest("[data-music-player]");
@@ -348,6 +574,16 @@ export function bindMusicEvents(root, client, getUserId) {
     }
   });
 
+  root.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-music-catalog-query]");
+    if (!input) return;
+    const sequence = ++catalogSearchSequence;
+    searchCatalog(input.value, sequence);
+  });
+  root.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !root.querySelector("[data-music-picker]")?.hidden) closeCatalogPicker();
+  });
+
   root.addEventListener("submit", async (event) => {
     const form = event.target.closest("form[data-music-library], form[data-music-send], form[data-music-comment], form[data-music-general-comment]");
     if (!form || !client) return;
@@ -371,12 +607,13 @@ export function bindMusicEvents(root, client, getUserId) {
         setStatus(form, "A música foi salva na sua coleção.");
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-send]")) {
-        const title = String(values.get("title") || "").trim();
-        const artist = String(values.get("artist") || "").trim();
+        const song = normalizeStorySong(selectedDedicationSong);
+        const title = song?.title || "";
+        const artist = song?.artist || "";
         const note = String(values.get("note") || "").trim();
         const recipientIds = values.getAll("recipientId").map(String);
-        const listenUrl = String(values.get("listenUrl") || "").trim();
-        const supported = isDirectAudioUrl(listenUrl) || /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
+        const listenUrl = song?.url || "";
+        const supported = Boolean(song);
         const selectedRecipients = recipientIds.includes("all-users")
           ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
           : recipientIds.filter((id) => id !== userId);
@@ -385,6 +622,10 @@ export function bindMusicEvents(root, client, getUserId) {
         const { error } = await client.from("music_dedications").insert(rows);
         if (error) throw error;
         form.reset();
+        selectedDedicationSong = null;
+        const selectedSongLabel = form.querySelector("[data-music-selected-song]");
+        if (selectedSongLabel) { selectedSongLabel.hidden = true; selectedSongLabel.textContent = ""; }
+        closeCatalogPicker();
         setStatus(form, "Dedicatória enviada para " + selectedRecipients.length + " pessoa(s).");
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-general-comment]")) {
