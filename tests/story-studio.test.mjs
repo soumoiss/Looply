@@ -21,7 +21,7 @@ test("Stories Studio and original controller parse as ES modules", () => {
 
 test("Home loads the new editor and cache-busted controller", () => {
   assert.match(home, /story-studio\.css/);
-  assert.match(homeEntrypoint, /stories\.js\?v=studio-neon-20261026/);
+  assert.match(homeEntrypoint, /stories\.js\?v=portrait-capture-20261026/);
   assert.match(stories, /storyStudioMarkup\(recipientOptions\)/);
   assert.match(stories, /bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
   assert.doesNotMatch(stories, /story-create-dialog"/);
@@ -99,5 +99,5 @@ test("camera photo and recording output use portrait 9:16 while preserving the f
   assert.match(studio, /const frame = containRect\(cropW, cropH, canvas\.width, canvas\.height\)/);
   assert.match(studio, /ctx\.filter = "blur\(28px\) brightness\(\.58\)"/);
   assert.match(studio, /const backdropVideo = \$\("\[data-studio-backdrop-video\]"\)/);
-  assert.match(styles, /studio-camera-backdrop[^{}]*\\{[^{}]*object-fit:cover[^{}]*filter:blur/);
+  assert.match(styles, /studio-camera-backdrop[^{}]*\{[^{}]*object-fit:cover[^{}]*filter:blur/);
 });
