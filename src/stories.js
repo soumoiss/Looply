@@ -351,8 +351,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     } else {
       if (progress) progress.style.animationPlayState = "running";
       if (video && video.paused) void video.play().catch(() => {});
-      if (audio && audio.paused) void audio.play().catch(() => {});
-      else resumeStoryTimer();
+      if (audio && audio.paused) void audio.play().catch(() => {
+        if(isAdmin)showStatus("ADM: O navegador bloqueou a trilha; é necessária interação.",true);
+      });
+      resumeStoryTimer();
     }
     if (button) {
       button.setAttribute("aria-pressed", state.paused ? "true" : "false");
@@ -438,9 +440,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     caption.textContent = storyText.text;
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
-    const oldMusic = viewer.querySelector("[data-story-viewer-music]");
-    if (oldMusic instanceof HTMLMediaElement) oldMusic.pause();
-    oldMusic?.remove();
+    viewer.querySelectorAll("[data-story-viewer-music]").forEach(oldMusic=>{
+      if(oldMusic instanceof HTMLMediaElement)oldMusic.pause();
+      oldMusic.remove();
+    });
+    viewer.querySelectorAll("[data-story-sound-unlock]").forEach(button=>button.remove());
     // The track title/link stays in the Story metadata, not as an on-screen
     // label. Audius permits third-party streaming through its public API.
     // Apple/Deezer promo snippets are ONLY auditioned in their official
@@ -457,10 +461,33 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.src = audiusStream;
       music.setAttribute("aria-label", "Música de fundo do Story");
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      void music.play().then(() => {
-        music.dataset.playback = "playing";
-      }).catch(() => {
-        if (music.isConnected) music.dataset.playback = "gesture-required";
+      const unlock=document.createElement("button");
+      unlock.type="button";unlock.dataset.storySoundUnlock="";
+      unlock.className="story-sound-unlock";unlock.textContent="🔊";
+      unlock.setAttribute("aria-label","Ativar o som do story");
+      unlock.hidden=true;
+      unlock.addEventListener("click",event=>{
+        event.stopPropagation();
+        void music.play().then(()=>{
+          music.dataset.playback="playing";unlock.remove();
+        }).catch(error=>{
+          if(isAdmin)showStatus("ADM: Audius não reproduziu: "+error.message,true);
+        });
+      });
+      viewer.querySelector("[data-story-touch-surface]").append(unlock);
+      music.addEventListener("playing",()=>{music.dataset.playback="playing";unlock.remove();});
+      music.addEventListener("error",()=>{
+        music.dataset.playback="unavailable";
+        if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
+        unlock.hidden=false;
+      });
+      void music.play().then(()=>{
+        music.dataset.playback="playing";unlock.remove();
+      }).catch(error=>{
+        if(music.isConnected){
+          music.dataset.playback="gesture-required";unlock.hidden=false;
+          if(isAdmin)showStatus("ADM: áudio bloqueado pelo navegador: "+error.message,true);
+        }
       });
     }
     if (storyText.music?.previewUrl) {
@@ -490,6 +517,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.controls = false;
         video.autoplay = true;
         video.playsInline = true;
+        video.muted = false;
+        video.volume = 1;
         video.preload = "metadata";
         video.setAttribute("aria-label", media.alt_text || "Vídeo do story");
         video.addEventListener("loadedmetadata", () => {
@@ -512,11 +541,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         // never leave an invisible, stalled video with no way to start it.
         const unlock = document.createElement("button");
         unlock.type = "button"; unlock.className = "story-start-audio";
-        unlock.textContent = "▶ Toque para assistir com som";
+        unlock.textContent = "🔊";
+        unlock.setAttribute("aria-label","Ativar vídeo com som");
         unlock.addEventListener("click", (event) => {
           event.stopPropagation();
           void video.play().then(() => unlock.remove()).catch(() => {
-            unlock.textContent = "Não foi possível iniciar o vídeo.";
+            if(isAdmin)showStatus("ADM: vídeo do Story não iniciou no navegador.",true);
           });
         });
         void video.play().catch(() => { if (video.isConnected) mediaHost.append(unlock); });
@@ -711,7 +741,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
   };
   refreshers.set(root, refresh);
-  root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh);
+  root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh, isAdmin);
   cleanupExpiredStories(client);
 
   root.addEventListener("click", async (event) => {
@@ -874,7 +904,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     // rejected the first attempt; do not add an overlay or a Play button.
     const backgroundAudio = viewer.querySelector("#story-audio");
     if (backgroundAudio?.dataset.playback === "gesture-required" && !state.paused) {
-      void backgroundAudio.play().then(() => { backgroundAudio.dataset.playback = "playing"; }).catch(() => {});
+      // Do not immediately pause the unlocked song on the ensuing click.
+      state.ignoreTapUntil=Date.now()+450;
+      void backgroundAudio.play().then(()=>{
+        backgroundAudio.dataset.playback="playing";
+        viewer.querySelector("[data-story-sound-unlock]")?.remove();
+      }).catch(()=>{});
     }
     if (event.isPrimary && event.pointerType !== "mouse") pointerStart = { x: event.clientX, y: event.clientY };
   });
@@ -898,6 +933,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     clearTimer();
     const audio = viewer.querySelector("#story-audio");
     if (audio) { audio.pause(); audio.currentTime = 0; }
+    viewer.querySelectorAll("[data-story-sound-unlock]").forEach(b=>b.remove());
     viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
   });
   root.addEventListener("submit", async (event) => {
