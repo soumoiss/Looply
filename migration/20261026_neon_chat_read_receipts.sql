@@ -63,6 +63,7 @@ as $function$
     from public.chat_messages as message
     where message.conversation_id = p_conversation_id
       and message.sender_id <> (select user_id from actor)
+      and exists (select 1 from eligible)
   ),
   updated_messages as (
     update public.chat_messages as message
