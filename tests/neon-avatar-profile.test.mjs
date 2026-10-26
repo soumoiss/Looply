@@ -126,6 +126,7 @@ test("ambiguous Neon PATCH response does not delete an image that was actually c
 });
 
 test("invalid image and missing bearer never cause an upload",async()=>{
+  assert.doesNotThrow(()=>validateAvatarFile({type:"image/webp",size:10*1024*1024}));
   assert.throws(()=>validateAvatarFile({type:"image/png",size:10*1024*1024+1}),/unsupported avatar/);
   const f=fixture();
   await assert.rejects(saveNeonProfile({...f.args,session:{},updates:{},avatarFile:{type:"image/jpeg",size:128}}),/session expired/);
