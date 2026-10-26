@@ -269,12 +269,12 @@ function postMarkup(post, userId, isAdmin = false) {
     }
     externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ' + icon("external") + '</a></section>';
   }
-  const mediaMarkup = (post.media || []).map((item) => {
+  const mediaMarkup = (post.media || []).map((item, mediaIndex) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
     const source = escapeHtml(item.signedUrl);
     const alt = escapeHtml(item.alt_text || (item.kind === "video" ? "Vídeo compartilhado no Looply" : "Imagem compartilhada no Looply"));
     return item.kind === "video"
-      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}"></video>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
+      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}" data-feed-reel-id="${escapeHtml(post.id)}-${mediaIndex}"></video><button class="reel-expand-button" type="button" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" aria-label="Abrir vídeo em tela cheia" title="Abrir vídeo em tela cheia">⛶</button>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
@@ -545,9 +545,9 @@ export async function hydrateTikTokEmbeds(root) {
       if (placeholder.isConnected) placeholder.textContent = "A pré-visualização não está disponível para este link. Abra o conteúdo original.";
     }
   }));
-  // Short TikTok share URLs become controllable players only after hydration.
-  // Rebind so the newly inserted iframe participates in hover/visibility autoplay.
-  bindFeedVideoAutoplay(root);
+  // Rebind after hydration, but never let feed media restart behind the viewer.
+  if (root.querySelector("[data-reels-viewer]")?.open) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+  else bindFeedVideoAutoplay(root);
 }
 
 export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
@@ -558,8 +558,12 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
-    bindFeedVideoAutoplay(feed);
-    void hydrateTikTokEmbeds(feed);
+    if (root.querySelector("[data-reels-viewer]")?.open) {
+      root.__looplyVideoAutoplayDispose?.();
+      feed.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+    } else bindFeedVideoAutoplay(root);
+    void hydrateTikTokEmbeds(root);
+    refreshReelsViewer(root);
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
   } finally {
@@ -567,9 +571,188 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   }
 }
 
+
+function reelsViewerMarkup() {
+  return '<dialog class="reels-viewer" data-reels-viewer aria-label="Visualizador de vídeos">' +
+    '<button type="button" class="reels-close" data-reel-close aria-label="Fechar visualizador">×</button>' +
+    '<div class="reels-backdrop" data-reel-backdrop aria-hidden="true"></div>' +
+    '<video class="reels-active-video" data-reel-active playsinline preload="metadata" aria-label="Vídeo da publicação"></video>' +
+    '<button type="button" class="reels-play-toggle" data-reel-toggle-play aria-label="Pausar ou continuar vídeo">Ⅱ</button>' +
+    '<button type="button" class="reels-sound" data-reel-sound-toggle aria-label="Ativar som" aria-pressed="false">Ativar som</button>' +
+    '<button type="button" class="reels-nav reels-previous" data-reel-previous aria-label="Vídeo anterior">⌃</button>' +
+    '<button type="button" class="reels-nav reels-next" data-reel-next aria-label="Próximo vídeo">⌄</button>' +
+    '<aside class="reels-actions" aria-label="Ações do vídeo">' +
+      '<button type="button" data-reel-like aria-pressed="false" aria-label="Curtir"><span aria-hidden="true">♡</span><small data-reel-like-count>0</small></button>' +
+      '<button type="button" data-reel-comments aria-expanded="false" aria-label="Comentários"><span aria-hidden="true">▤</span><small data-reel-comment-count>0</small></button>' +
+      '<button type="button" data-reel-share aria-label="Compartilhar publicação"><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
+      '<button type="button" data-reel-send aria-label="Enviar no Looply"><span aria-hidden="true">↗</span><small>Enviar</small></button>' +
+    '</aside>' +
+    '<footer class="reels-details"><div class="reels-author" data-reel-author></div><p data-reel-caption></p></footer>' +
+    '<section class="reels-comments-panel" data-reel-comments-panel hidden aria-label="Comentários">' +
+      '<header><strong>Comentários</strong><button type="button" data-reel-comments-close aria-label="Fechar comentários">×</button></header>' +
+      '<div data-reel-comments-content></div></section>' +
+    '<p class="reels-status" data-reel-status role="status" aria-live="polite"></p>' +
+  '</dialog>';
+}
+function reelsItems(root) {
+  return [...root.querySelectorAll("[data-feed-reel-id]")].map(video => ({
+    key: video.dataset.feedReelId, video, card: video.closest("[data-post-card]")
+  })).filter(item => item.key && item.card);
+}
+function copyReelComments(item, viewer) {
+  const target = viewer.querySelector("[data-reel-comments-content]");
+  const source = item?.card?.querySelector(".post-comments");
+  target.replaceChildren();
+  if (!source) {
+    const empty = document.createElement("p"); empty.textContent = "Os comentários não estão disponíveis."; target.append(empty); return;
+  }
+  const clone = source.cloneNode(true);
+  const idMap = new Map();
+  clone.querySelectorAll("[id]").forEach((element, index) => {
+    const originalId = element.id;
+    element.id = "reel-" + index + "-" + originalId;
+    idMap.set(originalId, element.id);
+  });
+  clone.querySelectorAll("label[for]").forEach(label => { label.htmlFor = idMap.get(label.htmlFor) || label.htmlFor; });
+  clone.querySelectorAll("[data-edit-comment],[data-delete-comment]").forEach(button => button.remove());
+  target.append(clone);
+}
+function renderReelViewer(root, key, autoplay = false) {
+  const viewer = root.querySelector("[data-reels-viewer]");
+  const item = reelsItems(root).find(candidate => candidate.key === key);
+  if (!viewer || !item) return false;
+  const player = viewer.querySelector("[data-reel-active]");
+  const source = item.video.currentSrc || item.video.src;
+  const changed = viewer.dataset.reelKey !== key || player.dataset.source !== source;
+  viewer.dataset.reelKey = key;
+  if (changed) {
+    player.pause(); player.removeAttribute("src"); player.load();
+    player.src = source; player.dataset.source = source; player.currentTime = 0; player.muted = true; player.volume = 1;
+    viewer.querySelector("[data-reel-sound-toggle]").textContent = "Ativar som";
+    viewer.querySelector("[data-reel-sound-toggle]").setAttribute("aria-pressed", "false");
+    const backdrop = viewer.querySelector("[data-reel-backdrop]");
+    backdrop.replaceChildren();
+    const image = document.createElement("img"); image.src = source; image.alt = ""; image.referrerPolicy = "no-referrer"; backdrop.append(image);
+    if (autoplay) void player.play().catch(() => {
+      viewer.querySelector("[data-reel-status]").textContent = "Toque em reproduzir para iniciar este vídeo.";
+    });
+  }
+  const author = item.card.querySelector(".post-author");
+  const authorTarget = viewer.querySelector("[data-reel-author]");
+  authorTarget.replaceChildren(...(author ? [author.cloneNode(true)] : []));
+  viewer.querySelector("[data-reel-caption]").textContent = item.card.querySelector(".post-body")?.textContent || "";
+  const originalLike = item.card.querySelector("[data-toggle-like]");
+  const like = viewer.querySelector("[data-reel-like]");
+  like.setAttribute("aria-pressed", originalLike?.getAttribute("aria-pressed") || "false");
+  like.querySelector("span").textContent = originalLike?.classList.contains("is-liked") ? "♥" : "♡";
+  viewer.querySelector("[data-reel-like-count]").textContent = originalLike?.querySelector("span")?.textContent || "0";
+  viewer.querySelector("[data-reel-comment-count]").textContent = item.card.querySelector(".post-comments h3 span")?.textContent || "0";
+  const items = reelsItems(root), index = items.findIndex(candidate => candidate.key === key);
+  viewer.querySelector("[data-reel-previous]").disabled = index <= 0;
+  viewer.querySelector("[data-reel-next]").disabled = index < 0 || index >= items.length - 1;
+  if (!viewer.querySelector("[data-reel-comments-panel]").hidden) copyReelComments(item, viewer);
+  return true;
+}
+function closeReelsViewer(root) {
+  const viewer = root.querySelector("[data-reels-viewer]");
+  if (!viewer) return;
+  const player = viewer.querySelector("[data-reel-active]");
+  player.pause(); player.removeAttribute("src"); player.removeAttribute("data-source"); player.load();
+  viewer.querySelector("[data-reel-backdrop]").replaceChildren();
+  if (viewer.open) viewer.close(); else viewer.removeAttribute("open");
+  viewer.dataset.reelKey = "";
+  viewer.querySelector("[data-reel-comments-panel]").hidden = true;
+  viewer.querySelector("[data-reel-status]").textContent = "";
+  const feed = root.querySelector("[data-social-feed]");
+  if (feed) bindFeedVideoAutoplay(root);
+}
+function bindReelsViewer(root) {
+  if (!root || root.__looplyReelsBound) return;
+  root.__looplyReelsBound = true;
+  root.insertAdjacentHTML("beforeend", reelsViewerMarkup());
+  const viewer = root.querySelector("[data-reels-viewer]");
+  const getCurrent = () => reelsItems(root).find(item => item.key === viewer.dataset.reelKey);
+  const navigate = direction => {
+    const items = reelsItems(root), index = items.findIndex(item => item.key === viewer.dataset.reelKey);
+    const next = items[index + direction];
+    if (next) renderReelViewer(root, next.key, true);
+  };
+  root.addEventListener("click", event => {
+    const open = event.target.closest("[data-open-reel]");
+    if (open) {
+      const feed = root.querySelector("[data-social-feed]");
+      root.__looplyVideoAutoplayDispose?.();
+      feed?.__looplyVideoAutoplayDispose?.();
+      feed?.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+      try { viewer.showModal(); } catch { viewer.setAttribute("open", ""); }
+      renderReelViewer(root, open.dataset.openReel, true);
+      return;
+    }
+    if (event.target.closest("[data-reel-close]")) { closeReelsViewer(root); return; }
+    if (event.target.closest("[data-reel-toggle-play]")) {
+      const player = viewer.querySelector("[data-reel-active]");
+      if (player.paused) void player.play().catch(() => {}); else player.pause();
+      const button = viewer.querySelector("[data-reel-toggle-play]");
+      button.textContent = player.paused ? "▶" : "Ⅱ";
+      button.setAttribute("aria-label", player.paused ? "Continuar vídeo" : "Pausar vídeo");
+      return;
+    }
+    if (event.target.closest("[data-reel-previous]")) { navigate(-1); return; }
+    if (event.target.closest("[data-reel-next]")) { navigate(1); return; }
+    const current = getCurrent();
+    if (!current) return;
+    if (event.target.closest("[data-reel-like]")) { current.card.querySelector("[data-toggle-like]")?.click(); return; }
+    if (event.target.closest("[data-reel-comments]")) {
+      const panel = viewer.querySelector("[data-reel-comments-panel]");
+      panel.hidden = !panel.hidden;
+      viewer.querySelector("[data-reel-comments]").setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) copyReelComments(current, viewer);
+      return;
+    }
+    if (event.target.closest("[data-reel-comments-close]")) {
+      viewer.querySelector("[data-reel-comments-panel]").hidden = true;
+      viewer.querySelector("[data-reel-comments]").setAttribute("aria-expanded", "false");
+      return;
+    }
+    if (event.target.closest("[data-reel-share]")) { current.card.querySelector("[data-share-post]")?.click(); return; }
+    if (event.target.closest("[data-reel-send]")) { current.card.querySelector("[data-share-in-app]")?.click(); return; }
+    if (event.target.closest("[data-reel-sound-toggle]")) {
+      const player = viewer.querySelector("[data-reel-active]");
+      player.muted = !player.muted;
+      const button = viewer.querySelector("[data-reel-sound-toggle]");
+      button.setAttribute("aria-pressed", String(!player.muted));
+      button.setAttribute("aria-label", player.muted ? "Ativar som" : "Silenciar vídeo");
+      button.textContent = player.muted ? "Ativar som" : "Silenciar";
+      if (!player.muted) void player.play().catch(() => { button.textContent = "Toque para ativar o som"; });
+    }
+  });
+  viewer.addEventListener("cancel", event => { event.preventDefault(); closeReelsViewer(root); });
+  viewer.addEventListener("keydown", event => {
+    if (event.key === "ArrowUp") { event.preventDefault(); navigate(1); }
+    if (event.key === "ArrowDown") { event.preventDefault(); navigate(-1); }
+  });
+  let pointerStart = null;
+  const player = viewer.querySelector("[data-reel-active]");
+  const playToggle = viewer.querySelector("[data-reel-toggle-play]");
+  player.addEventListener("play", () => { playToggle.textContent = "Ⅱ"; playToggle.setAttribute("aria-label", "Pausar vídeo"); });
+  player.addEventListener("pause", () => { playToggle.textContent = "▶"; playToggle.setAttribute("aria-label", "Continuar vídeo"); });
+  player.addEventListener("pointerdown", event => { pointerStart = { x: event.clientX, y: event.clientY }; }, { passive: true });
+  player.addEventListener("ended", () => navigate(1));
+  player.addEventListener("pointerup", event => {
+    if (!pointerStart) return;
+    const delta = event.clientY - pointerStart.y; pointerStart = null;
+    if (Math.abs(delta) > 60) navigate(delta < 0 ? 1 : -1);
+  }, { passive: true });
+}
+function refreshReelsViewer(root) {
+  const viewer = root.querySelector("[data-reels-viewer]");
+  if (viewer?.open && viewer.dataset.reelKey && !renderReelViewer(root, viewer.dataset.reelKey)) closeReelsViewer(root);
+}
+
 export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
+  bindReelsViewer(root);
   bindFeedVideoAutoplay(root);
-  void hydrateTikTokEmbeds(root.querySelector("[data-social-feed]"));
+  void hydrateTikTokEmbeds(root);
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
     if (!toggle) return;

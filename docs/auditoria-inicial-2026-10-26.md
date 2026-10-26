@@ -43,3 +43,41 @@ Consulta somente leitura a `pg_policies` e `pg_proc` na branch principal do proj
 Resultado: os controles existentes são fail-closed para chamadas administrativas pelo adaptador Neon. A ausência de uma rota não deve ser resolvida com exclusão direta pelo navegador: isso deixaria objetos de mídia órfãos e omitiria auditoria. A implementação requer um endpoint server-side portado e validado, com autorização por sessão, registro de auditoria e limpeza coordenada de mídia.
 
 A análise não executou DELETE, UPDATE, INSERT nem chamadas autenticadas que alterassem dados.
+
+
+## Reavaliação do prompt mestre — 2026-10-26
+
+Esta atualização compara o escopo integral do prompt com alterações efetivamente integradas, testes disponíveis e limitações observadas.
+
+### Concluído ou integrado
+
+| Área | Alteração verificável | Limite atual |
+|---|---|---|
+| Música e enquadramento de Stories | PR #135 manteve a busca musical no app; não abre a galeria ao escolher catálogo. A captura/exportação foi ajustada para 9:16, sem zoom automático, preservando fontes incompatíveis com fundo complementar. PR #142 corrigiu a geometria de captura frontal/traseira e lentes. | A publicação autenticada com arquivo real ainda não foi exercitada numa conta/dispositivo do proprietário. Catálogos comerciais continuam sem autorização para incorporar a música inteira. |
+| Proteção administrativa | PR #139 removeu identidade administrativa codificada em Cartas e consulta o papel autenticado no Neon. Os controllers continuam fechando operações cujo endpoint administrativo ainda não foi migrado. | Ainda falta portar as operações administrativas para um endpoint Neon/Cloudflare ativo, com autorização por recurso. |
+| Chat e Galeria | PR #138 corrigiu filtros de conversas pela categoria e estado de leitura. PR #140 reorganizou os seis controles da Galeria em 3 × 2. | A confirmação autenticada de contas distintas ainda não ocorreu. |
+| Cartas arquivadas | PR #141 preserva as cartas exibidas quando falha a consulta de recibos de leitura e desativa ações dependentes do dado indisponível. | O carregamento principal de cartas ainda apresenta erro de acesso em algumas contas; a exibição parcial não resolve a consulta nem a edição completa. |
+| Menções em Stories e notificações | PR #143 adicionou seletor com pesquisa/avatar, IDs persistidos, RPC que valida autoria/expiração/privacidade, notificação deduplicada e link para o Story. A migração foi testada numa branch Neon de auditoria e aplicada ao branch principal. As concessões foram verificadas: inserção direta de menção/notificação negada e atualização do campo de leitura restrita ao destinatário. | Falta exercitar o fluxo em duas contas autenticadas e confirmar notificação e abertura do Story no navegador da aplicação. Republicação de Stories ainda não está implementada. |
+| Publicação | PRs #135–#143 foram integradas. Os arquivos de Stories da PR #143 foram observados servidos no GitHub Pages. | A navegação autenticada continua bloqueada sem sessão de teste. |
+
+### Em andamento
+
+- PR #144 adiciona um visualizador vertical para vídeos reais que já estão no feed, com navegação por gesto/botões, curtida, painel de comentários, compartilhamento interno/externo e retorno ao feed.
+- Build, parse de módulos, testes npm e workflow de segurança passaram na primeira execução da PR. A validação especializada do FaceLandmarker teve uma falha transitória sem resultado do bundle/modelo externo; a repetição completou com sucesso. Depois de um ajuste no ciclo de vida do player e no teste correspondente, a PR está novamente em validação.
+- A PR não adiciona controle de salvar: o esquema e endpoint autorizados para salvamento ainda precisam ser desenhados e validados.
+
+### Ainda falta executar do prompt
+
+1. Stories: política de republicação configurável pelo autor, fluxo para adicionar ao próprio Story, preservação da autoria original e bloqueio de Stories privados; teste real do áudio depois de publicação e teste autenticado em contas separadas.
+2. Feed/Reels: salvar com persistência e autorização, verificar contagens em banco e testar navegação/mídia em navegador autenticado e celular.
+3. Administração: endpoint seguro para moderação e operações administrativas; testar requisições diretas como usuário comum e administrador.
+4. Cartas: corrigir o carregamento inicial que ainda falha; editor responsivo completo, títulos, dicas e alteração segura de senha privada; testar conta Peixinho e destinatário sem recarregar a página.
+5. Músicas: pesquisa como seletor para dedicatórias, visualizações recebidas/enviadas, playlists administrativas, comentários por faixa e validação real de reprodução por provedor.
+6. Galeria: concluir e validar upload, filtros, edição, favoritos, exclusão autorizada e visualização em larguras pequenas.
+7. Chat: validar fotos de perfil; adicionar foto de grupo com autorização; catálogo legal de figurinhas, favoritos, recentes, pesquisa e envio persistido.
+8. Chamadas: portar sinalização/realtime que hoje está explicitamente indisponível no adaptador, testar WebRTC entre usuários/redes e confirmar liberação de câmera e microfone.
+9. Qualidade geral: teste visual autenticado nas larguras de 320–390 px, Safari iOS, Chrome Android e desktop; não há evidência de acesso a dispositivos físicos nesta sessão.
+
+### Operações de dados posteriores à auditoria inicial
+
+Depois do registro somente-leitura acima, a PR #143 aplicou apenas DDL aditiva e concessões/policies restritivas para menções e notificações no Neon principal. Não foram apagadas nem reinicializadas tabelas, Stories, mídias ou notificações existentes. A validação de permissões foi repetida no branch principal.
