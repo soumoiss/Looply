@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
+import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
 import { cachedSignedUrls } from "./storage-url-cache.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
@@ -89,17 +90,44 @@ function formatMessageDay(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(date);
 }
 
+export function countUnreadNotifications(notifications = []) {
+  return [...countUnreadNotificationsByConversation(notifications).values()].reduce((total, count) => total + count, 0);
+}
+
+async function loadUnreadChatNotifications(client, userId, conversationIds) {
+  const notifications = [];
+  for (let start = 0; start < conversationIds.length; start += 50) {
+    const ids = conversationIds.slice(start, start + 50);
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await client.from("chat_notifications")
+        .select("conversation_id,read_at")
+        .eq("user_id", userId)
+        .in("conversation_id", ids)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
+      if (error) throw error;
+      notifications.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  return countUnreadNotificationsByConversation(notifications);
+}
+
 export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
     client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
-    client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").order("created_at", { ascending: false }).limit(50),
+    client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
   if (participantResult.error) throw participantResult.error;
+  if (notificationResult.error) throw notificationResult.error;
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
-  if (ids.length) {
-    const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids });
+  const unreadByConversation = await loadUnreadChatNotifications(client, userId, ids);
+  for (let start = 0; start < ids.length; start += 50) {
+    const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids.slice(start, start + 50) });
     if (deliveredError) console.warn("Looply delivery receipt update failed", deliveredError);
   }
   let conversations = [];
@@ -112,17 +140,13 @@ export async function loadChatData(client, userId) {
     conversations = data || [];
     const { data: latest, error: messagesError } = await client.from("chat_messages")
       .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
-      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
+      .in("id", ids).order("created_at", { ascending: false }).limit(500);
     if (messagesError) throw messagesError;
     latestMessages = latest || [];
   }
   const latestByConversation = new Map();
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
-  const unreadByConversation = new Map();
-  for (const notification of notificationResult.data || []) {
-    if (!notification.read_at) unreadByConversation.set(notification.conversation_id, (unreadByConversation.get(notification.conversation_id) || 0) + 1);
-  }
   const profiles = profilesResult.data || [];
   const avatarProfiles = new Map();
   for (const profile of profiles) if (profile.avatar_path) avatarProfiles.set(profile.id, profile);
