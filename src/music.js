@@ -403,6 +403,49 @@ export function bindMusicEvents(root, client, getUserId) {
     const picker = root.querySelector("[data-music-picker]");
     if (picker) picker.hidden = true;
   };
+  const selectedRecipients = new Set();
+  let allRecipientsSelected = false;
+  const updateRecipientSelection = () => {
+    root.querySelectorAll("[data-music-recipient-id]").forEach((button) => {
+      const selected = selectedRecipients.has(button.dataset.musicRecipientId);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    const allButton = root.querySelector("[data-music-recipient-all]");
+    if (allButton) allButton.setAttribute("aria-pressed", String(allRecipientsSelected));
+    const inputs = root.querySelector("[data-music-recipient-inputs]");
+    if (inputs) {
+      inputs.replaceChildren();
+      const values = allRecipientsSelected ? ["all-users"] : [...selectedRecipients];
+      values.forEach((id) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "recipientId";
+        input.value = id;
+        inputs.append(input);
+      });
+    }
+    const selectedBox = root.querySelector("[data-music-recipient-selected]");
+    const openButton = root.querySelector("[data-music-open-recipients]");
+    if (allRecipientsSelected) {
+      if (selectedBox) { selectedBox.hidden = false; selectedBox.textContent = "Todos os perfis visíveis"; }
+      if (openButton) openButton.textContent = "Todos os perfis visíveis";
+    } else if (selectedRecipients.size) {
+      const names = [...selectedRecipients].map((id) => {
+        const profile = root.querySelector(`[data-music-recipient-id="${CSS.escape(id)}"]`);
+        return profile?.querySelector(".music-recipient-copy strong")?.textContent || "Perfil";
+      });
+      const summary = names.length > 3 ? names.slice(0, 3).join(", ") + ` e mais ${names.length - 3}` : names.join(", ");
+      if (selectedBox) { selectedBox.hidden = false; selectedBox.textContent = summary; }
+      if (openButton) openButton.textContent = `${selectedRecipients.size} destinatário${selectedRecipients.size === 1 ? "" : "s"}`;
+    } else {
+      if (selectedBox) { selectedBox.hidden = true; selectedBox.textContent = ""; }
+      if (openButton) openButton.textContent = "Escolher destinatários";
+    }
+  };
+  const closeRecipientPicker = () => {
+    const picker = root.querySelector("[data-music-recipient-picker]");
+    if (picker) picker.hidden = true;
+  };
   const renderCatalogResults = (songs) => {
     const list = root.querySelector("[data-music-search-results]");
     if (!list) return;
@@ -498,6 +541,49 @@ export function bindMusicEvents(root, client, getUserId) {
           searchCatalog(query.value, sequence);
         }
       }
+      return;
+    }
+    const openRecipientPicker = event.target.closest("[data-music-open-recipients]");
+    if (openRecipientPicker) {
+      const picker = root.querySelector("[data-music-recipient-picker]");
+      if (picker) picker.hidden = false;
+      const query = root.querySelector("[data-music-recipient-query]");
+      if (query) { query.value = ""; query.focus(); }
+      root.querySelectorAll("[data-music-recipient-id]").forEach((button) => { button.hidden = false; });
+      const status = root.querySelector("[data-music-recipient-status]");
+      if (status) status.textContent = "Selecione uma ou mais pessoas ou escolha todos.";
+      return;
+    }
+    const closeRecipient = event.target.closest("[data-music-recipient-close]");
+    if (closeRecipient || event.target.matches("[data-music-recipient-picker]")) {
+      closeRecipientPicker();
+      return;
+    }
+    const allRecipientsButton = event.target.closest("[data-music-recipient-all]");
+    if (allRecipientsButton) {
+      allRecipientsSelected = !allRecipientsSelected;
+      if (allRecipientsSelected) selectedRecipients.clear();
+      updateRecipientSelection();
+      return;
+    }
+    const recipientButton = event.target.closest("[data-music-recipient-id]");
+    if (recipientButton) {
+      allRecipientsSelected = false;
+      const id = recipientButton.dataset.musicRecipientId;
+      if (selectedRecipients.has(id)) selectedRecipients.delete(id);
+      else selectedRecipients.add(id);
+      updateRecipientSelection();
+      return;
+    }
+    const confirmRecipients = event.target.closest("[data-music-recipient-confirm]");
+    if (confirmRecipients) {
+      if (!selectedRecipients.size && !allRecipientsSelected) {
+        const status = root.querySelector("[data-music-recipient-status]");
+        if (status) status.textContent = "Escolha ao menos uma pessoa ou todos os perfis visíveis.";
+        return;
+      }
+      closeRecipientPicker();
+      updateRecipientSelection();
       return;
     }
     const closePicker = event.target.closest("[data-music-picker-close]");
@@ -613,13 +699,28 @@ export function bindMusicEvents(root, client, getUserId) {
   });
 
   root.addEventListener("input", (event) => {
+    const recipientQuery = event.target.closest("[data-music-recipient-query]");
+    if (recipientQuery) {
+      const term = recipientQuery.value.trim().toLocaleLowerCase("pt-BR");
+      let visible = 0;
+      root.querySelectorAll("[data-music-recipient-id]").forEach((button) => {
+        const match = button.textContent.toLocaleLowerCase("pt-BR").includes(term);
+        button.hidden = !match;
+        if (match) visible += 1;
+      });
+      const status = root.querySelector("[data-music-recipient-status]");
+      if (status) status.textContent = visible ? `${visible} perfil${visible === 1 ? "" : "s"} encontrado${visible === 1 ? "" : "s"}.` : "Nenhum perfil encontrado.";
+      return;
+    }
     const input = event.target.closest("[data-music-catalog-query]");
     if (!input) return;
     const sequence = ++catalogSearchSequence;
     searchCatalog(input.value, sequence);
   });
   root.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !root.querySelector("[data-music-picker]")?.hidden) closeCatalogPicker();
+    if (event.key !== "Escape") return;
+    if (!root.querySelector("[data-music-picker]")?.hidden) closeCatalogPicker();
+    if (!root.querySelector("[data-music-recipient-picker]")?.hidden) closeRecipientPicker();
   });
 
   root.addEventListener("submit", async (event) => {
@@ -660,6 +761,9 @@ export function bindMusicEvents(root, client, getUserId) {
         const { error } = await client.from("music_dedications").insert(rows);
         if (error) throw error;
         form.reset();
+        selectedRecipients.clear();
+        allRecipientsSelected = false;
+        updateRecipientSelection();
         selectedDedicationSong = null;
         const selectedSongLabel = form.querySelector("[data-music-selected-song]");
         if (selectedSongLabel) { selectedSongLabel.hidden = true; selectedSongLabel.textContent = ""; }
