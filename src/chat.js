@@ -1100,7 +1100,7 @@ export function bindChatEvents(root, client, getUserId) {
       const accepted = selectedFiles(new FormData(form));
       setStatus(form, `${accepted.length} arquivo${accepted.length === 1 ? "" : "s"} pronto${accepted.length === 1 ? "" : "s"} para enviar.`, "info");
     } catch {
-      setStatus(form, "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.", "error");
+      setStatus(form, "Formato inválido, arquivo acima de 25 MiB ou mais de 8 anexos.", "error");
     }
   });
 
@@ -1208,7 +1208,7 @@ export function bindChatEvents(root, client, getUserId) {
       let message;
       if (/invalid group/.test(String(error?.message || ""))) message = "Informe um nome e selecione de duas a 49 pessoas para o grupo.";
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
-      else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
+      else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 25 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
       else if (/message update unavailable/i.test(String(error?.message || ""))) message = "A mensagem não foi atualizada. Ela pode ter sido removida ou você não tem permissão.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
