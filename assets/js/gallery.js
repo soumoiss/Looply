@@ -569,6 +569,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     for (const file of files) {
       if (!isMediaFile(file)) { say("Formato de mídia não reconhecido: " + file.name, $("[data-upload-status]")); return; }
       if (file.size <= 0) { say("O arquivo " + file.name + " está vazio ou inválido.", $("[data-upload-status]")); return; }
+      if (file.size > maxBytes) { say("O arquivo " + file.name + " excede o limite de 25 MB por mídia.", $("[data-upload-status]")); return; }
     }
     const exclusive = Boolean(fd.get("exclusive"));
     const viewerIds = [...selectedRecipients];
