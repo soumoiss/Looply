@@ -47,7 +47,8 @@ test("UI presents camera, gallery, edit tools, and private audience", () => {
 });
 
 test("Output applies edits to exported media, not just CSS preview", () => {
-  assert.match(studio, /drawStoryLens\(ctx, lens/);
+  assert.match(studio, /drawLiveFrame\(ctx, canvas\)/);
+  assert.match(studio, /ctx\.drawImage\(lens, x, y/);
   assert.match(studio, /paintLayers\(ctx, overlayRoot/);
   assert.match(studio, /makeSynthBuffer\(audioCtx, music\)/);
   assert.match(studio, /canvas\.captureStream\(24\)/);
