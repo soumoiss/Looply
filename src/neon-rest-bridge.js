@@ -18,6 +18,7 @@ const WRITABLE = Object.freeze({
   community_gallery_media: ["owner_id","storage_path","file_name","kind","mime_type","byte_size","caption","visibility","comment_access","publication_state","private_owner_id"],
   gallery_media_descriptions: ["user_id","source","media_id","description","category"],
   gallery_media_people: ["source","media_id","person_id","created_by"],
+  gallery_media_viewers: ["media_id","user_id"],
   gallery_private_items: ["user_id","source","media_id","owner_private"],
   gallery_albums: ["owner_id","name"],
   gallery_album_items: ["album_id","source","media_id"],
