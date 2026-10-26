@@ -196,6 +196,7 @@ export function chatMarkup(data, userId) {
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
     <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
       <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
+      <button type="button" data-chat-filter="groups" aria-pressed="${conversationFilter === "groups"}">Grupos</button>
       <button type="button" data-chat-filter="unread" aria-pressed="${conversationFilter === "unread"}">Não lidas</button>
     </div>
   </div>`;
@@ -588,6 +589,9 @@ async function openConversation(root, client, conversationId, userId) {
     }
     const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
     if (readError) console.warn("Looply read receipt update failed", readError);
+    // The unread filter is driven by the persisted receipt, so refresh the
+    // sidebar only after the database confirms the read transition.
+    else if (activeConversationId === conversationId) void refreshChat(root, client, userId, { keepThread: true });
   } catch (error) {
     console.error("Looply conversation load failed", error);
     if (requestId === activeThreadRequest && activeConversationId === conversationId && thread.isConnected && !thread.querySelector("[data-chat-send]")) {
