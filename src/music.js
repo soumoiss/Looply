@@ -365,7 +365,7 @@ export function bindMusicEvents(root, client, getUserId) {
         const listenUrl = String(values.get("listenUrl") || "").trim();
         const supported = isDirectAudioUrl(listenUrl) || /^https:\/\/(open\.spotify\.com|music\.youtube\.com|youtu\.be|www\.youtube\.com|youtube\.com|music\.apple\.com|soundcloud\.com)\//i.test(listenUrl);
         if (!title || title.length > 160 || !supported) throw new Error("music-library-fields");
-        const { error } = await client.from("music_library").insert({ title, artist, listen_url: listenUrl, note });
+        const { error } = await client.from("music_library").insert({ owner_id:userId, title, artist, listen_url: listenUrl, note });
         if (error) throw error;
         form.reset();
         setStatus(form, "A música foi salva na sua coleção.");
@@ -381,7 +381,7 @@ export function bindMusicEvents(root, client, getUserId) {
           ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
           : recipientIds.filter((id) => id !== userId);
         if (!title || title.length > 160 || !selectedRecipients.length || !supported) throw new Error("music-fields");
-        const rows = selectedRecipients.map((recipient_id) => ({ recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
+        const rows = selectedRecipients.map((recipient_id) => ({ sender_id:userId, recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
         const { error } = await client.from("music_dedications").insert(rows);
         if (error) throw error;
         form.reset();
@@ -389,7 +389,7 @@ export function bindMusicEvents(root, client, getUserId) {
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-general-comment]")) {
         if (!body || body.length > 2000) throw new Error("comment-fields");
-        const { error } = await client.from("music_page_comments").insert({ comment_type: "general", body });
+        const { error } = await client.from("music_page_comments").insert({ comment_type: "general", author_id:userId, body });
         if (error) throw error;
         form.reset();
         setStatus(form, "Comentário geral enviado.");
@@ -398,7 +398,7 @@ export function bindMusicEvents(root, client, getUserId) {
         const dedicationId = form.dataset.dedicationId;
         const visibility = String(values.get("visibility") || "private");
         if (!body || body.length > 2000) throw new Error("comment-fields");
-        const { error } = await client.from("music_comments").insert({ dedication_id: dedicationId, body, visibility });
+        const { error } = await client.from("music_comments").insert({ dedication_id: dedicationId, author_id:userId, body, visibility });
         if (error) throw error;
         await refreshMusic(root, client, userId);
       }
