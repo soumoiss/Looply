@@ -340,3 +340,16 @@
   .story-studio .studio-modal-panel { padding-inline:14px; }
   .story-studio .studio-catalog-song .studio-music-row-actions > button { font-size:11px!important; }
 }
+
+/* Searchable, accessible people picker for Story mentions. */
+.story-studio .studio-mention-list { display:grid; gap:8px; max-height:min(48dvh,420px); overflow-y:auto; overscroll-behavior:contain; padding:4px 2px; }
+.story-studio .studio-mention-person { display:grid; grid-template-columns:44px minmax(0,1fr) 28px; align-items:center; gap:12px; width:100%; min-height:62px; padding:8px 12px; border:1px solid #ffffff24; border-radius:14px; background:#ffffff0d; text-align:left; }
+.story-studio .studio-mention-person > img,.story-studio .studio-mention-person > span:first-child { width:44px; height:44px; border-radius:50%; object-fit:cover; display:grid; place-items:center; background:#ffffff24; font-weight:700; }
+.story-studio .studio-mention-person > span:nth-child(2) { display:grid; gap:3px; min-width:0; }
+.story-studio .studio-mention-person strong,.story-studio .studio-mention-person small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.story-studio .studio-mention-person small { opacity:.72; }
+.story-studio .studio-mention-person.is-selected { border-color:#d9b7ff; background:#8b5cf626; }
+.story-studio .studio-mention-check { display:grid; place-items:center; width:24px; height:24px; border:1px solid #ffffff70; border-radius:50%; }
+.story-studio .studio-mention-person.is-selected .studio-mention-check { border-color:#d9b7ff; background:#8b5cf6; }
+.story-studio .studio-mention-empty { padding:18px 8px; opacity:.72; text-align:center; }
+@media (max-width:360px) { .story-studio .studio-mention-person { grid-template-columns:40px minmax(0,1fr) 26px; gap:9px; padding:8px; } .story-studio .studio-mention-person > img,.story-studio .studio-mention-person > span:first-child { width:40px; height:40px; } }
