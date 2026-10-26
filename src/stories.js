@@ -1,10 +1,7 @@
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
-import { normalizePublicationMedia, uploadResumable } from "./social.js";
-import { validatePublicationInput } from "./publication-validation.js";
-import { decodeStoryBody, encodeStoryBody, storyMusicToken } from "./story-text-style.js";
-import { StoryFaceLens, drawStoryLens } from "./story-ar.js";
+import { decodeStoryBody } from "./story-text-style.js";
 import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js";
 
 const storyMimeTypes = new Map([
@@ -308,10 +305,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   if (!list || !viewer || !createDialog) return;
 
   const state = {
-    groups: groupActiveStories(initialStories), active: null, index: 0, timer: null, previewUrl: null,
-    viewedThisSession: new Set(), likedStories: new Set(), cameraStream: null, cameraFacing: "environment", mediaRecorder: null,
-    recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0, paused: false,
-    cameraFilter: "none", faceLens: null, selectedMusic: null
+    groups: groupActiveStories(initialStories), active: null, index: 0, timer: null,
+    viewedThisSession: new Set(), likedStories: new Set(), likePending: new Set(), ignoreTapUntil: 0, paused: false
   };
   const showStatus = (message, isError = false) => {
     if (!status) return;
@@ -322,342 +317,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     list.innerHTML = storyListMarkup(state.groups, userId, profile);
     if (!state.groups.length) showStatus("Nenhum story ativo.");
     else showStatus("");
-  };
-  const cameraPanel = root.querySelector("[data-story-camera]");
-  const cameraPreview = root.querySelector("[data-story-camera-preview]");
-  const cameraStatus = root.querySelector("[data-story-camera-status]");
-  const storyMediaInput = root.querySelector("#storyMedia");
-  const storyForm = root.querySelector("form[data-story-create]");
-  const storyTextStyle = root.querySelector("[data-story-text-style]");
-  const storyTextSize = root.querySelector("#storyTextSize");
-  const storyBodyInput = root.querySelector("#storyBody");
-  const storyFontInput = root.querySelector("#storyTextFont");
-  const storyMusicInput = root.querySelector("#storyMusic");
-  const musicPicker = root.querySelector("[data-story-music-picker]");
-  const publishOptions = root.querySelector("[data-story-publish-options]");
-  const lensCanvas = root.querySelector("[data-story-ar-canvas]");
-  const textComposer = root.querySelector("[data-story-text-composer]");
-  const liveTextPreview = root.querySelector("[data-story-text-live-preview]");
-  const filterStyles = { none: "none", warm: "sepia(.32) saturate(1.28) contrast(1.04)", cool: "hue-rotate(175deg) saturate(.88) contrast(1.08)", mono: "grayscale(1) contrast(1.12)", vivid: "saturate(1.65) contrast(1.12)" };
-  const updateTextPreview = () => {
-    if (!liveTextPreview) return;
-    const styled = decodeStoryBody(encodeStoryBody(storyBodyInput?.value || "Digite seu story", storyFontInput?.value || "system", storyTextSize?.value || 20));
-    liveTextPreview.textContent = styled.text || "Digite seu story";
-    liveTextPreview.style.fontFamily = styled.fontFamily || "";
-    liveTextPreview.style.fontSize = `${styled.size}pt`;
-  };
-  const updateSpotifyPreview = () => {
-    const host = root.querySelector("[data-story-spotify-preview]");
-    const selected = root.querySelector("[data-story-music-selected]");
-    if (!host) return;
-    const music = storyMusicToken(storyMusicInput?.value);
-    const trackId = music?.id || "";
-    host.replaceChildren();
-    if (!music) { if (selected) selected.textContent = "Nenhuma música selecionada."; return; }
-    if (selected) selected.textContent = state.selectedMusic ? `${state.selectedMusic.name} · ${state.selectedMusic.artist}` : "Música selecionada.";
-    if (state.selectedMusic?.previewUrl) {
-      const audio = document.createElement("audio"); audio.controls = true; audio.preload = "none"; audio.src = state.selectedMusic.previewUrl;
-      audio.setAttribute("aria-label", "Prévia da música selecionada"); host.append(audio); return;
-    }
-    if (music.provider !== "spotify") return;
-    const frame = document.createElement("iframe");
-    frame.src = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator`;
-    frame.title = "Prévia da música no Spotify";
-    frame.loading = "lazy";
-    frame.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
-    host.append(frame);
-  };
-  storyBodyInput?.addEventListener("input", updateTextPreview);
-  storyFontInput?.addEventListener("change", updateTextPreview);
-  const searchSpotify = async () => {
-    const query = root.querySelector("#storyMusicQuery")?.value || "";
-    if (!query.trim()) { root.querySelector("#storyMusicQuery")?.focus(); return; }
-    const picker = root.querySelector("[data-story-music-picker]");
-    const resultHost = document.createElement("div");
-    resultHost.className = "story-music-results";
-    resultHost.textContent = "Pesquisando no Spotify…";
-    picker?.querySelector(".story-music-results")?.remove(); picker?.append(resultHost);
-    try {
-      // Keep the Stories module testable/offline: the Neon browser client is loaded
-      // only when a signed-in member explicitly opens the music search.
-      const { activeSession, neonFunctionsBase } = await import("./neon-production-client.js");
-      const session = await activeSession();
-      if (!session?.access_token) throw new Error("session_required");
-      const response = await fetch(`${neonFunctionsBase}/spotify/search?q=${encodeURIComponent(query.trim())}`, { headers: { authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "spotify_search_unavailable");
-      const tracks = Array.isArray(payload.items) ? payload.items : [];
-      if (!tracks.length) { resultHost.textContent = "Nenhuma faixa encontrada."; return; }
-      resultHost.replaceChildren(...tracks.map((track) => {
-        const button = document.createElement("button"); button.type = "button"; button.className = "story-music-result";
-        button.innerHTML = `${track.image ? `<img src="${escapeHtml(track.image)}" alt="" referrerpolicy="no-referrer">` : "<span class=\"story-music-cover\">♫</span>"}<span><strong>${escapeHtml(track.name)}</strong><small>${escapeHtml(track.artist)}</small>${track.previewUrl ? "<em>Prévia disponível</em>" : "<em>Prévia indisponível</em>"}</span>`;
-        button.addEventListener("click", () => { state.selectedMusic = track; storyMusicInput.value = track.id; updateSpotifyPreview(); resultHost.remove(); });
-        return button;
-      }));
-    } catch (error) {
-      try {
-        const fallback = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query.trim())}&entity=song&limit=8&country=BR`, { cache: "no-store" });
-        if (!fallback.ok) throw new Error("itunes_search_failed");
-        const payload = await fallback.json();
-        const tracks = (payload.results || []).map((track) => ({ id: `itunes:${track.trackId}:${encodeURIComponent(track.previewUrl || "")}`, name: track.trackName, artist: track.artistName, image: track.artworkUrl100, previewUrl: track.previewUrl || null })).filter((track) => /^itunes:\d+:.+/.test(track.id));
-        if (!tracks.length) { resultHost.textContent = "Nenhuma faixa encontrada."; return; }
-        resultHost.replaceChildren(...tracks.map((track) => { const button = document.createElement("button"); button.type = "button"; button.className = "story-music-result"; button.innerHTML = `${track.image ? `<img src="${escapeHtml(track.image)}" alt="" referrerpolicy="no-referrer">` : "<span class=\"story-music-cover\">♫</span>"}<span><strong>${escapeHtml(track.name)}</strong><small>${escapeHtml(track.artist)}</small><em>Prévia licenciada disponível</em></span>`; button.addEventListener("click", () => { state.selectedMusic = track; storyMusicInput.value = track.id; updateSpotifyPreview(); resultHost.remove(); }); return button; }));
-      } catch {
-        resultHost.textContent = "A busca de música está temporariamente indisponível. Tente novamente.";
-      }
-    }
-  };
-  const musicSearchButton = root.querySelector("[data-story-music-open]");
-  musicSearchButton?.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (musicPicker) musicPicker.hidden = false;
-    void searchSpotify();
-  });
-  root.querySelector("#storyMusicQuery")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (musicPicker) musicPicker.hidden = false;
-      void searchSpotify();
-    }
-  });
-  const toggleMusicPicker = () => { if (musicPicker) musicPicker.hidden = !musicPicker.hidden; };
-  root.querySelectorAll("[data-story-music-toggle]").forEach((button) => button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    toggleMusicPicker();
-  }));
-  root.querySelector("[data-story-music-close]")?.addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (musicPicker) musicPicker.hidden = true;
-  });
-  root.querySelectorAll("[data-story-filter]").forEach((button) => button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    state.cameraFilter = filterStyles[button.dataset.storyFilter] ? button.dataset.storyFilter : "none";
-    cameraPreview.style.filter = filterStyles[state.cameraFilter];
-    root.querySelectorAll("[data-story-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-  }));
-  root.querySelectorAll("[data-story-lens]").forEach((button) => button.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    const lens = button.dataset.storyLens || "none";
-    if (lens !== "none") {
-      setCameraStatus("Preparando lente com rastreamento facial…");
-      const ready = await state.faceLens?.prepare();
-      if (!ready) { setCameraStatus("Ative a câmera para usar esta lente facial.", true); return; }
-    }
-    state.faceLens?.setLens(lens);
-    root.querySelectorAll("[data-story-lens]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
-    setCameraStatus(lens === "none" ? "Lente removida." : "Lente facial ativa: acompanhe a prévia.");
-  }));
-  root.querySelector("[data-story-grid-toggle]")?.addEventListener("click", (event) => {
-    event.stopPropagation(); cameraPanel.classList.toggle("story-camera-grid-on");
-  });
-  root.querySelector("[data-story-tools-toggle]")?.addEventListener("click", (event) => {
-    event.stopPropagation(); cameraPanel.classList.toggle("story-camera-tools-collapsed");
-  });
-  root.querySelector("[data-story-flash-toggle]")?.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    const track = state.cameraStream?.getVideoTracks?.()[0];
-    if (!track?.applyConstraints) { setCameraStatus("Flash não disponível nesta câmera.", true); return; }
-    const current = Boolean(track.getSettings?.().torch);
-    try { await track.applyConstraints({ advanced: [{ torch: !current }] }); event.currentTarget.setAttribute("aria-pressed", String(!current)); }
-    catch { setCameraStatus("Flash não disponível nesta câmera.", true); }
-  });
-  root.querySelector("[data-story-camera-settings]")?.addEventListener("click", (event) => {
-    event.stopPropagation(); setCameraStatus("Configurações rápidas: flash, grade, lentes e filtros disponíveis.");
-  });
-  root.querySelector("[data-story-effects]")?.addEventListener("click", (event) => {
-    event.stopPropagation(); root.querySelector('[data-story-lens="glasses"]')?.focus();
-    setCameraStatus("Escolha uma lente RA abaixo da prévia.");
-  });
-  storyMediaInput?.addEventListener("change", () => {
-    const hasMedia = Boolean(storyMediaInput.files?.[0]?.size);
-    if (storyTextStyle) storyTextStyle.hidden = hasMedia;
-    if (hasMedia && publishOptions) publishOptions.hidden = false;
-  });
-  storyTextSize?.addEventListener("input", () => {
-    const output = root.querySelector("[data-story-text-size]");
-    if (output) output.textContent = `${storyTextSize.value} pt`;
-    updateTextPreview();
-  });
-  const setCameraStatus = (message, isError = false) => {
-    if (!cameraStatus) return;
-    cameraStatus.textContent = message;
-    cameraStatus.dataset.kind = isError ? "error" : "success";
-  };
-  const stopCamera = (discardRecording = true) => {
-    clearTimeout(state.recordTimer);
-    state.recordTimer = null;
-    if (state.mediaRecorder?.state === "recording") {
-      state.recordingDiscarded = discardRecording;
-      state.mediaRecorder.stop();
-    }
-    state.cameraStream?.getTracks().forEach((track) => track.stop());
-    state.cameraStream = null;
-    if (cameraPreview) cameraPreview.srcObject = null;
-    state.faceLens?.stop();
-    if (cameraPanel) cameraPanel.hidden = true;
-    const recordButton = root.querySelector("[data-story-record-toggle]");
-    if (recordButton) {
-      recordButton.textContent = "Gravar vídeo";
-      recordButton.dataset.recording = "false";
-    }
-  };
-  const selectStoryFile = (blob, filename) => {
-    const input = root.querySelector("#storyMedia");
-    if (!input || typeof DataTransfer !== "function") throw new Error("file_selection_unavailable");
-    const transfer = new DataTransfer();
-    const normalizedType = String(blob.type || "").split(";")[0];
-    transfer.items.add(new File([blob], filename, { type: normalizedType, lastModified: Date.now() }));
-    input.files = transfer.files;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-  };
-  const startCamera = async (facingMode = state.cameraFacing, requireFacing = false) => {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("camera_unavailable");
-    // Use `exact` while changing cameras. `ideal` is allowed to silently keep the
-    // rear camera on several Android devices, which made the flip button look dead.
-    const facingRequests = requireFacing
-      ? [{ facingMode: { exact: facingMode } }]
-      : [{ facingMode: { exact: facingMode } }, { facingMode: { ideal: facingMode } }];
-    let nextStream = null;
-    let lastError = null;
-    for (const video of facingRequests) {
-      for (const audio of [true, false]) {
-        try {
-          nextStream = await navigator.mediaDevices.getUserMedia({ video, audio });
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      if (nextStream) break;
-    }
-    if (!nextStream) throw (lastError || new Error("camera_unavailable"));
-    state.cameraStream?.getTracks().forEach((track) => track.stop());
-    state.cameraStream = nextStream;
-    const reportedFacing = nextStream.getVideoTracks()[0]?.getSettings?.().facingMode;
-    state.cameraFacing = reportedFacing === "user" || reportedFacing === "environment" ? reportedFacing : facingMode;
-    cameraPreview.srcObject = state.cameraStream;
-    cameraPreview.style.filter = filterStyles[state.cameraFilter];
-    cameraPanel.style.setProperty("--story-camera-mirror", facingMode === "user" ? "-1" : "1");
-    cameraPanel.hidden = false;
-    root.querySelector("[data-story-capture-photo]").disabled = false;
-    root.querySelector("[data-story-record-toggle]").disabled = false;
-    setCameraStatus("Câmera pronta. Escolha tirar uma foto ou gravar um vídeo.");
-    await cameraPreview.play().catch(() => {});
-    state.faceLens?.stop();
-    state.faceLens = new StoryFaceLens(cameraPreview, lensCanvas, () => state.cameraFacing);
-    state.faceLens.start();
-  };
-  const flipStoryCamera = async () => {
-    if (state.mediaRecorder?.state === "recording") {
-      setCameraStatus("Pare a gravação antes de alternar a câmera.", true);
-      return;
-    }
-    const nextFacing = state.cameraFacing === "environment" ? "user" : "environment";
-    const button = root.querySelector("[data-story-camera-flip]");
-    if (button) button.disabled = true;
-    // Release the active camera before requesting the other lens. Several Android
-    // camera providers refuse a second getUserMedia stream while the first is open.
-    const previousFacing = state.cameraFacing;
-    state.cameraStream?.getTracks().forEach((track) => track.stop());
-    state.cameraStream = null;
-    if (cameraPreview) cameraPreview.srcObject = null;
-    try {
-      await startCamera(nextFacing, true);
-      setCameraStatus(nextFacing === "user" ? "Câmera frontal ativa (prévia espelhada)." : "Câmera traseira ativa.");
-    } catch (error) {
-      console.warn("Looply story camera switch failed.", error);
-      // Try to restore the prior lens so a failed switch doesn't leave the camera dead.
-      try {
-        await startCamera(previousFacing);
-        setCameraStatus("Não foi possível alternar; a câmera anterior foi restaurada.", true);
-      } catch {
-        if (cameraPanel) cameraPanel.hidden = false;
-        setCameraStatus("Não foi possível alternar a câmera. Confira a permissão ou escolha um arquivo.", true);
-      }
-    } finally {
-      if (button) button.disabled = false;
-    }
-  };
-  const captureStoryPhoto = async () => {
-    if (!cameraPreview?.videoWidth || !cameraPreview.videoHeight) throw new Error("camera_not_ready");
-    const canvas = document.createElement("canvas");
-    canvas.width = cameraPreview.videoWidth;
-    canvas.height = cameraPreview.videoHeight;
-    const context = canvas.getContext("2d", { alpha: false });
-    context.filter = filterStyles[state.cameraFilter];
-    const mirrored = state.cameraFacing === "user";
-    if (mirrored) { context.translate(canvas.width, 0); context.scale(-1, 1); }
-    context.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
-    if (mirrored) context.setTransform(1, 0, 0, 1, 0, 0);
-    drawStoryLens(context, lensCanvas, canvas.width, canvas.height);
-    const photo = await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("photo_capture_failed")), "image/jpeg", 0.9));
-    selectStoryFile(photo, `story-${Date.now()}.jpg`);
-    setCameraStatus("Foto pronta para publicar.");
-    stopCamera(false);
-  };
-  const toggleStoryRecording = () => {
-    const button = root.querySelector("[data-story-record-toggle]");
-    if (state.mediaRecorder?.state === "recording") {
-      state.mediaRecorder.stop();
-      return;
-    }
-    if (!state.cameraStream) throw new Error("camera_not_ready");
-    if (typeof MediaRecorder !== "function") throw new Error("recording_unavailable");
-    const mimeType = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
-      .find((type) => MediaRecorder.isTypeSupported?.(type));
-    if (!mimeType) throw new Error("recording_unavailable");
-    const composite = document.createElement("canvas");
-    composite.width = cameraPreview.videoWidth; composite.height = cameraPreview.videoHeight;
-    const compositeContext = composite.getContext("2d", { alpha: false });
-    let compositeFrame = null;
-    const drawComposite = () => {
-      if (!state.cameraStream) return;
-      compositeContext.filter = filterStyles[state.cameraFilter];
-      if (state.cameraFacing === "user") { compositeContext.save(); compositeContext.translate(composite.width, 0); compositeContext.scale(-1, 1); compositeContext.drawImage(cameraPreview, 0, 0, composite.width, composite.height); compositeContext.restore(); }
-      else compositeContext.drawImage(cameraPreview, 0, 0, composite.width, composite.height);
-      compositeContext.filter = "none"; drawStoryLens(compositeContext, lensCanvas, composite.width, composite.height);
-      compositeFrame = requestAnimationFrame(drawComposite);
-    };
-    drawComposite();
-    const compositeStream = composite.captureStream(30);
-    state.cameraStream.getAudioTracks().forEach((track) => compositeStream.addTrack(track));
-    const recorder = new MediaRecorder(compositeStream, { mimeType });
-    const chunks = [];
-    state.recordingDiscarded = false;
-    state.mediaRecorder = recorder;
-    recorder.addEventListener("dataavailable", (event) => {
-      if (event.data?.size) chunks.push(event.data);
-    });
-    recorder.addEventListener("stop", () => {
-      if (compositeFrame) cancelAnimationFrame(compositeFrame);
-      compositeStream.getTracks().forEach((track) => track.stop());
-      clearTimeout(state.recordTimer);
-      state.recordTimer = null;
-      if (state.recordingDiscarded) return;
-      const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
-      if (!blob.size) {
-        setCameraStatus("A gravação ficou vazia.", true);
-        return;
-      }
-      const extension = blob.type.includes("mp4") ? "mp4" : "webm";
-      try {
-        selectStoryFile(blob, `story-${Date.now()}.${extension}`);
-        setCameraStatus("Vídeo pronto para publicar.");
-      } catch (error) {
-        setCameraStatus("Este navegador não permite anexar a gravação. Escolha um arquivo salvo.", true);
-      }
-      button.textContent = "Gravar vídeo";
-      button.dataset.recording = "false";
-    });
-    recorder.start(1000);
-    button.textContent = "Parar gravação";
-    button.dataset.recording = "true";
-    setCameraStatus("Gravando vídeo… toque em Parar gravação para finalizar.");
-    state.recordTimer = setTimeout(() => {
-      if (recorder.state === "recording") recorder.stop();
-    }, 60000);
   };
   const clearTimer = () => {
     if (state.timer) clearTimeout(state.timer);
@@ -1005,7 +664,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   renderList();
   scheduleNextExpiry();
   root.__looplyStoryStop = clearTimer;
-  root.__looplyStoryCameraStop = () => stopCamera(true);
   root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
@@ -1017,110 +675,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh);
   cleanupExpiredStories(client);
 
-  root.addEventListener("change", (event) => {
-    if (event.target.matches("#storyVisibility")) {
-      const picker = root.querySelector("[data-story-recipient-picker]");
-      if (picker) picker.hidden = event.target.value !== "selected";
-    }
-    if (event.target.matches("#storyMedia")) {
-      if (state.cameraStream) stopCamera(true);
-      const preview = root.querySelector("[data-story-preview]");
-      if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-      state.previewUrl = null;
-      preview?.replaceChildren();
-      const file = event.target.files?.[0];
-      const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
-      if (!file || !preview) return;
-      if (!media || !storyMimeTypes.has(media.type)) {
-        preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM.";
-        return;
-      }
-      state.previewUrl = URL.createObjectURL(file);
-      const item = document.createElement(file.type.startsWith("video/") ? "video" : "img");
-      item.src = state.previewUrl;
-      if (item instanceof HTMLVideoElement) item.controls = true;
-      else item.alt = "Prévia do story";
-      preview.append(item);
-    }
-  });
-
   root.addEventListener("click", async (event) => {
-    if (event.target.closest("[data-story-create-open]")) {
-      openStoryDialog(createDialog);
-      if (storyForm) storyForm.dataset.storyMode = "camera";
-      createDialog.dataset.storyMode = "camera";
-      textComposer.hidden = true;
-      if (publishOptions) publishOptions.hidden = true;
-      if (musicPicker) musicPicker.hidden = true;
-      cameraPanel.hidden = false;
-      try { await startCamera(); }
-      catch (error) {
-        console.warn("Looply story camera could not start.", error);
-        setCameraStatus("Não foi possível abrir a câmera. Use Galeria ou o modo Texto.", true);
-      }
-      return;
-    }
-    const modeButton = event.target.closest("[data-story-mode]");
-    if (modeButton) {
-      const textMode = modeButton.dataset.storyMode === "text";
-      if (storyForm) storyForm.dataset.storyMode = textMode ? "text" : "camera";
-      createDialog.dataset.storyMode = textMode ? "text" : "camera";
-      root.querySelectorAll("[data-story-mode]").forEach((button) => button.setAttribute("aria-pressed", String(button === modeButton)));
-      textComposer.hidden = !textMode;
-      if (textMode) { stopCamera(true); if (publishOptions) publishOptions.hidden = false; if (musicPicker) musicPicker.hidden = true; updateTextPreview(); storyBodyInput?.focus(); }
-      else { if (publishOptions) publishOptions.hidden = true; if (musicPicker) musicPicker.hidden = true; cameraPanel.hidden = false; try { await startCamera(); } catch { setCameraStatus("Câmera indisponível. Você ainda pode usar Galeria.", true); } }
-      return;
-    }
-    if (event.target.closest("[data-story-camera-open]")) {
-      const openButton = root.querySelector("[data-story-camera-open]");
-      openButton.disabled = true;
-      root.querySelector("[data-story-capture-photo]").disabled = true;
-      root.querySelector("[data-story-record-toggle]").disabled = true;
-      try {
-        await startCamera();
-      } catch (error) {
-        console.warn("Looply story camera could not start.", error);
-        cameraPanel.hidden = false;
-        setCameraStatus(error?.message === "camera_unavailable"
-          ? "A câmera não está disponível neste dispositivo ou navegador."
-          : "Não foi possível acessar a câmera. Confira a permissão ou escolha um arquivo.", true);
-      } finally {
-        openButton.disabled = false;
-      }
-      return;
-    }
-    if (event.target.closest("[data-story-capture-photo]")) {
-      try {
-        await captureStoryPhoto();
-      } catch (error) {
-        console.error("Looply story photo capture failed.", error);
-        setCameraStatus("Não foi possível tirar a foto. Tente novamente.", true);
-      }
-      return;
-    }
-    if (event.target.closest("[data-story-record-toggle]")) {
-      try {
-        toggleStoryRecording();
-      } catch (error) {
-        console.error("Looply story video recording failed.", error);
-        setCameraStatus(error?.message === "recording_unavailable"
-          ? "A gravação de vídeo não é compatível com este navegador."
-          : "Não foi possível iniciar a gravação.", true);
-      }
-      return;
-    }
-    if (event.target.closest("[data-story-camera-close]")) {
-      stopCamera(true);
-      return;
-    }
-    if (event.target.closest("[data-story-camera-flip]")) {
-      await flipStoryCamera();
-      return;
-    }
-    if (event.target.closest("[data-story-create-close]")) {
-      closeStoryDialog(createDialog);
-      return;
-    }
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");
       await refresh();
@@ -1300,13 +855,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (audio) { audio.pause(); audio.currentTime = 0; }
     viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
   });
-  createDialog.addEventListener("close", () => {
-    stopCamera(true);
-    if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-    state.previewUrl = null;
-    root.querySelector("[data-story-preview]")?.replaceChildren();
-  });
-
   root.addEventListener("submit", async (event) => {
     const replyForm = event.target.closest("form[data-story-reply]");
     if (replyForm) {
@@ -1346,77 +894,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       return;
     }
-    const form = event.target.closest("form[data-story-create]");
-    if (!form) return;
-    event.preventDefault();
-    const submit = form.querySelector('button[type="submit"]');
-    submit.disabled = true;
-    let storyId = null;
-    let uploadedPath = null;
-    try {
-      const formData = new FormData(form);
-      const bodyText = String(formData.get("body") || "").trim().slice(0, 1000);
-      const file = formData.get("media");
-      const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
-      const musicTrackId = String(formData.get("music_track_id") || "");
-      // Keep the selected track in the existing story envelope even for camera
-      // photos/videos; otherwise media stories would silently lose their music.
-      const body = (bodyText && !media) || musicTrackId
-        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"), musicTrackId)
-        : bodyText;
-      const visibility = String(formData.get("visibility") || "public");
-      const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
-      if (file instanceof File && file.size && !media) throw new Error("invalid_media");
-      if (media && !storyMimeTypes.has(media.type)) throw new Error("invalid_media");
-      if (musicTrackId.trim() && !storyMusicToken(musicTrackId)) throw new Error("invalid_music");
-      if (!body && !media) throw new Error("empty_story");
-      if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");
 
-      setFormStatus(form, "Salvando story…");
-      const { data, error } = await client.rpc("v5_create_story", {
-        p_body: body, p_visibility: visibility, p_recipient_ids: visibility === "selected" ? recipientIds : []
-      });
-      if (error) throw error;
-      storyId = data;
-
-      if (media) {
-        const extension = storyMimeTypes.get(media.type);
-        uploadedPath = "stories/" + storyId + "/" + crypto.randomUUID() + "." + extension;
-        await uploadResumable(client, uploadedPath, media, (percent) => setFormStatus(form, "Enviando mídia: " + percent + "%"));
-        const { error: mediaError } = await client.rpc("v5_attach_story_media", {
-          p_story_id: storyId,
-          p_storage_path: uploadedPath,
-          p_kind: media.type.startsWith("video/") ? "video" : "image",
-          p_mime_type: media.type,
-          p_byte_size: media.size
-        });
-        if (mediaError) throw mediaError;
-      }
-
-      form.reset();
-      state.selectedMusic = null;
-      updateSpotifyPreview();
-      if (storyTextStyle) storyTextStyle.hidden = false;
-      const storyTextSizeOutput = root.querySelector("[data-story-text-size]");
-      if (storyTextSizeOutput) storyTextSizeOutput.textContent = "20 pt";
-      closeStoryDialog(createDialog);
-      await refresh();
-      showStatus("Story publicado. Ele expira após 24 horas.");
-    } catch (error) {
-      console.error("Looply story creation failed.", error);
-      if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
-      if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
-      const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
-        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM."
-          : error?.message === "invalid_music" ? "Escolha uma faixa válida no seletor de música."
-          : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
-            : error?.status === 403 || error?.code === "42501"
-              ? "O Neon recusou a autorização para publicar este story. Sua conta e o perfil histórico precisam estar vinculados."
-              : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
-      setFormStatus(form, message, true);
-    } finally {
-      submit.disabled = false;
-    }
   });
 }
 
@@ -1454,8 +932,6 @@ export function disposeStoriesRealtime(client, root) {
     delete root.__looplyStoryStop;
     root.__looplyStudioStop?.();
     delete root.__looplyStudioStop;
-    root.__looplyStoryCameraStop?.();
-    delete root.__looplyStoryCameraStop;
     root.__looplyStoryClose?.();
     delete root.__looplyStoryClose;
     delete root.__looplyRefreshStoryInsights;
