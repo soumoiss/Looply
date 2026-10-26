@@ -496,31 +496,36 @@ export function bindStoryStudio(root, client, userId, refresh) {
     if (!mime) throw new Error("Não é possível exportar o vídeo com edição neste navegador.");
     const canvas = still || makeCanvas();
     const ctx = canvas.getContext("2d", { alpha: false });
-    const framesStream = canvas.captureStream(24);
-    let audioCtx = null, source = null, mediaElement = null, objectUrl = null;
-    let videoMedia = null, recorded = null, raf = null, cancel = false;
+    let framesStream = null;
+    let audioCtx = null, source = null;
+    let videoMedia = null, recorded = null, raf = null;
     try {
       const duration = sourceKind === "video" ? LIMIT : (withMusic ? 12000 : 15000);
-      const original = file;
       if (sourceKind === "video") {
         videoMedia = document.createElement("video");
-        videoMedia.src = url; videoMedia.playsInline = true; videoMedia.muted = true;
+        videoMedia.src = url; videoMedia.playsInline = true; videoMedia.muted = false;
         await waitEvent(videoMedia, "loadedmetadata");
         if (videoMedia.videoWidth && videoMedia.videoHeight) {
           canvas.width = Math.min(1080, videoMedia.videoWidth);
           canvas.height = Math.round(canvas.width * videoMedia.videoHeight / videoMedia.videoWidth);
         }
       }
-      if (withMusic) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      framesStream = canvas.captureStream(24);
+      if (withMusic || videoMedia) {
+        const AudioEngine = window.AudioContext || window.webkitAudioContext;
+        if (!AudioEngine) throw new Error("Este navegador não suporta edição de áudio.");
+        audioCtx = new AudioEngine();
         const destination = audioCtx.createMediaStreamDestination();
-        let buffer;
-        if (music.kind === "builtin") buffer = makeSynthBuffer(audioCtx, music);
-        else buffer = await audioCtx.decodeAudioData(await music.file.arrayBuffer());
-        source = audioCtx.createBufferSource(); source.buffer = buffer; source.loop = true;
-        source.connect(destination);
+        if (videoMedia) audioCtx.createMediaElementSource(videoMedia).connect(destination);
+        if (withMusic) {
+          const buffer = music.kind === "builtin"
+            ? makeSynthBuffer(audioCtx, music)
+            : await audioCtx.decodeAudioData(await music.file.arrayBuffer());
+          source = audioCtx.createBufferSource(); source.buffer = buffer; source.loop = true;
+          source.connect(destination);
+        }
         destination.stream.getAudioTracks().forEach(t => framesStream.addTrack(t));
-        await audioCtx.resume(); source.start();
+        await audioCtx.resume(); if (source) source.start();
       }
       recorded = new MediaRecorder(framesStream, { mimeType: mime });
       const received = [];
@@ -549,8 +554,8 @@ export function bindStoryStudio(root, client, userId, refresh) {
       if (!output.size) throw new Error("A exportação gerou um vídeo vazio.");
       return new File([output], "story-" + Date.now() + (mime.includes("mp4") ? ".mp4" : ".webm"), { type: mime.split(";")[0] });
     } finally {
-      cancel = true; if (raf) cancelAnimationFrame(raf);
-      videoMedia?.pause(); source?.stop(); framesStream.getTracks().forEach(t => t.stop());
+      if (raf) cancelAnimationFrame(raf);
+      videoMedia?.pause(); if (source) { try { source.stop(); } catch {} } framesStream?.getTracks().forEach(t => t.stop());
       if (audioCtx) await audioCtx.close().catch(() => {});
     }
   };
