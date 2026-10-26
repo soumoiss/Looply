@@ -2,7 +2,7 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ 
 const pendingKey = (userId) => `looply:pending-call:${userId}`;
 
 export function setupGlobalCallListener(client, userId, profile) {
-  if (!client || !userId || window.__looplyGlobalCallListener) return;
+  if (!client || client.supportsRealtime === false || !userId || window.__looplyGlobalCallListener) return;
   window.__looplyGlobalCallListener = true;
   const channels = new Map();
   let incoming = null;

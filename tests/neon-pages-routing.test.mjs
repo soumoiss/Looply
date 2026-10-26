@@ -26,4 +26,7 @@ test("Neon modules use an authenticated shared client and retain the six migrate
  assert.match(runtime,/selfProfile/);
  assert.match(runtime,/headerMarkup/);
  assert.match(client,/v3_self_profile/);
+ assert.match(client,/lte\(column, value\)/);
+ assert.match(client,/or\(expression\)/);
+ assert.match(client,/supportsRealtime: false/);
 });
