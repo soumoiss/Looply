@@ -3,6 +3,7 @@ import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neo
 import { isExplicitAdminResult } from "./neon-admin-result.js";
 import { fetchLinkedNeonProfile } from "./neon-identity.js";
 import { readOwnNeonProfile } from "./neon-avatar-profile.js";
+import { invokeChatReadReceiptRpc } from "./chat-read-receipts.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
 export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
@@ -130,6 +131,14 @@ async function selectedPostRpc(name,args){
     return {data:payload,error:null};
   }catch{return {data:null,error:{message:"neon_selected_post_unavailable"}};}
 }
+async function chatReadReceiptRpc(name, args) {
+  try {
+    const session = await activeSession();
+    return await invokeChatReadReceiptRpc(config.data, session?.access_token, name, args);
+  } catch {
+    return { data: null, error: { message: "neon_chat_receipt_unavailable" } };
+  }
+}
 async function adminRpc(name, args) {
   if (name !== "v3_self_is_admin" || Object.keys(args || {}).length !== 0) return blocked();
   try {
@@ -194,7 +203,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),
