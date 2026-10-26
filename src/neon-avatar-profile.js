@@ -74,10 +74,21 @@ export async function verifySignedAvatar(url, ImageClass = Image) {
   const image = new ImageClass();
   image.referrerPolicy = "no-referrer";
   const loaded = new Promise((resolve, reject) => {
-    image.onload = () => resolve(true);
-    image.onerror = () => reject(fail("avatar-upload-validation-failed"));
+    let finished = false;
+    const timer = setTimeout(() => finish(false), 15000);
+    const finish = success => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      image.onload = null;
+      image.onerror = null;
+      if (success) resolve(true);
+      else reject(fail("avatar-upload-validation-failed"));
+    };
+    image.onload = () => finish(true);
+    image.onerror = () => finish(false);
+    image.src = url;
   });
-  image.src = url;
   await loaded;
   if (image.naturalWidth === 0 || image.naturalHeight === 0) throw fail("avatar-upload-validation-failed");
   return true;
@@ -98,7 +109,6 @@ export async function saveNeonProfile({
   const oldPath = current.avatar_path || null;
   let newPath = null;
   let hasCommitted = false;
-  let uploaded = false;
   const bucket = storage.from("looply-avatars");
   if (avatarFile) {
     validateAvatarFile(avatarFile);
@@ -114,7 +124,6 @@ export async function saveNeonProfile({
       });
       if (error) throw error;
       if (data?.path !== newPath) throw fail("avatar-upload-invalid-result");
-      uploaded = true;
     }
     const committed = await profileRequest({
       dataApiUrl, token, profileId, fetchImpl, method: "PATCH", changes
@@ -152,8 +161,16 @@ export async function saveNeonProfile({
     return { profile: committed, avatarPath: newPath || oldPath };
   } catch (error) {
     if (newPath && !hasCommitted) {
-      // If the PUT completed but its response was lost, avoid leaking a new orphan.
-      try { await bucket.remove([newPath]); } catch { /* cleanup is best-effort */ }
+      // A lost PATCH response may still mean that Neon committed the new path.
+      // Read the row again; never delete an image whose database state is unknown.
+      let safeToRemove = false;
+      try {
+        const observed = await profileRequest({ dataApiUrl, token, profileId, fetchImpl });
+        safeToRemove = observed.avatar_path !== newPath;
+      } catch { /* Unknown database state: preserve the object */ }
+      if (safeToRemove) {
+        try { await bucket.remove([newPath]); } catch { /* retry cleanup later */ }
+      }
     }
     throw error;
   }
