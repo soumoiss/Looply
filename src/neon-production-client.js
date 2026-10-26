@@ -148,6 +148,24 @@ async function adminRpc(name, args) {
     return { data: false, error: { message: "neon_admin_check_unavailable" } };
   }
 }
+// The restored page controllers use legacy profile UUIDs in all media FKs.
+const principalCache = new Map();
+async function legacyPageSession() {
+  const session = await activeSession();
+  if (!session?.access_token) return null;
+  const token = session.access_token;
+  let stored = principalCache.get(token);
+  if (!stored || stored.expires < Date.now()) {
+    const pending = selfProfile(session).then(profile => profile.id);
+    stored = { promise: pending, expires: Date.now() + 30000 };
+    principalCache.clear();
+    principalCache.set(token, stored);
+  }
+  let legacyId;
+  try { legacyId = await stored.promise; }
+  catch (error) { principalCache.delete(token); throw error; }
+  return { ...session, user: { ...session.user, id: legacyId, neonAuthId: session.user?.id } };
+}
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
   // This adapter has no live event transport yet. Keep call features from
@@ -156,9 +174,9 @@ export const looplyClient = Object.freeze({
   supportsRealtime: false,
   realtime: Object.freeze({ setAuth: async () => { throw new Error("neon_realtime_not_migrated"); } }),
   auth: Object.freeze({
-    getSession: async () => { const session = await activeSession(); return { data: { session }, error: null }; },
-    getUser: async () => { const session = await activeSession(); return { data: { user: session?.user || null }, error: null }; },
-    signOut: () => neon.auth.signOut(),
+    getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
+    getUser: async () => { try { const session = await legacyPageSession(); return { data: { user: session?.user || null }, error: null }; } catch (error) { return { data: { user: null }, error }; } },
+    signOut: () => { principalCache.clear(); return neon.auth.signOut(); },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
