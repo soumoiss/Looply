@@ -40,9 +40,10 @@ test("the configured profile playlist is normalized and overrides legacy usernam
   assert.equal(playlist.playlistIdFor("misol", "https://www.youtube.com/playlist?list=PLcustom_123"), "PLcustom_123");
 });
 
-test("profile runtime and self-edit flow carry playlist_url through the real profiles table", async () => {
+test("Neon page runtime resolves the existing profile identity and retains the playlist editor", async () => {
   const [runtime, profiles] = await Promise.all([read("src/page-runtime.js"), read("src/profiles.js")]);
-  assert.match(runtime, /profile_visibility,playlist_url,avatar_path/);
+  assert.match(runtime, /looplyClient as supabase, selfProfile/);
+  assert.match(runtime, /await selfProfile\(\)/);
   assert.match(profiles, /name="playlistUrl"/);
   assert.match(profiles, /normalizeYouTubePlaylistUrl/);
   assert.match(profiles, /updates\.playlist_url = playlistUrl \|\| null/);

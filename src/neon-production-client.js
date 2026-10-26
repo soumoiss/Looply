@@ -6,3 +6,68 @@ export function emailOf(value){const v=String(value||"").trim().toLowerCase();re
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export async function selfProfile(){const res=await neon.from("v3_self_profile").select("id,username,display_name,bio,theme,avatar_path").limit(2);if(res.error)throw Error("Não foi possível consultar o perfil vinculado no Neon.");if(res.data?.length!==1)throw Error("A identidade foi autenticada, mas o perfil original ainda não está vinculado.");return res.data[0]}
 export async function activeSession(){const s=await neon.auth.getSession();if(s.error)throw Error("Não foi possível verificar a sessão no Neon.");return s.data?.session||null}
+
+// Supabase-shaped, read-only bridge used only by the recovered legacy page
+// controllers while each feature is ported. Writes, RPCs, storage and realtime
+// deliberately fail closed until Neon/Cloudflare policies exist.
+function filtersToParams(filters = []) {
+  const params = new URLSearchParams();
+  for (const [operator, column, value] of filters) {
+    if (operator === "eq") params.set(column, `eq.${value}`);
+    else if (operator === "neq") params.set(column, `neq.${value}`);
+    else if (operator === "is") params.set(column, `is.${value}`);
+    else if (operator === "in") params.set(column, `in.(${value.map(v => `"${String(v).replaceAll('"', '\\"')}"`).join(",")})`);
+    else if (operator === "gt") params.set(column, `gt.${value}`);
+  }
+  return params;
+}
+
+function createReadQuery(table) {
+  const state = { columns: "*", filters: [], ordering: [], max: null, mode: "select", head: false, count: null };
+  const query = {
+    select(columns = "*", options = {}) { state.columns = columns; state.head = options.head === true; state.count = options.count || null; return query; },
+    eq(column, value) { state.filters.push(["eq", column, value]); return query; },
+    neq(column, value) { state.filters.push(["neq", column, value]); return query; },
+    is(column, value) { state.filters.push(["is", column, value]); return query; },
+    in(column, values) { state.filters.push(["in", column, values]); return query; },
+    gt(column, value) { state.filters.push(["gt", column, value]); return query; },
+    insert() { state.mode = "insert"; return query; },
+    upsert() { state.mode = "upsert"; return query; },
+    update() { state.mode = "update"; return query; },
+    delete() { state.mode = "delete"; return query; },
+    order(column, options = {}) { state.ordering.push(`${column}.${options.ascending === false ? "desc" : "asc"}`); return query; },
+    limit(value) { state.max = value; return query; },
+    maybeSingle() { state.max = 2; return query.then(result => result.error ? result : result.data?.length > 1 ? { data: null, error: { message: "multiple_rows" } } : { data: result.data?.[0] || null, error: null }); },
+    single() { state.max = 2; return query.then(result => result.error ? result : result.data?.length !== 1 ? { data: null, error: { message: "row_count_mismatch" } } : { data: result.data[0], error: null }); },
+    then(resolve, reject) { return execute().then(resolve, reject); },
+  };
+  async function execute() {
+    try {
+      if (!(await activeSession())) return { data: null, error: { message: "neon_session_required" }, count: null };
+      if (state.mode !== "select") return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
+      let request = neon.from(table).select(state.columns, { head: state.head, count: state.count });
+      for (const [operator, column, value] of state.filters) request = request[operator](column, value);
+      for (const ordering of state.ordering) { const [column, direction] = ordering.split("."); request = request.order(column, { ascending: direction !== "desc" }); }
+      if (state.max !== null) request = request.limit(state.max);
+      const result = await request;
+      return { ...result, data: Array.isArray(result.data) ? result.data : result.data ? [result.data] : [] };
+    } catch { return { data: null, error: { message: "neon_read_unavailable" }, count: null }; }
+  }
+  return query;
+}
+
+const blocked = async () => ({ data: null, error: { message: "neon_feature_not_migrated" } });
+export const looplyClient = Object.freeze({
+  auth: Object.freeze({
+    getSession: async () => { const session = await activeSession(); return { data: { session }, error: null }; },
+    getUser: async () => { const session = await activeSession(); return { data: { user: session?.user || null }, error: null }; },
+    signOut: () => neon.auth.signOut(),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+  }),
+  from: table => createReadQuery(table),
+  rpc: blocked,
+  functions: Object.freeze({ invoke: blocked }),
+  storage: Object.freeze({ from: () => ({ createSignedUrl: blocked, upload: blocked, remove: blocked, list: blocked }) }),
+  channel: () => ({ on() { return this; }, subscribe() { return this; } }),
+  removeChannel: () => {},
+});
