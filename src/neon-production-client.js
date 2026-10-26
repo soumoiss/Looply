@@ -1,3 +1,4 @@
+import { createNeonRestQuery } from "./neon-rest-bridge.js";
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
 import { isExplicitAdminResult } from "./neon-admin-result.js";
 import { fetchLinkedNeonProfile } from "./neon-identity.js";
@@ -28,65 +29,10 @@ function filtersToParams(filters = []) {
 }
 
 function createReadQuery(table) {
-  const state = { columns: "*", filters: [], ordering: [], max: null, range: null, mode: "select", payload: null, head: false, count: null };
-  const query = {
-    select(columns = "*", options = {}) { state.columns = columns; state.head = options.head === true; state.count = options.count || null; return query; },
-    eq(column, value) { state.filters.push(["eq", column, value]); return query; },
-    neq(column, value) { state.filters.push(["neq", column, value]); return query; },
-    is(column, value) { state.filters.push(["is", column, value]); return query; },
-    in(column, values) { state.filters.push(["in", column, values]); return query; },
-    gt(column, value) { state.filters.push(["gt", column, value]); return query; },
-    gte(column, value) { state.filters.push(["gte", column, value]); return query; },
-    lt(column, value) { state.filters.push(["lt", column, value]); return query; },
-    lte(column, value) { state.filters.push(["lte", column, value]); return query; },
-    ilike(column, value) { state.filters.push(["ilike", column, value]); return query; },
-    or(expression) { state.filters.push(["or", null, expression]); return query; },
-    insert(payload) { state.mode = "insert"; state.payload = payload; return query; },
-    upsert() { state.mode = "upsert"; return query; },
-    update(payload) { state.mode = "update"; state.payload = payload; return query; },
-    delete() { state.mode = "delete"; return query; },
-    order(column, options = {}) { state.ordering.push(`${column}.${options.ascending === false ? "desc" : "asc"}`); return query; },
-    limit(value) { state.max = value; return query; },
-    range(from, to) {
-      const start = Number(from), end = Number(to);
-      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) {
-        state.range = { error: true };
-      } else {
-        state.range = { from: start, to: end };
-      }
-      return query;
-    },
-    maybeSingle() { state.max = 2; return query.then(result => result.error ? result : result.data?.length > 1 ? { data: null, error: { message: "multiple_rows" } } : { data: result.data?.[0] || null, error: null }); },
-    single() { state.max = 2; return query.then(result => result.error ? result : result.data?.length !== 1 ? { data: null, error: { message: "row_count_mismatch" } } : { data: result.data[0], error: null }); },
-    then(resolve, reject) { return execute().then(resolve, reject); },
-  };
-  async function execute() {
-    try {
-      if (!(await activeSession())) return { data: null, error: { message: "neon_session_required" }, count: null };
-      const allowedWrites = table === "profiles" && state.mode === "update"
-        ? ["display_name", "bio", "profile_visibility", "playlist_url", "avatar_path"]
-        : table === "community_gallery_media" && ["insert", "update"].includes(state.mode)
-          ? ["owner_id", "storage_path", "file_name", "kind", "mime_type", "byte_size", "caption", "visibility", "comment_access", "private_owner_id", "publication_state"]
-          : null;
-      if (state.mode !== "select" && (!allowedWrites || (state.mode === "update" && !state.filters.some(([op, column]) => op === "eq" && column === "id")) || (state.mode === "insert" && !Array.isArray(state.payload) && table !== "community_gallery_media"))) return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
-      if (state.range?.error) return { data: null, error: { message: "invalid_range" }, count: null };
-      let request = state.mode === "select"
-        ? neon.from(table).select(state.columns, { head: state.head, count: state.count })
-        : state.mode === "insert"
-          ? neon.from(table).insert(Array.isArray(state.payload) ? state.payload : [state.payload]).select(state.columns)
-          : neon.from(table).update(state.payload).select(state.columns);
-      for (const [operator, column, value] of state.filters) {
-        if (operator === "or") request = request.or(value);
-        else request = request[operator](column, value);
-      }
-      for (const ordering of state.ordering) { const [column, direction] = ordering.split("."); request = request.order(column, { ascending: direction !== "desc" }); }
-      if (state.range) request = request.range(state.range.from, state.range.to);
-      else if (state.max !== null) request = request.limit(state.max);
-      const result = await request;
-      return { ...result, data: Array.isArray(result.data) ? result.data : result.data ? [result.data] : [] };
-    } catch { return { data: null, error: { message: "neon_read_unavailable" }, count: null }; }
-  }
-  return query;
+  return createNeonRestQuery(table,{
+    dataApiUrl:config.data,
+    getAccessToken:async()=>(await activeSession())?.access_token||null
+  });
 }
 
 const blocked = async () => ({ data: null, error: { message: "neon_feature_not_migrated" } });
