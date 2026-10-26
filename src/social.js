@@ -412,7 +412,7 @@ export async function uploadResumable(client, path, file, onProgress) {
   // Supabase TUS endpoints, keys, and retry SDKs are not used.
   const { data, error } = await client.auth.getSession();
   if (error || !data?.session?.access_token) throw new Error("session expired");
-  if (!file?.size || file.size > 25 * 1024 * 1024) throw new Error("unsupported file");
+  if (!file?.size) throw new Error("unsupported file");
   onProgress?.(0);
   const { data: uploaded, error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
     contentType: file.type || "application/octet-stream", upsert: false

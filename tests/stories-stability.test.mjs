@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
-import { decodeStoryBody, encodeStoryBody } from "../src/story-text-style.js";
+import { decodeStoryBody, encodeStoryBody, spotifyTrackId } from "../src/story-text-style.js";
 
 const read = (path) => readFile(resolve(process.cwd(), path), "utf8");
 
@@ -34,6 +34,18 @@ test("text-only Stories persist selectable fonts and bounded 6–20 pt sizing wh
   assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
   assert.match(css, /\.story-text-style\[hidden\]\s*\{\s*display:\s*none/);
   assert.match(html, /stories-immersive-camera-fix-20261023/);
+});
+
+test("Stories persist only valid Spotify track embeds and preserve the styled text", () => {
+  const url = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=preview";
+  assert.equal(spotifyTrackId(url), "4uLU6hMCjMI75M1A2tKUQC");
+  assert.equal(spotifyTrackId("https://open.spotify.com/playlist/4uLU6hMCjMI75M1A2tKUQC"), "");
+  assert.equal(spotifyTrackId("https://open.spotify.com.evil.example/track/4uLU6hMCjMI75M1A2tKUQC"), "");
+  const story = decodeStoryBody(encodeStoryBody("Um momento", "serif", 18, url));
+  assert.equal(story.text, "Um momento");
+  assert.equal(story.font, "serif");
+  assert.equal(story.size, 18);
+  assert.equal(story.spotifyTrackId, "4uLU6hMCjMI75M1A2tKUQC");
 });
 
 test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {

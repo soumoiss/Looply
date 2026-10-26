@@ -65,9 +65,10 @@ test("My Letters presents received, sent, and imported archive cards in one swit
   assert.match(page, /archivedCardsMarkup\(\)/);
 });
 
-test("story composer does not offer music while preserving photo and video posting", async () => {
+test("story composer offers a safe Spotify preview while preserving photo and video posting", async () => {
   const story = await readFile(resolve(root, "src/stories.js"), "utf8");
-  assert.doesNotMatch(story, /storyMusic|story-music|createPhotoStoryWithMusic|musicFile/);
+  assert.match(story, /id="storyMusic"/);
+  assert.match(story, /open\.spotify\.com\/embed\/track/);
   assert.match(story, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
   assert.match(story, /const media = file instanceof File && file\.size \? normalizePublicationMedia\(file\) : null/);
   assert.doesNotMatch(story, /api\.deezer\.com|api\.spotify\.com|audio.*proxy/i);

@@ -1,9 +1,11 @@
 // Zero-dependency S3 client. Neon Functions inject the storage credentials.
 const allowedOrigin = "https://soumoiss.github.io";
 const encoder = new TextEncoder();
-const maxBytes = bucket => (bucket === "looply-avatars" ? 10 : 25) * 1024 * 1024;
+const maxBytes = bucket => bucket === "looply-avatars"
+  ? 10 * 1024 * 1024
+  : Math.max(25 * 1024 * 1024, Math.min(5 * 1024 * 1024 * 1024, Number(process.env.LOOPLY_MAX_UPLOAD_BYTES) || 5 * 1024 * 1024 * 1024));
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", ...headers } });
-const cors = origin => ({ "access-control-allow-origin": origin, "access-control-allow-methods": "GET, PUT, POST, OPTIONS", "access-control-allow-headers": "authorization, content-type, x-looply-bucket, x-looply-path", "access-control-max-age": "600", vary: "Origin" });
+const cors = origin => ({ "access-control-allow-origin": origin, "access-control-allow-methods": "GET, PUT, POST, OPTIONS", "access-control-allow-headers": "authorization, content-type, x-looply-bucket, x-looply-path, x-looply-size", "access-control-max-age": "600", vary: "Origin" });
 const rfc3986 = value => encodeURIComponent(value).replace(/[!'()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
 const hex = value => [...new Uint8Array(value)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 const sha256 = async value => hex(await crypto.subtle.digest("SHA-256", typeof value === "string" ? encoder.encode(value) : value));
@@ -152,6 +154,14 @@ export default { async fetch(request) {
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
   if (!safeObjectPath(path) || !["looply-avatars", "looply-gallery", "looply-media", "looply-chat", "looply-letters"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
+  if (url.pathname.endsWith("/storage/upload-url") && request.method === "POST") {
+    const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const size = Number(request.headers.get("x-looply-size") || 0);
+    if (!Number.isSafeInteger(size) || !allowedFile(bucket, path, mime, size, profileId)) return json({ error: "file_not_allowed" }, 400, headers);
+    if (!(await canUploadObject(request.headers.get("authorization"),profileId,bucket,path))) return json({error:"not_owner_of_media_parent"},403,headers);
+    const signed = await signedRequest({ method: "PUT", bucket, path, mime, presignSeconds: 900 });
+    return json({ path, uploadUrl: signed.url, expiresIn: 900 }, 200, headers);
+  }
   if (url.pathname.endsWith("/storage/upload") && request.method === "PUT") {
     const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase(), bytes = new Uint8Array(await request.arrayBuffer());
     if (!allowedFile(bucket, path, mime, bytes.length, profileId)) return json({ error: "file_not_allowed" }, 400, headers);

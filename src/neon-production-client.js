@@ -46,7 +46,8 @@ async function storageRequest(action, bucket, path, options = {}) {
         authorization: "Bearer " + session.access_token,
         "content-type": options.contentType || "application/json",
         "x-looply-bucket": bucket,
-        "x-looply-path": path
+        "x-looply-path": path,
+        ...(options.size ? { "x-looply-size": String(options.size) } : {})
       },
       body: action === "upload" ? options.file : action === "remove" ? undefined : JSON.stringify({ expiresIn: options.expiresIn || 1800 })
     });
@@ -58,7 +59,19 @@ async function storageRequest(action, bucket, path, options = {}) {
 function storageBucket(bucket) {
   return Object.freeze({
     upload: async (path, file, options = {}) => {
-      const result = await storageRequest("upload", bucket, path, { file, contentType: options.contentType || file?.type || "application/octet-stream" });
+      const contentType = options.contentType || file?.type || "application/octet-stream";
+      const authorization = await storageRequest("upload-url", bucket, path, { contentType, size: file?.size });
+      if (!authorization.error && authorization.data?.uploadUrl) {
+        try {
+          const response = await fetch(authorization.data.uploadUrl, { method: "PUT", headers: { "content-type": contentType }, body: file, signal: options.signal });
+          if (response.ok) return { data: { path }, error: null };
+          if (file?.size > 25 * 1024 * 1024) return { data: null, error: { message: "direct_storage_upload_failed", status: response.status } };
+        } catch (error) {
+          if (file?.size > 25 * 1024 * 1024) return { data: null, error: { message: "direct_storage_upload_failed", details: error?.message || "network" } };
+        }
+      }
+      if (file?.size > 25 * 1024 * 1024) return authorization.error ? authorization : { data: null, error: { message: "direct_storage_upload_unavailable" } };
+      const result = await storageRequest("upload", bucket, path, { file, contentType });
       return result.error ? result : { data: { path: result.data.path }, error: null };
     },
     createSignedUrl: async (path, expiresIn = 1800) => {

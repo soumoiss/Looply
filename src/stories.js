@@ -3,9 +3,8 @@ import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
-import { decodeStoryBody, encodeStoryBody } from "./story-text-style.js";
+import { decodeStoryBody, encodeStoryBody, spotifyTrackId } from "./story-text-style.js";
 
-const maxStoryBytes = 25 * 1024 * 1024;
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
   ["video/mp4", "mp4"], ["video/webm", "webm"]
@@ -248,22 +247,24 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
       '<div class="story-dialog-heading"><div><span class="section-kicker">Story</span><h2 id="storyCreateTitle">Adicionar story</h2></div>' +
       '<button class="icon-button" type="button" data-story-create-close aria-label="Fechar">' + icon("close") + '</button></div>' +
       '<form class="story-create-form" data-story-create>' +
+        '<nav class="story-composer-modes" aria-label="Modo do story"><button type="button" data-story-mode="camera" aria-pressed="true">Câmera</button><button type="button" data-story-mode="text" aria-pressed="false">Texto</button></nav>' +
+        '<section class="story-text-composer" data-story-text-composer hidden><div class="story-text-live-preview" data-story-text-live-preview>Digite seu story</div>' +
         '<label for="storyBody">Texto <span>(opcional, até 1.000 caracteres)</span></label>' +
-        '<textarea id="storyBody" name="body" maxlength="1000" rows="3" placeholder="Adicione um texto"></textarea>' +
+        '<textarea id="storyBody" name="body" maxlength="1000" rows="3" placeholder="Digite seu story"></textarea>' +
         '<fieldset class="story-text-style" data-story-text-style><legend>Estilo (Stories sem mídia)</legend>' +
           '<label for="storyTextFont">Fonte<select id="storyTextFont" name="text_font"><option value="system">Moderna</option><option value="serif">Clássica</option><option value="rounded">Arredondada</option><option value="mono">Máquina de escrever</option><option value="handwritten">Manuscrita</option></select></label>' +
           '<label for="storyTextSize">Tamanho <output data-story-text-size>20 pt</output><input id="storyTextSize" name="text_size" type="range" min="6" max="20" step="1" value="20"></label>' +
-        '</fieldset>' +
-        '<div class="story-media-label"><span>Foto ou vídeo <small>(opcional, até 25 MB)</small></span><div class="story-capture-actions">' +
-          '<label class="story-file-picker" for="storyMedia">Escolher arquivo ou tirar foto</label>' +
-          '<button class="text-button" type="button" data-story-camera-open>Usar câmera</button></div></div>' +
+        '</fieldset><label for="storyMusic">Música do Spotify <span>(opcional)</span></label><input id="storyMusic" name="music_url" type="url" inputmode="url" placeholder="Cole o link de uma faixa do Spotify">' +
+        '<div class="story-spotify-preview" data-story-spotify-preview aria-live="polite"></div></section>' +
+        '<div class="story-media-label"><span>Foto ou vídeo <small>envio direto ao armazenamento</small></span></div>' +
         '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video>' +
-          '<div class="story-camera-actions"><button class="text-button" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">Alternar câmera</button>' +
-          '<button class="primary-button compact-button" type="button" data-story-capture-photo>Tirar foto</button>' +
-          '<button class="text-button" type="button" data-story-record-toggle>Gravar vídeo</button>' +
-          '<button class="text-button" type="button" data-story-camera-close>Fechar câmera</button></div>' +
+          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
+          '<div class="story-filter-strip" data-story-filter-strip aria-label="Filtros em tempo real"><button type="button" data-story-filter="none" aria-pressed="true">Original</button><button type="button" data-story-filter="warm" aria-pressed="false">Quente</button><button type="button" data-story-filter="cool" aria-pressed="false">Frio</button><button type="button" data-story-filter="mono" aria-pressed="false">P&B</button><button type="button" data-story-filter="vivid" aria-pressed="false">Vivo</button></div>' +
+          '<div class="story-camera-actions"><label class="story-gallery-button" for="storyMedia" aria-label="Escolher foto ou vídeo da galeria">▧<span>Galeria</span></label>' +
+          '<button class="story-shutter" type="button" data-story-capture-photo aria-label="Tirar foto"></button>' +
+          '<button class="story-record-button" type="button" data-story-record-toggle aria-label="Gravar vídeo"><span></span><small>Vídeo</small></button></div>' +
           '<span class="form-status" data-story-camera-status role="status" aria-live="polite"></span>' +
         '</section>' +
         '<div class="story-media-preview" data-story-preview aria-live="polite"></div>' +
@@ -342,7 +343,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const state = {
     groups: groupActiveStories(initialStories), active: null, index: 0, timer: null, previewUrl: null,
     viewedThisSession: new Set(), likedStories: new Set(), cameraStream: null, cameraFacing: "environment", mediaRecorder: null,
-    recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0, paused: false
+    recordTimer: null, recordingDiscarded: false, likePending: new Set(), ignoreTapUntil: 0, paused: false,
+    cameraFilter: "none"
   };
   const showStatus = (message, isError = false) => {
     if (!status) return;
@@ -360,12 +362,43 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const storyMediaInput = root.querySelector("#storyMedia");
   const storyTextStyle = root.querySelector("[data-story-text-style]");
   const storyTextSize = root.querySelector("#storyTextSize");
+  const storyBodyInput = root.querySelector("#storyBody");
+  const storyFontInput = root.querySelector("#storyTextFont");
+  const storyMusicInput = root.querySelector("#storyMusic");
+  const textComposer = root.querySelector("[data-story-text-composer]");
+  const liveTextPreview = root.querySelector("[data-story-text-live-preview]");
+  const filterStyles = { none: "none", warm: "sepia(.32) saturate(1.28) contrast(1.04)", cool: "hue-rotate(175deg) saturate(.88) contrast(1.08)", mono: "grayscale(1) contrast(1.12)", vivid: "saturate(1.65) contrast(1.12)" };
+  const updateTextPreview = () => {
+    if (!liveTextPreview) return;
+    const styled = decodeStoryBody(encodeStoryBody(storyBodyInput?.value || "Digite seu story", storyFontInput?.value || "system", storyTextSize?.value || 20));
+    liveTextPreview.textContent = styled.text || "Digite seu story";
+    liveTextPreview.style.fontFamily = styled.fontFamily || "";
+    liveTextPreview.style.fontSize = `${styled.size}pt`;
+  };
+  const updateSpotifyPreview = () => {
+    const host = root.querySelector("[data-story-spotify-preview]");
+    if (!host) return;
+    const trackId = spotifyTrackId(storyMusicInput?.value);
+    host.replaceChildren();
+    if (!storyMusicInput?.value) return;
+    if (!trackId) { host.textContent = "Use um link válido de faixa do Spotify."; return; }
+    const frame = document.createElement("iframe");
+    frame.src = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator`;
+    frame.title = "Prévia da música no Spotify";
+    frame.loading = "lazy";
+    frame.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+    host.append(frame);
+  };
+  storyBodyInput?.addEventListener("input", updateTextPreview);
+  storyFontInput?.addEventListener("change", updateTextPreview);
+  storyMusicInput?.addEventListener("input", updateSpotifyPreview);
   storyMediaInput?.addEventListener("change", () => {
     if (storyTextStyle) storyTextStyle.hidden = Boolean(storyMediaInput.files?.[0]?.size);
   });
   storyTextSize?.addEventListener("input", () => {
     const output = root.querySelector("[data-story-text-size]");
     if (output) output.textContent = `${storyTextSize.value} pt`;
+    updateTextPreview();
   });
   const setCameraStatus = (message, isError = false) => {
     if (!cameraStatus) return;
@@ -413,6 +446,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     state.cameraStream = nextStream;
     state.cameraFacing = facingMode;
     cameraPreview.srcObject = state.cameraStream;
+    cameraPreview.style.filter = filterStyles[state.cameraFilter];
     cameraPanel.hidden = false;
     root.querySelector("[data-story-capture-photo]").disabled = false;
     root.querySelector("[data-story-record-toggle]").disabled = false;
@@ -455,7 +489,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const canvas = document.createElement("canvas");
     canvas.width = cameraPreview.videoWidth;
     canvas.height = cameraPreview.videoHeight;
-    canvas.getContext("2d", { alpha: false }).drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext("2d", { alpha: false });
+    context.filter = filterStyles[state.cameraFilter];
+    context.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
     const photo = await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("photo_capture_failed")), "image/jpeg", 0.9));
     selectStoryFile(photo, `story-${Date.now()}.jpg`);
     setCameraStatus("Foto pronta para publicar.");
@@ -484,8 +520,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.recordTimer = null;
       if (state.recordingDiscarded) return;
       const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
-      if (!blob.size || blob.size > maxStoryBytes) {
-        setCameraStatus("A gravação ficou vazia ou passou de 25 MB.", true);
+      if (!blob.size) {
+        setCameraStatus("A gravação ficou vazia.", true);
         return;
       }
       const extension = blob.type.includes("mp4") ? "mp4" : "webm";
@@ -619,6 +655,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     caption.textContent = storyText.text;
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
+    const oldMusic = viewer.querySelector("[data-story-viewer-music]");
+    oldMusic?.remove();
+    if (storyText.spotifyTrackId) {
+      const music = document.createElement("iframe");
+      music.dataset.storyViewerMusic = "";
+      music.className = "story-viewer-music";
+      music.src = `https://open.spotify.com/embed/track/${storyText.spotifyTrackId}?utm_source=generator`;
+      music.title = "Música deste story no Spotify";
+      music.loading = "lazy";
+      music.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+      viewer.querySelector("[data-story-touch-surface]").append(music);
+    }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     mediaHost.querySelectorAll("video").forEach((video) => {
       video.pause();
@@ -856,8 +904,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const file = event.target.files?.[0];
       const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
       if (!file || !preview) return;
-      if (!media || !storyMimeTypes.has(media.type) || media.size > maxStoryBytes) {
-        preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM de até 25 MB.";
+      if (!media || !storyMimeTypes.has(media.type)) {
+        preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM.";
         return;
       }
       state.previewUrl = URL.createObjectURL(file);
@@ -872,6 +920,29 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-create-open]")) {
       openStoryDialog(createDialog);
+      textComposer.hidden = true;
+      cameraPanel.hidden = false;
+      try { await startCamera(); }
+      catch (error) {
+        console.warn("Looply story camera could not start.", error);
+        setCameraStatus("Não foi possível abrir a câmera. Use Galeria ou o modo Texto.", true);
+      }
+      return;
+    }
+    const modeButton = event.target.closest("[data-story-mode]");
+    if (modeButton) {
+      const textMode = modeButton.dataset.storyMode === "text";
+      root.querySelectorAll("[data-story-mode]").forEach((button) => button.setAttribute("aria-pressed", String(button === modeButton)));
+      textComposer.hidden = !textMode;
+      if (textMode) { stopCamera(true); updateTextPreview(); storyBodyInput?.focus(); }
+      else { cameraPanel.hidden = false; try { await startCamera(); } catch { setCameraStatus("Câmera indisponível. Você ainda pode usar Galeria.", true); } }
+      return;
+    }
+    const filterButton = event.target.closest("[data-story-filter]");
+    if (filterButton) {
+      state.cameraFilter = filterStyles[filterButton.dataset.storyFilter] ? filterButton.dataset.storyFilter : "none";
+      cameraPreview.style.filter = filterStyles[state.cameraFilter];
+      root.querySelectorAll("[data-story-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === filterButton)));
       return;
     }
     if (event.target.closest("[data-story-camera-open]")) {
@@ -1160,12 +1231,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const file = formData.get("media");
       const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
       const body = bodyText && !media
-        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"))
+        ? encodeStoryBody(bodyText, String(formData.get("text_font") || "system"), formData.get("text_size"), String(formData.get("music_url") || ""))
         : bodyText;
       const visibility = String(formData.get("visibility") || "public");
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
       if (file instanceof File && file.size && !media) throw new Error("invalid_media");
-      if (media && (!storyMimeTypes.has(media.type) || media.size > maxStoryBytes)) throw new Error("invalid_media");
+      if (media && !storyMimeTypes.has(media.type)) throw new Error("invalid_media");
+      if (String(formData.get("music_url") || "").trim() && !spotifyTrackId(formData.get("music_url"))) throw new Error("invalid_music");
       if (!body && !media) throw new Error("empty_story");
       if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");
 
@@ -1202,7 +1274,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
       if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
       const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
-        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 25 MB."
+        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM."
+          : error?.message === "invalid_music" ? "Cole um link válido de faixa do Spotify."
           : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
             : error?.status === 403 || error?.code === "42501"
               ? "O Neon recusou a autorização para publicar este story. Sua conta e o perfil histórico precisam estar vinculados."
