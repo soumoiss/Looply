@@ -260,11 +260,13 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video><canvas data-story-ar-canvas aria-hidden="true"></canvas>' +
-          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-music-toggle aria-label="Adicionar música">♫</button><button type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
+          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-flash-toggle aria-label="Alternar flash">⚡</button><button type="button" data-story-camera-settings aria-label="Configurações da câmera">⚙</button></div>' +
+          '<div class="story-camera-creative-tools" aria-label="Ferramentas criativas"><button type="button" data-story-mode="text" aria-label="Criar texto">Aa</button><button type="button" data-story-effects aria-label="Efeitos dinâmicos">∞</button><button type="button" data-story-grid-toggle aria-label="Alternar grade">⊞</button><button type="button" data-story-tools-toggle aria-label="Recolher ferramentas">⌄</button><button type="button" data-story-music-toggle aria-label="Adicionar música">♫</button></div>' +
           '<div class="story-filter-strip" data-story-filter-strip aria-label="Ajustes visuais"><button type="button" data-story-filter="none" aria-pressed="true">Original</button><button type="button" data-story-filter="warm" aria-pressed="false">Quente</button><button type="button" data-story-filter="cool" aria-pressed="false">Frio</button><button type="button" data-story-filter="mono" aria-pressed="false">P&B</button><button type="button" data-story-filter="vivid" aria-pressed="false">Vivo</button></div><div class="story-lens-strip" data-story-lens-strip aria-label="Lentes com rastreamento facial"><button type="button" data-story-lens="none" aria-pressed="true">Sem lente</button><button type="button" data-story-lens="glasses" aria-pressed="false">Óculos RA</button><button type="button" data-story-lens="halo" aria-pressed="false">Halo RA</button><button type="button" data-story-lens="mask" aria-pressed="false">Máscara RA</button><button type="button" data-story-lens="eyes" aria-pressed="false">Olhos RA</button></div>' +
           '<div class="story-camera-actions"><label class="story-gallery-button" for="storyMedia" aria-label="Escolher foto ou vídeo da galeria">▧<span>Galeria</span></label>' +
           '<button class="story-shutter" type="button" data-story-capture-photo aria-label="Tirar foto"></button>' +
-          '<button class="story-record-button" type="button" data-story-record-toggle aria-label="Gravar vídeo"><span></span><small>Vídeo</small></button></div>' +
+          '<button class="story-record-button" type="button" data-story-record-toggle aria-label="Gravar vídeo"><span></span><small>Vídeo</small></button><button class="story-camera-flip" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
+          '<nav class="story-format-selector" aria-label="Formato da publicação"><button type="button">POST</button><button type="button" aria-current="true">STORY</button><button type="button">REEL</button><button type="button">LIVE</button></nav>' +
           '<span class="form-status" data-story-camera-status role="status" aria-live="polite"></span>' +
         '</section>' +
         '<div class="story-media-preview" data-story-preview aria-live="polite"></div>' +
@@ -484,6 +486,27 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     root.querySelectorAll("[data-story-lens]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
     setCameraStatus(lens === "none" ? "Lente removida." : "Lente facial ativa: acompanhe a prévia.");
   }));
+  root.querySelector("[data-story-grid-toggle]")?.addEventListener("click", (event) => {
+    event.stopPropagation(); cameraPanel.classList.toggle("story-camera-grid-on");
+  });
+  root.querySelector("[data-story-tools-toggle]")?.addEventListener("click", (event) => {
+    event.stopPropagation(); cameraPanel.classList.toggle("story-camera-tools-collapsed");
+  });
+  root.querySelector("[data-story-flash-toggle]")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const track = state.cameraStream?.getVideoTracks?.()[0];
+    if (!track?.applyConstraints) { setCameraStatus("Flash não disponível nesta câmera.", true); return; }
+    const current = Boolean(track.getSettings?.().torch);
+    try { await track.applyConstraints({ advanced: [{ torch: !current }] }); event.currentTarget.setAttribute("aria-pressed", String(!current)); }
+    catch { setCameraStatus("Flash não disponível nesta câmera.", true); }
+  });
+  root.querySelector("[data-story-camera-settings]")?.addEventListener("click", (event) => {
+    event.stopPropagation(); setCameraStatus("Configurações rápidas: flash, grade, lentes e filtros disponíveis.");
+  });
+  root.querySelector("[data-story-effects]")?.addEventListener("click", (event) => {
+    event.stopPropagation(); root.querySelector('[data-story-lens="glasses"]')?.focus();
+    setCameraStatus("Escolha uma lente RA abaixo da prévia.");
+  });
   storyMediaInput?.addEventListener("change", () => {
     const hasMedia = Boolean(storyMediaInput.files?.[0]?.size);
     if (storyTextStyle) storyTextStyle.hidden = hasMedia;

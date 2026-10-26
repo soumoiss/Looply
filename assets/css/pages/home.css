@@ -483,6 +483,11 @@
 .story-camera > canvas[data-story-ar-canvas] { position:absolute; z-index:2; inset:0; width:100%; height:100%; pointer-events:none; }
 .story-camera-topbar { position:absolute; z-index:4; top:max(64px,calc(env(safe-area-inset-top) + 54px)); right:14px; display:grid; gap:10px; }
 .story-camera-topbar button { display:grid; width:42px; height:42px; place-items:center; border:1px solid #ffffff3d; border-radius:50%; background:#07070970; color:#fff; font:600 24px/1 system-ui,sans-serif; backdrop-filter:blur(9px); }
+.story-camera-topbar { right:14px; left:14px; grid-template-columns:42px 42px 42px; grid-auto-flow:column; justify-content:space-between; }
+.story-camera-creative-tools { position:absolute; z-index:4; top:calc(72px + env(safe-area-inset-top)); left:14px; display:flex; flex-direction:column; gap:10px; }
+.story-camera-creative-tools button { display:grid; width:42px; height:42px; place-items:center; border:1px solid #ffffff3d; border-radius:50%; background:#07070970; color:#fff; font:700 16px/1 system-ui,sans-serif; backdrop-filter:blur(9px); }
+.story-camera-tools-collapsed .story-camera-creative-tools button:nth-child(n+3) { display:none; }
+.story-camera-grid-on::after { content:""; position:absolute; z-index:3; inset:0; pointer-events:none; background:linear-gradient(90deg,transparent 49.8%,#fff6 50%,transparent 50.2%),linear-gradient(0deg,transparent 49.8%,#fff6 50%,transparent 50.2%); }
 .story-filter-strip { position:absolute; z-index:4; right:0; bottom:max(118px,calc(env(safe-area-inset-bottom) + 106px)); left:0; display:flex; gap:12px; overflow-x:auto; padding:8px 18px; scrollbar-width:none; }
 .story-filter-strip::-webkit-scrollbar { display:none; }
 .story-filter-strip button { flex:0 0 56px; width:56px; height:56px; overflow:hidden; border:2px solid #ffffff8c; border-radius:50%; background:linear-gradient(135deg,#f5b35f,#c25c8e 52%,#596dc9); color:#fff; font:700 9px/1 system-ui,sans-serif; text-shadow:0 1px 4px #000; }
@@ -494,7 +499,14 @@
 .story-lens-strip::-webkit-scrollbar { display:none; }
 .story-lens-strip button { flex:0 0 auto; min-height:38px; padding:0 12px; border:1px solid #ffffff8a; border-radius:999px; background:#17101dcc; color:#fff; font:700 10px/1 system-ui,sans-serif; backdrop-filter:blur(8px); }
 .story-lens-strip button[aria-pressed="true"] { border-color:#fff; background:#7651bdde; box-shadow:0 0 0 2px #ffffff42; }
-.story-camera-actions { position:absolute; z-index:5; right:0; bottom:max(20px,env(safe-area-inset-bottom)); left:0; display:grid; grid-template-columns:1fr 88px 1fr; align-items:center; gap:8px; padding:0 22px; }
+.story-camera-actions { position:absolute; z-index:5; right:0; bottom:max(20px,env(safe-area-inset-bottom)); left:0; display:grid; grid-template-columns:52px minmax(70px,1fr) 88px minmax(70px,1fr) 52px; align-items:center; gap:8px; padding:0 16px; }
+.story-camera-actions .story-camera-flip { justify-self:end; width:52px; height:52px; padding:0; border:1px solid #ffffff7d; border-radius:50%; background:#0c0c10a8; color:#fff; font-size:24px; }
+.story-camera-actions .story-shutter { grid-column:3; }
+.story-camera-actions .story-record-button { grid-column:4; justify-self:end; }
+.story-camera-actions .story-camera-flip { grid-column:5; }
+.story-format-selector { position:absolute; z-index:5; right:0; bottom:76px; left:0; display:flex; justify-content:center; gap:18px; color:#ffffffa8; font:700 10px/1 system-ui,sans-serif; letter-spacing:.08em; }
+.story-format-selector button { border:0; background:none; color:inherit; font:inherit; }
+.story-format-selector button[aria-current="true"] { color:#fff; border-bottom:2px solid #fff; padding-bottom:4px; }
 .story-camera-actions .story-gallery-button { display:grid; justify-self:start; place-items:center; gap:3px; width:52px; height:52px; padding:0; border:1px solid #ffffff7d; border-radius:13px; background:#0c0c10a8; color:#fff; font-size:25px; backdrop-filter:blur(8px); }
 .story-gallery-button span { font-size:8px; font-weight:750; }
 .story-shutter { width:78px!important; height:78px!important; min-height:78px!important; padding:0!important; border:5px solid #fff!important; border-radius:50%!important; background:#ffffff45!important; box-shadow:0 0 0 2px #0003!important; }
