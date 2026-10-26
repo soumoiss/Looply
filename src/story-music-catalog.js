@@ -18,6 +18,18 @@ function officialUrl(value, provider) {
       ? url.href : "";
   } catch { return ""; }
 }
+function officialPreviewUrl(value,provider) {
+  try {
+    if(!value) return "";
+    const url = new URL(value);
+    const allowed = provider==="apple"
+      ? ["itunes.apple.com","apple.com","mzstatic.com"]
+      : provider==="deezer" ? ["dzcdn.net"] : [];
+    return url.protocol==="https:" && allowed.some(host=>
+      url.hostname===host || url.hostname.endsWith("."+host))
+      ? url.href : "";
+  }catch{return "";}
+}
 function clean(value,max=140) {
   return String(value ?? "").replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,max);
 }
@@ -28,7 +40,8 @@ export function normalizeStorySong(track) {
   const id=/^[a-zA-Z0-9_-]{1,100}$/.test(String(track.id||""))?String(track.id):"";
   return url&&title&&artist
     ? {provider:track.provider,title,artist,url,id,
-      artwork:typeof track.artwork==="string"?track.artwork:"",kind:"catalog"} : null;
+      artwork:typeof track.artwork==="string"?track.artwork:"",kind:"catalog",
+      previewUrl:officialPreviewUrl(track.previewUrl,track.provider)} : null;
 }
 const markerStart="[[looply-music-v4|";
 const markerV5="[[looply-music-v5|";
@@ -42,6 +55,9 @@ export function officialSongPreview(track) {
   const song=normalizeStorySong(track);
   if(!song) return null;
   const u=new URL(song.url);
+  // Temporary playback directly from the official source. Never download,
+  // save or attach this preview to the video (Apple/iTunes promo terms).
+  if(song.previewUrl) return {kind:"audio",provider:song.provider,src:song.previewUrl};
   if(song.provider==="apple" && u.hostname==="music.apple.com"){
     return {kind:"embed",provider:"apple",src:"https://embed.music.apple.com"+u.pathname+u.search};
   }
@@ -92,7 +108,7 @@ export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
     .filter(x=>x.kind==="song")
     .map(x=>normalizeStorySong({
       provider:"apple",id:String(x.trackId||""),title:x.trackName,artist:x.artistName,
-      url:x.trackViewUrl,artwork:x.artworkUrl100
+      url:x.trackViewUrl,artwork:x.artworkUrl100,previewUrl:x.previewUrl
     })).filter(Boolean).slice(0,20);
 }
 export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
