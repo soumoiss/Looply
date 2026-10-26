@@ -1,3 +1,4 @@
+import { PROVIDER_NAMES, decodeStorySong } from "./story-music-catalog.js";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
@@ -432,12 +433,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const avatarHost = viewer.querySelector("[data-story-viewer-avatar]");
     avatarHost.innerHTML = storyAvatar(author, "", false);
     const caption = viewer.querySelector("[data-story-viewer-caption]");
-    const storyText = decodeStoryBody(story.body || "");
+    const catalogSong = decodeStorySong(story.body || "");
+    const storyText = decodeStoryBody(catalogSong.text);
     caption.textContent = storyText.text;
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     const oldMusic = viewer.querySelector("[data-story-viewer-music]");
     oldMusic?.remove();
+    if (catalogSong.song) {
+      const credit = document.createElement("a");
+      credit.dataset.storyViewerMusic = "";
+      credit.className = "story-viewer-song-credit";
+      credit.href = catalogSong.song.url;
+      credit.target = "_blank";
+      credit.rel = "noopener noreferrer";
+      credit.textContent = "♪ " + catalogSong.song.title + " · " + catalogSong.song.artist + " — " + PROVIDER_NAMES[catalogSong.song.provider];
+      credit.setAttribute("aria-label", "Ouvir música no serviço oficial");
+      credit.addEventListener("click", event => event.stopPropagation());
+      viewer.querySelector("[data-story-touch-surface]").append(credit);
+    }
     if (storyText.music?.previewUrl) {
       const music = document.createElement("audio");
       music.id = "story-audio";
