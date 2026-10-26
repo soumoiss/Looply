@@ -537,8 +537,6 @@ export function bindMusicEvents(root, client, getUserId) {
     }
     const playButton = event.target.closest("[data-music-play]");
     if (!playButton) return;
-    const playButton = event.target.closest("[data-music-play]");
-    if (!playButton) return;
     const player = playButton.closest("[data-music-player]");
     const audio = player?.querySelector("[data-music-audio]");
     if (!player || !audio) return;
