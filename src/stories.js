@@ -3,7 +3,7 @@ import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { decodeStoryBody } from "./story-text-style.js";
-import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js";
+import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=portrait-capture-20261026";
 
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],

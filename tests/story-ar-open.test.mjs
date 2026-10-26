@@ -62,7 +62,7 @@ test("AR uses real camera frame compositing, WebGL pixel deformation, 3D geometr
   assert.match(paint,/manifest\.id==="clown"/);
   assert.match(paint,/manifest\.id==="skincare"/);
   assert.match(studio,/loadStoryEffectManifest/);
-  assert.match(studio,/ctx\.drawImage\(lens,/);
+  assert.match(studio,/drawLayer\(lens\)/);
   assert.ok(!/warm:|cool:|mono:|vivid:/.test(studio));
   assert.ok(StoryFaceLens.prototype.prepare instanceof Function);
 });
