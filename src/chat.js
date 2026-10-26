@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { cachedSignedUrls } from "./storage-url-cache.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
@@ -185,7 +186,7 @@ function notificationsMarkup(notifications) {
 export function chatMarkup(data, userId) {
   if (data.error) return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle"><div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Chats</h2></div></div><div class="chat-empty" role="alert">Não foi possível carregar as conversas. Atualize a página e tente novamente.</div></section>`;
   const conversations = data.conversations.length
-    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}">
+    ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}" data-chat-kind="${escapeHtml(conversation.kind || "")}" data-chat-unread-count="${Number(conversation.unreadCount) || 0}">
         ${conversationAvatar(conversation, userId)}
         <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
@@ -1238,12 +1239,11 @@ function applyConversationFilter(root) {
   } catch { /* Local favorites are optional; other filters remain usable. */ }
   for (const item of items) {
     const matchesQuery = !query || item.textContent.toLocaleLowerCase("pt-BR").includes(query);
-    const isGroup = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
-    const isUnread = Boolean(item.querySelector(".chat-unread"));
-    const matchesFilter = activeFilter === "all"
-      || (activeFilter === "unread" && isUnread)
-      || (activeFilter === "groups" && isGroup)
-      || (activeFilter === "favorites" && favorites.has(item.dataset.chatOpen));
+    const matchesFilter = matchesConversationFilter({
+      id: item.dataset.chatOpen,
+      kind: item.dataset.chatKind,
+      unreadCount: item.dataset.chatUnreadCount
+    }, activeFilter, favorites);
     item.hidden = !(matchesQuery && matchesFilter);
     if (!item.hidden) visible += 1;
   }
