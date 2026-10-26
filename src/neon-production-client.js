@@ -65,6 +65,15 @@ function createReadQuery(table) {
 }
 
 const blocked = async () => ({ data: null, error: { message: "neon_feature_not_migrated" } });
+async function adminRpc(name, args) {
+  if (name !== "v3_self_is_admin" || Object.keys(args || {}).length !== 0) return blocked();
+  try {
+    const result = await neon.rpc(name);
+    return { data: result.data === true, error: result.error || null };
+  } catch {
+    return { data: false, error: { message: "neon_admin_check_unavailable" } };
+  }
+}
 export const looplyClient = Object.freeze({
   // This adapter has no live event transport yet. Keep call features from
   // attaching to a pretend Realtime channel while the authenticated Worker
@@ -78,7 +87,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: blocked,
+  rpc: adminRpc,
   functions: Object.freeze({ invoke: blocked }),
   storage: Object.freeze({ from: () => ({ createSignedUrl: blocked, upload: blocked, remove: blocked, list: blocked }) }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),

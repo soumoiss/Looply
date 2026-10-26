@@ -177,11 +177,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   let isAdmin = false;
   try {
     const [profileResult, adminResult] = await Promise.allSettled([
-      loadProfile(user.id), Promise.resolve({ data: user.role === "admin" })
+      loadProfile(user.id), supabase.rpc("v3_self_is_admin")
     ]);
     if (profileResult.status === "rejected") throw profileResult.reason;
     profile = profileResult.value;
-    isAdmin = adminResult.status === "fulfilled" && Boolean(adminResult.value?.data);
+    isAdmin = adminResult.status === "fulfilled" && !adminResult.value?.error && adminResult.value?.data === true;
   } catch (error) {
     notice(root, error?.message || "Não foi possível carregar o perfil.", "error");
     return;
