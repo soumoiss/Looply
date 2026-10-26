@@ -34,7 +34,7 @@ test("saved posts migration scopes reads and inserts to the signed-in owner and 
   assert.match(migration, /primary key \(user_id, post_id\)/i);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /grant select, insert, delete on table public\.saved_posts to authenticated/i);
-  assert.match(migration, /user_id = \(select auth\.uid\(\)\) and \(select private\.can_view_post\(post_id\)\)/i);
-  assert.match(migration, /saved_posts_delete_own[\s\S]*?using \(user_id = \(select auth\.uid\(\)\)\)/i);
+  assert.match(migration, /user_id = \(select public\.looply_legacy_uid\(\)\) and \(select public\.v3_can_view_post\(post_id\)\)/i);
+  assert.match(migration, /saved_posts_delete_own[\s\S]*?using \(user_id = \(select public\.looply_legacy_uid\(\)\)\)/i);
   assert.doesNotMatch(migration, /grant all|drop table|truncate|delete from public\.posts/i);
 });
