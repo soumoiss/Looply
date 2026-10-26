@@ -128,6 +128,27 @@ async function legacyPageSession() {
   catch (error) { principalCache.delete(token); throw error; }
   return { ...session, user: { ...session.user, id: legacyId, neonAuthId: session.user?.id } };
 }
+async function chatFunctionInvoke(name,options) {
+  if(name!=="looply-chat")return blocked();
+  const body=options?.body||{}, action=String(body.action||"");
+  const types={create_direct:"direct",create_group:"group",create_letter:"letter"};
+  const kind=types[action];
+  if(!kind)return blocked();
+  try{
+    const session=await activeSession();
+    if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+    const recipientIds=kind==="direct"?[body.targetId]:kind==="group"?body.targetIds:[];
+    const response=await fetch(config.data+"/rpc/v4_create_conversation",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_kind:kind,p_target_ids:recipientIds,p_subject:body.subject||null,p_body:body.body||null})
+    });
+    const value=await response.json().catch(()=>null);
+    if(!response.ok)return {data:null,error:{message:value?.message||"neon_chat_create_failed",code:value?.code||"",status:response.status}};
+    if(typeof value!=="string")return {data:null,error:{message:"neon_chat_invalid_result"}};
+    return {data:{conversationId:value},error:null};
+  }catch{return {data:null,error:{message:"neon_chat_creation_unavailable"}};}
+}
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
   // This adapter has no live event transport yet. Keep call features from
@@ -143,7 +164,7 @@ export const looplyClient = Object.freeze({
   }),
   from: table => createReadQuery(table),
   rpc: async (name, args) => name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : cleanupPendingGalleryMedia(name, args),
-  functions: Object.freeze({ invoke: blocked }),
+  functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
   channel: () => ({ on() { return this; }, subscribe() { return this; } }),
   removeChannel: () => {},
