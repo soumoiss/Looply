@@ -321,7 +321,7 @@ test("profile search and editing use only profile fields protected by Neon RLS",
   assert.match(profiles, /saveNeonProfile\(/);
   assert.match(profiles, /profile_visibility: visibility/);
   assert.match(avatar, /method = "GET"/);
-  assert.match(avatar, /method: "PATCH"/);
+  assert.match(avatar, /rpc\/v3_save_self_profile/);
   assert.match(avatar, /bucket\.upload\(newPath/);
   assert.match(avatar, /avatars\/\$\{profileId\}\//);
   assert.match(profiles, /\.ilike\("username", `\$\{query\}%`\)/);
