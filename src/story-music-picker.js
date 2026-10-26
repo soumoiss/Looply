@@ -1,7 +1,7 @@
-import { PROVIDER_NAMES, searchStorySongs, storySongSearchLinks } from "./story-music-catalog.js";
+import { PROVIDER_NAMES, officialSongPreview, searchStorySongs, storySongSearchLinks } from "./story-music-catalog.js";
 
-// A native, in-app multi-provider finder; only original/user-owned audio is
-// available to mix into published video. Catalog results are credit metadata.
+// Catalog previews use provider-owned official embeds or permitted streaming.
+// Never download/cache the external audio or merge commercial clips into Stories.
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
   modal("Escolher música",
     '<div class="studio-music-picker">' +
@@ -13,46 +13,130 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
     '<button type="button" data-studio-provider="deezer">Deezer</button>' +
     '<button type="button" data-studio-provider="audius">Audius</button>' +
     '<button type="button" data-studio-provider="builtin">Originais</button></nav>' +
-    '<p class="studio-music-found" data-studio-music-found role="status" aria-live="polite">Busque no catálogo ou escolha uma trilha original.</p>' +
+    '<p class="studio-music-found" data-studio-music-found role="status" aria-live="polite">Escolha uma faixa para ouvir antes de publicar.</p>' +
+    '<section class="studio-music-preview" data-studio-music-preview hidden aria-label="Prévia da música"></section>' +
     '<div class="studio-music-results" data-studio-music-results></div>' +
     '<div class="studio-music-external" data-studio-music-external></div>' +
-    '<label class="studio-audio-upload">Ou use seu próprio áudio<input type="file" data-studio-audio-file accept="audio/*"></label>' +
-    '<p class="studio-hint">Apple Music, Deezer e Audius: a escolha identifica o título e o artista no Story e permite abrir a música original. Para tocar áudio no vídeo publicado, escolha uma trilha original ou um arquivo de áudio que você pode usar.</p>' +
+    '<label class="studio-audio-upload">Ou escolha seu áudio para ouvir antes de usar<input type="file" data-studio-audio-file accept="audio/*"></label>' +
+    '<p class="studio-hint">Pré-escute aqui antes de escolher. Apple Music e Deezer usam o reprodutor oficial; a prévia pode exigir um toque nele. Faixas comerciais não são copiadas para os Stories. Trilhas originais, arquivos próprios e transmissões autorizadas têm reprodução conforme a origem.</p>' +
     '</div>');
   const input=body.querySelector("[data-studio-music-query]");
   const listing=body.querySelector("[data-studio-music-results]");
   const found=body.querySelector("[data-studio-music-found]");
   const external=body.querySelector("[data-studio-music-external]");
+  const player=body.querySelector("[data-studio-music-preview]");
   const tabs=body.querySelectorAll("[data-studio-provider]");
   let provider="all",items=[],seq=0,timer=null,controller=null;
-  const addText=(parent,tag,text,cls) => {
+  let audio=null,soundContext=null,soundSource=null,fileUrl=null,previewToken=0;
+  let currentTrack=null;
+
+  const addText=(parent,tag,text,cls)=>{
     const el=document.createElement(tag);el.textContent=text;
-    if(cls)el.className=cls;parent.append(el);return el;
+    if(cls)el.className=cls;
+    parent.append(el);return el;
+  };
+  const stopPreview=()=>{
+    previewToken++;
+    if(soundSource){try{soundSource.stop();}catch{} soundSource.disconnect();soundSource=null;}
+    if(soundContext){void soundContext.close().catch(()=>{});soundContext=null;}
+    if(audio){audio.pause();audio.removeAttribute("src");audio.load();audio=null;}
+    if(fileUrl){URL.revokeObjectURL(fileUrl);fileUrl=null;}
+    player.replaceChildren();
+    player.hidden=true;
+    currentTrack=null;
+  };
+  const cleanup=()=>{
+    ++seq; if(timer)clearTimeout(timer);controller?.abort();
+    stopPreview();
+  };
+  const playOriginal=(track)=>{
+    const AudioEngine=window.AudioContext||window.webkitAudioContext;
+    if(!AudioEngine){addText(player,"p","Este navegador não permite prévia de áudio sintetizado.");return;}
+    soundContext=new AudioEngine();
+    const rate=soundContext.sampleRate,seconds=12,buffer=soundContext.createBuffer(1,rate*seconds,rate);
+    const samples=buffer.getChannelData(0),beat=60/track.bpm;
+    for(let i=0;i<samples.length;i++){
+      const t=i/rate,step=Math.floor(t/beat)%track.notes.length;
+      const pitch=220*Math.pow(2,track.notes[step]/12),phase=t%beat;
+      const amp=Math.min(1,phase*25)*Math.exp(-phase*3)*.13;
+      samples[i]=amp*(Math.sin(2*Math.PI*pitch*t)+.30*Math.sin(4*Math.PI*pitch*t));
+    }
+    soundSource=soundContext.createBufferSource();
+    soundSource.buffer=buffer;soundSource.loop=true;
+    soundSource.connect(soundContext.destination);
+    const played=soundContext.resume();
+    soundSource.start();
+    void played.catch(()=>onStatus("Não foi possível pré-ouvir esta trilha.",true));
+  };
+  const preview=(track)=>{
+    stopPreview();currentTrack=track;const token=previewToken;
+    player.hidden=false;player.scrollIntoView({block:"nearest",behavior:"smooth"});
+    addText(player,"strong",track.title+" · "+(track.artist||"Áudio do dispositivo"),"studio-music-preview-title");
+    if(track.kind==="builtin"){
+      playOriginal(track);
+      addText(player,"p","Prévia da trilha instrumental original do Loooply.","studio-music-preview-hint");
+    }else if(track.kind==="file"){
+      fileUrl=URL.createObjectURL(track.file);
+      audio=document.createElement("audio");audio.controls=true;audio.autoplay=true;audio.loop=true;
+      audio.src=fileUrl;audio.preload="auto";player.append(audio);
+      void audio.play().catch(()=>onStatus("Toque no controle de áudio para ouvir a prévia.",false));
+    }else{
+      const config=officialSongPreview(track);
+      if(config?.kind==="embed"){
+        const iframe=document.createElement("iframe");
+        iframe.className="studio-music-official-player";
+        iframe.title="Ouvir prévia oficial no "+PROVIDER_NAMES[config.provider];
+        iframe.src=config.src;iframe.loading="eager";
+        iframe.allow="autoplay; encrypted-media";
+        iframe.referrerPolicy="strict-origin-when-cross-origin";
+        player.append(iframe);
+        addText(player,"p","Prévia do serviço oficial. Toque em reproduzir no player.","studio-music-preview-hint");
+      }else if(config?.kind==="audio"){
+        audio=document.createElement("audio");audio.controls=true;
+        audio.autoplay=true;audio.preload="metadata";audio.src=config.src;
+        player.append(audio);
+        const current=audio;
+        void current.play().catch(()=>{if(token===previewToken)onStatus("Toque no controle para iniciar a prévia do Audius.",false);});
+      }else{
+        addText(player,"p","Este serviço não disponibilizou prévia incorporável desta faixa.","studio-music-preview-hint");
+      }
+      const link=addText(player,"a","Ouvir no "+PROVIDER_NAMES[track.provider],"studio-music-preview-source");
+      link.href=track.url;link.target="_blank";link.rel="noopener noreferrer";
+      if(track.provider==="apple")addText(player,"small","Prévia oficial disponibilizada pelo Apple Music/iTunes.","studio-music-preview-hint");
+    }
+    const actions=document.createElement("div");actions.className="studio-music-preview-actions";
+    const choose=addText(actions,"button","Escolher esta música","studio-catalog-select");
+    choose.type="button";choose.onclick=()=>{stopPreview();onSelect(track);};
+    const stop=addText(actions,"button","Parar prévia","studio-music-stop");
+    stop.type="button";stop.onclick=stopPreview;
+    player.append(actions);
   };
   const draw=()=>{
     if(!listing.isConnected)return;
     const q=input.value.toLocaleLowerCase("pt-BR").trim();
     listing.replaceChildren();let count=0;
-    if(provider==="all"||provider==="builtin")for(const track of builtin.filter(t=>(t.title+" "+t.artist).toLocaleLowerCase("pt-BR").includes(q))){
-      const b=document.createElement("button");b.type="button";b.className="studio-track";
-      addText(b,"strong","♪ "+track.title);addText(b,"small","Loooply Sounds · áudio original");
-      b.onclick=()=>onSelect({...track,kind:"builtin"});
-      listing.append(b);count++;
-    }
-    for(const track of items.filter(t=>provider==="all"||t.provider===provider)){
-      const row=document.createElement("article");row.className="studio-catalog-song";
-      if(track.artwork){
-        const img=document.createElement("img");img.src=track.artwork;img.alt="";img.loading="lazy";img.referrerPolicy="no-referrer";row.append(img);
-      }
+    const row=(track,label)=>{
+      const article=document.createElement("article");article.className="studio-catalog-song";
+      if(track.artwork){const img=document.createElement("img");img.src=track.artwork;img.alt="";img.loading="lazy";img.referrerPolicy="no-referrer";article.append(img);}
       const info=document.createElement("div");info.className="studio-catalog-info";
       addText(info,"strong",track.title);
-      addText(info,"small",track.artist+" · "+PROVIDER_NAMES[track.provider]);
-      row.append(info);
-      const button=addText(row,"button","Escolher","studio-catalog-select");
-      button.type="button";button.setAttribute("aria-label","Escolher "+track.title+" de "+track.artist);
-      button.onclick=()=>onSelect(track);
-      listing.append(row);count++;
+      addText(info,"small",track.artist+" · "+label);article.append(info);
+      const actions=document.createElement("div");actions.className="studio-music-row-actions";
+      const listen=addText(actions,"button","▶ Ouvir","studio-music-listen");
+      listen.type="button";listen.setAttribute("aria-label","Ouvir prévia de "+track.title);
+      listen.onclick=()=>preview(track);
+      const choose=addText(actions,"button","Escolher","studio-catalog-select");
+      choose.type="button";choose.setAttribute("aria-label","Escolher "+track.title);
+      choose.onclick=()=>{stopPreview();onSelect(track);};
+      actions.append(listen,choose);article.append(actions);
+      listing.append(article);count++;
+    };
+    if(provider==="all"||provider==="builtin"){
+      for(const track of builtin.filter(t=>(t.title+" "+t.artist).toLocaleLowerCase("pt-BR").includes(q))){
+        row({...track,kind:"builtin"},"Trilha original");
+      }
     }
+    for(const track of items.filter(t=>provider==="all"||t.provider===provider))row(track,PROVIDER_NAMES[track.provider]);
     if(!count)addText(listing,"p","Nenhuma música nesse filtro. Experimente Todas ou outra busca.","studio-music-empty");
   };
   const showExternal=()=>{
@@ -67,7 +151,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
   };
   const search=async()=>{
     const term=input.value.trim(),id=++seq;
-    controller?.abort();controller=null;items=[];showExternal();
+    controller?.abort();controller=null;items=[];stopPreview();showExternal();
     if(term.length<2){found.textContent="Digite uma música ou artista para buscar em todas as plataformas.";draw();return;}
     found.textContent="Procurando simultaneamente em Apple Music, Deezer e Audius…";
     draw();controller=new AbortController();
@@ -86,21 +170,18 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
       draw();onStatus?.("Não foi possível carregar os catálogos musicais.",true);
     }
   };
-  input.addEventListener("input",()=>{
-    if(timer)clearTimeout(timer);
-    timer=setTimeout(()=>void search(),400);
-  });
+  input.addEventListener("input",()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void search(),400);});
   tabs.forEach(tab=>tab.addEventListener("click",()=>{
     provider=tab.dataset.studioProvider;
     tabs.forEach(t=>t.setAttribute("aria-pressed",String(t===tab)));
-    draw();
+    stopPreview();draw();
   }));
   body.querySelector("[data-studio-audio-file]").addEventListener("change",event=>{
-    const audio=event.target.files?.[0];
-    if(!audio||!audio.type.startsWith("audio/")||audio.size>15*1024*1024){
-      onStatus("Escolha um arquivo de áudio válido até 15 MB.",true);return;
+    const file=event.target.files?.[0];
+    if(!file||!file.type.startsWith("audio/")||file.size>15*1024*1024){
+      onStatus("Escolha um áudio válido de até 15 MB.",true);return;
     }
-    onSelect({kind:"file",title:audio.name.slice(0,120),file:audio});
+    preview({kind:"file",title:file.name.slice(0,120),artist:"Arquivo pessoal",file});
   });
-  draw();input.focus();
+  draw();input.focus();return cleanup;
 }
