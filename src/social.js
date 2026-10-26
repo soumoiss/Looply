@@ -267,7 +267,7 @@ function postMarkup(post, userId, isAdmin = false) {
         embed = '<div class="post-external-embed post-tiktok-embed" data-tiktok-preview data-tiktok-url="' + escapeHtml(externalUrl.href) + '"><p>Carregando pré-visualização do TikTok…</p></div>';
       }
     }
-    externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ' + icon("external") + '</a></section>';
+    externalMarkup = '<section class="post-external" aria-label="Conteúdo externo"><div class="post-external-credit"><span>' + escapeHtml(provider) + '</span><a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer" aria-label="Abrir publicação original em ' + escapeHtml(provider) + '">Abrir original ' + icon("external") + '</a></div>' + (embed || '<p class="post-external-unavailable">A prévia não está disponível. Você pode abrir o conteúdo original.</p>') + '</section>';
   }
   const mediaMarkup = (post.media || []).map((item, mediaIndex) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
