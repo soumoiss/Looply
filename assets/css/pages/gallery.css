@@ -1643,3 +1643,9 @@ body.gallery-viewer-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .page-gallery .gallery-filter-sheet { transition:none; }
 }
+
+/* Keep controls that were hidden by the gallery controller hidden even when
+   the live theme sets display:flex on their shared button classes. */
+.page-gallery [data-load-more][hidden],
+.page-gallery [data-back-albums][hidden],
+.page-gallery [data-upload-progress][hidden] { display:none!important; }
