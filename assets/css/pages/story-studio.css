@@ -15,7 +15,7 @@
 .studio-text-background { background:linear-gradient(155deg,#763cda,#1d082c); }
 .studio-edited-media { display:grid; place-items:center; background:#030303; }
 .studio-edited-media>img,.studio-edited-media>video { display:block; width:100%; height:100%; object-fit:cover; }
-.studio-lens { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; pointer-events:none; transform:scaleX(-1); }
+.studio-lens { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; pointer-events:none; transform:none; }
 .studio-grid-lines { position:absolute; inset:0; pointer-events:none; z-index:2; background:linear-gradient(90deg, transparent 33.1%,#fff5 33.3%, transparent 33.5%,transparent 66.4%,#fff5 66.6%,transparent 66.8%),linear-gradient(0deg,transparent 33.1%,#fff5 33.3%,transparent 33.5%,transparent 66.4%,#fff5 66.6%,transparent 66.8%); }
 .studio-top { position:absolute; top:0; left:0; right:0; z-index:9; display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top) + 14px) 16px 0; }
 .studio-icon { width:44px; height:44px; padding:0; display:grid; place-items:center; border:1px solid #ffffff22; background:#0007; border-radius:50%; color:#fff; font-size:22px!important; line-height:1; backdrop-filter:blur(10px); }
@@ -46,7 +46,7 @@
 .studio-modes b { color:#fff; padding:8px 10px; border-radius:18px; background:#ffffff28; }
 .studio-modes [aria-disabled=true] { opacity:.55; cursor:not-allowed; }
 .studio-progress { position:absolute; bottom:0; left:0; height:5px; width:0; background:#ff3c65; box-shadow:0 0 10px #ff3c65; }
-.studio-overlays { position:absolute; inset:12% 5% 23%; z-index:4; pointer-events:none; }
+.studio-overlays { position:absolute; inset:0; z-index:4; pointer-events:none; }
 .studio-overlay { position:absolute; top:44%; left:50%; max-width:85%; white-space:pre-wrap; overflow-wrap:anywhere; transform:translate(-50%,-50%); color:#fff; font-size:34px; font-weight:700; text-align:center; line-height:1.12; text-shadow:0 2px 9px #0008; pointer-events:auto; cursor:grab; touch-action:none; }
 .studio-overlay:active { cursor:grabbing; }
 .studio-edit-top { position:absolute; z-index:9; top:0; left:0; right:0; padding:calc(env(safe-area-inset-top) + 13px) 15px 0; display:flex; align-items:center; gap:9px; }
