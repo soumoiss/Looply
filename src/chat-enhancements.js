@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { matchesConversationFilter } from "./chat-filter-logic.js";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },
@@ -201,12 +202,11 @@ export function setupChatEnhancements(root, client, userId) {
     let visible = 0;
     items.forEach((item) => {
       const id = item.dataset.chatOpen;
-      const isGroupItem = Boolean(item.querySelector(".chat-group-avatar")) || /grupo/i.test(item.getAttribute("aria-label") || "");
-      const isUnread = Boolean(item.querySelector(".chat-unread"));
-      const matches = activeFilter === "all"
-        || (activeFilter === "unread" && isUnread)
-        || (activeFilter === "groups" && isGroupItem)
-        || (activeFilter === "favorites" && favorites.has(id));
+      const matches = matchesConversationFilter({
+        id,
+        kind: item.dataset.chatKind,
+        unreadCount: item.dataset.chatUnreadCount
+      }, activeFilter, favorites);
       item.hidden = !matches;
       if (matches) visible += 1;
     });

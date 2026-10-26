@@ -14,16 +14,21 @@ test("Realtime refresh preserves the existing composer DOM node", async () => {
   assert.match(source, /thread\.insertBefore\(child, currentForm\)/);
 });
 
-test("chat filters expose only groups or genuinely unread conversations and show the required empty states", async () => {
-  const source = await read("src/chat.js");
+test("chat filters use explicit conversation data and keep required empty states", async () => {
+  const [source, logic] = await Promise.all([
+    read("src/chat.js"), read("src/chat-filter-logic.js")
+  ]);
   assert.match(source, /data-chat-filter="groups"/);
   assert.match(source, /data-chat-filter="unread"/);
-  assert.match(source, /activeFilter === "groups" && isGroup/);
-  assert.match(source, /activeFilter === "unread" && isUnread/);
+  assert.match(source, /data-chat-kind=/);
+  assert.match(source, /data-chat-unread-count=/);
+  assert.match(source, /matchesConversationFilter\(/);
   assert.match(source, /Nenhum grupo encontrado\./);
   assert.match(source, /Nenhuma mensagem não lida\./);
   assert.match(source, /item\.hidden = !\(matchesQuery && matchesFilter\)/);
   assert.match(source, /mark_conversation_read[\s\S]*?refreshChat\(root, client, userId, \{ keepThread: true \}\)/);
+  assert.match(logic, /filter === "groups"\) return kind === "group"/);
+  assert.match(logic, /filter === "unread"\) return Number\.isFinite\(unreadCount\) && unreadCount > 0/);
 });
 
 test("chat message edits are limited in the UI to the sender and rely on existing owner RLS", async () => {
