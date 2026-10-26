@@ -69,7 +69,8 @@ test("new camera defaults to front mirror, flips physically and publishes via Ne
   assert.match(studio, /facing: "user"/);
   assert.match(studio, /settings\.facing === "user" \? "environment" : "user"/);
   assert.match(studio, /navigator\.mediaDevices\.getUserMedia/);
-  assert.match(studio, /facing === "user" \? "scaleX\(-1\)" : "none"/);
+  assert.match(studio, /"scaleX\(-1\) "/);
+  assert.match(studio, /stage\.addEventListener\("touchmove"/);
   assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
   assert.match(studio, /rpc\("v5_attach_story_media"/);
 });
