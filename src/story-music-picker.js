@@ -194,12 +194,12 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       const online=result.providers.filter(p=>p.available).map(p=>PROVIDER_NAMES[p.provider]);
       const down=result.providers.filter(p=>!p.available).map(p=>PROVIDER_NAMES[p.provider]);
       found.textContent=items.length+" músicas encontradas"+(online.length?" · "+online.join(", "):"")+
-        (down.length?" · Indisponível: "+down.join(", "):"");
+        (isAdmin&&down.length?" · ADM: Indisponível: "+down.join(", "):"");
       draw();
     }catch(error){
       if(id!==seq||!listing.isConnected)return;
-      found.textContent="Busca externa indisponível. As trilhas originais ainda funcionam.";
-      draw();onStatus?.("Não foi possível carregar os catálogos musicais.",true);
+      found.textContent=isAdmin?"ADM: busca externa indisponível; originais continuam disponíveis.":"";
+      draw();if(isAdmin)onStatus?.("Não foi possível carregar os catálogos musicais.",true);
     }
   };
   input.addEventListener("input",()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void search(),400);});
