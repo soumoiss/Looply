@@ -88,7 +88,10 @@ function avatarSaveErrorMessage(error) {
   if (message === "avatar-upload-invalid-result" || message === "avatar-upload-validation-failed") return "O armazenamento não confirmou a nova foto. A foto anterior foi preservada; tente novamente.";
   if (message === "avatar-rollback-failed") return "Não foi possível confirmar a restauração da foto anterior. Recarregue o perfil antes de tentar novamente; nenhuma confirmação de sucesso foi exibida.";
   if (message === "profile-update-not-confirmed") return "O servidor não confirmou a atualização do perfil. Nenhuma alteração de foto foi considerada concluída.";
-  if (message === "profile-not-owned" || message === "profile_permission_denied") return "A autenticação não autorizou a atualização deste perfil. Entre novamente e tente salvar.";
+  if (message === "profile-update-conflict" || code === "40001") return "Seu perfil foi alterado em outra sessão. Recarregue a página e tente novamente, sem perder sua foto atual.";
+  if (message === "neon_profile_rpc_not_deployed") return "A atualização de perfil do Neon ainda não está disponível. Tente recarregar a página.";
+  if (message === "profile-not-owned") return "O perfil desta sessão não corresponde à sua conta Neon. Entre novamente antes de alterar a foto.";
+  if (message === "profile_permission_denied") return "O Neon recusou o acesso ao perfil. A alteração não foi realizada; confira a sessão e tente novamente.";
   if (message === "neon_profile_network_unavailable") return "Não foi possível conectar ao Neon. Verifique sua conexão e tente novamente.";
   if (message.includes("session expired") || status === 401) return "Sua sessão expirou. Entre novamente e tente salvar a foto.";
   if (status === 403 || code.includes("42501") || message.includes("row-level security") || message.includes("permission")) return "Sua conta não tem permissão para salvar a foto. A foto atual foi preservada.";
