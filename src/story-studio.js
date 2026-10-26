@@ -169,7 +169,8 @@ export function bindStoryStudio(root, client, userId, refresh) {
     dialog.querySelectorAll(".studio-camera-only").forEach(e => e.hidden = name !== "camera");
     dialog.querySelectorAll(".studio-edit-only").forEach(e => e.hidden = name !== "edit");
     $("[data-studio-background]").hidden = name !== "text";
-    if (name === "text") $("[data-studio-background]").style.background = currentBackground;
+    $("[data-studio-background]").hidden = !(name === "text" || (name === "edit" && sourceKind === "text"));
+    if (sourceKind === "text") $("[data-studio-background]").style.background = currentBackground;
   };
   const revokeUrl = () => { if (url) URL.revokeObjectURL(url); url = null; };
   const clearPreview = () => {
@@ -258,6 +259,33 @@ export function bindStoryStudio(root, client, userId, refresh) {
     ctx.filter = "none";
     drawStoryLens(ctx, lens, canvas.width, canvas.height);
   };
+  const renderBoomerang = async (images, w, h, mime) => {
+    const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const videoStream = canvas.captureStream(24);
+    const encoder = new MediaRecorder(videoStream, { mimeType: mime });
+    const chunks = [];
+    const done = new Promise((resolve, reject) => {
+      encoder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+      encoder.onerror = () => reject(new Error("Falha no Boomerang."));
+      encoder.onstop = () => resolve(new Blob(chunks, { type: mime.split(";")[0] }));
+    });
+    try {
+      encoder.start(100);
+      const sequence = images.concat(images.slice(1, -1).reverse());
+      for (let cycle = 0; cycle < 3; cycle++) for (const image of sequence) {
+        ctx.putImageData(image, 0, 0);
+        await new Promise(resolve => setTimeout(resolve, 85));
+      }
+      encoder.stop();
+      const output = await done;
+      if (!output.size) throw new Error("Boomerang vazio.");
+      return output;
+    } finally {
+      if (encoder.state === "recording") encoder.stop();
+      videoStream.getTracks().forEach(t => t.stop());
+    }
+  };
   const finishRecording = () => {
     if (recorder?.state === "recording") recorder.stop();
   };
@@ -269,22 +297,41 @@ export function bindStoryStudio(root, client, userId, refresh) {
     canvas.width = Math.min(video.videoWidth, 1080);
     canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
     const ctx = canvas.getContext("2d", { alpha: false });
-    const loop = () => { if (!stream) return; drawCamera(ctx, canvas); frames = requestAnimationFrame(loop); };
+    const savedFrames = [];
+    const snap = document.createElement("canvas");
+    snap.width = 360; snap.height = Math.round(360 * canvas.height / canvas.width);
+    const snapContext = snap.getContext("2d");
+    let lastFrame = 0;
+    const loop = () => {
+      if (!stream) return;
+      drawCamera(ctx, canvas);
+      if (isBoomerang && performance.now() - lastFrame > 85) {
+        lastFrame = performance.now();
+        snapContext.drawImage(canvas, 0, 0, snap.width, snap.height);
+        if (savedFrames.length < 30) savedFrames.push(snapContext.getImageData(0, 0, snap.width, snap.height));
+      }
+      frames = requestAnimationFrame(loop);
+    };
     loop();
     captureStream = canvas.captureStream(24);
     stream.getAudioTracks().forEach(track => captureStream.addTrack(track));
     recorder = new MediaRecorder(captureStream, { mimeType: mime });
     chunks = [];
     recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       cancelAnimationFrame(frames);
       captureStream?.getTracks().forEach(track => { if (!stream?.getTracks().includes(track)) track.stop(); });
       stopRecordingTimer();
-      const output = new Blob(chunks, { type: recorder.mimeType || mime });
+      let output = new Blob(chunks, { type: recorder.mimeType || mime });
       recorder = null;
       if (output.size && active && mode === "camera") {
+        if (isBoomerang && savedFrames.length >= 3) {
+          status("Criando Boomerang…");
+          try { output = await renderBoomerang(savedFrames, snap.width, snap.height, mime); }
+          catch (error) { status(error.message, true); return; }
+        }
         const ext = output.type.includes("mp4") ? "mp4" : "webm";
-        showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type }), "video");
+        showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type.split(";")[0] }), "video");
       } else if (active) status("A gravação ficou vazia.", true);
     };
     recorder.start(250); startedAt = performance.now();
@@ -293,8 +340,9 @@ export function bindStoryStudio(root, client, userId, refresh) {
     const tick = () => {
       if (recorder?.state !== "recording") return;
       const elapsed = performance.now() - startedAt;
-      progress.style.width = Math.min(100, elapsed / settings.maxDuration * 100) + "%";
-      if (elapsed >= settings.maxDuration) { finishRecording(); return; }
+      const end = isBoomerang ? 2100 : settings.maxDuration;
+      progress.style.width = Math.min(100, elapsed / end * 100) + "%";
+      if (elapsed >= end) { finishRecording(); return; }
       progressAnimation = requestAnimationFrame(tick);
     };
     tick();
