@@ -36,8 +36,10 @@ test("ADM write actions stay direct except permanent letter deletions, which req
 });
 
 test("story and gallery media-only forms remain optional for text", async () => {
-  const [stories, gallery] = await Promise.all([read("src/stories.js"), read("assets/js/gallery.js")]);
-  assert.doesNotMatch(stories, /name="body"[^>]*required/);
-  assert.match(stories, /!body && !media/);
+  const [studio, gallery] = await Promise.all([read("src/story-studio.js"), read("assets/js/gallery.js")]);
+  assert.match(studio, /data-studio-caption name="body" maxlength="700"/);
+  assert.doesNotMatch(studio, /name="body"[^>]*required/);
+  assert.match(studio, /sourceKind === "none"/);
+  assert.match(studio, /if \(sourceKind === "text"\)/);
   assert.match(gallery, /Descrição \S*<textarea name="description" maxlength="10000" placeholder="Adicione uma descrição \(opcional\)"/);
 });
