@@ -3,7 +3,7 @@ import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
-import { decodeStoryBody, encodeStoryBody, spotifyTrackId } from "./story-text-style.js";
+import { decodeStoryBody, encodeStoryBody, storyMusicToken } from "./story-text-style.js";
 import { StoryFaceLens, drawStoryLens } from "./story-ar.js";
 
 const storyMimeTypes = new Map([
@@ -385,10 +385,16 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const host = root.querySelector("[data-story-spotify-preview]");
     const selected = root.querySelector("[data-story-music-selected]");
     if (!host) return;
-    const trackId = spotifyTrackId(storyMusicInput?.value);
+    const music = storyMusicToken(storyMusicInput?.value);
+    const trackId = music?.id || "";
     host.replaceChildren();
-    if (!trackId) { if (selected) selected.textContent = "Nenhuma música selecionada."; return; }
+    if (!music) { if (selected) selected.textContent = "Nenhuma música selecionada."; return; }
     if (selected) selected.textContent = state.selectedMusic ? `${state.selectedMusic.name} · ${state.selectedMusic.artist}` : "Música selecionada.";
+    if (state.selectedMusic?.previewUrl) {
+      const audio = document.createElement("audio"); audio.controls = true; audio.preload = "none"; audio.src = state.selectedMusic.previewUrl;
+      audio.setAttribute("aria-label", "Prévia da música selecionada"); host.append(audio); return;
+    }
+    if (music.provider !== "spotify") return;
     const frame = document.createElement("iframe");
     frame.src = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator`;
     frame.title = "Prévia da música no Spotify";
@@ -424,7 +430,16 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         return button;
       }));
     } catch (error) {
-      resultHost.textContent = error?.message === "spotify_not_configured" ? "A pesquisa do Spotify ainda não foi configurada neste ambiente." : "Não foi possível pesquisar agora. Tente novamente.";
+      try {
+        const fallback = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query.trim())}&entity=song&limit=8&country=BR`, { cache: "no-store" });
+        if (!fallback.ok) throw new Error("itunes_search_failed");
+        const payload = await fallback.json();
+        const tracks = (payload.results || []).map((track) => ({ id: `itunes:${track.trackId}:${encodeURIComponent(track.previewUrl || "")}`, name: track.trackName, artist: track.artistName, image: track.artworkUrl100, previewUrl: track.previewUrl || null })).filter((track) => /^itunes:\d+:.+/.test(track.id));
+        if (!tracks.length) { resultHost.textContent = "Nenhuma faixa encontrada."; return; }
+        resultHost.replaceChildren(...tracks.map((track) => { const button = document.createElement("button"); button.type = "button"; button.className = "story-music-result"; button.innerHTML = `${track.image ? `<img src="${escapeHtml(track.image)}" alt="" referrerpolicy="no-referrer">` : "<span class=\"story-music-cover\">♫</span>"}<span><strong>${escapeHtml(track.name)}</strong><small>${escapeHtml(track.artist)}</small><em>Prévia licenciada disponível</em></span>`; button.addEventListener("click", () => { state.selectedMusic = track; storyMusicInput.value = track.id; updateSpotifyPreview(); resultHost.remove(); }); return button; }));
+      } catch {
+        resultHost.textContent = "A busca de música está temporariamente indisponível. Tente novamente.";
+      }
     }
   };
   root.querySelector("[data-story-music-open]")?.addEventListener("click", searchSpotify);
@@ -768,6 +783,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.loading = "lazy";
       music.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
       viewer.querySelector("[data-story-touch-surface]").append(music);
+    }
+    if (storyText.music?.previewUrl) {
+      const music = document.createElement("audio"); music.dataset.storyViewerMusic = ""; music.className = "story-viewer-music"; music.controls = true; music.preload = "none"; music.src = storyText.music.previewUrl; music.setAttribute("aria-label", "Prévia da música deste story"); viewer.querySelector("[data-story-touch-surface]").append(music);
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     mediaHost.querySelectorAll("video").forEach((video) => {
@@ -1341,7 +1359,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const recipientIds = [...new Set(formData.getAll("recipientIds").map(String))];
       if (file instanceof File && file.size && !media) throw new Error("invalid_media");
       if (media && !storyMimeTypes.has(media.type)) throw new Error("invalid_media");
-      if (musicTrackId.trim() && !spotifyTrackId(musicTrackId)) throw new Error("invalid_music");
+      if (musicTrackId.trim() && !storyMusicToken(musicTrackId)) throw new Error("invalid_music");
       if (!body && !media) throw new Error("empty_story");
       if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");
 
