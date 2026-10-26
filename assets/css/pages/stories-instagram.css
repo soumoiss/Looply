@@ -1,0 +1,27 @@
+/* Instagram-inspired presentation layer for Looply Stories.
+   Existing story data, playback, permissions and interactions stay in src/stories.js. */
+.story-viewer-dialog { width: min(100vw - 24px, 440px); height: min(94dvh, 860px); max-height: 100dvh; padding: 0; overflow: hidden; border: 0; border-radius: 18px; background: #101014; color: #fff; box-shadow: 0 24px 80px #0008; }
+.story-viewer-dialog::backdrop { background: #000d; backdrop-filter: blur(9px); }
+.story-viewer-shell { position: relative; height: 100%; min-height: 0; isolation: isolate; }
+.story-viewer-stage { background: #161619; }
+.story-viewer-media { display: grid; place-items: center; }
+.story-viewer-media img, .story-viewer-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.story-progress-list { position: relative; z-index: 5; padding: max(11px, env(safe-area-inset-top)) 12px 4px; gap: 4px; }
+.story-progress-item { height: 2.5px; border-radius: 20px; background: #ffffff66; overflow: hidden; }
+.story-viewer-header { position: relative; z-index: 5; padding: 8px 14px; }
+.story-viewer-author { min-width: 0; }
+.story-viewer-author strong { color: #fff; font-size: 13px; font-weight: 700; }
+.story-viewer-author time { color: #fffc; }
+.story-viewer-header .icon-button { color: #fff; }
+.story-viewer-actions { position: relative; z-index: 5; padding: 8px 12px max(14px, env(safe-area-inset-bottom)); background: #101014; }
+.story-reply-form { border: 1px solid #ffffffa3; background: #ffffff0d; border-radius: 999px; }
+.story-reply-form:focus-within { border-color: #fff; box-shadow: 0 0 0 2px #ffffff25; }
+.story-reply-form input { color: #fff; }
+.story-reply-form input::placeholder { color: #ffffffb0; }
+.story-like-button, .story-insights-button { background: transparent; border-color: #ffffff5e; color: #fff; }
+.story-viewer-caption { color: #fff; text-shadow: 0 2px 9px #000b; }
+.story-insights-panel { z-index: 10; border-radius: 20px 20px 0 0; box-shadow: 0 -12px 40px #0007; }
+.story-tap-zone { touch-action: manipulation; }
+.story-tap-zone:focus-visible, .story-viewer-dialog button:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
+@media (max-width: 560px) { .story-viewer-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; } .story-viewer-shell { height: 100dvh; } .story-viewer-actions { padding-bottom: max(14px, env(safe-area-inset-bottom)); } }
+@media (prefers-reduced-motion: reduce) { .story-viewer-dialog *, .story-viewer-dialog *::before, .story-viewer-dialog *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

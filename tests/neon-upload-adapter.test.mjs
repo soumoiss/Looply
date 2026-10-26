@@ -19,9 +19,10 @@ test("Neon adapter permits only profile updates and gallery insert/publish write
 test("Neon storage function authenticates and restricts each private object to its owner", () => {
   assert.match(functionSource, /v3_self_profile\?select=id/);
   assert.match(functionSource, /allowedFile\(bucket, path, mime/);
-  assert.match(functionSource, /PutObjectCommand/);
-  assert.match(functionSource, /getSignedUrl/);
-  assert.match(functionSource, /DeleteObjectCommand/);
+  assert.match(functionSource, /AWS4-HMAC-SHA256/);
+  assert.match(functionSource, /method: "PUT"/);
+  assert.match(functionSource, /method: "GET"/);
+  assert.match(functionSource, /method: "DELETE"/);
   assert.match(functionSource, /origin !== allowedOrigin/);
 });
 
