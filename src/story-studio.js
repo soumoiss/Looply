@@ -750,7 +750,9 @@ export function bindStoryStudio(root, client, userId, refresh) {
         // verify the reported setting whenever browsers expose it.
         await track.applyConstraints({ advanced: [{ torch: turnOn }] });
         const confirmed = track.getSettings?.().torch;
-        if (turnOn && confirmed === false) throw new Error("Lanterna recusada pelo navegador.");
+        if (turnOn && confirmed !== true && capabilities?.torch !== true) {
+          throw new Error("O navegador não confirmou suporte à lanterna física.");
+        }
         settings.flash = turnOn ? "on" : "off";
         flashButton.setAttribute("aria-pressed", String(turnOn));
         flashButton.title = turnOn ? "Desligar lanterna traseira" : "Ligar lanterna traseira";
