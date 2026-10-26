@@ -11,6 +11,8 @@ const fontFamilies = Object.freeze({
 });
 
 export function spotifyTrackId(value) {
+  const direct = String(value || "").trim();
+  if (/^[A-Za-z0-9]{22}$/.test(direct)) return direct;
   try {
     const url = new URL(String(value || "").trim());
     if (url.protocol !== "https:" || url.hostname !== "open.spotify.com") return "";
@@ -23,11 +25,11 @@ export function spotifyTrackId(value) {
   }
 }
 
-export function encodeStoryBody(text, font = "system", size = 20, musicUrl = "") {
+export function encodeStoryBody(text, font = "system", size = 20, musicTrack = "") {
   const value = String(text ?? "").trim();
   const family = fonts.has(font) ? font : "system";
   const pointSize = Math.min(20, Math.max(6, Number.parseInt(size, 10) || 20));
-  const trackId = spotifyTrackId(musicUrl);
+  const trackId = spotifyTrackId(musicTrack);
   if (trackId) return `${markerV2}${family}|${pointSize}|${trackId}]]${value}`;
   return `${marker}${family}|${pointSize}]]${value}`;
 }

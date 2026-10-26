@@ -48,6 +48,23 @@ test("Stories persist only valid Spotify track embeds and preserve the styled te
   assert.equal(story.spotifyTrackId, "4uLU6hMCjMI75M1A2tKUQC");
 });
 
+test("Story music uses an authenticated in-app search and face lenses use landmark tracking, not CSS filters", async () => {
+  const [story, lenses, backend] = await Promise.all([
+    read("src/stories.js"), read("src/story-ar.js"), read("backend/neon-storage/index.mjs")
+  ]);
+  assert.match(story, /id="storyMusicQuery" type="search"/);
+  assert.match(story, /spotify\/search\?q=/);
+  assert.match(story, /data-story-lens="glasses"/);
+  assert.match(story, /new StoryFaceLens/);
+  assert.match(story, /composite\.captureStream\(30\)/);
+  assert.match(lenses, /FaceLandmarker\.createFromOptions/);
+  assert.match(lenses, /detectForVideo/);
+  assert.match(lenses, /outputFaceBlendshapes: true/);
+  assert.match(backend, /SPOTIFY_CLIENT_SECRET/);
+  assert.match(backend, /https:\/\/api\.spotify\.com\/v1\/search/);
+  assert.doesNotMatch(story, /Cole o link de uma faixa do Spotify/);
+});
+
 test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {
   const source = await read("src/stories.js");
   assert.match(source, /data-story-camera-flip/);

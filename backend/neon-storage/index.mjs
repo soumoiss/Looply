@@ -144,6 +144,31 @@ async function youtubePlaylist(request, headers) {
   }catch{return json({error:"youtube_upstream_unavailable"},503,headers);}
 }
 async function identity(request) { const match = /^Bearer\s+([^\s]+)$/i.exec(request.headers.get("authorization") || ""); if (!match) return null; try { const response = await fetch(`${process.env.NEON_DATA_API_URL}/v3_self_profile?select=id&limit=1`, { headers: { authorization: `Bearer ${match[1]}`, accept: "application/json" } }); const profileId = response.ok ? (await response.json())?.[0]?.id : null; return /^[0-9a-f-]{36}$/i.test(String(profileId || "")) ? profileId : null; } catch { return null; } }
+let spotifyToken = null;
+async function spotifyAccessToken() {
+  if (spotifyToken?.expiresAt > Date.now() + 30000) return spotifyToken.value;
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) return null;
+  const authorization = "Basic " + btoa(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`);
+  const response = await fetch("https://accounts.spotify.com/api/token", { method: "POST", headers: { authorization, "content-type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials", signal: AbortSignal.timeout(10000) });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) throw new Error("spotify_token_failed");
+  spotifyToken = { value: payload.access_token, expiresAt: Date.now() + Math.max(60, Number(payload.expires_in) || 3600) * 1000 };
+  return spotifyToken.value;
+}
+async function spotifySearch(request, headers) {
+  const query = new URL(request.url).searchParams.get("q")?.trim() || "";
+  if (query.length < 2 || query.length > 120) return json({ error: "invalid_search_query" }, 400, headers);
+  try {
+    const token = await spotifyAccessToken();
+    if (!token) return json({ error: "spotify_not_configured" }, 503, headers);
+    const params = new URLSearchParams({ q: query, type: "track", market: "BR", limit: "10" });
+    const response = await fetch("https://api.spotify.com/v1/search?" + params, { headers: { authorization: "Bearer " + token }, signal: AbortSignal.timeout(10000) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return json({ error: response.status === 429 ? "spotify_rate_limited" : "spotify_search_failed" }, response.status === 429 ? 429 : 502, headers);
+    const items = (payload.tracks?.items || []).map(track => ({ id: track.id, name: String(track.name || "").slice(0, 180), artist: (track.artists || []).map(artist => artist.name).filter(Boolean).join(", ").slice(0, 180), image: track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || "", previewUrl: typeof track.preview_url === "string" ? track.preview_url : null })).filter(track => /^[A-Za-z0-9]{22}$/.test(track.id));
+    return json({ items }, 200, { ...headers, "cache-control": "private, max-age=60" });
+  } catch (error) { console.error("Spotify search failed", error?.message || error); return json({ error: "spotify_search_unavailable" }, 503, headers); }
+}
 export default { async fetch(request) {
   const origin = request.headers.get("origin") || "", headers = cors(origin === allowedOrigin ? origin : "null");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
@@ -151,6 +176,7 @@ export default { async fetch(request) {
   if (![process.env.NEON_DATA_API_URL, process.env.AWS_ENDPOINT_URL_S3, process.env.AWS_ACCESS_KEY_ID, process.env.AWS_SECRET_ACCESS_KEY, process.env.AWS_REGION].every(Boolean)) return json({ error: "storage_not_configured" }, 503, headers);
   const profileId = await identity(request); if (!profileId) return json({ error: "unauthorized" }, 401, headers);
   if (new URL(request.url).pathname.endsWith("/youtube/playlist") && request.method === "GET") return youtubePlaylist(request,headers);
+  if (new URL(request.url).pathname.endsWith("/spotify/search") && request.method === "GET") return spotifySearch(request,headers);
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
   if (!safeObjectPath(path) || !["looply-avatars", "looply-gallery", "looply-media", "looply-chat", "looply-letters"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
