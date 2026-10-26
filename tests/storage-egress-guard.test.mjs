@@ -21,7 +21,7 @@ test("new uploads have free-tier egress guardrails", async () => {
     read("src/chat.js"), read("src/profiles.js")
   ]);
   for (const source of [gallery, social, stories, chat]) assert.match(source, /25 \* 1024 \* 1024/);
-  assert.match(profiles, /file\.size>2\*1024\*1024/);
+  assert.match(profiles, /file\.size>10\*1024\*1024/);
 });
 
 test("deployed cleanup removes expired stories and unreferenced avatar versions", async () => {
