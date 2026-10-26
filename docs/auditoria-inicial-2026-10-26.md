@@ -1,83 +1,49 @@
 # Auditoria técnica inicial do Looply
 
 Data da auditoria: 2026-10-26  
-Escopo desta etapa: fluxo de Stories, enquadramento de mídia, seleção de música, permissões administrativas e implantação Neon/Cloudflare. A auditoria continua; este registro não declara o aplicativo inteiro concluído.
+Escopo: revisão incremental do prompt mestre, do código ativo, da bridge Neon e das policies reais da branch principal. Esta auditoria continua; não declara o aplicativo inteiro concluído.
 
-## Registro de achados
+## Registro técnico de achados e estado
 
-| Área | Evidência observada | Causa confirmada ou provável | Ação / estado | Verificação |
-|---|---|---|---|---|
-| Seletor musical de Stories | Selecionar faixas de catálogo acionava o seletor de arquivos do dispositivo | O fluxo do seletor tratava a faixa comercial escolhida como se o usuário fosse adicionar um arquivo local | Corrigido no PR #135: seleção do catálogo permanece dentro do aplicativo; áudio próprio é uma ação separada | 362 testes passaram no CI, incluindo testes do catálogo e do editor |
-| Áudio comercial de Stories | Resultados Apple Music/Deezer fornecem metadados/prévia, mas não autorização para incorporar a faixa completa ao Story | A prévia de catálogo não equivale a licença de sincronização/publicação | A interface informa a limitação e não gera um Story silencioso fingindo que o áudio foi anexado; publicação continua limitada a fontes compatíveis/autorizadas | Testes automatizados de fluxo de áudio e busca ao vivo passaram; ainda falta um teste autenticado de publicação em conta/dispositivo |
-| Enquadramento de Stories | Exportações transformadas usavam composição de cobertura, cortando conteúdo para 9:16; editor usava `object-fit: cover` | O mesmo tratamento de corte era aplicado independentemente da proporção original | Corrigido no PR #135: saída vertical 9:16 com fundo complementar e mídia integral em escala `contain`; editor preserva conteúdo sem zoom automático | Testes do editor e validação especializada de mídia passaram no CI |
-| Mensagens de falha | Algumas mensagens técnicas do editor podiam ser expostas ao usuário comum | Erros eram repassados sem distinção de nível de acesso | Corrigido no PR #135 com mensagens breves para usuário comum; diagnóstico técnico continua reservado ao administrador | Suíte do editor passou |
-| Ações administrativas | Controllers chamam `functions.invoke("looply-admin")` para ações protegidas. O adaptador ativo só implementa `looply-chat` e retorna bloqueio para outros nomes | Migração parcial: `looply-admin` ainda não foi portado para uma rota Neon/Cloudflare ativa | Bloqueio confirmado. Não substituído por autorização no cliente nem reativado via Supabase. Correção depende de endpoint de servidor autenticado, com validação de papel e regras por recurso | SQL de leitura confirmou que `v3_self_is_admin()` deriva o papel da sessão Neon. Tentativa de ação permanece fail-closed no adaptador |
-| Infraestrutura de produção e migração | O código de páginas usa o adaptador Neon. O gateway Cloudflare encontrado declara modo somente leitura e paridade incompleta; os Workers consultados têm identificação de staging | O corte total de backend para Neon/Cloudflare não terminou | Limitação registrada. Não foi feita alteração de banco ou implantação de Worker, pois não há rota de escrita/admin em produção cuja autorização e compatibilidade possam ser verificadas | Inventário somente leitura de projetos, branches, função Neon `looplystorage` e Workers; projeto ativo identificado pelo hostname da configuração |
-| Teste visual autenticado | O endereço público encaminha visitantes sem sessão para login | Não havia sessão de teste fornecida no navegador | Validação autenticada de UI permanece pendente; não foram usadas credenciais de terceiros | Navegação pública alcançou a página de login |
+| Área / local | Comportamento e causa observada | Ação aplicada | Verificação / estado |
+|---|---|---|---|
+| Seletor musical e mídia de Stories (`src/story-music-picker.js`, `src/story-studio.js`) | Selecionar faixa de catálogo abria seletor local; fontes comerciais retornam metadados/prévias, não licença de sincronização | PR #135 manteve seleção no app e separou áudio pessoal; preservou mídia 9:16 com composição integral. PR #142 alinhou câmera e preview sem zoom imprevisto | CI dos PRs passou; faltam publicação autenticada real com áudio autorizado e teste físico |
+| Ações administrativas (`src/admin.js`, `src/neon-rest-bridge.js`) | Controllers antigos invocam `looply-admin`; bridge ativa não oferece esse endpoint | PR #139 removeu identidade administrativa codificada em Cartas; operações não portadas seguem bloqueadas. Não há bypass direto nas tabelas | `v3_self_is_admin()` foi confirmada no Neon e é derivada do JWT. Administração/mutação segue pendente até portar endpoint autenticado e auditável |
+| Menções e notificações (`src/story-studio.js`, `src/stories.js`) | Nenhum suporte persistente a menções | PR #143 adicionou referências por ID, RPC de autoria/expiração/visibilidade, notificação deduplicada e link ao Story | Migração aplicada no Neon e RLS verificada; falta exercício com duas contas |
+| Feed/Reels (`src/social.js`) | Reels só usa mídia real do feed; controle salvo incluído no PR #146 | PR #144 criou visualizador vertical com ações reais; PR #145 simplificou compartilhamentos externos; PR #146 criou save persistente por usuário | Runs Verify #2623 e Pages #487 passaram; migração `saved_posts` aplicada no Neon main, RLS e FK verificadas. Sem sessão autenticada, falta teste user-to-user/device |
+| Visibilidade do feed (`posts`) | Consulta do cliente não adiciona filtro local, portanto depende da RLS | Nenhuma mudança necessária: policy real `v3_posts_visible_for_verified_users` chama `v3_can_view_post(id)` | SQL da branch principal confirmou regra pública/autor/destinatário selecionado, moderação excluída; usuário sem identidade não recebe linha |
+| Cartas arquivadas (`src/archived-cards.js`) | Com recibos de leitura indisponíveis, coleção não deve desaparecer; edição usa `window.prompt` e só tem corpo. `archived_cards` não tem coluna de título | PR #141 preservou cartas quando falha recibo. Edição ampla está bloqueada: o fluxo depende do `looply-admin` inativo e não deve gravar diretamente contornando auditoria | Esquema Neon confirmado. Consulta busca destinatário ou `v3_self_is_admin()`. Falta recuperar endpoint, criar modal/título compatível e verificar casos Peixinho/destinatário |
+| Música (`src/music.js`, `src/music-admin-playlists.js`, `src/neon-rest-bridge.js`) | Dedicatórias exigem campos de texto/link; comentários por faixa usam tabela, mas bridge/policies atuais restringem consulta a próprios comentários; playlist admin usa `looply-admin` | Nenhum atalho implementado; cadastro público segue estado atual, admin continua bloqueado | `music_track_comments` existe e `track_key` está restrito a YouTube ou `library:<uuid>`. Falta integrar busca de catálogo e um caminho de permissão coerente por destinatário sem expor comentários |
+| Chat (`src/chat.js`, `src/chat-enhancements.js`) | Filtros corrigidos em #138; figurinha atual é upload estático próprio, não catálogo; foto de grupo ainda ausente | Filtro real por tipo/unread e layout Gallery 3×2 em #140 | Ainda faltam catálogo permitido, favoritos/recents, avatares em todos os estados e foto de grupo com validação de membro |
+| Galeria (`assets/js/gallery.js`) | Grade superior reorganizada; funcionalidades de upload/edição/favorito não foram verificadas em sessão autenticada | PR #140 realizou apenas layout 3×2, sem remover opções existentes | Necessário teste visual e de upload em usuário comum/ADM; mobile não medido nesta execução |
+| Chamadas (`src/chat-calls.js`, `backend/neon-cloudflare/realtime-worker.mjs`) | Adaptador existente fornece realtime de conversa e Durable Object; disponibilidade de sala depende de `LOOPLY_ROOMS`; chamada é distinta do chat realtime | Sem alteração de infraestrutura ainda | Configuração/credenciais de staging não provam chamadas em produção. Falta verificar sinalização WebRTC, TURN e duas sessões; câmera/microfone físico indisponíveis |
+| Navegação autenticada e mobile | Páginas protegidas encaminham visitante anônimo ao login | Nenhuma sessão de teste foi criada ou assumida | Sem conta/sessão fornecida: fluxos autenticados não foram executados. Sem dispositivos físicos: Safari iOS e Chrome Android pendentes |
 
-## Etapa publicada
+## Publicações verificadas
 
-A correção inicial de Stories foi mesclada na branch principal pelo commit `eed496bf4e21fa6b181d27eae17567d1341f486f` (PR #135). O workflow do GitHub Pages terminou com sucesso. A página pública respondeu e encaminhou a visita sem sessão para o login.
+- PR #135: seletor musical interno e enquadramento de Stories.
+- PR #138: filtros de chat pela lógica dos dados.
+- PR #139: identidade admin no Neon, sem nome codificado.
+- PR #140: ações superiores da Galeria 3×2.
+- PR #141: fallback de recibos não oculta coleção arquivada.
+- PR #142: geometria da câmera/preview de Stories.
+- PR #143: menções e notificações autorizadas.
+- PR #144: Reels com mídia real do feed; Pages #485 passou.
+- PR #145: apresentação limpa de compartilhamentos externos; Pages #486 passou.
+- PR #146: salvamento persistente de publicações; migration `saved_posts` aplicada após verificar estrutura e policies Neon; Pages #487 passou no commit `4a7e3358fdd1890bd586f27ea5ca114b566ca302`.
 
-## Próximos bloqueios técnicos
+## Pendências do prompt mestre — inventário atualizado
 
-1. Portar ações administrativas para uma rota de servidor ativa que valide JWT Neon e autorização por recurso antes de qualquer mutação.
-2. Confirmar qual implantação de backend é a origem de verdade; os Workers Cloudflare auditados são staging/read-only e o app ainda mantém migração incompleta.
-3. Só então retomar Stories com menções/republicação e operações sociais, preservando privacidade e sem usar chamadas simuladas.
-4. Retestar as alterações de Stories com uma conta de teste autenticada e um arquivo publicado real, incluindo inspeção da trilha de áudio.
+1. Stories: opção `allow_reposts`, republicação de Story mencionado com atribuição e validação server-side, bloqueio de ampliar audiência de Story privado; teste autenticado de publicação com faixa efetivamente autorizada e verificação do arquivo/stream publicado.
+2. Feed/Reels: teste de salvar/remover com duas contas, comentários e playback em navegador autenticado; validação de posição de feed e dispositivos.
+3. Admin: portar `looply-admin` para Cloudflare/Neon autenticado com JWT, verificação role no Neon, autorização por recurso, auditoria e limites; somente então habilitar editor/admin/carta privada/música/playlists. Testar requisição direta como comum e administrador.
+4. Cartas: resolver consulta de carregamento se reproduzível; modal completo (título/edição/dedicação/metadados conforme schema), alterar dica e senha com hashing, substituir prompts; confirmar autor/destinatário/Peixinho.
+5. Música: unificar pesquisa por Apple/iTunes, Deezer, Audius onde permitido; seletor interno para dedicatórias; recebidas/enviadas; playlists admin com usuários pesquisáveis/avatar; comentários individuais com leitura autorizada do destinatário e atualização realtime; sem assumir licença de catálogo.
+6. Galeria: verificar upload/categorias/filtros/curtir/favoritar/editar/excluir e controles no viewer em 320–390 px.
+7. Chat: foto de perfil para contatos, upload/substituição de avatar do grupo com autorização por membro, figurinhas autorizadas com busca/categorias/favoritos/recentes, envio de mensagem tipada e exclusão pelo dono.
+8. Chamadas: confirmar backend real de sinalização/ICE/STUN/TURN, reconstruir tela com streams reais, testar duas sessões e liberar tracks/listeners ao encerrar.
+9. Qualidade: navegador autenticado comum/dono/destinatário/ADM; 320–390 px; Chrome Android, Safari iOS, desktop; rede lenta; console/requisições e mídia real. Esta sessão não tem login de teste nem dispositivos físicos.
 
-## Integridade de dados
+## Preservação
 
-As consultas realizadas na infraestrutura foram de leitura. Nenhuma tabela ou branch de dados foi apagada, reiniciada ou recriada nesta auditoria.
-
-
-## Complemento: permissões verificadas no Neon
-
-Consulta somente leitura a `pg_policies` e `pg_proc` na branch principal do projeto configurado no aplicativo:
-
-- As policies de `posts`, `stories` e `comments` permitem exclusão pelo respectivo autor (mapeado por `looply_legacy_uid()`). Não há policy de exclusão administrativa direta nessas tabelas.
-- `archived_cards`, `community_letters`, `conversations`, `story_media` e várias tabelas de interação não expõem policies de mutação ampla; alguns caminhos usam RPCs específicos.
-- As RPCs publicadas com prefixo `v3_`/`v4_` cobrem leitura/visibilidade, perfil, seleção de publicações, mídia pendente e criação/listagem de conversas. Não foi encontrada uma RPC ativa de moderação ou exclusão administrativa.
-- A função antiga `looply-admin` fazia limpeza coordenada de objetos S3 além de apagar registros e gravar auditoria. O caminho de armazenamento ativo valida posse do objeto e não contém a permissão administrativa correspondente.
-
-Resultado: os controles existentes são fail-closed para chamadas administrativas pelo adaptador Neon. A ausência de uma rota não deve ser resolvida com exclusão direta pelo navegador: isso deixaria objetos de mídia órfãos e omitiria auditoria. A implementação requer um endpoint server-side portado e validado, com autorização por sessão, registro de auditoria e limpeza coordenada de mídia.
-
-A análise não executou DELETE, UPDATE, INSERT nem chamadas autenticadas que alterassem dados.
-
-
-## Reavaliação do prompt mestre — 2026-10-26
-
-Esta atualização compara o escopo integral do prompt com alterações efetivamente integradas, testes disponíveis e limitações observadas.
-
-### Concluído ou integrado
-
-| Área | Alteração verificável | Limite atual |
-|---|---|---|
-| Música e enquadramento de Stories | PR #135 manteve a busca musical no app; não abre a galeria ao escolher catálogo. A captura/exportação foi ajustada para 9:16, sem zoom automático, preservando fontes incompatíveis com fundo complementar. PR #142 corrigiu a geometria de captura frontal/traseira e lentes. | A publicação autenticada com arquivo real ainda não foi exercitada numa conta/dispositivo do proprietário. Catálogos comerciais continuam sem autorização para incorporar a música inteira. |
-| Proteção administrativa | PR #139 removeu identidade administrativa codificada em Cartas e consulta o papel autenticado no Neon. Os controllers continuam fechando operações cujo endpoint administrativo ainda não foi migrado. | Ainda falta portar as operações administrativas para um endpoint Neon/Cloudflare ativo, com autorização por recurso. |
-| Chat e Galeria | PR #138 corrigiu filtros de conversas pela categoria e estado de leitura. PR #140 reorganizou os seis controles da Galeria em 3 × 2. | A confirmação autenticada de contas distintas ainda não ocorreu. |
-| Cartas arquivadas | PR #141 preserva as cartas exibidas quando falha a consulta de recibos de leitura e desativa ações dependentes do dado indisponível. | O carregamento principal de cartas ainda apresenta erro de acesso em algumas contas; a exibição parcial não resolve a consulta nem a edição completa. |
-| Menções em Stories e notificações | PR #143 adicionou seletor com pesquisa/avatar, IDs persistidos, RPC que valida autoria/expiração/privacidade, notificação deduplicada e link para o Story. A migração foi testada numa branch Neon de auditoria e aplicada ao branch principal. As concessões foram verificadas: inserção direta de menção/notificação negada e atualização do campo de leitura restrita ao destinatário. | Falta exercitar o fluxo em duas contas autenticadas e confirmar notificação e abertura do Story no navegador da aplicação. Republicação de Stories ainda não está implementada. |
-| Publicação | PRs #135–#143 foram integradas. Os arquivos de Stories da PR #143 foram observados servidos no GitHub Pages. | A navegação autenticada continua bloqueada sem sessão de teste. |
-
-### Publicações progressivas
-
-- PR #144 foi integrada no commit `679feb876e36556f5352147db73bf66251e03439`. O visualizador vertical usa vídeos próprios já autorizados no feed, oferece navegação, curtida, comentários e compartilhamento e restaura a posição anterior do feed. Os dois workflows de validação passaram. A implantação Pages #485 terminou com sucesso; o CSS servido com uma URL nova contém o seletor `.reels-viewer`. A UI autenticada não foi testada por falta de sessão.
-- PR #145 foi integrada no commit `401e6229c52385d7493a644731fec7821a04aebd`. Removeu o texto automático “Compartilhou uma publicação externa”, reduziu a atribuição ao provedor e preservou a incorporação oficial autorizada. Testes de feed, ícones e apresentação passaram; deploy do GitHub Pages #486 concluiu com sucesso; a UI autenticada segue sem teste por falta de sessão.
-- PR #146 está em revisão com o salvamento persistente do feed e Reels. O código mantém o controle oculto se a consulta à tabela não estiver disponível. Migração aditiva validada numa branch temporária do Neon: RLS habilitado, três policies presentes, acesso de leitura/escrita para autenticados e leitura pública negada. O branch principal do Neon ainda não foi modificado; a política usa a identidade mapeada `public.looply_legacy_uid()` e a regra real `public.v3_can_view_post()`.
-
-### Ainda falta executar do prompt
-
-1. Stories: política de republicação configurável pelo autor, fluxo para adicionar ao próprio Story, preservação da autoria original e bloqueio de Stories privados; teste real do áudio depois de publicação e teste autenticado em contas separadas.
-2. Feed/Reels: concluir aprovação/aplicação da migração salvaPosts no branch Neon principal; testar salvamento/remoção com duas contas e verificar navegação/mídia em navegador autenticado e celular.
-3. Administração: endpoint seguro para moderação e operações administrativas; testar requisições diretas como usuário comum e administrador.
-4. Cartas: corrigir o carregamento inicial que ainda falha; editor responsivo completo, títulos, dicas e alteração segura de senha privada; testar conta Peixinho e destinatário sem recarregar a página.
-5. Músicas: pesquisa como seletor para dedicatórias, visualizações recebidas/enviadas, playlists administrativas, comentários por faixa e validação real de reprodução por provedor.
-6. Galeria: concluir e validar upload, filtros, edição, favoritos, exclusão autorizada e visualização em larguras pequenas.
-7. Chat: validar fotos de perfil; adicionar foto de grupo com autorização; catálogo legal de figurinhas, favoritos, recentes, pesquisa e envio persistido.
-8. Chamadas: portar sinalização/realtime que hoje está explicitamente indisponível no adaptador, testar WebRTC entre usuários/redes e confirmar liberação de câmera e microfone.
-9. Qualidade geral: teste visual autenticado nas larguras de 320–390 px, Safari iOS, Chrome Android e desktop; não há evidência de acesso a dispositivos físicos nesta sessão.
-
-### Operações de dados posteriores à auditoria inicial
-
-Depois do registro somente-leitura acima, a PR #143 aplicou apenas DDL aditiva e concessões/policies restritivas para menções e notificações no Neon principal. Não foram apagadas nem reinicializadas tabelas, Stories, mídias ou notificações existentes. A validação de permissões foi repetida no branch principal.
+As alterações de banco aplicadas foram DDL aditiva/restritiva para menções/notificações e favoritos salvos. Não foram apagados nem recriados dados, tabelas ou banco. Os conteúdos de áudio comercial não são copiados a partir de previews.
