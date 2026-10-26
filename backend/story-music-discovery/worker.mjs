@@ -1,8 +1,9 @@
 // Unified public music catalog metadata for the Stories editor.
-// No audio files/previews are downloaded, transcoded or redistributed.
+// Public promo preview URLs are passed transiently to the native browser player;
+// files are never downloaded, transcoded, saved, or embedded in a Story.
 // Apple iTunes Search, Deezer and Audius are read-only discovery sources.
 const ALLOWED_ORIGIN = "https://soumoiss.github.io";
-const JSON_HEADERS = { "content-type":"application/json; charset=utf-8", "cache-control":"public, max-age=45" };
+const JSON_HEADERS = { "content-type":"application/json; charset=utf-8", "cache-control":"no-store" };
 const filterText = (value,max=160) => String(value ?? "").replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,max);
 const safeUrl = (raw, domains) => {
   try {
@@ -15,12 +16,14 @@ const normalize = {
   apple: data => (Array.isArray(data?.results) ? data.results : []).filter(x => x.kind === "song").map(x=>({
     provider:"apple",id:String(x.trackId||""),title:filterText(x.trackName),
     artist:filterText(x.artistName),album:filterText(x.collectionName),
-    artwork:safeUrl(x.artworkUrl100,["mzstatic.com"]),url:safeUrl(x.trackViewUrl,["apple.com","itunes.com"])
+    artwork:safeUrl(x.artworkUrl100,["mzstatic.com"]),url:safeUrl(x.trackViewUrl,["apple.com","itunes.com"]),
+    previewUrl:safeUrl(x.previewUrl,["apple.com","itunes.com","mzstatic.com"])
   })),
   deezer: data => (Array.isArray(data?.data) ? data.data : []).map(x=>({
     provider:"deezer",id:String(x.id||""),title:filterText(x.title),
     artist:filterText(x.artist?.name),album:filterText(x.album?.title),
-    artwork:safeUrl(x.album?.cover_medium,["dzcdn.net"]),url:safeUrl(x.link,["deezer.com"])
+    artwork:safeUrl(x.album?.cover_medium,["dzcdn.net"]),url:safeUrl(x.link,["deezer.com"]),
+    previewUrl:safeUrl(x.preview,["dzcdn.net"])
   })),
   audius: data => (Array.isArray(data?.data) ? data.data : []).map(x=>({
     provider:"audius",id:filterText(x.id,80),title:filterText(x.title),
