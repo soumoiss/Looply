@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sealLetter, openProtectedLetter, matchesLetterDate, communityLettersMarkup } from "../src/letters-community.js";
 import { hashArchivePassword } from "../src/archive-import.js";
+import { loadArchivedCards } from "../src/archived-cards.js";
 
 const root = process.cwd();
 
@@ -173,4 +174,48 @@ test("letters use the authenticated server-verified administrator role, never a 
   assert.doesNotMatch(page, /user\.id\s*===\s*["'][0-9a-f-]{36}["']/i);
   assert.match(runtime, /supabase\.rpc\("v3_self_is_admin"\)/);
   assert.match(runtime, /adminResult\.value\?\.data === true/);
+});
+
+test("archived cards stay visible when read receipts fail, without guessing read state", async () => {
+  const makeQuery = result => {
+    const query = {
+      select() { return query; },
+      order() { return query; },
+      eq() { return query; },
+      then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); }
+    };
+    return query;
+  };
+  const client = {
+    from(table) {
+      return table === "archived_cards"
+        ? makeQuery({ data: [{ id: "card-1", recipient_id: "user-1", card_number: 1, body: "Carta preservada" }], error: null })
+        : makeQuery({ data: null, error: new Error("read receipts unavailable") });
+    }
+  };
+  const result = await loadArchivedCards(client, "user-1");
+  assert.equal(result.cards.length, 1);
+  assert.equal(result.cards[0].body, "Carta preservada");
+  assert.deepEqual(result.reads, []);
+  assert.equal(result.readsUnavailable, true);
+});
+
+test("archived card query failures still surface instead of looking like an empty collection", async () => {
+  const makeQuery = result => {
+    const query = {
+      select() { return query; },
+      order() { return query; },
+      eq() { return query; },
+      then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); }
+    };
+    return query;
+  };
+  const client = {
+    from(table) {
+      return table === "archived_cards"
+        ? makeQuery({ data: null, error: new Error("cards unavailable") })
+        : makeQuery({ data: [], error: null });
+    }
+  };
+  await assert.rejects(() => loadArchivedCards(client, "user-1"), /cards unavailable/);
 });
