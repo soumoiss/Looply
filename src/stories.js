@@ -1,4 +1,4 @@
-import { PROVIDER_NAMES, decodeStorySong } from "./story-music-catalog.js";
+import { audiusStoryStreamUrl, decodeStorySong } from "./story-music-catalog.js";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
@@ -439,18 +439,29 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     const oldMusic = viewer.querySelector("[data-story-viewer-music]");
+    if (oldMusic instanceof HTMLMediaElement) oldMusic.pause();
     oldMusic?.remove();
-    if (catalogSong.song) {
-      const credit = document.createElement("a");
-      credit.dataset.storyViewerMusic = "";
-      credit.className = "story-viewer-song-credit";
-      credit.href = catalogSong.song.url;
-      credit.target = "_blank";
-      credit.rel = "noopener noreferrer";
-      credit.textContent = "♪ " + catalogSong.song.title + " · " + catalogSong.song.artist + " — " + PROVIDER_NAMES[catalogSong.song.provider];
-      credit.setAttribute("aria-label", "Ouvir música no serviço oficial");
-      credit.addEventListener("click", event => event.stopPropagation());
-      viewer.querySelector("[data-story-touch-surface]").append(credit);
+    // The track title/link stays in the Story metadata, not as an on-screen
+    // label. Audius permits third-party streaming through its public API.
+    // Apple/Deezer promo snippets are ONLY auditioned in their official
+    // players inside the editor, never attached as an unlicensed soundtrack.
+    const audiusStream = audiusStoryStreamUrl(catalogSong.song);
+    if (audiusStream) {
+      const music = document.createElement("audio");
+      music.id = "story-audio";
+      music.dataset.storyViewerMusic = "";
+      music.className = "story-viewer-music-hidden";
+      music.autoplay = true;
+      music.preload = "auto";
+      music.loop = true;
+      music.src = audiusStream;
+      music.setAttribute("aria-label", "Música de fundo do Story");
+      viewer.querySelector("[data-story-touch-surface]").append(music);
+      void music.play().then(() => {
+        music.dataset.playback = "playing";
+      }).catch(() => {
+        if (music.isConnected) music.dataset.playback = "gesture-required";
+      });
     }
     if (storyText.music?.previewUrl) {
       const music = document.createElement("audio");
@@ -485,6 +496,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (Number.isFinite(video.duration) && video.duration > 0) setProgressDuration(video.duration * 1000);
         }, { once: true });
         video.addEventListener("play", () => {
+          const songAudio = viewer.querySelector("#story-audio");
+          if (songAudio?.paused && !state.paused) void songAudio.play().catch(() => {});
           clearTimer();
           if (Number.isFinite(video.duration) && video.duration > 0) {
             const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
@@ -857,6 +870,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     setStoryPaused(!state.paused);
   });
   touchSurface.addEventListener("pointerdown", (event) => {
+    // Retry sound through the next actual gesture if mobile autoplay policy
+    // rejected the first attempt; do not add an overlay or a Play button.
+    const backgroundAudio = viewer.querySelector("#story-audio");
+    if (backgroundAudio?.dataset.playback === "gesture-required" && !state.paused) {
+      void backgroundAudio.play().then(() => { backgroundAudio.dataset.playback = "playing"; }).catch(() => {});
+    }
     if (event.isPrimary && event.pointerType !== "mouse") pointerStart = { x: event.clientX, y: event.clientY };
   });
   touchSurface.addEventListener("pointerup", (event) => {

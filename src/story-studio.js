@@ -159,6 +159,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
+  let stopMusicPreview = () => {};
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
@@ -305,6 +306,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
   };
   const close = () => {
     if (publishing) return;
+    stopMusicPreview(); stopMusicPreview = () => {};
     stopRecordingTimer(); stopCamera(); clearPreview();
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
@@ -489,7 +491,10 @@ export function bindStoryStudio(root, client, userId, refresh) {
     body.innerHTML = html;
     $("[data-studio-modal]").hidden = false;
   };
-  const modalClose = () => { $("[data-studio-modal]").hidden = true; body.replaceChildren(); };
+  const modalClose = () => {
+    stopMusicPreview(); stopMusicPreview = () => {};
+    $("[data-studio-modal]").hidden = true; body.replaceChildren();
+  };
   const openLayerEditor = el => {
     const fonts = '<option value="system-ui">Moderna</option><option value="Georgia">Clássica</option><option value="cursive">Manuscrita</option><option value="monospace">Mono</option>';
     modal("Editar texto", '<textarea data-layer-text rows="3" maxlength="120" placeholder="Seu texto"></textarea>' +
@@ -511,26 +516,27 @@ export function bindStoryStudio(root, client, userId, refresh) {
     };
     body.querySelector("[data-layer-delete]").onclick = () => { el.remove(); modalClose(); };
   };
+  // The song is metadata (and an authorized stream for Audius), never a
+  // visible draggable sticker or a commercial audio file mixed into video.
   const removeCatalogCredit = () => overlayRoot.querySelectorAll("[data-studio-music-credit]").forEach(el => el.remove());
   const selectStoryMusic = track => {
     removeCatalogCredit();
     music = track;
-    if (track.kind === "catalog") {
-      const credit = addLayer("♪ " + track.title + " · " + track.artist, false);
-      credit.dataset.studioMusicCredit = "true";
-      credit.dataset.x = "0.5"; credit.dataset.y = "0.76"; credit.dataset.size = "18";
-      credit.style.fontSize = "18px";
-    }
     $("[data-studio-track-label]").textContent = track.title;
     $("[data-studio-music-remove]").hidden = false;
     modalClose();
     status(track.kind === "catalog"
-      ? "Música identificada no Story. Ouça o áudio pelo serviço oficial."
-      : "Áudio selecionado para o Story.");
+      ? track.provider === "audius"
+        ? "Música selecionada. A reprodução do Audius será tentada automaticamente no Story."
+        : "Música identificada; apenas o player oficial pode reproduzir a prévia."
+      : "Música adicionada ao Story: o áudio será incorporado à mídia publicada.");
   };
-  const openMusic = () => openStoryMusicPicker({
-    modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status
-  });
+  const openMusic = () => {
+    stopMusicPreview();
+    stopMusicPreview = openStoryMusicPicker({
+      modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status
+    });
+  };
   const openAudience = () => {
     const people = $("[data-studio-people]");
     modal("Amigos próximos", '<p>Selecione de 1 a 20 pessoas que poderão assistir a este story.</p><div data-studio-audience-list></div>' +
@@ -650,7 +656,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
   const exportFinal = async () => {
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
-    if (sourceKind === "video" && !music && !layered && editFilter === "none") return file;
+    if (sourceKind === "video" && (!music || music.kind === "catalog") && !layered && editFilter === "none") return file;
     if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"));
     const canvas = await renderStill();
     if (music && music.kind !== "catalog") return exportVideo(canvas, true);
