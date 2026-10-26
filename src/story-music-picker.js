@@ -116,7 +116,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       const config=officialSongPreview(track);
       if(config?.kind==="audio"){
         makeAudio(config.src);
-        if(track.provider==="apple")mark("Prévia promocional do iTunes. Se necessário, toque no ▶ abaixo.");
+        if(track.provider==="apple")mark("Cortesia do iTunes. Se necessário, toque no ▶ abaixo.");
       }else if(config?.kind==="embed"){
         const iframe=document.createElement("iframe");
         iframe.className="studio-music-official-player";
