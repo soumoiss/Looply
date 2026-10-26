@@ -63,7 +63,7 @@ Esta atualização compara o escopo integral do prompt com alterações efetivam
 ### Em andamento
 
 - PR #144 adiciona um visualizador vertical para vídeos reais que já estão no feed, com navegação por gesto/botões, curtida, painel de comentários, compartilhamento interno/externo e retorno ao feed.
-- Build, parse de módulos, testes npm e workflow de segurança passaram nessa PR. A validação especializada do FaceLandmarker falhou ao aguardar resposta completa do bundle/modelo externo; uma nova execução foi solicitada.
+- Build, parse de módulos, testes npm e workflow de segurança passaram na primeira execução da PR. A validação especializada do FaceLandmarker teve uma falha transitória sem resultado do bundle/modelo externo; a repetição completou com sucesso. Depois de um ajuste no ciclo de vida do player e no teste correspondente, a PR está novamente em validação.
 - A PR não adiciona controle de salvar: o esquema e endpoint autorizados para salvamento ainda precisam ser desenhados e validados.
 
 ### Ainda falta executar do prompt
