@@ -694,15 +694,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     state.paused = Boolean(paused);
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const video = mediaHost.querySelector("video");
+    const audio = viewer.querySelector("#story-audio");
     const button = viewer.querySelector("[data-story-play-toggle]");
     const progress = viewer.querySelector(".story-progress-item.is-current i");
     if (state.paused) {
       clearTimer();
       if (video && !video.paused) video.pause();
+      if (audio && !audio.paused) audio.pause();
       if (progress) progress.style.animationPlayState = "paused";
     } else {
       if (progress) progress.style.animationPlayState = "running";
       if (video && video.paused) void video.play().catch(() => {});
+      if (audio && audio.paused) void audio.play().catch(() => {});
       else resumeStoryTimer();
     }
     if (button) {
@@ -746,6 +749,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const renderSlide = () => {
     clearTimer();
+    const previousAudio = viewer.querySelector("#story-audio");
+    if (previousAudio) { previousAudio.pause(); previousAudio.currentTime = 0; }
     if (!state.active) return;
     const stories = activeStoriesFor(state.active);
     state.active.stories = stories;
@@ -791,7 +796,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (storyText.spotifyTrackId) {
       const music = document.createElement("iframe");
       music.dataset.storyViewerMusic = "";
-      music.className = "story-viewer-music";
+      music.className = "story-viewer-music story-viewer-music-hidden";
+      music.setAttribute("aria-hidden", "true");
+      music.tabIndex = -1;
       music.src = `https://open.spotify.com/embed/track/${storyText.spotifyTrackId}?utm_source=generator`;
       music.title = "Música deste story no Spotify";
       music.loading = "lazy";
@@ -799,7 +806,17 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       viewer.querySelector("[data-story-touch-surface]").append(music);
     }
     if (storyText.music?.previewUrl) {
-      const music = document.createElement("audio"); music.dataset.storyViewerMusic = ""; music.className = "story-viewer-music"; music.controls = true; music.preload = "none"; music.src = storyText.music.previewUrl; music.setAttribute("aria-label", "Prévia da música deste story"); viewer.querySelector("[data-story-touch-surface]").append(music);
+      const music = document.createElement("audio");
+      music.id = "story-audio";
+      music.dataset.storyViewerMusic = "";
+      music.className = "story-viewer-music-hidden";
+      music.preload = "auto";
+      music.autoplay = true;
+      music.loop = true;
+      music.src = storyText.music.previewUrl;
+      music.addEventListener("error", () => { music.dataset.playback = "unavailable"; }, { once: true });
+      viewer.querySelector("[data-story-touch-surface]").append(music);
+      void music.play().catch(() => { music.dataset.playback = "gesture-required"; });
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     mediaHost.querySelectorAll("video").forEach((video) => {
@@ -1303,6 +1320,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
   viewer.addEventListener("close", () => {
     clearTimer();
+    const audio = viewer.querySelector("#story-audio");
+    if (audio) { audio.pause(); audio.currentTime = 0; }
     viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
   });
   createDialog.addEventListener("close", () => {

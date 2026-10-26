@@ -522,7 +522,8 @@
 .story-music-result span:last-child { display:grid; min-width:0; gap:1px; }
 .story-music-result strong,.story-music-result small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .story-music-result small { color:#ffffffae; }.story-music-result em { color:#d7bdff; font-size:10px; font-style:normal; }
-.story-spotify-preview iframe,.story-viewer-music { width:100%; height:152px; border:0; border-radius:12px; }
+.story-spotify-preview iframe { width:100%; height:152px; border:0; border-radius:12px; }
+.story-viewer-music-hidden { position:absolute!important; width:1px!important; height:1px!important; opacity:0!important; pointer-events:none!important; overflow:hidden!important; }
 .story-viewer-music { position:absolute; z-index:4; right:14px; bottom:112px; left:14px; width:calc(100% - 28px); height:80px; }
 .story-media-label,.story-media-preview,.story-recipient-picker,.story-create-form > label[for="storyVisibility"],.story-create-form > #storyVisibility,.story-form-actions { position:relative; z-index:8; margin:0 20px; color:#fff; }
 .story-media-label { margin-top:16px; }
