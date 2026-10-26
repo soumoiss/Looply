@@ -3,10 +3,12 @@
 import {FaceWarpGPU,fallbackFaceWarp} from "./story-ar-warp.js";
 import {paintFaceEffect} from "./story-ar-paint.js";
 import {StoryGlasses3D} from "./story-ar-3d.js";
-const TASKS_VERSION = "0.10.22";
+// Only use a published, pinned stable version. 0.10.22 does NOT exist on npm.
+const TASKS_VERSION = "0.10.34";
 const TASKS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + TASKS_VERSION;
 const WASM_URL = TASKS_URL + "/wasm";
-const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
+const BUNDLE_URL = TASKS_URL + "/vision_bundle.mjs";
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 export class StoryFaceLens {
   constructor(video,canvas,getFacingMode){
     this.video=video;this.canvas=canvas;this.getFacingMode=getFacingMode;
@@ -14,12 +16,14 @@ export class StoryFaceLens {
     this.running=false;this.faceLandmarker=null;this.frame=null;
     this.ready=false;this.lastError=null;this.lastDetect=0;this.lastDraw=0;this.lastVideoTime=-1;
     this.landmarks=null;this.warper=null;this.glasses=null;this.source=document.createElement("canvas");
-    this.selectionSerial=0;
+    this.selectionSerial=0;this.preparePromise=null;
   }
   async prepare(){
     if(this.faceLandmarker)return true;
+    if(this.preparePromise)return this.preparePromise;
+    const task=async()=>{
     try{
-      const vision=await import(TASKS_URL);
+      const vision=await import(BUNDLE_URL);
       const fileset=await vision.FilesetResolver.forVisionTasks(WASM_URL);
       const options={
         baseOptions:{modelAssetPath:MODEL_URL,delegate:"GPU"},runningMode:"VIDEO",
@@ -36,6 +40,9 @@ export class StoryFaceLens {
       this.lastError=error;this.ready=false;
       console.warn("Loooply: não foi possível inicializar AR",error);return false;
     }
+    };
+    this.preparePromise=task().finally(()=>{this.preparePromise=null;});
+    return this.preparePromise;
   }
   async setLens(effect){
     const manifest=typeof effect==="string"

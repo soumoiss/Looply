@@ -7,6 +7,7 @@ on:
       - 'src/story-ar*.js'
       - 'assets/story-effects/**'
       - 'scripts/check-story-ar-browser.mjs'
+      - 'scripts/check-story-face-runtime.mjs'
       - 'tests/story-ar-open.test.mjs'
       - 'src/story-music-catalog.js'
       - 'src/story-music-picker.js'
@@ -38,6 +39,8 @@ jobs:
           node-version: '22'
       - name: Build and execute test suite
         run: npm test
+      - name: Initialize real MediaPipe FaceLandmarker in headless Chrome
+        run: node scripts/check-story-face-runtime.mjs
       - name: Verify live AR pixel deformation in headless Chrome
         run: node scripts/check-story-ar-browser.mjs
       - name: Verify mobile song cards in headless Chrome
