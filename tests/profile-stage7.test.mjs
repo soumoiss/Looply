@@ -4,13 +4,13 @@ import { readFile } from "node:fs/promises";
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("profile images are cropped to a real 512x512 square before upload", async () => {
-  const source = await read("src/profiles.js");
+  const [source, avatar] = await Promise.all([read("src/profiles.js"),read("src/neon-avatar-profile.js")]);
   assert.match(source, /data-profile-crop-dialog/);
   assert.match(source, /data-crop-x/);
   assert.match(source, /data-crop-y/);
   assert.match(source, /canvas\.width=512;canvas\.height=512/);
   assert.match(source, /validatedBitmap\.width === 512 && validatedBitmap\.height === 512/);
-  assert.match(source, /uploadData\.path !== newAvatarPath/);
+  assert.match(avatar, /data\?\.path !== newPath/);
 });
 
 test("missing avatars are routed to profile selection", async () => {
@@ -67,11 +67,12 @@ test("global back link follows its explicit home or chat destination", async () 
 });
 
 test("avatar validation respects the bucket read policy by updating the profile path before signing", async () => {
-  const source = await read("src/profiles.js");
-  const upload = source.indexOf('.storage.from("looply-avatars").upload(newAvatarPath');
-  const profileUpdate = source.indexOf('.update(updates).eq("id", userId).select("id,avatar_path").maybeSingle()');
-  const signedUrl = source.indexOf('cachedSignedUrl(client, "looply-avatars", newAvatarPath, 60)');
+  const source = await read("src/neon-avatar-profile.js");
+  const upload = source.indexOf('await bucket.upload(newPath');
+  const profileUpdate = source.indexOf('const committed = await profileRequest');
+  const signedUrl = source.indexOf('await bucket.createSignedUrl(newPath');
   assert.ok(upload >= 0 && profileUpdate > upload && signedUrl > profileUpdate);
   assert.match(source, /profile-update-not-confirmed/);
-  assert.match(source, /Could not roll back profile avatar after storage validation failed/);
+  assert.match(source, /avatar-rollback-failed/);
+  assert.match(source, /expectedAvatarPath: newPath/);
 });
