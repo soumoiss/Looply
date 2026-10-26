@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,searchAppleMusicPublic,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
+import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,searchAppleMusicPublic,officialSongPreview,audiusStoryStreamUrl,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
 import worker from "../backend/story-music-discovery/worker.mjs";
 
 const fixture = {provider:"apple",title:"Música Legal",artist:"Artista",url:"https://music.apple.com/br/album/musica/123",artwork:""};
@@ -69,7 +69,14 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(studio,/encodeStorySong\(caption\.value,music\)/);
   assert.match(picker,/searchStorySongs\(term/);
   assert.match(viewer,/decodeStorySong\(story\.body/);
-  assert.match(viewer,/credit\.href = catalogSong\.song\.url/);
+  assert.doesNotMatch(studio,/addLayer\("♪ " \+ track\.title/);
+  assert.doesNotMatch(viewer,/story-viewer-song-credit|credit\.href = catalogSong/);
+  assert.match(viewer,/audiusStoryStreamUrl\(catalogSong\.song\)/);
+  assert.match(viewer,/if \(audio && !audio\.paused\) audio\.pause\(\)/);
+  assert.match(viewer,/music\.autoplay = true/);
+  assert.match(picker,/▶ Ouvir/);
+  assert.match(picker,/Escolher esta música/);
+  assert.match(picker,/stopPreview/);
 });
 
 test("Apple Music public fallback recovers songs when Cloudflare shared IP gets HTTP 429",async()=>{
@@ -92,4 +99,22 @@ test("Apple Music public fallback recovers songs when Cloudflare shared IP gets 
   assert.equal(appleRequested,true);
   assert.equal(result.providers[0].available,true);
   assert.equal(result.items[0].title,"Envolver");
+});
+
+test("Licensed audition uses official Apple and Deezer players, not stolen preview files",()=>{
+  const apple=officialSongPreview({...fixture,id:"123"});
+  assert.deepEqual(apple,{kind:"embed",provider:"apple",src:"https://embed.music.apple.com/br/album/musica/123"});
+  const deezer=officialSongPreview({provider:"deezer",title:"Hit",artist:"Band",url:"https://www.deezer.com/br/track/456",id:"456"});
+  assert.deepEqual(deezer,{kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/456"});
+  assert.equal(officialSongPreview({provider:"deezer",title:"Hit",artist:"Band",url:"https://evil.invalid/br/track/456"}),null);
+});
+test("Audius stream metadata survives publication and controls invisible background playback",()=>{
+  const track={provider:"audius",title:"Som",artist:"Banda",id:"AbC123",url:"https://audius.co/banda/som"};
+  assert.match(audiusStoryStreamUrl(track),/\/tracks\/AbC123\/stream\?app_name=Looply$/);
+  const value=encodeStorySong("Minha legenda",track);
+  assert.match(value,/^\[\[looply-music-v5\|/);
+  assert.equal(decodeStorySong(value).song.id,"AbC123");
+  assert.equal(decodeStorySong(value).text,"Minha legenda");
+  assert.equal(audiusStoryStreamUrl({...track,id:"../../passwd"}),"");
+  assert.equal(decodeStorySong(encodeStorySong("",fixture)).song.provider,"apple");
 });
