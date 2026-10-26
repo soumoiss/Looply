@@ -497,20 +497,31 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
-  const startCamera = async (facingMode = state.cameraFacing) => {
+  const startCamera = async (facingMode = state.cameraFacing, requireFacing = false) => {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("camera_unavailable");
-    const videoOnly = { video: { facingMode: { ideal: facingMode } }, audio: false };
-    let nextStream;
-    try {
-      nextStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: facingMode } }, audio: true
-      });
-    } catch {
-      nextStream = await navigator.mediaDevices.getUserMedia(videoOnly);
+    // Use `exact` while changing cameras. `ideal` is allowed to silently keep the
+    // rear camera on several Android devices, which made the flip button look dead.
+    const facingRequests = requireFacing
+      ? [{ facingMode: { exact: facingMode } }]
+      : [{ facingMode: { exact: facingMode } }, { facingMode: { ideal: facingMode } }];
+    let nextStream = null;
+    let lastError = null;
+    for (const video of facingRequests) {
+      for (const audio of [true, false]) {
+        try {
+          nextStream = await navigator.mediaDevices.getUserMedia({ video, audio });
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (nextStream) break;
     }
+    if (!nextStream) throw (lastError || new Error("camera_unavailable"));
     state.cameraStream?.getTracks().forEach((track) => track.stop());
     state.cameraStream = nextStream;
-    state.cameraFacing = facingMode;
+    const reportedFacing = nextStream.getVideoTracks()[0]?.getSettings?.().facingMode;
+    state.cameraFacing = reportedFacing === "user" || reportedFacing === "environment" ? reportedFacing : facingMode;
     cameraPreview.srcObject = state.cameraStream;
     cameraPreview.style.filter = filterStyles[state.cameraFilter];
     cameraPanel.style.setProperty("--story-camera-mirror", facingMode === "user" ? "-1" : "1");
@@ -538,8 +549,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     state.cameraStream = null;
     if (cameraPreview) cameraPreview.srcObject = null;
     try {
-      await startCamera(nextFacing);
-      setCameraStatus(nextFacing === "user" ? "Câmera frontal ativa." : "Câmera traseira ativa.");
+      await startCamera(nextFacing, true);
+      setCameraStatus(nextFacing === "user" ? "Câmera frontal ativa (prévia espelhada)." : "Câmera traseira ativa.");
     } catch (error) {
       console.warn("Looply story camera switch failed.", error);
       // Try to restore the prior lens so a failed switch doesn't leave the camera dead.
