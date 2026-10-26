@@ -69,7 +69,7 @@ const galleryMarkup = () => [
 '<div class="gallery-camera-modal" data-camera-modal hidden><div class="gallery-camera-panel"><video data-camera-preview autoplay muted playsinline></video><div><button type="button" class="gallery-tool" data-switch-camera>', icon("cameraSwitch"), ' Trocar câmera</button><button type="button" class="gallery-primary" data-record>', icon("video"), ' Iniciar gravação</button><button type="button" class="gallery-tool" data-stop-camera>Fechar</button></div><p data-camera-status role="status"></p></div></div>'
 ].join("");
 
-await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdmin }) => {
+await mountAppPage({ page: "gallery", render: async ({ root, client, user, profile, isAdmin }) => {
   root.innerHTML = galleryMarkup();
   const $ = selector => root.querySelector(selector);
   const $$ = selector => Array.from(root.querySelectorAll(selector));
@@ -555,34 +555,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
     }
     finally { submit.disabled = false; }
   };
-  // Use a raw binary Storage request for gallery media. The current Storage API
-  // can reject SDK multipart uploads with a misleading RLS error even when the
-  // user/path policy is correct. Do not send multipart/form-data or x-upsert.
+  // Send binary media through the authenticated Neon Storage Function.
   const uploadGalleryObject = async (path, file, contentType) => {
-    const { data: sessionData, error: sessionError } = await client.auth.getSession();
-    if (sessionError) throw sessionError;
-    const accessToken = sessionData?.session?.access_token;
-    if (!accessToken) throw new Error("Sua sessão expirou. Entre novamente e tente publicar.");
-    const baseUrl = String(client.supabaseUrl || "").replace(/\/+$/, "");
-    const apiKey = client.supabaseKey;
-    if (!baseUrl || !apiKey) throw new Error("A configuração do Supabase não está disponível.");
-    const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
-    const response = await fetch(baseUrl + "/storage/v1/object/looply-gallery/" + encodedPath, {
-      method: "POST",
-      headers: {
-        apikey: apiKey,
-        Authorization: "Bearer " + accessToken,
-        "Content-Type": contentType
-      },
-      body: file
-    });
-    const responseText = await response.text();
-    let payload = null;
-    try { payload = responseText ? JSON.parse(responseText) : null; } catch {}
-    if (!response.ok) {
-      throw new Error(payload?.message || payload?.error || ("O armazenamento recusou o arquivo (HTTP " + response.status + ")."));
-    }
-    return payload;
+    const { data, error } = await client.storage.from("looply-gallery").upload(path, file, { contentType, upsert: false });
+    if (error) throw error;
+    if (data?.path !== path) throw new Error("O armazenamento não confirmou o caminho do arquivo.");
+    return data;
   };
   const publish = async event => {
     event.preventDefault(); if (uploadBusy) return;
@@ -609,12 +587,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
         try {
           const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi,"").toLowerCase();
           const objectId = crypto.randomUUID();
-          path = "gallery/" + user.id + "/" + objectId + "." + ext;
+          path = "gallery/" + profile.id + "/" + objectId + "." + ext;
           const mimeType = getFileMime(file) || "application/octet-stream";
           await uploadGalleryObject(path, file, mimeType);
           const kind = mimeType.startsWith("video/") ? "video" : mimeType.startsWith("audio/") ? "audio" : "image";
           const { data: row, error: rowError } = await client.from("community_gallery_media").insert({
-            owner_id:user.id, storage_path:path, file_name:file.name, kind, mime_type:mimeType,
+            owner_id:profile.id, storage_path:path, file_name:file.name, kind, mime_type:mimeType,
             byte_size:file.size, caption:"", visibility:exclusive ? "exclusive" : "members", comment_access:"viewers", publication_state:"pending"
           }).select("id").single();
           if (rowError) throw rowError;
@@ -639,7 +617,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, isAdm
             const { error } = await client.from("gallery_media_people").insert(tags);
             if (error) throw error;
           }
-          const { error: publishError } = await client.from("community_gallery_media").update({publication_state:"published"}).eq("id",row.id).eq("owner_id",user.id);
+          const { error: publishError } = await client.from("community_gallery_media").update({publication_state:"published"}).eq("id",row.id).eq("owner_id",profile.id);
           if (publishError) throw publishError;
           completed++;
         } catch (error) {

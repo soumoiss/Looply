@@ -19,8 +19,16 @@ test("gallery upload infers common device formats when browser MIME is empty", (
   for (const ext of ["gif", "avif", "heic", "heif", "tiff", "bmp", "mov", "mkv", "avi", "3gp", "mts", "flac", "opus"]) {
     assert.ok(gallery.includes(ext + ":") || gallery.includes("\"" + ext + "\":"), "Missing MIME inference for " + ext);
   }
-  assert.match(gallery, /"Content-Type": contentType/);
+  assert.match(gallery, /client\.storage\.from\("looply-gallery"\)\.upload\(path, file, \{ contentType, upsert: false \}\)/);
+  assert.doesNotMatch(gallery, /A configuração do Supabase não está disponível/);
   assert.match(gallery, /mime_type:mimeType/);
+});
+
+test("gallery uploads use the preserved profile ID for storage and metadata ownership", () => {
+  assert.match(gallery, /render: async \(\{ root, client, user, profile, isAdmin \}\)/);
+  assert.match(gallery, /"gallery\/" \+ profile\.id \+ "\/" \+ objectId/);
+  assert.match(gallery, /owner_id:profile\.id/);
+  assert.match(gallery, /\.eq\("owner_id",profile\.id\)/);
 });
 
 test("database and private Storage policies remove gallery-specific MIME and size caps", () => {
