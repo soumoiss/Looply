@@ -23,7 +23,8 @@ test("GitHub Pages keeps the recovered original controllers and uses Neon for au
  assert.match(worker,/looply-pages-[a-f0-9]{16}/);
 });
 test("Neon modules use an authenticated shared client and retain the six migrated username mappings",async()=>{
- const client=await readFile(path.join(dist,"src/neon-production-client.js"),"utf8");\n const rest=await readFile(path.join(dist,"src/neon-rest-bridge.js"),"utf8");
+ const client=await readFile(path.join(dist,"src/neon-production-client.js"),"utf8");
+ const rest=await readFile(path.join(dist,"src/neon-rest-bridge.js"),"utf8");
  const login=await readFile(path.join(dist,"src/neon-production-login.js"),"utf8");
  const pages=await readFile(path.join(dist,"src/neon-production-pages.js"),"utf8");
  for(const name of ["peixinho","patati","misol","yara","gaberinjela","eukeiliane"])assert.ok(client.includes(name),name);
