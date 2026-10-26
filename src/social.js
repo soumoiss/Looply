@@ -408,65 +408,18 @@ function selectedCommentMedia(formData) {
 }
 
 export async function uploadResumable(client, path, file, onProgress) {
+  // All binary data goes to the authenticated Neon Storage service.
+  // Supabase TUS endpoints, keys, and retry SDKs are not used.
   const { data, error } = await client.auth.getSession();
-  const accessToken = data?.session?.access_token;
-  if (error || !accessToken) throw new Error("session expired");
-  const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
-  if (!publishableKey) throw new Error("Supabase publishable key is missing.");
-  if (file.size <= 6 * 1024 * 1024) {
-    const { error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
-      upsert: false
-    });
-    if (uploadError) throw uploadError;
-    onProgress(100);
-    return;
-  }
-  const projectUrl = new URL(window.LOOPLY_CONFIG.supabaseUrl);
-  const endpoint = projectUrl.hostname.endsWith(".supabase.co")
-    ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
-    : new URL("/storage/v1/upload/resumable", projectUrl).toString();
-  const uploadDirect = async () => {
-    const { error: fallbackError } = await client.storage.from("looply-media").upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
-      upsert: false
-    });
-    if (fallbackError) throw fallbackError;
-    onProgress(100);
-  };
-  let tus;
-  try {
-    tus = await import("https://esm.sh/tus-js-client@4.3.1");
-  } catch (importError) {
-    // A remote ESM import can fail in embedded/mobile browsers before any upload request is sent.
-    console.warn("Looply resumable upload module unavailable; trying standard storage upload.", importError);
-    await uploadDirect();
-    return;
-  }
-  try {
-    await new Promise((resolve, reject) => {
-      const upload = new tus.Upload(file, {
-        endpoint,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: { authorization: `Bearer ${accessToken}`, apikey: publishableKey },
-        uploadDataDuringCreation: true,
-        removeFingerprintOnSuccess: true,
-        chunkSize: 6 * 1024 * 1024,
-        metadata: { bucketName: "looply-media", objectName: path, contentType: file.type, cacheControl: "3600" },
-        onError: reject,
-        onProgress: (uploaded, total) => onProgress(Math.floor((uploaded / total) * 100)),
-        onSuccess: resolve
-      });
-      upload.start();
-    });
-  } catch (tusError) {
-    // TUS can fail after its module loads (for example in embedded browsers or on unstable mobile networks).
-    // Try the standard Storage transport before rolling back the Story/Feed record.
-    console.warn("Looply resumable upload failed; trying standard storage upload.", tusError);
-    await uploadDirect();
-  }
+  if (error || !data?.session?.access_token) throw new Error("session expired");
+  if (!file?.size || file.size > 25 * 1024 * 1024) throw new Error("unsupported file");
+  onProgress?.(0);
+  const { data: uploaded, error: uploadError } = await client.storage.from("looply-media").upload(path, file, {
+    contentType: file.type || "application/octet-stream", upsert: false
+  });
+  if (uploadError) throw uploadError;
+  if (uploaded?.path !== path) throw new Error("neon_storage_unconfirmed");
+  onProgress?.(100);
 }
 
 export async function loadSocialData(client) {
