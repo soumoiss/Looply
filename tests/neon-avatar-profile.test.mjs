@@ -16,6 +16,7 @@ function fixture(options = {}) {
     assert.equal(request.headers.authorization, "Bearer " + SESSION.access_token);
     const query = new URL(url).searchParams;
     assert.equal(query.get("id"), "eq." + ID);
+    assert.equal(query.get("limit"), request.method === "PATCH" ? null : "2");
     history.push(request.method);
     if (options.denied && request.method === "PATCH") return new Response("{}",{status:403});
     if (request.method === "PATCH") {
