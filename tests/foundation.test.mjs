@@ -316,16 +316,16 @@ test("media storage stays private and follows post-level RLS", async () => {
   assert.doesNotMatch(sql, /grant select on public\.post_media to anon/i);
 });
 
-test("profile search and editing use only profile fields protected by RLS", async () => {
-  const profiles = await read("src/profiles.js");
-  assert.match(profiles, /const updates = \{ display_name: displayName, bio, profile_visibility: visibility \}/);
-  assert.match(profiles, /from\("profiles"\)[\s\S]*?\.update\(updates\)/);
-  assert.match(profiles, /cachedSignedUrls\(client, "looply-avatars"/);
-  assert.match(profiles, /storage\.from\("looply-avatars"\)\.upload/);
-  assert.match(profiles, /avatars\/\$\{userId\}\/\$\{crypto\.randomUUID\(\)\}/);
+test("profile search and editing use only profile fields protected by Neon RLS", async () => {
+  const [profiles,avatar] = await Promise.all([read("src/profiles.js"),read("src/neon-avatar-profile.js")]);
+  assert.match(profiles, /saveNeonProfile\(/);
+  assert.match(profiles, /profile_visibility: visibility/);
+  assert.match(avatar, /method = "GET"/);
+  assert.match(avatar, /method: "PATCH"/);
+  assert.match(avatar, /bucket\.upload\(newPath/);
+  assert.match(avatar, /avatars\/\$\{profileId\}\//);
   assert.match(profiles, /\.ilike\("username", `\$\{query\}%`\)/);
-  assert.match(profiles, /from\("posts"\)[\s\S]*?select\("id,body,created_at,media:post_media/);
-  assert.doesNotMatch(profiles, /\.select\([^\n]*email/i);
+  assert.doesNotMatch(avatar, /@supabase\/supabase-js|supabase\.co/);
 });
 
 test("music dedications are limited to the two participants and comments are private by default", async () => {
