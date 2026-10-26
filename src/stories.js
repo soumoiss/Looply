@@ -5,6 +5,7 @@ import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { validatePublicationInput } from "./publication-validation.js";
 import { decodeStoryBody, encodeStoryBody, storyMusicToken } from "./story-text-style.js";
 import { StoryFaceLens, drawStoryLens } from "./story-ar.js";
+import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js";
 
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
@@ -244,45 +245,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         ? 'Não foi possível carregar os stories. <button type="button" class="text-button" data-story-refresh>Tentar novamente</button>'
         : groups.length ? "" : "Nenhum story ativo.") +
     "</p>" +
-    '<dialog class="story-create-dialog" data-story-create-dialog aria-labelledby="storyCreateTitle">' +
-      '<div class="story-dialog-heading"><div><span class="section-kicker">Story</span><h2 id="storyCreateTitle">Adicionar story</h2></div>' +
-      '<button class="icon-button" type="button" data-story-create-close aria-label="Fechar">' + icon("close") + '</button></div>' +
-      '<form class="story-create-form" data-story-create>' +
-        '<nav class="story-composer-modes" aria-label="Modo do story"><button type="button" data-story-mode="camera" aria-pressed="true">Câmera</button><button type="button" data-story-mode="text" aria-pressed="false">Texto</button></nav>' +
-        '<section class="story-text-composer" data-story-text-composer hidden><div class="story-text-live-preview" data-story-text-live-preview>Digite seu story</div>' +
-        '<label for="storyBody">Texto <span>(opcional, até 1.000 caracteres)</span></label>' +
-        '<textarea id="storyBody" name="body" maxlength="1000" rows="3" placeholder="Digite seu story"></textarea>' +
-        '<fieldset class="story-text-style" data-story-text-style><legend>Estilo (Stories sem mídia)</legend>' +
-          '<label for="storyTextFont">Fonte<select id="storyTextFont" name="text_font"><option value="system">Moderna</option><option value="serif">Clássica</option><option value="rounded">Arredondada</option><option value="mono">Máquina de escrever</option><option value="handwritten">Manuscrita</option></select></label>' +
-          '<label for="storyTextSize">Tamanho <output data-story-text-size>20 pt</output><input id="storyTextSize" name="text_size" type="range" min="6" max="20" step="1" value="20"></label>' +
-        '</fieldset><button type="button" class="story-text-music-button" data-story-music-toggle>♫ Adicionar música</button></section><input id="storyMusic" name="music_track_id" type="hidden">' +
-        '<div class="story-media-label"><span>Foto ou vídeo <small>envio direto ao armazenamento</small></span></div>' +
-        '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
-        '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
-          '<video data-story-camera-preview autoplay muted playsinline></video><canvas data-story-ar-canvas aria-hidden="true"></canvas>' +
-          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-flash-toggle aria-label="Alternar flash">⚡</button><button type="button" data-story-camera-settings aria-label="Configurações da câmera">⚙</button></div>' +
-          '<div class="story-camera-creative-tools" aria-label="Ferramentas criativas"><button type="button" data-story-mode="text" aria-label="Criar texto">Aa</button><button type="button" data-story-effects aria-label="Efeitos dinâmicos">∞</button><button type="button" data-story-grid-toggle aria-label="Alternar grade">⊞</button><button type="button" data-story-tools-toggle aria-label="Recolher ferramentas">⌄</button><button type="button" data-story-music-toggle aria-label="Adicionar música">♫</button></div>' +
-          '<div class="story-filter-strip" data-story-filter-strip aria-label="Ajustes visuais"><button type="button" data-story-filter="none" aria-pressed="true">Original</button><button type="button" data-story-filter="warm" aria-pressed="false">Quente</button><button type="button" data-story-filter="cool" aria-pressed="false">Frio</button><button type="button" data-story-filter="mono" aria-pressed="false">P&B</button><button type="button" data-story-filter="vivid" aria-pressed="false">Vivo</button></div><div class="story-lens-strip" data-story-lens-strip aria-label="Lentes com rastreamento facial"><button type="button" data-story-lens="none" aria-pressed="true">Sem lente</button><button type="button" data-story-lens="glasses" aria-pressed="false">Óculos RA</button><button type="button" data-story-lens="halo" aria-pressed="false">Halo RA</button><button type="button" data-story-lens="mask" aria-pressed="false">Máscara RA</button><button type="button" data-story-lens="eyes" aria-pressed="false">Olhos RA</button></div>' +
-          '<div class="story-camera-actions"><label class="story-gallery-button" for="storyMedia" aria-label="Escolher foto ou vídeo da galeria">▧<span>Galeria</span></label>' +
-          '<button class="story-shutter" type="button" data-story-capture-photo aria-label="Tirar foto"></button>' +
-          '<button class="story-record-button" type="button" data-story-record-toggle aria-label="Gravar vídeo"><span></span><small>Vídeo</small></button><button class="story-camera-flip" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
-          '<nav class="story-format-selector" aria-label="Formato da publicação"><button type="button">POST</button><button type="button" aria-current="true">STORY</button><button type="button">REEL</button><button type="button">LIVE</button></nav>' +
-          '<span class="form-status" data-story-camera-status role="status" aria-live="polite"></span>' +
-        '</section>' +
-        '<div class="story-media-preview" data-story-preview aria-live="polite"></div>' +
-        '<section class="story-music-picker" data-story-music-picker hidden><header><strong>Música</strong><button type="button" data-story-music-close aria-label="Fechar música">×</button></header><div class="story-music-heading"><label class="visually-hidden" for="storyMusicQuery">Pesquisar música ou artista</label><input id="storyMusicQuery" type="search" placeholder="Música ou artista" autocomplete="off"><button type="button" data-story-music-open aria-label="Pesquisar música no Spotify">Pesquisar</button></div><p data-story-music-selected>Nenhuma música selecionada.</p><div class="story-spotify-preview" data-story-spotify-preview aria-live="polite"></div></section>' +
-        '<div class="story-publish-options" data-story-publish-options hidden>' +
-        '<label for="storyVisibility">Quem pode ver?</label>' +
-        '<select id="storyVisibility" name="visibility"><option value="public">Todos os membros</option><option value="selected">Pessoas escolhidas</option><option value="private">Só você</option></select>' +
-        '<div class="story-recipient-picker" data-story-recipient-picker hidden>' +
-          '<label for="storyRecipients">Pessoas escolhidas</label>' +
-          '<select id="storyRecipients" name="recipientIds" multiple size="4" ' + (eligiblePeople.length ? "" : "disabled") + ">" + recipientOptions + "</select>" +
-          '<small>' + escapeHtml(peopleHint) + "</small>" +
-        "</div>" +
-        '<div class="story-form-actions"><button class="primary-button compact-button" type="submit">Publicar story</button>' +
-        '<span class="form-status" data-story-create-status role="status" aria-live="polite"></span></div></div>' +
-      "</form>" +
-    "</dialog>" +
+    storyStudioMarkup(recipientOptions) +
     '<dialog class="story-viewer-dialog" data-story-viewer aria-label="Visualizador de stories">' +
       '<div class="story-viewer-shell">' +
         '<div class="story-progress-list" data-story-progress-list></div>' +
@@ -816,18 +779,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     const oldMusic = viewer.querySelector("[data-story-viewer-music]");
     oldMusic?.remove();
-    if (storyText.spotifyTrackId) {
-      const music = document.createElement("iframe");
-      music.dataset.storyViewerMusic = "";
-      music.className = "story-viewer-music story-viewer-music-hidden";
-      music.setAttribute("aria-hidden", "true");
-      music.tabIndex = -1;
-      music.src = `https://open.spotify.com/embed/track/${storyText.spotifyTrackId}?utm_source=generator`;
-      music.title = "Música deste story no Spotify";
-      music.loading = "lazy";
-      music.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
-      viewer.querySelector("[data-story-touch-surface]").append(music);
-    }
     if (storyText.music?.previewUrl) {
       const music = document.createElement("audio");
       music.id = "story-audio";
@@ -852,7 +803,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (media.kind === "video") {
         const video = document.createElement("video");
         video.src = mediaUrl;
-        video.controls = true;
+        video.controls = false;
+        video.autoplay = true;
         video.playsInline = true;
         video.preload = "metadata";
         video.setAttribute("aria-label", media.alt_text || "Vídeo do story");
@@ -1062,6 +1014,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
   };
   refreshers.set(root, refresh);
+  root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh);
   cleanupExpiredStories(client);
 
   root.addEventListener("change", (event) => {
@@ -1499,6 +1452,8 @@ export function disposeStoriesRealtime(client, root) {
     root.__looplyStoryExpiryTimer = null;
     root.__looplyStoryStop?.();
     delete root.__looplyStoryStop;
+    root.__looplyStudioStop?.();
+    delete root.__looplyStudioStop;
     root.__looplyStoryCameraStop?.();
     delete root.__looplyStoryCameraStop;
     root.__looplyStoryClose?.();
