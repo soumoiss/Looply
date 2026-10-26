@@ -43,29 +43,31 @@ test("official external player control messages are limited to YouTube and TikTo
   });
   assert.equal(externalPlayerMessage("instagram", "play"), null);
 });
-test("media uploads normalize Android content URIs and retain private RETURNING access while metadata is pending", async () => {
-  const [social, stories, migration] = await Promise.all([
-    read("src/social.js"), read("src/stories.js"), read("supabase/migrations/20261020131415_fix_story_media_upload_returning.sql")
+test("media uploads normalize Android files and use authenticated private Neon Storage", async () => {
+  const [social, studio, neonClient, rpc] = await Promise.all([
+    read("src/social.js"), read("src/story-studio.js"),
+    read("src/neon-production-client.js"), read("migration/20261026_owner_publication_rpc.sql")
   ]);
   assert.match(social, /export function normalizePublicationMedia\(file\)/);
   assert.match(social, /declaredType !== "application\/octet-stream"/);
   assert.match(social, /new File\(\[file\]/);
-  assert.match(stories, /normalizePublicationMedia\(file\)/);
-  assert.match(migration, /looply_media_read_own_unregistered_story_upload/);
-  assert.match(migration, /looply_media_read_own_unregistered_comment_upload/);
-  assert.match(migration, /story\.author_id = \(select auth\.uid\(\)\)/);
-  assert.match(migration, /comment\.author_id = \(select auth\.uid\(\)\)/);
+  assert.match(studio, /normalizePublicationMedia\(media\)/);
+  assert.match(neonClient, /storageRequest\("upload-url", bucket, path/);
+  assert.match(neonClient, /authorization: "Bearer " \+ session\.access_token/);
+  assert.match(neonClient, /storage: Object\.freeze\(\{ from: storageBucket \}\)/);
+  assert.match(rpc, /v5_attach_story_media[\s\S]*?author_id=owner_id/);
+  assert.doesNotMatch(studio, /supabase|spotify/i);
 });
-test("feed and story publication restore the previous upload transport and persistence sequence", async () => {
-  const social = await read("src/social.js");
-  const stories = await read("src/stories.js");
+test("feed and Stories Studio publish through Neon upload and owner-scoped RPC sequence", async () => {
+  const [social, studio] = await Promise.all([read("src/social.js"), read("src/story-studio.js")]);
   assert.match(social, /client\.storage\.from\("looply-media"\)\.upload\(path, file/);
-  assert.doesNotMatch(social, /let publicationCommitted = false/);
-  assert.doesNotMatch(stories, /let storyCommitted = false/);
-  assert.match(social, /await client\.storage\.from\("looply-media"\)\.upload\(path, file/);
-  assert.match(stories, /await uploadResumable\(client, uploadedPath, media/);
+  assert.match(studio, /rpc\("v5_create_story"/);
+  assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
+  assert.match(studio, /rpc\("v5_attach_story_media"/);
+  assert.match(studio, /p_visibility: visibility/);
+  assert.match(studio, /p_recipient_ids: visibility === "selected"/);
+  assert.doesNotMatch(studio, /let storyCommitted = false/);
 });
-
 test("post and comment avatars use signed profile avatar URLs", async () => {
   const source = await read("src/social.js");
   assert.match(source, /signProfileAvatars/);
