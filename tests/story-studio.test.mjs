@@ -38,10 +38,10 @@ test("No new story backend uses Spotify or Supabase", () => {
 test("UI presents camera, gallery, edit tools, and private audience", () => {
   for (const selector of [
     "data-studio-video", "data-studio-file", "data-studio-shutter",
-    "data-studio-flip", "data-studio-filter", "data-studio-face",
+    "data-studio-flip", "data-studio-lens", "data-studio-lens-chooser",
     "data-studio-flash", "data-studio-grid-toggle", "data-studio-boomerang",
     "data-studio-caption", "data-studio-music-open", "data-studio-add-text",
-    "data-studio-stickers", "data-studio-enhance", "data-studio-publicar",
+    "data-studio-stickers", "data-studio-publicar",
     "data-studio-friends", "data-studio-people", "data-studio-send"
   ]) assert.ok(studio.includes(selector), selector);
 });
