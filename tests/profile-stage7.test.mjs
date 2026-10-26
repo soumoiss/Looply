@@ -69,10 +69,10 @@ test("global back link follows its explicit home or chat destination", async () 
 test("avatar validation respects the bucket read policy by updating the profile path before signing", async () => {
   const source = await read("src/neon-avatar-profile.js");
   const upload = source.indexOf('await bucket.upload(newPath');
-  const profileUpdate = source.indexOf('const committed = await profileRequest');
+  const profileUpdate = source.indexOf('const committed = await saveOwnerProfile');
   const signedUrl = source.indexOf('await bucket.createSignedUrl(newPath');
   assert.ok(upload >= 0 && profileUpdate > upload && signedUrl > profileUpdate);
   assert.match(source, /profile-update-not-confirmed/);
   assert.match(source, /avatar-rollback-failed/);
-  assert.match(source, /expectedAvatarPath: newPath/);
+  assert.match(source, /previousPath: newPath/);
 });
