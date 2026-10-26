@@ -17,3 +17,8 @@ try {
  const check=await fetch("https://itunes.apple.com/search?term=anitta&media=music&entity=song&country=br&limit=2",{signal:AbortSignal.timeout(10000)});
  console.log("Apple direct diagnostic: HTTP",check.status,"CORS",check.headers.get("access-control-allow-origin"),"Body start",(await check.text()).slice(0,120));
 } catch(e) { console.log("Apple direct diagnostic:",e.message); }
+
+const {searchStorySongs}=await import("../src/story-music-catalog.js");
+const combined=await searchStorySongs("anitta");
+const apple=combined.providers.find(p=>p.provider==="apple");
+console.log("Apple direct fallback:",apple?.available?"online":"unavailable",apple?.items?.length||0,"songs");
