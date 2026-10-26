@@ -140,7 +140,7 @@ export async function loadChatData(client, userId) {
     conversations = data || [];
     const { data: latest, error: messagesError } = await client.from("chat_messages")
       .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
-      .in("id", ids).order("created_at", { ascending: false }).limit(500);
+      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
     if (messagesError) throw messagesError;
     latestMessages = latest || [];
   }
