@@ -255,12 +255,12 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<fieldset class="story-text-style" data-story-text-style><legend>Estilo (Stories sem mídia)</legend>' +
           '<label for="storyTextFont">Fonte<select id="storyTextFont" name="text_font"><option value="system">Moderna</option><option value="serif">Clássica</option><option value="rounded">Arredondada</option><option value="mono">Máquina de escrever</option><option value="handwritten">Manuscrita</option></select></label>' +
           '<label for="storyTextSize">Tamanho <output data-story-text-size>20 pt</output><input id="storyTextSize" name="text_size" type="range" min="6" max="20" step="1" value="20"></label>' +
-        '</fieldset></section><input id="storyMusic" name="music_track_id" type="hidden"><section class="story-music-picker" data-story-music-picker><div class="story-music-heading"><strong>Música</strong><label class="visually-hidden" for="storyMusicQuery">Pesquisar música ou artista</label><input id="storyMusicQuery" type="search" placeholder="Música ou artista" autocomplete="off"><button type="button" data-story-music-open aria-label="Pesquisar música no Spotify">⌕</button></div><p data-story-music-selected>Nenhuma música selecionada.</p><div class="story-spotify-preview" data-story-spotify-preview aria-live="polite"></div></section>' +
+        '</fieldset><button type="button" class="story-text-music-button" data-story-music-toggle>♫ Adicionar música</button></section><input id="storyMusic" name="music_track_id" type="hidden">' +
         '<div class="story-media-label"><span>Foto ou vídeo <small>envio direto ao armazenamento</small></span></div>' +
         '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video><canvas data-story-ar-canvas aria-hidden="true"></canvas>' +
-          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
+          '<div class="story-camera-topbar"><button type="button" data-story-camera-close aria-label="Fechar câmera">×</button><button type="button" data-story-music-toggle aria-label="Adicionar música">♫</button><button type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">↻</button></div>' +
           '<div class="story-filter-strip" data-story-filter-strip aria-label="Ajustes visuais"><button type="button" data-story-filter="none" aria-pressed="true">Original</button><button type="button" data-story-filter="warm" aria-pressed="false">Quente</button><button type="button" data-story-filter="cool" aria-pressed="false">Frio</button><button type="button" data-story-filter="mono" aria-pressed="false">P&B</button><button type="button" data-story-filter="vivid" aria-pressed="false">Vivo</button></div><div class="story-lens-strip" data-story-lens-strip aria-label="Lentes com rastreamento facial"><button type="button" data-story-lens="none" aria-pressed="true">Sem lente</button><button type="button" data-story-lens="glasses" aria-pressed="false">Óculos RA</button><button type="button" data-story-lens="halo" aria-pressed="false">Halo RA</button><button type="button" data-story-lens="mask" aria-pressed="false">Máscara RA</button><button type="button" data-story-lens="eyes" aria-pressed="false">Olhos RA</button></div>' +
           '<div class="story-camera-actions"><label class="story-gallery-button" for="storyMedia" aria-label="Escolher foto ou vídeo da galeria">▧<span>Galeria</span></label>' +
           '<button class="story-shutter" type="button" data-story-capture-photo aria-label="Tirar foto"></button>' +
@@ -268,6 +268,8 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<span class="form-status" data-story-camera-status role="status" aria-live="polite"></span>' +
         '</section>' +
         '<div class="story-media-preview" data-story-preview aria-live="polite"></div>' +
+        '<section class="story-music-picker" data-story-music-picker hidden><header><strong>Música</strong><button type="button" data-story-music-close aria-label="Fechar música">×</button></header><div class="story-music-heading"><label class="visually-hidden" for="storyMusicQuery">Pesquisar música ou artista</label><input id="storyMusicQuery" type="search" placeholder="Música ou artista" autocomplete="off"><button type="button" data-story-music-open aria-label="Pesquisar música no Spotify">Pesquisar</button></div><p data-story-music-selected>Nenhuma música selecionada.</p><div class="story-spotify-preview" data-story-spotify-preview aria-live="polite"></div></section>' +
+        '<div class="story-publish-options" data-story-publish-options hidden>' +
         '<label for="storyVisibility">Quem pode ver?</label>' +
         '<select id="storyVisibility" name="visibility"><option value="public">Todos os membros</option><option value="selected">Pessoas escolhidas</option><option value="private">Só você</option></select>' +
         '<div class="story-recipient-picker" data-story-recipient-picker hidden>' +
@@ -276,7 +278,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<small>' + escapeHtml(peopleHint) + "</small>" +
         "</div>" +
         '<div class="story-form-actions"><button class="primary-button compact-button" type="submit">Publicar story</button>' +
-        '<span class="form-status" data-story-create-status role="status" aria-live="polite"></span></div>' +
+        '<span class="form-status" data-story-create-status role="status" aria-live="polite"></span></div></div>' +
       "</form>" +
     "</dialog>" +
     '<dialog class="story-viewer-dialog" data-story-viewer aria-label="Visualizador de stories">' +
@@ -360,11 +362,14 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const cameraPreview = root.querySelector("[data-story-camera-preview]");
   const cameraStatus = root.querySelector("[data-story-camera-status]");
   const storyMediaInput = root.querySelector("#storyMedia");
+  const storyForm = root.querySelector("form[data-story-create]");
   const storyTextStyle = root.querySelector("[data-story-text-style]");
   const storyTextSize = root.querySelector("#storyTextSize");
   const storyBodyInput = root.querySelector("#storyBody");
   const storyFontInput = root.querySelector("#storyTextFont");
   const storyMusicInput = root.querySelector("#storyMusic");
+  const musicPicker = root.querySelector("[data-story-music-picker]");
+  const publishOptions = root.querySelector("[data-story-publish-options]");
   const lensCanvas = root.querySelector("[data-story-ar-canvas]");
   const textComposer = root.querySelector("[data-story-text-composer]");
   const liveTextPreview = root.querySelector("[data-story-text-live-preview]");
@@ -423,8 +428,37 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
   };
   root.querySelector("[data-story-music-open]")?.addEventListener("click", searchSpotify);
+  const toggleMusicPicker = () => { if (musicPicker) musicPicker.hidden = !musicPicker.hidden; };
+  root.querySelectorAll("[data-story-music-toggle]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMusicPicker();
+  }));
+  root.querySelector("[data-story-music-close]")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (musicPicker) musicPicker.hidden = true;
+  });
+  root.querySelectorAll("[data-story-filter]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.cameraFilter = filterStyles[button.dataset.storyFilter] ? button.dataset.storyFilter : "none";
+    cameraPreview.style.filter = filterStyles[state.cameraFilter];
+    root.querySelectorAll("[data-story-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+  }));
+  root.querySelectorAll("[data-story-lens]").forEach((button) => button.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const lens = button.dataset.storyLens || "none";
+    if (lens !== "none") {
+      setCameraStatus("Preparando lente com rastreamento facial…");
+      const ready = await state.faceLens?.prepare();
+      if (!ready) { setCameraStatus("Ative a câmera para usar esta lente facial.", true); return; }
+    }
+    state.faceLens?.setLens(lens);
+    root.querySelectorAll("[data-story-lens]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+    setCameraStatus(lens === "none" ? "Lente removida." : "Lente facial ativa: acompanhe a prévia.");
+  }));
   storyMediaInput?.addEventListener("change", () => {
-    if (storyTextStyle) storyTextStyle.hidden = Boolean(storyMediaInput.files?.[0]?.size);
+    const hasMedia = Boolean(storyMediaInput.files?.[0]?.size);
+    if (storyTextStyle) storyTextStyle.hidden = hasMedia;
+    if (hasMedia && publishOptions) publishOptions.hidden = false;
   });
   storyTextSize?.addEventListener("input", () => {
     const output = root.querySelector("[data-story-text-size]");
@@ -977,7 +1011,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-create-open]")) {
       openStoryDialog(createDialog);
+      if (storyForm) storyForm.dataset.storyMode = "camera";
+      createDialog.dataset.storyMode = "camera";
       textComposer.hidden = true;
+      if (publishOptions) publishOptions.hidden = true;
+      if (musicPicker) musicPicker.hidden = true;
       cameraPanel.hidden = false;
       try { await startCamera(); }
       catch (error) {
@@ -989,30 +1027,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const modeButton = event.target.closest("[data-story-mode]");
     if (modeButton) {
       const textMode = modeButton.dataset.storyMode === "text";
+      if (storyForm) storyForm.dataset.storyMode = textMode ? "text" : "camera";
+      createDialog.dataset.storyMode = textMode ? "text" : "camera";
       root.querySelectorAll("[data-story-mode]").forEach((button) => button.setAttribute("aria-pressed", String(button === modeButton)));
       textComposer.hidden = !textMode;
-      if (textMode) { stopCamera(true); updateTextPreview(); storyBodyInput?.focus(); }
-      else { cameraPanel.hidden = false; try { await startCamera(); } catch { setCameraStatus("Câmera indisponível. Você ainda pode usar Galeria.", true); } }
-      return;
-    }
-    const filterButton = event.target.closest("[data-story-filter]");
-    if (filterButton) {
-      state.cameraFilter = filterStyles[filterButton.dataset.storyFilter] ? filterButton.dataset.storyFilter : "none";
-      cameraPreview.style.filter = filterStyles[state.cameraFilter];
-      root.querySelectorAll("[data-story-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === filterButton)));
-      return;
-    }
-    const lensButton = event.target.closest("[data-story-lens]");
-    if (lensButton) {
-      const lens = lensButton.dataset.storyLens || "none";
-      if (lens !== "none") {
-        setCameraStatus("Preparando lente com rastreamento facial…");
-        const ready = await state.faceLens?.prepare();
-        if (!ready) { setCameraStatus("A lente não pôde ser carregada neste dispositivo. A câmera continua disponível.", true); return; }
-      }
-      state.faceLens?.setLens(lens);
-      root.querySelectorAll("[data-story-lens]").forEach((button) => button.setAttribute("aria-pressed", String(button === lensButton)));
-      setCameraStatus(lens === "none" ? "Lente removida." : "Lente facial ativa: acompanhe a prévia.");
+      if (textMode) { stopCamera(true); if (publishOptions) publishOptions.hidden = false; if (musicPicker) musicPicker.hidden = true; updateTextPreview(); storyBodyInput?.focus(); }
+      else { if (publishOptions) publishOptions.hidden = true; if (musicPicker) musicPicker.hidden = true; cameraPanel.hidden = false; try { await startCamera(); } catch { setCameraStatus("Câmera indisponível. Você ainda pode usar Galeria.", true); } }
       return;
     }
     if (event.target.closest("[data-story-camera-open]")) {
