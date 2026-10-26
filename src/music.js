@@ -7,7 +7,17 @@ function escapeHtml(value) {
 }
 
 function person(profile) {
-  return profile ? `@${escapeHtml(profile.username)}` : "perfil restrito";
+  return profile ? "@" + escapeHtml(profile.username) : "perfil restrito";
+}
+
+function safeMusicArtwork(value) {
+  try {
+    const url = new URL(String(value || ""));
+    const host = url.hostname.toLowerCase();
+    const allowed = ["mzstatic.com", "itunes.apple.com", "deezer.com", "dzcdn.net", "audius.co"];
+    return url.protocol === "https:" && allowed.some((suffix) => host === suffix || host.endsWith("." + suffix))
+      ? url.href : "";
+  } catch { return ""; }
 }
 
 function isDirectAudioUrl(value) {
@@ -349,6 +359,7 @@ export function bindMusicEvents(root, client, getUserId) {
   };
   const closeCatalogPicker = () => {
     clearTimeout(catalogSearchTimer);
+    catalogSearchSequence += 1;
     catalogSearchController?.abort();
     stopCatalogPreview();
     const picker = root.querySelector("[data-music-picker]");
