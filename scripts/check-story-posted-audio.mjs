@@ -95,4 +95,4 @@ console.log("CHROME RECORDED MUSIC SUCCESS",result.mime,result.size,probe.stdout
    processChrome.kill("SIGTERM");
    await new Promise(resolve=>{if(processChrome.exitCode!==null)resolve();else processChrome.once("exit",resolve);});
  }
-}finally{await rm(dir,{recursive:true,force:true});}
+}finally{await rm(dir,{recursive:true,force:true,maxRetries:15,retryDelay:250});}
