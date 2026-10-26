@@ -1170,30 +1170,22 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (visibility === "selected" && (recipientIds.length < 1 || recipientIds.length > 20)) throw new Error("invalid_recipients");
 
       setFormStatus(form, "Salvando story…");
-      const { data, error } = await client.from("stories")
-        .insert({ author_id: userId, body, visibility })
-        .select("id").single();
+      const { data, error } = await client.rpc("v5_create_story", {
+        p_body: body, p_visibility: visibility, p_recipient_ids: visibility === "selected" ? recipientIds : []
+      });
       if (error) throw error;
-      storyId = data.id;
-
-      if (visibility === "selected") {
-        const { error: recipientsError } = await client.from("story_recipients").insert(
-          recipientIds.map((recipientId) => ({ story_id: storyId, recipient_id: recipientId }))
-        );
-        if (recipientsError) throw recipientsError;
-      }
+      storyId = data;
 
       if (media) {
         const extension = storyMimeTypes.get(media.type);
         uploadedPath = "stories/" + storyId + "/" + crypto.randomUUID() + "." + extension;
         await uploadResumable(client, uploadedPath, media, (percent) => setFormStatus(form, "Enviando mídia: " + percent + "%"));
-        const { error: mediaError } = await client.from("story_media").insert({
-          story_id: storyId,
-          storage_path: uploadedPath,
-          kind: media.type.startsWith("video/") ? "video" : "image",
-          mime_type: media.type,
-          byte_size: media.size,
-          alt_text: ""
+        const { error: mediaError } = await client.rpc("v5_attach_story_media", {
+          p_story_id: storyId,
+          p_storage_path: uploadedPath,
+          p_kind: media.type.startsWith("video/") ? "video" : "image",
+          p_mime_type: media.type,
+          p_byte_size: media.size
         });
         if (mediaError) throw mediaError;
       }
@@ -1212,7 +1204,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
         : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 25 MB."
           : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
-            : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
+            : error?.status === 403 || error?.code === "42501"
+              ? "O Neon recusou a autorização para publicar este story. Sua conta e o perfil histórico precisam estar vinculados."
+              : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
       setFormStatus(form, message, true);
     } finally {
       submit.disabled = false;
