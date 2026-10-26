@@ -1168,7 +1168,7 @@ export function bindChatEvents(root, client, getUserId) {
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
         const { data: message, error } = await client.from("chat_messages")
-          .insert({ conversation_id: conversationId, reply_to: String(values.get("replyTo") || "") || null, body })
+          .insert({ conversation_id: conversationId, sender_id: userId, reply_to: String(values.get("replyTo") || "") || null, body })
           .select("id").single();
         if (error) throw error;
         const uploadedPaths = [];
@@ -1180,7 +1180,7 @@ export function bindChatEvents(root, client, getUserId) {
             await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
             uploadedPaths.push(path);
             const { error: mediaError } = await client.from("chat_media").insert({
-              conversation_id: conversationId, message_id: message.id, storage_path: path,
+              conversation_id: conversationId, message_id: message.id, created_by: userId, storage_path: path,
               mime_type: file.type.split(";")[0], byte_size: file.size, file_name: safeName
             });
             if (mediaError) throw mediaError;
