@@ -14,11 +14,11 @@ test("Stories viewer has theme-aware title and safe responsive media sizing", as
   assert.match(css, /\.story-viewer-caption[^{}]*\{[^}]*overflow-y:\s*auto/);
 });
 
-test("text-only Stories persist selectable fonts and bounded 6–20 pt sizing while old stories stay plain", async () => {
-  const story = await read("src/stories.js");
-  const admin = await read("src/admin.js");
-  const html = await read("home.html");
-  const css = await read("assets/css/pages/home.css");
+test("legacy text stories keep their font envelope and new text editor exports real canvas layers", async () => {
+  const [story, studio, admin, html, css] = await Promise.all([
+    read("src/stories.js"), read("src/story-studio.js"), read("src/admin.js"),
+    read("home.html"), read("assets/css/pages/story-studio.css")
+  ]);
   const styled = decodeStoryBody(encodeStoryBody("Texto centralizado", "serif", 6));
   assert.equal(styled.text, "Texto centralizado");
   assert.equal(styled.font, "serif");
@@ -27,15 +27,16 @@ test("text-only Stories persist selectable fonts and bounded 6–20 pt sizing wh
   assert.equal(decodeStoryBody("Story antigo").text, "Story antigo");
   assert.equal(decodeStoryBody(encodeStoryBody("Texto", "invalid", 99)).font, "system");
   assert.equal(decodeStoryBody(encodeStoryBody("Texto", "system", 99)).size, 20);
-  assert.match(story, /data-story-text-style/);
-  assert.match(story, /name="text_size" type="range" min="6" max="20"/);
-  assert.match(story, /bodyText && !media[\s\S]*?encodeStoryBody/);
+  assert.match(studio, /data-studio-text-mode/);
+  assert.match(studio, /data-layer-font/);
+  assert.match(studio, /data-layer-color/);
+  assert.match(studio, /data-layer-size min="18" max="65"/);
+  assert.match(studio, /paintLayers\(ctx, overlayRoot/);
   assert.match(story, /caption\.style\.fontSize = !media && storyText\.styled/);
   assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
-  assert.match(css, /\.story-text-style\[hidden\]\s*\{\s*display:\s*none/);
-  assert.match(html, /stories-immersive-camera-fix-20261023/);
+  assert.match(css, /\.studio-overlay/);
+  assert.match(html, /story-studio\.css/);
 });
-
 test("Stories persist only valid Spotify track embeds and preserve the styled text", () => {
   const url = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=preview";
   assert.equal(spotifyTrackId(url), "4uLU6hMCjMI75M1A2tKUQC");
@@ -48,33 +49,31 @@ test("Stories persist only valid Spotify track embeds and preserve the styled te
   assert.equal(story.spotifyTrackId, "4uLU6hMCjMI75M1A2tKUQC");
 });
 
-test("Story music uses an authenticated in-app search and face lenses use landmark tracking, not CSS filters", async () => {
-  const [story, lenses, backend] = await Promise.all([
-    read("src/stories.js"), read("src/story-ar.js"), read("backend/neon-storage/index.mjs")
-  ]);
-  assert.match(story, /id="storyMusicQuery" type="search"/);
-  assert.match(story, /spotify\/search\?q=/);
-  assert.match(story, /\(bodyText && !media\) \|\| musicTrackId/);
-  assert.match(story, /data-story-lens="glasses"/);
-  assert.match(story, /new StoryFaceLens/);
-  assert.match(story, /composite\.captureStream\(30\)/);
+test("Story music is local to the app and AR uses face landmarks rather than fake CSS-only lenses", async () => {
+  const [studio, lenses] = await Promise.all([read("src/story-studio.js"), read("src/story-ar.js")]);
+  assert.match(studio, /data-studio-music-query/);
+  assert.match(studio, /BUILTIN\.filter\(t =>/);
+  assert.match(studio, /data-studio-audio-file/);
+  assert.match(studio, /makeSynthBuffer\(audioCtx, music\)/);
+  assert.match(studio, /data-studio-face="eyes"/);
+  assert.match(studio, /new StoryFaceLens/);
+  assert.match(studio, /canvas\.captureStream\(24\)/);
   assert.match(lenses, /FaceLandmarker\.createFromOptions/);
   assert.match(lenses, /detectForVideo/);
   assert.match(lenses, /outputFaceBlendshapes: true/);
-  assert.match(backend, /SPOTIFY_CLIENT_SECRET/);
-  assert.match(backend, /https:\/\/api\.spotify\.com\/v1\/search/);
-  assert.doesNotMatch(story, /Cole o link de uma faixa do Spotify/);
+  assert.doesNotMatch(studio, /spotify|supabase/i);
 });
-
-test("Story creation can switch between front and rear cameras without replacing the upload backend", async () => {
-  const source = await read("src/stories.js");
-  assert.match(source, /data-story-camera-flip/);
-  assert.match(source, /state\.cameraFacing === "environment" \? "user" : "environment"/);
-  assert.match(source, /navigator\.mediaDevices\.getUserMedia/);
-  assert.match(source, /uploadResumable\(client, uploadedPath, media/);
-  assert.match(source, /rpc\("v5_attach_story_media"/);
+test("new camera defaults to front mirror, flips physically and publishes via Neon", async () => {
+  const studio = await read("src/story-studio.js");
+  assert.match(studio, /data-studio-flip/);
+  assert.match(studio, /facing: "user"/);
+  assert.match(studio, /settings\.facing === "user" \? "environment" : "user"/);
+  assert.match(studio, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(studio, /"scaleX\(-1\) "/);
+  assert.match(studio, /stage\.addEventListener\("touchmove"/);
+  assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
+  assert.match(studio, /rpc\("v5_attach_story_media"/);
 });
-
 test("story view insights show signed viewer avatars with initials as a privacy-safe fallback", async () => {
   const source = await read("src/stories.js");
   const css = await read("assets/css/pages/home.css");

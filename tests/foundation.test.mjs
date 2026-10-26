@@ -645,11 +645,11 @@ test("story media signed URLs never outlive their story", () => {
 test("stories expose private replies, likes, camera capture, viewer history, and swipe navigation", async () => {
   const markup = storiesMarkup([], null, [], null, "viewer", { id: "viewer", username: "viewer", display_name: "Viewer" });
   const source = await read("src/stories.js");
-  assert.match(markup, /data-story-mode="camera"/);
-  assert.match(markup, /data-story-filter="warm"/);
-  assert.match(markup, /class="story-gallery-button"/);
-  assert.match(markup, /data-story-capture-photo/);
-  assert.match(markup, /data-story-record-toggle/);
+  assert.match(markup, /data-studio-video/);
+  assert.match(markup, /data-studio-filter="warm"/);
+  assert.match(markup, /class="studio-gallery-button"/);
+  assert.match(markup, /data-studio-shutter/);
+  assert.match(markup, /data-studio-boomerang/);
   assert.match(markup, /data-story-like/);
   assert.match(markup, /data-story-reply/);
   assert.match(markup, /data-story-insights-open/);

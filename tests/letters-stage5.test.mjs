@@ -65,13 +65,18 @@ test("My Letters presents received, sent, and imported archive cards in one swit
   assert.match(page, /archivedCardsMarkup\(\)/);
 });
 
-test("story composer offers a safe Spotify preview while preserving photo and video posting", async () => {
-  const story = await readFile(resolve(root, "src/stories.js"), "utf8");
-  assert.match(story, /id="storyMusic"/);
-  assert.match(story, /open\.spotify\.com\/embed\/track/);
-  assert.match(story, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
-  assert.match(story, /const media = file instanceof File && file\.size \? normalizePublicationMedia\(file\) : null/);
-  assert.doesNotMatch(story, /api\.deezer\.com|api\.spotify\.com|audio.*proxy/i);
+test("Story Studio has in-app original music and retains photo/video capture", async () => {
+  const [studio, stories] = await Promise.all([
+    readFile(resolve(root, "src/story-studio.js"), "utf8"),
+    readFile(resolve(root, "src/stories.js"), "utf8")
+  ]);
+  assert.match(studio, /data-studio-music-query/);
+  assert.match(studio, /data-studio-audio-file accept="audio\/\*"/);
+  assert.match(studio, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
+  assert.match(studio, /const BUILTIN = Object\.freeze/);
+  assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
+  assert.match(stories, /storyStudioMarkup\(recipientOptions\)/);
+  assert.doesNotMatch(studio, /spotify|supabase|deezer/i);
 });
 
 test("community letters appear in the audited admin reader and imported archive cards credit Peixinho", async () => {

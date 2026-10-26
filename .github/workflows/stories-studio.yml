@@ -1,0 +1,36 @@
+name: Stories Studio validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/story-studio.js'
+      - 'src/stories.js'
+      - 'assets/css/pages/story-studio.css'
+      - 'assets/js/home.js'
+      - 'home.html'
+      - 'tests/story-studio.test.mjs'
+      - '.github/workflows/stories-studio.yml'
+  push:
+    branches:
+      - 'feat/stories-studio-neon-20261026'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and execute test suite
+        run: npm test
+      - name: Reject legacy services in Stories Studio
+        run: |
+          if grep -Eiq 'supabase|spotify' src/story-studio.js src/stories.js; then
+            echo 'Legacy provider reference in Stories modules' >&2
+            exit 1
+          fi
