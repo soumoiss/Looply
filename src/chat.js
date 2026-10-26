@@ -127,8 +127,8 @@ export async function loadChatData(client, userId) {
   const ids = participants.map((row) => row.conversation_id);
   const unreadByConversation = await loadUnreadChatNotifications(client, userId, ids);
   for (let start = 0; start < ids.length; start += 50) {
-    const { error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids.slice(start, start + 50) });
-    if (deliveredError) console.warn("Looply delivery receipt update failed", deliveredError);
+    const { data: delivered, error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids.slice(start, start + 50) });
+    if (deliveredError || delivered !== true) console.warn("Looply delivery receipt update failed", deliveredError || { message: "conversation_unavailable" });
   }
   let conversations = [];
   let latestMessages = [];
@@ -612,8 +612,8 @@ async function openConversation(root, client, conversationId, userId) {
       thread.innerHTML = markup;
       scrollInitialThreadToLatest(thread);
     }
-    const { error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
-    if (readError) console.warn("Looply read receipt update failed", readError);
+    const { data: readConfirmed, error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
+    if (readError || readConfirmed !== true) console.warn("Looply read receipt update failed", readError || { message: "conversation_unavailable" });
     // The unread filter is driven by the persisted receipt, so refresh the
     // sidebar only after the database confirms the read transition.
     else if (activeConversationId === conversationId) void refreshChat(root, client, userId, { keepThread: true });
