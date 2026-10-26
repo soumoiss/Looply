@@ -880,7 +880,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           if (error) throw error;
           createdPostId = data;
         } else {
-          const { data, error } = await client.from("posts").insert({ body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
+          const { data, error } = await client.from("posts").insert({ author_id: getUserId?.(), body: postBody, visibility, external_url: externalUrl || null }).select("id").single();
           if (error) throw error;
           createdPostId = data.id;
         }
@@ -920,7 +920,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const postId = form.dataset.postId;
         const parentCommentId = form.dataset.parentCommentId || null;
         const files = selectedCommentMedia(formData);
-        const { data: comment, error } = await client.from("comments").insert({ post_id: postId, parent_comment_id: parentCommentId, body }).select("id").single();
+        const { data: comment, error } = await client.from("comments").insert({ post_id: postId, author_id: getUserId?.(), parent_comment_id: parentCommentId, body }).select("id").single();
         if (error) throw error;
         createdCommentId = comment.id;
         for (const [index, file] of files.entries()) {
@@ -929,7 +929,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           uploadedPaths.push(path);
           await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando anexo ${index + 1} de ${files.length}: ${percentage}%`));
           const { error: mediaError } = await client.from("comment_media").insert({
-            comment_id: comment.id, post_id: postId, storage_path: path, mime_type: file.type, byte_size: file.size
+            comment_id: comment.id, post_id: postId, author_id: getUserId?.(), storage_path: path, mime_type: file.type, byte_size: file.size
           });
           if (mediaError) throw mediaError;
         }
