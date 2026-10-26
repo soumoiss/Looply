@@ -8,12 +8,15 @@ const [adapter, migration, functionSource] = await Promise.all([
   readFile(new URL("../backend/neon-storage/index.mjs", import.meta.url), "utf8")
 ]);
 
-test("Neon adapter permits only profile updates and gallery insert/publish writes", () => {
-  assert.match(adapter, /table === "profiles" && state\.mode === "update"/);
-  assert.match(adapter, /table === "community_gallery_media" && \["insert", "update"\]/);
-  assert.match(adapter, /neon\.from\(table\)\.insert/);
-  assert.match(adapter, /neon\.from\(table\)\.update/);
-  assert.match(adapter, /storageFunction \+ "\/storage\/" \+ action/);
+test("Neon adapter supports authenticated Data API media persistence", async () => {
+  const bridge=await readFile(new URL("../src/neon-rest-bridge.js",import.meta.url),"utf8");
+  for (const table of ["posts","post_media","stories","story_media","chat_messages","chat_media","community_letters","community_gallery_media"]) {
+    assert.match(bridge,new RegExp(table+":"));
+  }
+  assert.match(bridge,/getAccessToken/);
+  assert.match(bridge,/authorization:"Bearer "/);
+  assert.match(adapter,/createNeonRestQuery/);
+  assert.match(adapter,/storageFunction \+ "\/storage\/" \+ action/);
 });
 
 test("Neon storage function authenticates and restricts each private object to its owner", () => {

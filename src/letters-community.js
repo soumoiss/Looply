@@ -252,7 +252,7 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
   };
   fileInput?.addEventListener("change", () => {
     for (const file of [...(fileInput.files || [])]) {
-      if (file.size > 50 * 1024 * 1024) { if (recordStatus) recordStatus.textContent = file.name + ": limite de 50 MB por arquivo."; continue; }
+      if (file.size > 25 * 1024 * 1024) { if (recordStatus) recordStatus.textContent = file.name + ": limite de 25 MB por arquivo."; continue; }
       if (selectedAttachments.length >= 8) { if (recordStatus) recordStatus.textContent = "Limite de 8 anexos por carta."; break; }
       selectedAttachments.push(file);
     }

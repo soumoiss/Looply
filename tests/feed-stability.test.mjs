@@ -59,7 +59,7 @@ test("media uploads normalize Android content URIs and retain private RETURNING 
 test("feed and story publication restore the previous upload transport and persistence sequence", async () => {
   const social = await read("src/social.js");
   const stories = await read("src/stories.js");
-  assert.match(social, /if \(file\.size <= 6 \* 1024 \* 1024\)/);
+  assert.match(social, /client\.storage\.from\("looply-media"\)\.upload\(path, file/);
   assert.doesNotMatch(social, /let publicationCommitted = false/);
   assert.doesNotMatch(stories, /let storyCommitted = false/);
   assert.match(social, /await client\.storage\.from\("looply-media"\)\.upload\(path, file/);
@@ -216,9 +216,9 @@ test("TikTok share links use the official player and hydrate shortened URLs thro
 
 test("large media upload falls back to direct Storage upload if the remote TUS module cannot load", async () => {
   const source = await read("src/social.js");
-  assert.match(source, /try \{\s*tus = await import\("https:\/\/esm\.sh\/tus-js-client@4\.3\.1"\)/);
-  assert.match(source, /catch \(importError\)[\s\S]*?await uploadDirect\(\);\s*return;/);
-  assert.match(source, /catch \(tusError\)[\s\S]*?await uploadDirect\(\);/);
-  assert.match(source, /const uploadDirect = async \(\)[\s\S]*?client\.storage\.from\("looply-media"\)\.upload\(path, file/);
-  assert.match(source, /onProgress\(100\);/);
+  assert.doesNotMatch(source, /tus-js-client|publishableKey|supabase\.co/);
+  assert.match(source, /client\.auth\.getSession\(\)/);
+  assert.match(source, /uploadError/);
+  assert.match(source, /client\.storage\.from\("looply-media"\)\.upload\(path, file/);
+  assert.match(source, /onProgress\?\.\(100\);/);
 });

@@ -25,11 +25,81 @@ async function signedRequest({ method, bucket, path, bytes = new Uint8Array(), m
   return { url: presignSeconds ? `${canonicalUrl}?${[...query.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => `${rfc3986(key)}=${rfc3986(value)}`).join("&")}` : canonicalUrl, headers };
 }
 function safeObjectPath(value) { const path = String(value || ""); return path.length <= 512 && !path.startsWith("/") && !path.includes("..") && !/[\\\u0000-\u001f\u007f]/.test(path) && path.split("/").every(part => part && encodeURIComponent(decodeURIComponent(part)) === part); }
-function allowedFile(bucket, path, mime, size, profileId) {
-  if (bucket === "looply-avatars") return path.startsWith(`avatars/${profileId}/`) && /^avatars\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/i.test(path) && ["image/jpeg", "image/png", "image/webp"].includes(mime) && size > 0 && size <= maxBytes(bucket);
-  if (bucket === "looply-gallery") return path.startsWith(`gallery/${profileId}/`) && /^gallery\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{1,20}$/i.test(path) && /^(image\/(jpeg|png|gif|webp|avif|heic|heif)|video\/(mp4|webm|quicktime)|audio\/(mpeg|mp4|aac|ogg|wav|webm|opus))$/.test(mime) && size > 0 && size <= maxBytes(bucket);
-  return false;
+const uuidFragment = "[0-9a-f-]{36}";
+const mediaMime = /^(image\/(jpeg|png|webp)|video\/(mp4|webm))$/;
+const chatMime = /^(image\/(jpeg|png|webp)|video\/(mp4|webm)|audio\/(mp4|mpeg|ogg|webm)|application\/(pdf|msword|rtf|vnd[.]openxmlformats-officedocument[.]wordprocessingml[.]document)|text\/(plain|csv))$/;
+const galleryMime = /^(image\/(jpeg|png|gif|webp|avif|heic|heif)|video\/(mp4|webm|quicktime)|audio\/(mpeg|mp4|aac|ogg|wav|webm|opus))$/;
+function inspectObject(bucket, path) {
+  const gallery = /^gallery\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.]([a-z0-9]{1,20})$/i.exec(path);
+  const avatar = /^avatars\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp)$/i.exec(path);
+  const media = /^(posts|stories)\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm)$/i.exec(path);
+  const comment = /^comments\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm)$/i.exec(path);
+  const chat = /^conversations\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm|mp3|ogg|pdf|txt|csv|doc|docx|rtf)$/i.exec(path);
+  const letter = /^([0-9a-f-]{36})\/([0-9a-f-]{36})-([A-Za-z0-9._-]{1,120})$/.exec(path);
+  if (bucket === "looply-avatars" && avatar) return { type:"avatar", owner:avatar[1] };
+  if (bucket === "looply-gallery" && gallery) return { type:"gallery",owner:gallery[1] };
+  if (bucket === "looply-media" && media) return { type:media[1],record:media[2] };
+  if (bucket === "looply-media" && comment) return { type:"comments",record:comment[2],post:comment[1] };
+  if (bucket === "looply-chat" && chat) return { type:"chat",conversation:chat[1],record:chat[2] };
+  if (bucket === "looply-letters" && letter) return { type:"letter",record:letter[1] };
+  return null;
 }
+function allowedFile(bucket,path,mime,size,profileId) {
+  const object = inspectObject(bucket,path);
+  if (!object || size<=0 || size>maxBytes(bucket)) return false;
+  if (object.owner && object.owner!==profileId) return false;
+  if (object.type==="avatar") return ["image/jpeg","image/png","image/webp"].includes(mime);
+  if (object.type==="gallery") return galleryMime.test(mime);
+  if (object.type==="letter") return chatMime.test(mime);
+  if (object.type==="chat") return chatMime.test(mime);
+  return mediaMime.test(mime);
+}
+async function rowsFor(token,table,params) {
+  const qs = new URLSearchParams(params);
+  qs.set("select","id");
+  qs.set("limit","1");
+  const reply = await fetch(process.env.NEON_DATA_API_URL+"/"+table+"?"+qs, {
+    headers:{authorization:token,accept:"application/json"},cache:"no-store"
+  });
+  if(!reply.ok)return [];
+  const rows=await reply.json().catch(()=>[]);
+  return Array.isArray(rows)?rows:[];
+}
+async function canUploadObject(token,profileId,bucket,path) {
+  const object=inspectObject(bucket,path);
+  if(!object)return false;
+  if(object.owner)return object.owner===profileId;
+  const mapping={
+    posts:["posts", {id:"eq."+object.record,author_id:"eq."+profileId}],
+    stories:["stories",{id:"eq."+object.record,author_id:"eq."+profileId}],
+    comments:["comments",{id:"eq."+object.record,post_id:"eq."+object.post,author_id:"eq."+profileId}],
+    chat:["chat_messages",{id:"eq."+object.record,conversation_id:"eq."+object.conversation,sender_id:"eq."+profileId}],
+    letter:["community_letters",{id:"eq."+object.record,sender_id:"eq."+profileId}]
+  };
+  const query=mapping[object.type];
+  return Boolean(query && (await rowsFor(token,query[0],query[1])).length);
+}
+async function canSignObject(token,profileId,bucket,path) {
+  const object=inspectObject(bucket,path);
+  if(!object)return false;
+  const tableByType={avatar:"profiles",gallery:"community_gallery_media",posts:"post_media",
+    stories:"story_media",comments:"comment_media",chat:"chat_media",letter:"community_letters"};
+  const table=tableByType[object.type];
+  if(!table)return false;
+  if(object.type==="letter") {
+    const qs = new URLSearchParams({select:"id",limit:"1"});
+    qs.set("attachments","cs."+JSON.stringify([{path}]));
+    const reply=await fetch(process.env.NEON_DATA_API_URL+"/"+table+"?"+qs,{
+      headers:{authorization:token,accept:"application/json"},cache:"no-store"
+    });
+    return reply.ok && (await reply.json().catch(()=>[])).length>0;
+  }
+  const params=object.type==="avatar"?{avatar_path:"eq."+path}:
+    object.type==="gallery"?{storage_path:"eq."+path,publication_state:"eq.published"}:
+    {storage_path:"eq."+path};
+  return (await rowsFor(token,table,params)).length>0;
+}
+
 async function identity(request) { const match = /^Bearer\s+([^\s]+)$/i.exec(request.headers.get("authorization") || ""); if (!match) return null; try { const response = await fetch(`${process.env.NEON_DATA_API_URL}/v3_self_profile?select=id&limit=1`, { headers: { authorization: `Bearer ${match[1]}`, accept: "application/json" } }); const profileId = response.ok ? (await response.json())?.[0]?.id : null; return /^[0-9a-f-]{36}$/i.test(String(profileId || "")) ? profileId : null; } catch { return null; } }
 export default { async fetch(request) {
   const origin = request.headers.get("origin") || "", headers = cors(origin === allowedOrigin ? origin : "null");
@@ -38,26 +108,27 @@ export default { async fetch(request) {
   if (![process.env.NEON_DATA_API_URL, process.env.AWS_ENDPOINT_URL_S3, process.env.AWS_ACCESS_KEY_ID, process.env.AWS_SECRET_ACCESS_KEY, process.env.AWS_REGION].every(Boolean)) return json({ error: "storage_not_configured" }, 503, headers);
   const profileId = await identity(request); if (!profileId) return json({ error: "unauthorized" }, 401, headers);
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
-  if (!safeObjectPath(path) || !["looply-avatars", "looply-gallery"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
+  if (!safeObjectPath(path) || !["looply-avatars", "looply-gallery", "looply-media", "looply-chat", "looply-letters"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
   if (url.pathname.endsWith("/storage/upload") && request.method === "PUT") {
     const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase(), bytes = new Uint8Array(await request.arrayBuffer());
     if (!allowedFile(bucket, path, mime, bytes.length, profileId)) return json({ error: "file_not_allowed" }, 400, headers);
+    if (!(await canUploadObject(request.headers.get("authorization"),profileId,bucket,path))) return json({error:"not_owner_of_media_parent"},403,headers);
     const signed = await signedRequest({ method: "PUT", bucket, path, bytes, mime }), response = await fetch(signed.url, { method: "PUT", headers: signed.headers, body: bytes });
     if (!response.ok) { console.error("S3 object write failed", response.status); return json({ error: "storage_write_failed" }, 502, headers); }
     return json({ path }, 200, headers);
   }
   if (url.pathname.endsWith("/storage/remove") && request.method === "POST") {
-    const owned = (bucket === "looply-avatars" && path.startsWith(`avatars/${profileId}/`)) || (bucket === "looply-gallery" && path.startsWith(`gallery/${profileId}/`));
+    const owned=await canUploadObject(request.headers.get("authorization"),profileId,bucket,path);
     if (!owned) return json({ error: "forbidden" }, 403, headers);
     const signed = await signedRequest({ method: "DELETE", bucket, path }), response = await fetch(signed.url, { method: "DELETE", headers: signed.headers });
     if (!response.ok) { console.error("S3 object removal failed", response.status); return json({ error: "storage_remove_failed" }, 502, headers); }
     return json({ path }, 200, headers);
   }
   if (url.pathname.endsWith("/storage/sign") && request.method === "POST") {
-    const checkUrl = bucket === "looply-avatars" ? `${process.env.NEON_DATA_API_URL}/profiles?id=eq.${encodeURIComponent(profileId)}&avatar_path=eq.${encodeURIComponent(path)}&select=id&limit=1` : `${process.env.NEON_DATA_API_URL}/community_gallery_media?storage_path=eq.${encodeURIComponent(path)}&publication_state=eq.published&select=id,owner_id,visibility,private_owner_id&limit=1`;
-    const checkResponse = await fetch(checkUrl, { headers: { authorization: request.headers.get("authorization"), accept: "application/json" } }), mediaRow = checkResponse.ok ? (await checkResponse.json())?.[0] : null;
-    if (!mediaRow || (bucket === "looply-gallery" && !(mediaRow.owner_id === profileId || (mediaRow.private_owner_id == null && mediaRow.visibility === "members")))) return json({ error: "object_not_visible" }, 403, headers);
+    if (!(await canSignObject(request.headers.get("authorization"),profileId,bucket,path))) {
+      return json({ error: "object_not_visible" }, 403, headers);
+    }
     const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
     return json({ signedUrl: signed.url }, 200, headers);
   }

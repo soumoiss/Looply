@@ -198,7 +198,7 @@ test("conversations have their own route and real microphone recording flow", as
   assert.match(chat, /new MediaRecorder/);
   assert.match(chat, /data-chat-record-cancel/);
   assert.match(chat, /data-chat-record-stop/);
-  assert.match(chat, /bucketName: "looply-chat"/);
+  assert.match(chat, /storage\.from\("looply-chat"\)/);
   assert.match(chat, /data-chat-open/);
   assert.match(css, /page-conversation/);
   assert.match(chat, /data-chat-conversation-search/);
@@ -273,7 +273,7 @@ test("the feed escapes database text and writes through Supabase with realtime r
   assert.match(social, /postgres_changes/);
   assert.match(social, /refreshSocialFeed/);
   assert.match(social, /cachedSignedUrls/);
-  assert.match(social, /tus-js-client@4\.3\.1/);
+  assert.match(social, /storage\.from\("looply-media"\)\.upload/);
   assert.match(social, /from\("post_media"\)\.insert/);
 });
 
@@ -416,7 +416,7 @@ test("chat, letters, notifications, and attachments are private to conversation 
   assert.match(hardening, /revoke all on function public\.create_admin_letter\(uuid, text, text\)[\s\S]*?from public, anon, authenticated, service_role[\s\S]*?grant execute[\s\S]*?to service_role/i);
   assert.match(chat, /functions\.invoke\("looply-chat"/);
   assert.match(chat, /cachedSignedUrls/);
-  assert.match(chat, /tus-js-client@4\.3\.1/);
+  assert.match(chat, /storage\.from\("looply-chat"\)\.upload/);
   assert.match(chat, /last_read_at/);
   assert.match(edge, /auth\.getUser\(\)/);
   assert.match(edge, /p_actor_id: authData\.user\.id/);
@@ -581,7 +581,8 @@ test("all resumable uploads include the publishable key and archive retries use 
     read("src/archive-import.js"), read("src/social.js"), read("src/chat.js"),
     read("supabase/functions/looply-admin/index.ts")
   ]);
-  for (const source of [archive, social, chat]) assert.match(source, /apikey: publishableKey/);
+  assert.match(archive, /apikey: publishableKey/);
+  for (const source of [social, chat]) {assert.doesNotMatch(source, /apikey: publishableKey|tus-js-client/);assert.match(source,/client\.auth\.getSession\(\)/);}
   assert.match(archive, /client\.functions\.invoke\("looply-admin", \{[\s\S]*?verify_archive_media_upload/);
   assert.match(admin, /payload\.action === "verify_archive_media_upload"/);
   assert.match(admin, /service\.storage\.from\("looply-media"\)\.list\(folder/);
@@ -808,7 +809,8 @@ test("the removed real-time status slogan is absent without removing Supabase re
     read("src/page-runtime.js"), read("src/chat.js"), read("src/music.js"),
     read("assets/js/conversation.js"), read("src/chat-enhancements.js")
   ]);
-  const activeUi = [runtime, chat, music, conversation, enhancements].join("\\n");
+  const activeUi = [runtime, chat, music, conversation, enhancements].join("\
+");
   assert.doesNotMatch(activeUi, /atualizações em tempo real ativas/i);
   assert.match(runtime, /\.subscribe\(\)/);
   assert.match(chat, /postgres_changes|\.subscribe\(/);

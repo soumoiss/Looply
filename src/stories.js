@@ -254,10 +254,10 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<label for="storyTextFont">Fonte<select id="storyTextFont" name="text_font"><option value="system">Moderna</option><option value="serif">Clássica</option><option value="rounded">Arredondada</option><option value="mono">Máquina de escrever</option><option value="handwritten">Manuscrita</option></select></label>' +
           '<label for="storyTextSize">Tamanho <output data-story-text-size>20 pt</output><input id="storyTextSize" name="text_size" type="range" min="6" max="20" step="1" value="20"></label>' +
         '</fieldset>' +
-        '<div class="story-media-label"><span>Foto ou vídeo <small>(opcional, até 100 MB)</small></span><div class="story-capture-actions">' +
+        '<div class="story-media-label"><span>Foto ou vídeo <small>(opcional, até 25 MB)</small></span><div class="story-capture-actions">' +
           '<label class="story-file-picker" for="storyMedia">Escolher arquivo ou tirar foto</label>' +
           '<button class="text-button" type="button" data-story-camera-open>Usar câmera</button></div></div>' +
-        '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" capture="environment">' +
+        '<input class="story-file-input" id="storyMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">' +
         '<section class="story-camera" data-story-camera hidden aria-label="Câmera para gravar um story">' +
           '<video data-story-camera-preview autoplay muted playsinline></video>' +
           '<div class="story-camera-actions"><button class="text-button" type="button" data-story-camera-flip aria-label="Alternar câmera frontal e traseira">Alternar câmera</button>' +
@@ -485,7 +485,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (state.recordingDiscarded) return;
       const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
       if (!blob.size || blob.size > maxStoryBytes) {
-        setCameraStatus("A gravação ficou vazia ou passou de 100 MB.", true);
+        setCameraStatus("A gravação ficou vazia ou passou de 25 MB.", true);
         return;
       }
       const extension = blob.type.includes("mp4") ? "mp4" : "webm";
@@ -857,7 +857,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const media = file instanceof File && file.size ? normalizePublicationMedia(file) : null;
       if (!file || !preview) return;
       if (!media || !storyMimeTypes.has(media.type) || media.size > maxStoryBytes) {
-        preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM de até 100 MB.";
+        preview.textContent = "Use uma imagem JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM de até 25 MB.";
         return;
       }
       state.previewUrl = URL.createObjectURL(file);
@@ -1210,7 +1210,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (uploadedPath) await client.storage.from("looply-media").remove([uploadedPath]).catch(() => {});
       if (storyId) await client.from("stories").delete().eq("id", storyId).eq("author_id", userId);
       const message = error?.message === "empty_story" ? "Adicione um texto ou uma mídia."
-        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 100 MB."
+        : error?.message === "invalid_media" ? "O arquivo precisa ser uma imagem JPEG/PNG/WebP ou vídeo MP4/WebM de até 25 MB."
           : error?.message === "invalid_recipients" ? "Escolha de 1 a 20 pessoas para este story."
             : "Não foi possível publicar o story. Confira a conexão e tente novamente.";
       setFormStatus(form, message, true);

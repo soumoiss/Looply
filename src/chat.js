@@ -402,41 +402,18 @@ async function startVoiceRecording(form) {
 }
 
 async function uploadResumable(client, path, file, onProgress) {
+  // All binary data goes to the authenticated Neon Storage service.
+  // Supabase TUS endpoints, keys, and retry SDKs are not used.
   const { data, error } = await client.auth.getSession();
-  const accessToken = data?.session?.access_token;
-  if (error || !accessToken) throw new Error("session expired");
-  const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
-  if (!publishableKey) throw new Error("Supabase publishable key is missing.");
-  if (file.size <= 6 * 1024 * 1024) {
-    const { error: uploadError } = await client.storage.from("looply-chat").upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
-      upsert: false
-    });
-    if (uploadError) throw uploadError;
-    onProgress(100);
-    return;
-  }
-  const projectUrl = new URL(window.LOOPLY_CONFIG.supabaseUrl);
-  const endpoint = projectUrl.hostname.endsWith(".supabase.co")
-    ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
-    : new URL("/storage/v1/upload/resumable", projectUrl).toString();
-  const tus = await import("https://esm.sh/tus-js-client@4.3.1");
-  await new Promise((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: { authorization: `Bearer ${accessToken}`, apikey: publishableKey },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      chunkSize: 6 * 1024 * 1024,
-      metadata: { bucketName: "looply-chat", objectName: path, contentType: file.type, cacheControl: "3600" },
-      onError: reject,
-      onProgress: (uploaded, total) => onProgress(Math.floor(uploaded / total * 100)),
-      onSuccess: resolve
-    });
-    upload.start();
+  if (error || !data?.session?.access_token) throw new Error("session expired");
+  if (!file?.size || file.size > 25 * 1024 * 1024) throw new Error("unsupported file");
+  onProgress?.(0);
+  const { data: uploaded, error: uploadError } = await client.storage.from("looply-chat").upload(path, file, {
+    contentType: file.type || "application/octet-stream", upsert: false
   });
+  if (uploadError) throw uploadError;
+  if (uploaded?.path !== path) throw new Error("neon_storage_unconfirmed");
+  onProgress?.(100);
 }
 
 function renderMedia(media) {
@@ -1123,7 +1100,7 @@ export function bindChatEvents(root, client, getUserId) {
       const accepted = selectedFiles(new FormData(form));
       setStatus(form, `${accepted.length} arquivo${accepted.length === 1 ? "" : "s"} pronto${accepted.length === 1 ? "" : "s"} para enviar.`, "info");
     } catch {
-      setStatus(form, "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.", "error");
+      setStatus(form, "Formato inválido, arquivo acima de 25 MiB ou mais de 8 anexos.", "error");
     }
   });
 
@@ -1191,7 +1168,7 @@ export function bindChatEvents(root, client, getUserId) {
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
         const { data: message, error } = await client.from("chat_messages")
-          .insert({ conversation_id: conversationId, reply_to: String(values.get("replyTo") || "") || null, body })
+          .insert({ conversation_id: conversationId, sender_id: userId, reply_to: String(values.get("replyTo") || "") || null, body })
           .select("id").single();
         if (error) throw error;
         const uploadedPaths = [];
@@ -1203,7 +1180,7 @@ export function bindChatEvents(root, client, getUserId) {
             await uploadResumable(client, path, file, (percentage) => setStatus(form, `Enviando arquivo ${index + 1} de ${files.length}: ${percentage}%`));
             uploadedPaths.push(path);
             const { error: mediaError } = await client.from("chat_media").insert({
-              conversation_id: conversationId, message_id: message.id, storage_path: path,
+              conversation_id: conversationId, message_id: message.id, created_by: userId, storage_path: path,
               mime_type: file.type.split(";")[0], byte_size: file.size, file_name: safeName
             });
             if (mediaError) throw mediaError;
@@ -1231,7 +1208,7 @@ export function bindChatEvents(root, client, getUserId) {
       let message;
       if (/invalid group/.test(String(error?.message || ""))) message = "Informe um nome e selecione de duas a 49 pessoas para o grupo.";
       else if (/profile_unavailable/i.test(String(error?.message || ""))) message = "Um dos perfis selecionados não está disponível para participar do grupo.";
-      else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 100 MiB ou mais de 8 anexos.";
+      else if (/unsupported attachment/.test(String(error?.message || ""))) message = "Formato inválido, arquivo acima de 25 MiB ou mais de 8 anexos.";
       else if (/empty message/.test(String(error?.message || ""))) message = "Escreva uma mensagem ou escolha ao menos um arquivo.";
       else if (/message update unavailable/i.test(String(error?.message || ""))) message = "A mensagem não foi atualizada. Ela pode ter sido removida ou você não tem permissão.";
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
