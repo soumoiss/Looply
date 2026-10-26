@@ -2,7 +2,6 @@ import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
 import { saveNeonProfile } from "./neon-avatar-profile.js";
-import { NEON_DATA_API_URL } from "./neon-production-client.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -338,7 +337,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         };
         await saveNeonProfile({
           profileId: userId, session: sessionData.session,
-          dataApiUrl: NEON_DATA_API_URL, storage: client.storage,
+          dataApiUrl: client.dataApiUrl, storage: client.storage,
           updates, avatarFile: hasAvatarFile ? avatarFile : null
         });
         if (hasAvatarFile) form.dataset.hasAvatar = "true";
