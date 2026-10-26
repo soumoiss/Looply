@@ -1,4 +1,4 @@
-import { StoryFaceLens, drawStoryLens } from "./story-ar.js";
+import { StoryFaceLens } from "./story-ar.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 
 const FILTERS = Object.freeze({
@@ -24,6 +24,7 @@ export function storyStudioMarkup(recipientOptions) {
       '<div class="studio-stage" data-studio-stage>' +
         '<video class="studio-camera" data-studio-video autoplay playsinline muted></video>' +
         '<canvas class="studio-lens" data-studio-lens aria-hidden="true"></canvas>' +
+        '<div class="studio-screen-light" data-studio-screen-light aria-hidden="true"></div>' +
         '<div class="studio-grid-lines" data-studio-grid hidden></div>' +
         '<div class="studio-text-background" data-studio-background hidden></div>' +
         '<div class="studio-edited-media" data-studio-edited hidden></div>' +
@@ -56,8 +57,6 @@ export function storyStudioMarkup(recipientOptions) {
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
             '<button type="button" data-studio-post>POST</button><b>STORY</b>' +
-            '<span aria-disabled="true" title="Reels ainda não foi integrado ao backend">REEL</span>' +
-            '<span aria-disabled="true" title="Transmissões ao vivo ainda não foram integradas">LIVE</span>' +
           '</nav>' +
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
@@ -154,11 +153,13 @@ export function bindStoryStudio(root, client, userId, refresh) {
   const body = $("[data-studio-modal-body]");
   const feedback = $("[data-studio-status]");
   const caption = $("[data-studio-caption]");
-  const settings = { facing: "user", filter: "none", face: "none", grid: false, flash: "off", maxDuration: 30000 };
+  const settings = { facing: "user", filter: "none", face: "none", grid: false, flash: "off", zoom: 1, maxDuration: 30000 };
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
+  let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
+  let zoomBusy = false, zoomPending = null, pinch = null;
   const status = (text, bad = false) => {
     feedback.textContent = text; feedback.dataset.error = bad ? "true" : "false";
   };
@@ -177,10 +178,78 @@ export function bindStoryStudio(root, client, userId, refresh) {
     edits.replaceChildren(); edits.hidden = true; revokeUrl();
     overlayRoot.replaceChildren(); file = null; sourceKind = "none";
   };
+  const flashButton = $("[data-studio-flash]");
+  const resetFlash = () => {
+    settings.flash = "off";
+    stage.dataset.screenFlash = "off";
+    flashButton.setAttribute("aria-pressed", "false");
+    flashButton.textContent = "ϟ";
+    flashButton.title = "Ativar flash";
+  };
+  const updateZoomPreview = () => {
+    const digitalFactor = zoomMode === "digital" ? settings.zoom : 1;
+    video.style.transform = (settings.facing === "user" ? "scaleX(-1) " : "") + "scale(" + digitalFactor + ")";
+    lens.style.transform = "scale(" + digitalFactor + ")";
+  };
+  const setZoom = amount => {
+    if (!stream || mode !== "camera") return;
+    settings.zoom = Math.max(1, Math.min(zoomLimit, Number(amount) || 1));
+    if (zoomMode !== "hardware") { updateZoomPreview(); return; }
+    zoomPending = zoomBase * settings.zoom;
+    if (zoomBusy) return;
+    zoomBusy = true;
+    const track = zoomTrack;
+    const commit = async () => {
+      try {
+        while (zoomPending != null && zoomMode === "hardware" && track === zoomTrack && track.readyState === "live") {
+          const requested = zoomPending; zoomPending = null;
+          await track.applyConstraints({ advanced: [{ zoom: requested }] });
+        }
+      } catch (error) {
+        if (track === zoomTrack) {
+          zoomMode = "digital";
+          zoomLimit = 3;
+          settings.zoom = Math.min(3, settings.zoom);
+          updateZoomPreview();
+          status("Zoom digital ativado; este dispositivo não permite zoom físico.");
+        }
+      } finally { zoomBusy = false; }
+    };
+    void commit();
+  };
+  const flashPhoto = async () => {
+    if (settings.facing !== "user" || settings.flash !== "on") return;
+    stage.dataset.screenFlash = "firing";
+    // Wait for the white screen to illuminate the face before freezing the frame.
+    await new Promise(resolve => setTimeout(resolve, 350));
+  };
+  const drawLiveFrame = (ctx, canvas) => {
+    const sourceW = video.videoWidth, sourceH = video.videoHeight;
+    if (!sourceW || !sourceH) throw new Error("A câmera ainda não está pronta.");
+    const factor = zoomMode === "digital" ? settings.zoom : 1;
+    const cropW = sourceW / factor, cropH = sourceH / factor;
+    ctx.save();
+    ctx.filter = FILTERS[settings.filter];
+    if (settings.facing === "user") {
+      ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, (sourceW - cropW) / 2, (sourceH - cropH) / 2,
+      cropW, cropH, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    if (lens.width && lens.height) {
+      // Apply the same digital crop to the facial layer as to the camera frame.
+      const x = lens.width * (1 - 1 / factor) / 2;
+      const y = lens.height * (1 - 1 / factor) / 2;
+      ctx.drawImage(lens, x, y, lens.width / factor, lens.height / factor,
+        0, 0, canvas.width, canvas.height);
+    }
+  };
   const stopCamera = () => {
     if (recorder?.state === "recording") recorder.stop();
     stream?.getTracks().forEach(t => t.stop()); stream = null;
     video.srcObject = null; face?.stop(); face = null; lensReady = false;
+    zoomTrack = null; zoomPending = null; pinch = null; zoomMode = "digital";
+    settings.zoom = 1; resetFlash(); updateZoomPreview();
   };
   const stopRecordingTimer = () => {
     if (progressAnimation) cancelAnimationFrame(progressAnimation);
@@ -191,13 +260,34 @@ export function bindStoryStudio(root, client, userId, refresh) {
       throw new Error("A câmera exige HTTPS e um navegador compatível. Use a galeria.");
     }
     stopCamera();
-    const constraints = { video: { facingMode: { ideal: facing }, width: { ideal: 1080 }, height: { ideal: 1920 } }, audio: true };
+    // Do not request a forced portrait 1080x1920 crop or any initial zoom.
+    // Prefer the camera sensor's natural field of view.
+    const constraints = { video: { facingMode: { ideal: facing }, resizeMode: { ideal: "none" } }, audio: true };
     try { stream = await navigator.mediaDevices.getUserMedia(constraints); }
-    catch { stream = await navigator.mediaDevices.getUserMedia({ video: constraints.video, audio: false }); }
-    settings.facing = facing;
+    catch {
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false }); }
+      catch { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+    }
+    const track = stream.getVideoTracks()[0];
+    const actualFacing = track?.getSettings?.().facingMode;
+    settings.facing = ["user", "environment"].includes(actualFacing) ? actualFacing : facing;
+    settings.zoom = 1; zoomMode = "digital"; zoomLimit = 3; zoomTrack = null; zoomPending = null;
+    const capabilities = track?.getCapabilities?.();
+    const hardwareZoom = capabilities?.zoom;
+    if (hardwareZoom && Number.isFinite(hardwareZoom.min) && Number.isFinite(hardwareZoom.max)) {
+      zoomBase = Math.max(.1, hardwareZoom.min);
+      try {
+        await track.applyConstraints({ advanced: [{ zoom: zoomBase }] });
+        if (stream && track.readyState === "live") {
+          zoomTrack = track; zoomMode = "hardware";
+          zoomLimit = Math.max(1, Math.min(6, hardwareZoom.max / zoomBase));
+        }
+      } catch { /* Inaccessible sensor zoom: pinch uses the digital fallback. */ }
+    }
     video.srcObject = stream;
-    video.style.transform = facing === "user" ? "scaleX(-1)" : "none";
+    updateZoomPreview();
     video.style.filter = FILTERS[settings.filter];
+    resetFlash();
     showMode("camera");
     try { await video.play(); } catch {}
     face = new StoryFaceLens(video, lens, () => settings.facing);
@@ -253,25 +343,20 @@ export function bindStoryStudio(root, client, userId, refresh) {
   };
   const capturePhoto = async () => {
     if (!video.videoWidth) { status("A câmera ainda está iniciando.", true); return; }
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.min(video.videoWidth, 1080); canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
-    const ctx = canvas.getContext("2d");
-    ctx.filter = FILTERS[settings.filter];
-    if (settings.facing === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = "none";
-    drawStoryLens(ctx, lens, canvas.width, canvas.height);
-    const blob = await blobFromCanvas(canvas, "image/jpeg");
-    showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
+    await flashPhoto();
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.min(video.videoWidth, 1080);
+      canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
+      const ctx = canvas.getContext("2d");
+      drawLiveFrame(ctx, canvas);
+      const blob = await blobFromCanvas(canvas, "image/jpeg");
+      showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
+    } finally {
+      stage.dataset.screenFlash = settings.facing === "user" && settings.flash === "on" ? "ready" : "off";
+    }
   };
-  const drawCamera = (ctx, canvas) => {
-    ctx.filter = FILTERS[settings.filter];
-    if (settings.facing === "user") { ctx.save(); ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    if (settings.facing === "user") ctx.restore();
-    ctx.filter = "none";
-    drawStoryLens(ctx, lens, canvas.width, canvas.height);
-  };
+  const drawCamera = (ctx, canvas) => drawLiveFrame(ctx, canvas);
   const renderBoomerang = async (images, w, h, mime) => {
     const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
@@ -645,16 +730,39 @@ export function bindStoryStudio(root, client, userId, refresh) {
     "[data-studio-boomerang]": () => { isBoomerang = !isBoomerang; $("[data-studio-boomerang]").setAttribute("aria-pressed", String(isBoomerang)); status(isBoomerang ? "Boomerang ativado: segure para gravar." : "Boomerang desativado."); },
     "[data-studio-flash]": async () => {
       const track = stream?.getVideoTracks()[0];
-      const supported = track?.getCapabilities?.();
-      if (!supported?.torch) { status("Flash físico não disponível nesta câmera.", true); return; }
-      settings.flash = settings.flash === "off" ? "on" : "off";
-      try { await track.applyConstraints({ advanced: [{ torch: settings.flash === "on" }] }); }
-      catch { settings.flash = "off"; status("Flash não suportado pelo dispositivo.", true); }
-      $("[data-studio-flash]").setAttribute("aria-pressed", String(settings.flash === "on"));
+      if (!track || track.readyState !== "live") { status("Abra a câmera para ativar o flash.", true); return; }
+      const turnOn = settings.flash !== "on";
+      if (settings.facing === "user") {
+        settings.flash = turnOn ? "on" : "off";
+        stage.dataset.screenFlash = turnOn ? "ready" : "off";
+        flashButton.setAttribute("aria-pressed", String(turnOn));
+        flashButton.textContent = turnOn ? "ϟ" : "ϟ";
+        flashButton.title = turnOn ? "Desligar iluminação frontal" : "Ligar iluminação frontal";
+        status(turnOn ? "Luz branca da tela ativada para selfies." : "Luz da tela desligada.");
+        return;
+      }
+      const capabilities = track.getCapabilities?.();
+      if (capabilities && capabilities.torch === false) {
+        resetFlash(); status("A câmera traseira deste aparelho não disponibiliza a lanterna pelo navegador.", true); return;
+      }
+      try {
+        // A torch constraint turns on the physical rear LED while previewing;
+        // verify the reported setting whenever browsers expose it.
+        await track.applyConstraints({ advanced: [{ torch: turnOn }] });
+        const confirmed = track.getSettings?.().torch;
+        if (turnOn && confirmed === false) throw new Error("Lanterna recusada pelo navegador.");
+        settings.flash = turnOn ? "on" : "off";
+        flashButton.setAttribute("aria-pressed", String(turnOn));
+        flashButton.title = turnOn ? "Desligar lanterna traseira" : "Ligar lanterna traseira";
+        status(turnOn ? "Lanterna traseira ligada." : "Lanterna traseira desligada.");
+      } catch (error) {
+        resetFlash();
+        status("Não foi possível ligar a lanterna traseira: " + (error.message || "recurso indisponível"), true);
+      }
     },
     "[data-studio-settings]": () => {
       modal("Configurações da câmera", '<label>Tempo máximo de vídeo<select data-studio-length><option value="15000">15 segundos</option><option value="30000">30 segundos</option></select></label>' +
-        '<p class="studio-hint">A prévia da câmera frontal permanece espelhada. Se o dispositivo não oferecer flash, a opção será indisponível.</p>');
+        '<p class="studio-hint">A câmera frontal utiliza a tela branca como iluminação. Na traseira, o flash aciona a lanterna física se o navegador autorizar. Para dar zoom, pinçe a imagem com dois dedos.</p>');
       body.querySelector("[data-studio-length]").value = String(settings.maxDuration);
       body.querySelector("[data-studio-length]").onchange = e => { settings.maxDuration = +e.target.value; modalClose(); };
     },
@@ -697,6 +805,23 @@ export function bindStoryStudio(root, client, userId, refresh) {
     }
     face?.setLens(settings.face); status("Lente: " + settings.face);
   });
+  // No zoom on load; only a deliberate two-finger pinch changes magnification.
+  const distance = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  stage.addEventListener("touchstart", event => {
+    if (mode !== "camera" || event.touches.length !== 2 || event.target.closest("button, .studio-modal, .studio-camera-bottom")) return;
+    pinch = { distance: Math.max(1, distance(event.touches)), initial: settings.zoom };
+    event.preventDefault();
+  }, { passive: false });
+  stage.addEventListener("touchmove", event => {
+    if (!pinch || mode !== "camera") return;
+    if (event.touches.length !== 2) { pinch = null; return; }
+    setZoom(pinch.initial * distance(event.touches) / pinch.distance);
+    event.preventDefault();
+  }, { passive: false });
+  stage.addEventListener("touchend", event => {
+    if (event.touches.length < 2) pinch = null;
+  }, { passive: true });
+  stage.addEventListener("touchcancel", () => { pinch = null; }, { passive: true });
   const shutter = $("[data-studio-shutter]");
   shutter.addEventListener("pointerdown", activateShutter);
   shutter.addEventListener("pointerup", releaseShutter);
