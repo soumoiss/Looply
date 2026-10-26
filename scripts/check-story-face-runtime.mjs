@@ -10,7 +10,7 @@ const html=`<!doctype html><html><meta charset="utf-8"><body><pre id="result">LO
 const report={steps:[],error:""};
 const reportStep=t=>{report.steps.push(t);document.getElementById("result").textContent=JSON.stringify(report);};
 try {
-const base="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22";
+const base="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34";
 const vision=await import(base+"/vision_bundle.mjs");
 reportStep("vision bundle imported: "+Boolean(vision.FaceLandmarker));
 const fileset=await vision.FilesetResolver.forVisionTasks(base+"/wasm");
