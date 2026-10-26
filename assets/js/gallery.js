@@ -48,7 +48,7 @@ const galleryMarkup = () => [
     '<label class="gallery-check-row"><input type="checkbox" name="mention_all" data-mention-all> Mencionar todos os usuários disponíveis</label>',
     '<label>Pesquisar pessoas para mencionar <input type="search" data-user-search placeholder="Buscar pelo nome"></label><div class="gallery-user-list" data-mention-users aria-label="Pessoas mencionadas"></div>',
     '<label class="gallery-check-row"><input type="checkbox" name="exclusive" data-exclusive> Mídia exclusiva — somente pessoas selecionadas poderão ver</label>',
-    '<div class="gallery-exclusive-panel" data-exclusive-panel hidden><label>Pesquisar destinatários <input type="search" data-recipient-search placeholder="Buscar pessoas autorizadas"></label><div class="gallery-user-list" data-recipient-users aria-label="Destinatários exclusivos"></div><p class="gallery-help">Escolha pelo menos uma pessoa. O acesso é validado pelo Supabase, não apenas pela interface.</p></div>',
+    '<div class="gallery-exclusive-panel" data-exclusive-panel hidden><label>Pesquisar destinatários <input type="search" data-recipient-search placeholder="Buscar pessoas autorizadas"></label><div class="gallery-user-list" data-recipient-users aria-label="Destinatários exclusivos"></div><p class="gallery-help">Escolha pelo menos uma pessoa. O acesso é validado pelo Neon, não apenas pela interface.</p></div>',
     '<div class="gallery-upload-progress" data-upload-progress hidden><progress max="100" value="0" data-progress></progress><span data-progress-label>0%</span></div>',
     '<p class="gallery-status" data-upload-status role="status"></p>',
     '<div class="gallery-dialog-actions"><button class="gallery-tool" type="button" data-close-upload>Cancelar</button><button class="gallery-primary" type="submit" data-publish>', icon("upload"), ' Publicar</button></div>',
@@ -56,7 +56,7 @@ const galleryMarkup = () => [
 '</section></div>',
 '<div class="gallery-modal" data-people-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="people-title"><div class="gallery-dialog-heading"><h2 id="people-title">Filtrar por pessoas</h2><button type="button" class="gallery-icon-button" data-close-people aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar <input type="search" data-filter-user-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-filter-users></div><label class="gallery-check-row"><input type="checkbox" data-match-any> Mostrar mídias com qualquer pessoa selecionada</label><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-clear-people>Limpar</button><button type="button" class="gallery-primary" data-apply-people>Aplicar filtros</button></div></section></div>',
 '<div class="gallery-modal" data-album-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="album-title"><div class="gallery-dialog-heading"><h2 id="album-title">Criar álbum</h2><button type="button" class="gallery-icon-button" data-close-album aria-label="Fechar">', icon("close"), '</button></div><form class="gallery-form" data-album-form><label>Nome do álbum <input name="name" maxlength="80" required placeholder="Ex.: Viagem de férias"></label><p class="gallery-status" data-album-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-album>Cancelar</button><button type="submit" class="gallery-primary">Criar álbum</button></div></form></section></div>',
-'<div class="gallery-modal" data-access-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title"><div class="gallery-dialog-heading"><h2 id="access-title">Administrar acesso</h2><button type="button" class="gallery-icon-button" data-close-access aria-label="Fechar">', icon("close"), '</button></div><form class="gallery-form" data-access-form><label>Visibilidade <select name="visibility"><option value="members">Todos os usuários autorizados</option><option value="exclusive">Somente pessoas selecionadas</option></select></label><label>Pesquisar pessoas <input type="search" data-access-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-access-users></div><p class="gallery-help">As permissões são verificadas pelo Supabase. A alteração não torna o arquivo público.</p><p class="gallery-status" data-access-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-access>Cancelar</button><button type="submit" class="gallery-primary">Salvar acesso</button></div></form></section></div>',
+'<div class="gallery-modal" data-access-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title"><div class="gallery-dialog-heading"><h2 id="access-title">Administrar acesso</h2><button type="button" class="gallery-icon-button" data-close-access aria-label="Fechar">', icon("close"), '</button></div><form class="gallery-form" data-access-form><label>Visibilidade <select name="visibility"><option value="members">Todos os usuários autorizados</option><option value="exclusive">Somente pessoas selecionadas</option></select></label><label>Pesquisar pessoas <input type="search" data-access-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-access-users></div><p class="gallery-help">As permissões são verificadas pelo Neon. A alteração não torna o arquivo público.</p><p class="gallery-status" data-access-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-access>Cancelar</button><button type="submit" class="gallery-primary">Salvar acesso</button></div></form></section></div>',
 '<div class="gallery-modal" data-tags-modal hidden><section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="tags-title"><div class="gallery-dialog-heading"><h2 id="tags-title">Adicionar menções</h2><button type="button" class="gallery-icon-button" data-close-tags aria-label="Fechar">', icon("close"), '</button></div><label>Pesquisar pessoas <input type="search" data-tag-search placeholder="Nome de usuário"></label><div class="gallery-user-list" data-tag-users></div><p class="gallery-status" data-tag-status role="status"></p><div class="gallery-dialog-actions"><button type="button" class="gallery-tool" data-close-tags>Cancelar</button><button type="button" class="gallery-primary" data-save-tags>Salvar menções</button></div></section></div>',
   '<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar comentários">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Comentário<textarea name="body" maxlength="5000" required placeholder="Escreva um comentário"></textarea></label><label>Visibilidade<select name="audience"><option value="media_viewers">Pessoas com acesso à mídia</option><option value="selected">Somente pessoas selecionadas</option><option value="author_only">Somente o autor da mídia</option></select></label><div class="gallery-user-list" data-comment-recipients hidden aria-label="Destinatários do comentário"></div><label>Marcar alguém <input type="search" data-comment-mention-search placeholder="Buscar usuário"></label><div class="gallery-user-list" data-comment-mention-users aria-label="Usuários para mencionar"></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="submit" class="gallery-primary">Enviar comentário</button></div></form></section></div>',
   '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
@@ -86,7 +86,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
-  let activeKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", uploadBusy = false, signedUrlFailures = 0;
+  let activeKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", cameraVideoMode = false, uploadBusy = false, signedUrlFailures = 0;
   let gestureController = null;
   const inlineComments = new Map();
   const inlineCommentsPending = new Set();
@@ -549,7 +549,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       console.error("Looply comment publish failed", { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint });
       const message = String(error?.message || "");
       const feedback = error?.code === "42501"
-        ? (/Authentication required/i.test(message) ? "Sua sessão expirou. Entre novamente e tente publicar o comentário." : /Not permitted to comment/i.test(message) ? "Você pode visualizar esta mídia, mas não tem permissão para comentar nela." : "O Supabase recusou a operação por permissão (42501). Atualize a página e confirme seu acesso à mídia.")
+        ? (/Authentication required/i.test(message) ? "Sua sessão expirou. Entre novamente e tente publicar o comentário." : /Not permitted to comment/i.test(message) ? "Você pode visualizar esta mídia, mas não tem permissão para comentar nela." : "O Neon recusou a operação por permissão (42501). Atualize a página e confirme seu acesso à mídia.")
         : "Não foi possível publicar o comentário" + (error?.code ? " (" + error.code + ")" : "") + (message ? ": " + message : ".");
       say(feedback, $("[data-comment-status]"));
     }
@@ -598,11 +598,12 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
           if (rowError) throw rowError;
           mediaId = row.id;
           if (exclusive) {
-            const safeViewers = [...new Set([...viewerIds,user.id])];
-            const { error } = await client.rpc("set_gallery_media_permissions", {
-              p_source:"community", p_media_id:row.id, p_visibility:"exclusive",
-              p_comment_access:"viewers", p_viewer_ids:safeViewers, p_commenter_ids:[]
-            });
+            // The owner chooses actual legacy profile UUIDs; Neon RLS verifies ownership.
+            // No publish occurs until the ACL has been saved.
+            const safeViewers = [...new Set([...viewerIds,profile.id])];
+            const { error } = await client.from("gallery_media_viewers").insert(
+              safeViewers.map(user_id => ({ media_id:row.id, user_id }))
+            );
             if (error) throw error;
           }
           if (description) {
@@ -646,9 +647,18 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     }
   };
   const startCamera = async videoMode => {
+    cameraVideoMode = videoMode;
     if (!navigator.mediaDevices?.getUserMedia) { say("Este navegador não oferece captura direta. Use Selecionar arquivos.", $("[data-camera-status]")); return; }
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:cameraFacing},audio:videoMode});
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing}},audio:videoMode});
+      } catch (error) {
+        if (!videoMode || error?.name === "NotAllowedError") throw error;
+        mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing}},audio:false});
+        say("Microfone indisponível. O vídeo será gravado sem áudio.", $("[data-camera-status]"));
+      }
       $("[data-camera-preview]").srcObject = mediaStream;
       $("[data-camera-modal]").hidden = false;
       $("[data-camera-status]").textContent = videoMode ? "Câmera pronta para gravar." : "Câmera pronta. Capture uma foto pelo controle do navegador ou grave um vídeo.";
@@ -673,7 +683,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
           if (recorder?.state === "recording") { recorder.stop(); return; }
           recordedChunks = [];
           try {
-            recorder = new MediaRecorder(mediaStream);
+            const mimeType = ["video/mp4","video/webm;codecs=vp8,opus","video/webm"].find(type => MediaRecorder.isTypeSupported?.(type));
+            recorder = new MediaRecorder(mediaStream, mimeType ? {mimeType} : undefined);
             recorder.ondataavailable = e => { if (e.data.size) recordedChunks.push(e.data); };
             recorder.onstop = () => {
               const blob = new Blob(recordedChunks,{type:recorder.mimeType || "video/webm"});
@@ -719,7 +730,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-camera-photo]").addEventListener("click",()=>startCamera(false));
   $("[data-camera-video]").addEventListener("click",()=>startCamera(true));
   $("[data-stop-camera]").addEventListener("click",stopCamera);
-  $("[data-switch-camera]").addEventListener("click",async()=>{cameraFacing=cameraFacing==="environment"?"user":"environment";stopCamera();await startCamera(true);});
+  $("[data-switch-camera]").addEventListener("click",async()=>{if(recorder?.state==="recording"){say("Pare a gravação antes de alternar a câmera.",$("[data-camera-status]"));return;}cameraFacing=cameraFacing==="environment"?"user":"environment";stopCamera();await startCamera(cameraVideoMode);});
   $("[data-exclusive]").addEventListener("change",e=>{ $("[data-exclusive-panel]").hidden=!e.target.checked; });
   $("[data-mention-all]").addEventListener("change",e=>{ $("[data-mention-users]").hidden=e.target.checked; });
   ["[data-user-search]","[data-recipient-search]","[data-filter-user-search]","[data-access-search]"].forEach(sel=>$(sel).addEventListener("input",syncUserLists));
