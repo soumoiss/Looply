@@ -53,7 +53,7 @@ test("Output applies edits without cropping the original media", () => {
   assert.match(styles, /studio-edited-media>img,.studio-edited-media>video[^}]*object-fit:contain/);
 
   assert.match(studio, /drawLiveFrame\(ctx, canvas\)/);
-  assert.match(studio, /ctx\.drawImage\(lens, x, y/);
+  assert.match(studio, /drawLayer\(lens\)/);
   assert.match(studio, /paintLayers\(ctx, overlayRoot/);
   assert.match(studio, /makeSynthBuffer\(audioCtx, music\)/);
   assert.match(studio, /canvas\.captureStream\(24\)/);
@@ -99,5 +99,5 @@ test("camera photo and recording output use portrait 9:16 while preserving the f
   assert.match(studio, /const frame = containRect\(cropW, cropH, canvas\.width, canvas\.height\)/);
   assert.match(studio, /ctx\.filter = "blur\(28px\) brightness\(\.58\)"/);
   assert.match(studio, /const backdropVideo = \$\("\[data-studio-backdrop-video\]"\)/);
-  assert.match(styles, /studio-camera-backdrop[^{}]*object-fit:cover[^{}]*filter:blur/);
+  assert.match(styles, /studio-camera-backdrop[^{}]*\\{[^{}]*object-fit:cover[^{}]*filter:blur/);
 });
