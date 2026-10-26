@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -192,11 +193,8 @@ function musicContent(data, userId) {
   if (data.dedicationsError) {
     return `<div class="social-message social-error" role="alert">Não foi possível carregar suas músicas. Confira a conexão e tente novamente.</div>`;
   }
-  const incoming = data.dedications.filter((item) => item.recipient_id === userId).length;
-  const outgoing = data.dedications.filter((item) => item.sender_id === userId).length;
-  const list = data.dedications.length
-    ? data.dedications.map((item) => dedicationMarkup(item, userId)).join("")
-    : `<div class="social-message"><strong>Nenhuma dedicatória recebida ou enviada.</strong></div>`;
+  const received = data.dedications.filter((item) => item.recipient_id === userId);
+  const sent = data.dedications.filter((item) => item.sender_id === userId);
   const choices = data.people.filter((profile) => profile.id !== userId).map((profile) =>
     `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name)} · @${escapeHtml(profile.username)}</option>`
   ).join("");
@@ -204,31 +202,55 @@ function musicContent(data, userId) {
     ? `<span class="field-hint field-error">A lista de perfis não carregou; atualize a página para dedicar uma música.</span>`
     : choices ? `<span class="field-hint">A dedicatória fica visível apenas para você e o perfil escolhido.</span>`
       : `<span class="field-hint">Ainda não há outros perfis visíveis para receber uma dedicatória.</span>`;
+  const directionPanel = (items, key, emptyText) => `<section data-music-direction-panel="${key}" ${key === "sent" ? "hidden" : ""}>${items.length
+    ? items.map((item) => dedicationMarkup(item, userId)).join("")
+    : `<div class="music-empty-state"><strong>${emptyText}</strong></div>`}</section>`;
 
   return `<section class="music-area" data-music-area aria-labelledby="musicTitle">
     <div class="music-heading"><div><span class="section-kicker">Biblioteca</span><h2 id="musicTitle">Músicas e dedicatórias</h2></div>
-      <span class="music-count">${incoming} recebida${incoming === 1 ? "" : "s"} · ${outgoing} enviada${outgoing === 1 ? "" : "s"}</span></div>
+      <span class="music-count">${received.length} recebida${received.length === 1 ? "" : "s"} · ${sent.length} enviada${sent.length === 1 ? "" : "s"}</span></div>
     ${personalLibraryMarkup(data)}
     <section class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
       <h3 id="musicGeneralCommentsTitle">Comentários gerais</h3>
       <div class="music-general-comment-list" data-music-general-comment-list>${generalCommentsMarkup(data)}</div>
       <form data-music-general-comment class="music-comment-form"><label for="musicGeneralCommentBody">Comentar na página de músicas</label><textarea id="musicGeneralCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário geral"></textarea><button class="text-button" type="submit">Enviar comentário geral</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
     </section>
-    <details class="music-composer"><summary>Dedicar uma música</summary>
+    <details class="music-composer"><summary>＋ Dedicar uma música</summary>
       <form data-music-send>
         <div class="field"><label for="musicRecipient">Para quem é esta música?</label><select id="musicRecipient" name="recipientId" multiple size="5" required ${choices ? "" : "disabled"}><option value="all-users">Todos os usuários</option>${choices}</select>${recipientHint}</div>
-        <div class="music-form-grid">
-          <div class="field"><label for="musicTitle">Música</label><input id="musicTitle" name="title" type="text" maxlength="160" required placeholder="Nome da música"></div>
-          <div class="field"><label for="musicArtist">Artista</label><input id="musicArtist" name="artist" type="text" maxlength="120" placeholder="Nome do artista"></div>
+        <div class="field music-song-selection">
+          <span class="field-label">Música</span>
+          <button class="music-song-picker-open" type="button" data-music-open-search>⌕ Pesquisar músicas</button>
+          <input id="musicTitle" name="title" type="hidden">
+          <input id="musicArtist" name="artist" type="hidden">
+          <input id="musicUrl" name="listenUrl" type="hidden">
+          <div class="music-selected-song" data-music-selected-song hidden aria-live="polite"></div>
         </div>
-        <div class="field"><label for="musicUrl">Link para ouvir</label><input id="musicUrl" name="listenUrl" type="url" maxlength="1000" required placeholder="YouTube, Spotify, Apple Music ou SoundCloud"></div>
         <div class="field"><label for="musicNote">Uma dedicatória (opcional)</label><textarea id="musicNote" name="note" maxlength="1000" rows="3" placeholder="Por que esta música lembrou essa pessoa?"></textarea></div>
         <button class="primary-button compact-button" type="submit">Enviar dedicatória ${icon("send")}</button>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     </details>
-    <div class="music-list" data-music-list>${list}</div>
+    <nav class="music-direction-tabs" role="tablist" aria-label="Músicas recebidas e enviadas">
+      <button type="button" role="tab" data-music-direction="received" aria-selected="true">Recebidas <span>${received.length}</span></button>
+      <button type="button" role="tab" data-music-direction="sent" aria-selected="false">Enviadas <span>${sent.length}</span></button>
+    </nav>
+    <div class="music-list" data-music-list>
+      ${directionPanel(received, "received", "Você ainda não recebeu músicas dedicadas.")}
+      ${directionPanel(sent, "sent", "Você ainda não dedicou músicas.")}
+    </div>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
+    <div class="music-picker-backdrop" data-music-picker hidden>
+      <section class="music-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="musicPickerTitle">
+        <header><div><span class="section-kicker">Catálogo musical</span><h3 id="musicPickerTitle">Escolher música</h3></div><button type="button" class="music-picker-close" data-music-picker-close aria-label="Fechar">×</button></header>
+        <label for="musicCatalogQuery">Pesquisar por música ou artista</label>
+        <input id="musicCatalogQuery" type="search" maxlength="70" autocomplete="off" placeholder="Ex.: nome da música ou artista" data-music-catalog-query>
+        <p class="music-picker-help" data-music-search-status role="status" aria-live="polite">Digite ao menos duas letras para pesquisar no catálogo.</p>
+        <div class="music-picker-results" data-music-search-results></div>
+        <div class="music-picker-preview" data-music-search-preview aria-live="polite"></div>
+        <footer><button type="button" class="text-button" data-music-picker-close>Cancelar</button><button type="button" class="primary-button compact-button" data-music-picker-confirm disabled>Usar música selecionada</button></footer>
+      </section>
+    </div>
   </section>`;
 }
 
