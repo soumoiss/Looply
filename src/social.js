@@ -267,7 +267,7 @@ function postMarkup(post, userId, isAdmin = false) {
         embed = '<div class="post-external-embed post-tiktok-embed" data-tiktok-preview data-tiktok-url="' + escapeHtml(externalUrl.href) + '"><p>Carregando pré-visualização do TikTok…</p></div>';
       }
     }
-    externalMarkup = '<section class="post-external"><strong>' + provider + '</strong>' + (embed || '<p>A incorporação depende das permissões do serviço. Abra o conteúdo original se não houver reprodução disponível.</p>') + '<a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer">Abrir conteúdo original ' + icon("external") + '</a></section>';
+    externalMarkup = '<section class="post-external" aria-label="Conteúdo externo"><div class="post-external-credit"><span>' + escapeHtml(provider) + '</span><a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer" aria-label="Abrir publicação original em ' + escapeHtml(provider) + '">Abrir original ' + icon("external") + '</a></div>' + (embed || '<p class="post-external-unavailable">A prévia não está disponível. Você pode abrir o conteúdo original.</p>') + '</section>';
   }
   const mediaMarkup = (post.media || []).map((item, mediaIndex) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
@@ -285,7 +285,7 @@ function postMarkup(post, userId, isAdmin = false) {
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
-    ${post.body ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
+    ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
     ${externalMarkup}
     <div class="post-interactions">
