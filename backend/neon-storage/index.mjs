@@ -3,7 +3,7 @@ const allowedOrigin = "https://soumoiss.github.io";
 const encoder = new TextEncoder();
 const maxBytes = bucket => (bucket === "looply-avatars" ? 10 : 25) * 1024 * 1024;
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", ...headers } });
-const cors = origin => ({ "access-control-allow-origin": origin, "access-control-allow-methods": "PUT, POST, OPTIONS", "access-control-allow-headers": "authorization, content-type, x-looply-bucket, x-looply-path", "access-control-max-age": "600", vary: "Origin" });
+const cors = origin => ({ "access-control-allow-origin": origin, "access-control-allow-methods": "GET, PUT, POST, OPTIONS", "access-control-allow-headers": "authorization, content-type, x-looply-bucket, x-looply-path", "access-control-max-age": "600", vary: "Origin" });
 const rfc3986 = value => encodeURIComponent(value).replace(/[!'()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
 const hex = value => [...new Uint8Array(value)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 const sha256 = async value => hex(await crypto.subtle.digest("SHA-256", typeof value === "string" ? encoder.encode(value) : value));
