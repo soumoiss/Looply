@@ -6,8 +6,7 @@ const playlists = Object.freeze({
   peixinho: "PLD5PXwJcU-Sg"
 });
 const fallbackPlaylist = "PLMeQ_QyqhY7s";
-const supabaseApiOrigin = String(globalThis.window?.LOOPLY_CONFIG?.supabaseUrl || "https://qixocgetiwlrsbadpbvh.supabase.co").replace(/\/+$/, "");
-const playlistApiEndpoint = supabaseApiOrigin + "/functions/v1/looply-youtube-playlist";
+const playlistApiEndpoint = "https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech/youtube/playlist";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -122,8 +121,8 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
     let response;
     try {
       response = await fetchImpl(playlistApiEndpoint + "?" + params, {
-        credentials: "same-origin",
-        headers: { accept: "application/json", apikey: String(globalThis.window?.LOOPLY_CONFIG?.publishableKey || ""), authorization: "Bearer " + accessToken },
+        credentials: "omit",
+        headers: { accept: "application/json", authorization: "Bearer " + accessToken },
         signal: controller.signal
       });
     } catch (error) {
