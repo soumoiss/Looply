@@ -42,7 +42,7 @@ test("Story creation can switch between front and rear cameras without replacing
   assert.match(source, /state\.cameraFacing === "environment" \? "user" : "environment"/);
   assert.match(source, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(source, /uploadResumable\(client, uploadedPath, media/);
-  assert.match(source, /from\("story_media"\)/);
+  assert.match(source, /rpc\("v5_attach_story_media"/);
 });
 
 test("story view insights show signed viewer avatars with initials as a privacy-safe fallback", async () => {
