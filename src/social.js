@@ -981,7 +981,8 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         console.error("Looply post save failed", error);
         const viewerStatus = root.querySelector("[data-reel-status]");
         const postStatus = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
-        const status = viewer.querySelector("[data-reels-viewer]")?.open ? viewerStatus : postStatus;
+        const reelsOpen = root.querySelector("[data-reels-viewer]")?.open;
+        const status = reelsOpen ? viewerStatus : postStatus;
         if (status) status.textContent = "Não foi possível atualizar seus salvos agora.";
       } finally { saveButton.disabled = false; }
       return;
