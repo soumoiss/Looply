@@ -43,6 +43,7 @@ assert.equal(run.status,0,run.stderr.slice(-1200));
 const match=run.stdout.match(/<pre id="audio-result">([^<]+)<\/pre>/);
 assert.ok(match,"Browser did not finish video+audio recording");
 const result=JSON.parse(match[1]);
+console.log("RECORDER DIAGNOSTICS",JSON.stringify({error:result.error,mime:result.mime,size:result.size,audioTracks:result.audioTracks,videoTracks:result.videoTracks}));
 assert.equal(result.error,"",result.error);assert.equal(result.audioTracks,1);
 assert.equal(result.videoTracks,1);assert.ok(result.size>1800,"Empty video/audio");
 const clip=join(dir,result.mime.includes("mp4")?"recording.mp4":"recording.webm");
