@@ -63,7 +63,7 @@ test("invalid receipt calls fail closed without making a network request", async
 test("the Neon migration scopes receipt mutations and chat notifications to the signed-in profile", async () => {
   const migration = await read("migration/20261026_neon_chat_read_receipts.sql");
   for (const requirement of [
-    "SECURITY DEFINER", "set search_path = ''", "public.looply_legacy_uid()",
+    "security definer", "set search_path = ''", "public.looply_legacy_uid()",
     "public.conversation_participants", "public.chat_messages",
     "chat_notifications_recipient_read", "chat_notifications_recipient_update",
     "grant update (read_at) on table public.chat_notifications to authenticated"
