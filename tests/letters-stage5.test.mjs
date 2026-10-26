@@ -163,3 +163,14 @@ test("protected-letter SQL avoids PostgreSQL repetition counts above its regex l
   assert.match(migration, /password_ciphertext ~ '\^\[A-Za-z0-9_-\]\+\$'/i);
   assert.doesNotMatch(migration, /\{22,7000\}/);
 });
+
+test("letters use the authenticated server-verified administrator role, never a hard-coded profile ID", async () => {
+  const [page, runtime] = await Promise.all([
+    readFile(resolve(root, "assets/js/letters.js"), "utf8"),
+    readFile(resolve(root, "src/page-runtime.js"), "utf8")
+  ]);
+  assert.match(page, /render: async \(\{ root, client, user, isAdmin \}\)/);
+  assert.doesNotMatch(page, /user\.id\s*===\s*["'][0-9a-f-]{36}["']/i);
+  assert.match(runtime, /supabase\.rpc\("v3_self_is_admin"\)/);
+  assert.match(runtime, /adminResult\.value\?\.data === true/);
+});

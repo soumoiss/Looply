@@ -31,7 +31,8 @@ test("admin collection reads all letters and can delete letters while RLS remain
   assert.match(markup, /loadCommunityLetters\(client, userId, isAdmin = false\)/);
   assert.match(markup, /if \(!isAdmin\) query = query\.or/);
   assert.match(markup, /data-admin-delete-community-letter/);
-  assert.match(page, /d218a499-e3ad-45c5-b115-26272a6f3e79/);
+  assert.match(page, /render: async \(\{ root, client, user, isAdmin \}\)/);
+  assert.doesNotMatch(page, /user\.id\s*===\s*["'][0-9a-f-]{36}["']/i);
   assert.match(migration, /private\.is_admin\(\)/);
   assert.match(migration, /archived_cards_admin_update/);
   assert.match(migration, /community_letters_admin_delete/);
