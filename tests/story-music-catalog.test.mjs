@@ -75,7 +75,7 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(viewer,/if \(audio && !audio\.paused\) audio\.pause\(\)/);
   assert.match(viewer,/music\.autoplay = true/);
   assert.match(picker,/▶ Ouvir/);
-  assert.match(picker,/Escolher esta música/);
+  assert.match(picker,/Usar esta música/);
   assert.match(picker,/stopPreview/);
 });
 
@@ -117,4 +117,35 @@ test("Audius stream metadata survives publication and controls invisible backgro
   assert.equal(decodeStorySong(value).text,"Minha legenda");
   assert.equal(audiusStoryStreamUrl({...track,id:"../../passwd"}),"");
   assert.equal(decodeStorySong(encodeStorySong("",fixture)).song.provider,"apple");
+});
+
+test("Official Apple and Deezer previews are URL-allowlisted and only used for audition",()=>{
+  const apple=normalizeStorySong({...fixture,previewUrl:"https://audio-ssl.itunes.apple.com/itunes-assets/a.m4a"});
+  assert.match(apple.previewUrl,/audio-ssl\.itunes\.apple\.com/);
+  assert.deepEqual(officialSongPreview(apple),{
+    kind:"audio",provider:"apple",src:"https://audio-ssl.itunes.apple.com/itunes-assets/a.m4a"
+  });
+  const deezer=normalizeStorySong({
+    provider:"deezer",title:"Faixa",artist:"Artista",url:"https://www.deezer.com/track/123",
+    previewUrl:"https://cdnt-preview.dzcdn.net/api/1/1.mp3"
+  });
+  assert.equal(officialSongPreview(deezer).kind,"audio");
+  assert.equal(normalizeStorySong({...fixture,previewUrl:"https://evil.example/a.mp3"}).previewUrl,"");
+  assert.equal(normalizeStorySong({...fixture,previewUrl:"http://audio-ssl.itunes.apple.com/a.mp3"}).previewUrl,"");
+  const marker=encodeStorySong("texto",apple);
+  assert.doesNotMatch(marker,/previewUrl|itunes-assets|a\.m4a/);
+});
+
+test("Android music cards have separate grid action row, readable text, and visible audio controls",()=>{
+  const css=readFileSync(new URL("../assets/css/pages/story-studio.css",import.meta.url),"utf8");
+  const picker=readFileSync(new URL("../src/story-music-picker.js",import.meta.url),"utf8");
+  assert.match(css,/\.story-studio \.studio-catalog-song \{[\s\S]*?display:grid!important;/);
+  assert.match(css,/\.story-studio \.studio-catalog-song > \.studio-music-row-actions \{[\s\S]*?grid-row:2;/);
+  assert.match(css,/\.story-studio \.studio-catalog-select \{[\s\S]*?color:#18141d!important/);
+  assert.match(picker,/el\.controls=true/);
+  assert.match(picker,/void el\.play\(\)\.then/);
+  assert.match(picker,/el\.addEventListener\("error"/);
+  assert.match(picker,/const listen=addText\(actions,"button","▶ Ouvir prévia"/);
+  assert.match(picker,/const choose=addText\(actions,"button","Escolher"/);
+  assert.match(picker,/stopPreview/);
 });
