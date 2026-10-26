@@ -49,7 +49,7 @@ test("UI presents camera, gallery, edit tools, and private audience", () => {
 test("Output applies edits without cropping the original media", () => {
   assert.match(studio, /const contain = Math\.min\(w \/ sw, h \/ sh\)/);
   assert.match(studio, /source image\/video/);
-  assert.match(styles, /studio-edited-media>img,.studio-edited-media>video[^{}]*object-fit:contain/);
+  assert.match(styles, /studio-edited-media>img,.studio-edited-media>video[^}]*object-fit:contain/);
 
   assert.match(studio, /drawLiveFrame\(ctx, canvas\)/);
   assert.match(studio, /ctx\.drawImage\(lens, x, y/);
