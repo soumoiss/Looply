@@ -8,7 +8,7 @@ create table public.saved_posts (
 );
 
 alter table public.saved_posts enable row level security;
-revoke all on table public.saved_posts from public, anon, authenticated;
+revoke all on table public.saved_posts from public, authenticated;
 grant select, insert, delete on public.saved_posts to authenticated;
 
 create policy saved_posts_read_own_visible
