@@ -545,9 +545,9 @@ export async function hydrateTikTokEmbeds(root) {
       if (placeholder.isConnected) placeholder.textContent = "A pré-visualização não está disponível para este link. Abra o conteúdo original.";
     }
   }));
-  // Short TikTok share URLs become controllable players only after hydration.
-  // Rebind so the newly inserted iframe participates in hover/visibility autoplay.
-  bindFeedVideoAutoplay(root);
+  // Rebind after hydration, but never let feed media restart behind the viewer.
+  if (root.querySelector("[data-reels-viewer]")?.open) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+  else bindFeedVideoAutoplay(root);
 }
 
 export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
@@ -558,9 +558,11 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
-    if (!root.querySelector("[data-reels-viewer]")?.open) bindFeedVideoAutoplay(feed);
-    else feed.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
-    void hydrateTikTokEmbeds(feed);
+    if (root.querySelector("[data-reels-viewer]")?.open) {
+      root.__looplyVideoAutoplayDispose?.();
+      feed.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+    } else bindFeedVideoAutoplay(root);
+    void hydrateTikTokEmbeds(root);
     refreshReelsViewer(root);
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
@@ -662,7 +664,7 @@ function closeReelsViewer(root) {
   viewer.querySelector("[data-reel-comments-panel]").hidden = true;
   viewer.querySelector("[data-reel-status]").textContent = "";
   const feed = root.querySelector("[data-social-feed]");
-  if (feed) bindFeedVideoAutoplay(feed);
+  if (feed) bindFeedVideoAutoplay(root);
 }
 function bindReelsViewer(root) {
   if (!root || root.__looplyReelsBound) return;
@@ -679,6 +681,7 @@ function bindReelsViewer(root) {
     const open = event.target.closest("[data-open-reel]");
     if (open) {
       const feed = root.querySelector("[data-social-feed]");
+      root.__looplyVideoAutoplayDispose?.();
       feed?.__looplyVideoAutoplayDispose?.();
       feed?.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
       try { viewer.showModal(); } catch { viewer.setAttribute("open", ""); }
@@ -749,7 +752,7 @@ function refreshReelsViewer(root) {
 export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
   bindReelsViewer(root);
   bindFeedVideoAutoplay(root);
-  void hydrateTikTokEmbeds(root.querySelector("[data-social-feed]"));
+  void hydrateTikTokEmbeds(root);
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
     if (!toggle) return;
