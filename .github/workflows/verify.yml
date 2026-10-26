@@ -25,6 +25,8 @@ jobs:
           node --check src/supabase.js
           node --check src/identities.js
           node --check src/profiles.js
+          node --check src/neon-rest-bridge.js
+          node --check backend/neon-storage/index.mjs
           node --check src/social.js
           node --check src/stories.js
           node --check src/music.js
