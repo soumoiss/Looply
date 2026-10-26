@@ -431,7 +431,7 @@ export function bindMusicEvents(root, client, getUserId) {
       if (openButton) openButton.textContent = "Todos os perfis visíveis";
     } else if (selectedRecipients.size) {
       const names = [...selectedRecipients].map((id) => {
-        const profile = root.querySelector(`[data-music-recipient-id="${CSS.escape(id)}"]`);
+        const profile = [...root.querySelectorAll("[data-music-recipient-id]")].find((button) => button.dataset.musicRecipientId === id);
         return profile?.querySelector(".music-recipient-copy strong")?.textContent || "Perfil";
       });
       const summary = names.length > 3 ? names.slice(0, 3).join(", ") + ` e mais ${names.length - 3}` : names.join(", ");
