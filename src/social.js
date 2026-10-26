@@ -236,6 +236,9 @@ function postMarkup(post, userId, isAdmin = false) {
     : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
+  const saved = Boolean(post.savedByMe);
+  const saveAvailable = post.savedPostsAvailable === true;
+  const saveButtonMarkup = saveAvailable ? '<button class="post-icon-button post-save-button" type="button" data-toggle-save="' + escapeHtml(post.id) + '" aria-pressed="' + String(saved) + '" aria-label="' + (saved ? "Remover dos salvos" : "Salvar publicação") + '"><span aria-hidden="true">' + (saved ? "▣" : "▯") + '</span><span>' + (saved ? "Salvo" : "Salvar") + '</span></button>' : "";
   const likeCount = Number(post.likeCount || 0);
   const normalizedExternalUrl = normalizeExternalUrl(post.external_url);
   const externalUrl = normalizedExternalUrl ? new URL(normalizedExternalUrl) : null;
@@ -290,6 +293,7 @@ function postMarkup(post, userId, isAdmin = false) {
     ${externalMarkup}
     <div class="post-interactions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
+      ${saveButtonMarkup}
       <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação externamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
       <button class="post-icon-button" type="button" data-share-in-app="${escapeHtml(post.id)}" aria-label="Compartilhar no chat do Looply">Enviar no Looply</button>
       ${post.author_id !== userId ? '<button class="post-icon-button" type="button" data-private-reply="' + escapeHtml(post.author_id) + '" data-private-post="' + escapeHtml(post.id) + '">Responder em particular</button>' : ""}
@@ -322,16 +326,23 @@ async function loadPosts(client) {
     const { data: currentUserData } = await client.auth.getUser();
     const currentUserId = currentUserData?.user?.id;
     const postIds = posts.map((post) => post.id);
-    const [{ data: likes, error: likesError }, { data: mine, error: mineError }] = await Promise.all([
+    const [{ data: likes, error: likesError }, { data: mine, error: mineError }, savedResult] = await Promise.all([
       client.from("post_likes").select("post_id").in("post_id", postIds),
-      currentUserId ? client.from("post_likes").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null})
+      currentUserId ? client.from("post_likes").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null}),
+      currentUserId ? client.from("saved_posts").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null})
     ]);
     if (likesError) throw likesError;
     if (mineError) throw mineError;
     const counts = new Map();
     for (const like of likes || []) counts.set(like.post_id, (counts.get(like.post_id) || 0) + 1);
     const mineIds = new Set((mine || []).map((like) => like.post_id));
-    for (const post of posts) { post.likeCount = counts.get(post.id) || 0; post.likedByMe = mineIds.has(post.id); }
+    const savedIds = new Set((savedResult.data || []).map((row) => row.post_id));
+    for (const post of posts) {
+      post.likeCount = counts.get(post.id) || 0;
+      post.likedByMe = mineIds.has(post.id);
+      post.savedByMe = savedIds.has(post.id);
+      post.savedPostsAvailable = !savedResult.error;
+    }
   }
   const profileRows = [];
   for (const post of posts) {
@@ -586,6 +597,7 @@ function reelsViewerMarkup() {
       '<button type="button" data-reel-comments aria-expanded="false" aria-label="Comentários"><span aria-hidden="true">▤</span><small data-reel-comment-count>0</small></button>' +
       '<button type="button" data-reel-share aria-label="Compartilhar publicação"><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
       '<button type="button" data-reel-send aria-label="Enviar no Looply"><span aria-hidden="true">↗</span><small>Enviar</small></button>' +
+      '<button type="button" data-reel-save aria-pressed="false" aria-label="Salvar publicação"><span aria-hidden="true">▯</span><small>Salvar</small></button>' +
     '</aside>' +
     '<footer class="reels-details"><div class="reels-author" data-reel-author></div><p data-reel-caption></p></footer>' +
     '<section class="reels-comments-panel" data-reel-comments-panel hidden aria-label="Comentários">' +
@@ -642,6 +654,16 @@ function renderReelViewer(root, key, autoplay = false) {
   authorTarget.replaceChildren(...(author ? [author.cloneNode(true)] : []));
   viewer.querySelector("[data-reel-caption]").textContent = item.card.querySelector(".post-body")?.textContent || "";
   const originalLike = item.card.querySelector("[data-toggle-like]");
+  const originalSave = item.card.querySelector("[data-toggle-save]");
+  const reelSave = viewer.querySelector("[data-reel-save]");
+  if (reelSave) {
+    const saved = originalSave?.getAttribute("aria-pressed") === "true";
+    reelSave.setAttribute("aria-pressed", String(saved));
+    reelSave.setAttribute("aria-label", saved ? "Remover dos salvos" : "Salvar publicação");
+    reelSave.querySelector("span").textContent = saved ? "▣" : "▯";
+    reelSave.querySelector("small").textContent = saved ? "Salvo" : "Salvar";
+    reelSave.disabled = !originalSave;
+  }
   const like = viewer.querySelector("[data-reel-like]");
   like.setAttribute("aria-pressed", originalLike?.getAttribute("aria-pressed") || "false");
   like.querySelector("span").textContent = originalLike?.classList.contains("is-liked") ? "♥" : "♡";
@@ -716,6 +738,7 @@ function bindReelsViewer(root) {
     }
     if (event.target.closest("[data-reel-share]")) { current.card.querySelector("[data-share-post]")?.click(); return; }
     if (event.target.closest("[data-reel-send]")) { current.card.querySelector("[data-share-in-app]")?.click(); return; }
+    if (event.target.closest("[data-reel-save]")) { current.card.querySelector("[data-toggle-save]")?.click(); return; }
     if (event.target.closest("[data-reel-sound-toggle]")) {
       const player = viewer.querySelector("[data-reel-active]");
       player.muted = !player.muted;
@@ -937,6 +960,30 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
         if (status) status.textContent = explainWriteError(error);
       } finally { likeButton.disabled = false; }
+      return;
+    }
+    const saveButton = event.target.closest("[data-toggle-save]");
+    if (saveButton && client) {
+      const postId = saveButton.dataset.toggleSave;
+      const userId = getUserId?.();
+      if (!postId || !userId || saveButton.disabled) return;
+      saveButton.disabled = true;
+      try {
+        if (saveButton.getAttribute("aria-pressed") === "true") {
+          const { error } = await client.from("saved_posts").delete().eq("post_id", postId).eq("user_id", userId);
+          if (error) throw error;
+        } else {
+          const { error } = await client.from("saved_posts").insert({ post_id: postId, user_id: userId });
+          if (error) throw error;
+        }
+        await refreshSocialFeed(root, client, userId, isAdmin);
+      } catch (error) {
+        console.error("Looply post save failed", error);
+        const viewerStatus = root.querySelector("[data-reel-status]");
+        const postStatus = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+        const status = viewer.querySelector("[data-reels-viewer]")?.open ? viewerStatus : postStatus;
+        if (status) status.textContent = "Não foi possível atualizar seus salvos agora.";
+      } finally { saveButton.disabled = false; }
       return;
     }
     const shareButton = event.target.closest("[data-share-post]");
