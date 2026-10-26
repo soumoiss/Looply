@@ -158,7 +158,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
-  let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none";
+  let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   const status = (text, bad = false) => {
     feedback.textContent = text; feedback.dataset.error = bad ? "true" : "false";
   };
@@ -223,6 +223,19 @@ export function bindStoryStudio(root, client, userId, refresh) {
   };
   const showEditor = (mediaFile, kind) => {
     file = mediaFile || null; sourceKind = kind;
+    if (file) {
+      const holder = $("[data-studio-thumb]").closest(".studio-gallery-button");
+      if (lastThumb) URL.revokeObjectURL(lastThumb);
+      if (kind === "image") {
+        lastThumb = URL.createObjectURL(file);
+        holder.style.background = "center / cover no-repeat url(" + JSON.stringify(lastThumb) + ")";
+        $("[data-studio-thumb]").textContent = "";
+      } else {
+        lastThumb = null;
+        holder.style.background = "#454254af";
+        $("[data-studio-thumb]").textContent = "▶";
+      }
+    }
     revokeUrl(); edits.replaceChildren(); edits.hidden = kind === "text";
     if (file) {
       url = URL.createObjectURL(file);
@@ -287,6 +300,7 @@ export function bindStoryStudio(root, client, userId, refresh) {
     }
   };
   const finishRecording = () => {
+    stage.dataset.recording = "false";
     if (recorder?.state === "recording") recorder.stop();
   };
   const beginRecording = () => {
@@ -693,5 +707,8 @@ export function bindStoryStudio(root, client, userId, refresh) {
   });
   dialog.addEventListener("cancel", e => { e.preventDefault(); close(); });
   dialog.addEventListener("close", () => { active = false; stopCamera(); revokeUrl(); });
-  return close;
+  return () => {
+    close();
+    if (lastThumb) { URL.revokeObjectURL(lastThumb); lastThumb = null; }
+  };
 }
