@@ -45,8 +45,7 @@ function bindLetterCollectionSwitcher(root) {
     root.dispatchEvent(new CustomEvent("looply:letter-collection-change"));
   });
 }
-await mountAppPage({ page: "letters", render: async ({ root, client, user }) => {
-  const isAdmin = user.id === "d218a499-e3ad-45c5-b115-26272a6f3e79";
+await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdmin }) => {
   const [archiveResult, communityResult, profilesResult] = await Promise.allSettled([
     loadArchivedCards(client, user.id, isAdmin), loadCommunityLetters(client, user.id, isAdmin),
     client.from("profiles").select("id,username,display_name").order("username").limit(100)
