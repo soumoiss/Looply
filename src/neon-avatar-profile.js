@@ -58,6 +58,53 @@ async function profileRequest({ dataApiUrl, token, profileId, fetchImpl, method 
   return records[0];
 }
 
+// Neon Data API RPC executes as a tightly scoped database function.
+// Authentication is derived exclusively from the verified Neon bearer, not a user ID.
+async function saveOwnerProfile({ dataApiUrl, token, profileId, fetchImpl, previousPath, nextPath, replacingAvatar, fields }) {
+  const url = String(dataApiUrl).replace(/\/$/, "") + "/rpc/v3_save_self_profile";
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        authorization: "Bearer " + token,
+        "content-type": "application/json",
+        accept: "application/json"
+      },
+      body: JSON.stringify({
+        p_previous_avatar: previousPath,
+        p_next_avatar: nextPath,
+        p_replace_avatar: Boolean(replacingAvatar),
+        p_display_name: fields.display_name,
+        p_bio: fields.bio,
+        p_profile_visibility: fields.profile_visibility,
+        p_playlist_url: fields.playlist_url
+      })
+    });
+  } catch {
+    throw fail("neon_profile_network_unavailable");
+  }
+  if (!response.ok) {
+    let issue = {};
+    try { issue = await response.json(); } catch { /* No secrets from error responses */ }
+    const err = fail(response.status === 401 ? "session expired"
+      : response.status === 403 ? "profile_permission_denied"
+      : response.status === 409 ? "profile-update-conflict"
+      : response.status === 404 ? "neon_profile_rpc_not_deployed"
+      : "neon_profile_request_failed", response.status);
+    if (typeof issue?.code === "string") err.code = issue.code;
+    throw err;
+  }
+  let rows;
+  try { rows = await response.json(); }
+  catch { throw fail("neon_profile_invalid_response"); }
+  if (!Array.isArray(rows) || rows.length !== 1 || rows[0]?.id !== profileId) {
+    throw fail("profile-update-not-confirmed");
+  }
+  return rows[0];
+}
+
 export async function readOwnNeonProfile({ profileId, session, dataApiUrl, fetchImpl = fetch }) {
   if (!UUID.test(profileId || "")) throw fail("profile-not-owned");
   return profileRequest({ dataApiUrl, token: tokenFrom(session), profileId, fetchImpl });
@@ -106,6 +153,7 @@ export async function saveNeonProfile({
   const changes = {};
   for (const key of EDITABLE) if (Object.hasOwn(updates || {}, key)) changes[key] = updates[key];
   const current = await profileRequest({ dataApiUrl, token, profileId, fetchImpl });
+  const fields = Object.fromEntries(EDITABLE.map(key => [key, changes[key] === undefined ? current[key] : changes[key]]));
   const oldPath = current.avatar_path || null;
   let newPath = null;
   let hasCommitted = false;
@@ -125,8 +173,10 @@ export async function saveNeonProfile({
       if (error) throw error;
       if (data?.path !== newPath) throw fail("avatar-upload-invalid-result");
     }
-    const committed = await profileRequest({
-      dataApiUrl, token, profileId, fetchImpl, method: "PATCH", changes
+    const committed = await saveOwnerProfile({
+      dataApiUrl, token, profileId, fetchImpl,
+      previousPath: oldPath, nextPath: newPath,
+      replacingAvatar: Boolean(newPath), fields
     });
     hasCommitted = true;
     if (newPath && committed.avatar_path !== newPath) throw fail("profile-update-not-confirmed");
@@ -138,9 +188,11 @@ export async function saveNeonProfile({
       } catch {
         let restored;
         try {
-          restored = await profileRequest({
-            dataApiUrl, token, profileId, fetchImpl, method: "PATCH",
-            changes: { avatar_path: oldPath }, expectedAvatarPath: newPath
+          restored = await saveOwnerProfile({
+            dataApiUrl, token, profileId, fetchImpl,
+            previousPath: newPath, nextPath: oldPath,
+            replacingAvatar: true,
+            fields: Object.fromEntries(EDITABLE.map(key => [key, committed[key]]))
           });
         } catch {
           // Do not remove an object that may now be referenced by the profile.
