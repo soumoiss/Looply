@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
+import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,searchAppleMusicPublic,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
 import worker from "../backend/story-music-discovery/worker.mjs";
 
 const fixture = {provider:"apple",title:"Música Legal",artist:"Artista",url:"https://music.apple.com/br/album/musica/123",artwork:""};
@@ -58,7 +58,7 @@ test("Resilient catalog search: one unavailable provider does not lose other res
 });
 test("Additional platforms are explicit official search links, not fake catalog/audio streams",()=>{
   const links=storySongSearchLinks("Hello Adele");
-  assert.deepEqual(links.map(x=>x.name),["Spotify","YouTube Music","SoundCloud","TIDAL"]);
+  assert.deepEqual(links.map(x=>x.name),["Apple Music","Spotify","YouTube Music","SoundCloud","TIDAL"]);
   assert.ok(links.every(x=>x.url.startsWith("https://")));
 });
 test("Published Story does not try to decode Spotify, Apple or Deezer previews as audio files",()=>{
@@ -70,4 +70,26 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(picker,/searchStorySongs\(term/);
   assert.match(viewer,/decodeStorySong\(story\.body/);
   assert.match(viewer,/credit\.href = catalogSong\.song\.url/);
+});
+
+test("Apple Music public fallback recovers songs when Cloudflare shared IP gets HTTP 429",async()=>{
+  let appleRequested=false;
+  const result=await searchStorySongs("anitta",{fetcher:async url=>{
+    if(url.startsWith("https://itunes.apple.com/")){
+      appleRequested=true;
+      return new Response(JSON.stringify({results:[{
+        kind:"song",trackId:124,trackName:"Envolver",artistName:"Anitta",
+        trackViewUrl:"https://music.apple.com/br/album/envolver/124",
+        artworkUrl100:"https://is1-ssl.mzstatic.com/image/124"
+      }]}),{status:200});
+    }
+    return new Response(JSON.stringify({providers:[
+      {provider:"apple",available:false,items:[],error:"apple HTTP 429"},
+      {provider:"deezer",available:true,items:[]},
+      {provider:"audius",available:true,items:[]}
+    ]}),{status:200});
+  }});
+  assert.equal(appleRequested,true);
+  assert.equal(result.providers[0].available,true);
+  assert.equal(result.items[0].title,"Envolver");
 });

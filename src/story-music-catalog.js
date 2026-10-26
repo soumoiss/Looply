@@ -50,6 +50,22 @@ export function decodeStorySong(value) {
     return song ? {text:raw.slice(end+2),song} : {text:raw,song:null};
   } catch { return {text:raw,song:null}; }
 }
+export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
+  const q=clean(value,70);
+  if(q.length<2) return [];
+  // iTunes Search API is public, supports Access-Control-Allow-Origin: *
+  // and avoids shared Cloudflare egress addresses sometimes rate-limited (429).
+  const url="https://itunes.apple.com/search?country=br&media=music&entity=song&limit=20&term="+encodeURIComponent(q);
+  const response=await fetcher(url,{signal,cache:"no-store"});
+  if(!response.ok) throw new Error("Apple Music: HTTP "+response.status);
+  const data=await response.json();
+  return (Array.isArray(data.results)?data.results:[])
+    .filter(x=>x.kind==="song")
+    .map(x=>normalizeStorySong({
+      provider:"apple",title:x.trackName,artist:x.artistName,
+      url:x.trackViewUrl,artwork:x.artworkUrl100
+    })).filter(Boolean).slice(0,20);
+}
 export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
   const q=clean(value,70);
   if (q.length<2) return {providers:[],items:[]};
@@ -57,6 +73,17 @@ export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
   if (!result.ok) throw new Error("A busca musical está temporariamente indisponível.");
   const data=await result.json();
   if (!Array.isArray(data.providers)) throw new Error("A busca musical retornou uma resposta inválida.");
+  // Apple may return 429 to a shared serverless egress IP while answering the
+  // end user's browser normally. Restore the catalog from Apple directly.
+  if (data.providers.some(p=>p.provider==="apple" && !p.available)) {
+    try {
+      const apple=await searchAppleMusicPublic(q,{fetcher,signal});
+      if (apple.length) {
+        data.providers=data.providers.map(p=>p.provider==="apple"
+          ? {...p,available:true,items:apple}:p);
+      }
+    } catch { /* The other providers and original tracks remain usable. */ }
+  }
   const providers=data.providers.map(p=>({
     provider:p.provider,available:p.available===true,items:Array.isArray(p.items)
       ? p.items.map(normalizeStorySong).filter(Boolean).slice(0,20):[]
@@ -74,6 +101,7 @@ export function storySongSearchLinks(query) {
   if (!q) return [];
   const encoded=encodeURIComponent(q);
   return [
+    {name:"Apple Music",url:"https://music.apple.com/br/search?term="+encoded},
     {name:"Spotify",url:"https://open.spotify.com/search/"+encoded},
     {name:"YouTube Music",url:"https://music.youtube.com/search?q="+encoded},
     {name:"SoundCloud",url:"https://soundcloud.com/search/sounds?q="+encoded},

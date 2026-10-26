@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'src/story-studio.js'
+      - 'src/story-music-catalog.js'
+      - 'src/story-music-picker.js'
+      - 'backend/story-music-discovery/worker.mjs'
+      - 'scripts/check-story-music-live.mjs'
+      - 'tests/story-music-catalog.test.mjs'
       - 'src/stories.js'
       - 'assets/css/pages/story-studio.css'
       - 'assets/js/home.js'
@@ -28,6 +33,8 @@ jobs:
           node-version: '22'
       - name: Build and execute test suite
         run: npm test
+      - name: Check live multi-provider music search
+        run: node scripts/check-story-music-live.mjs
       - name: Reject legacy services in Stories Studio
         run: |
           if grep -Eiq 'supabase|spotify' src/story-studio.js src/stories.js; then
