@@ -8,6 +8,7 @@ on:
       - 'src/story-music-picker.js'
       - 'backend/story-music-discovery/worker.mjs'
       - 'scripts/check-story-music-live.mjs'
+      - 'scripts/check-story-music-layout.mjs'
       - 'tests/story-music-catalog.test.mjs'
       - 'src/stories.js'
       - 'assets/css/pages/story-studio.css'
@@ -33,6 +34,8 @@ jobs:
           node-version: '22'
       - name: Build and execute test suite
         run: npm test
+      - name: Verify mobile song cards in headless Chrome
+        run: node scripts/check-story-music-layout.mjs
       - name: Check live multi-provider music search
         run: node scripts/check-story-music-live.mjs
       - name: Reject legacy services in Stories Studio

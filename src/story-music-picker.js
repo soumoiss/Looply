@@ -69,47 +69,68 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
     void played.catch(()=>onStatus("Não foi possível pré-ouvir esta trilha.",true));
   };
   const preview=(track)=>{
-    stopPreview();currentTrack=track;const token=previewToken;
-    player.hidden=false;player.scrollIntoView({block:"nearest",behavior:"smooth"});
+    stopPreview();
+    currentTrack=track;
+    const token=previewToken;
+    player.hidden=false;
     addText(player,"strong",track.title+" · "+(track.artist||"Áudio do dispositivo"),"studio-music-preview-title");
+    const message=addText(player,"p","Carregando prévia…","studio-music-preview-hint");
+    const mark=text=>{
+      if(token===previewToken && message.isConnected) message.textContent=text;
+    };
+    const makeAudio=(src,loop=false)=>{
+      audio=document.createElement("audio");
+      const el=audio;
+      el.controls=true;el.autoplay=false;el.preload="auto";el.loop=loop;
+      el.setAttribute("aria-label","Pré-escutar "+track.title);
+      el.src=src;
+      el.addEventListener("playing",()=>mark("Prévia tocando."));
+      el.addEventListener("waiting",()=>mark("Carregando áudio…"));
+      el.addEventListener("error",()=>{
+        mark("A prévia não pôde ser reproduzida. Tente outra faixa ou abra o serviço oficial.");
+      });
+      player.insertBefore(el,message);
+      // Invoked during the user's click, preserving the mobile audio gesture.
+      void el.play().then(()=>mark("Prévia tocando.")).catch(()=>{
+        mark("Toque no ▶ do reprodutor abaixo para ouvir. Caso falhe, abra a fonte oficial.");
+      });
+    };
     if(track.kind==="builtin"){
       playOriginal(track);
-      addText(player,"p","Prévia da trilha instrumental original do Loooply.","studio-music-preview-hint");
+      mark("Prévia da trilha original reproduzindo.");
     }else if(track.kind==="file"){
       fileUrl=URL.createObjectURL(track.file);
-      audio=document.createElement("audio");audio.controls=true;audio.autoplay=true;audio.loop=true;
-      audio.src=fileUrl;audio.preload="auto";player.append(audio);
-      void audio.play().catch(()=>onStatus("Toque no controle de áudio para ouvir a prévia.",false));
+      makeAudio(fileUrl,true);
     }else{
       const config=officialSongPreview(track);
-      if(config?.kind==="embed"){
+      if(config?.kind==="audio"){
+        makeAudio(config.src);
+        if(track.provider==="apple")mark("Prévia promocional do iTunes. Se necessário, toque no ▶ abaixo.");
+      }else if(config?.kind==="embed"){
         const iframe=document.createElement("iframe");
         iframe.className="studio-music-official-player";
-        iframe.title="Ouvir prévia oficial no "+PROVIDER_NAMES[config.provider];
+        iframe.title="Reprodutor oficial "+PROVIDER_NAMES[config.provider];
         iframe.src=config.src;iframe.loading="eager";
         iframe.allow="autoplay; encrypted-media";
         iframe.referrerPolicy="strict-origin-when-cross-origin";
-        player.append(iframe);
-        addText(player,"p","Prévia do serviço oficial. Toque em reproduzir no player.","studio-music-preview-hint");
-      }else if(config?.kind==="audio"){
-        audio=document.createElement("audio");audio.controls=true;
-        audio.autoplay=true;audio.preload="metadata";audio.src=config.src;
-        player.append(audio);
-        const current=audio;
-        void current.play().catch(()=>{if(token===previewToken)onStatus("Toque no controle para iniciar a prévia do Audius.",false);});
+        player.insertBefore(iframe,message);
+        mark("Toque no ▶ do reprodutor oficial para ouvir.");
       }else{
-        addText(player,"p","Este serviço não disponibilizou prévia incorporável desta faixa.","studio-music-preview-hint");
+        mark("Esta faixa não tem prévia disponível. Você pode ouvi-la no serviço oficial.");
       }
-      const link=addText(player,"a","Ouvir no "+PROVIDER_NAMES[track.provider],"studio-music-preview-source");
+      const link=addText(player,"a",track.provider==="apple"?"Abrir no iTunes / Apple Music ↗":
+        "Abrir no "+PROVIDER_NAMES[track.provider]+" ↗","studio-music-preview-source");
       link.href=track.url;link.target="_blank";link.rel="noopener noreferrer";
-      if(track.provider==="apple")addText(player,"small","Prévia oficial disponibilizada pelo Apple Music/iTunes.","studio-music-preview-hint");
+      if(track.provider==="apple")
+        addText(player,"small","Prévia promocional cedida pelo iTunes, somente para identificar a faixa. O áudio não é incorporado ao Story.","studio-music-preview-hint");
     }
     const actions=document.createElement("div");actions.className="studio-music-preview-actions";
-    const choose=addText(actions,"button","Escolher esta música","studio-catalog-select");
+    const choose=addText(actions,"button","Usar esta música","studio-catalog-select");
     choose.type="button";choose.onclick=()=>{stopPreview();onSelect(track);};
     const stop=addText(actions,"button","Parar prévia","studio-music-stop");
     stop.type="button";stop.onclick=stopPreview;
     player.append(actions);
+    player.scrollIntoView({block:"nearest",behavior:"smooth"});
   };
   const draw=()=>{
     if(!listing.isConnected)return;
@@ -122,7 +143,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus}) {
       addText(info,"strong",track.title);
       addText(info,"small",track.artist+" · "+label);article.append(info);
       const actions=document.createElement("div");actions.className="studio-music-row-actions";
-      const listen=addText(actions,"button","▶ Ouvir","studio-music-listen");
+      const listen=addText(actions,"button","▶ Ouvir prévia","studio-music-listen");
       listen.type="button";listen.setAttribute("aria-label","Ouvir prévia de "+track.title);
       listen.onclick=()=>preview(track);
       const choose=addText(actions,"button","Escolher","studio-catalog-select");

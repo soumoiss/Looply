@@ -22,3 +22,11 @@ const {searchStorySongs}=await import("../src/story-music-catalog.js");
 const combined=await searchStorySongs("anitta");
 const apple=combined.providers.find(p=>p.provider==="apple");
 console.log("Apple direct fallback:",apple?.available?"online":"unavailable",apple?.items?.length||0,"songs");
+
+const {officialSongPreview}=await import("../src/story-music-catalog.js");
+const audition=combined.items.filter(song=>["apple","deezer"].includes(song.provider)&&song.previewUrl);
+assert.ok(audition.length>0,"Provider must serve at least one transient preview audio URL for actual audition");
+const validAudition=audition.map(officialSongPreview);
+assert.ok(validAudition.some(x=>x?.kind==="audio"),"Native preview audio must be available");
+console.log("Native preview audio:",audition.length,"tracks; sample provider",audition[0].provider,
+  "sample media host",new URL(audition[0].previewUrl).hostname);
