@@ -40,6 +40,8 @@ jobs:
           test -s dist/src/chat-enhancements.js
           test -s dist/assets/css/pages/chat.css
           test -s dist/assets/css/splash.css
+          test -s dist/assets/css/pages/stories-instagram.css
+          grep -q 'stories-instagram.css' dist/home.html
       - name: Configure Pages
         uses: actions/configure-pages@v6
       - name: Upload Pages artifact
