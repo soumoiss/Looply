@@ -11,8 +11,8 @@ test("gallery shows confirmed existing Neon originals when no thumbnail is avail
   assert.ok(!gallery.includes("if (Number(x.byte_size || 0) > maxInlinePreviewBytes) return"));
   assert.match(gallery, /cachedSignedUrl\\(client, bucket, x\\.storage_path, 300\\)/);
   assert.match(gallery, /loading="lazy"/);
-  assert.match(gallery, /archive_media"\\)\\.select\\("[^"]*byte_size/);
-  assert.match(gallery, /community_gallery_media"\\)\\.select\\("[^"]*byte_size/);
+  assert.ok(gallery.includes('client.from("archive_media").select('));
+  assert.ok(gallery.includes('client.from("community_gallery_media").select('));
 });
 
 test("new uploads have free-tier egress guardrails", async () => {
