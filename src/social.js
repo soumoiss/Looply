@@ -285,7 +285,7 @@ function postMarkup(post, userId, isAdmin = false) {
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
-    ${post.body ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
+    ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
     ${externalMarkup}
     <div class="post-interactions">
