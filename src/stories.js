@@ -351,7 +351,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     } else {
       if (progress) progress.style.animationPlayState = "running";
       if (video && video.paused) void video.play().catch(() => {});
-      if (audio && audio.paused) void audio.play().catch(() => {
+      if (audio && audio.paused && !video) void audio.play().catch(() => {
         if(isAdmin)showStatus("ADM: O navegador bloqueou a trilha; é necessária interação.",true);
       });
       resumeStoryTimer();
@@ -424,6 +424,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const author = story.author || state.active.author || {};
     const media = Array.isArray(story.media) ? story.media[0] : story.media;
     const mediaUrl = rawSignedUrl(media?.signedUrl);
+    const waitsForVideo = Boolean(mediaUrl && media?.kind === "video");
     viewer.classList.toggle("story-viewer-text-only", !media && Boolean(String(story.body || "").trim()));
     viewer.querySelector("[data-story-viewer-name]").textContent = profileName(author);
     const storyTime = viewer.querySelector("[data-story-viewer-time]");
@@ -455,7 +456,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.id = "story-audio";
       music.dataset.storyViewerMusic = "";
       music.className = "story-viewer-music-hidden";
-      music.autoplay = true;
+      music.autoplay = !waitsForVideo;
       music.preload = "auto";
       music.loop = true;
       music.src = audiusStream;
@@ -481,7 +482,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
         unlock.hidden=false;
       });
-      void music.play().then(()=>{
+      if (!waitsForVideo) void music.play().then(()=>{
         music.dataset.playback="playing";unlock.remove();
       }).catch(error=>{
         if(music.isConnected){
@@ -496,12 +497,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.dataset.storyViewerMusic = "";
       music.className = "story-viewer-music-hidden";
       music.preload = "auto";
-      music.autoplay = true;
+      music.autoplay = !waitsForVideo;
       music.loop = true;
       music.src = storyText.music.previewUrl;
       music.addEventListener("error", () => { music.dataset.playback = "unavailable"; }, { once: true });
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      void music.play().catch(() => { music.dataset.playback = "gesture-required"; });
+      if (!waitsForVideo) void music.play().catch(() => { music.dataset.playback = "gesture-required"; });
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     mediaHost.querySelectorAll("video").forEach((video) => {
@@ -526,7 +527,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         }, { once: true });
         video.addEventListener("play", () => {
           const songAudio = viewer.querySelector("#story-audio");
-          if (songAudio?.paused && !state.paused) void songAudio.play().catch(() => {});
+          if (songAudio?.paused && !state.paused) {
+            // Start the soundtrack only after the video really starts, including
+            // after a browser requires a tap to permit video playback.
+            try { songAudio.currentTime = video.currentTime || 0; } catch { /* Live streams may not seek. */ }
+            void songAudio.play().catch(() => {
+              if (songAudio.isConnected) {
+                songAudio.dataset.playback = "gesture-required";
+                const unlock = viewer.querySelector("[data-story-sound-unlock]");
+                if (unlock) unlock.hidden = false;
+              }
+            });
+          }
           clearTimer();
           if (Number.isFinite(video.duration) && video.duration > 0) {
             const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
@@ -534,7 +546,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
             state.timer = setTimeout(() => advance(1), remaining);
           }
         });
-        video.addEventListener("pause", clearTimer);
+        video.addEventListener("pause", () => {
+          clearTimer();
+          const songAudio = viewer.querySelector("#story-audio");
+          if (songAudio && !songAudio.paused) songAudio.pause();
+        });
         video.addEventListener("ended", () => advance(1), { once: true });
         mediaHost.append(video);
         // Browsers can reject unmuted autoplay. A single gesture unlocks playback;
