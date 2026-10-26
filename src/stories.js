@@ -525,7 +525,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.addEventListener("loadedmetadata", () => {
           if (Number.isFinite(video.duration) && video.duration > 0) setProgressDuration(video.duration * 1000);
         }, { once: true });
-        video.addEventListener("play", () => {
+        video.addEventListener("playing", () => {
           const songAudio = viewer.querySelector("#story-audio");
           if (songAudio?.paused && !state.paused) {
             // Start the soundtrack only after the video really starts, including

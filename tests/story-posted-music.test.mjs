@@ -31,7 +31,7 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
 
 test("Story player unblocks sound without auto-pausing it on same tap, and pauses with entire Story",()=>{
  assert.match(viewer,/music\.autoplay = !waitsForVideo/);
- assert.match(viewer,/video\.addEventListener\("play", \(\) => \{/);
+ assert.match(viewer,/video\.addEventListener\("playing", \(\) => \{/);
  assert.match(viewer,/songAudio\.play\(\)/);
  assert.match(viewer,/video\.muted = false/);
  assert.match(viewer,/video\.volume = 1/);
