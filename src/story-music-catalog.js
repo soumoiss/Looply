@@ -25,28 +25,57 @@ export function normalizeStorySong(track) {
   if (!track || !PROVIDER_NAMES[track.provider]) return null;
   const url=officialUrl(track.url,track.provider);
   const title=clean(track.title,110),artist=clean(track.artist,100);
+  const id=/^[a-zA-Z0-9_-]{1,100}$/.test(String(track.id||""))?String(track.id):"";
   return url&&title&&artist
-    ? {provider:track.provider,title,artist,url,artwork:typeof track.artwork==="string"?track.artwork:"",kind:"catalog"} : null;
+    ? {provider:track.provider,title,artist,url,id,
+      artwork:typeof track.artwork==="string"?track.artwork:"",kind:"catalog"} : null;
 }
 const markerStart="[[looply-music-v4|";
+const markerV5="[[looply-music-v5|";
+export function audiusStoryStreamUrl(song) {
+  return song?.provider==="audius" && /^[A-Za-z0-9_-]{1,100}$/.test(String(song.id||""))
+    ? "https://api.audius.co/v1/tracks/"+encodeURIComponent(song.id)+"/stream?app_name=Looply"
+    : "";
+}
+/** A provider-owned preview is never mixed into the exported video. */
+export function officialSongPreview(track) {
+  const song=normalizeStorySong(track);
+  if(!song) return null;
+  const u=new URL(song.url);
+  if(song.provider==="apple" && u.hostname==="music.apple.com"){
+    return {kind:"embed",provider:"apple",src:"https://embed.music.apple.com"+u.pathname+u.search};
+  }
+  if(song.provider==="deezer"){
+    const match=u.pathname.match(/^\/(?:[a-z]{2}\/)?track\/(\d+)/i);
+    if(match) return {kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/"+match[1]};
+  }
+  if(song.provider==="audius"){
+    const src=audiusStoryStreamUrl(song);
+    if(src) return {kind:"audio",provider:"audius",src};
+  }
+  return null;
+}
 export function encodeStorySong(text,track) {
   const song=normalizeStorySong(track);
   const description=String(text||"").trim();
   if (!song) return description.slice(0,700);
-  const marker=markerStart+[song.provider,song.title,song.artist,song.url].map(encodeURIComponent).join("|")+"]]";
+  const isAudius=song.provider==="audius" && Boolean(song.id);
+  const marker=(isAudius?markerV5:markerStart)+
+    [song.provider,song.title,song.artist,song.url,...(isAudius?[song.id]:[])].map(encodeURIComponent).join("|")+"]]";
   if (marker.length>=700) throw new Error("Os dados desta música são longos demais. Escolha outra.");
   return marker+description.slice(0,700-marker.length);
 }
 export function decodeStorySong(value) {
   const raw=String(value||"");
-  if (!raw.startsWith(markerStart)) return {text:raw,song:null};
-  const end=raw.indexOf("]]",markerStart.length);
+  const prefix=raw.startsWith(markerV5)?markerV5:raw.startsWith(markerStart)?markerStart:null;
+  if(!prefix)return {text:raw,song:null};
+  const end=raw.indexOf("]]",prefix.length);
   if (end<0 || end>1300) return {text:raw,song:null};
-  const chunks=raw.slice(markerStart.length,end).split("|");
-  if (chunks.length!==4) return {text:raw,song:null};
+  const chunks=raw.slice(prefix.length,end).split("|");
+  if (chunks.length!==(prefix===markerV5?5:4)) return {text:raw,song:null};
   try {
-    const [provider,title,artist,url]=chunks.map(decodeURIComponent);
-    const song=normalizeStorySong({provider,title,artist,url});
+    const [provider,title,artist,url,id]=chunks.map(decodeURIComponent);
+    const song=normalizeStorySong({provider,title,artist,url,id});
     return song ? {text:raw.slice(end+2),song} : {text:raw,song:null};
   } catch { return {text:raw,song:null}; }
 }
@@ -62,7 +91,7 @@ export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
   return (Array.isArray(data.results)?data.results:[])
     .filter(x=>x.kind==="song")
     .map(x=>normalizeStorySong({
-      provider:"apple",title:x.trackName,artist:x.artistName,
+      provider:"apple",id:String(x.trackId||""),title:x.trackName,artist:x.artistName,
       url:x.trackViewUrl,artwork:x.artworkUrl100
     })).filter(Boolean).slice(0,20);
 }
