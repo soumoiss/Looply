@@ -149,6 +149,7 @@ async function adminRpc(name, args) {
   }
 }
 export const looplyClient = Object.freeze({
+  dataApiUrl: config.data,
   // This adapter has no live event transport yet. Keep call features from
   // attaching to a pretend Realtime channel while the authenticated Worker
   // transport is being connected.
