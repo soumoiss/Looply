@@ -66,17 +66,19 @@ test("My Letters presents received, sent, and imported archive cards in one swit
 });
 
 test("Story Studio has in-app original music and retains photo/video capture", async () => {
-  const [studio, stories] = await Promise.all([
+  const [studio, stories, picker] = await Promise.all([
     readFile(resolve(root, "src/story-studio.js"), "utf8"),
-    readFile(resolve(root, "src/stories.js"), "utf8")
+    readFile(resolve(root, "src/stories.js"), "utf8"),
+    readFile(resolve(root, "src/story-music-picker.js"), "utf8")
   ]);
-  assert.match(studio, /data-studio-music-query/);
-  assert.match(studio, /data-studio-audio-file accept="audio\/\*"/);
+  assert.match(picker, /data-studio-music-query/);
+  assert.match(picker, /data-studio-audio-file accept="audio\/\*"/);
   assert.match(studio, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
   assert.match(studio, /const BUILTIN = Object\.freeze/);
   assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
   assert.match(stories, /storyStudioMarkup\(recipientOptions\)/);
-  assert.doesNotMatch(studio, /spotify|supabase|deezer/i);
+  assert.doesNotMatch(studio, /spotify|supabase/i);
+  assert.match(studio, /openStoryMusicPicker/);
 });
 
 test("community letters appear in the audited admin reader and imported archive cards credit Peixinho", async () => {
