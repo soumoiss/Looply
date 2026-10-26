@@ -100,7 +100,7 @@ export function createNeonRestQuery(table, {dataApiUrl,getAccessToken,fetchImpl=
       const url=new URL(String(dataApiUrl).replace(/\/$/,"")+"/"+table);
       url.searchParams.set("select",state.columns);
       for(const [op,column,value] of state.filters){
-        if(op==="or"){url.searchParams.append("or",String(value));continue;}
+        if(op==="or"){const expr=String(value).trim();url.searchParams.append("or",expr.startsWith("(")&&expr.endsWith(")")?expr:"("+expr+")");continue;}
         if(!plainIdentifier.test(column))return errorResult("neon_invalid_filter");
         url.searchParams.append(column,filterValue(op,value));
       }
