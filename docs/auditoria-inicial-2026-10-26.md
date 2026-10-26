@@ -29,3 +29,17 @@ A correção inicial de Stories foi mesclada na branch principal pelo commit `ee
 ## Integridade de dados
 
 As consultas realizadas na infraestrutura foram de leitura. Nenhuma tabela ou branch de dados foi apagada, reiniciada ou recriada nesta auditoria.
+
+
+## Complemento: permissões verificadas no Neon
+
+Consulta somente leitura a `pg_policies` e `pg_proc` na branch principal do projeto configurado no aplicativo:
+
+- As policies de `posts`, `stories` e `comments` permitem exclusão pelo respectivo autor (mapeado por `looply_legacy_uid()`). Não há policy de exclusão administrativa direta nessas tabelas.
+- `archived_cards`, `community_letters`, `conversations`, `story_media` e várias tabelas de interação não expõem policies de mutação ampla; alguns caminhos usam RPCs específicos.
+- As RPCs publicadas com prefixo `v3_`/`v4_` cobrem leitura/visibilidade, perfil, seleção de publicações, mídia pendente e criação/listagem de conversas. Não foi encontrada uma RPC ativa de moderação ou exclusão administrativa.
+- A função antiga `looply-admin` fazia limpeza coordenada de objetos S3 além de apagar registros e gravar auditoria. O caminho de armazenamento ativo valida posse do objeto e não contém a permissão administrativa correspondente.
+
+Resultado: os controles existentes são fail-closed para chamadas administrativas pelo adaptador Neon. A ausência de uma rota não deve ser resolvida com exclusão direta pelo navegador: isso deixaria objetos de mídia órfãos e omitiria auditoria. A implementação requer um endpoint server-side portado e validado, com autorização por sessão, registro de auditoria e limpeza coordenada de mídia.
+
+A análise não executou DELETE, UPDATE, INSERT nem chamadas autenticadas que alterassem dados.
