@@ -12,4 +12,8 @@ for(const item of body.providers.flatMap(p=>p.items||[])){
   assert.ok(item.title && item.artist && item.url, "Incomplete catalog item");
   assert.ok(!("preview" in item), "No licensed preview should be republished");
 }
-console.log("Music catalog live:",body.providers.map(x=>x.provider+": "+x.items.length+" results ("+(x.available?"online":"unavailable")+")").join(" | "));
+console.log("Music catalog live:",body.providers.map(x=>x.provider+": "+x.items.length+" results ("+(x.available?"online":"unavailable")+")"+(x.error?" "+x.error:"")).join(" | "));
+try {
+ const check=await fetch("https://itunes.apple.com/search?term=anitta&media=music&entity=song&country=br&limit=2",{signal:AbortSignal.timeout(10000)});
+ console.log("Apple direct diagnostic: HTTP",check.status,"CORS",check.headers.get("access-control-allow-origin"),"Body start",(await check.text()).slice(0,120));
+} catch(e) { console.log("Apple direct diagnostic:",e.message); }
