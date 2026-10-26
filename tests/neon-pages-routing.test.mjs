@@ -13,6 +13,7 @@ test("GitHub Pages keeps the recovered original controllers and uses Neon for au
  }
  const runtime=await readFile(path.join(dist,"src/page-runtime.js"),"utf8");
  assert.match(runtime,/neon-production-client\.js/);
+ assert.match(runtime,/neon-production-client\.js\?v=[a-f0-9]{16}/);
  assert.doesNotMatch(runtime,/from ["']\.\/supabase\.js/);
 });
 test("Neon modules use an authenticated shared client and retain the six migrated username mappings",async()=>{
