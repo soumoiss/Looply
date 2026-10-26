@@ -146,8 +146,7 @@ test("the removed account is absent from active frontend code and page copy", as
   const files = ["src/identities.js", "src/login.js", "src/page-runtime.js", "src/social.js", "src/music.js", "src/chat.js", "src/profiles.js", "assets/js/home.js", "assets/js/music.js", "assets/js/chat.js", "assets/js/conversation.js", "assets/js/letters.js", "assets/js/notifications.js", "assets/js/users.js", "assets/js/settings.js", "assets/js/profile.js", "assets/js/admin.js", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html"];
   const contents = await Promise.all(files.map(read));
   const removedUsername = ["li", "li", "ka"].join("");
-  assert.doesNotMatch(contents.join("
-"), new RegExp(removedUsername, "i"));
+  assert.doesNotMatch(contents.join("\n"), new RegExp(removedUsername, "i"));
 });
 
 test("the build emits all independent pages and their assets", async () => {
