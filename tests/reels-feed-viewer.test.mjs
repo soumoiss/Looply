@@ -30,5 +30,5 @@ test("Reels viewer navigates authorized feed media and routes actions through re
   assert.match(source, /current\.card\.querySelector\("\[data-toggle-like\]"\)\?\.click\(\)/);
   assert.match(source, /current\.card\.querySelector\("\[data-share-in-app\]"\)\?\.click\(\)/);
   assert.match(source, /player\.pause\(\); player\.removeAttribute\("src"\)/);
-  assert.match(source, /if \(feed\) bindFeedVideoAutoplay\(feed\)/);
+  assert.match(source, /if \(feed\) bindFeedVideoAutoplay\(root\)/);
 });
