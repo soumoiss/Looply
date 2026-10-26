@@ -75,7 +75,8 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(viewer,/if \(audio && !audio\.paused\) audio\.pause\(\)/);
   assert.match(viewer,/music\.autoplay = true/);
   assert.match(picker,/▶ Ouvir/);
-  assert.match(picker,/Usar esta música/);
+  assert.match(picker,/Selecionar para o Story/);
+  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
   assert.match(picker,/stopPreview/);
 });
 
@@ -146,6 +147,6 @@ test("Android music cards have separate grid action row, readable text, and visi
   assert.match(picker,/void el\.play\(\)\.then/);
   assert.match(picker,/el\.addEventListener\("error"/);
   assert.match(picker,/const listen=addText\(actions,"button","▶ Ouvir prévia"/);
-  assert.match(picker,/const choose=addText\(actions,"button",needsOwnAudio\(track\)\?"Adicionar áudio":"Escolher"/);
+  assert.match(picker,/const choose=addText\(actions,"button","Selecionar"/);
   assert.match(picker,/stopPreview/);
 });

@@ -106,8 +106,18 @@ function waitEvent(target, event) {
 function drawCover(ctx, media, w, h) {
   const sw = media.videoWidth || media.naturalWidth || w;
   const sh = media.videoHeight || media.naturalHeight || h;
-  const scale = Math.max(w / sw, h / sh);
-  ctx.drawImage(media, (w - sw * scale) / 2, (h - sh * scale) / 2, sw * scale, sh * scale);
+  if (!sw || !sh) return;
+  // Fill the 9:16 canvas with a softened backdrop, then preserve the entire
+  // source image/video in the foreground. No automatic crop or zoom.
+  const cover = Math.max(w / sw, h / sh) * 1.12;
+  const coverW = sw * cover, coverH = sh * cover;
+  ctx.save();
+  ctx.filter = "blur(28px) brightness(.58)";
+  ctx.drawImage(media, (w - coverW) / 2, (h - coverH) / 2, coverW, coverH);
+  ctx.restore();
+  const contain = Math.min(w / sw, h / sh);
+  const drawW = sw * contain, drawH = sh * contain;
+  ctx.drawImage(media, (w - drawW) / 2, (h - drawH) / 2, drawW, drawH);
 }
 function paintLayers(ctx, root, w, h) {
   root.querySelectorAll("[data-studio-overlay]").forEach(el => {
@@ -162,9 +172,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
   const status = (text, bad = false) => {
-    // Technical diagnostics belong to ADM. Ordinary members never see
-    // internal providers, storage paths, browser errors or deployment details.
-    feedback.textContent = isAdmin ? text : "";
+    // Keep member feedback useful without exposing implementation details.
+    const message = isAdmin || !bad || /Este serviço não autoriza incorporar essa música/.test(text)
+      ? text : "Não foi possível concluir essa ação. Confira a mídia e tente novamente.";
+    feedback.textContent = message;
     feedback.dataset.error = bad ? "true" : "false";
     if(bad) console.warn("Loooply Stories:",text);
   };
@@ -602,10 +613,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         videoMedia = document.createElement("video");
         videoMedia.src = url; videoMedia.playsInline = true; videoMedia.muted = false;
         await waitEvent(videoMedia, "loadedmetadata");
-        if (videoMedia.videoWidth && videoMedia.videoHeight) {
-          canvas.width = Math.min(1080, videoMedia.videoWidth);
-          canvas.height = Math.round(canvas.width * videoMedia.videoHeight / videoMedia.videoWidth);
-        }
+        // Keep makeCanvas()'s 9:16 output. fillCanvas() composes the
+        // complete source frame over a blurred background without cropping.
       }
       framesStream = canvas.captureStream(24);
       if (withMusic || videoMedia) {
@@ -697,7 +706,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       // Never publish only catalog metadata: this used to produce silent
       // Apple/Deezer Stories because their previews cannot be synchronized.
       if(music?.kind==="catalog" && music.provider!=="audius")
-        throw new Error("Selecione um arquivo de áudio próprio para publicar esta música.");
+        throw new Error("Este serviço não autoriza incorporar essa música ao Story. Para publicar com som, escolha uma trilha original, Audius ou um áudio próprio autorizado.");
       if(music?.kind==="catalog" && music.provider==="audius" && !music.id)
         throw new Error("A faixa selecionada não possui áudio disponível para o Story.");
       const media = await exportFinal(armedAudioContext);

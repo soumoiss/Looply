@@ -15,7 +15,7 @@
 .studio-camera { object-fit:contain; transform:scaleX(-1); background:#000; transform-origin:center; }
 .studio-text-background { background:linear-gradient(155deg,#763cda,#1d082c); }
 .studio-edited-media { display:grid; place-items:center; background:#030303; }
-.studio-edited-media>img,.studio-edited-media>video { display:block; width:100%; height:100%; object-fit:cover; }
+.studio-edited-media>img,.studio-edited-media>video { display:block; width:100%; height:100%; object-fit:contain; background:#030303; }
 .studio-lens { position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:contain; pointer-events:none; transform-origin:center; }
 .studio-screen-light { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:0; background:#fff; transition:opacity .12s ease; }
 .studio-stage[data-screen-flash=ready] .studio-screen-light { opacity:1; background:rgba(255,255,255,.54); box-shadow:inset 0 0 0 clamp(12px,5vw,35px) #fff,inset 0 0 120px 35px #fff; }
