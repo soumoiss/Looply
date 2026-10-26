@@ -31,6 +31,11 @@ function createReadQuery(table) {
     is(column, value) { state.filters.push(["is", column, value]); return query; },
     in(column, values) { state.filters.push(["in", column, values]); return query; },
     gt(column, value) { state.filters.push(["gt", column, value]); return query; },
+    gte(column, value) { state.filters.push(["gte", column, value]); return query; },
+    lt(column, value) { state.filters.push(["lt", column, value]); return query; },
+    lte(column, value) { state.filters.push(["lte", column, value]); return query; },
+    ilike(column, value) { state.filters.push(["ilike", column, value]); return query; },
+    or(expression) { state.filters.push(["or", null, expression]); return query; },
     insert() { state.mode = "insert"; return query; },
     upsert() { state.mode = "upsert"; return query; },
     update() { state.mode = "update"; return query; },
@@ -46,7 +51,10 @@ function createReadQuery(table) {
       if (!(await activeSession())) return { data: null, error: { message: "neon_session_required" }, count: null };
       if (state.mode !== "select") return { data: null, error: { message: "neon_feature_write_api_not_migrated" }, count: null };
       let request = neon.from(table).select(state.columns, { head: state.head, count: state.count });
-      for (const [operator, column, value] of state.filters) request = request[operator](column, value);
+      for (const [operator, column, value] of state.filters) {
+        if (operator === "or") request = request.or(value);
+        else request = request[operator](column, value);
+      }
       for (const ordering of state.ordering) { const [column, direction] = ordering.split("."); request = request.order(column, { ascending: direction !== "desc" }); }
       if (state.max !== null) request = request.limit(state.max);
       const result = await request;
@@ -58,6 +66,11 @@ function createReadQuery(table) {
 
 const blocked = async () => ({ data: null, error: { message: "neon_feature_not_migrated" } });
 export const looplyClient = Object.freeze({
+  // This adapter has no live event transport yet. Keep call features from
+  // attaching to a pretend Realtime channel while the authenticated Worker
+  // transport is being connected.
+  supportsRealtime: false,
+  realtime: Object.freeze({ setAuth: async () => { throw new Error("neon_realtime_not_migrated"); } }),
   auth: Object.freeze({
     getSession: async () => { const session = await activeSession(); return { data: { session }, error: null }; },
     getUser: async () => { const session = await activeSession(); return { data: { user: session?.user || null }, error: null }; },
