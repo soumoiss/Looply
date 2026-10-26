@@ -646,7 +646,9 @@ test("stories expose private replies, likes, camera capture, viewer history, and
   const markup = storiesMarkup([], null, [], null, "viewer", { id: "viewer", username: "viewer", display_name: "Viewer" });
   const source = await read("src/stories.js");
   assert.match(markup, /data-studio-video/);
-  assert.match(markup, /data-studio-filter="warm"/);
+  assert.match(markup, /data-studio-lens="big-eyes"/);
+  assert.match(markup, /data-studio-lens="clown"/);
+  assert.doesNotMatch(markup, /data-studio-filter="warm"/);
   assert.match(markup, /class="studio-gallery-button"/);
   assert.match(markup, /data-studio-shutter/);
   assert.match(markup, /data-studio-boomerang/);
