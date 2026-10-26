@@ -63,7 +63,7 @@ test("unavailable received or sent views have explicit empty states", () => {
   assert.match(markup, /Você ainda não dedicou músicas/);
 });
 
-test("recipient selection is searchable, avatar based, multi-select, and profile visibility scoped", () => {
+test("recipient selection is searchable, avatar based, multi-select, and profile visibility scoped", async () => {
   const data = {
     people: [
       { id: "recipient-1", username: "ana", display_name: "Ana", avatarUrl: "https://cdn.example/avatar.jpg" },
