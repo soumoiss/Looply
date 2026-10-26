@@ -99,6 +99,22 @@ test("historical recovery object is preserved during an avatar change",async()=>
   assert.equal(f.history.includes("REMOVE"),false);
 });
 
+test("ambiguous Neon PATCH response does not delete an image that was actually committed",async()=>{
+  const f=fixture();
+  const normalFetch=f.args.fetchImpl;
+  f.args.fetchImpl=async (url,request)=>{
+    if(request.method==="PATCH"){
+      await normalFetch(url,request);
+      throw new Error("simulated lost response");
+    }
+    return normalFetch(url,request);
+  };
+  await assert.rejects(saveNeonProfile({...f.args,updates:{},avatarFile:{type:"image/jpeg",size:128}}),/neon_profile_network_unavailable/);
+  assert.equal(f.row.avatar_path,NEW);
+  assert.equal(f.objects.has(NEW),true);
+  assert.equal(f.history.includes("REMOVE"),false);
+});
+
 test("invalid image and missing bearer never cause an upload",async()=>{
   assert.throws(()=>validateAvatarFile({type:"image/png",size:10*1024*1024+1}),/unsupported avatar/);
   const f=fixture();
