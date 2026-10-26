@@ -1,4 +1,5 @@
 import { cp, mkdir, rm, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +22,17 @@ await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
+// The service worker may retain a previous copy of this stable URL. Give the
+// shared client a content-addressed URL so a deployment cannot mix a new page
+// runtime with an older Neon client module.
+const neonClientPath = path.join(outputDirectory, "src", "neon-production-client.js");
+const neonClient = await readFile(neonClientPath, "utf8");
+const neonClientVersion = createHash("sha256").update(neonClient).digest("hex").slice(0, 16);
+const pageRuntimePath = path.join(outputDirectory, "src", "page-runtime.js");
+const pageRuntime = await readFile(pageRuntimePath, "utf8");
+const clientImport = /from (["'])\.\/neon-production-client\.js\1;/g;
+if ([...pageRuntime.matchAll(clientImport)].length !== 1) throw new Error("Expected one Neon client import in src/page-runtime.js");
+await writeFile(pageRuntimePath, pageRuntime.replace(clientImport, `from "./neon-production-client.js?v=${neonClientVersion}";`), "utf8");
 console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration, and gallery.");
 
 
