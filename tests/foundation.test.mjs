@@ -264,7 +264,7 @@ test("the social schema scopes posts and comments to the post audience", async (
   assert.doesNotMatch(sql, /insert into private\.admin_users/i);
 });
 
-test("the feed escapes database text and writes through Supabase with realtime refresh", async () => {
+test("the feed escapes database text and publishes through Neon owner-checked RPCs", async () => {
   const social = await read("src/social.js");
   assert.match(social, /function escapeHtml\(value\)/);
   assert.match(social, /from\("posts"\)/);
@@ -274,7 +274,7 @@ test("the feed escapes database text and writes through Supabase with realtime r
   assert.match(social, /refreshSocialFeed/);
   assert.match(social, /cachedSignedUrls/);
   assert.match(social, /storage\.from\("looply-media"\)\.upload/);
-  assert.match(social, /from\("post_media"\)\.insert/);
+  assert.match(social, /rpc\("v5_attach_post_media"/);
 });
 
 test("comment attachments use private storage and inherit the post's visibility", async () => {
