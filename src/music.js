@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { signProfileAvatars } from "./profiles.js";
 import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -100,7 +101,7 @@ export function musicPlayerMarkup(item) {
 
 export async function loadMusicData(client, userId) {
   const [peopleResult, dedicationsResult, libraryResult, generalCommentsResult] = await Promise.all([
-    client.from("profiles").select("id,username,display_name").order("username").limit(100),
+    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(250),
     client.from("music_dedications")
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
       .order("created_at", { ascending: false }).limit(50),
@@ -109,8 +110,17 @@ export async function loadMusicData(client, userId) {
     client.from("music_page_comments").select("id,body,created_at,author_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
       .eq("comment_type", "general").order("created_at", { ascending: true }).limit(100)
   ]);
+  let people = peopleResult.data || [];
+  if (!peopleResult.error && people.length) {
+    try {
+      people = await signProfileAvatars(client, people);
+    } catch (error) {
+      console.warn("Looply music recipient avatar lookup failed", error);
+      people = people.map((profile) => ({ ...profile, avatarUrl: "" }));
+    }
+  }
   return {
-    people: peopleResult.data || [],
+    people,
     peopleError: peopleResult.error,
     dedications: dedicationsResult.data || [],
     dedicationsError: dedicationsResult.error,
@@ -205,13 +215,25 @@ function musicContent(data, userId) {
   }
   const received = data.dedications.filter((item) => item.recipient_id === userId);
   const sent = data.dedications.filter((item) => item.sender_id === userId);
-  const choices = data.people.filter((profile) => profile.id !== userId).map((profile) =>
-    `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name)} · @${escapeHtml(profile.username)}</option>`
-  ).join("");
+  const selectablePeople = data.people.filter((profile) => profile.id !== userId);
   const recipientHint = data.peopleError
-    ? `<span class="field-hint field-error">A lista de perfis não carregou; atualize a página para dedicar uma música.</span>`
-    : choices ? `<span class="field-hint">A dedicatória fica visível apenas para você e o perfil escolhido.</span>`
+    ? `<span class="field-hint field-error">A lista de perfis não carregou; tente novamente mais tarde.</span>`
+    : selectablePeople.length
+      ? `<span class="field-hint" data-music-recipient-summary>Nenhuma pessoa selecionada. A dedicatória será privada para os destinatários escolhidos.</span>`
       : `<span class="field-hint">Ainda não há outros perfis visíveis para receber uma dedicatória.</span>`;
+  const recipientRows = selectablePeople.map((profile) => {
+    const displayName = profile.display_name || profile.username || "Usuário";
+    const initial = escapeHtml(String(displayName).slice(0, 1).toLocaleUpperCase("pt-BR"));
+    const avatar = profile.avatarUrl
+      ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="music-recipient-fallback" aria-hidden="true">${initial}</span>`;
+    return `<button type="button" class="music-recipient-row" data-music-recipient-id="${escapeHtml(profile.id)}" aria-pressed="false">
+      <span class="music-recipient-avatar">${avatar}</span>
+      <span class="music-recipient-copy"><strong>${escapeHtml(displayName)}</strong><small>@${escapeHtml(profile.username)}</small></span>
+      <span class="music-recipient-check" aria-hidden="true">✓</span>
+    </button>`;
+  }).join("");
+  const recipientPickerDisabled = !selectablePeople.length || Boolean(data.peopleError);
   const directionPanel = (items, key, emptyText) => `<section data-music-direction-panel="${key}" ${key === "sent" ? "hidden" : ""}>${items.length
     ? items.map((item) => dedicationMarkup(item, userId)).join("")
     : `<div class="music-empty-state"><strong>${emptyText}</strong></div>`}</section>`;
@@ -227,7 +249,12 @@ function musicContent(data, userId) {
     </section>
     <details class="music-composer"><summary>＋ Dedicar uma música</summary>
       <form data-music-send>
-        <div class="field"><label for="musicRecipient">Para quem é esta música?</label><select id="musicRecipient" name="recipientId" multiple size="5" required ${choices ? "" : "disabled"}><option value="all-users">Todos os usuários</option>${choices}</select>${recipientHint}</div>
+        <div class="field music-recipient-field"><span class="field-label">Para quem é esta música?</span>
+          <button type="button" class="music-recipient-open" data-music-open-recipients ${recipientPickerDisabled ? "disabled" : ""}>Escolher destinatários</button>
+          <div class="music-recipient-selected" data-music-recipient-selected hidden aria-live="polite"></div>
+          <div data-music-recipient-inputs></div>
+          ${recipientHint}
+        </div>
         <div class="field music-song-selection">
           <span class="field-label">Música</span>
           <button class="music-song-picker-open" type="button" data-music-open-search>⌕ Pesquisar músicas</button>
@@ -250,6 +277,17 @@ function musicContent(data, userId) {
       ${directionPanel(sent, "sent", "Você ainda não dedicou músicas.")}
     </div>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
+    <div class="music-picker-backdrop music-recipient-backdrop" data-music-recipient-picker hidden>
+      <section class="music-picker-dialog music-recipient-dialog" role="dialog" aria-modal="true" aria-labelledby="musicRecipientPickerTitle">
+        <header><div><span class="section-kicker">Destinatários</span><h3 id="musicRecipientPickerTitle">Escolher pessoas</h3></div><button type="button" class="music-picker-close" data-music-recipient-close aria-label="Fechar">×</button></header>
+        <label for="musicRecipientQuery">Pesquisar pessoas</label>
+        <input id="musicRecipientQuery" type="search" maxlength="70" autocomplete="off" placeholder="Nome ou @usuário" data-music-recipient-query>
+        <button type="button" class="music-recipient-all" data-music-recipient-all aria-pressed="false"><span class="music-recipient-all-check" aria-hidden="true">✓</span><span><strong>Todos os perfis visíveis</strong><small>Enviar uma dedicatória individual aos perfis disponíveis</small></span></button>
+        <div class="music-recipient-list" data-music-recipient-list>${recipientRows || '<p class="music-empty-state">Nenhum perfil disponível.</p>'}</div>
+        <p class="field-hint" data-music-recipient-status role="status" aria-live="polite">Selecione uma ou mais pessoas ou escolha todos.</p>
+        <footer><button type="button" class="text-button" data-music-recipient-close>Cancelar</button><button type="button" class="primary-button compact-button" data-music-recipient-confirm>Confirmar seleção</button></footer>
+      </section>
+    </div>
     <div class="music-picker-backdrop" data-music-picker hidden>
       <section class="music-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="musicPickerTitle">
         <header><div><span class="section-kicker">Catálogo musical</span><h3 id="musicPickerTitle">Escolher música</h3></div><button type="button" class="music-picker-close" data-music-picker-close aria-label="Fechar">×</button></header>
