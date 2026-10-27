@@ -74,13 +74,12 @@ export function storyStudioMarkup(recipientOptions) {
         '</section>' +
         '<header class="studio-edit-top studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-back aria-label="Voltar à câmera">←</button>' +
-          '<button type="button" class="studio-audio-pill" data-studio-music-open aria-label="Pesquisar ou alterar música">♫ <span class="studio-audio-copy"><span data-studio-track-label>Adicionar música</span><small data-studio-track-hint>Trilha sonora</small></span></button>' +
-          '<button type="button" class="studio-icon studio-audio-remove" data-studio-music-remove hidden aria-label="Remover música">×</button>' +
+          '<span class="studio-edit-top-spacer" aria-hidden="true"></span>' +
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
-          '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♫</button>' +
+          '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">♫<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
           '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
           '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">⌄</button>' +
           '<div class="studio-editor-extra" data-studio-editor-extra hidden><button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button></div>' +
@@ -370,7 +369,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
     $("[data-studio-track-hint]").textContent = "Trilha sonora";
-    $("[data-studio-music-remove]").hidden = true;
+    $("[data-studio-music-indicator]").hidden = true;
+    $("[data-studio-music-open]").setAttribute("aria-label","Adicionar música");
     active = false;
     if (typeof dialog.close === "function" && dialog.open) dialog.close();
     else dialog.removeAttribute("open");
@@ -611,8 +611,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     removeCatalogCredit();
     music = track;
     $("[data-studio-track-label]").textContent = track.title;
-    $("[data-studio-music-remove]").hidden = false;
     $("[data-studio-track-hint]").textContent = track.artist || "Áudio selecionado";
+    $("[data-studio-music-indicator]").hidden = false;
+    $("[data-studio-music-open]").setAttribute("aria-label","Alterar música: "+track.title);
+    $("[data-studio-music-open]").title = "Alterar música: "+track.title;
     modalClose();
     if(isAdmin)status("ADM: áudio selecionado para publicação: "+track.kind+" / "+(track.provider||"local"));
   };
@@ -621,6 +623,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopMusicPreview = openStoryMusicPicker({
       modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status, isAdmin
     });
+    if (music) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.dataset.studioMusicRemove = "";
+      remove.className = "studio-remove-selected-music";
+      remove.textContent = "Remover música selecionada";
+      remove.setAttribute("aria-label","Remover a música deste Story");
+      body.querySelector(".studio-music-picker")?.append(remove);
+    }
   };
   const openAudience = () => {
     const people = $("[data-studio-people]");
@@ -960,7 +971,17 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     "[data-studio-post]": () => { close(); root.querySelector("[data-toggle-composer]")?.click(); root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" }); },
     "[data-studio-music-open]": openMusic,
     "[data-studio-effects-open]": () => { modal("Filtros da imagem e vídeo", '<p class="studio-hint">Filtro aplicado também ao arquivo final.</p><div class="studio-filter-options">'+Object.entries({none:"Original",glow:"Natural",golden:"Dourado",cool:"Azulado",mono:"Preto e branco"}).map(([key,name])=>'<button type="button" data-studio-filter="'+key+'" aria-pressed="'+String(editFilter===key)+'">'+name+'</button>').join("")+'</div>');body.querySelectorAll("[data-studio-filter]").forEach(button=>button.onclick=()=>{editFilter=button.dataset.studioFilter;edits.style.filter=FILTERS[editFilter];body.querySelectorAll("[data-studio-filter]").forEach(el=>el.setAttribute("aria-pressed",String(el===button)));status("Filtro: "+button.textContent);}); },
-    "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-track-hint]").textContent = "Trilha sonora"; $("[data-studio-music-remove]").hidden = true; },
+    "[data-studio-music-remove]": () => {
+      music = null;
+      removeCatalogCredit();
+      $("[data-studio-track-label]").textContent = "Adicionar música";
+      $("[data-studio-track-hint]").textContent = "Trilha sonora";
+      $("[data-studio-music-indicator]").hidden = true;
+      $("[data-studio-music-open]").setAttribute("aria-label","Adicionar música");
+      $("[data-studio-music-open]").title = "Adicionar música";
+      modalClose();
+      status("Música removida do Story.");
+    },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
     "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
