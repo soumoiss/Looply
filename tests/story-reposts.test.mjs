@@ -53,6 +53,6 @@ test("Story repost UI exposes owner consent, mention gating and copied-media flo
   assert.match(css, /\.story-repost-attribution/);
   for (const requirement of [
     "SECURITY DEFINER", "story.visibility = 'public'", "source.allow_reposts = true",
-    "mention.mentioned_user_id = actor.user_id", "original_expiry", "story_media media"
+    "mention.mentioned_user_id = actor.user_id", "source.expires_at", "story_media media"
   ]) assert.ok(migration.includes(requirement), "migration is missing guard: " + requirement);
 });
