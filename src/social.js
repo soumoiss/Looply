@@ -849,7 +849,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
   const clearPreview = () => { previewUrls.forEach(url => URL.revokeObjectURL(url)); previewUrls = []; };
   const resetPreview = () => { clearPreview(); const node = root.querySelector("[data-post-preview]"); if (node) node.innerHTML = '<p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p>'; };
   root.addEventListener("click", (event) => {
-    const toggle = event.target.closest("[data-toggle-composer]");
+    const toggle = event.target.closest("[data-toggle-composer]") || event.target.closest(".post-composer-heading")?.querySelector("[data-toggle-composer]");
     if (!toggle) return;
     const fields = root.querySelector("[data-composer-fields]");
     if (!fields) return;
