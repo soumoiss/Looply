@@ -313,7 +313,7 @@
 .page-letters .modal-carta .btn-enviar { background:#2ec4a5; border:2px solid #111; border-radius:999px; padding:8px 14px; font-weight:900; min-width:70px; cursor:pointer; }
 .page-letters .modal-carta .modal-body { flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
 .page-letters .modal-carta .modal-body label { display:grid; gap:6px; font-size:13px; font-weight:800; }
-.page-letters .modal-carta .modal-body input:not([type="checkbox"]),.page-letters .modal-carta .modal-body textarea { width:100%; border:2px solid #111; border-radius:12px; padding:12px; font:500 16px/1.4 inherit; background:white; color:#111; min-height:44px; }
+.page-letters .modal-carta .modal-body input:not([type="checkbox"]),.page-letters .modal-carta .modal-body textarea { width:100%; border:2px solid #111; border-radius:12px; padding:12px; font-size:16px; font-family:inherit; line-height:1.4; font-weight:500; background:white; color:#111; min-height:44px; }
 .page-letters .modal-carta .modal-body textarea { min-height:38dvh; resize:vertical; }
 .page-letters .modal-carta .modal-body input[type="checkbox"] { width:19px; height:19px; accent-color:#2ec4a5; }
 .page-letters .modal-carta .modal-body label:has(input[type="checkbox"]) { display:flex; align-items:center; }
