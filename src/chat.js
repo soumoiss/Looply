@@ -799,6 +799,9 @@ export function bindChatEvents(root, client, getUserId) {
   });
 
   root.addEventListener("click", async (event) => {
+    // Favorite is an interactive button inside the conversation card. It must
+    // never trigger opening/changing conversations on touch devices.
+    if (event.target.closest("[data-v2-favorite]")) return;
     const openButton = event.target.closest("[data-chat-open]");
     const startButton = event.target.closest("[data-chat-start]");
     const replyButton = event.target.closest("[data-chat-reply]");
