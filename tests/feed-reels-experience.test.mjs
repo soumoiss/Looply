@@ -58,8 +58,8 @@ test("composer has an actionable submit button inside the existing form", () => 
 });
 test("navigational destinations target real Looply routes", () => {
   const html = page([]);
-  for (const path of ["home.html","chat.html","usuarios.html","perfil.html"]) assert.ok(html.includes('href="' + path + '"'));
-  assert.match(html,/data-open-first-reel/);
+  for (const path of ["home.html","cartas.html","musicas.html","galeria.html","chat.html","notificacoes.html"]) assert.ok(html.includes('href="' + path + '"'));
+  assert.match(html,/aria-label="Navegação rápida"/);
 });
 test("licensed official Instagram embedding remains on-site", () => {
   assert.equal(instagramEmbedDetails("https://www.instagram.com/reel/ABCDE12345/").embedUrl,"https://www.instagram.com/reel/ABCDE12345/embed/");
