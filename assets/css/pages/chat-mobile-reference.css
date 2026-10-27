@@ -223,3 +223,17 @@
   .page-conversation .chat-thread-panel,
   .page-chat .chat-area.is-conversation-open .chat-thread-panel { min-height:220px; height:calc(100dvh - 150px); }
 }
+
+/* The Android/iOS visual viewport shrinks when the native keyboard appears.
+   The existing chat controller supplies --looply-visible-height on conversation.html. */
+@media (max-width:760px) {
+  .page-conversation .chat-thread-panel,
+  .page-chat .chat-area.is-conversation-open .chat-thread-panel {
+    height:calc(var(--looply-visible-height,100dvh) - 172px);
+    min-height:0;
+  }
+  .page-chat:has(.chat-message-form textarea:focus) .page-navigation { display:none!important; }
+  .page-chat:has(.chat-message-form textarea:focus) .chat-thread-panel {
+    height:calc(var(--looply-visible-height,100dvh) - 101px);
+  }
+}
