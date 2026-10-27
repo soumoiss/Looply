@@ -63,8 +63,19 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
   const showIncoming = (call, payload) => {
     if (incoming) {
-      if (incoming.conversationId !== call.conversationId) void signal(call, "decline");
-      // Avoid replaying the ringtone and stealing focus on retry broadcasts.
+      if (incoming.conversationId !== call.conversationId) {
+        void signal(call, "decline");
+        return;
+      }
+      // A "ring" may arrive before SDP/media setup. Upgrade the same alert
+      // to an answerable offer without restarting sound or stealing focus.
+      if (payload.type === "offer" && payload.description && !incoming.payload?.description) {
+        incoming.payload = payload;
+        const btn = ensureOverlay().querySelector("[data-global-call-accept]");
+        if (btn) btn.disabled = false;
+        ensureOverlay().querySelector("[data-global-call-description]").textContent =
+          "Chamada de " + (payload.mode === "video" ? "vídeo" : "áudio") + " pronta para atender.";
+      }
       return;
     }
     incoming = { ...call, payload };
@@ -73,7 +84,9 @@ export function setupGlobalCallListener(client, userId, profile) {
     const name = payload.senderName || sender?.display_name || sender?.username || "Alguém";
     modal.querySelector("#looplyGlobalCallTitle").textContent = name;
     modal.querySelector("[data-global-call-description]").textContent =
-      `${name} está ligando por ${payload.mode === "video" ? "vídeo" : "áudio"}.`;
+      `${name} está ligando por ${payload.mode === "video" ? "vídeo" : "áudio"}.` +
+      (payload.type === "ring" ? " Preparando conexão segura…" : "");
+    modal.querySelector("[data-global-call-accept]").disabled = !payload.description;
     modal.hidden = false;
     stopRinging?.();
     stopRinging = startIncomingCallAlert({ name, mode: payload.mode });
@@ -95,8 +108,9 @@ export function setupGlobalCallListener(client, userId, profile) {
       if (!participants.some((p) => p.user_id === payload.senderId)) return;
       // The chat page already has its own WebRTC controller for the open thread.
       if (activeConversationId() === conversation.id) return;
-      if (payload.type === "offer") {
-        if (!payload.description || !["audio", "video"].includes(payload.mode)) return;
+      if (payload.type === "ring" || payload.type === "offer") {
+        if (!["audio", "video"].includes(payload.mode)) return;
+        if (payload.type === "offer" && !payload.description) return;
         showIncoming(call, payload);
       } else if (payload.type === "hangup" || payload.type === "decline" || payload.type === "failed") {
         if (incoming?.conversationId === conversation.id) hideOverlay();
@@ -121,8 +135,9 @@ export function setupGlobalCallListener(client, userId, profile) {
         const call = channels.get(conversationId) || {
           conversationId, participants: [], channel: null
         };
-        if (type === "offer") {
-          if (!payload.description || !["audio","video"].includes(payload.mode)) return;
+        if (type === "ring" || type === "offer") {
+          if (!["audio","video"].includes(payload.mode)) return;
+          if (type === "offer" && !payload.description) return;
           showIncoming(call, payload);
         } else if (["hangup","decline","failed"].includes(type)) {
           if (incoming?.conversationId === conversationId) hideOverlay();
