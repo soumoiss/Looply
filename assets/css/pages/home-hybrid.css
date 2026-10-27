@@ -9,6 +9,7 @@
   background:color-mix(in srgb,var(--primary) 5%,var(--surface-soft));
 }
 .page-home .container-page { max-width:100%; }
+.page-home .page-content { font-family:"Plus Jakarta Sans",Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
 .page-home .page-content { display:flex; flex-direction:column; gap:12px; width:min(100%,520px); max-width:520px; padding:12px 12px 90px; margin:0 auto; box-sizing:border-box; min-width:0; }
 .page-home .home-welcome {
   display:flex!important; flex-direction:row; align-items:center; gap:12px; width:100%; min-height:84px;
