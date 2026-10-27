@@ -9,7 +9,7 @@ const markup = gallery.slice(gallery.indexOf("const galleryMarkup"), gallery.ind
 test("viewer keeps only back, like, admin edit, and more as primary actions", () => {
   assert.match(gallery, /data-close-viewer/);
   assert.match(gallery, /data-viewer-like/);
-  assert.match(gallery, /data-open-photo-adjust hidden/);
+  assert.match(gallery, /data-open-photo-adjust[^>]*hidden/);
   assert.match(gallery, /data-toggle-menu/);
   assert.match(gallery, /data-action-sheet/);
   assert.match(styles, /gallery-viewer-bottom/);
