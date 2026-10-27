@@ -48,7 +48,14 @@ Fontes de documentação: https://api.openverse.org/v1/ ; https://creativecommon
 
 O script `scripts/check-story-posted-audio.mjs` grava vídeo 9:16 REAL com o mesmo módulo de mixagem importado pelo editor, analisa codecs, dimensões, duração e volume com `ffprobe` e `ffmpeg -af volumedetect` e armazena amostras no artefato `stories-9x16-audio-video` do GitHub Actions.
 
-Em uma execução inicial de CI, a amostra de foto + música passou: duração **7,176615 s**, áudio **Opus**, pico **−12,2 dB**, tamanho **134.981 bytes**, vídeo **VP8**. A segunda amostra de vídeo + música passou pela geração do arquivo, mas falhou no primeiro limite de duração (reteste e inspeção integral necessários).
+A execução final de QA em Chrome (`40436583288`) foi concluída com sucesso, com **405 testes Node aprovados** e todos os passos de validação do workflow passando, incluindo gravação audiovisual, inspeção de arquivo pelo FFmpeg/ffprobe, verificação visual das linhas musicais, AR e inicialização real do MediaPipe. Os clipes medidos são **360 × 640 (9:16)**, usados para comprovar codificação e áudio, enquanto a aplicação solicita 1080 × 1920 para captura real conforme suporte do dispositivo.
+
+| Arquivo de teste | Duração aferida | Vídeo | Áudio | Pico sonoro |
+|---|---:|---|---|---:|
+| Fotografia + música | 7,173286 s | VP8 / WebM | Opus | −12,3 dB |
+| Vídeo + música | 3,807 s | VP8 / WebM | Opus | −7,4 dB |
+
+Os dois arquivos de mídia foram gerados e mantidos no artefato **stories-9x16-audio-video** do GitHub Actions. O teste de vídeo calcula a duração a partir dos pacotes codificados quando o contêiner WebM não informa `format.duration`.
 
 **Alcance da evidência:** são arquivos de teste criados no Chrome automatizado, sem músicas comerciais; não equivalem a publicar conteúdo real com uma sessão de usuário, baixar o objeto do R2 e reproduzi-lo no celular. A revalidação com duas contas e inspeção do arquivo recuperado do armazenamento permanece pendente. Não há confirmação de AAC/MP4 universal; o Chrome do CI produziu WebM/Opus. Não foi integrado FFmpeg.wasm nesta etapa.
 
@@ -56,4 +63,5 @@ Em uma execução inicial de CI, a amostra de foto + música passou: duração *
 
 - PR: https://github.com/soumoiss/Looply/pull/163
 - Primeira amostra real com som e duração confirmados: https://github.com/soumoiss/Looply/actions/runs/40436151325
-- Artefatos de vídeo: disponíveis no workflow de Stories quando a nova execução de validação os concluir.
+- Validação completa e vídeos: https://github.com/soumoiss/Looply/actions/runs/40436583288 (artefato: `stories-9x16-audio-video`, retenção de 7 dias).
+- Artefato da API do GitHub: https://api.github.com/repos/soumoiss/Looply/actions/artifacts/12704078808/zip
