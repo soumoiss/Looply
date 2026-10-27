@@ -14,7 +14,7 @@ test("Story visual overhaul includes the four real layouts and does not duplicat
     "data-studio-text-mode","data-studio-boomerang","data-studio-grid-toggle",
     "data-studio-camera-more","data-studio-timer","data-studio-handsfree",
     "data-studio-lens-chooser","data-studio-file","data-studio-shutter","data-studio-flip",
-    "data-studio-add-text","data-studio-stickers","data-studio-music-open",
+    "data-studio-add-text","data-studio-music-open",
     "data-studio-effects-open","data-studio-editor-more","data-studio-mentions-open",
     "data-studio-caption","data-studio-publicar","data-studio-friends","data-studio-send",
     "data-studio-visibility"
@@ -23,13 +23,12 @@ test("Story visual overhaul includes the four real layouts and does not duplicat
     "data-story-viewer-avatar","data-story-viewer-name","data-story-viewer-time",
     "data-story-viewer-music-label","data-story-close-friends","data-story-progress-list",
     "data-story-viewer-media","data-story-play-toggle","data-story-close",
-    "data-story-insights-open","data-story-share","data-story-boost",
-    "data-story-highlight","data-story-mention-add","data-story-more",
+    "data-story-insights-open","data-story-share",
+    "data-story-mention-add","data-story-more",
     "data-story-save","data-story-delete","data-story-like",
     "data-story-reply","data-story-quick-reactions-toggle","data-story-quick-reaction","data-story-action-status"
   ])assert.ok(viewer.includes(control),"Missing viewer action "+control);
-  assert.match(viewer,/data-story-boost disabled/);
-  assert.match(viewer,/data-story-highlight disabled/);
+  assert.doesNotMatch(viewer,/data-story-boost|data-story-highlight/);
   assert.match(viewer,/data-story-owner-actions[^>]*hidden/);
   assert.match(viewer,/data-story-reply-actions[^>]*hidden/);
 });
