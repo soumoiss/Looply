@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=mirrored-global-calls-20261027";
 import { icon } from "../../src/icons.js";
 import { cachedSignedUrl } from "../../src/storage-url-cache.js";
 import { createGalleryGestureController } from "./gallery-gestures.js";
