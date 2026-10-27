@@ -64,7 +64,7 @@ recorder2.start(250);
 await inputVideo.play();
 soundtrack2.start();
 paint();
-await new Promise(resolve=>setTimeout(resolve,2500));
+await new Promise(resolve=>setTimeout(resolve,3800));
 recorder2.stop();await finished2;
 cancelAnimationFrame(paintLoop);soundtrack2.stop();inputVideo.pause();
 const result2=new Blob(chunks2,{type:recorder2.mimeType});
@@ -128,7 +128,7 @@ assert.equal(result.error,"",result.error);assert.equal(result.audioTracks,1);
 assert.equal(result.videoTracks,1);assert.ok(result.size>1800,"Empty video/audio");
 for(const entry of [
   {kind:"photo+music",data:result,minDuration:6.5},
-  {kind:"video+music",data:result.videoWithMusic,minDuration:2.0}
+  {kind:"video+music",data:result.videoWithMusic,minDuration:2.5}
 ]){
   assert.ok(entry.data && entry.data.size>1800,entry.kind+": missing recorded output");
   assert.equal(entry.data.audioTracks,1,entry.kind+": missing audio capture track");
@@ -144,6 +144,7 @@ for(const entry of [
   assert.ok(videoStream,entry.kind+": no encoded video track");
   assert.ok(["aac","opus"].includes(audioStream.codec_name),entry.kind+": unsupported audio codec");
   assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
+  console.log("INSPECT",entry.kind,JSON.stringify({duration:media.format.duration,codec:audioStream.codec_name,width:videoStream.width,height:videoStream.height}));
   assert.ok(Number(media.format.duration)>=entry.minDuration,entry.kind+": exported duration too short");
   const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
   const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
