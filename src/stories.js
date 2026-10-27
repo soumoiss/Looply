@@ -264,8 +264,8 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
             '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small>Atividade</small><span class="sr-only" data-story-view-count>Ver visualizações</span></button>' +
             '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
-            '<button type="button" class="story-owner-action" data-story-boost disabled title="Publicidade ainda não disponível"><span aria-hidden="true">↗</span><small>Turbinar</small></button>' +
-            '<button type="button" class="story-owner-action" data-story-highlight disabled title="Destaques exigem armazenamento permanente e permissões próprias"><span aria-hidden="true">♡</span><small>Destacar</small></button>' +
+
+
             '<button type="button" class="story-owner-action" data-story-mention-add><span aria-hidden="true">@</span><small>Mencionar</small></button>' +
             '<button type="button" class="story-owner-action" data-story-more aria-expanded="false"><span aria-hidden="true">⋮</span><small>Mais</small></button>' +
           '</nav>' +
@@ -700,10 +700,20 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     clearTimer();
     try {
       const { data, error } = await client.from("story_views")
-        .select("viewed_at,viewer:profiles!story_views_viewer_id_fkey(username,display_name,avatar_path)")
+        .select("viewer_id,viewed_at")
         .eq("story_id", story.id).order("viewed_at", { ascending: false }).limit(500);
       if (error) throw error;
       const views = data || [];
+      const viewerIds = [...new Set(views.map(view => view.viewer_id).filter(Boolean))];
+      let profiles = [];
+      if (viewerIds.length) {
+        const { data: rows, error: profilesError } = await client.from("profiles")
+          .select("id,username,display_name,avatar_path").in("id",viewerIds);
+        if (profilesError) throw profilesError;
+        profiles = rows || [];
+      }
+      const profileMap = new Map(profiles.map(profile => [profile.id,profile]));
+      views.forEach(view => { view.viewer = profileMap.get(view.viewer_id) || null; });
       const avatarPaths = [...new Set(views.map((view) => view.viewer?.avatar_path).filter(Boolean))];
       const avatarUrls = new Map();
       if (avatarPaths.length) {
