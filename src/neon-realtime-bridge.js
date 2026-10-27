@@ -127,12 +127,31 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const start = () => {
       if (closed) return Promise.resolve(null);
       if (ready) return ready;
-      ready = open().catch(async cloudflareError=>{
+      // Interactive calls and games prefer one authenticated Neon round-trip.
+      // If Neon is unavailable, the original Cloudflare ticket/WebSocket route
+      // remains a fallback, preserving the exact October 19 WebRTC protocol.
+      const openPreferred = async () => {
+        if (fallback && conversationId && options?.fastFallback === true) {
+          try {
+            const backup = await fallback.connect(conversationId, deliver, fallbackError => {
+              console.warn("Looply fast signaling poll unavailable", fallbackError?.message);
+            });
+            if (closed) { backup.close(); return null; }
+            ws = backup;
+            report("SUBSCRIBED");
+            return backup;
+          } catch (fallbackError) {
+            console.warn("Looply Neon fast path failed, trying Cloudflare", fallbackError?.message);
+          }
+        }
+        return open();
+      };
+      ready = openPreferred().catch(async cloudflareError=>{
         // Preserve the October 19 WebRTC offer/answer/ICE contract. When the
         // optional Cloudflare WebSocket is blocked, use a separate authenticated
         // Neon signaling RPC (which checks membership independently).
         let error = cloudflareError;
-        if (!closed && fallback && conversationId && options?.skipFallback !== true) {
+        if (!closed && fallback && conversationId && options?.skipFallback !== true && options?.fastFallback !== true) {
           try {
             const backup = await fallback.connect(conversationId, deliver, fallbackError=>{
               console.warn("Looply Neon fallback reconnecting", fallbackError?.message);
