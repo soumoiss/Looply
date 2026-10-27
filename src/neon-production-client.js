@@ -194,7 +194,7 @@ async function chatFunctionInvoke(name,options) {
 const realtimeBridge=createNeonRealtimeBridge({
   endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
   getSession:activeSession,
-  fallback:createNeonSignalFallback({dataApiUrl:config.data,getSession:activeSession})
+  fallback:createNeonSignalFallback({dataApiUrl:config.data,getSession:activeSession,delay:3200})
 });
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
