@@ -42,7 +42,7 @@ test("UI presents camera, gallery, edit tools, and private audience", () => {
     "data-studio-flip", "data-studio-lens", "data-studio-lens-chooser",
     "data-studio-flash", "data-studio-grid-toggle", "data-studio-boomerang",
     "data-studio-caption", "data-studio-music-open", "data-studio-add-text",
-    "data-studio-stickers", "data-studio-publicar",
+    "data-studio-publicar",
     "data-studio-friends", "data-studio-people", "data-studio-send"
   ]) assert.ok(studio.includes(selector), selector);
 });
@@ -79,15 +79,13 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(styles, /safe-area-inset-bottom/);
 });
 
-test("POST and REEL open real Loooply routes; unsupported LIVE is not a dead button", async () => {
+test("Only POST and STORY remain in camera mode navigation", async () => {
   const { storyStudioMarkup } = await import("../src/story-studio.js");
   const markup = storyStudioMarkup("");
-  assert.match(markup, /data-studio-post/);
-  assert.match(markup, /<b>STORY<\/b>/);
-  assert.match(markup, /data-studio-reel/);
-  assert.match(markup, /aria-disabled="true"[^>]*>LIVE/);
-  assert.doesNotMatch(markup, /data-studio-live/);
-  assert.match(studio,/root\.querySelector\("\[data-open-reel\]"\)/);
+  assert.match(markup,/data-studio-post/);
+  assert.match(markup,/<b>STORY<\/b>/);
+  assert.doesNotMatch(markup,/data-studio-reel|data-studio-live|>REEL<|>LIVE</);
+  assert.doesNotMatch(markup,/data-studio-stickers/);
 });
 
 test("camera photo and recording output use portrait 9:16 while preserving the full sensor frame", () => {
