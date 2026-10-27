@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
+import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=portrait-capture-20261026";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
@@ -75,6 +76,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
   bindSocialEvents(root, client, () => user.id, isAdmin);
   bindHomeProfilePreview({ root, client, user, profile });
+  bindHomeCommentsSheet(root);
   const globalSettingsChannel = client.channel("looply-home-global-settings")
     .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: updated }) => {
       const next = document.createElement("template");
