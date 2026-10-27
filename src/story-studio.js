@@ -17,6 +17,19 @@ export function containRect(sourceWidth, sourceHeight, targetWidth, targetHeight
   const height = sourceHeight * scale;
   return { x: (targetWidth - width) / 2, y: (targetHeight - height) / 2, width, height };
 }
+// Central crop matching object-fit: cover: 9:16 canvas stays completely filled,
+// including when the phone exposes a landscape or square camera sensor.
+export function cameraCoverCrop(sourceWidth, sourceHeight, targetWidth, targetHeight) {
+  if (![sourceWidth, sourceHeight, targetWidth, targetHeight].every(value => Number.isFinite(value) && value > 0)) return null;
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = targetWidth / targetHeight;
+  if (sourceRatio > targetRatio) {
+    const width = sourceHeight * targetRatio;
+    return { x:(sourceWidth-width)/2, y:0, width, height:sourceHeight };
+  }
+  const height = sourceWidth / targetRatio;
+  return { x:0, y:(sourceHeight-height)/2, width:sourceWidth, height };
+}
 const FORMATS = Object.freeze({
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
   "video/mp4": "mp4", "video/webm": "webm"
@@ -229,7 +242,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const digitalFactor = zoomMode === "digital" ? settings.zoom : 1;
     const mirror = settings.facing === "user" ? "scaleX(-1) " : "";
     video.style.transform = mirror + "scale(" + digitalFactor + ")";
-    backdropVideo.style.transform = mirror + "scale(" + digitalFactor * 1.08 + ")";
+    backdropVideo.style.transform = mirror + "scale(" + digitalFactor + ")";
     lens.style.transform = mirror + "scale(" + digitalFactor + ")";
   };
   const setZoom = amount => {
@@ -268,26 +281,26 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const sourceW = video.videoWidth, sourceH = video.videoHeight;
     if (!sourceW || !sourceH) throw new Error("A câmera ainda não está pronta.");
     const factor = zoomMode === "digital" ? settings.zoom : 1;
-    const cropW = sourceW / factor, cropH = sourceH / factor;
-    const sx = (sourceW - cropW) / 2, sy = (sourceH - cropH) / 2;
-    const frame = containRect(cropW, cropH, canvas.width, canvas.height);
+    // Match the full-screen CSS camera preview exactly: crop to the current
+    // 9:16 viewport first, then apply the selected digital zoom within it.
+    // Neither photo nor recorded video should inherit blurred letterboxing.
+    const viewport = stage.getBoundingClientRect();
+    const targetRatio = viewport.width > 0 && viewport.height > 0
+      ? viewport.width / viewport.height
+      : canvas.width / canvas.height;
+    const frame = cameraCoverCrop(sourceW, sourceH, targetRatio, 1);
     if (!frame) throw new Error("Não foi possível preparar o enquadramento.");
-    const cover = Math.max(canvas.width / cropW, canvas.height / cropH) * 1.12;
-    const coverW = cropW * cover, coverH = cropH * cover;
-    ctx.save();
-    ctx.filter = "blur(28px) brightness(.58)";
-    ctx.drawImage(video, sx, sy, cropW, cropH,
-      (canvas.width - coverW) / 2, (canvas.height - coverH) / 2, coverW, coverH);
-    ctx.restore();
+    const cropW = frame.width / factor, cropH = frame.height / factor;
+    const sx = frame.x + (frame.width - cropW) / 2, sy = frame.y + (frame.height - cropH) / 2;
     const drawLayer = layer => {
       const scaleX = layer.width / sourceW, scaleY = layer.height / sourceH;
       ctx.save();
       if (settings.facing === "user") {
-        ctx.translate(frame.x * 2 + frame.width, 0);
+        ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
       }
       ctx.drawImage(layer, sx * scaleX, sy * scaleY, cropW * scaleX, cropH * scaleY,
-        frame.x, frame.y, frame.width, frame.height);
+        0, 0, canvas.width, canvas.height);
       ctx.restore();
     };
     drawLayer(video);
