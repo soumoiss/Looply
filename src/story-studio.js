@@ -3,6 +3,7 @@ import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest 
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { encodeStorySong } from "./story-music-catalog.js";
 import { openStoryMusicPicker } from "./story-music-picker.js";
+import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 
 const FILTERS = Object.freeze({ none:"none" });
@@ -716,18 +717,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           const buffer = music.kind === "builtin"
             ? makeSynthBuffer(audioCtx, music)
             : await audioCtx.decodeAudioData(await music.file.arrayBuffer());
-          if (!buffer?.length || !buffer.duration) throw new Error("Áudio vazio ou incompatível.");
-          // Prevent a successfully uploaded but inaudible Story from passing preflight.
-          // Sample every channel rather than trusting MIME / file names.
-          let peak = 0;
-          for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-            const pcm = buffer.getChannelData(channel);
-            const step = Math.max(1, Math.floor(pcm.length / 12000));
-            for (let i = 0; i < pcm.length; i += step) peak = Math.max(peak, Math.abs(pcm[i]));
-          }
-          if (peak < 0.0005) throw new Error("Este áudio está silencioso. Escolha outra música.");
-          source = audioCtx.createBufferSource(); source.buffer = buffer; source.loop = true;
-          source.connect(destination);
+          source = attachStoryMusic(audioCtx, destination, buffer);
         }
         destination.stream.getAudioTracks().forEach(t => framesStream.addTrack(t));
         await audioCtx.resume();
