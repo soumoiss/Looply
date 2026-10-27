@@ -208,8 +208,12 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   }));
   fileInput.addEventListener("change",event=>{
     const file=event.target.files?.[0];
-    if(!file||!file.type.startsWith("audio/")||file.size>15*1024*1024){
-      onStatus("Escolha um áudio válido de até 15 MB.",true);pendingCatalog=null;return;
+    // Cancelling the OS picker is not an error and must leave the song picker usable.
+    if(!file) return;
+    if(!file.type.startsWith("audio/")||file.size<=0||file.size>15*1024*1024){
+      onStatus?.("Escolha um áudio válido de até 15 MB.",true);
+      fileInput.value="";
+      return;
     }
     preview({kind:"file",title:file.name.slice(0,120),
       artist:"Áudio próprio",file,sourceProvider:"file"});
