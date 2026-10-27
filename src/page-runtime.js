@@ -173,6 +173,12 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     window.location.replace("login.html");
     return;
   }
+  // Subscribe to authenticated incoming calls immediately after restoring the
+  // legacy-linked Neon principal. Do NOT wait for profile, admin, maintenance,
+  // media, Stories or any page-specific data to finish loading.
+  // This runs on Home, Cartas, Músicas, Galeria, Chat and every other app page.
+  setupGlobalCallListener(supabase, user.id, null);
+
   let profile;
   let isAdmin = false;
   try {
@@ -286,9 +292,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   void mountLetterEventNotices(supabase,user,page);
 
-  // Listen for direct-call offers from every conversation the signed-in user belongs to,
-  // even when the user is browsing a different page.
-  setupGlobalCallListener(supabase, user.id, profile);
+  // Global listener is already active: it is started above, before render().
 
   window.addEventListener("pagehide", () => {
     clearTimeout(badgeTimer);
