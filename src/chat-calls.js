@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { startIncomingCallAlert } from "./global-call-ringtone.js";
+import { sendUrgentNeonCallEvent } from "./neon-call-fallback.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
   if (!root || root.dataset.chatCalls === "true") return;
@@ -213,18 +214,29 @@ export function setupChatCalls(root, client, userId) {
   };
   const startCall = async (mode) => {
     let announced = false;
+    let urgentRing = null;
     if (!activeConversation() || isGroup()) { toast("Chamadas estão disponíveis apenas em conversas individuais."); return; }
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { toast("Chamadas exigem HTTPS e suporte a microfone/câmera."); return; }
     if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
     callMode = mode; callPeerName = peerName(); isCaller = true;
+    const senderName = root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato";
+    const conversationId = activeConversation();
+    const getSession = async () => (await client.auth.getSession()).data?.session || null;
     try {
+      // Start the Neon announcement NOW, in parallel with the optional faster
+      // Cloudflare room handshake. Permission and ICE setup come afterwards.
+      urgentRing = sendUrgentNeonCallEvent({
+        dataApiUrl:client.dataApiUrl, getSession, conversationId,
+        payload:{type:"ring",mode,senderName}
+      }).catch(error => {
+        console.warn("Looply urgent Neon ring unavailable",error?.message);
+        return false;
+      });
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
-      // Ring the other person as soon as private membership is confirmed.
-      // Do not wait up to five seconds for ICE gathering or camera permission.
-      announced = await send("ring", {
-        mode, senderName: root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato"
-      });
+      const websocketRing = await send("ring", { mode, senderName });
+      const neonRing = await urgentRing;
+      announced = Boolean(websocketRing || neonRing);
       if (!announced) throw new Error("call_ring_unavailable");
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
       createPeerConnection();
@@ -254,7 +266,14 @@ export function setupChatCalls(root, client, userId) {
       }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
-      if (announced) await send("failed", { reason: error?.name || "CallSetupError" });
+      const notified = announced || Boolean(urgentRing && await urgentRing);
+      if (notified) {
+        const failedViaRoom = await send("failed", { reason: error?.name || "CallSetupError" });
+        if (!failedViaRoom) await sendUrgentNeonCallEvent({
+          dataApiUrl:client.dataApiUrl,getSession,conversationId,
+          payload:{type:"failed",reason:error?.name || "CallSetupError"}
+        }).catch(inner => console.warn("Looply call cancellation could not be signaled",inner?.message));
+      }
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
     }
   };
