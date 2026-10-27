@@ -9,19 +9,18 @@
 .page-home .story-studio .studio-stage[data-mode="camera"] .studio-camera {
   position:absolute; inset:0; width:100%; height:100%;
   min-width:100%; min-height:100%;
-  object-fit:cover !important; object-position:center center;
+  object-fit:contain !important; object-position:center center;
   background:#000;
 }
 .page-home .story-studio .studio-stage[data-mode="camera"] .studio-lens {
-  inset:0; width:100%; height:100%; object-fit:cover !important;
+  inset:0; width:100%; height:100%; object-fit:contain !important;
   object-position:center center; pointer-events:none;
 }
 .page-home .story-studio .studio-stage[data-mode="camera"] .studio-grid-lines {
   inset:0;
 }
-/* Immersive Reels: no faux Instagram header, no unnecessary badge or save/menu.
-   Crop embedded Instagram provider chrome using a clipping viewport rather than
-   downloading/re-hosting copyrighted third-party streams. */
+/* Immersive Reels: preserve the media's real proportion. Provider embeds remain
+   official and unmodified because their cross-origin document is not ours. */
 .page-home .looply-reels-scroll {
   inset:0; width:100vw; height:100dvh; overflow:hidden; background:#000;
 }
@@ -34,7 +33,7 @@
 }
 .page-home .looply-reels-scroll .looply-reel-video {
   display:block; width:100%; height:100%;
-  object-fit:cover !important; object-position:center center;
+  object-fit:contain !important; object-position:center center;
   background:#000;
 }
 .page-home .looply-reels-scroll .looply-reel-embed {
@@ -42,15 +41,7 @@
   max-width:none; margin:0; border:0; background:#000;
 }
 .page-home .looply-reels-scroll .is-instagram-embed .looply-reel-embed {
-  /* The Instagram iframe is cross-origin; its source page cannot be edited.
-     This zoom hides most of the provider's header and white caption/footer.
-     Variations in official embeds can still expose native provider UI. */
-  /* The official Instagram embed includes its own profile header and white
-     action/footer chrome. Crop that cross-origin document aggressively so the
-     immersive Looply viewer exposes the playable media area only. */
-  width:100%; height:100%;
-  transform:translateY(10%) scale(2.15);
-  transform-origin:50% 50%;
+  width:100%; height:100%; transform:none;
 }
 .page-home .looply-reels-scroll .is-tiktok-embed .looply-reel-embed {
   transform:none;

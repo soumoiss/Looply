@@ -50,7 +50,7 @@ test("UI presents camera, gallery, edit tools, and private audience", () => {
 
 test("Output applies edits without cropping the original media", () => {
   assert.match(studio, /const contain = Math\.min\(w \/ sw, h \/ sh\)/);
-  assert.match(studio, /source image\/video/);
+  assert.match(studio, /Preserve the whole source frame/);
   assert.match(styles, /studio-edited-media>img,.studio-edited-media>video[^}]*object-fit:contain/);
 
   assert.match(studio, /drawLiveFrame\(ctx, canvas\)/);
@@ -73,8 +73,8 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /zoomBase \* settings\.zoom/);
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
-  assert.match(studio, /const cropW = frame\.width \/ factor/);
-  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:cover !important/);
+  assert.match(studio, /const cropW = sourceW \/ factor/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:contain !important/);
   assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
   assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
@@ -90,7 +90,7 @@ test("Only POST and STORY remain in camera mode navigation", async () => {
   assert.doesNotMatch(markup,/data-studio-stickers/);
 });
 
-test("camera photo and recording output fill portrait 9:16 with centered sensor crop", () => {
+test("camera photo and recording output preserve the sensor inside portrait 9:16", () => {
   assert.deepEqual(STORY_CANVAS_SIZE, { width: 1080, height: 1920 });
   assert.deepEqual(containRect(1920, 1080, 1080, 1920), {
     x: 0, y: 656.25, width: 1080, height: 607.5
@@ -99,7 +99,8 @@ test("camera photo and recording output fill portrait 9:16 with centered sensor 
     x: 0, y: 0, width: 1080, height: 1920
   });
   assert.match(studio, /canvas\.width = STORY_CANVAS_SIZE\.width;\s*canvas\.height = STORY_CANVAS_SIZE\.height;/);
-  assert.match(studio, /const frame = cameraCoverCrop\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
+  assert.match(studio, /const frame = containRect\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
+  assert.match(studio, /settings\.face !== "none" && lensReady/);
     const cameraSegment = studio.slice(studio.indexOf("const drawLiveFrame ="),studio.indexOf("const stopCamera ="));
   assert.doesNotMatch(cameraSegment, /ctx\.filter = "blur\(28px\)/);
   assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /\.studio-camera-backdrop[^{}]*\{\s*display:none !important/);

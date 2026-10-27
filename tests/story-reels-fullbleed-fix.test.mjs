@@ -1,51 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { cameraCoverCrop, STORY_CANVAS_SIZE } from "../src/story-studio.js";
+import { containRect, STORY_CANVAS_SIZE } from "../src/story-studio.js";
 const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("Stories canvas remains portrait 1080x1920", () => {
   assert.deepEqual(STORY_CANVAS_SIZE, { width:1080,height:1920 });
 });
-test("square sensor fills 9:16 using centered crop instead of bars", () => {
-  const r = cameraCoverCrop(1080,1080,1080,1920);
-  assert.equal(r.height,1080);
-  assert.equal(r.width,607.5);
-  assert.equal(r.x,236.25);
-  assert.equal(r.y,0);
+test("square sensor preserves its full frame without zoom", () => {
+  assert.deepEqual(containRect(1080,1080,1080,1920), {x:0,y:420,width:1080,height:1080});
 });
-test("4:3 landscape sensor has no blurred top or bottom", () => {
-  const r=cameraCoverCrop(1920,1440,1080,1920);
-  assert.equal(r.height,1440);
-  assert.equal(r.width,810);
-  assert.equal(r.x,555);
+test("4:3 landscape sensor is contained without a blurred duplicate", () => {
+  assert.deepEqual(containRect(1920,1440,1080,1920), {x:0,y:555,width:1080,height:810});
 });
 test("already 9:16 sensor remains uncropped", () => {
-  assert.deepEqual(cameraCoverCrop(720,1280,1080,1920),{x:0,y:0,width:720,height:1280});
+  assert.deepEqual(containRect(720,1280,1080,1920),{x:0,y:0,width:1080,height:1920});
 });
 test("invalid camera dimensions fail closed", () => {
-  assert.equal(cameraCoverCrop(0,100,1080,1920),null);
-  assert.equal(cameraCoverCrop(Infinity,100,1080,1920),null);
+  assert.equal(containRect(0,100,1080,1920),null);
+  assert.equal(containRect(Infinity,100,1080,1920),null);
 });
 test("both front and rear camera use same cover preview with preserved facing", async () => {
   const [css, source] = await Promise.all([read("assets/css/pages/story-reels-viewport-fix.css"),read("src/story-studio.js")]);
   assert.match(css,/\.studio-stage\[data-mode="camera"\] \.studio-camera\s*\{/);
-  assert.match(css,/object-fit:cover !important/);
+  assert.match(css,/object-fit:contain !important/);
   assert.match(source,/settings\.facing === "user" \? "scaleX\(-1\) "/);
   assert.match(source,/\[data-studio-flip\]/);
 });
 test("camera capture no longer duplicates a blurred background into the encoded photo or video", async () => {
   const source=await read("src/story-studio.js");
-  assert.match(source,/const frame = cameraCoverCrop\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
+  assert.match(source,/const frame = containRect\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
   const cameraSegment = source.slice(source.indexOf("const drawLiveFrame ="),source.indexOf("const stopCamera ="));
   assert.doesNotMatch(cameraSegment,/ctx\.filter = "blur\(28px\)/);
   assert.match(source,/backdropVideo\.srcObject = null/);
   assert.match(source,/drawCamera\(ctx, canvas\)/);
 });
-test("preview removes fallback blur rather than scaling square photo with letterboxes", async () => {
+test("preview removes fallback blur and contains the complete camera frame", async () => {
   const css=await read("assets/css/pages/story-reels-viewport-fix.css");
   assert.match(css,/\.studio-camera-backdrop\s*\{\s*display:none !important/);
-  assert.match(css,/\.studio-lens\s*\{[\s\S]*?object-fit:cover !important/);
+  assert.match(css,/\.studio-lens\s*\{[\s\S]*?object-fit:contain !important/);
 });
 test("Reels only expose like, comments, external share and chat, no save button", async () => {
   const js=await read("src/home-hybrid-reels.js");
@@ -75,12 +68,13 @@ test("Home loads viewport corrections last but preserves its global header", asy
   assert.ok(html.indexOf("story-reels-viewport-fix.css")>html.indexOf("home-hybrid.css"));
   assert.match(html,/data-site-header/);
 });
-test("official Instagram iframe is visually clipped rather than scraped into a fake native video", async () => {
+test("official Instagram iframe is not zoomed, cropped or scraped into a fake native video", async () => {
   const [js,css]=await Promise.all([read("src/home-hybrid-reels.js"),read("assets/css/pages/story-reels-viewport-fix.css")]);
   assert.match(js,/is-instagram-embed/);
   assert.match(js,/make\("iframe", "looply-reel-embed"\)/);
   assert.match(css,/\.is-instagram-embed \.looply-reel-embed/);
-  assert.match(css,/transform:translateY\(10%\) scale\(2\.15\)/);
+  assert.match(css,/\.is-instagram-embed \.looply-reel-embed\s*\{[^}]*transform:none/);
+  assert.doesNotMatch(css,/scale\(2\.15\)/);
 });
 test("caption and user attribution remain without unnecessary top Reels branding", async () => {
   const [js,css] = await Promise.all([read("src/home-hybrid-reels.js"),read("assets/css/pages/story-reels-viewport-fix.css")]);

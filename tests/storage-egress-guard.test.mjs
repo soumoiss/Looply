@@ -15,12 +15,13 @@ test("gallery shows confirmed existing Neon originals when no thumbnail is avail
   assert.ok(gallery.includes('client.from("community_gallery_media").select('));
 });
 
-test("legacy upload areas retain guardrails while Stories use authorized direct object upload", async () => {
+test("upload areas retain explicit guardrails while feed and Stories use authorized direct object upload", async () => {
   const [gallery, social, stories, chat, profiles] = await Promise.all([
     read("assets/js/gallery.js"), read("src/social.js"), read("src/stories.js"),
     read("src/chat.js"), read("src/profiles.js")
   ]);
-  for (const source of [gallery, social, chat]) assert.match(source, /25 \* 1024 \* 1024/);
+  for (const source of [gallery, chat]) assert.match(source, /25 \* 1024 \* 1024/);
+  assert.match(social, /250 \* 1024 \* 1024/);
   assert.doesNotMatch(stories, /25 \* 1024 \* 1024/);
   const client = await read("src/neon-production-client.js");
   assert.match(client, /storageRequest\("upload-url"/);

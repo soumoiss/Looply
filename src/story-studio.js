@@ -139,14 +139,8 @@ function drawCover(ctx, media, w, h) {
   const sw = media.videoWidth || media.naturalWidth || w;
   const sh = media.videoHeight || media.naturalHeight || h;
   if (!sw || !sh) return;
-  // Fill the 9:16 canvas with a softened backdrop, then preserve the entire
-  // source image/video in the foreground. No automatic crop or zoom.
-  const cover = Math.max(w / sw, h / sh) * 1.12;
-  const coverW = sw * cover, coverH = sh * cover;
-  ctx.save();
-  ctx.filter = "blur(28px) brightness(.58)";
-  ctx.drawImage(media, (w - coverW) / 2, (h - coverH) / 2, coverW, coverH);
-  ctx.restore();
+  // Preserve the whole source frame. The unused area stays black instead of
+  // being filled by a zoomed/blurred duplicate of the image.
   const contain = Math.min(w / sw, h / sh);
   const drawW = sw * contain, drawH = sh * contain;
   ctx.drawImage(media, (w - drawW) / 2, (h - drawH) / 2, drawW, drawH);
@@ -281,14 +275,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const sourceW = video.videoWidth, sourceH = video.videoHeight;
     if (!sourceW || !sourceH) throw new Error("A câmera ainda não está pronta.");
     const factor = zoomMode === "digital" ? settings.zoom : 1;
-    // Match the full-screen CSS camera preview exactly: crop to the current
-    // 9:16 viewport first, then apply the selected digital zoom within it.
-    // Neither photo nor recorded video should inherit blurred letterboxing.
-    // Encode 1080×1920 without deforming the source image.
-    const frame = cameraCoverCrop(sourceW, sourceH, canvas.width, canvas.height);
+    // Encode a 9:16 file without inventing pixels or cropping the camera sensor.
+    // Landscape/square sensors are fitted inside the portrait canvas; this is
+    // the only way to keep the exact field of view without artificial zoom.
+    const frame = containRect(sourceW, sourceH, canvas.width, canvas.height);
     if (!frame) throw new Error("Não foi possível preparar o enquadramento.");
-    const cropW = frame.width / factor, cropH = frame.height / factor;
-    const sx = frame.x + (frame.width - cropW) / 2, sy = frame.y + (frame.height - cropH) / 2;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const cropW = sourceW / factor, cropH = sourceH / factor;
+    const sx = (sourceW - cropW) / 2, sy = (sourceH - cropH) / 2;
     const drawLayer = layer => {
       const scaleX = layer.width / sourceW, scaleY = layer.height / sourceH;
       ctx.save();
@@ -297,11 +292,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         ctx.scale(-1, 1);
       }
       ctx.drawImage(layer, sx * scaleX, sy * scaleY, cropW * scaleX, cropH * scaleY,
-        0, 0, canvas.width, canvas.height);
+        frame.x, frame.y, frame.width, frame.height);
       ctx.restore();
     };
     drawLayer(video);
-    if (lens.width && lens.height) drawLayer(lens);
+    // An empty WebGL/canvas layer may be opaque black on Android. Composite it
+    // only while a real, prepared face lens is active.
+    if (settings.face !== "none" && lensReady && lens.width && lens.height) drawLayer(lens);
   };
   const stopCamera = () => {
     if (recorder?.state === "recording") recorder.stop();
@@ -349,8 +346,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       } catch { /* Inaccessible sensor zoom: pinch uses the digital fallback. */ }
     }
     video.srcObject = stream;
-    // The front camera is the sole video layer: no second blurred playback
-    // or top/bottom filler. The preview uses object-fit: cover.
+    // The front camera is the sole video layer: no duplicate blurred playback
+    // and no automatic crop/zoom.
     backdropVideo.srcObject = null;
     updateZoomPreview();
     video.style.filter = "none";
@@ -362,7 +359,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if(settings.face!=="none"){
       const current=face;
       void current.prepare().then(ok=>{
-        if(ok&&face===current)void current.setLens(selectedManifest);
+      if(ok&&face===current){lensReady=true;void current.setLens(selectedManifest);}
       });
     }
   };
@@ -1070,6 +1067,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       if(!ok)throw new Error("O rastreamento facial não foi iniciado neste aparelho.");
       if(ticket!==lensSelection||face!==current)return;
       selectedManifest=manifest;settings.face=item.id;
+      lensReady=true;
       await current.setLens(manifest);
       renderLensCatalog(availableEffects);
       status("Lente "+item.name+" ativada.");

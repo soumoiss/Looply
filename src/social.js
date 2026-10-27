@@ -410,7 +410,11 @@ const mediaExtensions = new Map([
   ["video/mp4", "mp4"], ["video/webm", "webm"]
 ]);
 const mediaMimeTypesByExtension = new Map([...mediaExtensions].map(([mimeType, extension]) => [extension, mimeType]));
-const maxMediaBytes = 25 * 1024 * 1024;
+// The previous 25 MB browser-side gate was arbitrary. The signed Neon Storage
+// upload path accepts substantially larger objects without proxying their bytes
+// through the application function. Keep a 10x safety ceiling so accidental
+// multi-gigabyte selections still fail locally and predictably.
+const maxMediaBytes = 250 * 1024 * 1024;
 const maxMediaCount = 8;
 const maxCommentMediaCount = 4;
 
@@ -512,7 +516,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       <button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>
       <label for="postBody">Legenda</label>
       <textarea id="postBody" name="body" maxlength="2200" placeholder="Escreva uma legenda (opcional)"></textarea>
-      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>até 8 arquivos, 25 MB por arquivo</span></label>
+      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>carrossel com até 8 arquivos, 250 MB por arquivo</span></label>
       <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">
       <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
       <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
