@@ -800,6 +800,32 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh, isAdmin);
   cleanupExpiredStories(client);
 
+  const actionStatus = (message, error = false) => {
+    const messageNode = viewer.querySelector("[data-story-action-status]");
+    if (!messageNode) return;
+    messageNode.textContent = message;
+    messageNode.dataset.error = String(error);
+    messageNode.hidden = !message;
+  };
+  const shareCurrentStory = async () => {
+    const story = currentStory();
+    if (!story) return;
+    const url = new URL("home.html", window.location.href);
+    url.searchParams.set("storyId", story.id);
+    const data = { title: "Story no Loooply", text: "Veja este Story no Loooply", url: url.href };
+    try {
+      if (navigator.share) {
+        await navigator.share(data);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url.href);
+        actionStatus("Link copiado. Somente quem tem permissão poderá visualizar.");
+      } else {
+        actionStatus("Link do Story: "+url.href);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") actionStatus("Não foi possível compartilhar agora.", true);
+    }
+  };
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");
@@ -849,6 +875,79 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     if (event.target.closest("[data-story-close]")) {
       closeStoryDialog(viewer);
+      return;
+    }
+    if (event.target.closest("[data-story-share]")) {
+      await shareCurrentStory();
+      return;
+    }
+    if (event.target.closest("[data-story-reply-focus]")) {
+      const input=viewer.querySelector("[data-story-reply] input");
+      input?.focus();
+      return;
+    }
+    if (event.target.closest("[data-story-more]")) {
+      const panel=viewer.querySelector("[data-story-owner-menu]");
+      panel.hidden=!panel.hidden;
+      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded",String(!panel.hidden));
+      return;
+    }
+    if (event.target.closest("[data-story-more-close]")) {
+      viewer.querySelector("[data-story-owner-menu]").hidden=true;
+      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded","false");
+      return;
+    }
+    if (event.target.closest("[data-story-save]")) {
+      const story=currentStory();
+      if (!story || (story.author_id!==userId && !isAdmin)) return;
+      const media=Array.isArray(story.media)?story.media[0]:story.media;
+      const src=rawSignedUrl(media?.signedUrl);
+      if (!src) {actionStatus("Mídia indisponível para salvar.",true);return;}
+      try {
+        const response=await fetch(src,{credentials:"omit"});
+        if(!response.ok)throw Error("download unavailable");
+        const blob=await response.blob();
+        if(!blob.size)throw Error("empty media");
+        const temporary=URL.createObjectURL(blob);
+        const anchor=document.createElement("a");
+        anchor.href=temporary;
+        anchor.download="looply-story-"+story.id+(media?.kind==="video"?".webm":".jpg");
+        document.body.append(anchor);anchor.click();anchor.remove();
+        setTimeout(()=>URL.revokeObjectURL(temporary),15000);
+        actionStatus("Download iniciado.");
+      } catch (error) {actionStatus("Não foi possível salvar esta mídia neste navegador.",true);}
+      viewer.querySelector("[data-story-owner-menu]").hidden=true;
+      return;
+    }
+    if (event.target.closest("[data-story-mention-add]")) {
+      const story=currentStory();
+      if (!story || story.author_id!==userId) {actionStatus("Apenas o autor pode adicionar menções.",true);return;}
+      if (story.visibility==="private") {actionStatus("Menções não são permitidas em Stories privados.",true);return;}
+      const selector=viewer.querySelector("[data-story-mention-person]");
+      [...selector.options].forEach(option=>{if(option.value)option.disabled=option.value===userId;});
+      viewer.querySelector("[data-story-mention-dialog]").hidden=false;
+      clearTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-mention-cancel]")) {
+      viewer.querySelector("[data-story-mention-dialog]").hidden=true;
+      resumeStoryTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-mention-confirm]")) {
+      const story=currentStory();
+      const selector=viewer.querySelector("[data-story-mention-person]");
+      if (!story || story.author_id!==userId || !selector?.value)return;
+      const button=viewer.querySelector("[data-story-mention-confirm]");
+      button.disabled=true;
+      try {
+        const {error}=await client.rpc("v5_add_story_mentions",{p_story_id:story.id,p_user_ids:[selector.value]});
+        if(error)throw error;
+        viewer.querySelector("[data-story-mention-dialog]").hidden=true;
+        actionStatus("Menção adicionada. A notificação será processada pelo servidor.");
+        resumeStoryTimer();
+      }catch(error){actionStatus("Não foi possível mencionar esse perfil. Confira a privacidade do Story.",true);}
+      finally{button.disabled=false;}
       return;
     }
     if (event.target.closest("[data-story-prev]")) {
