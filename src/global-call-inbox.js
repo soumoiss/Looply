@@ -2,7 +2,7 @@
 // of the active tab. Cloudflare's WebSockets still provide the faster push path.
 // This poll is only a recovery path when WebSockets cannot connect on mobile.
 const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const EVENT_TYPES = new Set(["offer","hangup","decline","failed"]);
+const EVENT_TYPES = new Set(["ring","offer","hangup","decline","failed"]);
 export function startGlobalCallInbox({
   dataApiUrl, getSession, onEvent, onError = () => {},
   fetcher = (...args) => fetch(...args),
