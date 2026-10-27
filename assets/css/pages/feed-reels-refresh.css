@@ -1,0 +1,22 @@
+/* Looply Feed + Reels visual refresh — keeps existing Neon/Cloudflare actions. */
+.page-home .social-area {min-width:0;max-width:100%}
+.page-home .post-card.ig-post {width:min(100%,470px);max-width:470px;margin:0 auto 22px;overflow:hidden;border:1px solid var(--border,#ddd);border-radius:13px;background:var(--surface,#fff);box-shadow:0 3px 14px #2111290b}
+.page-home .ig-post-header {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px}
+.page-home .ig-post .post-avatar {width:34px;height:34px;flex:0 0 34px;border-radius:50%;overflow:hidden}
+.page-home .ig-post .post-media-grid {display:block;min-width:0;margin:0;padding:0;overflow:hidden}
+.page-home .ig-post .post-media {position:relative;width:100%;aspect-ratio:4/5;max-height:75dvh;margin:0;overflow:hidden;background:#09070d;border:0;border-radius:0}
+.page-home .ig-post .post-media img,.page-home .ig-post .post-media video {display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:0}
+.page-home .ig-post .post-media figcaption {position:absolute;bottom:0;left:0;right:0;padding:7px 12px;background:#0009;color:#fff}
+.page-home .ig-post .post-external-inline {margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.page-home .ig-post .post-external-inline .post-external-embed {width:100%;aspect-ratio:4/5;max-height:75dvh;margin:0;padding:0;overflow:hidden;border:0;border-radius:0;background:#000}
+.page-home .ig-post .post-external-inline iframe {display:block;width:100%;height:100%;min-height:0;max-width:100%;border:0}
+.page-home .ig-post .post-external-unavailable {padding:18px;font-size:13px;color:var(--muted)}
+.page-home .ig-post .ig-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 13px}
+.page-home .ig-post .post-icon-button {min-width:36px;min-height:38px}
+.page-home .ig-post .post-body {padding:8px 15px;overflow-wrap:anywhere}
+.page-home .ig-post .ig-comments {padding:10px 14px 14px}
+.page-home .ig-post .post-comments .comment-list {max-width:100%}
+.page-home .ig-post .comment-media-grid video {width:88px;height:88px;object-fit:cover;border-radius:12px}
+.page-home .ig-post .comment-media-grid a {width:88px;height:88px;border-radius:12px}
+.page-home .post-card,.page-home .post-media-grid,.page-home .post-external {min-width:0;max-width:100%;box-sizing:border-box}
+@media(max-width:480px){.page-home .post-card.ig-post{width:100%;border-left:0;border-right:0;border-radius:0}.page-home .ig-post .post-media{max-height:75dvh}}
