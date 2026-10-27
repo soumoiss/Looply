@@ -68,7 +68,7 @@ export function storyStudioMarkup(recipientOptions) {
             '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⟳</button>' +
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
-            '<button type="button" data-studio-post>POST</button><b>STORY</b><button type="button" data-studio-reel title="Abrir Reels do Feed">REEL</button><span aria-disabled="true" title="Transmissões ao vivo ainda não disponíveis">LIVE</span>' +
+            '<button type="button" data-studio-post>POST</button><b>STORY</b>' +
           '</nav>' +
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
@@ -78,7 +78,7 @@ export function storyStudioMarkup(recipientOptions) {
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
-          '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
+
           '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">♫<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
           '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
           '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">⌄</button>' +
