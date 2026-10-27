@@ -212,7 +212,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (!container || !checkbox) return;
     const allowed = $("[data-studio-visibility]").value === "public"
       && (sourceKind === "image" || sourceKind === "video");
-    container.hidden = mode !== "edit" || !allowed;
+    container.hidden = mode !== "edit" || !allowed || Boolean(repostSourceId);
     checkbox.disabled = !allowed || Boolean(repostSourceId);
     if (!allowed || repostSourceId) checkbox.checked = false;
     const attribution = $("[data-studio-repost-source]");
