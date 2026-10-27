@@ -36,3 +36,17 @@ test("viewer restores focus to the opening control after closing", () => {
   assert.match(gallery, /viewerTrigger/);
   assert.match(gallery, /trigger\?\.focus\(\)/);
 });
+
+
+test("gallery uses heart for likes, star only for administrative pinning and compact accessible actions",()=>{
+  const icons = gallery.match(/icon\(x\.likedByMe\s*\?\s*"heartFilled"\s*:\s*"heart"\)/);
+  assert.ok(icons,"gallery likes must use heart icons");
+  assert.match(gallery,/icon\("starFilled"\)/,"pinned media must keep a distinct star");
+  assert.match(gallery,/data-viewer-like aria-label="Curtir foto"/);
+  assert.match(gallery,/data-open-photo-adjust aria-label="Editar foto"/);
+  assert.match(gallery,/data-toggle-menu aria-label="Mais opções"/);
+  assert.match(gallery,/setAttribute\("aria-label",x\.likedByMe\?"Remover curtida da foto":"Curtir foto"\)/);
+  assert.match(styles,/Mobile gallery viewer: accessible icon actions/);
+  assert.match(styles,/\.gallery-viewer-bottom \.gallery-viewer-action > span\s*\{[^}]*clip-path: inset\(50%\)/s);
+  assert.match(styles,/padding-bottom: max\(10px, env\(safe-area-inset-bottom\)\)/);
+});
