@@ -84,7 +84,30 @@ export function openHybridReels(root, startKey) {
       media.referrerPolicy = "strict-origin-when-cross-origin";
       media.allowFullscreen = true;
     }
-    slide.append(media); track.append(slide);
+    slide.append(media);
+    if (source.kind === "embed") {
+      // Third-party cross-origin iframes swallow swipe events. Keep their player
+      // clickable in the center, and offer transparent gesture strips on either
+      // side for native vertical Reel navigation without scraping video files.
+      for (const edge of ["left", "right"]) {
+        const lane = make("div", "looply-embed-swipe-lane is-" + edge);
+        lane.setAttribute("aria-hidden", "true");
+        let touchStart = null;
+        lane.addEventListener("touchstart", event => {
+          touchStart = event.touches[0]?.clientY ?? null;
+        }, { passive:true });
+        lane.addEventListener("touchend", event => {
+          if (touchStart === null) return;
+          const diff = touchStart - (event.changedTouches[0]?.clientY ?? touchStart);
+          touchStart = null;
+          if (Math.abs(diff) < 45) return;
+          const current = slides.findIndex(item => item.slide === slide);
+          if (current >= 0) navigate(current + (diff > 0 ? 1 : -1));
+        }, { passive:true });
+        slide.append(lane);
+      }
+    }
+    track.append(slide);
     return { ...source, slide, video: source.kind === "video" ? media : null, frame: source.kind === "embed" ? media : null };
   });
   let activeIndex = -1, soundOn = false, closed = false, scrollTimer = null;
