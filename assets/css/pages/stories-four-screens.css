@@ -227,3 +227,5 @@
              linear-gradient(0deg,transparent calc(50% - 1px),#ffffffb3 50%,transparent calc(50% + 1px));
   pointer-events:none;
 }
+
+.story-viewer-dialog .story-close-friends-indicator[hidden]{display:none!important;}
