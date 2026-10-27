@@ -76,7 +76,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
         body:JSON.stringify({conversation_id:conversationId})
       });
-      if (!response.ok) throw Error(response.status === 403 ? "realtime_membership_required" : "realtime_ticket_unavailable_"+response.status);
+      if (!response.ok) {\n        const detail = await response.json().catch(() => ({}));\n        const code = /^[a-z_]{3,80}$/.test(detail?.error || "") ? detail.error : "unknown";\n        throw Error("realtime_ticket_http_"+response.status+"_"+code);\n      }
       const ticket = await response.json();
       if (!/^[a-f0-9]{64}$/.test(ticket?.ticket || "")) throw Error("invalid_realtime_ticket");
       const WebSocketClass = Socket || globalThis.WebSocket;
