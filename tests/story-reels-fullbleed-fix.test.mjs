@@ -89,3 +89,12 @@ test("caption and user attribution remain without unnecessary top Reels branding
   assert.match(js, /data-reels-caption/);
   assert.match(css,/\.looply-reels-audio\s*\{\s*display:none/);
 });
+
+test("cross-origin Reel frame keeps playback center interactive and permits swipe from either edge", async () => {
+  const [source,css]=await Promise.all([read("src/home-hybrid-reels.js"), read("assets/css/pages/story-reels-viewport-fix.css")]);
+  assert.match(source,/for \(const edge of \["left", "right"\]\)/);
+  assert.match(source,/lane\.addEventListener\("touchend"/);
+  assert.match(source,/navigate\(current \+ \(diff > 0 \? 1 : -1\)\)/);
+  assert.match(css,/\.looply-embed-swipe-lane \{/);
+  assert.match(css,/width:13%/);
+});
