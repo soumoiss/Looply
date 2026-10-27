@@ -218,6 +218,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
+  // Start call subscriptions and the Neon inbox as soon as the signed-in
+  // identity is known, not after slow Home/Stories/Music/Letters data loads.
+  // The same global listener runs on every authenticated Looply page.
+  setupGlobalCallListener(supabase, user.id, profile);
   const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
@@ -285,10 +289,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     .catch((error) => console.warn("Looply global announcements could not start", error));
 
   void mountLetterEventNotices(supabase,user,page);
-
-  // Listen for direct-call offers from every conversation the signed-in user belongs to,
-  // even when the user is browsing a different page.
-  setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
     clearTimeout(badgeTimer);
