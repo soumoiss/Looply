@@ -644,6 +644,26 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-delete]").hidden = !canDelete;
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
     viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
+    const repostPermissionButton = viewer.querySelector("[data-story-repost-permission]");
+    const canManageReposts = story.author_id === userId && story.visibility === "public"
+      && media && ["image", "video"].includes(media.kind);
+    if (repostPermissionButton) {
+      repostPermissionButton.hidden = !canManageReposts;
+      repostPermissionButton.disabled = false;
+      repostPermissionButton.setAttribute("aria-pressed", story.allow_reposts === true ? "true" : "false");
+      repostPermissionButton.textContent = story.allow_reposts === true
+        ? "Desativar republicação" : "Permitir republicação";
+    }
+    const repostButton = viewer.querySelector("[data-story-repost]");
+    if (repostButton) repostButton.hidden = !canRepostStory(story, userId);
+    const attribution = viewer.querySelector("[data-story-repost-attribution]");
+    if (attribution) {
+      const sourceAuthor = story.repostOf?.author;
+      attribution.hidden = !story.repostOf;
+      attribution.textContent = story.repostOf
+        ? "Republicado de @" + String(sourceAuthor?.username || "perfil")
+        : "";
+    }
     const insightsButton = viewer.querySelector("[data-story-insights-open]");
     if (insightsButton) insightsButton.setAttribute("aria-label", isAdmin && story.author_id !== userId ? "Ver visualizações do story do membro" : "Ver visualizações");
     viewer.querySelector("[data-story-reply-actions]").hidden = story.author_id === userId;
@@ -758,7 +778,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const refresh = async () => {
     try {
-      state.groups = groupActiveStories(await loadStories(client));
+      state.groups = groupActiveStories(await loadStories(client, userId));
       renderList();
       if (state.active) {
         const replacement = state.groups.find((group) => group.author_id === state.active.author_id);
@@ -804,6 +824,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   refreshers.set(root, refresh);
   root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh, isAdmin);
+  root.__looplyStudioOpenWithMedia = root.__looplyStudioStop.openWithMedia;
   cleanupExpiredStories(client);
 
   root.addEventListener("click", async (event) => {
@@ -838,7 +859,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (!current) return;
       try {
         showStatus("Carregando mídia do story…");
-        const refreshed = await loadStories(client);
+        const refreshed = await loadStories(client, userId);
         state.groups = groupActiveStories(refreshed);
         const group = state.groups.find((item) => item.author_id === current.author_id);
         const nextStory = group?.stories.find((item) => item.id === current.id);
@@ -895,6 +916,68 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         status.textContent = "Não foi possível registrar sua curtida. Tente novamente.";
       } finally {
         state.likePending.delete(story.id);
+        button.disabled = false;
+      }
+      return;
+    }
+    if (event.target.closest("[data-story-repost-permission]")) {
+      const story = currentStory();
+      const button = viewer.querySelector("[data-story-repost-permission]");
+      const media = Array.isArray(story?.media) ? story.media[0] : story?.media;
+      if (!story || story.author_id !== userId || story.visibility !== "public"
+          || !media || !["image", "video"].includes(media.kind)) return;
+      const nextValue = story.allow_reposts !== true;
+      button.disabled = true;
+      try {
+        const { data, error } = await client.rpc("v6_set_story_repost_permission", {
+          p_story_id: story.id, p_allow: nextValue
+        });
+        if (error || data !== true) throw error || new Error("story_repost_permission_not_confirmed");
+        story.allow_reposts = nextValue;
+        button.setAttribute("aria-pressed", String(nextValue));
+        button.textContent = nextValue ? "Desativar republicação" : "Permitir republicação";
+        showStatus(nextValue
+          ? "Pessoas mencionadas podem republicar este Story enquanto ele estiver público e ativo."
+          : "A republicação foi desativada; as cópias existentes deixam de aparecer para outras pessoas.");
+      } catch (error) {
+        console.error("Looply story repost permission failed.", error);
+        showStatus("Não foi possível atualizar a permissão de republicação.", true);
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
+    if (event.target.closest("[data-story-repost]")) {
+      const story = currentStory();
+      const button = viewer.querySelector("[data-story-repost]");
+      const media = Array.isArray(story?.media) ? story.media[0] : story?.media;
+      if (!story || !media?.storage_path || !canRepostStory(story, userId)) return;
+      button.disabled = true;
+      try {
+        const { data: blob, error } = await client.storage.from("looply-media").download(media.storage_path);
+        if (error || !(blob instanceof Blob)) throw error || new Error("story_media_download_failed");
+        if (blob.size !== Number(media.byte_size) || blob.size < 1 || blob.size > 100 * 1024 * 1024) {
+          throw new Error("story_media_size_mismatch");
+        }
+        const mime = blob.type || media.mime_type;
+        if (mime !== media.mime_type || !["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"].includes(mime)) {
+          throw new Error("story_media_type_mismatch");
+        }
+        const extension = mime === "image/png" ? ".png" : mime === "image/webp" ? ".webp"
+          : mime === "video/webm" ? ".webm" : mime === "video/mp4" ? ".mp4" : ".jpg";
+        const file = new File([blob], "story-repost-" + story.id + extension, { type: mime });
+        const author = story.author?.username ? "@" + story.author.username : profileName(story.author);
+        closeStoryDialog(viewer);
+        const openRepostEditor = root.__looplyStudioOpenWithMedia;
+        if (typeof openRepostEditor !== "function") throw new Error("story_editor_unavailable");
+        await openRepostEditor(file, { originalStoryId: story.id, originalAuthor: author });
+      } catch (error) {
+        console.error("Looply Story repost failed.", {
+          code: error?.code || "unknown",
+          message: error?.message || "unknown"
+        });
+        showStatus("Não foi possível preparar este Story para republicação. Verifique a conexão e tente novamente.", true);
+      } finally {
         button.disabled = false;
       }
       return;
@@ -1096,6 +1179,7 @@ export function disposeStoriesRealtime(client, root) {
     delete root.__looplyStoryStop;
     root.__looplyStudioStop?.();
     delete root.__looplyStudioStop;
+    delete root.__looplyStudioOpenWithMedia;
     root.__looplyStoryClose?.();
     delete root.__looplyStoryClose;
     delete root.__looplyRefreshStoryInsights;
