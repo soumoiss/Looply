@@ -481,6 +481,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     chunks = [];
     recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
     recorder.onstop = async () => {
+      handsfreeRecording = false;
+      $("[data-studio-handsfree]")?.setAttribute("aria-pressed","false");
       cancelAnimationFrame(frames);
       captureStream?.getTracks().forEach(track => { if (!stream?.getTracks().includes(track)) track.stop(); });
       stopRecordingTimer();
