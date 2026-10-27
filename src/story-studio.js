@@ -639,7 +639,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       [...people.options].forEach(o => { o.selected = ids.includes(o.value); });
       $("[data-studio-visibility]").value = "selected"; modalClose();
       $("[data-studio-friends]").classList.add("is-selected");
-      status("Story para " + ids.length + " pessoas selecionadas.");
+      status("Publicando para " + ids.length + " pessoas selecionadas…");
+      void publish();
     };
   };
   const openMentions = () => {
