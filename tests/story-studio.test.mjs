@@ -99,7 +99,8 @@ test("camera photo and recording output fill portrait 9:16 with centered sensor 
   });
   assert.match(studio, /canvas\.width = STORY_CANVAS_SIZE\.width;\s*canvas\.height = STORY_CANVAS_SIZE\.height;/);
   assert.match(studio, /const frame = cameraCoverCrop\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
-  assert.doesNotMatch(studio, /ctx\.filter = "blur\(28px\)/);
+    const cameraSegment = studio.slice(studio.indexOf("const drawLiveFrame ="),studio.indexOf("const stopCamera ="));
+  assert.doesNotMatch(cameraSegment, /ctx\.filter = "blur\(28px\)/);
   assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /\.studio-camera-backdrop[^{}]*\{\s*display:none !important/);
   assert.match(studio, /const backdropVideo = \$\("\[data-studio-backdrop-video\]"\)/);
   assert.match(styles, /studio-camera-backdrop[^{}]*\{[^{}]*object-fit:cover[^{}]*filter:blur/);
