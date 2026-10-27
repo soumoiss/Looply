@@ -126,3 +126,28 @@ test("Cloudflare Durable Object enforces membership, one-time tickets and room-s
   assert.match(source,/payload\.event === "ttt"/);
   assert.match(source,/\"candidate\", \"hangup\", \"decline\", \"failed\"/);
 });
+
+test("incoming messages invalidate only the authorized active conversation from Neon",async()=>{
+  const {bridge}=harness();
+  const channel=bridge.channel("looply-chat-"+conv);
+  const received=[];
+  channel.on("broadcast",{event:"invalidate"},({payload})=>received.push(payload));
+  await new Promise((resolve,reject)=>channel.subscribe((status,err)=>status==="SUBSCRIBED"?resolve():status==="CHANNEL_ERROR"?reject(err):null));
+  const socket=MockSocket.instances.at(-1);
+  assert.equal(await channel.send({type:"broadcast",event:"invalidate",payload:{}}),"ok");
+  assert.deepEqual(socket.sent.at(-1),{type:"invalidate"});
+  socket.emit("message",{data:JSON.stringify({type:"invalidate",user_id:member})});
+  assert.equal(received.length,1);
+  assert.equal(received[0].senderId,member);
+  assert.equal(received[0].conversationId,conv);
+  await channel.unsubscribe();
+});
+test("chat persistence announces only after Neon commits and refreshes the authorized conversation",async()=>{
+ const src=await read("src/chat.js");
+ assert.match(src,/looply:chat-message-saved/);
+ assert.match(src,/looply:conversation-activated/);
+ assert.match(src,/client\.channel\(\`looply-chat-\$\{conversationId\}\`\)/);
+ assert.match(src,/event: "invalidate"/);
+ assert.match(src,/await openConversation\(root, client, conversationId, userId\)/);
+ assert.match(src,/25000/);
+});
