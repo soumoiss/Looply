@@ -210,5 +210,44 @@ export default { async fetch(request) {
     const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
     return json({ signedUrl: signed.url }, 200, headers);
   }
+  if (url.pathname.endsWith("/storage/download") && request.method === "POST") {
+    // Repost copying is limited to visible Story media. The source is fetched
+    // server-side so the browser never depends on object-store CORS settings.
+    if (bucket !== "looply-media" || !/^stories\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|mp4|webm)$/i.test(path)) {
+      return json({ error: "story_media_only" }, 400, headers);
+    }
+    if (!(await canSignObject(request.headers.get("authorization"),profileId,bucket,path))) {
+      return json({ error: "object_not_visible" }, 403, headers);
+    }
+    const metadataUrl = new URL(process.env.NEON_DATA_API_URL + "/story_media");
+    metadataUrl.search = new URLSearchParams({ select: "byte_size,mime_type", storage_path: "eq." + path, limit: "1" });
+    const metadataResponse = await fetch(metadataUrl, {
+      headers: { authorization: request.headers.get("authorization"), accept: "application/json" },
+      cache: "no-store"
+    });
+    const metadataRows = metadataResponse.ok ? await metadataResponse.json().catch(() => []) : [];
+    const metadata = Array.isArray(metadataRows) ? metadataRows[0] : null;
+    const byteSize = Number(metadata?.byte_size);
+    const mime = String(metadata?.mime_type || "").toLowerCase();
+    if (!metadata || !Number.isSafeInteger(byteSize) || byteSize < 1 || byteSize > 100 * 1024 * 1024 || !mediaMime.test(mime)) {
+      return json({ error: "story_media_unavailable" }, 404, headers);
+    }
+    const signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: 120 });
+    const source = await fetch(signed.url, { signal: AbortSignal.timeout(20000), cache: "no-store" });
+    if (!source.ok) return json({ error: "story_media_download_failed" }, 502, headers);
+    const contentLength = Number(source.headers.get("content-length") || byteSize);
+    if (!Number.isSafeInteger(contentLength) || contentLength !== byteSize) {
+      await source.body?.cancel();
+      return json({ error: "story_media_size_mismatch" }, 502, headers);
+    }
+    const bytes = await source.arrayBuffer();
+    if (bytes.byteLength !== byteSize || bytes.byteLength > 100 * 1024 * 1024) {
+      return json({ error: "story_media_size_mismatch" }, 502, headers);
+    }
+    return new Response(bytes, { status: 200, headers: {
+      ...headers, "content-type": mime, "content-length": String(byteSize),
+      "cache-control": "no-store", "x-content-type-options": "nosniff"
+    } });
+  }
   return json({ error: "not_found" }, 404, headers);
 } };

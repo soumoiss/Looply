@@ -79,6 +79,8 @@ export function storyStudioMarkup(recipientOptions) {
         '</div>' +
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
+          '<p class="studio-repost-source" data-studio-repost-source hidden></p>' +
+          '<label class="studio-repost-permission" data-studio-repost-permission hidden><input type="checkbox" data-studio-allow-reposts><span><strong>Permitir republicação</strong><small>Quem você mencionar poderá adicionar este Story ao próprio Story.</small></span></label>' +
           '<div class="studio-publish-row">' +
             '<button type="button" class="studio-pill" data-studio-publicar>Seu story</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
@@ -180,6 +182,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
   let selectedMentionIds = [];
+  let repostSourceId = null;
+  let repostSourceAuthor = "";
   let stopMusicPreview = () => {};
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
@@ -201,6 +205,23 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     $("[data-studio-background]").hidden = name !== "text";
     $("[data-studio-background]").hidden = !(name === "text" || (name === "edit" && sourceKind === "text"));
     if (sourceKind === "text") $("[data-studio-background]").style.background = currentBackground;
+  };
+  const syncRepostPermission = () => {
+    const container = $("[data-studio-repost-permission]");
+    const checkbox = $("[data-studio-allow-reposts]");
+    if (!container || !checkbox) return;
+    const allowed = $("[data-studio-visibility]").value === "public"
+      && (sourceKind === "image" || sourceKind === "video");
+    container.hidden = mode !== "edit" || !allowed || Boolean(repostSourceId);
+    checkbox.disabled = !allowed || Boolean(repostSourceId);
+    if (!allowed || repostSourceId) checkbox.checked = false;
+    const attribution = $("[data-studio-repost-source]");
+    if (attribution) {
+      attribution.hidden = !repostSourceId;
+      attribution.textContent = repostSourceId
+        ? "Republicação autorizada de " + (repostSourceAuthor || "um perfil mencionado") + ". O áudio original pode não acompanhar a mídia."
+        : "";
+    }
   };
   const revokeUrl = () => { if (url) URL.revokeObjectURL(url); url = null; };
   const clearPreview = () => {
@@ -342,7 +363,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const open = async () => {
     if (active) return;
-    active = true; clearPreview(); status(""); showMode("camera");
+    active = true; repostSourceId = null; repostSourceAuthor = "";
+    clearPreview(); status(""); showMode("camera");
+    $("[data-studio-visibility]").value = "public";
+    $("[data-studio-allow-reposts]").checked = false;
+    syncRepostPermission();
     if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
     try { await startCamera(); }
     catch (error) { status(error.message || "Câmera indisponível. Use a galeria.", true); }
@@ -354,6 +379,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
     $("[data-studio-music-remove]").hidden = true;
+    repostSourceId = null; repostSourceAuthor = "";
+    $("[data-studio-allow-reposts]").checked = false;
+    syncRepostPermission();
     active = false;
     if (typeof dialog.close === "function" && dialog.open) dialog.close();
     else dialog.removeAttribute("open");
@@ -381,7 +409,24 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       if (el instanceof HTMLVideoElement) { el.autoplay = true; el.loop = true; el.muted = true; el.playsInline = true; }
       edits.append(el);
     }
-    stopCamera(); showMode("edit"); status("");
+    stopCamera(); showMode("edit"); status(""); syncRepostPermission();
+  };
+  const openWithMedia = async (mediaFile, options = {}) => {
+    if (active) throw new Error("Feche o editor atual antes de abrir esta mídia.");
+    if (!(mediaFile instanceof File) || !["image/jpeg","image/png","image/webp","video/mp4","video/webm"].includes(mediaFile.type) || mediaFile.size < 1 || mediaFile.size > 100 * 1024 * 1024) {
+      throw new Error("A mídia não pode ser usada neste Story.");
+    }
+    active = true;
+    repostSourceId = String(options.originalStoryId || "");
+    repostSourceAuthor = String(options.originalAuthor || "");
+    clearPreview();
+    status("");
+    $("[data-studio-visibility]").value = "public";
+    $("[data-studio-allow-reposts]").checked = false;
+    if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
+    showEditor(mediaFile, mediaFile.type.startsWith("video/") ? "video" : "image");
+    syncRepostPermission();
+    return true;
   };
   const createText = () => {
     stopCamera(); clearPreview(); sourceKind = "text";
@@ -593,6 +638,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       [...people.options].forEach(o => { o.selected = ids.includes(o.value); });
       $("[data-studio-visibility]").value = "selected"; modalClose();
       $("[data-studio-friends]").classList.add("is-selected");
+      syncRepostPermission();
       status("Story para " + ids.length + " pessoas selecionadas.");
     };
   };
@@ -781,6 +827,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     let storyId = null, uploadedPath = null;
     try {
       const visibility = $("[data-studio-visibility]").value;
+      const allowReposts = Boolean($("[data-studio-allow-reposts]").checked);
+      if (allowReposts && visibility !== "public") throw new Error("A republicação só pode ser ativada em um Story público.");
       const selected = [...$("[data-studio-people]").selectedOptions].map(o => o.value);
       const mentionIds = [...new Set(selectedMentionIds)];
       if (mentionIds.length && visibility === "private") throw new Error("Menções ficam disponíveis em Stories públicos ou para destinatários selecionados.");
@@ -815,6 +863,18 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         p_mime_type: normalized.type, p_byte_size: normalized.size
       });
       if (attached.error) throw attached.error;
+      if (allowReposts) {
+        const permission = await client.rpc("v6_set_story_repost_permission", {
+          p_story_id: storyId, p_allow: true
+        });
+        if (permission.error || permission.data !== true) throw permission.error || new Error("Neon não confirmou a permissão de republicação.");
+      }
+      if (repostSourceId) {
+        const linked = await client.rpc("v6_link_story_repost", {
+          p_repost_story_id: storyId, p_original_story_id: repostSourceId
+        });
+        if (linked.error || linked.data !== true) throw linked.error || new Error("Neon não confirmou a origem do repost.");
+      }
       if (mentionIds.length) {
         const mentioned = await client.rpc("v5_add_story_mentions", { p_story_id: storyId, p_user_ids: mentionIds });
         if (mentioned.error) throw mentioned.error;
@@ -903,7 +963,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       body.querySelectorAll("[data-sticker]").forEach(b => b.onclick = () => { addLayer(b.dataset.sticker, true); modalClose(); });
     },
     "[data-studio-modal-close]": modalClose,
-    "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; void publish(); },
+    "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; syncRepostPermission(); void publish(); },
     "[data-studio-friends]": openAudience
   };
   root.addEventListener("click", event => {
@@ -991,8 +1051,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   });
   dialog.addEventListener("cancel", e => { e.preventDefault(); close(); });
   dialog.addEventListener("close", () => { active = false; stopCamera(); revokeUrl(); });
-  return () => {
+  const stopStudio = () => {
     close();
     if (lastThumb) { URL.revokeObjectURL(lastThumb); lastThumb = null; }
   };
+  stopStudio.openWithMedia = openWithMedia;
+  return stopStudio;
 }

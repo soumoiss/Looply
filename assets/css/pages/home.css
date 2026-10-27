@@ -68,6 +68,20 @@
 .story-viewer-owner-actions[hidden], .story-viewer-reply-actions[hidden] { display: none; }
 .story-insights-button, .story-delete-button, .story-like-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 13px; border: 1px solid #ffffff4a; border-radius: 22px; background: #ffffff12; color: #fff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .story-delete-button { margin-left: auto; color: #ffd8dc; }
+.story-repost-permission { display:inline-flex; align-items:center; justify-content:center; min-height:40px; max-width:100%; padding:0 12px; border:1px solid #ffffff5e; border-radius:22px; background:#ffffff12; color:#fff; font:inherit; font-size:11px; font-weight:700; white-space:nowrap; }
+.story-repost-permission[aria-pressed="true"] { border-color:#6de0a0; background:#2a9d5b2e; }
+.story-repost-permission:disabled { opacity:.6; cursor:wait; }
+.story-repost-button { flex:0 0 auto; min-height:42px; padding:0 13px; border:1px solid #ffffff77; border-radius:22px; background:#ffffff18; color:#fff; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; }
+.story-repost-button:hover { background:#ffffff2c; }
+.story-repost-attribution { position:absolute; z-index:3; left:14px; bottom:calc(108px + env(safe-area-inset-bottom)); max-width:min(78%,360px); margin:0; padding:6px 10px; border:1px solid #ffffff35; border-radius:999px; background:#08080ba8; color:#fff; font-size:11px; line-height:1.3; backdrop-filter:blur(9px); }
+.story-repost-attribution[hidden] { display:none; }
+@media (max-width:380px) {
+  .story-viewer-owner-actions { flex-wrap:wrap; gap:7px; }
+  .story-repost-permission { font-size:10px; padding:0 9px; }
+  .story-viewer-reply-actions { gap:6px; }
+  .story-repost-button { max-width:52vw; overflow:hidden; text-overflow:ellipsis; }
+}
+
 .story-viewer-reply-actions { position: relative; }
 .story-like-button { flex: 0 0 auto; min-width: 88px; }
 .story-like-button [aria-hidden] { font-size: 19px; line-height: 1; }
