@@ -26,7 +26,7 @@ test("Story visual overhaul includes the four real layouts and does not duplicat
     "data-story-insights-open","data-story-share","data-story-boost",
     "data-story-highlight","data-story-mention-add","data-story-more",
     "data-story-save","data-story-delete","data-story-like",
-    "data-story-reply","data-story-reply-focus","data-story-action-status"
+    "data-story-reply","data-story-quick-reactions-toggle","data-story-quick-reaction","data-story-action-status"
   ])assert.ok(viewer.includes(control),"Missing viewer action "+control);
   assert.match(viewer,/data-story-boost disabled/);
   assert.match(viewer,/data-story-highlight disabled/);
@@ -42,11 +42,12 @@ test("Editor and viewer new actions have production handlers instead of dead dem
   ])assert.ok(studio.includes('["'+selector+'"]') || studio.includes('"['+selector+']"'),selector);
   for(const selector of [
     "data-story-share","data-story-save","data-story-more",
-    "data-story-mention-confirm","data-story-reply-focus"
+    "data-story-mention-confirm","data-story-quick-reactions-toggle"
   ])assert.ok(viewer.includes('['+selector+']'),selector);
   assert.match(viewer,/navigator\.share/);
   assert.match(viewer,/navigator\.clipboard/);
   assert.match(viewer,/v5_add_story_mentions/);
+  assert.match(viewer,/send_story_reply/);
   assert.match(studio,/data-studio-filter/);
   assert.match(studio,/FILTERS\[editFilter\]/);
   assert.match(studio,/cameraTimerSeconds/);
