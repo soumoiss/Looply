@@ -251,7 +251,7 @@ export function chatMarkup(data, userId) {
     </form>
   </details>`;
   return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle">
-    <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas e cartas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
+    <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
     <div class="chat-layout">
       <aside class="chat-sidebar">
         <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
@@ -529,7 +529,7 @@ function messageComposerMarkup(conversationId) {
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span><div><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button></header>`;
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button><span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span><div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div></header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -540,7 +540,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
-  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}">${avatar}<strong>${escapeHtml(name)}</strong><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button></header>`;
+  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(name)}</strong><small>Conversa em tempo real</small></div></header>`;
 }
 
 async function signThreadAvatar(client, participants) {
@@ -1019,10 +1019,6 @@ export function bindChatEvents(root, client, getUserId) {
     if (openButton) {
       event.preventDefault();
       const conversationId = openButton.dataset.chatOpen;
-      if (root.dataset.conversationPage !== "true") {
-        window.location.assign(`conversa.html?id=${encodeURIComponent(conversationId)}`);
-        return;
-      }
       await openConversation(root, client, conversationId, userId);
       return;
     }
@@ -1032,10 +1028,6 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_direct", targetId: startButton.dataset.chatStart } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
-        if (root.dataset.conversationPage !== "true") {
-          window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
-          return;
-        }
         activeConversationId = data.conversationId;
         await refreshChat(root, client, userId);
         await openConversation(root, client, data.conversationId, userId);
