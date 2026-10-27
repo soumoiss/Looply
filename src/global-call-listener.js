@@ -18,17 +18,19 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
   const ensureOverlay = () => {
     if (overlay?.isConnected) return overlay;
-    overlay = document.createElement("div");
+    overlay = document.createElement("dialog");
     overlay.className = "looply-global-call-notice";
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
     overlay.setAttribute("aria-labelledby", "looplyGlobalCallTitle");
     overlay.hidden = true;
+    overlay.addEventListener("cancel", event => event.preventDefault());
     overlay.innerHTML = `<section class="looply-global-call-card"><span class="looply-global-call-kicker">Looply · Chamada recebida</span><h2 id="looplyGlobalCallTitle"></h2><p data-global-call-description></p><div class="looply-global-call-actions"><button type="button" data-global-call-decline>Recusar</button><button type="button" data-global-call-accept>Atender</button></div></section>`;
     document.body.append(overlay);
     return overlay;
   };
   const hideOverlay = () => {
+    if (overlay?.open && typeof overlay.close === "function") overlay.close();
     if (overlay) overlay.hidden = true;
     incoming = null;
   };
@@ -64,6 +66,12 @@ export function setupGlobalCallListener(client, userId, profile) {
     modal.querySelector("[data-global-call-description]").textContent =
       `${name} está ligando por ${payload.mode === "video" ? "vídeo" : "áudio"}.`;
     modal.hidden = false;
+    // Native dialog is a browser top-layer surface, so even fullscreen Stories,
+    // Reels, camera and route-specific panels cannot cover an incoming call.
+    if (!modal.open) {
+      try { modal.showModal(); }
+      catch (error) { console.warn("Looply call modal fallback", error); modal.setAttribute("open", ""); }
+    }
     modal.querySelector("[data-global-call-accept]").focus();
   };
   const subscribeConversation = async (conversation) => {
