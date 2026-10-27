@@ -27,7 +27,7 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
  assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer\)/);
  assert.match(studio,/framesStream\.addTrack\(t\)/);
  assert.match(studio,/audioCtx\.state !== "running"/);
- assert.match(studio,/if\(source\) source\.start\(\)/);
+ assert.match(studio,/if\s*\(source\) source\.start\(\)/);
 });
 
 test("Story player unblocks sound without auto-pausing it on same tap, and pauses with entire Story",()=>{
