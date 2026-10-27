@@ -66,9 +66,9 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const open = async () => {
       if (!conversationId || closed) throw Error("realtime_conversation_required");
       let token = sessionToken;
-      if (!token && typeof getSession === "function") {
+      if (typeof getSession === "function") {
         const session = await getSession();
-        token = session?.access_token || "";
+        token = session?.access_token || token;
       }
       if (!token) throw Error("neon_session_required");
       const response = await fetchImpl(origin+"/api/realtime-ticket",{
