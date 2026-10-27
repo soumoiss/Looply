@@ -2,7 +2,7 @@
 // Replaces the former no-op Supabase channel compatibility adapter.
 // A Cloudflare Durable Object relays ephemeral call/game signals only after a
 // Neon-validated, one-time membership ticket. It never stores access tokens.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROOM = /^looply-(call|game)-([0-9a-f-]{36})$/i;
 const CALL_TYPES = new Set(["offer","answer","ice","hangup","decline","failed"]);
 const allowedEndpoint = endpoint => {
