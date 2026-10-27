@@ -10,7 +10,11 @@ const make = (tag, className, text) => {
 function action(name, label, glyph) {
   const button = make("button", "looply-reel-action");
   button.type = "button"; button.dataset.reelAction = name; button.setAttribute("aria-label", label);
-  button.append(make("span", "looply-reel-glyph", glyph), make("small", "looply-reel-count", ""));
+  const symbol = make("span", "looply-reel-glyph");
+  if (name === "comment") symbol.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 8.8 8.8 0 0 1-3.2-.6L4 20l1.2-4A8 8 0 1 1 20 11.5Z"/></svg>';
+  else if (name === "chat") symbol.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m21 3-8.6 18-3.6-7.8L1 9.6 21 3Z"/><path d="m9 13 12-10"/></svg>';
+  else symbol.textContent = glyph;
+  button.append(symbol, make("small", "looply-reel-count", ""));
   return button;
 }
 function relativeCount(value) {
@@ -49,15 +53,21 @@ export function openHybridReels(root, startKey) {
   const dialog = make("dialog", "looply-reels-scroll");
   dialog.dataset.reelsScroll = "";
   dialog.setAttribute("aria-label", "Reels do Looply");
-  dialog.innerHTML = '<div class="looply-reels-track" data-reels-track aria-label="Deslize para assistir aos próximos vídeos"></div><header class="looply-reels-top"><button type="button" data-reels-close aria-label="Voltar ao feed">←</button><strong>Reels <span>· Looply</span></strong><span class="looply-reels-top-space"></span></header><aside class="looply-reels-rail" data-reels-rail></aside><footer class="looply-reels-bottom"><div data-reels-creator></div><p data-reels-caption></p><div class="looply-reels-audio">♫ <span data-reels-audio>Áudio da publicação</span></div></footer><button type="button" class="looply-reels-mute" data-reels-sound aria-label="Ativar som">♪ Som</button><p class="looply-reels-message" data-reels-message role="status" aria-live="polite"></p><section class="looply-reels-comments" data-reels-comments hidden><header><strong>Comentários</strong><button type="button" data-close-reels-comments aria-label="Fechar comentários">×</button></header><div data-reels-comments-body></div></section>';
+  dialog.innerHTML = '<div class="looply-reels-track" data-reels-track aria-label="Deslize para assistir aos próximos vídeos"></div><header class="looply-reels-top"><button type="button" data-reels-close aria-label="Voltar ao feed">←</button><strong class="visually-hidden">Reels</strong></header><aside class="looply-reels-rail" data-reels-rail></aside><footer class="looply-reels-bottom"><div data-reels-creator></div><p data-reels-caption></p><div class="looply-reels-audio">♫ <span data-reels-audio>Áudio da publicação</span></div></footer><button type="button" class="looply-reels-mute" data-reels-sound aria-label="Ativar som">♪ Som</button><p class="looply-reels-message" data-reels-message role="status" aria-live="polite"></p><section class="looply-reels-comments" data-reels-comments hidden><header><strong>Comentários</strong><button type="button" data-close-reels-comments aria-label="Fechar comentários">×</button></header><div data-reels-comments-body></div></section>';
   const track = by(dialog, "[data-reels-track]");
   const rail = by(dialog, "[data-reels-rail]");
-  const actions = ["like", "comment", "repost", "share", "save", "more"];
-  const labels = { like: "Curtir", comment: "Comentários", repost: "Enviar no Looply", share: "Compartilhar", save: "Salvar", more: "Mais opções" };
-  const glyphs = { like: "♡", comment: "♧", repost: "⇄", share: "➤", save: "▯", more: "⋯" };
+  // Four real actions only: like, comment, external share, and Looply chat.
+  // Never show an inert bookmark or fake repost counter.
+  const actions = ["like", "comment", "external", "chat"];
+  const labels = { like: "Curtir", comment: "Comentários", external: "Compartilhar fora do Looply", chat: "Enviar no chat do Looply" };
+  const glyphs = { like: "♡", comment: "", external: "⇄", chat: "" };
   for (const type of actions) rail.append(action(type, labels[type], glyphs[type]));
   const slides = sources.map((source, index) => {
-    const slide = make("section", "looply-reel-slide");
+    const embedHost = source.kind === "embed" ? new URL(source.source).hostname : "";
+    const providerClass = embedHost.endsWith("instagram.com") ? " is-instagram-embed"
+      : embedHost.endsWith("tiktok.com") ? " is-tiktok-embed"
+      : embedHost.endsWith("youtube-nocookie.com") ? " is-youtube-embed" : "";
+    const slide = make("section", "looply-reel-slide" + (source.kind === "embed" ? " is-external-embed" + providerClass : ""));
     slide.dataset.reelsKey = source.key;
     slide.setAttribute("aria-label", "Vídeo " + (index + 1) + " de " + sources.length);
     const media = source.kind === "video" ? make("video", "looply-reel-video") : make("iframe", "looply-reel-embed");
@@ -74,7 +84,30 @@ export function openHybridReels(root, startKey) {
       media.referrerPolicy = "strict-origin-when-cross-origin";
       media.allowFullscreen = true;
     }
-    slide.append(media); track.append(slide);
+    slide.append(media);
+    if (source.kind === "embed") {
+      // Third-party cross-origin iframes swallow swipe events. Keep their player
+      // clickable in the center, and offer transparent gesture strips on either
+      // side for native vertical Reel navigation without scraping video files.
+      for (const edge of ["left", "right"]) {
+        const lane = make("div", "looply-embed-swipe-lane is-" + edge);
+        lane.setAttribute("aria-hidden", "true");
+        let touchStart = null;
+        lane.addEventListener("touchstart", event => {
+          touchStart = event.touches[0]?.clientY ?? null;
+        }, { passive:true });
+        lane.addEventListener("touchend", event => {
+          if (touchStart === null) return;
+          const diff = touchStart - (event.changedTouches[0]?.clientY ?? touchStart);
+          touchStart = null;
+          if (Math.abs(diff) < 45) return;
+          const current = slides.findIndex(item => item.slide === slide);
+          if (current >= 0) navigate(current + (diff > 0 ? 1 : -1));
+        }, { passive:true });
+        slide.append(lane);
+      }
+    }
+    track.append(slide);
     return { ...source, slide, video: source.kind === "video" ? media : null, frame: source.kind === "embed" ? media : null };
   });
   let activeIndex = -1, soundOn = false, closed = false, scrollTimer = null;
@@ -92,18 +125,17 @@ export function openHybridReels(root, startKey) {
     by(dialog, "[data-reels-caption]").textContent = caption?.textContent || "";
     by(dialog, "[data-reels-audio]").textContent = source.kind === "embed" ? "Player oficial · áudio controlado pelo provedor" : "Áudio da publicação";
     const like = by(card, "[data-toggle-like]");
-    const save = by(card, "[data-toggle-save]");
+    const externalShare = by(card, "[data-share-post]");
+    const chatShare = by(card, "[data-share-in-app]");
     for (const type of actions) {
       const btn = by(rail, '[data-reel-action="' + type + '"]');
-      btn.disabled = (type === "save" && !save) || (type === "repost" && !by(card, "[data-share-in-app]"));
+      btn.disabled = (type === "external" && !externalShare) || (type === "chat" && !chatShare);
       const counter = by(btn, "small");
       counter.textContent = type === "like" ? relativeCount(like?.querySelector("span")?.textContent) :
-        type === "comment" ? relativeCount(by(card, ".post-comments h3 span")?.textContent) :
-        type === "save" ? save?.getAttribute("aria-pressed") === "true" ? "Salvo" : "" : "";
-      const selected = type === "like" ? like?.getAttribute("aria-pressed") === "true" : type === "save" ? save?.getAttribute("aria-pressed") === "true" : false;
+        type === "comment" ? relativeCount(by(card, ".post-comments h3 span")?.textContent) : "";
+      const selected = type === "like" && like?.getAttribute("aria-pressed") === "true";
       btn.setAttribute("aria-pressed", String(selected));
       if (type === "like") by(btn, ".looply-reel-glyph").textContent = selected ? "♥" : "♡";
-      if (type === "save") by(btn, ".looply-reel-glyph").textContent = selected ? "▣" : "▯";
     }
   };
   const loadNear = index => {
@@ -131,6 +163,7 @@ export function openHybridReels(root, startKey) {
     loadNear(index);
     const player = slides[index].video;
     status("");
+    by(dialog, "[data-reels-comments]").hidden = true;
     sync();
     const soundButton = by(dialog, "[data-reels-sound]");
     soundButton.hidden = !player;
@@ -219,9 +252,12 @@ export function openHybridReels(root, startKey) {
     if (!card) { status("Esta publicação não está mais disponível."); return; }
     const type = control.dataset.reelAction;
     if (type === "comment") { showCommentPanel(); return; }
-    const selectors = { like: "[data-toggle-like]", save: "[data-toggle-save]", repost: "[data-share-in-app]", share: "[data-share-post]" };
-    if (selectors[type]) { const button = by(card, selectors[type]); if (button) button.click(); else status("Esta ação não está disponível."); }
-    else if (type === "more") { const link = by(card, "[data-delete-post]"); if (link) { by(dialog, "[data-reels-comments]").hidden = true; const ok = window.confirm("Excluir esta publicação do Looply?"); if (ok) link.click(); } else status("Use as opções da publicação no Feed."); }
+    const selectors = { like: "[data-toggle-like]", external: "[data-share-post]", chat: "[data-share-in-app]" };
+    if (selectors[type]) {
+      const button = by(card, selectors[type]);
+      if (button) button.click();
+      else status("Esta ação não está disponível nesta publicação.");
+    }
   });
   root.__looplyVideoAutoplayDispose?.();
   root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
