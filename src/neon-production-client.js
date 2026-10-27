@@ -6,6 +6,7 @@ import { readOwnNeonProfile } from "./neon-avatar-profile.js";
 import { invokeChatReadReceiptRpc } from "./chat-read-receipts.js";
 import { createNeonRealtimeBridge } from "./neon-realtime-bridge.js";
 import { createNeonSignalFallback } from "./neon-call-fallback.js";
+import { createGlobalCallInbox } from "./neon-global-call-inbox.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
 export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
@@ -194,13 +195,20 @@ async function chatFunctionInvoke(name,options) {
 const realtimeBridge=createNeonRealtimeBridge({
   endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
   getSession:activeSession,
-  fallback:createNeonSignalFallback({dataApiUrl:config.data,getSession:activeSession,delay:3200})
+  // The call currently open in the foreground should receive ICE and answers quickly.
+  // The global inbox separately handles all other direct conversations in one request.
+  fallback:createNeonSignalFallback({dataApiUrl:config.data,getSession:activeSession,delay:1050})
+});
+const globalCallInbox=createGlobalCallInbox({
+  dataApiUrl:config.data,getSession:activeSession,visibleDelay:850,hiddenDelay:9000
 });
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
   // Only authenticated conversation-scoped signaling is available. This does
   // NOT synthesize a Postgres change feed or replace Neon as the source of truth.
   supportsRealtime: realtimeBridge.supportsRealtime,
+  subscribeCallInbox: globalCallInbox.subscribe,
+  sendIncomingCallSignal: globalCallInbox.sendSignal,
   realtime: realtimeBridge.realtime,
   auth: Object.freeze({
     getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
