@@ -72,7 +72,8 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /zoomBase \* settings\.zoom/);
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
-  assert.match(studio, /const cropW = sourceW \/ factor/);
+  assert.match(studio, /const cropW = frame\.width \/ factor/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:cover !important/);
   assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
   assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
@@ -88,7 +89,7 @@ test("Only POST and STORY remain in camera mode navigation", async () => {
   assert.doesNotMatch(markup,/data-studio-stickers/);
 });
 
-test("camera photo and recording output use portrait 9:16 while preserving the full sensor frame", () => {
+test("camera photo and recording output fill portrait 9:16 with centered sensor crop", () => {
   assert.deepEqual(STORY_CANVAS_SIZE, { width: 1080, height: 1920 });
   assert.deepEqual(containRect(1920, 1080, 1080, 1920), {
     x: 0, y: 656.25, width: 1080, height: 607.5
@@ -97,8 +98,9 @@ test("camera photo and recording output use portrait 9:16 while preserving the f
     x: 0, y: 0, width: 1080, height: 1920
   });
   assert.match(studio, /canvas\.width = STORY_CANVAS_SIZE\.width;\s*canvas\.height = STORY_CANVAS_SIZE\.height;/);
-  assert.match(studio, /const frame = containRect\(cropW, cropH, canvas\.width, canvas\.height\)/);
-  assert.match(studio, /ctx\.filter = "blur\(28px\) brightness\(\.58\)"/);
+  assert.match(studio, /const frame = cameraCoverCrop\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
+  assert.doesNotMatch(studio, /ctx\.filter = "blur\(28px\)/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /\.studio-camera-backdrop[^{}]*\{\s*display:none !important/);
   assert.match(studio, /const backdropVideo = \$\("\[data-studio-backdrop-video\]"\)/);
   assert.match(styles, /studio-camera-backdrop[^{}]*\{[^{}]*object-fit:cover[^{}]*filter:blur/);
 });
