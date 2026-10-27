@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { STORY_CANVAS_SIZE, containRect } from "../src/story-studio.js";
+import { STORY_CANVAS_SIZE, containRect, storyCanvasSize } from "../src/story-studio.js";
 
 const read = name => readFileSync(new URL("../" + name, import.meta.url), "utf8");
 const studio = read("src/story-studio.js");
@@ -98,7 +98,13 @@ test("camera photo and recording output preserve the sensor inside portrait 9:16
   assert.deepEqual(containRect(1080, 1920, 1080, 1920), {
     x: 0, y: 0, width: 1080, height: 1920
   });
-  assert.match(studio, /canvas\.width = STORY_CANVAS_SIZE\.width;\s*canvas\.height = STORY_CANVAS_SIZE\.height;/);
+  assert.deepEqual(storyCanvasSize(), { width:1080, height:1920 });
+  assert.deepEqual(storyCanvasSize("16:9"), { width:1920, height:1080 });
+  assert.deepEqual(storyCanvasSize("3:4"), { width:1440, height:1920 });
+  assert.deepEqual(storyCanvasSize("2:5"), { width:768, height:1920 });
+  assert.deepEqual(storyCanvasSize("1:1"), { width:1080, height:1080 });
+  assert.match(studio, /const captureSize = currentCanvasSize\(\)/);
+  assert.match(studio, /layer\.videoWidth \|\| layer\.width \|\| sourceW/);
   assert.match(studio, /const frame = containRect\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
   assert.match(studio, /settings\.face !== "none" && lensReady/);
     const cameraSegment = studio.slice(studio.indexOf("const drawLiveFrame ="),studio.indexOf("const stopCamera ="));

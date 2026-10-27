@@ -10,6 +10,17 @@ const FILTERS = Object.freeze({ none:"none", glow:"brightness(1.07) contrast(1.0
 const LIMIT = 30_000;
 const escapeHtml = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 export const STORY_CANVAS_SIZE = Object.freeze({ width: 1080, height: 1920 });
+export const STORY_ASPECTS = Object.freeze({
+  "9:16": { width:1080, height:1920 },
+  "16:9": { width:1920, height:1080 },
+  "3:4": { width:1440, height:1920 },
+  "2:5": { width:768, height:1920 },
+  "1:1": { width:1080, height:1080 }
+});
+export function storyCanvasSize(ratio = "9:16") {
+  const size = STORY_ASPECTS[ratio] || STORY_ASPECTS["9:16"];
+  return { width:size.width, height:size.height };
+}
 export function containRect(sourceWidth, sourceHeight, targetWidth, targetHeight) {
   if (![sourceWidth, sourceHeight, targetWidth, targetHeight].every(value => Number.isFinite(value) && value > 0)) return null;
   const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
@@ -50,6 +61,7 @@ export function storyStudioMarkup(recipientOptions) {
         '<canvas class="studio-lens" data-studio-lens aria-hidden="true"></canvas>' +
         '<div class="studio-screen-light" data-studio-screen-light aria-hidden="true"></div>' +
         '<div class="studio-grid-lines" data-studio-grid hidden></div>' +
+        '<div class="studio-aspect-frame studio-camera-only" data-studio-aspect-frame aria-hidden="true"></div>' +
         '<div class="studio-text-background" data-studio-background hidden></div>' +
         '<div class="studio-edited-media" data-studio-edited hidden></div>' +
         '<div class="studio-overlays" data-studio-overlays></div>' +
@@ -62,6 +74,7 @@ export function storyStudioMarkup(recipientOptions) {
           '<button type="button" class="studio-icon" data-studio-text-mode aria-label="Criar story de texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-boomerang aria-label="Alternar Boomerang" aria-pressed="false">∞</button>' +
           '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade de alinhamento" aria-pressed="false">⊞</button>' +
+          '<button type="button" class="studio-icon studio-ratio-button" data-studio-ratio aria-label="Proporção da captura">9:16</button>' +
           '<button type="button" class="studio-icon" data-studio-camera-more aria-label="Mais recursos da câmera" aria-expanded="false">⌄</button>' +
           '<div class="studio-camera-extra" data-studio-camera-extra hidden>' +
             '<button type="button" class="studio-icon" data-studio-timer aria-label="Temporizador">◷</button>' +
@@ -189,7 +202,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const body = $("[data-studio-modal-body]");
   const feedback = $("[data-studio-status]");
   const caption = $("[data-studio-caption]");
-  const settings = { facing: "user", face: "none", grid: false, flash: "off", zoom: 1, maxDuration: 30000 };
+  const settings = { facing: "user", face: "none", grid: false, flash: "off", zoom: 1, ratio:"9:16", maxDuration: 30000 };
   let availableEffects = DEFAULT_STORY_EFFECTS, selectedManifest = {id:"none",type:"none",strength:0,params:{}};
   let stream = null, face = null, file = null, url = null, mode = "camera", active = false;
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
@@ -201,6 +214,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let zoomBusy = false, zoomPending = null, pinch = null;
   let cameraTimerSeconds = 0, handsfreeRecording = false;
   let collageCanvas = null, collageShots = 0;
+  const currentCanvasSize = () => storyCanvasSize(settings.ratio);
+  const applyAspect = () => {
+    const size = currentCanvasSize();
+    const frame = $("[data-studio-aspect-frame]");
+    frame.style.aspectRatio = size.width + " / " + size.height;
+    stage.dataset.aspect = settings.ratio.replace(":", "x");
+    $("[data-studio-ratio]").textContent = settings.ratio;
+    $("[data-studio-ratio]").setAttribute("aria-label", "Proporção da captura: " + settings.ratio);
+  };
+  applyAspect();
   const status = (text, bad = false) => {
     // Keep member feedback useful without exposing implementation details.
     const message = isAdmin || !bad || /Este serviço não autoriza incorporar essa música/.test(text)
@@ -285,7 +308,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const cropW = sourceW / factor, cropH = sourceH / factor;
     const sx = (sourceW - cropW) / 2, sy = (sourceH - cropH) / 2;
     const drawLayer = layer => {
-      const scaleX = layer.width / sourceW, scaleY = layer.height / sourceH;
+      // HTMLVideoElement.width/height are often zero on Android unless explicit
+      // attributes were supplied. videoWidth/videoHeight are the decoded frame.
+      const layerW = layer.videoWidth || layer.width || sourceW;
+      const layerH = layer.videoHeight || layer.height || sourceH;
+      const scaleX = layerW / sourceW, scaleY = layerH / sourceH;
       ctx.save();
       if (settings.facing === "user") {
         ctx.translate(canvas.width, 0);
@@ -418,15 +445,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     await flashPhoto();
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = STORY_CANVAS_SIZE.width;
-      canvas.height = STORY_CANVAS_SIZE.height;
+      const captureSize = currentCanvasSize();
+      canvas.width = captureSize.width;
+      canvas.height = captureSize.height;
       const ctx = canvas.getContext("2d");
       drawLiveFrame(ctx, canvas);
       if (settings.grid) {
         // Real four-shot collage, 2×2, each captured panel remains 9:16.
         if (!collageCanvas) {
           collageCanvas = document.createElement("canvas");
-          collageCanvas.width=STORY_CANVAS_SIZE.width; collageCanvas.height=STORY_CANVAS_SIZE.height;
+          collageCanvas.width=captureSize.width; collageCanvas.height=captureSize.height;
           collageCanvas.getContext("2d").fillStyle="#000";
           collageCanvas.getContext("2d").fillRect(0,0,collageCanvas.width,collageCanvas.height);
         }
@@ -489,8 +517,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const mime = videoFormat();
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
     const canvas = document.createElement("canvas");
-    canvas.width = STORY_CANVAS_SIZE.width;
-    canvas.height = STORY_CANVAS_SIZE.height;
+    const recordingSize = currentCanvasSize();
+    canvas.width = recordingSize.width;
+    canvas.height = recordingSize.height;
     const ctx = canvas.getContext("2d", { alpha: false });
     const savedFrames = [];
     const snap = document.createElement("canvas");
@@ -718,7 +747,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status(selectedMentionIds.length ? selectedMentionIds.length + " menção(ões) adicionada(s). Arraste para posicionar." : "Menções removidas.");
     };
   };
-  const makeCanvas = (w = STORY_CANVAS_SIZE.width, h = STORY_CANVAS_SIZE.height) => {
+  const makeCanvas = (w = currentCanvasSize().width, h = currentCanvasSize().height) => {
     const c = document.createElement("canvas");
     c.width = Math.min(1080, w); c.height = Math.min(1920, h);
     return c;
@@ -931,6 +960,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status(settings.grid?"Layout 2×2 ativado: capture quatro fotos.":"Layout desativado.");
     },
     "[data-studio-camera-more]": () => { const e=$("[data-studio-camera-extra]");e.hidden=!e.hidden;$("[data-studio-camera-more]").setAttribute("aria-expanded",String(!e.hidden)); },
+    "[data-studio-ratio]": () => {
+      modal("Proporção da captura", '<div class="studio-ratio-options" role="radiogroup" aria-label="Escolher proporção">' +
+        Object.keys(STORY_ASPECTS).map(ratio => '<button type="button" role="radio" aria-checked="' + String(ratio === settings.ratio) + '" data-ratio-value="' + ratio + '">' + ratio + '</button>').join("") + '</div><p class="studio-hint">9:16 é o padrão dos Stories. A imagem inteira é preservada, sem zoom automático.</p>');
+      body.querySelectorAll("[data-ratio-value]").forEach(button => button.onclick = () => {
+        settings.ratio = button.dataset.ratioValue;
+        collageCanvas=null; collageShots=0; applyAspect(); modalClose();
+        status("Proporção " + settings.ratio + " selecionada.");
+      });
+    },
     "[data-studio-editor-more]": () => { const e=$("[data-studio-editor-extra]");e.hidden=!e.hidden;$("[data-studio-editor-more]").setAttribute("aria-expanded",String(!e.hidden)); },
     "[data-studio-timer]": () => { modal("Temporizador", '<p class="studio-hint">Escolha quanto esperar antes da fotografia.</p><div class="studio-modal-actions"><button type="button" data-timer-value="0">Desligado</button><button type="button" data-timer-value="3">3 s</button><button type="button" data-timer-value="10">10 s</button></div>');body.querySelectorAll("[data-timer-value]").forEach(b=>b.onclick=()=>{cameraTimerSeconds=Number(b.dataset.timerValue);modalClose();status(cameraTimerSeconds?"Foto em "+cameraTimerSeconds+" segundos.":"Temporizador desligado.");}); },
     "[data-studio-handsfree]": () => { if(mode!=="camera")return;if(recorder?.state==="recording"){finishRecording();handsfreeRecording=false;}else{try{beginRecording();handsfreeRecording=true;}catch(error){status(error.message,true);}}$("[data-studio-handsfree]").setAttribute("aria-pressed",String(handsfreeRecording)); },
