@@ -6,7 +6,7 @@ import { openStoryMusicPicker } from "./story-music-picker.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 
-const FILTERS = Object.freeze({ none:"none" });
+const FILTERS = Object.freeze({ none:"none", glow:"brightness(1.07) contrast(1.04) saturate(1.12)", golden:"sepia(.18) saturate(1.24) contrast(1.07)", cool:"saturate(.86) hue-rotate(10deg) brightness(1.05)", mono:"grayscale(1) contrast(1.12)" });
 const LIMIT = 30_000;
 const escapeHtml = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 export const STORY_CANVAS_SIZE = Object.freeze({ width: 1080, height: 1920 });
@@ -48,7 +48,12 @@ export function storyStudioMarkup(recipientOptions) {
         '<div class="studio-side studio-camera-only">' +
           '<button type="button" class="studio-icon" data-studio-text-mode aria-label="Criar story de texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-boomerang aria-label="Alternar Boomerang" aria-pressed="false">∞</button>' +
-          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade">⊞</button>' +
+          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade de alinhamento" aria-pressed="false">⊞</button>' +
+          '<button type="button" class="studio-icon" data-studio-camera-more aria-label="Mais recursos da câmera" aria-expanded="false">⌄</button>' +
+          '<div class="studio-camera-extra" data-studio-camera-extra hidden>' +
+            '<button type="button" class="studio-icon" data-studio-timer aria-label="Temporizador">◷</button>' +
+            '<button type="button" class="studio-icon" data-studio-handsfree aria-label="Gravar sem segurar" aria-pressed="false">●</button>' +
+          '</div>' +
         '</div>' +
         '<section class="studio-camera-bottom studio-camera-only">' +
           '<div class="studio-lens-chooser" data-studio-lens-chooser aria-label="Efeitos AR para o rosto">' +
@@ -60,31 +65,33 @@ export function storyStudioMarkup(recipientOptions) {
           '<div class="studio-capture-row">' +
             '<label class="studio-gallery-button" title="Abrir galeria"><span data-studio-thumb>▧</span><input type="file" data-studio-file accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" aria-label="Selecionar da galeria"></label>' +
             '<button type="button" class="studio-shutter" data-studio-shutter aria-label="Toque para foto; segure para vídeo"><span></span></button>' +
-            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⇄</button>' +
+            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⟳</button>' +
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
-            '<button type="button" data-studio-post>POST</button><b>STORY</b>' +
+            '<button type="button" data-studio-post>POST</button><b>STORY</b><span aria-disabled="true" title="Reels disponíveis no Feed">REEL</span><span aria-disabled="true" title="Transmissões ao vivo ainda não disponíveis">LIVE</span>' +
           '</nav>' +
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
         '<header class="studio-edit-top studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-back aria-label="Voltar à câmera">←</button>' +
-          '<button type="button" class="studio-audio-pill" data-studio-music-open>♪ <span data-studio-track-label>Adicionar música</span></button>' +
+          '<button type="button" class="studio-audio-pill" data-studio-music-open aria-label="Pesquisar ou alterar música">♫ <span class="studio-audio-copy"><span data-studio-track-label>Adicionar música</span><small data-studio-track-hint>Trilha sonora</small></span></button>' +
           '<button type="button" class="studio-icon studio-audio-remove" data-studio-music-remove hidden aria-label="Remover música">×</button>' +
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
-          '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♪</button>' +
-          '<button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button>' +
+          '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♫</button>' +
+          '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
+          '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">⌄</button>' +
+          '<div class="studio-editor-extra" data-studio-editor-extra hidden><button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button></div>' +
 
         '</div>' +
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
           '<div class="studio-publish-row">' +
-            '<button type="button" class="studio-pill" data-studio-publicar>Seu story</button>' +
+            '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Seu story</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
-            '<button type="submit" class="studio-next" data-studio-send aria-label="Publicar story">➜</button>' +
+            '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">➜</button>' +
           '</div>' +
         '</div>' +
         '<div class="studio-modal" data-studio-modal hidden><section class="studio-modal-panel" data-studio-panel>' +
@@ -186,6 +193,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
+  let cameraTimerSeconds = 0, handsfreeRecording = false;
   const status = (text, bad = false) => {
     // Keep member feedback useful without exposing implementation details.
     const message = isAdmin || !bad || /Este serviço não autoriza incorporar essa música/.test(text)
@@ -360,6 +368,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopRecordingTimer(); stopCamera(); clearPreview();
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
+    $("[data-studio-track-hint]").textContent = "Trilha sonora";
     $("[data-studio-music-remove]").hidden = true;
     active = false;
     if (typeof dialog.close === "function" && dialog.open) dialog.close();
@@ -576,6 +585,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     music = track;
     $("[data-studio-track-label]").textContent = track.title;
     $("[data-studio-music-remove]").hidden = false;
+    $("[data-studio-track-hint]").textContent = track.artist || "Áudio selecionado";
     modalClose();
     if(isAdmin)status("ADM: áudio selecionado para publicação: "+track.kind+" / "+(track.provider||"local"));
   };
