@@ -145,3 +145,25 @@ test("database inbox only returns membership-authorized direct chat calls",async
   assert.match(sql,/REVOKE ALL ON FUNCTION.* FROM PUBLIC/);
   assert.match(sql,/GRANT EXECUTE.* TO authenticated/);
 });
+
+test("incoming calls are rendered in a real browser top-layer dialog, above Reels and Stories",async()=>{
+  const js=await source("src/global-call-listener.js");
+  const css=await source("assets/css/app.css");
+  assert.match(js,/overlay = document\.createElement\("dialog"\)/);
+  assert.match(js,/modal\.showModal\(\)/);
+  assert.match(js,/overlay\.close\(\)/);
+  assert.match(css,/\.looply-global-call-notice::backdrop/);
+  assert.match(css,/height:100dvh/);
+});
+test("active direct call and game establish authorized Neon channels without waiting for Cloudflare",async()=>{
+ const [bridge,calls,games]=await Promise.all([
+  source("src/neon-realtime-bridge.js"),
+  source("src/chat-calls.js"),
+  source("src/chat-enhancements.js")
+ ]);
+ assert.match(bridge,/options\?\.fastFallback === true/);
+ assert.match(bridge,/return open\(\)/);
+ assert.match(calls,/fastFallback: true/);
+ assert.match(games,/fastFallback: true/);
+ assert.match(bridge,/report\("SUBSCRIBED"\)/);
+});
