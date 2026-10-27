@@ -34,6 +34,45 @@ const blob=new Blob(chunks,{type:recorder.mimeType});out.size=blob.size;
 const bytes=new Uint8Array(await blob.arrayBuffer());let binary="";
 for(const b of bytes)binary+=String.fromCharCode(b);out.base64=btoa(binary);
 stream.getTracks().forEach(t=>t.stop());await audio.close();
+
+// Reopen the actual recorded first clip as a video input and composite a
+// second authorized soundtrack into another Story; this exercises video+music.
+const inputVideo=document.createElement("video");
+const url=URL.createObjectURL(blob);
+inputVideo.src=url;inputVideo.playsInline=true;inputVideo.preload="auto";
+await new Promise((resolve,reject)=>{
+  inputVideo.addEventListener("loadedmetadata",resolve,{once:true});
+  inputVideo.addEventListener("error",()=>reject(Error("Recorded source video did not decode")),{once:true});
+});
+const videoCanvas=document.createElement("canvas");videoCanvas.width=360;videoCanvas.height=640;
+const videoContext=videoCanvas.getContext("2d");
+const videoStream=videoCanvas.captureStream(24);
+const context2=new AudioContext();await context2.resume();
+const dest2=context2.createMediaStreamDestination();
+context2.createMediaElementSource(inputVideo).connect(dest2);
+const buffer2=context2.createBuffer(1,context2.sampleRate*3,context2.sampleRate);
+const samples2=buffer2.getChannelData(0);
+for(let i=0;i<samples2.length;i++)samples2[i]=0.18*Math.sin(i*2*Math.PI*330/context2.sampleRate);
+const soundtrack2=attachStoryMusic(context2,dest2,buffer2);
+dest2.stream.getAudioTracks().forEach(t=>videoStream.addTrack(t));
+const recorder2=new MediaRecorder(videoStream,{mimeType:mime});
+const chunks2=[];recorder2.ondataavailable=e=>{if(e.data.size)chunks2.push(e.data);};
+const finished2=new Promise(resolve=>{recorder2.onstop=resolve;});
+let paintLoop=0;
+const paint=()=>{if(inputVideo.readyState>=2)videoContext.drawImage(inputVideo,0,0,360,640);paintLoop=requestAnimationFrame(paint);};
+recorder2.start(250);
+await inputVideo.play();
+soundtrack2.start();
+paint();
+await new Promise(resolve=>setTimeout(resolve,2500));
+recorder2.stop();await finished2;
+cancelAnimationFrame(paintLoop);soundtrack2.stop();inputVideo.pause();
+const result2=new Blob(chunks2,{type:recorder2.mimeType});
+const bytes2=new Uint8Array(await result2.arrayBuffer());let binary2="";
+for(const byte of bytes2)binary2+=String.fromCharCode(byte);
+out.videoWithMusic={mime:recorder2.mimeType,size:result2.size,base64:btoa(binary2),
+  audioTracks:videoStream.getAudioTracks().length,videoTracks:videoStream.getVideoTracks().length};
+videoStream.getTracks().forEach(t=>t.stop());await context2.close();URL.revokeObjectURL(url);
 }catch(e){out.error=String(e);}
 document.querySelector("#audio-result").textContent=JSON.stringify(out);
 })();
@@ -76,7 +115,7 @@ try{
  await rpc("Runtime.enable");
  await rpc("Page.navigate",{url:"file://"+file});
  let data=null;
- for(let i=0;i<55;i++){
+ for(let i=0;i<130;i++){
    await new Promise(r=>setTimeout(r,170));
    const evaluated=await rpc("Runtime.evaluate",{expression:'document.querySelector("#audio-result")?.textContent',returnByValue:true});
    const value=evaluated?.result?.value;
@@ -87,23 +126,33 @@ try{
 console.log("RECORDER DIAGNOSTICS",JSON.stringify({error:result.error,mime:result.mime,size:result.size,audioTracks:result.audioTracks,videoTracks:result.videoTracks}));
 assert.equal(result.error,"",result.error);assert.equal(result.audioTracks,1);
 assert.equal(result.videoTracks,1);assert.ok(result.size>1800,"Empty video/audio");
-const clip=join(dir,result.mime.includes("mp4")?"recording.mp4":"recording.webm");
-await writeFile(clip,Buffer.from(result.base64,"base64"));
-const probe=spawnSync("ffprobe",["-v","error","-show_streams","-show_format","-of","json",clip],{encoding:"utf8",timeout:12000});
-assert.equal(probe.status,0,"ffprobe error: "+probe.stderr);
-const media=JSON.parse(probe.stdout);
-const audioStream=media.streams.find(stream=>stream.codec_type==="audio");
-const videoStream=media.streams.find(stream=>stream.codec_type==="video");
-assert.ok(audioStream,"Exported Story has no audio track!");
-assert.ok(videoStream,"Exported Story has no video track!");
-assert.ok(["aac","opus"].includes(audioStream.codec_name),"Unsupported encoded audio codec");
-assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
-assert.ok(Number(media.format.duration)>=6.5,"Photo Story with music must last 7 seconds");
-const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
-const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
-assert.ok(loudness,"No measurable audio in recorded Story!");
-assert.ok(Number(loudness[1])>-55,"Recorded Story audio is effectively silent");
-console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",result.mime,result.size,audioStream.codec_name,media.format.duration,loudness[1]+"dB");
+for(const entry of [
+  {kind:"photo+music",data:result,minDuration:6.5},
+  {kind:"video+music",data:result.videoWithMusic,minDuration:2.0}
+]){
+  assert.ok(entry.data && entry.data.size>1800,entry.kind+": missing recorded output");
+  assert.equal(entry.data.audioTracks,1,entry.kind+": missing audio capture track");
+  const clip=join(dir,entry.kind.replace("+","-")+
+    (entry.data.mime.includes("mp4")?".mp4":".webm"));
+  await writeFile(clip,Buffer.from(entry.data.base64,"base64"));
+  const probe=spawnSync("ffprobe",["-v","error","-show_streams","-show_format","-of","json",clip],{encoding:"utf8",timeout:12000});
+  assert.equal(probe.status,0,entry.kind+": ffprobe error: "+probe.stderr);
+  const media=JSON.parse(probe.stdout);
+  const audioStream=media.streams.find(s=>s.codec_type==="audio");
+  const videoStream=media.streams.find(s=>s.codec_type==="video");
+  assert.ok(audioStream,entry.kind+": no encoded audio track");
+  assert.ok(videoStream,entry.kind+": no encoded video track");
+  assert.ok(["aac","opus"].includes(audioStream.codec_name),entry.kind+": unsupported audio codec");
+  assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
+  assert.ok(Number(media.format.duration)>=entry.minDuration,entry.kind+": exported duration too short");
+  const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
+  const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
+  assert.ok(loudness,entry.kind+": no measurable sound in file");
+  assert.ok(Number(loudness[1])>-55,entry.kind+": effectively silent");
+  console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",entry.kind,
+    entry.data.mime,entry.data.size,audioStream.codec_name,
+    media.format.duration,loudness[1]+"dB");
+}
  } finally {
    socket?.close();
    processChrome.kill("SIGTERM");
