@@ -60,8 +60,6 @@ jobs:
           path: qa-artifacts/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Initialize real MediaPipe FaceLandmarker in headless Chrome
-        run: node scripts/check-story-face-runtime.mjs
       - name: Verify live AR pixel deformation in headless Chrome
         run: node scripts/check-story-ar-browser.mjs
       - name: Verify mobile song cards in headless Chrome
@@ -74,3 +72,5 @@ jobs:
             echo 'Legacy provider reference in Stories modules' >&2
             exit 1
           fi
+      - name: Initialize real MediaPipe FaceLandmarker in headless Chrome
+        run: node scripts/check-story-face-runtime.mjs
