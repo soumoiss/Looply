@@ -24,7 +24,7 @@ test("storage download requires visible Story media and returns a size-limited i
     process.env.AWS_SECRET_ACCESS_KEY = "test-secret";
     process.env.AWS_REGION = "us-east-1";
     globalThis.fetch = async (input, init = {}) => {
-      const url = new URL(typeof input === "string" ? input : input.url);
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
       if (url.origin === "https://neon.test" && url.pathname.endsWith("/v3_self_profile")) {
         return Response.json([{ id: profileId }]);
       }
