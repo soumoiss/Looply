@@ -939,7 +939,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         const temporary=URL.createObjectURL(blob);
         const anchor=document.createElement("a");
         anchor.href=temporary;
-        anchor.download="looply-story-"+story.id+(media?.kind==="video"?".webm":".jpg");
+        const mime=String(blob.type || media?.mime_type || "").toLowerCase();
+        const extension=mime.includes("mp4") ? "mp4" : mime.includes("webm") ? "webm"
+          : mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+        anchor.download="looply-story-"+story.id+"."+extension;
         document.body.append(anchor);anchor.click();anchor.remove();
         setTimeout(()=>URL.revokeObjectURL(temporary),15000);
         actionStatus("Download iniciado.");
