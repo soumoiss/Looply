@@ -337,3 +337,12 @@
   .page-chat .chat-message-row.is-mine .chat-message { background:#7c3aed!important;color:white!important; }
   .page-chat .chat-thread { background:#f8f6ff!important; }
 }
+
+
+/* Video calls: BOTH participants see a familiar mirrored/selfie image.
+   Transform only the video pixels, never controls, buttons, labels or audio. */
+.page-chat .is-video-call .chat-call-videos video[data-call-local],
+.page-chat .is-video-call .chat-call-videos video[data-call-remote] {
+  transform:scaleX(-1) !important;
+  transform-origin:center center;
+}
