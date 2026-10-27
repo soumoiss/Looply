@@ -337,3 +337,19 @@
   .page-chat .chat-message-row.is-mine .chat-message { background:#7c3aed!important;color:white!important; }
   .page-chat .chat-thread { background:#f8f6ff!important; }
 }
+
+
+/* Both call participants see a mirror-like video on their own screen.
+   Transform the rendered video elements, not the WebRTC MediaStreams:
+   audio, negotiation, device switching and network frames stay untouched. */
+.page-chat .is-video-call .chat-call-videos video[data-call-local],
+.page-chat .is-video-call .chat-call-videos video[data-call-remote] {
+  transform: scaleX(-1) !important;
+  transform-origin: center center;
+  -webkit-transform: scaleX(-1) !important;
+  backface-visibility: hidden;
+}
+/* The floating self-view still respects the original crop and safe areas. */
+.page-chat .is-video-call .chat-call-videos video[data-call-local] {
+  object-fit: cover;
+}
