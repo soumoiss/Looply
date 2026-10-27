@@ -32,3 +32,28 @@ Data de preparação: 26–27/10/2026. Este arquivo documenta somente fatos conf
 Não substituir os arquivos existentes do aplicativo pelos HTMLs de demonstração e não utilizar o preview de 30 segundos de terceiros para sincronização não autorizada. Preservar Neon, Cloudflare e as mídias existentes.
 
 Fontes de documentação: https://api.openverse.org/v1/ ; https://creativecommons.org/licenses/by/4.0/ ; https://creativecommons.org/faq/ ; https://docs.openverse.org/
+
+
+## 9:16 — PR #163: editor, visualizador e música no arquivo
+
+- Módulos de produção: `src/story-studio.js`, `src/stories.js`, `assets/css/pages/home.css` e `assets/css/pages/story-studio.css`.
+- Câmera: pede ideal 1080 × 1920 e razão 9:16, com `resizeMode: none`. O navegador pode retornar outra resolução se o sensor ou suas políticas não suportarem a configuração. Câmera frontal continua espelhada só onde apropriado; o flip encerra as tracks antigas.
+- Captura de fotografia e composição: canvas 1080 × 1920 com primeiro plano preservado via `contain` e fundo desfocado. Não há zoom inicial.
+- Story com foto + música: duração solicitada de 7 segundos no MediaRecorder. Vídeo com música: duração de até 30 segundos ou duração original, mantendo a faixa sonora autorizada incorporada ao arquivo.
+- Novo módulo `src/story-audio-mixer.js` é utilizado pelo editor real. Exige que o áudio selecionado tenha amostras não silenciosas antes de adicionar o track ao `MediaStreamDestination`. O gravador é iniciado antes do início da música.
+- Visualizador: cabeçalho e barra de progresso no topo, pausa/retomada junto ao fechar, mídia em toda a superfície por `contain`, fundo borrado em fotos, legendas e controles de resposta sobre a mídia, sem faixas que redimensionam o vídeo.
+- Editor: barra de ferramentas e controles otimizados para largura estreita; seletor de música interno em painel claro mantendo busca, prévia e importação legal já implementadas.
+
+### Validação de arquivos pelo navegador e ffprobe
+
+O script `scripts/check-story-posted-audio.mjs` grava vídeo 9:16 REAL com o mesmo módulo de mixagem importado pelo editor, analisa codecs, dimensões, duração e volume com `ffprobe` e `ffmpeg -af volumedetect` e armazena amostras no artefato `stories-9x16-audio-video` do GitHub Actions.
+
+Em uma execução inicial de CI, a amostra de foto + música passou: duração **7,176615 s**, áudio **Opus**, pico **−12,2 dB**, tamanho **134.981 bytes**, vídeo **VP8**. A segunda amostra de vídeo + música passou pela geração do arquivo, mas falhou no primeiro limite de duração (reteste e inspeção integral necessários).
+
+**Alcance da evidência:** são arquivos de teste criados no Chrome automatizado, sem músicas comerciais; não equivalem a publicar conteúdo real com uma sessão de usuário, baixar o objeto do R2 e reproduzi-lo no celular. A revalidação com duas contas e inspeção do arquivo recuperado do armazenamento permanece pendente. Não há confirmação de AAC/MP4 universal; o Chrome do CI produziu WebM/Opus. Não foi integrado FFmpeg.wasm nesta etapa.
+
+### Evidências de CI
+
+- PR: https://github.com/soumoiss/Looply/pull/163
+- Primeira amostra real com som e duração confirmados: https://github.com/soumoiss/Looply/actions/runs/40436151325
+- Artefatos de vídeo: disponíveis no workflow de Stories quando a nova execução de validação os concluir.
