@@ -554,7 +554,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           const songAudio = slideAudio;
           if (songAudio && !songAudio.paused) songAudio.pause();
         });
-        video.addEventListener("ended", () => advance(1), { once: true });
+        video.addEventListener("ended", () => {
+          // A delayed event from an older slide must never advance the active Story.
+          if (video.isConnected && mediaHost.querySelector("video") === video && !state.paused) advance(1);
+        }, { once: true });
         mediaHost.append(video);
         // Browsers can reject unmuted autoplay. A single gesture unlocks playback;
         // never leave an invisible, stalled video with no way to start it.
