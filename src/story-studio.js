@@ -8,7 +8,7 @@ import { captionWithLicensedMusic } from "./story-licensed-music.js";
 const FILTERS = Object.freeze({ none:"none" });
 const LIMIT = 30_000;
 const escapeHtml = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
-export const STORY_CANVAS_SIZE = Object.freeze({ width: 720, height: 1280 });
+export const STORY_CANVAS_SIZE = Object.freeze({ width: 1080, height: 1920 });
 export function containRect(sourceWidth, sourceHeight, targetWidth, targetHeight) {
   if (![sourceWidth, sourceHeight, targetWidth, targetHeight].every(value => Number.isFinite(value) && value > 0)) return null;
   const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
@@ -302,7 +302,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopCamera();
     // Do not request a forced portrait 1080x1920 crop or any initial zoom.
     // Prefer the camera sensor's natural field of view.
-    const constraints = { video: { facingMode: { ideal: facing }, resizeMode: { ideal: "none" } }, audio: true };
+    const constraints = { video: {
+      facingMode: { ideal: facing },
+      width: { ideal: 1080 }, height: { ideal: 1920 },
+      aspectRatio: { ideal: 9 / 16 },
+      resizeMode: { ideal: "none" }
+    }, audio: true };
     try { stream = await navigator.mediaDevices.getUserMedia(constraints); }
     catch {
       try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false }); }
@@ -690,7 +695,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     let audioCtx = null, source = null;
     let videoMedia = null, recorded = null, raf = null;
     try {
-      const duration = sourceKind === "video" ? LIMIT : (withMusic ? 12000 : 15000);
+      const duration = sourceKind === "video" ? LIMIT : (withMusic ? 7000 : 15000);
       if (sourceKind === "video") {
         videoMedia = document.createElement("video");
         videoMedia.src = url; videoMedia.playsInline = true; videoMedia.muted = false;
@@ -709,6 +714,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           const buffer = music.kind === "builtin"
             ? makeSynthBuffer(audioCtx, music)
             : await audioCtx.decodeAudioData(await music.file.arrayBuffer());
+          if (!buffer?.length || !buffer.duration) throw new Error("Áudio vazio ou incompatível.");
+          // Prevent a successfully uploaded but inaudible Story from passing preflight.
+          // Sample every channel rather than trusting MIME / file names.
+          let peak = 0;
+          for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const pcm = buffer.getChannelData(channel);
+            const step = Math.max(1, Math.floor(pcm.length / 12000));
+            for (let i = 0; i < pcm.length; i += step) peak = Math.max(peak, Math.abs(pcm[i]));
+          }
+          if (peak < 0.0005) throw new Error("Este áudio está silencioso. Escolha outra música.");
           source = audioCtx.createBufferSource(); source.buffer = buffer; source.loop = true;
           source.connect(destination);
         }
@@ -717,7 +732,6 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         if (audioCtx.state !== "running") throw new Error("A captura de áudio não foi ativada.");
         if(withMusic && !framesStream.getAudioTracks().some(t=>t.readyState==="live"))
           throw new Error("O gravador não recebeu a trilha de áudio.");
-        if(source) source.start();
       }
       recorded = new MediaRecorder(framesStream, { mimeType: mime });
       const received = [];
@@ -727,8 +741,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         recorded.onstop = () => resolve(new Blob(received, { type: recorded.mimeType || mime }));
       });
       recorded.start(250);
+      // Start the soundtrack after the recorder begins: don't lose its first notes.
       if (videoMedia) {
         await videoMedia.play();
+        if (source) source.start();
+      } else if (source) source.start();
+      if (videoMedia) {
         const redraw = () => {
           fillCanvas(canvas, videoMedia, editFilter);
           if (!videoMedia.paused && !videoMedia.ended) raf = requestAnimationFrame(redraw);
@@ -747,8 +765,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       return new File([output], "story-" + Date.now() + (mime.includes("mp4") ? ".mp4" : ".webm"), { type: mime.split(";")[0] });
     } finally {
       if (raf) cancelAnimationFrame(raf);
-      videoMedia?.pause(); if (source) { try { source.stop(); } catch {} } framesStream?.getTracks().forEach(t => t.stop());
-      if (audioCtx) await audioCtx.close().catch(() => {});
+      videoMedia?.pause();
+      if (recorded?.state === "recording") { try { recorded.stop(); } catch {} }
+      if (source) { try { source.stop(); } catch {} source.disconnect(); }
+      framesStream?.getTracks().forEach(t => t.stop());
+      if (audioCtx && audioCtx.state !== "closed") await audioCtx.close().catch(() => {});
     }
   };
   const exportFinal = async (armedAudioContext = null) => {
