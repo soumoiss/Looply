@@ -538,7 +538,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const modal = (title, html) => {
     $("[data-studio-modal-title]").textContent = title;
     body.innerHTML = html;
-    $("[data-studio-modal]").hidden = false;
+    const container = $("[data-studio-modal]");
+    container.dataset.sheet = title === "Escolher música" ? "music" : "general";
+    container.hidden = false;
   };
   const modalClose = () => {
     stopMusicPreview(); stopMusicPreview = () => {};
