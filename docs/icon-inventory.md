@@ -87,3 +87,11 @@
 ## Limitações e pendências de validação
 
 A revisão estática dos arquivos listados não equivale a abrir manualmente todas as páginas. Leitores de tela, teclado físico, contraste em cada tema, todos os modais, larguras responsivas, falhas de rede e sincronização entre dispositivos ainda precisam de teste de execução no navegador/dispositivo. Não classificar esses testes manuais como concluídos.
+
+
+## Ajuste de semântica da Galeria (26/10/2026)
+
+- `heart`: curtir uma mídia no visualizador; contorno quando não curtida.
+- `heartFilled`: indicar visualmente uma mídia curtida; botão permanece com `aria-pressed`.
+- `star` e `starFilled`: continuam reservadas para favoritos e destaque administrativo, conforme o controle.
+- Controles compactos da visualização fotográfica preservam seus nomes em `aria-label` e foco acessível, sem texto longo sobre a imagem.
