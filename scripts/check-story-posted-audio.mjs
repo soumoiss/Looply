@@ -100,7 +100,7 @@ assert.ok(["aac","opus"].includes(audioStream.codec_name),"Unsupported encoded a
 assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
 assert.ok(Number(media.format.duration)>=6.5,"Photo Story with music must last 7 seconds");
 const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
-const loudness=volume.stderr.match(/max_volume:\\s*(-?[\\d.]+) dB/);
+const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
 assert.ok(loudness,"No measurable audio in recorded Story!");
 assert.ok(Number(loudness[1])>-55,"Recorded Story audio is effectively silent");
 console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",result.mime,result.size,audioStream.codec_name,media.format.duration,loudness[1]+"dB");
