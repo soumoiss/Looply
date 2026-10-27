@@ -65,7 +65,10 @@ test("licensed official Instagram embedding remains on-site", () => {
   assert.equal(instagramEmbedDetails("https://www.instagram.com/reel/ABCDE12345/").embedUrl,"https://www.instagram.com/reel/ABCDE12345/embed/");
 });
 test("TikTok embedding uses official provider API, never an invented MP4", () => {
-  assert.match(tiktokEmbedDetails("https://www.tiktok.com/@c/video/1234567890123456789").embedUrl,/tiktok.com\/player\/v1/);
+  const embed = tiktokEmbedDetails("https://www.tiktok.com/@c/video/1234567890123456789").embedUrl;
+  assert.match(embed,/tiktok.com\/player\/v1/);
+  assert.match(embed,/controls=0/);
+  assert.match(embed,/description=0/);
 });
 test("untrusted social URLs are restricted to supported HTTPS domains", () => {
   assert.equal(normalizeExternalUrl("http://instagram.com/reel/ABCDE12345"),null);

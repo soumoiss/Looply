@@ -48,7 +48,9 @@ export function tiktokEmbedDetails(value) {
     const videoIndex = parts.findIndex((part) => part === "video");
     const videoId = videoIndex > 0 ? parts[videoIndex + 1] : null;
     if (!videoId || !/^\d{8,25}$/.test(videoId) || !parts[videoIndex - 1]?.startsWith("@")) return null;
-    return { videoId, embedUrl: "https://www.tiktok.com/player/v1/" + videoId + "?music_info=1&description=1" };
+    // TikTok officially supports a chromeless Embed Player. Looply supplies
+    // its own actions, attribution and navigation around this iframe.
+    return { videoId, embedUrl: "https://www.tiktok.com/player/v1/" + videoId + "?controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0&autoplay=1&loop=1" };
   } catch {
     return null;
   }
@@ -286,7 +288,7 @@ function postMarkup(post, userId, isAdmin = false) {
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) {
         provider = "YouTube";
         const origin = typeof location !== "undefined" ? "&origin=" + encodeURIComponent(location.origin) : "";
-        embed = '<div class="post-external-embed" data-feed-embed data-video-provider="youtube"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '?enablejsapi=1' + origin + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+        embed = '<div class="post-external-embed" data-feed-embed data-video-provider="youtube"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeHtml(id) + '?enablejsapi=1&controls=0&disablekb=1&fs=0&playsinline=1&rel=0' + origin + '" title="Vídeo do YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>';
       }
     } else if (externalUrl.hostname.includes("tiktok.com")) {
       const details = tiktokEmbedDetails(externalUrl.href);
@@ -581,7 +583,7 @@ export async function hydrateTikTokEmbeds(root) {
       const videoId = /data-video-id=["'](\d{8,25})["']/.exec(String(payload?.html || ""))?.[1];
       if (!videoId || !placeholder.isConnected) throw new Error("TikTok embed id unavailable");
       const iframe = document.createElement("iframe");
-      iframe.src = "https://www.tiktok.com/player/v1/" + videoId + "?music_info=1&description=1";
+      iframe.src = tiktokEmbedDetails("https://www.tiktok.com/@looply/video/" + videoId)?.embedUrl || "";
       iframe.title = "Vídeo do TikTok";
       iframe.loading = "lazy";
       iframe.allow = "autoplay; encrypted-media; picture-in-picture; web-share";

@@ -200,10 +200,10 @@ test("external links pasted into post text are extracted and normalized before p
 
 test("canonical TikTok video URLs render a provider embed", async () => {
   const { tiktokEmbedDetails } = await import("../src/social.js");
-  assert.deepEqual(
-    tiktokEmbedDetails("https://www.tiktok.com/@sample/video/1234567890123456789"),
-    { videoId: "1234567890123456789", embedUrl: "https://www.tiktok.com/player/v1/1234567890123456789?music_info=1&description=1" }
-  );
+  const details = tiktokEmbedDetails("https://www.tiktok.com/@sample/video/1234567890123456789");
+  assert.equal(details.videoId, "1234567890123456789");
+  assert.match(details.embedUrl, /controls=0/);
+  assert.match(details.embedUrl, /description=0/);
 });
 
 
