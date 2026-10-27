@@ -1,4 +1,5 @@
 import { PROVIDER_NAMES, officialSongPreview, searchStorySongs, storySongSearchLinks } from "./story-music-catalog.js";
+import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 
 // Catalog previews use provider-owned official embeds or permitted streaming.
 // Never download/cache the external audio or merge commercial clips into Stories.
@@ -12,6 +13,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     '<button type="button" data-studio-provider="apple">Apple Music</button>' +
     '<button type="button" data-studio-provider="deezer">Deezer</button>' +
     '<button type="button" data-studio-provider="audius">Audius</button>' +
+    '<button type="button" data-studio-provider="openverse">Músicas livres</button>' +
     '<button type="button" data-studio-provider="builtin">Originais</button></nav>' +
     '<p class="studio-music-found" data-studio-music-found role="status" aria-live="polite">Escolha uma faixa para ouvir antes de publicar.</p>' +
     '<section class="studio-music-preview" data-studio-music-preview hidden aria-label="Prévia da música"></section>' +
@@ -26,9 +28,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const external=body.querySelector("[data-studio-music-external]");
   const player=body.querySelector("[data-studio-music-preview]");
   const tabs=body.querySelectorAll("[data-studio-provider]");
-  let provider="all",items=[],seq=0,timer=null,controller=null;
+  let provider="all",items=[],licensedItems=[],seq=0,timer=null,controller=null;
   let audio=null,soundContext=null,soundSource=null,fileUrl=null,previewToken=0;
-  let currentTrack=null;
+  let currentTrack=null,importController=null;
   const fileInput=body.querySelector("[data-studio-audio-file]");
   const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
   const chooseForStory=track=>{
@@ -53,8 +55,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     currentTrack=null;
   };
   const cleanup=()=>{
-    ++seq; if(timer)clearTimeout(timer);controller?.abort();
+    ++seq; if(timer)clearTimeout(timer);controller?.abort();importController?.abort();
     stopPreview();
+    importController?.abort();importController=null;
   };
   const playOriginal=(track)=>{
     const AudioEngine=window.AudioContext||window.webkitAudioContext;
