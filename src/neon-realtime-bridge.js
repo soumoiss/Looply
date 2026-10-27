@@ -132,7 +132,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         // optional Cloudflare WebSocket is blocked, use a separate authenticated
         // Neon signaling RPC (which checks membership independently).
         let error = cloudflareError;
-        if (!closed && fallback && conversationId) {
+        if (!closed && fallback && conversationId && options?.skipFallback !== true) {
           try {
             const backup = await fallback.connect(conversationId, deliver, fallbackError=>{
               console.warn("Looply Neon fallback reconnecting", fallbackError?.message);
