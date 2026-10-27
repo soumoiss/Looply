@@ -6,7 +6,7 @@ ALTER TABLE public.stories
 CREATE TABLE IF NOT EXISTS public.story_reposts (
   repost_story_id uuid PRIMARY KEY REFERENCES public.stories(id) ON DELETE CASCADE,
   original_story_id uuid NOT NULL,
-  original_author_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE SET NULL,
+  original_author_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   reposted_by uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT story_reposts_no_self CHECK (repost_story_id <> original_story_id)
