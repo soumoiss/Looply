@@ -5,17 +5,21 @@ import {tmpdir} from "node:os";
 import assert from "node:assert/strict";
 const browser=["google-chrome","google-chrome-stable","chromium","chromium-browser"].find(x=>spawnSync(x,["--version"],{timeout:4000}).status===0);
 if(!browser)throw Error("Chromium needed for audio");
+// Inline exactly the same mixer source used by src/story-studio.js in production.
+const mixerSource=(await readFile(new URL("../src/story-audio-mixer.js",import.meta.url),"utf8")).replaceAll("export ","");
 const script=`
 (async()=>{
 const out={error:"",mime:"",size:0,audioTracks:0,videoTracks:0,base64:""};
 try{
-const canvas=document.createElement("canvas");canvas.width=320;canvas.height=240;
-const ctx=canvas.getContext("2d");ctx.fillStyle="#95387a";ctx.fillRect(0,0,320,240);
+const canvas=document.createElement("canvas");canvas.width=360;canvas.height=640;
+const ctx=canvas.getContext("2d");ctx.fillStyle="#95387a";ctx.fillRect(0,0,360,640);
 const stream=canvas.captureStream(24);
 const audio=new AudioContext();await audio.resume();
-const oscillator=audio.createOscillator();const gain=audio.createGain();gain.gain.value=.3;
 const destination=audio.createMediaStreamDestination();
-oscillator.frequency.value=440;oscillator.connect(gain).connect(destination);
+const buffer=audio.createBuffer(1,audio.sampleRate*7,audio.sampleRate);
+const samples=buffer.getChannelData(0);
+for(let i=0;i<samples.length;i++)samples[i]=0.24*Math.sin(i*2*Math.PI*440/audio.sampleRate);
+const soundtrack=attachStoryMusic(audio,destination,buffer);
 destination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
 out.audioTracks=stream.getAudioTracks().length;out.videoTracks=stream.getVideoTracks().length;
 const mime=["video/webm;codecs=vp8,opus","video/webm;codecs=vp9,opus","video/mp4"].find(t=>MediaRecorder.isTypeSupported(t));
@@ -23,9 +27,9 @@ if(!mime)throw Error("No audio+video recorder codec");out.mime=mime;
 const recorder=new MediaRecorder(stream,{mimeType:mime}),chunks=[];
 recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
 const done=new Promise(resolve=>{recorder.onstop=resolve;});
-recorder.start();oscillator.start();
-for(let i=0;i<5;i++){await new Promise(r=>setTimeout(r,180));ctx.fillStyle=i%2?"#bea3d5":"#242d5f";ctx.fillRect(i*40,10,50,65);}
-recorder.stop();await done;oscillator.stop();
+recorder.start();soundtrack.start();
+for(let i=0;i<36;i++){await new Promise(r=>setTimeout(r,200));ctx.fillStyle=i%2?"#bea3d5":"#242d5f";ctx.fillRect((i*16)%360,10,34,65);}
+recorder.stop();await done;soundtrack.stop();
 const blob=new Blob(chunks,{type:recorder.mimeType});out.size=blob.size;
 const bytes=new Uint8Array(await blob.arrayBuffer());let binary="";
 for(const b of bytes)binary+=String.fromCharCode(b);out.base64=btoa(binary);
@@ -37,7 +41,7 @@ document.querySelector("#audio-result").textContent=JSON.stringify(out);
 const dir=await mkdtemp(join(tmpdir(),"looply-story-audio-"));
 try{
 const file=join(dir,"check.html");
-await writeFile(file,'<!doctype html><html><body><pre id="audio-result">WAIT</pre><script>'+script+'</script></body></html>');
+await writeFile(file,'<!doctype html><html><body><pre id="audio-result">WAIT</pre><script>'+mixerSource+'\n'+script+'</script></body></html>');
 // CDP keeps wall-clock timing: virtual-time-budget produces zero media frames.
 const processChrome=spawn(browser,["--headless=new","--no-sandbox","--disable-dev-shm-usage",
   "--enable-unsafe-swiftshader","--autoplay-policy=no-user-gesture-required",
@@ -85,11 +89,21 @@ assert.equal(result.error,"",result.error);assert.equal(result.audioTracks,1);
 assert.equal(result.videoTracks,1);assert.ok(result.size>1800,"Empty video/audio");
 const clip=join(dir,result.mime.includes("mp4")?"recording.mp4":"recording.webm");
 await writeFile(clip,Buffer.from(result.base64,"base64"));
-const probe=spawnSync("ffprobe",["-v","error","-show_entries","stream=codec_type,codec_name","-of","csv=p=0",clip],{encoding:"utf8",timeout:12000});
+const probe=spawnSync("ffprobe",["-v","error","-show_streams","-show_format","-of","json",clip],{encoding:"utf8",timeout:12000});
 assert.equal(probe.status,0,"ffprobe error: "+probe.stderr);
-assert.match(probe.stdout,/audio/,"No encoded audio track!");
-assert.match(probe.stdout,/video/,"No encoded video track!");
-console.log("CHROME RECORDED MUSIC SUCCESS",result.mime,result.size,probe.stdout.trim());
+const media=JSON.parse(probe.stdout);
+const audioStream=media.streams.find(stream=>stream.codec_type==="audio");
+const videoStream=media.streams.find(stream=>stream.codec_type==="video");
+assert.ok(audioStream,"Exported Story has no audio track!");
+assert.ok(videoStream,"Exported Story has no video track!");
+assert.ok(["aac","opus"].includes(audioStream.codec_name),"Unsupported encoded audio codec");
+assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
+assert.ok(Number(media.format.duration)>=6.5,"Photo Story with music must last 7 seconds");
+const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
+const loudness=volume.stderr.match(/max_volume:\\s*(-?[\\d.]+) dB/);
+assert.ok(loudness,"No measurable audio in recorded Story!");
+assert.ok(Number(loudness[1])>-55,"Recorded Story audio is effectively silent");
+console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",result.mime,result.size,audioStream.codec_name,media.format.duration,loudness[1]+"dB");
  } finally {
    socket?.close();
    processChrome.kill("SIGTERM");
