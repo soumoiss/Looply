@@ -68,3 +68,15 @@ test("Visual system loads last with full-screen contain media, owner and reply t
     assert.equal(run.status,0,run.stderr);
   }
 });
+
+test("Layout button truly composes four camera captures into a 9:16 2×2 image",()=>{
+  const studio=read("src/story-studio.js");
+  const css=read("assets/css/pages/stories-four-screens.css");
+  assert.match(studio,/let collageCanvas = null, collageShots = 0/);
+  assert.match(studio,/const cellWidth = collageCanvas.width\/2/);
+  assert.match(studio,/const cellX=\(collageShots%2\)\*cellWidth/);
+  assert.match(studio,/collageCanvas\.getContext\("2d"\)\.drawImage\(canvas,cellX,cellY,cellWidth,cellHeight\)/);
+  assert.match(studio,/if \(collageShots<4\)/);
+  assert.match(studio,/story-layout-/);
+  assert.match(css,/2×2 collage guides match the actual/);
+});
