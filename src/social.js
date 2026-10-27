@@ -298,7 +298,8 @@ function postMarkup(post, userId, isAdmin = false) {
         embed = '<div class="post-external-embed post-tiktok-embed" data-tiktok-preview data-tiktok-url="' + escapeHtml(externalUrl.href) + '"><p>Carregando pré-visualização do TikTok…</p></div>';
       }
     }
-    externalMarkup = '<section class="post-external" aria-label="Conteúdo externo"><div class="post-external-credit"><span>' + escapeHtml(provider) + '</span><a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer" aria-label="Abrir publicação original em ' + escapeHtml(provider) + '">Abrir original ' + icon("external") + '</a></div>' + (embed || '<p class="post-external-unavailable">A prévia não está disponível. Você pode abrir o conteúdo original.</p>') + '</section>';
+    const expand = embed ? '<button type="button" class="hybrid-external-watch" data-open-external-reel="external-' + escapeHtml(post.id) + '" aria-label="Assistir esta publicação em tela cheia">▶<span>Assistir em Reels</span></button>' : '';
+    externalMarkup = '<section class="post-external" aria-label="Conteúdo externo"><div class="post-external-credit"><span class="hybrid-provider-label">' + escapeHtml(provider) + '</span><div class="hybrid-provider-tools"><a href="' + escapeHtml(externalUrl.href) + '" target="_blank" rel="noopener noreferrer" aria-label="Abrir publicação original em ' + escapeHtml(provider) + '">Abrir original ' + icon("external") + '</a><button type="button" data-profile-open="' + escapeHtml(post.author_id) + '">Ver perfil</button></div></div><div class="hybrid-external-frame">' + (embed || '<p class="post-external-unavailable">A prévia não está disponível para este link.</p>') + expand + '</div></section>';
   }
   const mediaMarkup = (post.media || []).map((item, mediaIndex) => {
     if (!item.signedUrl) return `<div class="media-unavailable" role="status">Mídia temporariamente indisponível.</div>`;
@@ -311,8 +312,8 @@ function postMarkup(post, userId, isAdmin = false) {
 
   return `<article class="post-card ig-post" id="post-${escapeHtml(post.id)}" data-post-card="${escapeHtml(post.id)}">
     <header class="post-header ig-post-header">
-      <div class="post-author"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
-        <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div>
+      <div class="post-author"><button type="button" class="post-author-profile" data-profile-open="${escapeHtml(post.author_id)}" aria-label="Visualizar perfil do autor"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
+        <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div></button>
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
@@ -504,7 +505,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
       <span class="realtime-state" data-realtime-status role="status">Conectando atualizações...</span></div>
     <form class="post-composer" data-social-post>
-      <header class="post-composer-heading"><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+      <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
       <div class="post-create-header"><button type="button" data-close-composer aria-label="Cancelar publicação">✕</button><strong>Nova publicação</strong><button type="submit">Compartilhar</button></div>
       <div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>
@@ -738,19 +739,23 @@ function bindReelsViewer(root) {
   // Lazy-load the new vertical, scroll-snap viewer on explicit user interaction.
   // Keep the existing dialog available if the new module is unavailable.
   root.addEventListener("click", event => {
-    const trigger = event.target.closest("[data-open-reel], [data-open-first-reel]");
+    const trigger = event.target.closest("[data-open-reel], [data-open-first-reel], [data-open-external-reel]");
     if (!trigger) return;
-    const key = trigger.dataset.openReel || root.querySelector("[data-feed-reel-id]")?.dataset.feedReelId;
+    const key = trigger.dataset.openReel || trigger.dataset.openExternalReel || root.querySelector("[data-feed-reel-id], [data-open-external-reel]")?.dataset.feedReelId || root.querySelector("[data-open-external-reel]")?.dataset.openExternalReel;
     if (!key) { event.preventDefault(); trigger.setAttribute("title", "Ainda não há vídeos disponíveis"); return; }
     event.preventDefault();
     event.stopImmediatePropagation();
-    void import("./reels-scroll.js").then(({ openReelsScroll }) => openReelsScroll(root, key)).catch(error => {
+    void import("./home-hybrid-reels.js").then(({ openHybridReels }) => openHybridReels(root, key)).catch(error => {
       console.error("Looply Reels viewer unavailable; opening legacy viewer", error);
       root.__looplyVideoAutoplayDispose?.();
       root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
       try { viewer.showModal(); } catch { viewer.setAttribute("open", ""); }
       viewer.dataset.reelsSoundOn = "false";
-      renderReelViewer(root, key, true);
+      if (key.startsWith("external-")) {
+        root.querySelector("[data-post-status]")?.replaceChildren(document.createTextNode("A visualização externa não está disponível agora."));
+        if (viewer.open) viewer.close();
+        bindFeedVideoAutoplay(root);
+      } else renderReelViewer(root, key, true);
     });
   }, { capture: true });
   root.addEventListener("looply:reels-closed", () => bindFeedVideoAutoplay(root));
