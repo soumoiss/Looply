@@ -50,7 +50,7 @@ test("Catalog limitations are clear to members without exposing provider diagnos
  assert.match(viewer,/bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
  assert.match(picker,/Você pode ouvir esta faixa aqui/);
  assert.doesNotMatch(picker,/Prévia promocional/);
- assert.match(picker,/isAdmin&&down\.length/);
+ assert.match(picker,/isAdmin&&\(commercial\.status==="rejected"\|\|licensed\.status==="rejected"\)/);
 });
 
 

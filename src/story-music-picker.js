@@ -1,4 +1,5 @@
 import { PROVIDER_NAMES, officialSongPreview, searchStorySongs, storySongSearchLinks } from "./story-music-catalog.js";
+import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 
 // Catalog previews use provider-owned official embeds or permitted streaming.
 // Never download/cache the external audio or merge commercial clips into Stories.
@@ -12,11 +13,13 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     '<button type="button" data-studio-provider="apple">Apple Music</button>' +
     '<button type="button" data-studio-provider="deezer">Deezer</button>' +
     '<button type="button" data-studio-provider="audius">Audius</button>' +
+    '<button type="button" data-studio-provider="openverse">Músicas livres</button>' +
     '<button type="button" data-studio-provider="builtin">Originais</button></nav>' +
     '<p class="studio-music-found" data-studio-music-found role="status" aria-live="polite">Escolha uma faixa para ouvir antes de publicar.</p>' +
     '<section class="studio-music-preview" data-studio-music-preview hidden aria-label="Prévia da música"></section>' +
     '<div class="studio-music-results" data-studio-music-results></div>' +
     '<div class="studio-music-external" data-studio-music-external></div>' +
+    '<p class="studio-hint">Músicas livres: busca desenvolvida com a API Openverse, sem endosso ou certificação do Openverse. Confira a licença e a autoria na origem antes de publicar.</p>' +
     '<label class="studio-audio-upload">Adicionar áudio próprio (opcional)<input type="file" data-studio-audio-file accept="audio/*"></label>' +
     (isAdmin ? '<p class="studio-hint">ADM: Apple/Deezer são catálogos de busca, não trilhas autorizadas para Stories. É necessário associar um áudio pessoal autorizado. Audius usa streaming; as faixas originais e arquivos próprios são incorporados ao vídeo.</p>' : '') +
     '</div>');
@@ -26,12 +29,31 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const external=body.querySelector("[data-studio-music-external]");
   const player=body.querySelector("[data-studio-music-preview]");
   const tabs=body.querySelectorAll("[data-studio-provider]");
-  let provider="all",items=[],seq=0,timer=null,controller=null;
+  let provider="all",items=[],licensedItems=[],seq=0,timer=null,controller=null;
   let audio=null,soundContext=null,soundSource=null,fileUrl=null,previewToken=0;
-  let currentTrack=null;
+  let currentTrack=null,importController=null;
   const fileInput=body.querySelector("[data-studio-audio-file]");
   const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
   const chooseForStory=track=>{
+    if(track.kind==="openverse"){
+      void (async()=>{
+        // Openverse does not verify actual rights; require an affirmative source check.
+        if(!window.confirm("Confira a autoria e a licença na fonte original. Confirma que a gravação permite incorporar áudio ao seu Story?"))return;
+        importController?.abort();
+        const task=new AbortController();importController=task;
+        onStatus?.("Importando áudio com licença declarada…",false);
+        try{
+          const imported=await downloadLicensedStorySong(track,{signal:task.signal});
+          if(task.signal.aborted)return;
+          stopPreview();
+          onSelect(imported);
+          onStatus?.("Áudio importado. Os créditos serão incluídos no Story.",false);
+        }catch(error){
+          if(!task.signal.aborted)onStatus?.("Não foi possível importar esta música. Experimente outra faixa autorizada.",true);
+        }
+      })();
+      return;
+    }
     stopPreview();
     onSelect(track);
     if(needsOwnAudio(track)) onStatus?.("Música selecionada. O provedor permite pesquisa e prévia, mas não autoriza incorporar essa faixa ao Story. Para publicar com som, escolha uma trilha original, Audius ou um áudio próprio autorizado.",false);
@@ -53,8 +75,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     currentTrack=null;
   };
   const cleanup=()=>{
-    ++seq; if(timer)clearTimeout(timer);controller?.abort();
+    ++seq; if(timer)clearTimeout(timer);controller?.abort();importController?.abort();
     stopPreview();
+    importController?.abort();importController=null;
   };
   const playOriginal=(track)=>{
     const AudioEngine=window.AudioContext||window.webkitAudioContext;
@@ -107,6 +130,15 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     if(track.kind==="builtin"){
       playOriginal(track);
       mark("Prévia da trilha original reproduzindo.");
+    }else if(track.kind==="openverse"){
+      const sourceLink=addText(player,"a","Conferir música na fonte original ↗","studio-music-preview-source");
+      sourceLink.href=track.sourceUrl;sourceLink.target="_blank";sourceLink.rel="noopener noreferrer";
+      addText(player,"small","Licença declarada: "+(track.license==="cc0"?"CC0":"CC BY "+track.licenseVersion)+
+        ". Verifique os direitos na fonte original.","studio-music-preview-hint");
+      const licenseLink=addText(player,"a","Ler condições da licença ↗","studio-music-preview-source");
+      licenseLink.href=track.licenseUrl;licenseLink.target="_blank";licenseLink.rel="noopener noreferrer";
+      // Playback is offered via the original source; importing is a separate, consented step.
+      makeAudio(track.audioUrl);
     }else if(track.kind==="file"){
       fileUrl=URL.createObjectURL(track.file);
       makeAudio(fileUrl,true);
@@ -167,6 +199,8 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       }
     }
     for(const track of items.filter(t=>provider==="all"||t.provider===provider))row(track,PROVIDER_NAMES[track.provider]);
+    if(provider==="all"||provider==="openverse")
+      for(const track of licensedItems)row(track,"Biblioteca livre · "+(track.license==="cc0"?"CC0":"CC BY "+track.licenseVersion));
     if(!count)addText(listing,"p","Nenhuma música nesse filtro. Experimente Todas ou outra busca.","studio-music-empty");
   };
   const showExternal=()=>{
@@ -181,24 +215,22 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   };
   const search=async()=>{
     const term=input.value.trim(),id=++seq;
-    controller?.abort();controller=null;items=[];stopPreview();showExternal();
+    controller?.abort();controller=null;items=[];licensedItems=[];stopPreview();showExternal();
     if(term.length<2){found.textContent="Digite uma música ou artista para buscar em todas as plataformas.";draw();return;}
     found.textContent="Procurando simultaneamente em Apple Music, Deezer e Audius…";
     draw();controller=new AbortController();
-    try{
-      const result=await searchStorySongs(term,{signal:controller.signal});
-      if(id!==seq||!listing.isConnected)return;
-      items=result.items;
-      const online=result.providers.filter(p=>p.available).map(p=>PROVIDER_NAMES[p.provider]);
-      const down=result.providers.filter(p=>!p.available).map(p=>PROVIDER_NAMES[p.provider]);
-      found.textContent=items.length+" músicas encontradas"+(online.length?" · "+online.join(", "):"")+
-        (isAdmin&&down.length?" · ADM: Indisponível: "+down.join(", "):"");
-      draw();
-    }catch(error){
-      if(id!==seq||!listing.isConnected)return;
-      found.textContent=isAdmin?"ADM: busca externa indisponível; originais continuam disponíveis.":"";
-      draw();if(isAdmin)onStatus?.("Não foi possível carregar os catálogos musicais.",true);
-    }
+    const [commercial,licensed]=await Promise.allSettled([
+      searchStorySongs(term,{signal:controller.signal}),
+      searchLicensedStorySongs(term,{signal:controller.signal})
+    ]);
+    if(id!==seq||!listing.isConnected)return;
+    if(commercial.status==="fulfilled")items=commercial.value.items;
+    if(licensed.status==="fulfilled")licensedItems=licensed.value;
+    found.textContent=(items.length+licensedItems.length)+" músicas encontradas"+
+      (licensedItems.length?" · biblioteca com licenças abertas":"")+
+      (isAdmin&&(commercial.status==="rejected"||licensed.status==="rejected")
+        ?" · ADM: alguma fonte indisponível":"");
+    draw();
   };
   input.addEventListener("input",()=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>void search(),400);});
   tabs.forEach(tab=>tab.addEventListener("click",()=>{
