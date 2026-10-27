@@ -100,6 +100,10 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     if (ar.status === "fulfilled") {
       state.cards = ar.value.cards;
       state.reads = new Set(ar.value.reads.map(x => x.card_id));
+      if (isAdmin) {
+        const r = await client.from("archived_card_reads").select("card_id").eq("user_id", ownerTarget()).limit(1000);
+        if (!r.error) state.reads = new Set((r.data || []).map(x => x.card_id));
+      }
     }
     if (cr.status === "fulfilled") state.letters = cr.value;
     updateList();
@@ -110,7 +114,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#adminUserFilter").innerHTML = people.map(p=>'<option value="'+h(p.id)+'">'+h(p.display_name||p.username)+' · @'+h(p.username)+'</option>').join("");
     $("#adminUserFilter").value = user.id;
     $("#adminUserFilter").addEventListener("change", (e) => {
-      state.adminUser = e.target.value; updateList();
+      state.adminUser = e.target.value; void loadCurrent();
     });
   }
   const renderRecipients = (term = "") => {
@@ -194,7 +198,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   });
   $("#adminEditForm").addEventListener("submit",async e=>{
     e.preventDefault();if(!isAdmin||!state.editor)return;
-    const {kind,raw}=state.editor,form=e.currentTarget,save=form.querySelector('[type="submit"]');
+    const {kind,raw}=state.editor,form=e.currentTarget,save=$("#editorAdminCarta .btn-enviar");
     save.disabled=true;
     try {
       const text=form.elements.body.value.trim();
@@ -233,6 +237,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   });
   $("#cartasStatus").textContent = [archiveResult,communityResult].every(x=>x.status==="fulfilled")?"": "Alguns dados não puderam ser carregados. Tente atualizar a página.";
   updateList();
+  if (isAdmin) void loadCurrent();
   const requestedLetterId=new URLSearchParams(location.search).get("letterId");
   const requestedCardId=new URLSearchParams(location.search).get("cardId");
   if(requestedCardId)requestAnimationFrame(()=>$("#cartasList [data-letter-id='"+CSS.escape(requestedCardId)+"']")?.click());
