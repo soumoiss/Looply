@@ -89,9 +89,34 @@ export async function downloadLicensedStorySong(song,{fetcher=fetch,signal}={}) 
   const mime=String(response.headers?.get?.("content-type")||"").split(";")[0].toLowerCase();
   if(mime && mime!=="application/octet-stream" && !mime.startsWith("audio/"))
     throw new Error("O arquivo recebido não contém áudio válido.");
-  const buffer=await response.arrayBuffer();
+  // Read incrementally so untrusted hosts cannot exhaust memory by omitting Content-Length.
+  let buffer;
+  if(response.body?.getReader){
+    const reader=response.body.getReader(),parts=[];let total=0;
+    try{
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        total+=value.byteLength;
+        if(total>MAX_AUDIO_BYTES)throw new Error("Esta faixa é maior que o limite de 15 MB.");
+        parts.push(value);
+      }
+    }finally{reader.releaseLock();}
+    buffer=new Uint8Array(total);
+    let position=0;
+    for(const part of parts){buffer.set(part,position);position+=part.byteLength;}
+  }else buffer=new Uint8Array(await response.arrayBuffer());
   if(!buffer.byteLength || buffer.byteLength>MAX_AUDIO_BYTES)
     throw new Error("Esta faixa é maior que o limite de 15 MB.");
+  const ascii=(start,length)=>String.fromCharCode(...buffer.slice(start,start+length));
+  const mp3=ascii(0,3)==="ID3" || (buffer[0]===255 && (buffer[1]&224)===224);
+  const wav=ascii(0,4)==="RIFF" && ascii(8,4)==="WAVE";
+  const ogg=ascii(0,4)==="OggS";
+  const mp4=ascii(4,4)==="ftyp";
+  if(!((song.filetype==="mp3"||song.filetype==="mpeg")&&mp3 ||
+       song.filetype==="wav"&&wav || song.filetype==="ogg"&&ogg ||
+       song.filetype==="m4a"&&mp4))
+    throw new Error("O arquivo recebido não corresponde a um formato de áudio válido.");
   const type= mime.startsWith("audio/")?mime:
     song.filetype==="wav"?"audio/wav":song.filetype==="ogg"?"audio/ogg":
     song.filetype==="m4a"?"audio/mp4":"audio/mpeg";
