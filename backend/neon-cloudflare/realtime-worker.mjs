@@ -189,7 +189,7 @@ export class LooplyConversationRoom {
       this.broadcast({ type: "invalidate", user_id: attach.userId }, ws);
     } else if (payload.type === "signal") {
       // WebRTC signaling only; no SDP persistence in the Worker.
-      if (!["offer", "answer", "candidate", "hangup", "decline", "failed"].includes(payload.signal_type)) return;
+      if (!["ring", "offer", "answer", "candidate", "hangup", "decline", "failed"].includes(payload.signal_type)) return;
       if (typeof payload.value !== "string" || payload.value.length > 12000) return;
       this.broadcast({
         type: "signal", signal_type: payload.signal_type,
