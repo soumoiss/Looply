@@ -106,6 +106,13 @@ AS $$
       AND p_allow IS NOT NULL
       AND story.expires_at > pg_catalog.now()
       AND (p_allow = false OR story.visibility = 'public')
+      AND (
+        p_allow = false
+        OR EXISTS (
+          SELECT 1 FROM public.story_media media
+          WHERE media.story_id = story.id AND media.kind IN ('image', 'video')
+        )
+      )
     RETURNING true AS ok
   )
   SELECT COALESCE((SELECT changed.ok FROM changed), false)
@@ -133,6 +140,11 @@ AS $$
       AND original.visibility = 'public'
       AND original.allow_reposts IS TRUE
       AND original.expires_at > pg_catalog.now()
+      AND EXISTS (
+        SELECT 1 FROM public.story_media source_media
+        WHERE source_media.story_id = original.id
+          AND source_media.kind IN ('image', 'video')
+      )
       AND actor.user_id IS NOT NULL
       AND EXISTS (
         SELECT 1 FROM public.story_mentions mention
