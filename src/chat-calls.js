@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { startIncomingCallAlert } from "./global-call-ringtone.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
   if (!root || root.dataset.chatCalls === "true") return;
@@ -10,6 +11,9 @@ export function setupChatCalls(root, client, userId) {
   let localStream = null;
   let remoteStream = null;
   let incomingOffer = null;
+  let pendingRing = null;
+  let stopRinging = null;
+  const silenceIncoming = () => { stopRinging?.(); stopRinging = null; };
   let callMode = "audio";
   let callPeerName = "Contato";
   let pendingCandidates = [];
@@ -65,6 +69,8 @@ export function setupChatCalls(root, client, userId) {
     remoteStream = null;
     pendingCandidates = [];
     incomingOffer = null;
+    pendingRing = null;
+    silenceIncoming();
     isCaller = false;
   };
   const endCall = async (notify = true, message = "Chamada encerrada.") => {
@@ -206,6 +212,7 @@ export function setupChatCalls(root, client, userId) {
     }
   };
   const startCall = async (mode) => {
+    let announced = false;
     if (!activeConversation() || isGroup()) { toast("Chamadas estão disponíveis apenas em conversas individuais."); return; }
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { toast("Chamadas exigem HTTPS e suporte a microfone/câmera."); return; }
     if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
@@ -213,6 +220,12 @@ export function setupChatCalls(root, client, userId) {
     try {
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
+      // Ring the other person as soon as private membership is confirmed.
+      // Do not wait up to five seconds for ICE gathering or camera permission.
+      announced = await send("ring", {
+        mode, senderName: root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato"
+      });
+      if (!announced) throw new Error("call_ring_unavailable");
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
       createPeerConnection();
       callView("Chamando…");
@@ -241,11 +254,13 @@ export function setupChatCalls(root, client, userId) {
       }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
+      if (announced) await send("failed", { reason: error?.name || "CallSetupError" });
       await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
     }
   };
   const acceptCall = async () => {
     if (!incomingOffer) return;
+    silenceIncoming();
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
     callPeerName = incomingOffer.senderName || peerName();
     try {
@@ -312,17 +327,30 @@ export function setupChatCalls(root, client, userId) {
     channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
-      if (payload.type === "offer") {
+      if (payload.type === "ring") {
+        // An early authenticated signal arrives before the SDP: immediately
+        // alert this participant, even if camera/ICE setup is still ongoing.
+        if (pc || incomingOffer || pendingRing) return;
+        if (!["video", "audio"].includes(payload.mode)) return;
+        pendingRing = payload;
+        callMode = payload.mode;
+        callPeerName = payload.senderName || peerName();
+        showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p role="status">Preparando conexão segura…</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button></div>`);
+        silenceIncoming();
+        stopRinging = startIncomingCallAlert({ name: callPeerName, mode: callMode });
+      } else if (payload.type === "offer") {
         if (pc) {
           if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
           await send("decline");
           return;
         }
         if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
+        pendingRing = null;
         incomingOffer = payload;
         callMode = payload.mode === "video" ? "video" : "audio";
         callPeerName = payload.senderName || peerName();
         showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+        if (!stopRinging) stopRinging = startIncomingCallAlert({ name: callPeerName, mode: callMode });
       } else if (payload.type === "answer" && pc && isCaller) {
         try {
           clearOfferRetry();
