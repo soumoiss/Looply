@@ -186,7 +186,10 @@ export function setupChatCalls(root, client, userId) {
     attachMedia();
     return pc;
   };
-  const waitForIceGatheringComplete = (peer, timeout = 5000) => new Promise((resolve) => {
+  // Trickle ICE is already wired in pc.onicecandidate. Briefly collect candidates
+  // before alerting the recipient instead of holding ringing behind a five-second
+  // ICE-gathering timeout on mobile carriers.
+  const waitForIceGatheringComplete = (peer, timeout = 750) => new Promise((resolve) => {
     if (!peer || peer.iceGatheringState === "complete") { resolve(); return; }
     let timer;
     const finish = () => {
@@ -218,7 +221,7 @@ export function setupChatCalls(root, client, userId) {
       callView("Chamando…");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
+      // Include the candidates already available in SDP, then trickle additional ICE events.
       await waitForIceGatheringComplete(pc);
       const offerPayload = {
         description: pc.localDescription.toJSON(),
@@ -237,7 +240,7 @@ export function setupChatCalls(root, client, userId) {
           if (pc && isCaller && !pc.remoteDescription && Date.now() >= retryUntil) void endCall(true, "A chamada não foi atendida.");
           return;
         }
-        void send("offer", offerPayload);
+        void send("offer", { ...offerPayload, description: pc?.localDescription?.toJSON() || offerPayload.description });
       }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
