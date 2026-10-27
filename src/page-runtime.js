@@ -173,6 +173,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     window.location.replace("login.html");
     return;
   }
+  // Start incoming-call monitoring immediately after authentication instead of
+  // waiting for profile, gallery, music and Stories rendering to complete.
+  // The singleton listener runs on Home, Cartas, Músicas and every other page.
+  setupGlobalCallListener(supabase, user.id, null);
+
   let profile;
   let isAdmin = false;
   try {
@@ -286,9 +291,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   void mountLetterEventNotices(supabase,user,page);
 
-  // Listen for direct-call offers from every conversation the signed-in user belongs to,
-  // even when the user is browsing a different page.
-  setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
     clearTimeout(badgeTimer);
