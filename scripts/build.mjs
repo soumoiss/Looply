@@ -25,6 +25,11 @@ for (const route of ["car", "mu"]) {
   await mkdir(path.join(outputDirectory, route), { recursive: true });
   await cp(path.join(projectRoot, route, "index.html"), path.join(outputDirectory, route, "index.html"));
 }
+for (const route of ["cartas", "musicas"]) {
+  const relative = path.join("admin", route);
+  await mkdir(path.join(outputDirectory, relative), { recursive: true });
+  await cp(path.join(projectRoot, relative, "index.html"), path.join(outputDirectory, relative, "index.html"));
+}
 
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
