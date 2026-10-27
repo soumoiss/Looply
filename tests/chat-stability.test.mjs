@@ -212,7 +212,7 @@ test("global incoming calls and the active-chat controller use the same legacy s
   const [runtime, globalListener, callController] = await Promise.all([
     read("src/page-runtime.js"), read("src/global-call-listener.js"), read("src/chat-calls.js")
   ]);
-  assert.match(runtime, /setupGlobalCallListener\(supabase, user\.id, profile\)/);
+  assert.match(runtime, /setupGlobalCallListener\(supabase, user\.id, null\)/);
   assert.match(globalListener, /from\("conversation_participants"\)/);
   assert.match(globalListener, /config: \{ private: true/);
   assert.match(globalListener, /conversation\.kind !== "direct"/);
