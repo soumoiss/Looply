@@ -80,3 +80,17 @@ test("Layout button truly composes four camera captures into a 9:16 2×2 image",
   assert.match(studio,/story-layout-/);
   assert.match(css,/2×2 collage guides match the actual/);
 });
+
+test("Only the edit-sidebar music button remains; its sheet can remove the selected track", () => {
+  const markup = storyStudioMarkup("");
+  const triggers = markup.match(/data-studio-music-open/g) || [];
+  assert.equal(triggers.length, 1, "There must be one edit music trigger, not a header duplicate");
+  const top = markup.slice(markup.indexOf('class="studio-edit-top'), markup.indexOf('class="studio-edit-tools'));
+  assert.doesNotMatch(top, /data-studio-music-open|data-studio-music-remove|studio-audio-pill/);
+  assert.match(markup, /studio-music-side-button" data-studio-music-open/);
+  const controller = read("src/story-studio.js");
+  assert.match(controller, /remove\.dataset\.studioMusicRemove = ""/);
+  assert.match(controller, /remove\.textContent = "Remover música selecionada"/);
+  assert.match(controller, /\$\("\[data-studio-music-indicator\]"\)\.hidden = true/);
+  assert.match(controller, /stopMusicPreview\(\)/);
+});
