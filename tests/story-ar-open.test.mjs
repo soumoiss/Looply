@@ -63,6 +63,8 @@ test("AR uses real camera frame compositing, WebGL pixel deformation, 3D geometr
   assert.match(paint,/manifest\.id==="skincare"/);
   assert.match(studio,/loadStoryEffectManifest/);
   assert.match(studio,/drawLayer\(lens\)/);
-  assert.ok(!/warm:|cool:|mono:|vivid:/.test(studio));
+  // Color corrections are separate from AR facial lenses and do not replace MediaPipe.
+  assert.match(studio,/loadStoryEffectManifest/);
+  assert.match(studio,/\[data-studio-effects-open\]/);
   assert.ok(StoryFaceLens.prototype.prepare instanceof Function);
 });
