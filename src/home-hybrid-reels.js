@@ -63,7 +63,11 @@ export function openHybridReels(root, startKey) {
   const glyphs = { like: "♡", comment: "", external: "⇄", chat: "" };
   for (const type of actions) rail.append(action(type, labels[type], glyphs[type]));
   const slides = sources.map((source, index) => {
-    const slide = make("section", "looply-reel-slide" + (source.kind === "embed" ? " is-external-embed" : ""));
+    const embedHost = source.kind === "embed" ? new URL(source.source).hostname : "";
+    const providerClass = embedHost.endsWith("instagram.com") ? " is-instagram-embed"
+      : embedHost.endsWith("tiktok.com") ? " is-tiktok-embed"
+      : embedHost.endsWith("youtube-nocookie.com") ? " is-youtube-embed" : "";
+    const slide = make("section", "looply-reel-slide" + (source.kind === "embed" ? " is-external-embed" + providerClass : ""));
     slide.dataset.reelsKey = source.key;
     slide.setAttribute("aria-label", "Vídeo " + (index + 1) + " de " + sources.length);
     const media = source.kind === "video" ? make("video", "looply-reel-video") : make("iframe", "looply-reel-embed");
