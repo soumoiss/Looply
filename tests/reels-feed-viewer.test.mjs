@@ -32,3 +32,16 @@ test("Reels viewer navigates authorized feed media and routes actions through re
   assert.match(source, /player\.pause\(\); player\.removeAttribute\("src"\)/);
   assert.match(source, /if \(feed\) bindFeedVideoAutoplay\(root\)/);
 });
+
+
+test("Reels never loads a video URL as an image and keeps the explicit audio choice when swiping", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { resolve } = await import("node:path");
+  const source = await readFile(resolve("src/social.js"), "utf8");
+  assert.doesNotMatch(source, /image\.src = source/, "video URLs must not be assigned to an image");
+  assert.match(source, /const soundOn = viewer\.dataset\.reelsSoundOn === "true"/);
+  assert.match(source, /player\.muted = !soundOn/);
+  assert.match(source, /viewer\.dataset\.reelsSoundOn = String\(!player\.muted\)/);
+  assert.match(source, /viewer\.dataset\.reelsSoundOn = "false"/);
+  assert.match(source, /if \(viewer\.open && player\.ended\) navigate\(1\)/);
+});
