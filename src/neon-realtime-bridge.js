@@ -10,7 +10,7 @@ const allowedEndpoint = endpoint => {
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw Error("invalid_realtime_endpoint");
   return url.origin;
 };
-export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket, setTimeoutFn, clearTimeoutFn }) {
+export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket, setTimeoutFn, clearTimeoutFn, fallback = null }) {
   const origin = allowedEndpoint(endpoint);
   const fetchImpl = fetcher || ((...args) => fetch(...args));
   const timeout = setTimeoutFn || setTimeout;
@@ -123,12 +123,29 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const start = () => {
       if (closed) return Promise.resolve(null);
       if (ready) return ready;
-      ready = open().catch(error=>{
+      ready = open().catch(async cloudflareError=>{
+        // Preserve the October 19 WebRTC offer/answer/ICE contract. When the
+        // optional Cloudflare WebSocket is blocked, use a separate authenticated
+        // Neon signaling RPC (which checks membership independently).
+        let error = cloudflareError;
+        if (!closed && fallback && conversationId) {
+          try {
+            const backup = await fallback.connect(conversationId, deliver, fallbackError=>{
+              console.warn("Looply Neon fallback reconnecting", fallbackError?.message);
+            });
+            if (closed) { backup.close(); return null; }
+            ws = backup;
+            report("SUBSCRIBED");
+            return backup;
+          } catch (fallbackError) {
+            error = new Error("cloudflare_" + cloudflareError.message + ";neon_" + fallbackError.message);
+          }
+        }
         if (!closed) {
           report("CHANNEL_ERROR",error);
           ws = null;
-          // Do not loop forever on missing membership or credentials.
-          if (!/membership_required|session_required|conversation_required/.test(error.message) && ++attempt <= 3) {
+          // Do not loop forever on access denial or missing credentials.
+          if (!/membership_required|session_required|conversation_required|http_40[13]_/.test(error.message) && ++attempt <= 2) {
             retryTimer = timeout(()=>{retryTimer=null;ready=null; if (!closed) void start();},Math.min(5000,1200*attempt));
           }
         }
@@ -156,6 +173,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         if (!live || live.readyState !== 1) return "error";
         const payload = item.payload;
         if (!payload || typeof payload!=="object" || Array.isArray(payload)) return "error";
+        if (live.kind === "neon") return live.send({ event: item.event, payload });
         let wire;
         if (item.event==="signal" && CALL_TYPES.has(payload.type)) {
           const signal_type=payload.type==="ice"?"candidate":payload.type;
