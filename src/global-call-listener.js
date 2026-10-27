@@ -1,3 +1,5 @@
+import { createFastIncomingPoller } from "./fast-incoming-calls.js";
+
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 const pendingKey = (userId) => `looply:pending-call:${userId}`;
 
@@ -8,6 +10,44 @@ export function setupGlobalCallListener(client, userId, profile) {
   let incoming = null;
   let overlay = null;
   let closed = false;
+  let fastInbox = null;
+  let ringTimer = null;
+  let ringContext = null;
+
+  const stopRinging = () => {
+    if (ringTimer !== null) clearInterval(ringTimer);
+    ringTimer = null;
+    if (ringContext) { void ringContext.close().catch(() => {}); ringContext = null; }
+  };
+  const startRinging = () => {
+    if (ringTimer !== null || document.visibilityState === "hidden") return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      ringContext = new Ctx();
+      const ping = () => {
+        if (!ringContext || ringContext.state !== "running") return;
+        const now = ringContext.currentTime;
+        for (const offset of [0, 0.23]) {
+          const oscillator = ringContext.createOscillator();
+          const gain = ringContext.createGain();
+          oscillator.type = "sine";
+          oscillator.frequency.value = 720;
+          gain.gain.setValueAtTime(0.0001,now+offset);
+          gain.gain.exponentialRampToValueAtTime(0.12,now+offset+0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.19);
+          oscillator.connect(gain).connect(ringContext.destination);
+          oscillator.start(now+offset);
+          oscillator.stop(now+offset+0.2);
+        }
+      };
+      void ringContext.resume().then(ping).catch(() => {});
+      ringTimer = window.setInterval(ping, 1750);
+      if (navigator.vibrate) navigator.vibrate([160,140,160]);
+    } catch(error) {
+      console.warn("Looply ringtone requires browser audio permission", error);
+    }
+  };
 
   const activeConversationId = () => {
     const params = new URLSearchParams(window.location.search);
@@ -30,30 +70,50 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
   const hideOverlay = () => {
     if (overlay) overlay.hidden = true;
+    stopRinging();
     incoming = null;
   };
   const signal = async (call, type) => {
-    if (!call?.channel) return;
+    if (!call?.conversationId) return;
     try {
-      await call.channel.send({ type: "broadcast", event: "signal", payload: {
-        type, conversationId: call.conversationId, senderId: userId
-      } });
-    } catch (error) { console.warn("Looply global call response failed", error); }
+      if (call.channel) {
+        const response = await call.channel.send({ type: "broadcast", event: "signal", payload: {
+          type, conversationId: call.conversationId, senderId: userId
+        } });
+        if (response === "ok" || response?.status === "ok") return;
+      }
+      // The quick incoming inbox may ring before individual room subscriptions
+      // are ready. Replies still use authenticated Neon membership checks.
+      await fastInbox?.send({conversationId:call.conversationId,type});
+    } catch (error) {
+      console.warn("Looply global call response failed", error);
+      await fastInbox?.send({conversationId:call.conversationId,type});
+    }
   };
   const showIncoming = (call, payload) => {
+    // Call offers are repeated for unreliable networks. Never restart ringing
+    // or rebuild the dialog when the same offer is delivered by both channels.
+    if (incoming?.conversationId === call.conversationId) return;
     if (incoming && incoming.conversationId !== call.conversationId) {
       void signal(call, "decline");
       return;
     }
     incoming = { ...call, payload };
     const modal = ensureOverlay();
-    const sender = call.participants.find((p) => p.user_id === payload.senderId)?.profile;
+    const sender = (call.participants || []).find((p) => p.user_id === payload.senderId)?.profile;
     const name = payload.senderName || sender?.display_name || sender?.username || "Alguém";
     modal.querySelector("#looplyGlobalCallTitle").textContent = name;
     modal.querySelector("[data-global-call-description]").textContent =
       `${name} está ligando por ${payload.mode === "video" ? "vídeo" : "áudio"}.`;
     modal.hidden = false;
-    modal.querySelector("[data-global-call-accept]").focus();
+    startRinging();
+    if (document.visibilityState === "hidden" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        const notification = new Notification("Chamada recebida no Looply", {body:name+" está ligando.",tag:"looply-call-"+call.conversationId});
+        notification.onclick = () => {window.focus(); notification.close();};
+      } catch (error) {console.warn("Looply call notification unavailable",error);}
+    }
+    modal.querySelector("[data-global-call-accept]").focus({preventScroll:true});
   };
   const subscribeConversation = async (conversation) => {
     if (closed || channels.has(conversation.id) || conversation.kind !== "direct") return;
@@ -84,6 +144,34 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
 
   overlay = ensureOverlay();
+  // A single authenticated Neon query checks *all* direct conversations. This
+  // starts independently of loading metadata and independent of which Looply
+  // page is open. It also catches offers missed by a reconnecting WebSocket.
+  fastInbox = createFastIncomingPoller({
+    client,
+    onSignal:({conversationId,senderId,payload})=>{
+      if (closed || senderId === userId || activeConversationId() === conversationId) return;
+      const call = channels.get(conversationId) || {conversationId,participants:[],channel:null};
+      if (payload.type === "offer") {
+        if (!payload.description || !["audio","video"].includes(payload.mode)) return;
+        showIncoming(call,payload);
+      } else if (incoming?.conversationId === conversationId) {
+        hideOverlay();
+      }
+    }
+  });
+  fastInbox.start();
+  const wake = () => {
+    if (!closed && document.visibilityState === "visible") {
+      void fastInbox.refresh();
+      if (incoming) startRinging();
+    } else if (document.visibilityState === "hidden") stopRinging();
+  };
+  document.addEventListener("visibilitychange",wake);
+  window.addEventListener("focus",wake);
+  window.addEventListener("pageshow",wake);
+  window.addEventListener("online",wake);
+
   overlay.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button || !incoming) return;
@@ -134,6 +222,11 @@ export function setupGlobalCallListener(client, userId, profile) {
 
   window.addEventListener("pagehide", () => {
     closed = true;
+    fastInbox.stop();
+    document.removeEventListener("visibilitychange",wake);
+    window.removeEventListener("focus",wake);
+    window.removeEventListener("pageshow",wake);
+    window.removeEventListener("online",wake);
     hideOverlay();
     for (const { channel } of channels.values()) void client.removeChannel(channel);
     channels.clear();
