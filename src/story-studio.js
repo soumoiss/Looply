@@ -858,7 +858,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     }
   };
   const activateShutter = async e => {
-    if (mode !== "camera") return;
+    if (mode !== "camera" || handsfreeRecording) return;
     e.preventDefault(); pointer = e.pointerId; held = false;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     hold = setTimeout(() => { held = true; try { beginRecording(); } catch (error) { status(error.message, true); } }, 340);
@@ -868,13 +868,20 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     pointer = null;
     if (hold) { clearTimeout(hold); hold = null; }
     stage.dataset.recording = "false";
-    if (held) finishRecording(); else await capturePhoto().catch(error => status(error.message, true));
+    if (held) finishRecording(); else {
+      if (cameraTimerSeconds) {const seconds=cameraTimerSeconds;status("Capturando em "+seconds+" s…");await new Promise(resolve=>setTimeout(resolve,seconds*1000));if(!active||mode!=="camera")return;}
+      await capturePhoto().catch(error=>status(error.message,true));
+    }
   };
   const handlers = {
     "[data-studio-close]": close,
     "[data-studio-back]": async () => { clearPreview(); await startCamera().catch(error => status(error.message, true)); },
     "[data-studio-text-mode]": createText,
-    "[data-studio-grid-toggle]": () => { settings.grid = !settings.grid; $("[data-studio-grid]").hidden = !settings.grid; },
+    "[data-studio-grid-toggle]": () => { settings.grid = !settings.grid; $("[data-studio-grid]").hidden = !settings.grid; $("[data-studio-grid-toggle]").setAttribute("aria-pressed",String(settings.grid)); },
+    "[data-studio-camera-more]": () => { const e=$("[data-studio-camera-extra]");e.hidden=!e.hidden;$("[data-studio-camera-more]").setAttribute("aria-expanded",String(!e.hidden)); },
+    "[data-studio-editor-more]": () => { const e=$("[data-studio-editor-extra]");e.hidden=!e.hidden;$("[data-studio-editor-more]").setAttribute("aria-expanded",String(!e.hidden)); },
+    "[data-studio-timer]": () => { modal("Temporizador", '<p class="studio-hint">Escolha quanto esperar antes da fotografia.</p><div class="studio-modal-actions"><button type="button" data-timer-value="0">Desligado</button><button type="button" data-timer-value="3">3 s</button><button type="button" data-timer-value="10">10 s</button></div>');body.querySelectorAll("[data-timer-value]").forEach(b=>b.onclick=()=>{cameraTimerSeconds=Number(b.dataset.timerValue);modalClose();status(cameraTimerSeconds?"Foto em "+cameraTimerSeconds+" segundos.":"Temporizador desligado.");}); },
+    "[data-studio-handsfree]": () => { if(mode!=="camera")return;if(recorder?.state==="recording"){finishRecording();handsfreeRecording=false;}else{try{beginRecording();handsfreeRecording=true;}catch(error){status(error.message,true);}}$("[data-studio-handsfree]").setAttribute("aria-pressed",String(handsfreeRecording)); },
     "[data-studio-flip]": async () => { await startCamera(settings.facing === "user" ? "environment" : "user").catch(error => status(error.message, true)); },
     "[data-studio-boomerang]": () => { isBoomerang = !isBoomerang; $("[data-studio-boomerang]").setAttribute("aria-pressed", String(isBoomerang)); status(isBoomerang ? "Boomerang ativado: segure para gravar." : "Boomerang desativado."); },
     "[data-studio-flash]": async () => {
@@ -919,7 +926,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     },
     "[data-studio-post]": () => { close(); root.querySelector("[data-toggle-composer]")?.click(); root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" }); },
     "[data-studio-music-open]": openMusic,
-    "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-music-remove]").hidden = true; },
+    "[data-studio-effects-open]": () => { modal("Filtros da imagem e vídeo", '<p class="studio-hint">Filtro aplicado também ao arquivo final.</p><div class="studio-filter-options">'+Object.entries({none:"Original",glow:"Natural",golden:"Dourado",cool:"Azulado",mono:"Preto e branco"}).map(([key,name])=>'<button type="button" data-studio-filter="'+key+'" aria-pressed="'+String(editFilter===key)+'">'+name+'</button>').join("")+'</div>');body.querySelectorAll("[data-studio-filter]").forEach(button=>button.onclick=()=>{editFilter=button.dataset.studioFilter;edits.style.filter=FILTERS[editFilter];body.querySelectorAll("[data-studio-filter]").forEach(el=>el.setAttribute("aria-pressed",String(el===button)));status("Filtro: "+button.textContent);}); },
+    "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-track-hint]").textContent = "Trilha sonora"; $("[data-studio-music-remove]").hidden = true; },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
     "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
@@ -928,7 +936,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     },
     "[data-studio-modal-close]": modalClose,
     "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; void publish(); },
-    "[data-studio-friends]": openAudience
+    "[data-studio-friends]": openAudience,
+    "[data-studio-send]": () => {
+      modal("Compartilhar Story", '<p class="studio-hint">Escolha quem poderá visualizar sua publicação.</p><div class="studio-modal-actions"><button type="button" data-share-public>Seu Story</button><button type="button" data-share-friends>Amigos próximos</button></div>');
+      body.querySelector("[data-share-public]").onclick=()=>{modalClose();$("[data-studio-visibility]").value="public";void publish();};
+      body.querySelector("[data-share-friends]").onclick=()=>{modalClose();openAudience();};
+    }
   };
   root.addEventListener("click", event => {
     if (event.target.closest("[data-story-create-open]")) { event.preventDefault(); event.stopPropagation(); void open(); return; }
