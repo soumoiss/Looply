@@ -1,7 +1,7 @@
 import { icon } from "./icons.js";
 import { looplyClient as supabase, selfProfile } from "./neon-production-client.js";
 import { applyProfilePreferences } from "./theme.js";
-import { setupGlobalCallListener } from "./global-call-listener.js";
+import { setupGlobalCallListener } from "./global-call-listener.js?v=global-ring-20261027";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
