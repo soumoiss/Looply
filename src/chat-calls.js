@@ -16,7 +16,9 @@ export function setupChatCalls(root, client, userId) {
   let isCaller = false;
   let closing = false;
   let offerRetryTimer = null;
+  let connectionTimer = null;
   const clearOfferRetry = () => { if (offerRetryTimer) clearInterval(offerRetryTimer); offerRetryTimer = null; };
+  const clearConnectionTimer = () => { if (connectionTimer) clearTimeout(connectionTimer); connectionTimer = null; };
   const activeConversation = () => root.querySelector(".chat-thread-heading")?.dataset.conversationId || root.querySelector("[data-chat-send]")?.dataset.conversationId || "";
   const isGroup = () => root.querySelector(".chat-thread-heading")?.dataset.chatKind === "group";
   const peerName = () => root.querySelector(".chat-thread-heading strong")?.textContent?.trim() || "Contato";
@@ -53,6 +55,7 @@ export function setupChatCalls(root, client, userId) {
   };
   const releaseMedia = () => {
     clearOfferRetry();
+    clearConnectionTimer();
     if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); pc = null; }
     if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
     const local = root.querySelector("[data-call-local]");
@@ -67,7 +70,8 @@ export function setupChatCalls(root, client, userId) {
   const endCall = async (notify = true, message = "Chamada encerrada.") => {
     if (closing) return;
     closing = true;
-    if (notify) await send("hangup");
+    // Release the camera and microphone immediately, even if signaling stalls.
+    if (notify) void send("hangup");
     releaseMedia();
     closeModal();
     toast(message);
@@ -143,12 +147,19 @@ export function setupChatCalls(root, client, userId) {
       ...configuredIceServers
     ] });
     pc.onicecandidate = (event) => { if (event.candidate) send("ice", { candidate: event.candidate.toJSON() }); };
+    const peer = pc;
     pc.onconnectionstatechange = () => {
-      if (!pc) return;
-      if (pc.connectionState === "connected") updateStatus("Conectado");
-      else if (pc.connectionState === "connecting") updateStatus("Conectando…");
-      else if (["failed", "disconnected"].includes(pc.connectionState)) updateStatus("Conexão instável. Verifique a rede e as permissões.");
-      else if (pc.connectionState === "closed") updateStatus("Chamada encerrada");
+      if (pc !== peer) return;
+      if (peer.connectionState === "connected") { clearConnectionTimer(); updateStatus("Conectado"); }
+      else if (peer.connectionState === "connecting") updateStatus("Conectando…");
+      else if (peer.connectionState === "failed") void endCall(true, "A conexão da chamada falhou.");
+      else if (peer.connectionState === "disconnected") {
+        updateStatus("Reconectando…");
+        clearConnectionTimer();
+        connectionTimer = window.setTimeout(() => {
+          if (pc === peer && peer.connectionState === "disconnected") void endCall(true, "A chamada caiu. Verifique sua conexão.");
+        }, 12000);
+      } else if (peer.connectionState === "closed") void endCall(false);
     };
     if (localStream) localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
     attachMedia();
@@ -202,6 +213,7 @@ export function setupChatCalls(root, client, userId) {
       offerRetryTimer = window.setInterval(() => {
         if (!pc || !isCaller || pc.remoteDescription || Date.now() >= retryUntil) {
           clearOfferRetry();
+          if (pc && isCaller && !pc.remoteDescription && Date.now() >= retryUntil) void endCall(true, "A chamada não foi atendida.");
           return;
         }
         void send("offer", offerPayload);
