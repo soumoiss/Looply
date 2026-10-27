@@ -353,3 +353,161 @@
 .story-studio .studio-mention-person.is-selected .studio-mention-check { border-color:#d9b7ff; background:#8b5cf6; }
 .story-studio .studio-mention-empty { padding:18px 8px; opacity:.72; text-align:center; }
 @media (max-width:360px) { .story-studio .studio-mention-person { grid-template-columns:40px minmax(0,1fr) 26px; gap:9px; padding:8px; } .story-studio .studio-mention-person > img,.story-studio .studio-mention-person > span:first-child { width:40px; height:40px; } }
+
+
+/* Studio 9:16 final pass: camera framing identical in preview, capture and edit.
+   No implicit digital zoom; backgrounds can be blurred but foreground always contains. */
+.story-studio,
+.story-studio .studio-shell,
+.story-studio .studio-stage {
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.story-studio .studio-camera,
+.story-studio .studio-edited-media > img,
+.story-studio .studio-edited-media > video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  background: transparent;
+}
+.story-studio .studio-camera-bottom {
+  padding-top: 25px;
+  background: linear-gradient(to top, #08060ae8, #08060a7a 64%, transparent);
+}
+.story-studio .studio-edit-top {
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 12px) 12px 0;
+}
+.story-studio .studio-audio-pill {
+  max-width: min(58vw, 280px);
+  min-height: 42px;
+  padding: 9px 13px;
+  background: #0009;
+  border: 1px solid #ffffff5c;
+  backdrop-filter: blur(9px);
+}
+.story-studio .studio-edit-tools {
+  right: 12px;
+  top: calc(env(safe-area-inset-top) + 78px);
+  transform: none;
+  gap: 12px;
+}
+.story-studio .studio-edit-tools .studio-icon {
+  width: 46px;
+  height: 46px;
+  border: 1px solid #ffffff4b;
+  background: #1119;
+  backdrop-filter: blur(10px);
+}
+.story-studio .studio-edit-bottom {
+  padding: 30px 12px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #000e, #0009 65%, transparent);
+}
+.story-studio .studio-edit-bottom textarea {
+  box-sizing: border-box;
+  width: min(100%, 330px);
+  min-height: 43px;
+  max-height: 80px;
+  border: 1px solid #ffffff78;
+  border-radius: 22px;
+  padding: 11px 15px;
+  background: #0b0a0d70;
+  backdrop-filter: blur(7px);
+  outline-offset: 3px;
+}
+.story-studio .studio-publish-row { gap: 8px; }
+.story-studio .studio-pill { min-width: 0; min-height: 44px; }
+.story-studio .studio-next { width: 46px; height: 46px; flex: 0 0 46px; }
+.story-studio .studio-feedback {
+  bottom: calc(142px + env(safe-area-inset-bottom));
+  max-height: 20dvh;
+  overflow-y: auto;
+  z-index: 27;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-modal-panel {
+  background: #fffaf5;
+  color: #29201f;
+  max-height: min(85dvh, 740px);
+  padding: 18px clamp(14px,4vw,24px) calc(22px + env(safe-area-inset-bottom));
+  box-shadow: 0 -14px 44px #0008;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-modal-head strong { color: #29201f; }
+.story-studio .studio-modal[data-sheet="music"] .studio-modal-head .studio-icon {
+  color: #29201f;
+  background: #ede5df;
+  border: 1px solid #d9cbc4;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-search-label { color: #4a3731; }
+.story-studio .studio-modal[data-sheet="music"] .studio-music-search-label input {
+  background: white;
+  border: 1px solid #dacdc6;
+  color: #29201f;
+  min-height: 48px;
+  border-radius: 14px;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-search-label input::placeholder { color: #8c7b72; }
+.story-studio .studio-modal[data-sheet="music"] .studio-music-providers button {
+  color: #54463e;
+  background: white;
+  border-color: #e1d5cc;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-providers button[aria-pressed="true"] {
+  background: #282024;
+  border-color: #282024;
+  color: white !important;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-found,
+.story-studio .studio-modal[data-sheet="music"] .studio-hint { color: #75655e; }
+.story-studio .studio-modal[data-sheet="music"] .studio-catalog-song {
+  background: #f3ebe4;
+  border: 1px solid #e9ded6;
+  min-height: 66px;
+  padding: 10px;
+  border-radius: 14px;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-catalog-info strong { color: #29201f; font-size: 13px; }
+.story-studio .studio-modal[data-sheet="music"] .studio-catalog-info small { color: #7a6b64; }
+.story-studio .studio-modal[data-sheet="music"] .studio-music-listen {
+  background: white;
+  border-color: #cfc3bc;
+  color: #29201f;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-catalog-select {
+  background: #282024;
+  border-color: #282024;
+  color: white;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview:not([hidden]) {
+  background: #efe6de;
+  border-color: #d6c8bd;
+  color: #29201f;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview-hint,
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview-source,
+.story-studio .studio-modal[data-sheet="music"] .studio-music-empty { color: #62544c; }
+.story-studio .studio-modal[data-sheet="music"] .studio-music-stop {
+  border-color: #cdbeb4;
+  color: #29201f;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-external a {
+  color: #46372f;
+  background: #eee4da;
+  border-color: #e1d4ca;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-audio-upload {
+  color: #7c6559;
+  border-color: #bca99e;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-audio-upload input { color: #362a25; }
+@media (max-width: 360px) {
+  .story-studio .studio-edit-bottom { padding-inline: 8px; }
+  .story-studio .studio-edit-tools { right: 8px; gap: 8px; }
+  .story-studio .studio-edit-tools .studio-icon { width: 42px; height: 42px; }
+  .story-studio .studio-audio-pill { max-width: 55vw; }
+  .story-studio .studio-pill { padding: 7px 8px; font-size: 10px !important; }
+  .story-studio .studio-modal[data-sheet="music"] .studio-catalog-song { padding: 8px; }
+}

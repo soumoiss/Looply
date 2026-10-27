@@ -24,10 +24,10 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
  assert.match(studio,/const media = await exportFinal\(armedAudioContext\)/);
  assert.match(studio,/audioCtx = armedAudioContext \|\| new AudioEngine\(\)/);
  assert.match(studio,/withAudio\?audioFirst:videoFirst/);
- assert.match(studio,/source\.connect\(destination\)/);
+ assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer\)/);
  assert.match(studio,/framesStream\.addTrack\(t\)/);
  assert.match(studio,/audioCtx\.state !== "running"/);
- assert.match(studio,/if\(source\) source\.start\(\)/);
+ assert.match(studio,/if\s*\(source\) source\.start\(\)/);
 });
 
 test("Story player unblocks sound without auto-pausing it on same tap, and pauses with entire Story",()=>{

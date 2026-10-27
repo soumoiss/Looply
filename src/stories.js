@@ -249,12 +249,14 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<div class="story-progress-list" data-story-progress-list></div>' +
         '<header class="story-viewer-header"><div class="story-viewer-author">' +
           '<span data-story-viewer-avatar></span><span><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span>' +
-        '</div><button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></header>' +
+        '</div><div class="story-viewer-header-controls">' +
+          '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
+          '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></div></header>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
+          '<div class="story-media-backdrop" data-story-media-backdrop aria-hidden="true"></div>' +
           '<div class="story-viewer-media" data-story-viewer-media></div>' +
           '<button class="story-tap-zone story-tap-zone-next" type="button" data-story-next aria-label="Próximo story"></button>' +
-          '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
@@ -425,6 +427,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const media = Array.isArray(story.media) ? story.media[0] : story.media;
     const mediaUrl = rawSignedUrl(media?.signedUrl);
     const waitsForVideo = Boolean(mediaUrl && media?.kind === "video");
+    const backdrop = viewer.querySelector("[data-story-media-backdrop]");
+    // Only photos are duplicated as a visually blurred background; no extra video
+    // element or sound source is created.
+    backdrop.style.backgroundImage = mediaUrl && media?.kind !== "video"
+      ? 'url("' + mediaUrl.replaceAll('"', '%22') + '")'
+      : "none";
+    backdrop.hidden = !(mediaUrl && media?.kind !== "video");
     viewer.classList.toggle("story-viewer-text-only", !media && Boolean(String(story.body || "").trim()));
     viewer.querySelector("[data-story-viewer-name]").textContent = profileName(author);
     const storyTime = viewer.querySelector("[data-story-viewer-time]");

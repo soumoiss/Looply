@@ -11,6 +11,9 @@ on:
       - 'tests/story-ar-open.test.mjs'
       - 'src/story-music-catalog.js'
       - 'src/story-music-picker.js'
+      - 'src/story-audio-mixer.js'
+      - 'tests/story-audio-mixer.test.mjs'
+      - 'assets/css/pages/home.css'
       - 'backend/story-music-discovery/worker.mjs'
       - 'scripts/check-story-music-live.mjs'
       - 'scripts/check-story-posted-audio.mjs'
@@ -41,8 +44,6 @@ jobs:
           node-version: '22'
       - name: Build and execute test suite
         run: npm test
-      - name: Initialize real MediaPipe FaceLandmarker in headless Chrome
-        run: node scripts/check-story-face-runtime.mjs
       - name: Prepare audio inspection tool
         run: |
           if ! command -v ffprobe >/dev/null 2>&1; then
@@ -51,6 +52,14 @@ jobs:
           fi
       - name: Verify real audio track in recorded Story media
         run: node scripts/check-story-posted-audio.mjs
+      - name: Save ffprobe-verified Story sample videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stories-9x16-audio-video
+          path: qa-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify live AR pixel deformation in headless Chrome
         run: node scripts/check-story-ar-browser.mjs
       - name: Verify mobile song cards in headless Chrome
@@ -63,3 +72,5 @@ jobs:
             echo 'Legacy provider reference in Stories modules' >&2
             exit 1
           fi
+      - name: Initialize real MediaPipe FaceLandmarker in headless Chrome
+        run: node scripts/check-story-face-runtime.mjs

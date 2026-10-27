@@ -88,16 +88,38 @@ test("Only POST and STORY modes are visible", async () => {
 });
 
 test("camera photo and recording output use portrait 9:16 while preserving the full sensor frame", () => {
-  assert.deepEqual(STORY_CANVAS_SIZE, { width: 720, height: 1280 });
-  assert.deepEqual(containRect(1920, 1080, 720, 1280), {
-    x: 0, y: 437.5, width: 720, height: 405
+  assert.deepEqual(STORY_CANVAS_SIZE, { width: 1080, height: 1920 });
+  assert.deepEqual(containRect(1920, 1080, 1080, 1920), {
+    x: 0, y: 656.25, width: 1080, height: 607.5
   });
-  assert.deepEqual(containRect(720, 1280, 720, 1280), {
-    x: 0, y: 0, width: 720, height: 1280
+  assert.deepEqual(containRect(1080, 1920, 1080, 1920), {
+    x: 0, y: 0, width: 1080, height: 1920
   });
   assert.match(studio, /canvas\.width = STORY_CANVAS_SIZE\.width;\s*canvas\.height = STORY_CANVAS_SIZE\.height;/);
   assert.match(studio, /const frame = containRect\(cropW, cropH, canvas\.width, canvas\.height\)/);
   assert.match(studio, /ctx\.filter = "blur\(28px\) brightness\(\.58\)"/);
   assert.match(studio, /const backdropVideo = \$\("\[data-studio-backdrop-video\]"\)/);
   assert.match(styles, /studio-camera-backdrop[^{}]*\{[^{}]*object-fit:cover[^{}]*filter:blur/);
+});
+
+
+test("Final 9:16 portrait capture and licensed audio export meet requested contracts",()=>{
+  assert.match(studio,/width: \{ ideal: 1080 \}/);
+  assert.match(studio,/height: \{ ideal: 1920 \}/);
+  assert.match(studio,/aspectRatio: \{ ideal: 9 \/ 16 \}/);
+  assert.match(studio,/withMusic \? 7000 : 15000/);
+  assert.match(studio,/source\.start\(\)/);
+  assert.match(studio,/recorded\.start\(250\)/);
+  assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer\)/);
+  assert.match(studio,/recorded\?\.state === "recording"/);
+  assert.match(studio,/container\.dataset\.sheet = title === "Escolher música" \? "music"/);
+  assert.match(styles,/Studio 9:16 final pass/);
+  assert.match(styles,/studio-modal\[data-sheet="music"\]/);
+  const viewerStyle=read("assets/css/pages/home.css");
+  assert.match(viewerStyle,/Stories 9:16 immersive composition/);
+  assert.match(viewerStyle,/story-media-backdrop/);
+  assert.match(viewerStyle,/object-fit: contain !important/);
+  assert.match(stories,/data-story-media-backdrop/);
+  assert.match(stories,/story-viewer-header-controls/);
+  assert.match(stories,/data-story-play-toggle/);
 });
