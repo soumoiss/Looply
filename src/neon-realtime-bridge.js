@@ -26,6 +26,11 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
   const channel = (name, options = {}) => {
     const match = ROOM.exec(name);
     const conversationId = match && UUID.test(match[2]) ? match[2] : "";
+    // Global inbox monitors every room through one Neon RPC. Parallel
+    // Cloudflare subscriptions are fast when available, but must not spawn
+    // a separate Neon fallback poll for every existing conversation.
+    const useFallback = Boolean(fallback && options?.config?.disableFallback !== true);
+    const roomKind = match?.[1] || "";
     const listeners = [];
     let ws = null;
     let ready = null;
@@ -76,7 +81,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         // Do not exhaust the call controller's 10-second timeout before the
         // independent Neon RPC fallback gets a chance to connect.
         signal: typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
-          ? AbortSignal.timeout(fallback ? 3000 : 9000) : undefined,
+          ? AbortSignal.timeout(useFallback ? 850 : 1400) : undefined,
         headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
         body:JSON.stringify({conversation_id:conversationId})
       });
@@ -93,7 +98,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
       const candidate = new WebSocketClass(socketUrl,"looply.ticket."+ticket.ticket);
       ws = candidate;
       await new Promise((resolve,reject) => {
-        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },fallback ? 3000 : 10000);
+        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },useFallback ? 850 : 1400);
         const cleanup = () => { clear(timer); candidate.removeEventListener("open",onOpen); candidate.removeEventListener("error",onError); candidate.removeEventListener("close",onClose); };
         const onOpen = () => { cleanup(); resolve(); };
         const onError = () => { cleanup(); reject(Error("realtime_websocket_error")); };
@@ -132,11 +137,11 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         // optional Cloudflare WebSocket is blocked, use a separate authenticated
         // Neon signaling RPC (which checks membership independently).
         let error = cloudflareError;
-        if (!closed && fallback && conversationId) {
+        if (!closed && useFallback && conversationId) {
           try {
             const backup = await fallback.connect(conversationId, deliver, fallbackError=>{
               console.warn("Looply Neon fallback reconnecting", fallbackError?.message);
-            });
+            }, roomKind === "call" ? 700 : roomKind === "game" ? 1100 : 3200);
             if (closed) { backup.close(); return null; }
             ws = backup;
             report("SUBSCRIBED");
@@ -149,7 +154,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
           report("CHANNEL_ERROR",error);
           ws = null;
           // Do not loop forever on access denial or missing credentials.
-          if (!/membership_required|session_required|conversation_required|http_40[13]_/.test(error.message) && ++attempt <= 2) {
+          if (useFallback && !/membership_required|session_required|conversation_required|http_40[13]_/.test(error.message) && ++attempt <= 2) {
             retryTimer = timeout(()=>{retryTimer=null;ready=null; if (!closed) void start();},Math.min(5000,1200*attempt));
           }
         }

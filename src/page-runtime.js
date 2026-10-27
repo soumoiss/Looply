@@ -1,7 +1,7 @@
 import { icon } from "./icons.js";
-import { looplyClient as supabase, selfProfile } from "./neon-production-client.js";
+import { looplyClient as supabase, selfProfile } from "./neon-production-client.js?v=fast-ring-20261027";
 import { applyProfilePreferences } from "./theme.js";
-import { setupGlobalCallListener } from "./global-call-listener.js";
+import { setupGlobalCallListener } from "./global-call-listener.js?v=fast-ring-20261027";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
@@ -173,6 +173,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     window.location.replace("login.html");
     return;
   }
+  // Start incoming-call monitoring immediately after authentication instead of
+  // waiting for profile, gallery, music and Stories rendering to complete.
+  // The singleton listener runs on Home, Cartas, Músicas and every other page.
+  setupGlobalCallListener(supabase, user.id, null);
+
   let profile;
   let isAdmin = false;
   try {
@@ -286,9 +291,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   void mountLetterEventNotices(supabase,user,page);
 
-  // Listen for direct-call offers from every conversation the signed-in user belongs to,
-  // even when the user is browsing a different page.
-  setupGlobalCallListener(supabase, user.id, profile);
 
   window.addEventListener("pagehide", () => {
     clearTimeout(badgeTimer);

@@ -78,7 +78,7 @@ test("message composing, edits, replies, attachments and voice notes preserve re
 });
 test("global incoming voice/video calls remain real and available outside chat",async()=>{
   const [runtime,listener]=await Promise.all([read("src/page-runtime.js"),read("src/global-call-listener.js")]);
-  assert.match(runtime,/setupGlobalCallListener\(supabase, user\.id, profile\)/);
+  assert.match(runtime,/setupGlobalCallListener\(supabase, user\.id, null\)/);
   assert.match(listener,/client\.channel/);
   assert.match(listener,/data-global-call-accept/);
   assert.match(listener,/looply:pending-call:/);
