@@ -68,6 +68,22 @@ export function externalPlayerMessage(provider, action) {
 }
 
 function classifyFeedImages(root) {
+  root.querySelectorAll("[data-feed-carousel]").forEach(carousel => {
+    if (carousel.dataset.carouselBound === "true") return;
+    carousel.dataset.carouselBound = "true";
+    let ticking = false;
+    carousel.addEventListener("scroll", () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const position = Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth));
+        carousel.closest("[data-post-card]")?.querySelectorAll("[data-carousel-dot]").forEach(dot => {
+          dot.classList.toggle("is-active", Number(dot.dataset.carouselDot) === position);
+        });
+      });
+    }, { passive: true });
+  });
   root.querySelectorAll(".ig-post .post-media img").forEach(image => {
     const apply = () => {
       if (!image.naturalWidth || !image.naturalHeight) return;
@@ -289,7 +305,7 @@ function postMarkup(post, userId, isAdmin = false) {
     const source = escapeHtml(item.signedUrl);
     const alt = escapeHtml(item.alt_text || (item.kind === "video" ? "Vídeo compartilhado no Looply" : "Imagem compartilhada no Looply"));
     return item.kind === "video"
-      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}" data-feed-reel-id="${escapeHtml(post.id)}-${mediaIndex}"></video><button class="reel-expand-button" type="button" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" aria-label="Abrir vídeo em tela cheia" title="Abrir vídeo em tela cheia">⛶</button>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
+      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}" data-feed-reel-id="${escapeHtml(post.id)}-${mediaIndex}" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" title="Abrir vídeo em tela cheia"></video><button class="reel-expand-button" type="button" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" aria-label="Abrir vídeo em tela cheia" title="Abrir vídeo em tela cheia">⛶</button>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
@@ -300,7 +316,7 @@ function postMarkup(post, userId, isAdmin = false) {
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
-    ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
+    ${mediaMarkup ? `<div class="post-media-grid" data-feed-carousel>${mediaMarkup}</div>${(post.media || []).length > 1 ? `<div class="post-carousel-dots" aria-label="${post.media.length} mídias nesta publicação">${post.media.map((_, i) => `<span data-carousel-dot="${i}" class="${i === 0 ? "is-active" : ""}" aria-hidden="true"></span>`).join("")}</div>` : ""}` : ""}
     ${externalMarkup}
     ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     <div class="post-interactions ig-actions">
@@ -575,6 +591,7 @@ export async function hydrateTikTokEmbeds(root) {
   }));
   // Rebind after hydration, but never let feed media restart behind the viewer.
   if (root.querySelector("[data-reels-viewer]")?.open) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+  else if (root.querySelector("[data-reels-scroll]")) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
   else bindFeedVideoAutoplay(root);
 }
 
@@ -587,7 +604,7 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
     classifyFeedImages(feed);
-    if (root.querySelector("[data-reels-viewer]")?.open) {
+    if (root.querySelector("[data-reels-viewer]")?.open || root.querySelector("[data-reels-scroll]")) {
       root.__looplyVideoAutoplayDispose?.();
       feed.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
     } else bindFeedVideoAutoplay(root);
