@@ -33,14 +33,25 @@ export function setupGlobalCallListener(client, userId, profile) {
     incoming = null;
   };
   const signal = async (call, type) => {
-    if (!call?.channel) return;
-    try {
-      await call.channel.send({ type: "broadcast", event: "signal", payload: {
-        type, conversationId: call.conversationId, senderId: userId
-      } });
-    } catch (error) { console.warn("Looply global call response failed", error); }
+    if (!call?.conversationId) return;
+    let sent = false;
+    if (call.channel) {
+      try {
+        const result = await call.channel.send({ type: "broadcast", event: "signal", payload: {
+          type, conversationId: call.conversationId, senderId: userId
+        } });
+        sent = result === "ok" || result?.status === "ok";
+      } catch (error) { console.warn("Looply global channel response failed", error); }
+    }
+    // Declining from Home / Cartas / Músicas must also work if the WebSocket
+    // is unavailable: write the signal through the membership-scoped Neon RPC.
+    if (!sent) await client.sendIncomingCallSignal?.(call.conversationId, type);
   };
   const showIncoming = (call, payload) => {
+    // The same offer can arrive from both the fast WebSocket and the Neon inbox.
+    // Do not ring twice, reset focus, or replace the modal every retry.
+    if (incoming?.conversationId === call.conversationId &&
+        incoming?.payload?.senderId === payload.senderId) return;
     if (incoming && incoming.conversationId !== call.conversationId) {
       void signal(call, "decline");
       return;
@@ -60,7 +71,9 @@ export function setupGlobalCallListener(client, userId, profile) {
     const participants = conversation.participants || [];
     if (!participants.some((p) => p.user_id === userId)) return;
     const channel = client.channel(`looply-call-${conversation.id}`, {
-      config: { private: true, broadcast: { ack: true, self: false } }
+      config: { private: true, broadcast: { ack: true, self: false } },
+      // The single global Neon inbox below replaces one DB poll per room.
+      skipFallback: true
     });
     const call = { channel, conversationId: conversation.id, participants };
     channels.set(conversation.id, call);
@@ -84,6 +97,27 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
 
   overlay = ensureOverlay();
+
+  // Start ONE low-latency, authorization-checked Neon inbox immediately.
+  // It works even while the user is on Home, Cartas, Músicas or another tab,
+  // including when Cloudflare cannot establish private WebSocket channels.
+  const stopInbox = typeof client.subscribeCallInbox === "function"
+    ? client.subscribeCallInbox(({ conversationId, senderId, payload }) => {
+        if (closed || !conversationId || senderId === userId ||
+            activeConversationId() === conversationId) return;
+        const call = channels.get(conversationId) || {
+          conversationId, participants: [], channel: null
+        };
+        if (payload.type === "offer") {
+          if (!payload.description || !["audio","video"].includes(payload.mode)) return;
+          showIncoming(call, payload);
+        } else if (["hangup","decline","failed"].includes(payload.type) &&
+                   incoming?.conversationId === conversationId) {
+          hideOverlay();
+        }
+      }, error => console.warn("Looply global Neon incoming-call inbox", error?.message))
+    : () => {};
+
   overlay.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button || !incoming) return;
@@ -135,6 +169,7 @@ export function setupGlobalCallListener(client, userId, profile) {
   window.addEventListener("pagehide", () => {
     closed = true;
     hideOverlay();
+    stopInbox();
     for (const { channel } of channels.values()) void client.removeChannel(channel);
     channels.clear();
     window.__looplyGlobalCallListener = false;
