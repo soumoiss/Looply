@@ -144,8 +144,19 @@ for(const entry of [
   assert.ok(videoStream,entry.kind+": no encoded video track");
   assert.ok(["aac","opus"].includes(audioStream.codec_name),entry.kind+": unsupported audio codec");
   assert.equal(videoStream.width,360);assert.equal(videoStream.height,640);
-  console.log("INSPECT",entry.kind,JSON.stringify({duration:media.format.duration,codec:audioStream.codec_name,width:videoStream.width,height:videoStream.height}));
-  assert.ok(Number(media.format.duration)>=entry.minDuration,entry.kind+": exported duration too short");
+  // Live MediaRecorder WebM may omit format.duration even when audio/video packets
+  // have valid presentation timestamps; derive the actual playable duration.
+  let duration=Number(media.format.duration);
+  if(!Number.isFinite(duration) || duration<=0){
+    const packets=spawnSync("ffprobe",["-v","error","-show_entries",
+      "packet=pts_time,duration_time","-of","json",clip],{encoding:"utf8",timeout:14000});
+    assert.equal(packets.status,0,entry.kind+": could not inspect media timestamps");
+    const raw=JSON.parse(packets.stdout).packets||[];
+    duration=Math.max(0,...raw.map(packet=>
+      Number(packet.pts_time||0)+Number(packet.duration_time||0)).filter(Number.isFinite));
+  }
+  console.log("INSPECT",entry.kind,JSON.stringify({duration,codec:audioStream.codec_name,width:videoStream.width,height:videoStream.height}));
+  assert.ok(duration>=entry.minDuration,entry.kind+": exported duration too short");
   const volume=spawnSync("ffmpeg",["-hide_banner","-i",clip,"-af","volumedetect","-vn","-f","null","-"],{encoding:"utf8",timeout:20000});
   const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
   assert.ok(loudness,entry.kind+": no measurable sound in file");
@@ -159,7 +170,7 @@ for(const entry of [
     Buffer.from(entry.data.base64,"base64"));
   console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",entry.kind,
     entry.data.mime,entry.data.size,audioStream.codec_name,
-    media.format.duration,loudness[1]+"dB");
+    duration,loudness[1]+"dB");
 }
  } finally {
    socket?.close();
