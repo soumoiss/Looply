@@ -3,6 +3,7 @@ import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest 
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { encodeStorySong } from "./story-music-catalog.js";
 import { openStoryMusicPicker } from "./story-music-picker.js";
+import { captionWithLicensedMusic } from "./story-licensed-music.js";
 
 const FILTERS = Object.freeze({ none:"none" });
 const LIMIT = 30_000;
@@ -800,7 +801,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       }
       const text = music?.kind === "catalog"
         ? encodeStorySong(caption.value,music)
-        : String(caption.value || "").trim().slice(0,700);
+        : captionWithLicensedMusic(caption.value,music);
       status("Criando story no Neon…");
       const created = await client.rpc("v5_create_story", {
         p_body: text, p_visibility: visibility, p_recipient_ids: visibility === "selected" ? selected : []
