@@ -47,7 +47,7 @@ export function setupChatEnhancements(root, client, userId) {
     if (gameChannel && gameConversation === id) return gameChannel;
     await closeChannel();
     gameConversation = id;
-    gameChannel = client.channel(`looply-game-${id}`, { config: { broadcast: { self: false } } });
+    gameChannel = client.channel(`looply-game-${id}`, { config: { broadcast: { self: false } }, fastFallback: true });
     gameChannel.on("broadcast", { event: "ttt" }, ({ payload }) => {
       if (!payload || payload.conversationId !== gameConversation || payload.senderId === userId) return;
       if (payload.type === "invite") {
