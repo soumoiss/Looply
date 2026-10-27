@@ -5,6 +5,10 @@ BEGIN;
 
 DO $policy$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='looply_v6_admin_profiles_select') THEN
+    CREATE POLICY looply_v6_admin_profiles_select ON public.profiles FOR SELECT TO authenticated
+      USING ((SELECT public.v3_self_is_admin()));
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='archived_cards' AND policyname='looply_v6_admin_archived_update') THEN
     CREATE POLICY looply_v6_admin_archived_update ON public.archived_cards FOR UPDATE TO authenticated
       USING ((SELECT public.v3_self_is_admin())) WITH CHECK ((SELECT public.v3_self_is_admin()));
