@@ -119,3 +119,11 @@
  .looply-reel-action { width:42px; }
  .looply-reels-bottom { right:56px; }
 }
+
+/* Native horizontal swiping is confined to a multi-image carousel, not the page. */
+.page-home .ig-post [data-feed-carousel] { display:flex; width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; scrollbar-width:none; }
+.page-home .ig-post [data-feed-carousel]::-webkit-scrollbar { display:none; }
+.page-home .ig-post [data-feed-carousel] .post-media { display:block; flex:0 0 100%; min-width:100%; scroll-snap-align:center; }
+.page-home .ig-post .post-carousel-dots { display:flex; gap:5px; align-items:center; justify-content:center; min-height:20px; }
+.page-home .ig-post .post-carousel-dots span { width:6px; height:6px; border-radius:50%; background:var(--muted); opacity:.4; transition:background .15s,transform .15s; }
+.page-home .ig-post .post-carousel-dots span.is-active { background:var(--primary); opacity:1; transform:scale(1.15); }
