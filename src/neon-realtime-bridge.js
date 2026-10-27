@@ -10,7 +10,7 @@ const allowedEndpoint = endpoint => {
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw Error("invalid_realtime_endpoint");
   return url.origin;
 };
-export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket, setTimeoutFn, clearTimeoutFn }) {
+export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket, setTimeoutFn, clearTimeoutFn, fallback = null }) {
   const origin = allowedEndpoint(endpoint);
   const fetchImpl = fetcher || ((...args) => fetch(...args));
   const timeout = setTimeoutFn || setTimeout;
@@ -73,10 +73,18 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
       if (!token) throw Error("neon_session_required");
       const response = await fetchImpl(origin+"/api/realtime-ticket",{
         method:"POST",cache:"no-store",credentials:"omit",
+        // Do not exhaust the call controller's 10-second timeout before the
+        // independent Neon RPC fallback gets a chance to connect.
+        signal: typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(fallback ? 3000 : 9000) : undefined,
         headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
         body:JSON.stringify({conversation_id:conversationId})
       });
-      if (!response.ok) throw Error(response.status === 403 ? "realtime_membership_required" : "realtime_ticket_unavailable_"+response.status);
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        const code = /^[a-z_]{3,80}$/.test(detail?.error || "") ? detail.error : "unknown";
+        throw Error("realtime_ticket_http_"+response.status+"_"+code);
+      }
       const ticket = await response.json();
       if (!/^[a-f0-9]{64}$/.test(ticket?.ticket || "")) throw Error("invalid_realtime_ticket");
       const WebSocketClass = Socket || globalThis.WebSocket;
@@ -85,7 +93,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
       const candidate = new WebSocketClass(socketUrl,"looply.ticket."+ticket.ticket);
       ws = candidate;
       await new Promise((resolve,reject) => {
-        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },10000);
+        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },fallback ? 3000 : 10000);
         const cleanup = () => { clear(timer); candidate.removeEventListener("open",onOpen); candidate.removeEventListener("error",onError); candidate.removeEventListener("close",onClose); };
         const onOpen = () => { cleanup(); resolve(); };
         const onError = () => { cleanup(); reject(Error("realtime_websocket_error")); };
@@ -119,12 +127,29 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const start = () => {
       if (closed) return Promise.resolve(null);
       if (ready) return ready;
-      ready = open().catch(error=>{
+      ready = open().catch(async cloudflareError=>{
+        // Preserve the October 19 WebRTC offer/answer/ICE contract. When the
+        // optional Cloudflare WebSocket is blocked, use a separate authenticated
+        // Neon signaling RPC (which checks membership independently).
+        let error = cloudflareError;
+        if (!closed && fallback && conversationId) {
+          try {
+            const backup = await fallback.connect(conversationId, deliver, fallbackError=>{
+              console.warn("Looply Neon fallback reconnecting", fallbackError?.message);
+            });
+            if (closed) { backup.close(); return null; }
+            ws = backup;
+            report("SUBSCRIBED");
+            return backup;
+          } catch (fallbackError) {
+            error = new Error("cloudflare_" + cloudflareError.message + ";neon_" + fallbackError.message);
+          }
+        }
         if (!closed) {
           report("CHANNEL_ERROR",error);
           ws = null;
-          // Do not loop forever on missing membership or credentials.
-          if (!/membership_required|session_required|conversation_required/.test(error.message) && ++attempt <= 3) {
+          // Do not loop forever on access denial or missing credentials.
+          if (!/membership_required|session_required|conversation_required|http_40[13]_/.test(error.message) && ++attempt <= 2) {
             retryTimer = timeout(()=>{retryTimer=null;ready=null; if (!closed) void start();},Math.min(5000,1200*attempt));
           }
         }
@@ -152,6 +177,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         if (!live || live.readyState !== 1) return "error";
         const payload = item.payload;
         if (!payload || typeof payload!=="object" || Array.isArray(payload)) return "error";
+        if (live.kind === "neon") return live.send({ event: item.event, payload });
         let wire;
         if (item.event==="signal" && CALL_TYPES.has(payload.type)) {
           const signal_type=payload.type==="ice"?"candidate":payload.type;

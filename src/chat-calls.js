@@ -349,7 +349,7 @@ export function setupChatCalls(root, client, userId) {
       });
     }).catch(async (error) => {
       console.error("Looply private call channel failed", error);
-      toast("Não foi possível conectar o canal privado de chamadas.");
+      toast("Canal de chamadas indisponível: " + String(error?.message || "erro desconhecido").slice(0,110));
       if (channel === next) channel = null;
       await client.removeChannel(next);
       return false;
