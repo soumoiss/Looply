@@ -5,6 +5,7 @@ import { fetchLinkedNeonProfile } from "./neon-identity.js";
 import { readOwnNeonProfile } from "./neon-avatar-profile.js";
 import { invokeChatReadReceiptRpc } from "./chat-read-receipts.js";
 import { createNeonRealtimeBridge } from "./neon-realtime-bridge.js";
+import { createNeonSignalFallback } from "./neon-call-fallback.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
 export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
@@ -192,7 +193,8 @@ async function chatFunctionInvoke(name,options) {
 }
 const realtimeBridge=createNeonRealtimeBridge({
   endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
-  getSession:activeSession
+  getSession:activeSession,
+  fallback:createNeonSignalFallback({dataApiUrl:config.data,getSession:activeSession})
 });
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
