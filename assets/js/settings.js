@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=mirrored-global-calls-20261027";
 import { applyProfilePreferences } from "../../src/theme.js";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
