@@ -133,7 +133,7 @@ test("Android phone loads mirror styles using a new URL and new page entrypoint"
     assert.match(html,/neon-call-fallback/);
   }
   const sw=await source("sw.js");
-  assert.match(sw,/looply-shell-v9-mirrored-calls/);
+  assert.match(sw,/looply-shell-v7/);
 });
 test("database inbox only returns membership-authorized direct chat calls",async()=>{
   const sql=await source("migration/neon-global-call-inbox-20261027.sql");
