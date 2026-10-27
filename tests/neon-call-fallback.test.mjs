@@ -130,8 +130,8 @@ test("two independent signed-in peers exchange offer, answer, ICE, hangup, and g
     const fallback=createNeonSignalFallback({
       dataApiUrl:API,
       getSession:async()=>({access_token:name}),
-      schedule:fn=>{callbacks.push(fn);return callbacks.length;},
-      cancel:()=>{},
+      schedule:fn=>{const task={fn,cancelled:false};callbacks.push(task);return task;},
+      cancel:task=>{if(task)task.cancelled=true;},
       fetcher:async(url,opts)=>{
         const args=JSON.parse(opts.body);
         if(url.endsWith("_list")){
@@ -162,7 +162,7 @@ test("two independent signed-in peers exchange offer, answer, ICE, hangup, and g
       if(state==="CHANNEL_ERROR")reject(error);
     }));
   }
-  const poll=async peer=>{const fn=peer.callbacks.shift();assert.ok(fn);await fn();};
+  const poll=async peer=>{let task;do{task=peer.callbacks.shift();assert.ok(task);}while(task.cancelled);await task.fn();};
   assert.equal(await a.send({type:"broadcast",event:"signal",payload:{type:"offer",description:{type:"offer",sdp:"v=0"}}}),"ok");
   await poll(bob);
   assert.equal(bob.inbox[0].type,"offer");
