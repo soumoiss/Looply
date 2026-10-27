@@ -80,7 +80,7 @@ AS $$
         )
     )
   FROM identity
-$;
+$$;
 REVOKE ALL ON FUNCTION public.v3_can_view_story(uuid) FROM PUBLIC, anonymous;
 GRANT EXECUTE ON FUNCTION public.v3_can_view_story(uuid) TO authenticated;
 
