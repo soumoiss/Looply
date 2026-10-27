@@ -22,25 +22,23 @@ test("playlist remains sourced from the YouTube Data API with complete paginatio
   assert.match(api, /youtube_quota_exceeded/);
 });
 
-test("track comments use the exact playlist and video IDs and are sent to the administrator privately", async () => {
-  const [playlist, migration, edge, admin] = await Promise.all([
+test("music comments are persisted per track while private admin notes are recipient-only", async () => {
+  const [playlist, migration, bridge] = await Promise.all([
     read("src/youtube-playlist.js"),
-    read("supabase/migrations/20261018192146_music_page_comments.sql"),
-    read("supabase/functions/looply-admin/index.ts"),
-    read("src/admin.js")
+    read("migration/20261027_cartas_musicas_adm_rls.sql"),
+    read("src/neon-rest-bridge.js")
   ]);
-  assert.match(playlist, /playlist_id: playlistId, video_id: activeTrack\.videoId/);
-  assert.match(playlist, /Comentários privados desta faixa/);
-  assert.match(playlist, /recipient_id,author:profiles/);
-  assert.match(playlist, /Mensagem privada da administração/);
-  assert.match(migration, /author_id = \(select auth\.uid\(\)\)/);
-  assert.match(migration, /private\.is_admin\(\)/);
-  assert.match(migration, /comment_type = 'general'/);
-  assert.ok(migration.includes("and video_id ~ '^[A-Za-z0-9_-]{11}$'"));
-  assert.equal(migration.split("create table public.music_page_comments").length - 1, 1);
-  assert.equal(migration.split("create or replace function public.record_looply_admin_access").length - 1, 1);
-  assert.match(edge, /youtube_track_comments/);
-  assert.match(admin, /value="youtube_track_comments"/);
+  assert.match(playlist, /\.eq\("playlist_id",playlistId\)\.eq\("video_id",track\.videoId\)/);
+  assert.match(playlist, /track_key:"youtube:"\+activeTrack\.videoId/);
+  assert.match(playlist, /client\.from\("music_track_comments"\)\.insert/);
+  assert.match(playlist, /client\.from\("admin_music_track_comments"\)/);
+  assert.match(playlist, /recipient_id/);
+  assert.match(playlist, /Comentários desta faixa/);
+  assert.match(playlist, /youtube-nocookie\.com\/embed/);
+  assert.match(migration, /looply_v6_private_mod_select/);
+  assert.match(migration, /recipient_id=\(SELECT public\.looply_legacy_uid\(\)\)/);
+  assert.match(migration, /looply_v6_private_mod_insert/);
+  assert.match(bridge, /music_track_comments:/);
 });
 
 test("general comments and multi-recipient dedications remain persisted and realtime-enabled", async () => {

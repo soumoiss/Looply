@@ -61,7 +61,7 @@ export function playlistMarkup(profile) {
     <dialog class="youtube-track-dialog" data-youtube-track-dialog aria-labelledby="youtubeTrackDialogTitle">
       <div class="youtube-track-dialog-heading"><div><span class="section-kicker">Playlist</span><h2 id="youtubeTrackDialogTitle" data-youtube-dialog-title></h2><p data-youtube-dialog-channel></p></div>
         <button class="youtube-track-dialog-close" type="button" data-youtube-dialog-close aria-label="Fechar reprodutor">${icon("close")}</button></div>
-      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentários privados desta faixa</h3><p class="youtube-track-comments-hint">As mensagens da administração destinadas a você aparecem aqui. Sua resposta será enviada à administração.</p><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Mensagem para a administração</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva uma mensagem privada para a administração"></textarea><button class="primary-button compact-button" type="submit">Enviar mensagem privada</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
+      <iframe class="youtube-track-dialog-player" data-youtube-dialog-player title="Reprodutor de música" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><section class="youtube-track-comments" aria-label="Comentários privados da música"><h3>Comentários desta faixa</h3><p class="youtube-track-comments-hint">Comentários públicos aparecem para os membros. Mensagens privadas do ADM ficam visíveis apenas ao destinatário e à administração.</p><div data-youtube-track-comments-list></div><form data-youtube-track-comment-form><label for="youtubeTrackCommentBody">Comentar nesta música</label><textarea id="youtubeTrackCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário sobre esta música"></textarea><button class="primary-button compact-button" type="submit">Publicar comentário</button><span data-youtube-track-comment-status role="status" aria-live="polite"></span></form></section>
     </dialog>
   </section>`;
 }
@@ -259,36 +259,60 @@ export async function bindYouTubePlaylist(root, client) {
   const trackCommentStatus = dialog?.querySelector("[data-youtube-track-comment-status]");
   const renderTrackComments = async (track) => {
     if (!trackCommentsList) return;
-    trackCommentsList.textContent = "Carregando comentários…";
-    const { data, error } = await client.from("music_page_comments")
-      .select("id,body,created_at,author_id,recipient_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
-      .eq("comment_type", "track").eq("playlist_id", playlistId).eq("video_id", track.videoId).order("created_at");
-    if (error) { trackCommentsList.textContent = "Não foi possível carregar os comentários."; return; }
-    if (!data?.length) { trackCommentsList.textContent = "Nenhuma mensagem privada nesta faixa ainda."; return; }
+    trackCommentsList.textContent = "Carregando comentários do Neon…";
+    const [publicComments, legacyPrivate, adminPrivate] = await Promise.all([
+      client.from("music_track_comments")
+        .select("id,body,created_at,author_id,author:profiles!music_track_comments_author_id_fkey(username,display_name)")
+        .eq("track_key","youtube:"+track.videoId).order("created_at",{ascending:true}).limit(150),
+      client.from("music_page_comments")
+        .select("id,body,created_at,author_id,recipient_id,author:profiles!music_page_comments_author_id_fkey(username,display_name)")
+        .eq("comment_type","track").eq("playlist_id",playlistId).eq("video_id",track.videoId).order("created_at",{ascending:true}).limit(150),
+      client.from("admin_music_track_comments")
+        .select("id,body,created_at,author_id,recipient_id,author:profiles!admin_music_track_comments_author_id_fkey(username,display_name)")
+        .eq("playlist_id",playlistId).eq("video_id",track.videoId).order("created_at",{ascending:true}).limit(150)
+    ]);
+    if (publicComments.error && legacyPrivate.error && adminPrivate.error) {
+      trackCommentsList.textContent = "Não foi possível carregar os comentários. Confira a conexão.";
+      return;
+    }
+    const items = [
+      ...(publicComments.data||[]).map(x=>({...x,type:"public"})),
+      ...(legacyPrivate.data||[]).map(x=>({...x,type:x.recipient_id?"private":"legacy"})),
+      ...(adminPrivate.data||[]).map(x=>({...x,type:"private"}))
+    ].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    if (!items.length) { trackCommentsList.textContent = "Nenhum comentário nesta faixa ainda."; return; }
     trackCommentsList.replaceChildren();
-    for (const item of data) {
-      const article = document.createElement("article"); article.className = "youtube-track-comment-item";
-      const strong = document.createElement("strong");
-      strong.textContent = item.recipient_id && item.recipient_id !== item.author_id ? "Mensagem privada da administração" : (item.author?.display_name || item.author?.username || "Você");
-      const p = document.createElement("p"); p.textContent = item.body; article.append(strong,p); trackCommentsList.append(article);
+    for (const item of items) {
+      const article=document.createElement("article");article.className="youtube-track-comment-item";
+      const strong=document.createElement("strong");
+      const name=item.author?.display_name||item.author?.username||"Membro";
+      strong.textContent=item.type==="private"?"🔒 Mensagem privada · "+name:name;
+      const p=document.createElement("p");p.textContent=item.body;
+      article.append(strong,p);trackCommentsList.append(article);
     }
   };
   trackCommentForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const body = String(new FormData(trackCommentForm).get("body") || "").trim();
-    if (!activeTrack || !body || body.length > 2000) return;
-    const submit = trackCommentForm.querySelector('button[type="submit"]');
-    if (submit) submit.disabled = true;
-    if (trackCommentStatus) trackCommentStatus.textContent = "Enviando…";
-    try {
-      const { error } = await client.from("music_page_comments").insert({ comment_type: "track", playlist_id: playlistId, video_id: activeTrack.videoId, body });
-      if (error) throw error;
+    const body=String(new FormData(trackCommentForm).get("body")||"").trim();
+    if(!activeTrack||!body||body.length>2000)return;
+    const submit=trackCommentForm.querySelector('button[type="submit"]');
+    if(submit)submit.disabled=true;
+    if(trackCommentStatus)trackCommentStatus.textContent="Salvando comentário no Neon…";
+    try{
+      const {data:sessionData,error:sessionError}=await client.auth.getSession();
+      const authorId=sessionData?.session?.user?.id;
+      if(sessionError||!authorId)throw Error("Faça login novamente.");
+      const {data,error}=await client.from("music_track_comments").insert({
+        track_key:"youtube:"+activeTrack.videoId,track_title:activeTrack.title.slice(0,160),
+        author_id:authorId,body
+      }).select("id");
+      if(error||!data?.length)throw error||Error("O Neon não confirmou o comentário.");
       trackCommentForm.reset();
-      if (trackCommentStatus) trackCommentStatus.textContent = "Comentário enviado a Peixinho ADM.";
+      if(trackCommentStatus)trackCommentStatus.textContent="Comentário publicado nesta música.";
       await renderTrackComments(activeTrack);
-    } catch {
-      if (trackCommentStatus) trackCommentStatus.textContent = "Não foi possível enviar. Tente novamente.";
-    } finally { if (submit) submit.disabled = false; }
+    }catch(error){
+      if(trackCommentStatus)trackCommentStatus.textContent="Não foi possível comentar: "+String(error?.message||"erro no servidor");
+    }finally{if(submit)submit.disabled=false;}
   });
   list.addEventListener("click", async (event) => {
     const shareButton = event.target.closest("[data-youtube-track-share]");

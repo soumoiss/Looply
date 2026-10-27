@@ -61,7 +61,10 @@ test("My Letters presents received, sent, and imported archive cards in one swit
   for (const name of ["received", "sent", "legacy"]) {
     assert.match(markup + archive, new RegExp(`data-letter-collection-(?:select|panel)=\\"${name}\\"`));
   }
-  assert.match(page, /panel\.hidden = panel\.dataset\.letterCollectionPanel !== collection/);
+  assert.match(page, /state\.filter === "originais"/);
+  assert.match(page, /state\.filter === "enviadas"/);
+  assert.match(page, /data-filter="recebidas"/);
+  assert.match(page, /data-filter="originais"/);
   assert.match(archive, /data-letter-collection-panel="legacy" hidden/);
   assert.match(page, /archivedCardsMarkup\(\)/);
 });
