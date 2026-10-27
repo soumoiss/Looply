@@ -219,3 +219,11 @@
 @media(prefers-reduced-motion:reduce){
   .story-studio .studio-shutter,.story-viewer-dialog .story-owner-action {animation:none!important;transition:none!important;}
 }
+
+/* 2×2 collage guides match the actual four-shot canvas compositor. */
+.story-studio .studio-grid-lines:not([hidden]){
+  display:block;
+  background:linear-gradient(90deg,transparent calc(50% - 1px),#ffffffb3 50%,transparent calc(50% + 1px)),
+             linear-gradient(0deg,transparent calc(50% - 1px),#ffffffb3 50%,transparent calc(50% + 1px));
+  pointer-events:none;
+}
