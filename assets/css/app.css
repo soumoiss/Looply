@@ -765,3 +765,16 @@ body.secret-vip-open { overflow:hidden; }
 @keyframes secretVipDrop { to { opacity:0; transform:translateY(8px) scale(.99); } }
 @keyframes secretVipHeart { 50% { transform:scale(1.12) rotate(-5deg); } }
 @media (prefers-reduced-motion:reduce) { .secret-vip-overlay,.secret-vip-modal,.secret-vip-seal { animation:none!important; } }
+
+
+/* Global incoming-call sheet must appear above Home's floating navigation,
+   all tab menus, Stories and profile dialogs. */
+.looply-global-call-notice { z-index:40000; }
+.looply-global-call-notice .looply-global-call-card {
+  position:relative;
+  width:min(100%,430px);
+  box-shadow:0 20px 70px #0007;
+}
+.looply-global-call-notice .looply-global-call-kicker::before {
+  content:"☎";display:inline-block;margin-right:8px;
+}
