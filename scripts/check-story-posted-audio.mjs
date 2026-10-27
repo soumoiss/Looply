@@ -1,4 +1,4 @@
-import {writeFile,mkdtemp,rm,readFile} from "node:fs/promises";
+import {writeFile,mkdtemp,rm,readFile,mkdir} from "node:fs/promises";
 import {spawnSync,spawn} from "node:child_process";
 import {join} from "node:path";
 import {tmpdir} from "node:os";
@@ -150,6 +150,13 @@ for(const entry of [
   const loudness=volume.stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
   assert.ok(loudness,entry.kind+": no measurable sound in file");
   assert.ok(Number(loudness[1])>-55,entry.kind+": effectively silent");
+  // Retain successfully inspected sample files as GitHub Actions artifacts.
+  // They are generated test media, NOT media uploaded under a real user account.
+  const artifacts=join(process.cwd(),"qa-artifacts");
+  await mkdir(artifacts,{recursive:true});
+  await writeFile(join(artifacts,entry.kind.replace("+","-")+
+    (entry.data.mime.includes("mp4")?".mp4":".webm")),
+    Buffer.from(entry.data.base64,"base64"));
   console.log("RECORDED 9:16 STORY WITH AUDIBLE SOUNDTRACK",entry.kind,
     entry.data.mime,entry.data.size,audioStream.codec_name,
     media.format.duration,loudness[1]+"dB");
