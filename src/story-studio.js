@@ -68,7 +68,7 @@ export function storyStudioMarkup(recipientOptions) {
             '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⟳</button>' +
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
-            '<button type="button" data-studio-post>POST</button><b>STORY</b><span aria-disabled="true" title="Reels disponíveis no Feed">REEL</span><span aria-disabled="true" title="Transmissões ao vivo ainda não disponíveis">LIVE</span>' +
+            '<button type="button" data-studio-post>POST</button><b>STORY</b><button type="button" data-studio-reel title="Abrir Reels do Feed">REEL</button><span aria-disabled="true" title="Transmissões ao vivo ainda não disponíveis">LIVE</span>' +
           '</nav>' +
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
@@ -968,7 +968,18 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       body.querySelector("[data-studio-length]").value = String(settings.maxDuration);
       body.querySelector("[data-studio-length]").onchange = e => { settings.maxDuration = +e.target.value; modalClose(); };
     },
-    "[data-studio-post]": () => { close(); root.querySelector("[data-toggle-composer]")?.click(); root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" }); },
+    "[data-studio-post]": () => {
+      close();
+      const composer = root.querySelector("[data-toggle-composer]");
+      if (composer?.getAttribute("aria-expanded") !== "true") composer?.click();
+      root.querySelector("#postBody")?.focus({ preventScroll: true });
+      root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" });
+    },
+    "[data-studio-reel]": () => {
+      const firstReel = root.querySelector("[data-open-reel]");
+      if (firstReel) { close(); firstReel.click(); }
+      else { status("Nenhum Reel disponível no Feed. Publique um vídeo no Feed para iniciar os Reels.", true); }
+    },
     "[data-studio-music-open]": openMusic,
     "[data-studio-effects-open]": () => { modal("Filtros da imagem e vídeo", '<p class="studio-hint">Filtro aplicado também ao arquivo final.</p><div class="studio-filter-options">'+Object.entries({none:"Original",glow:"Natural",golden:"Dourado",cool:"Azulado",mono:"Preto e branco"}).map(([key,name])=>'<button type="button" data-studio-filter="'+key+'" aria-pressed="'+String(editFilter===key)+'">'+name+'</button>').join("")+'</div>');body.querySelectorAll("[data-studio-filter]").forEach(button=>button.onclick=()=>{editFilter=button.dataset.studioFilter;edits.style.filter=FILTERS[editFilter];body.querySelectorAll("[data-studio-filter]").forEach(el=>el.setAttribute("aria-pressed",String(el===button)));status("Filtro: "+button.textContent);}); },
     "[data-studio-music-remove]": () => {
