@@ -73,6 +73,10 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
       if (!token) throw Error("neon_session_required");
       const response = await fetchImpl(origin+"/api/realtime-ticket",{
         method:"POST",cache:"no-store",credentials:"omit",
+        // Do not exhaust the call controller's 10-second timeout before the
+        // independent Neon RPC fallback gets a chance to connect.
+        signal: typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(fallback ? 3000 : 9000) : undefined,
         headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
         body:JSON.stringify({conversation_id:conversationId})
       });
@@ -89,7 +93,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
       const candidate = new WebSocketClass(socketUrl,"looply.ticket."+ticket.ticket);
       ws = candidate;
       await new Promise((resolve,reject) => {
-        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },10000);
+        const timer = timeout(() => { cleanup(); try {candidate.close();}catch{} reject(Error("realtime_connection_timeout")); },fallback ? 3000 : 10000);
         const cleanup = () => { clear(timer); candidate.removeEventListener("open",onOpen); candidate.removeEventListener("error",onError); candidate.removeEventListener("close",onClose); };
         const onOpen = () => { cleanup(); resolve(); };
         const onError = () => { cleanup(); reject(Error("realtime_websocket_error")); };
