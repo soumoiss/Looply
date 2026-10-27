@@ -78,7 +78,8 @@ test("new camera defaults to front mirror, flips physically and publishes via Ne
 test("story view insights show signed viewer avatars with initials as a privacy-safe fallback", async () => {
   const source = await read("src/stories.js");
   const css = await read("assets/css/pages/home.css");
-  assert.match(source, /viewer:profiles!story_views_viewer_id_fkey\(username,display_name,avatar_path\)/);
+  assert.match(source, /\.select\("viewer_id,viewed_at"\)/);
+  assert.match(source, /profileMap\.get\(view\.viewer_id\)/);
   assert.match(source, /cachedSignedUrls\(client, "looply-avatars", avatarPaths, 1800\)/);
   assert.match(source, /avatar\.textContent = initials\(profileName\(view\.viewer\)\)/);
   assert.match(source, /image\.referrerPolicy = "no-referrer"/);
