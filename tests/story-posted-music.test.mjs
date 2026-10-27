@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {openStoryMusicPicker} from "../src/story-music-picker.js";
 const file=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const studio=file("src/story-studio.js");
 const viewer=file("src/stories.js");
@@ -50,4 +51,53 @@ test("Catalog limitations are clear to members without exposing provider diagnos
  assert.match(picker,/Você pode ouvir esta faixa aqui/);
  assert.doesNotMatch(picker,/Prévia promocional/);
  assert.match(picker,/isAdmin&&down\.length/);
+});
+
+
+test("Invalid or cancelled personal-audio selection keeps the Story music picker usable",()=>{
+  const previousDocument=globalThis.document;
+  const search={value:"",addEventListener(){},focus(){}};
+  const results={isConnected:true,replaceChildren(){},append(){}};
+  const output={replaceChildren(){},append(){}};
+  const player={replaceChildren(){},append(){},hidden:true};
+  const fileInput={value:"selected-file",listeners:{},addEventListener(type,handler){this.listeners[type]=handler;}};
+  const lookups={
+    "[data-studio-music-query]":search,
+    "[data-studio-music-results]":results,
+    "[data-studio-music-found]":{textContent:""},
+    "[data-studio-music-external]":output,
+    "[data-studio-music-preview]":player,
+    "[data-studio-audio-file]":fileInput
+  };
+  const statuses=[];
+  globalThis.document={createElement(tag){return {tagName:tag,append(){},textContent:"",className:""};}};
+  try {
+    const close=openStoryMusicPicker({
+      modal(){},body:{querySelector(selector){return lookups[selector];},querySelectorAll(){return [];}},
+      builtin:[],onSelect(){throw new Error("Invalid audio must not be selected");},
+      onStatus:(text,isError)=>statuses.push({text,isError})
+    });
+    fileInput.listeners.change({target:{files:[]}});
+    assert.equal(statuses.length,0,"cancelling the picker should not show an error");
+    fileInput.listeners.change({target:{files:[{type:"text/plain",size:300,name:"note.txt"}]}}); 
+    assert.equal(statuses.length,1);
+    assert.match(statuses[0].text,/áudio válido/);
+    assert.equal(statuses[0].isError,true);
+    assert.equal(fileInput.value,"","invalid input must be cleared for another choice");
+    fileInput.listeners.change({target:{files:[{type:"audio/mp3",size:0,name:"empty.mp3"}]}});
+    assert.equal(statuses.length,2,"zero-byte uploads must be rejected");
+    close();
+  } finally {
+    if(previousDocument===undefined) delete globalThis.document;
+    else globalThis.document=previousDocument;
+  }
+});
+
+test("Story viewer floats its controls over uncropped media",()=>{
+  const css=file("assets/css/pages/home.css");
+  assert.match(css,/Stories immersive overlay v3/);
+  assert.match(css,/\.story-viewer-dialog \.story-viewer-stage \{[\s\S]*?position: absolute !important/);
+  assert.match(css,/object-fit: contain !important/);
+  assert.match(css,/\.story-viewer-dialog \.story-viewer-actions,[\s\S]*?position: absolute !important/);
+  assert.match(viewer,/video\.isConnected && mediaHost\.querySelector\("video"\) === video && !state\.paused/);
 });
