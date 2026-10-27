@@ -19,6 +19,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     '<section class="studio-music-preview" data-studio-music-preview hidden aria-label="Prévia da música"></section>' +
     '<div class="studio-music-results" data-studio-music-results></div>' +
     '<div class="studio-music-external" data-studio-music-external></div>' +
+    '<p class="studio-hint">Músicas livres: busca desenvolvida com a API Openverse, sem endosso ou certificação do Openverse. Confira a licença e a autoria na origem antes de publicar.</p>' +
     '<label class="studio-audio-upload">Adicionar áudio próprio (opcional)<input type="file" data-studio-audio-file accept="audio/*"></label>' +
     (isAdmin ? '<p class="studio-hint">ADM: Apple/Deezer são catálogos de busca, não trilhas autorizadas para Stories. É necessário associar um áudio pessoal autorizado. Audius usa streaming; as faixas originais e arquivos próprios são incorporados ao vídeo.</p>' : '') +
     '</div>');
