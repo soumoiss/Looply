@@ -80,7 +80,7 @@ test("official Instagram iframe is visually clipped rather than scraped into a f
   assert.match(js,/is-instagram-embed/);
   assert.match(js,/make\("iframe", "looply-reel-embed"\)/);
   assert.match(css,/\.is-instagram-embed \.looply-reel-embed/);
-  assert.match(css,/transform:translateY\(5%\) scale\(1\.52\)/);
+  assert.match(css,/transform:translateY\(10%\) scale\(2\.15\)/);
 });
 test("caption and user attribution remain without unnecessary top Reels branding", async () => {
   const [js,css] = await Promise.all([read("src/home-hybrid-reels.js"),read("assets/css/pages/story-reels-viewport-fix.css")]);
