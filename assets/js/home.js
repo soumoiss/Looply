@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=mirrored-global-calls-20261027";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
