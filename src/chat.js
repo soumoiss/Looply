@@ -612,6 +612,7 @@ async function openConversation(root, client, conversationId, userId) {
       thread.innerHTML = markup;
       scrollInitialThreadToLatest(thread);
     }
+    root.dispatchEvent(new CustomEvent("looply:conversation-activated", { detail: { conversationId } }));
     const { data: readConfirmed, error: readError } = await client.rpc("mark_conversation_read", { p_conversation_id: conversationId });
     if (readError || readConfirmed !== true) console.warn("Looply read receipt update failed", readError || { message: "conversation_unavailable" });
     // The unread filter is driven by the persisted receipt, so refresh the
@@ -681,19 +682,47 @@ function scheduleRefresh(root, client, userId) {
 
 export function setupChatRealtime(client, userId, root) {
   if (!client || !userId || (realtimeChannel && realtimeUserId === userId)) return;
-  if (realtimeChannel) client.removeChannel(realtimeChannel);
+  if (realtimeChannel) void client.removeChannel(realtimeChannel);
   stopNotificationChanges?.();
   stopNotificationChanges = notificationBus.subscribeDebounced(({ sources }) => {
     if (sources.includes("chat")) scheduleRefresh(root, client, userId);
   });
   realtimeUserId = userId;
-  realtimeChannel = client.channel(`looply-chat-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => scheduleRefresh(root, client, userId))
-    .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => scheduleRefresh(root, client, userId))
-    .subscribe((state) => {
+  let selectedRoomId = "";
+  let connecting = 0;
+  const activate = conversationId => {
+    if (!client.supportsRealtime) return;
+    if (!conversationId || !/^[a-f0-9-]{36}$/i.test(conversationId)) return;
+    if (selectedRoomId === conversationId && realtimeChannel) return;
+    selectedRoomId = conversationId;
+    const sequence = ++connecting;
+    if (realtimeChannel) void client.removeChannel(realtimeChannel);
+    realtimeChannel = client.channel(`looply-chat-${conversationId}`);
+    realtimeChannel.on("broadcast", { event: "invalidate" }, () => {
+      if (selectedRoomId === conversationId) scheduleRefresh(root, client, userId);
+    }).subscribe(state => {
+      if (sequence !== connecting) return;
       const status = root.querySelector("[data-chat-live]");
       if (status) status.textContent = state === "SUBSCRIBED" ? "Atualizações ao vivo" : "Reconectando...";
     });
+  };
+  root.addEventListener("looply:conversation-activated", event => {
+    activate(event.detail?.conversationId);
+  });
+  root.addEventListener("looply:chat-message-saved", event => {
+    if (event.detail?.conversationId !== selectedRoomId || !realtimeChannel) return;
+    void realtimeChannel.send({ type: "broadcast", event: "invalidate", payload: {} });
+  });
+  // Active calls use this same authenticated Cloudflare room, while Neon
+  // remains the source of truth for message bodies and read receipts.
+  const existingId = root.querySelector("[data-chat-send]")?.dataset.conversationId;
+  if (existingId) activate(existingId);
+  // A bounded refresh also catches incoming messages when no room is open yet.
+  const timer = window.setInterval(() => {
+    if (document.visibilityState === "visible" && root.isConnected)
+      scheduleRefresh(root, client, userId);
+  }, 25000);
+  window.addEventListener("pagehide", () => window.clearInterval(timer), { once: true });
 }
 
 export function disposeChatRealtime(client) {
@@ -1225,6 +1254,9 @@ export function bindChatEvents(root, client, getUserId) {
         form._looplyStickerFile = null;
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
+        // Notify the other authorized client only after Neon confirms the
+        // message and all attachments. Never send fake message bodies over WS.
+        root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
         await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
