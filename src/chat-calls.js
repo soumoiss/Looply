@@ -42,7 +42,7 @@ export function setupChatCalls(root, client, userId) {
     modal.querySelector("[data-call-content]").innerHTML = markup;
     modal.hidden = false;
   };
-  const closeModal = () => { const modal = root.querySelector("[data-call-modal]"); if (modal) modal.hidden = true; };
+  const closeModal = () => { const modal = root.querySelector("[data-call-modal]"); if (modal) { modal.hidden = true; modal.classList.remove("is-video-call"); } };
   const send = async (type, extra = {}) => {
     const topic = activeConversation();
     if (!channel || !topic || topic !== channelConversationId) return false;
@@ -123,7 +123,8 @@ export function setupChatCalls(root, client, userId) {
     }
   };
   const callView = (statusText) => {
-    showModal(`<span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-pressed="false">${icon("mic")} Silenciar microfone</button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-pressed="false">${icon("volume")} Áudio ligado</button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-pressed="false">' + icon("camera") + ' Desligar câmera</button><button type="button" class="chat-v2-button" data-call-flip-camera>' + icon("cameraSwitch") + ' Trocar câmera</button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup>${icon("hangup")} Encerrar chamada</button></div>`);
+    showModal(`<div class="chat-call-heading"><span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p></div><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button chat-call-audio-unlock" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-label="Silenciar microfone" aria-pressed="false">${icon("mic")} <span>Silenciar microfone</span></button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-label="Silenciar áudio remoto" aria-pressed="false">${icon("volume")} <span>Áudio ligado</span></button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-label="Desligar câmera" aria-pressed="false">' + icon("camera") + ' <span>Desligar câmera</span></button><button type="button" class="chat-v2-button" data-call-flip-camera aria-label="Trocar câmera">' + icon("cameraSwitch") + ' <span>Trocar câmera</span></button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup aria-label="Encerrar chamada">${icon("hangup")} <span>Encerrar chamada</span></button></div>`);
+    getModal().classList.toggle("is-video-call", callMode === "video");
     const local = root.querySelector("[data-call-local]");
     if (local && callMode !== "video") local.hidden = true;
     attachMedia();
@@ -358,7 +359,9 @@ export function setupChatCalls(root, client, userId) {
       if (track) {
         track.enabled = !track.enabled;
         button.setAttribute("aria-pressed", String(!track.enabled));
-        button.innerHTML = icon(track.enabled ? "mic" : "micOff") + (track.enabled ? " Silenciar microfone" : " Ativar microfone");
+        const label = track.enabled ? "Silenciar microfone" : "Ativar microfone";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(track.enabled ? "mic" : "micOff") + " <span>" + label + "</span>";
       }
       return;
     }
@@ -367,7 +370,9 @@ export function setupChatCalls(root, client, userId) {
       if (remote) {
         remote.muted = !remote.muted;
         button.setAttribute("aria-pressed", String(remote.muted));
-        button.innerHTML = icon(remote.muted ? "volumeOff" : "volume") + (remote.muted ? " Ativar áudio" : " Áudio ligado");
+        const label = remote.muted ? "Ativar áudio remoto" : "Silenciar áudio remoto";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(remote.muted ? "volumeOff" : "volume") + " <span>" + label + "</span>";
       }
       return;
     }
@@ -376,7 +381,9 @@ export function setupChatCalls(root, client, userId) {
       if (track) {
         track.enabled = !track.enabled;
         button.setAttribute("aria-pressed", String(!track.enabled));
-        button.innerHTML = icon(track.enabled ? "camera" : "cameraOff") + (track.enabled ? " Desligar câmera" : " Ligar câmera");
+        const label = track.enabled ? "Desligar câmera" : "Ligar câmera";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(track.enabled ? "camera" : "cameraOff") + " <span>" + label + "</span>";
       }
       return;
     }

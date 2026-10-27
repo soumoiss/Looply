@@ -445,3 +445,21 @@
 .page-chat .chat-people-list { display: grid; gap: 7px; max-height: 240px; overflow: auto; }
 .page-chat .chat-people-list[hidden] { display: none; }
 .page-chat .chat-filter-tabs button { flex: 0 0 auto; }
+
+/* Live video call: keep the remote stream unobstructed at every viewport size. */
+.page-chat .chat-call-backdrop.is-video-call { position:fixed; inset:0; width:100%; height:100dvh; padding:0; background:#050505; backdrop-filter:none; }
+.page-chat .is-video-call .chat-call-modal { position:relative; width:100%; max-width:none; height:100%; max-height:none; padding:0; overflow:hidden; border:0; border-radius:0; color:#fff; background:#050505; box-shadow:none; }
+.page-chat .is-video-call [data-call-content] { position:absolute; inset:0; }
+.page-chat .is-video-call .chat-call-videos { position:absolute; inset:0; display:block; margin:0; background:#080808; }
+.page-chat .is-video-call .chat-call-videos video[data-call-remote] { display:block; width:100%; height:100%; min-height:0; max-height:none; aspect-ratio:auto; border-radius:0; background:#080808; object-fit:contain; }
+.page-chat .is-video-call .chat-call-videos video[data-call-local] { position:absolute; z-index:2; top:calc(82px + env(safe-area-inset-top)); left:16px; width:min(34vw,150px); height:auto; min-height:0; max-height:none; aspect-ratio:3/4; border:2px solid #ffffff88; border-radius:15px; background:#111; object-fit:cover; box-shadow:0 8px 22px #0008; }
+.page-chat .is-video-call .chat-call-heading { position:absolute; z-index:3; top:0; right:0; left:0; padding:calc(12px + env(safe-area-inset-top)) 66px 24px 18px; background:linear-gradient(#000a,transparent); text-shadow:0 1px 5px #000; }
+.page-chat .is-video-call .chat-call-heading h2 { margin:2px 0; font-size:18px; }
+.page-chat .is-video-call .chat-call-heading [data-call-status] { margin:0; font-size:12px; }
+.page-chat .is-video-call .chat-v2-modal-close { z-index:5; top:calc(12px + env(safe-area-inset-top)); right:16px; color:#fff; background:#222b; }
+.page-chat .is-video-call .chat-call-audio-unlock { position:absolute; z-index:4; bottom:calc(110px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); white-space:nowrap; }
+.page-chat .is-video-call .chat-v2-actions { position:absolute; z-index:4; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:flex; flex-wrap:nowrap; justify-content:center; gap:clamp(5px,2vw,12px); width:max-content; max-width:calc(100vw - 16px); margin:0; padding:10px; border-radius:28px; background:#151515ee; }
+.page-chat .is-video-call .chat-v2-actions .chat-v2-button { display:grid; flex:0 1 auto; width:clamp(42px,12vw,52px); height:clamp(42px,12vw,52px); min-height:0; place-items:center; padding:0; border:0; border-radius:50%; color:#fff; background:#363636; }
+.page-chat .is-video-call .chat-v2-actions .chat-v2-button.is-primary { background:#e83149; }
+.page-chat .is-video-call .chat-v2-actions .chat-v2-button span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.page-chat .is-video-call .chat-v2-actions .chat-v2-button svg { width:22px; height:22px; }
