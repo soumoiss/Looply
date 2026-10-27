@@ -1,5 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { welcomeGreeting } from "../../src/welcome.js";
+import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=portrait-capture-20261026";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
@@ -31,13 +32,13 @@ function renderWelcome(profile) {
   const avatar = profile.avatarUrl;
   const markup = `<section class="hero-panel home-welcome" aria-labelledby="homeWelcomeTitle">
     <div class="home-welcome-avatar" data-home-avatar aria-hidden="true"><span data-home-avatar-initial></span></div>
-    <div class="home-welcome-copy"><div class="eyebrow">Início</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Feed</p></div>
+    <div class="home-welcome-copy"><div class="eyebrow">✦</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Feed conectado com atualizações ao vivo</p></div>
     <a class="header-action home-profile-shortcut" href="perfil.html">Meu perfil</a>
   </section>`;
   const template = document.createElement("template");
   template.innerHTML = markup;
   const welcome = template.content.firstElementChild;
-  welcome.querySelector("[data-home-welcome-title]").textContent = welcomeGreeting(profile.username) + ", " + name;
+  welcome.querySelector("[data-home-welcome-title]").textContent = "Bem-vindo, " + name;
   const fallback = welcome.querySelector("[data-home-avatar-initial]");
   fallback.textContent = Array.from(name.trim())[0]?.toLocaleUpperCase("pt-BR") || "?";
   if (avatar) {
@@ -73,6 +74,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   void mountSecretMessages(client, user.id, isAdmin);
   bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
   bindSocialEvents(root, client, () => user.id, isAdmin);
+  bindHomeProfilePreview({ root, client, user, profile });
   const globalSettingsChannel = client.channel("looply-home-global-settings")
     .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: updated }) => {
       const next = document.createElement("template");
