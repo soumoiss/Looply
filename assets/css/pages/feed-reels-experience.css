@@ -109,3 +109,13 @@
 .looply-reels-comments .post-comments { display:block!important; margin:0; }
 .looply-reels-comments .comment-list, .looply-reels-comments .comment-form { display:block!important; }
 @media (prefers-reduced-motion:reduce) { .looply-reels-track { scroll-behavior:auto; } }
+
+.page-home .looply-publish-toast { position:fixed; z-index:20010; left:50%; bottom:calc(74px + env(safe-area-inset-bottom)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 35px); padding:12px 20px; border-radius:12px; background:var(--primary); color:#fff; box-shadow:0 6px 30px #0006; font-size:13px; font-weight:800; }
+@media (max-width:380px) {
+ .page-home .ig-post .post-interactions { gap:2px; padding:8px 5px; }
+ .page-home .ig-post .post-icon-button { min-width:34px; font-size:11px; }
+ .page-home .ig-post [data-share-in-app] { padding-inline:3px; }
+ .looply-reels-rail { right:4px; }
+ .looply-reel-action { width:42px; }
+ .looply-reels-bottom { right:56px; }
+}
