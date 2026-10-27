@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=neon-calls-20261027";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=notification-bus-20261022-chat-mobile-20261027";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
 import { setupChatCalls } from "../../src/chat-calls.js?v=chat-mobile-webrtc-20261027";
