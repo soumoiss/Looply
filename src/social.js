@@ -859,6 +859,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     if (event.target.closest("[data-select-post-media]")) { root.querySelector("#postFiles")?.click(); return; }
     const close = event.target.closest("[data-close-composer]");
     if (close) {
+      resetPreview();
       const fields = root.querySelector("[data-composer-fields]");
       if (fields) fields.hidden = true;
       document.body.style.overflow = "";
