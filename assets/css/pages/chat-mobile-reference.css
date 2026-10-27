@@ -237,3 +237,36 @@
     height:calc(var(--looply-visible-height,100dvh) - 101px);
   }
 }
+
+/* WebRTC voice-call stage: real media elements, visible peer identity, no fake overlay. */
+.page-chat .chat-call-backdrop.is-audio-call { position:fixed; inset:0; display:grid; place-items:center; background:#151024de; backdrop-filter:blur(15px); }
+.page-chat .is-audio-call .chat-call-modal {
+  width:min(100%,470px); max-width:470px; min-height:min(480px,90dvh); height:auto;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; padding:32px 19px;
+  background:linear-gradient(155deg,#332259,#150c29); color:#fff; text-align:center;
+  border:1px solid #ffffff24; border-radius:24px;
+}
+.page-chat .is-audio-call .chat-call-heading { position:static; width:100%; display:grid; gap:7px; color:#fff; text-align:center; }
+.page-chat .is-audio-call .chat-call-heading .chat-v2-kicker { color:#dfc3ff; font-size:11px; letter-spacing:.08em; }
+.page-chat .is-audio-call .chat-call-heading h2 { color:#fff; margin:0; font-size:23px; }
+.page-chat .is-audio-call .chat-call-heading [data-call-status] { color:#e9dcf8; }
+.page-chat .is-audio-call .chat-call-videos {
+  display:grid; place-items:center; grid-template-columns:minmax(0,1fr); margin:14px 0 24px;
+  width:100%; min-height:125px; flex:0 0 auto; position:relative;
+}
+.page-chat .is-audio-call .chat-voice-call-avatar {
+  width:112px; height:112px; overflow:hidden; display:grid; place-items:center;
+  border:3px solid #c4a4ff; border-radius:50%; background:#6f3bc1;
+  color:#fff; font-size:44px; font-weight:850; box-shadow:0 8px 35px #7c3aed48;
+}
+.page-chat .is-audio-call .chat-voice-call-avatar img { display:block; width:100%; height:100%; object-fit:cover; }
+.page-chat .is-audio-call .chat-call-videos video { position:absolute; width:1px; height:1px; min-height:0; opacity:0; pointer-events:none; }
+.page-chat .is-audio-call .chat-v2-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:9px; }
+.page-chat .is-audio-call .chat-v2-actions .chat-v2-button { min-height:43px; border-radius:14px; color:#fff; background:#ffffff22; border:1px solid #ffffff48; }
+.page-chat .is-audio-call .chat-v2-actions .chat-v2-button.is-primary { color:#fff; background:#ed4054; border-color:#ed4054; }
+.page-chat .is-audio-call .chat-v2-modal-close { top:14px; right:14px; color:#fff; background:#ffffff26; }
+.page-chat .is-audio-call [data-call-enable-audio] { color:#fff; background:#713aaf; }
+@media(max-width:760px) {
+  .page-chat .is-audio-call .chat-call-modal { width:calc(100% - 24px); max-width:440px; max-height:calc(100dvh - 24px); }
+  .page-chat .is-audio-call .chat-v2-actions .chat-v2-button { flex:0 1 auto; font-size:12px; padding:8px 11px; }
+}
