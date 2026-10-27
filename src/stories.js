@@ -248,7 +248,8 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
       '<div class="story-viewer-shell">' +
         '<div class="story-progress-list" data-story-progress-list></div>' +
         '<header class="story-viewer-header"><div class="story-viewer-author">' +
-          '<span data-story-viewer-avatar></span><span><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span>' +
+          '<span data-story-viewer-avatar></span><span class="story-viewer-person"><span class="story-viewer-identity"><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span><small class="story-song-label" data-story-viewer-music-label hidden></small></span>' +
+          '<span class="story-close-friends-indicator" data-story-close-friends hidden title="Story para amigos próximos" aria-label="Somente amigos próximos">★</span>' +
         '</div><div class="story-viewer-header-controls">' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
           '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></div></header>' +
@@ -260,18 +261,33 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
-          '<div class="story-viewer-owner-actions" data-story-owner-actions hidden>' +
-            '<button class="story-insights-button" type="button" data-story-insights-open>◉ <span data-story-view-count>Ver visualizações</span></button>' +
-            '<button class="story-delete-button" type="button" data-story-delete>Excluir</button>' +
-          '</div>' +
+          '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
+            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small>Atividade</small><span class="sr-only" data-story-view-count>Ver visualizações</span></button>' +
+            '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-boost disabled title="Publicidade ainda não disponível"><span aria-hidden="true">↗</span><small>Turbinar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-highlight disabled title="Destaques exigem armazenamento permanente e permissões próprias"><span aria-hidden="true">♡</span><small>Destacar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-mention-add><span aria-hidden="true">@</span><small>Mencionar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-more aria-expanded="false"><span aria-hidden="true">⋮</span><small>Mais</small></button>' +
+          '</nav>' +
           '<div class="story-viewer-reply-actions" data-story-reply-actions hidden>' +
-            '<button class="story-like-button" type="button" data-story-like aria-pressed="false"><span aria-hidden="true">♡</span><span data-story-like-label>Curtir</span></button>' +
+            '<button class="story-like-button" type="button" data-story-like aria-label="Curtir story" aria-pressed="false"><span aria-hidden="true">♡</span><span class="sr-only" data-story-like-label>Curtir</span></button>' +
             '<form class="story-reply-form" data-story-reply><label class="visually-hidden" for="storyReplyMessage">Responder em particular</label>' +
-              '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Responder em particular…" autocomplete="off" required>' +
-              '<button type="submit" aria-label="Enviar resposta">➤</button></form>' +
+              '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Enviar mensagem..." autocomplete="off" required>' +
+              '<button type="submit" aria-label="Enviar resposta privada">➤</button></form>' +
+            '<button type="button" class="story-aux-action" data-story-reply-focus aria-label="Escrever resposta">♧</button>' +
+            '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">➤</button>' +
             '<span class="story-reply-status" data-story-reply-status role="status" aria-live="polite"></span>' +
           '</div>' +
         '</footer>' +
+        '<div class="story-owner-menu" data-story-owner-menu hidden role="group" aria-label="Outras opções do Story">' +
+          '<button type="button" data-story-save>Salvar mídia</button>' +
+          '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
+          '<button type="button" data-story-more-close>Cancelar</button></div>' +
+        '<div class="story-mention-dialog" data-story-mention-dialog hidden role="dialog" aria-label="Mencionar no Story">' +
+          '<strong>Mencionar alguém</strong><p>Selecione uma pessoa que pode visualizar este story.</p>' +
+          '<label>Perfil<select data-story-mention-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
+          '<div><button type="button" data-story-mention-confirm>Confirmar</button><button type="button" data-story-mention-cancel>Cancelar</button></div></div>' +
+        '<div class="story-viewer-action-status" data-story-action-status role="status" aria-live="polite" hidden></div>' +
         '<section class="story-insights-panel" data-story-insights-panel hidden aria-label="Visualizações do story">' +
           '<header><strong>Atividade do story</strong><button type="button" class="icon-button" data-story-insights-close aria-label="Fechar atividade">' + icon("close") + '</button></header>' +
           '<p data-story-insights-summary>Carregando visualizações…</p><ul data-story-insights-list></ul>' +
@@ -442,12 +458,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     storyTime.dateTime = story.created_at;
     storyTime.title = timeLabels.exact ? "Publicado em " + timeLabels.exact : "";
     storyTime.setAttribute("aria-label", timeLabels.exact ? "Publicado em " + timeLabels.exact : "Publicado agora");
+    viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
+    viewer.querySelector("[data-story-owner-menu]").hidden = true;
+    viewer.querySelector("[data-story-mention-dialog]").hidden = true;
+    viewer.querySelector("[data-story-action-status]").hidden = true;
     const avatarHost = viewer.querySelector("[data-story-viewer-avatar]");
     avatarHost.innerHTML = storyAvatar(author, "", false);
     const caption = viewer.querySelector("[data-story-viewer-caption]");
     const catalogSong = decodeStorySong(story.body || "");
     const storyText = decodeStoryBody(catalogSong.text);
     caption.textContent = storyText.text;
+    const songLabel = viewer.querySelector("[data-story-viewer-music-label]");
+    const credit = storyText.text.match(/🎵\s*"([^"]+)"\s*—\s*([^\n(]+)/);
+    const soundName = catalogSong.song?.title ? [catalogSong.song.title,catalogSong.song.artist].filter(Boolean).join(" · ") : credit ? credit[1]+" · "+credit[2].trim() : "";
+    songLabel.textContent = soundName ? "♫ "+soundName : "";
+    songLabel.hidden = !soundName;
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(oldMusic=>{
