@@ -604,7 +604,9 @@ test("group conversations are created through the authenticated server path with
   assert.match(chat, /data-chat-group-create/);
   assert.match(chat, /conversation\.kind === "group"/);
   assert.match(chat, /targetIds\.length < 2/);
-  assert.match(chat, /user_id=eq\.\$\{userId\}/);
+  assert.match(chat, /looply-chat-\$\{conversationId\}/);
+  const worker = await read("backend/neon-cloudflare/realtime-worker.mjs");
+  assert.match(worker, /v3_is_conversation_member/);
   assert.match(chat, /Lida por todos/);
 });
 

@@ -44,7 +44,7 @@ export function setupChatCalls(root, client, userId) {
     modal.querySelector("[data-call-content]").innerHTML = markup;
     modal.hidden = false;
   };
-  const closeModal = () => { const modal = root.querySelector("[data-call-modal]"); if (modal) { modal.hidden = true; modal.classList.remove("is-video-call"); } };
+  const closeModal = () => { const modal = root.querySelector("[data-call-modal]"); if (modal) { modal.hidden = true; modal.classList.remove("is-video-call", "is-audio-call"); } };
   const send = async (type, extra = {}) => {
     const topic = activeConversation();
     if (!channel || !topic || topic !== channelConversationId) return false;
@@ -128,7 +128,28 @@ export function setupChatCalls(root, client, userId) {
   };
   const callView = (statusText) => {
     showModal(`<div class="chat-call-heading"><span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p></div><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button chat-call-audio-unlock" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-label="Silenciar microfone" aria-pressed="false">${icon("mic")} <span>Silenciar microfone</span></button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-label="Silenciar áudio remoto" aria-pressed="false">${icon("volume")} <span>Áudio ligado</span></button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-label="Desligar câmera" aria-pressed="false">' + icon("camera") + ' <span>Desligar câmera</span></button><button type="button" class="chat-v2-button" data-call-flip-camera aria-label="Trocar câmera">' + icon("cameraSwitch") + ' <span>Trocar câmera</span></button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup aria-label="Encerrar chamada">${icon("hangup")} <span>Encerrar chamada</span></button></div>`);
-    getModal().classList.toggle("is-video-call", callMode === "video");
+    const modal = getModal();
+    modal.classList.toggle("is-video-call", callMode === "video");
+    modal.classList.toggle("is-audio-call", callMode === "audio");
+    if (callMode === "audio") {
+      // Voice calls display the actual conversation avatar/name while the
+      // remote <video> element stays mounted to receive the WebRTC audio track.
+      const videos = root.querySelector(".chat-call-videos");
+      const avatarSource = root.querySelector(".chat-thread-heading .chat-thread-avatar");
+      const avatarFrame = document.createElement("div");
+      avatarFrame.className = "chat-voice-call-avatar";
+      avatarFrame.setAttribute("aria-hidden", "true");
+      if (avatarSource?.tagName === "IMG" && avatarSource.src) {
+        const photo = document.createElement("img");
+        photo.src = avatarSource.src;
+        photo.alt = "";
+        photo.referrerPolicy = "no-referrer";
+        avatarFrame.append(photo);
+      } else {
+        avatarFrame.textContent = (callPeerName || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+      }
+      videos?.prepend(avatarFrame);
+    }
     const local = root.querySelector("[data-call-local]");
     if (local && callMode !== "video") local.hidden = true;
     attachMedia();

@@ -4,6 +4,7 @@ import { isExplicitAdminResult } from "./neon-admin-result.js";
 import { fetchLinkedNeonProfile } from "./neon-identity.js";
 import { readOwnNeonProfile } from "./neon-avatar-profile.js";
 import { invokeChatReadReceiptRpc } from "./chat-read-receipts.js";
+import { createNeonRealtimeBridge } from "./neon-realtime-bridge.js";
 const config=Object.freeze({auth:"https://ep-fancy-smoke-b7d6t1s6.neonauth.c-13.us-east-1.aws.neon.tech/neondb/auth",data:"https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1"});
 export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
@@ -189,13 +190,16 @@ async function chatFunctionInvoke(name,options) {
     return {data:{conversationId:value},error:null};
   }catch{return {data:null,error:{message:"neon_chat_creation_unavailable"}};}
 }
+const realtimeBridge=createNeonRealtimeBridge({
+  endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
+  getSession:activeSession
+});
 export const looplyClient = Object.freeze({
   dataApiUrl: config.data,
-  // This adapter has no live event transport yet. Keep call features from
-  // attaching to a pretend Realtime channel while the authenticated Worker
-  // transport is being connected.
-  supportsRealtime: false,
-  realtime: Object.freeze({ setAuth: async () => { throw new Error("neon_realtime_not_migrated"); } }),
+  // Only authenticated conversation-scoped signaling is available. This does
+  // NOT synthesize a Postgres change feed or replace Neon as the source of truth.
+  supportsRealtime: realtimeBridge.supportsRealtime,
+  realtime: realtimeBridge.realtime,
   auth: Object.freeze({
     getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
     getUser: async () => { try { const session = await legacyPageSession(); return { data: { user: session?.user || null }, error: null }; } catch (error) { return { data: { user: null }, error }; } },
@@ -206,6 +210,6 @@ export const looplyClient = Object.freeze({
   rpc: async (name, args) => publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
-  channel: () => ({ on() { return this; }, subscribe() { return this; } }),
-  removeChannel: () => {},
+  channel: realtimeBridge.channel,
+  removeChannel: realtimeBridge.removeChannel,
 });

@@ -39,5 +39,6 @@ test("Neon modules use an authenticated shared client and retain the six migrate
  assert.match(rest,/lte\(k,v\)/);
  assert.match(rest,/or\(expression\)/);
  assert.match(rest,/range\(a,b\)/);
- assert.match(client,/supportsRealtime: false/);
+ assert.match(client,/supportsRealtime: realtimeBridge\.supportsRealtime/);
+ assert.match(client,/createNeonRealtimeBridge/);
 });

@@ -189,12 +189,20 @@ export class LooplyConversationRoom {
       this.broadcast({ type: "invalidate", user_id: attach.userId }, ws);
     } else if (payload.type === "signal") {
       // WebRTC signaling only; no SDP persistence in the Worker.
-      if (!["offer", "answer", "candidate", "hangup"].includes(payload.signal_type)) return;
+      if (!["offer", "answer", "candidate", "hangup", "decline", "failed"].includes(payload.signal_type)) return;
       if (typeof payload.value !== "string" || payload.value.length > 12000) return;
       this.broadcast({
         type: "signal", signal_type: payload.signal_type,
         value: payload.value, user_id: attach.userId
       }, ws);
+    } else if (payload.type === "broadcast" && payload.event === "ttt") {
+      // Only a member of this authenticated Durable Object room can signal.
+      // Games remain ephemeral. No arbitrary events or user-supplied identity
+      // reach peers; the sender is derived from the verified WebSocket ticket.
+      const state = payload.payload;
+      if (!state || typeof state !== "object" || Array.isArray(state)) return;
+      if (JSON.stringify(state).length > 12000) return;
+      this.broadcast({ type: "broadcast", event: "ttt", payload: state, user_id: attach.userId }, ws);
     }
   }
 
