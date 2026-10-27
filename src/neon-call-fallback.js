@@ -96,3 +96,38 @@ export function createNeonSignalFallback({
   };
   return { connect };
 }
+
+
+/**
+ * Fire the initial incoming-call alert WITHOUT waiting for a Cloudflare
+ * handshake or ICE. PostgreSQL resolves the authenticated sender and verifies
+ * conversation membership; no session token is persisted in this module.
+ */
+export async function sendUrgentNeonCallEvent({
+  dataApiUrl, getSession, conversationId, payload, fetcher = (...args)=>fetch(...args)
+}) {
+  if (!UUID.test(conversationId) || !payload || !["ring","failed"].includes(payload.type)) {
+    throw new Error("invalid_urgent_call_signal");
+  }
+  const endpoint = new URL(dataApiUrl);
+  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password ||
+      endpoint.search || endpoint.hash || !endpoint.hostname.endsWith(".neon.tech")) {
+    throw new Error("invalid_neon_signal_endpoint");
+  }
+  const session = await getSession();
+  if (!session?.access_token) throw new Error("neon_signal_session_required");
+  const body = JSON.stringify({
+    p_conversation_id:conversationId,
+    p_kind:"signal",
+    p_payload:payload
+  });
+  if (body.length > 12500) throw new Error("urgent_call_signal_too_large");
+  const response = await fetcher(endpoint.href.replace(/\/$/,"")+"/rpc/v3_call_signal_send", {
+    method:"POST",cache:"no-store",credentials:"omit",
+    headers:{authorization:"Bearer "+session.access_token,
+      "content-type":"application/json",accept:"application/json"},
+    body
+  });
+  if (!response.ok) throw new Error("urgent_neon_call_http_"+response.status);
+  return true;
+}
