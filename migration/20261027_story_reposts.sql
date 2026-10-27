@@ -142,7 +142,7 @@ AS $$
     FOR SHARE OF original
   ),
   target AS MATERIALIZED (
-    SELECT repost.id, pg_catalog.least(repost.expires_at, source.expires_at) AS expires_at,
+    SELECT repost.id, CASE WHEN repost.expires_at < source.expires_at THEN repost.expires_at ELSE source.expires_at END AS expires_at,
       source.author_id AS original_author_id
     FROM public.stories repost
     CROSS JOIN actor
