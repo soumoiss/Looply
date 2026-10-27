@@ -31,7 +31,7 @@ export function createNeonSignalFallback({
     }
     return response.json();
   };
-  const connect = async (conversationId, onWire, onStatus) => {
+  const connect = async (conversationId, onWire, onStatus, pollDelay = delay) => {
     if (!UUID.test(conversationId)) throw new Error("invalid_conversation_id");
     let stopped = false, timer = null, cursor = 0, failures = 0;
     // Ignore stale hangups, old offers or invitations from previous sessions.
@@ -65,12 +65,12 @@ export function createNeonSignalFallback({
         failures += 1;
         if (failures === 3) onStatus?.(error);
       }
-      if (!stopped) timer = schedule(tick, failures ? Math.min(8000, delay * (1 + failures)) : delay);
+      if (!stopped) timer = schedule(tick, failures ? Math.min(8000, pollDelay * (1 + failures)) : pollDelay);
     };
     // Validate current Neon membership before signaling a successful connection.
     await poll();
     if (stopped) throw new Error("fallback_channel_closed");
-    timer = schedule(tick, delay);
+    timer = schedule(tick, pollDelay);
     return {
       kind: "neon", readyState: 1,
       async send({event,payload}) {
