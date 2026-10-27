@@ -284,11 +284,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     // Match the full-screen CSS camera preview exactly: crop to the current
     // 9:16 viewport first, then apply the selected digital zoom within it.
     // Neither photo nor recorded video should inherit blurred letterboxing.
-    const viewport = stage.getBoundingClientRect();
-    const targetRatio = viewport.width > 0 && viewport.height > 0
-      ? viewport.width / viewport.height
-      : canvas.width / canvas.height;
-    const frame = cameraCoverCrop(sourceW, sourceH, targetRatio, 1);
+    // Encode 1080×1920 without deforming the source image.
+    const frame = cameraCoverCrop(sourceW, sourceH, canvas.width, canvas.height);
     if (!frame) throw new Error("Não foi possível preparar o enquadramento.");
     const cropW = frame.width / factor, cropH = frame.height / factor;
     const sx = frame.x + (frame.width - cropW) / 2, sy = frame.y + (frame.height - cropH) / 2;
@@ -352,13 +349,14 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       } catch { /* Inaccessible sensor zoom: pinch uses the digital fallback. */ }
     }
     video.srcObject = stream;
-    backdropVideo.srcObject = stream;
+    // The front camera is the sole video layer: no second blurred playback
+    // or top/bottom filler. The preview uses object-fit: cover.
+    backdropVideo.srcObject = null;
     updateZoomPreview();
     video.style.filter = "none";
     resetFlash();
     showMode("camera");
     try { await video.play(); } catch {}
-    try { await backdropVideo.play(); } catch {}
     face = new StoryFaceLens(video, lens, () => settings.facing);
     face.start();
     if(settings.face!=="none"){
