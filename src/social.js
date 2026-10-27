@@ -281,8 +281,8 @@ function postMarkup(post, userId, isAdmin = false) {
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
-  return `<article class="post-card" id="post-${escapeHtml(post.id)}" data-post-card="${escapeHtml(post.id)}">
-    <header class="post-header">
+  return `<article class="post-card ig-post" id="post-${escapeHtml(post.id)}" data-post-card="${escapeHtml(post.id)}">
+    <header class="post-header ig-post-header">
       <div class="post-author"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div>
       </div>
@@ -291,7 +291,7 @@ function postMarkup(post, userId, isAdmin = false) {
     ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
     ${externalMarkup}
-    <div class="post-interactions">
+    <div class="post-interactions ig-actions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
       ${saveButtonMarkup}
       <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação externamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
@@ -299,7 +299,7 @@ function postMarkup(post, userId, isAdmin = false) {
       ${post.author_id !== userId ? '<button class="post-icon-button" type="button" data-private-reply="' + escapeHtml(post.author_id) + '" data-private-post="' + escapeHtml(post.id) + '">Responder em particular</button>' : ""}
       <span class="post-action-status" data-post-status="${escapeHtml(post.id)}" role="status" aria-live="polite"></span>
     </div>
-    <section class="post-comments" aria-label="Comentários">
+    <section class="post-comments ig-comments" aria-label="Comentários">
       <h3>Comentários <span>${comments.length}</span></h3>
       <div class="comment-list">${commentList}</div>
       <form class="comment-form" data-social-comment data-post-id="${escapeHtml(post.id)}">
