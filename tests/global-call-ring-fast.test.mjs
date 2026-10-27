@@ -12,6 +12,9 @@ test("caller emits the ring BEFORE getUserMedia and ICE gathering, preserving ol
  const s=await read("src/chat-calls.js");
  const start=s.slice(s.indexOf('  const startCall = async (mode)'),s.indexOf('  const acceptCall = async ()'));
  assert.ok(start.includes('await send("ring"'));
+ assert.ok(start.includes("urgentRing = sendUrgentNeonCallEvent"));
+ assert.ok(start.indexOf("urgentRing = sendUrgentNeonCallEvent")<start.indexOf("const liveChannel = await ensureChannel()"));
+ assert.ok(start.indexOf("urgentRing = sendUrgentNeonCallEvent")<start.indexOf("localStream = await navigator.mediaDevices.getUserMedia"));
  assert.ok(start.indexOf('await send("ring"')<start.indexOf("localStream = await navigator.mediaDevices.getUserMedia"));
  assert.ok(start.indexOf('await send("ring"')<start.indexOf('await waitForIceGatheringComplete(pc)'));
  assert.match(start,/send\("offer", offerPayload\)/);
@@ -82,4 +85,25 @@ test("incoming phone alert restores document title, cancels vibration and audio 
  assert.equal(titles.title,"Cartas — Looply");
  assert.equal(stopped,true);
  assert.equal(vibrations.at(-1),0);
+});
+
+test("urgent Neon ring bypasses slow Cloudflare/ICE handshake, but enforces member identity",async()=>{
+ const {sendUrgentNeonCallEvent}=await import("../src/neon-call-fallback.js");
+ const calls=[];
+ const sent=await sendUrgentNeonCallEvent({
+   dataApiUrl:api,getSession:async()=>({access_token:"valid.neon.test.token"}),conversationId:room,
+   payload:{type:"ring",mode:"audio",senderName:"Pessoa"},
+   fetcher:async(url,init)=>{calls.push({url,init});return {ok:true,status:200};}
+ });
+ assert.equal(sent,true);
+ assert.equal(calls.length,1);
+ assert.match(calls[0].url,/\/rpc\/v3_call_signal_send$/);
+ assert.equal(calls[0].init.headers.authorization,"Bearer valid.neon.test.token");
+ assert.deepEqual(JSON.parse(calls[0].init.body),{
+   p_conversation_id:room,p_kind:"signal",p_payload:{type:"ring",mode:"audio",senderName:"Pessoa"}
+ });
+ await assert.rejects(()=>sendUrgentNeonCallEvent({
+   dataApiUrl:api,getSession:async()=>({access_token:"bad"}),
+   conversationId:"not-uuid",payload:{type:"ring"},fetcher:async()=>({ok:true})
+ }),/invalid_urgent_call_signal/);
 });
