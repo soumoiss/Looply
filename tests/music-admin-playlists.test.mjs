@@ -4,21 +4,23 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
-test("administrator playlist browser is permission-gated and uses embedded playback", async () => {
-  const [module, page, edge] = await Promise.all([
-    read("src/music-admin-playlists.js"), read("assets/js/music.js"), read("supabase/functions/looply-admin/index.ts")
+test("administrator playlist browser uses Neon Auth role, embedded playback and private RLS write", async () => {
+  const [module, page, migration, bridge] = await Promise.all([
+    read("src/music-admin-playlists.js"), read("assets/js/music.js"),
+    read("migration/20261027_cartas_musicas_adm_rls.sql"), read("src/neon-rest-bridge.js")
   ]);
-  assert.match(module, /resourceType: "status"/);
-  assert.match(module, /status\?\.isAdmin !== true/);
+  assert.match(module, /client\.rpc\("v3_self_is_admin"\)/);
+  assert.match(module, /adminError\|\|admin!==true/);
   assert.match(module, /youtube-nocookie\.com\/embed\/videoseries/);
-  assert.match(module, /admin_music_track_comment/);
-  assert.match(await read("src/youtube-playlist.js"), /Mensagem privada da administração/);
-  assert.match(await read("src/youtube-playlist.js"), /recipient_id,author:profiles/);
+  assert.match(module, /client\.from\("admin_music_track_comments"\)\.insert/);
+  assert.match(module, /fetchPlaylistItems/);
+  assert.match(module, /select\("id"\)/);
+  assert.match(module, /selectedUser/);
+  assert.match(migration, /looply_v6_private_mod_insert/);
+  assert.match(migration, /v3_self_is_admin/);
+  assert.match(migration, /looply_v6_private_mod_select/);
+  assert.match(bridge, /admin_music_track_comments:/);
   assert.match(page, /mountMusicAdminPlaylistPanel/);
-  assert.match(edge, /action === "admin_music_track_comment"/);
-  assert.match(edge, /recipient_id: recipientId/);
-  assert.match(edge, /title \+ "\\n" \+ body/);
-  assert.match(edge, /recordAccess\(service, authData\.user\.id, "write_completed"/);
 });
 
 test("administrator track comments are scoped to the owner by row-level security", async () => {
