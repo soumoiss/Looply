@@ -756,7 +756,7 @@ export function bindChatEvents(root, client, getUserId) {
     fallback.textContent = initial;
     image.replaceWith(fallback);
   }, true);
-  if (root.dataset.conversationPage === "true" && window.visualViewport) {
+  if (window.visualViewport) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
       root.style.setProperty("--looply-visible-height", viewport.height + "px");
