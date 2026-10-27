@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 import {storyStudioMarkup} from "../src/story-studio.js";
 import {storiesMarkup} from "../src/stories.js";
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
@@ -64,7 +65,7 @@ test("Visual system loads last with full-screen contain media, owner and reply t
   assert.match(css,/\.story-studio \.studio-capture-row/);
   assert.match(css,/\.story-studio \.studio-edit-top/);
   for(const path of ["src/story-studio.js","src/stories.js"]){
-    const run=spawnSync(process.execPath,["--check",new URL("../"+path,import.meta.url).pathname],{encoding:"utf8"});
+    const run=spawnSync(process.execPath,["--check",fileURLToPath(new URL("../"+path,import.meta.url))],{encoding:"utf8"});
     assert.equal(run.status,0,run.stderr);
   }
 });

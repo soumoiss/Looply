@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { STORY_CANVAS_SIZE, containRect } from "../src/story-studio.js";
 
 const read = name => readFileSync(new URL("../" + name, import.meta.url), "utf8");
@@ -14,7 +15,7 @@ const styles = read("assets/css/pages/story-studio.css");
 test("Stories Studio and original controller parse as ES modules", () => {
   for (const path of ["src/story-studio.js", "src/stories.js"]) {
     const file = new URL("../" + path, import.meta.url);
-    const result = spawnSync(process.execPath, ["--check", file.pathname], { encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["--check", fileURLToPath(file)], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
   }
 });
