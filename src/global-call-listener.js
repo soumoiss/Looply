@@ -120,7 +120,7 @@ export function setupGlobalCallListener(client, userId, profile) {
     const participants = conversation.participants || [];
     if (!participants.some((p) => p.user_id === userId)) return;
     const channel = client.channel(`looply-call-${conversation.id}`, {
-      config: { private: true, broadcast: { ack: true, self: false } }
+      config: { private: true, broadcast: { ack: true, self: false }, disableFallback: true }
     });
     const call = { channel, conversationId: conversation.id, participants };
     channels.set(conversation.id, call);
