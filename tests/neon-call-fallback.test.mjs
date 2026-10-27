@@ -118,3 +118,76 @@ test("No raw Supabase infrastructure or client APIs are used by the fallback",as
   assert.match(m,/REVOKE ALL ON looply_migration\.call_signal_events FROM authenticated/);
   assert.match(m,/expires_at/);
 });
+
+test("two independent signed-in peers exchange offer, answer, ICE, hangup, and game invitations",async()=>{
+  const server={rows:[],id:0};
+  const ids={
+    first:"ba38fc13-1234-4aaa-8123-1234567890ab",
+    second:"ca38fc13-1234-4aaa-8123-1234567890ab"
+  };
+  const makePeer=(name)=>{
+    const callbacks=[];
+    const fallback=createNeonSignalFallback({
+      dataApiUrl:API,
+      getSession:async()=>({access_token:name}),
+      schedule:fn=>{callbacks.push(fn);return callbacks.length;},
+      cancel:()=>{},
+      fetcher:async(url,opts)=>{
+        const args=JSON.parse(opts.body);
+        if(url.endsWith("_list")){
+          const rows=server.rows.filter(row=>row.id>args.p_after&&row.sender_id!==ids[name]);
+          return json(rows);
+        }
+        if(url.endsWith("_send")){
+          server.rows.push({id:++server.id,sender_id:ids[name],kind:args.p_kind,payload:args.p_payload});
+          return json(server.id);
+        }
+        throw Error("unexpected RPC");
+      }
+    });
+    const bridge=createNeonRealtimeBridge({
+      endpoint:"https://worker.example.workers.dev",
+      getSession:async()=>({access_token:name}),
+      fetcher:async()=>({ok:false,status:503,json:async()=>({error:"backend_unavailable"})}),
+      fallback
+    });
+    return {bridge,callbacks,inbox:[]};
+  };
+  const alice=makePeer("first"),bob=makePeer("second");
+  const a=alice.bridge.channel("looply-call-"+ROOM), b=bob.bridge.channel("looply-call-"+ROOM);
+  for(const [channel,peer] of [[a,alice],[b,bob]]){
+    channel.on("broadcast",{event:"signal"},({payload})=>peer.inbox.push(payload));
+    await new Promise((resolve,reject)=>channel.subscribe((state,error)=>{
+      if(state==="SUBSCRIBED")resolve();
+      if(state==="CHANNEL_ERROR")reject(error);
+    }));
+  }
+  const poll=async peer=>{const fn=peer.callbacks.shift();assert.ok(fn);await fn();};
+  assert.equal(await a.send({type:"broadcast",event:"signal",payload:{type:"offer",description:{type:"offer",sdp:"v=0"}}}),"ok");
+  await poll(bob);
+  assert.equal(bob.inbox[0].type,"offer");
+  assert.equal(bob.inbox[0].senderId,ids.first);
+  assert.equal(await b.send({type:"broadcast",event:"signal",payload:{type:"answer",description:{type:"answer",sdp:"v=0"}}}),"ok");
+  await poll(alice);
+  assert.equal(alice.inbox[0].type,"answer");
+  assert.equal(alice.inbox[0].senderId,ids.second);
+  assert.equal(await a.send({type:"broadcast",event:"signal",payload:{type:"ice",candidate:{candidate:"candidate:1"}}}),"ok");
+  await poll(bob);
+  assert.equal(bob.inbox.at(-1).type,"ice");
+  assert.equal(await b.send({type:"broadcast",event:"signal",payload:{type:"hangup"}}),"ok");
+  await poll(alice);
+  assert.equal(alice.inbox.at(-1).type,"hangup");
+  await a.unsubscribe();await b.unsubscribe();
+  const gameA=alice.bridge.channel("looply-game-"+ROOM);
+  const gameB=bob.bridge.channel("looply-game-"+ROOM);
+  const invites=[];
+  for(const ch of [gameA,gameB]){
+    ch.on("broadcast",{event:"ttt"},({payload})=>invites.push(payload));
+    await new Promise((resolve,reject)=>ch.subscribe((state,error)=>state==="SUBSCRIBED"?resolve():state==="CHANNEL_ERROR"?reject(error):null));
+  }
+  assert.equal(await gameA.send({type:"broadcast",event:"ttt",payload:{type:"invite",gameId:"hello"}}),"ok");
+  await poll(bob);
+  assert.equal(invites.at(-1).type,"invite");
+  assert.equal(invites.at(-1).senderId,ids.first);
+  await gameA.unsubscribe();await gameB.unsubscribe();
+});
