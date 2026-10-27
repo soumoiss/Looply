@@ -133,9 +133,20 @@ export function storyMediaUrlTtl(expiresAt, now = Date.now()) {
   return Math.max(0, Math.min(1800, Math.floor(secondsBeforeExpiry / 30) * 30));
 }
 
-export async function loadStories(client) {
+export function canRepostStory(story, userId, now = Date.now()) {
+  const media = Array.isArray(story?.media) ? story.media[0] : story?.media;
+  const expiresAt = Date.parse(story?.expires_at || "");
+  return Boolean(
+    userId && story?.author_id !== userId && story?.visibility === "public"
+    && story?.allow_reposts === true && story?.isMentioned === true
+    && Number.isFinite(expiresAt) && expiresAt > now
+    && media?.signedUrl && ["image", "video"].includes(media.kind)
+  );
+}
+
+export async function loadStories(client, userId = null) {
   const { data, error } = await client.from("stories")
-    .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,alt_text,created_at)")
+    .select("id,author_id,body,visibility,allow_reposts,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
@@ -195,6 +206,35 @@ export async function loadStories(client) {
   for (const story of rows) {
     story.media = mediaByStory.get(story.id) || [];
     if (story.author) story.author.avatarUrl = avatarUrls.get(story.author.avatar_path) || null;
+  }
+
+  if (userId && rows.length) {
+    const [mentionsResult, repostsResult] = await Promise.all([
+      client.from("story_mentions").select("story_id").eq("mentioned_user_id", userId),
+      client.from("story_reposts").select("repost_story_id,original_story_id,original_author_id")
+        .in("repost_story_id", rows.map((story) => story.id))
+    ]);
+    if (mentionsResult.error) console.warn("Looply story mention status unavailable.", mentionsResult.error);
+    if (repostsResult.error) console.warn("Looply story attribution unavailable.", repostsResult.error);
+    const mentionedIds = new Set((mentionsResult.data || []).map((item) => item.story_id));
+    const repostRows = repostsResult.data || [];
+    const originalAuthorIds = [...new Set(repostRows.map((item) => item.original_author_id).filter(Boolean))];
+    let originalAuthors = [];
+    if (originalAuthorIds.length) {
+      const authorResult = await client.from("profiles").select("id,username,display_name").in("id", originalAuthorIds);
+      originalAuthors = authorResult.data || [];
+    }
+    const authorById = new Map(originalAuthors.map((author) => [author.id, author]));
+    const repostByStory = new Map(repostRows.map((item) => [item.repost_story_id, {
+      storyId: item.original_story_id,
+      authorId: item.original_author_id,
+      author: authorById.get(item.original_author_id) || null
+    }]));
+    for (const story of rows) {
+      story.isMentioned = mentionedIds.has(story.id);
+      story.canRepost = canRepostStory(story, userId);
+      story.repostOf = repostByStory.get(story.id) || null;
+    }
   }
   return rows;
 }
@@ -257,12 +297,15 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
+        '<p class="story-repost-attribution" data-story-repost-attribution hidden></p>' +
         '<footer class="story-viewer-actions">' +
           '<div class="story-viewer-owner-actions" data-story-owner-actions hidden>' +
             '<button class="story-insights-button" type="button" data-story-insights-open>◉ <span data-story-view-count>Ver visualizações</span></button>' +
+            '<button class="story-repost-permission" type="button" data-story-repost-permission aria-pressed="false">Permitir republicação</button>' +
             '<button class="story-delete-button" type="button" data-story-delete>Excluir</button>' +
           '</div>' +
           '<div class="story-viewer-reply-actions" data-story-reply-actions hidden>' +
+            '<button class="story-repost-button" type="button" data-story-repost hidden>↻ Adicionar ao meu story</button>' +
             '<button class="story-like-button" type="button" data-story-like aria-pressed="false"><span aria-hidden="true">♡</span><span data-story-like-label>Curtir</span></button>' +
             '<form class="story-reply-form" data-story-reply><label class="visually-hidden" for="storyReplyMessage">Responder em particular</label>' +
               '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Responder em particular…" autocomplete="off" required>' +
