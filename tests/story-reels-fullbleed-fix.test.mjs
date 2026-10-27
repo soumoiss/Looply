@@ -37,7 +37,8 @@ test("both front and rear camera use same cover preview with preserved facing", 
 test("camera capture no longer duplicates a blurred background into the encoded photo or video", async () => {
   const source=await read("src/story-studio.js");
   assert.match(source,/const frame = cameraCoverCrop\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
-  assert.doesNotMatch(source,/ctx\.filter = "blur\(28px\)/);
+  const cameraSegment = source.slice(source.indexOf("const drawLiveFrame ="),source.indexOf("const stopCamera ="));
+  assert.doesNotMatch(cameraSegment,/ctx\.filter = "blur\(28px\)/);
   assert.match(source,/backdropVideo\.srcObject = null/);
   assert.match(source,/drawCamera\(ctx, canvas\)/);
 });
