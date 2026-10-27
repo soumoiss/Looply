@@ -79,12 +79,15 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(styles, /safe-area-inset-bottom/);
 });
 
-test("Only POST and STORY modes are visible", async () => {
+test("POST and REEL open real Loooply routes; unsupported LIVE is not a dead button", async () => {
   const { storyStudioMarkup } = await import("../src/story-studio.js");
   const markup = storyStudioMarkup("");
   assert.match(markup, /data-studio-post/);
   assert.match(markup, /<b>STORY<\/b>/);
-  assert.doesNotMatch(markup, /\bREEL\b|\bLIVE\b|data-studio-reel|data-studio-live/);
+  assert.match(markup, /data-studio-reel/);
+  assert.match(markup, /aria-disabled="true"[^>]*>LIVE/);
+  assert.doesNotMatch(markup, /data-studio-live/);
+  assert.match(studio,/root\.querySelector\("\[data-open-reel\]"\)/);
 });
 
 test("camera photo and recording output use portrait 9:16 while preserving the full sensor frame", () => {

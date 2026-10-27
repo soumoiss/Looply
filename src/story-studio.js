@@ -6,7 +6,7 @@ import { openStoryMusicPicker } from "./story-music-picker.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 
-const FILTERS = Object.freeze({ none:"none" });
+const FILTERS = Object.freeze({ none:"none", glow:"brightness(1.07) contrast(1.04) saturate(1.12)", golden:"sepia(.18) saturate(1.24) contrast(1.07)", cool:"saturate(.86) hue-rotate(10deg) brightness(1.05)", mono:"grayscale(1) contrast(1.12)" });
 const LIMIT = 30_000;
 const escapeHtml = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 export const STORY_CANVAS_SIZE = Object.freeze({ width: 1080, height: 1920 });
@@ -48,7 +48,12 @@ export function storyStudioMarkup(recipientOptions) {
         '<div class="studio-side studio-camera-only">' +
           '<button type="button" class="studio-icon" data-studio-text-mode aria-label="Criar story de texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-boomerang aria-label="Alternar Boomerang" aria-pressed="false">∞</button>' +
-          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade">⊞</button>' +
+          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade de alinhamento" aria-pressed="false">⊞</button>' +
+          '<button type="button" class="studio-icon" data-studio-camera-more aria-label="Mais recursos da câmera" aria-expanded="false">⌄</button>' +
+          '<div class="studio-camera-extra" data-studio-camera-extra hidden>' +
+            '<button type="button" class="studio-icon" data-studio-timer aria-label="Temporizador">◷</button>' +
+            '<button type="button" class="studio-icon" data-studio-handsfree aria-label="Gravar sem segurar" aria-pressed="false">●</button>' +
+          '</div>' +
         '</div>' +
         '<section class="studio-camera-bottom studio-camera-only">' +
           '<div class="studio-lens-chooser" data-studio-lens-chooser aria-label="Efeitos AR para o rosto">' +
@@ -60,31 +65,32 @@ export function storyStudioMarkup(recipientOptions) {
           '<div class="studio-capture-row">' +
             '<label class="studio-gallery-button" title="Abrir galeria"><span data-studio-thumb>▧</span><input type="file" data-studio-file accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" aria-label="Selecionar da galeria"></label>' +
             '<button type="button" class="studio-shutter" data-studio-shutter aria-label="Toque para foto; segure para vídeo"><span></span></button>' +
-            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⇄</button>' +
+            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⟳</button>' +
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
-            '<button type="button" data-studio-post>POST</button><b>STORY</b>' +
+            '<button type="button" data-studio-post>POST</button><b>STORY</b><button type="button" data-studio-reel title="Abrir Reels do Feed">REEL</button><span aria-disabled="true" title="Transmissões ao vivo ainda não disponíveis">LIVE</span>' +
           '</nav>' +
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
         '<header class="studio-edit-top studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-back aria-label="Voltar à câmera">←</button>' +
-          '<button type="button" class="studio-audio-pill" data-studio-music-open>♪ <span data-studio-track-label>Adicionar música</span></button>' +
-          '<button type="button" class="studio-icon studio-audio-remove" data-studio-music-remove hidden aria-label="Remover música">×</button>' +
+          '<span class="studio-edit-top-spacer" aria-hidden="true"></span>' +
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-stickers aria-label="Adicionar figurinhas">☺</button>' +
-          '<button type="button" class="studio-icon" data-studio-music-open aria-label="Adicionar música">♪</button>' +
-          '<button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button>' +
+          '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">♫<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
+          '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
+          '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">⌄</button>' +
+          '<div class="studio-editor-extra" data-studio-editor-extra hidden><button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button></div>' +
 
         '</div>' +
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
           '<div class="studio-publish-row">' +
-            '<button type="button" class="studio-pill" data-studio-publicar>Seu story</button>' +
+            '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Seu story</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
-            '<button type="submit" class="studio-next" data-studio-send aria-label="Publicar story">➜</button>' +
+            '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">➜</button>' +
           '</div>' +
         '</div>' +
         '<div class="studio-modal" data-studio-modal hidden><section class="studio-modal-panel" data-studio-panel>' +
@@ -186,6 +192,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
+  let cameraTimerSeconds = 0, handsfreeRecording = false;
+  let collageCanvas = null, collageShots = 0;
   const status = (text, bad = false) => {
     // Keep member feedback useful without exposing implementation details.
     const message = isAdmin || !bad || /Este serviço não autoriza incorporar essa música/.test(text)
@@ -360,7 +368,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopRecordingTimer(); stopCamera(); clearPreview();
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
-    $("[data-studio-music-remove]").hidden = true;
+    $("[data-studio-track-hint]").textContent = "Trilha sonora";
+    $("[data-studio-music-indicator]").hidden = true;
+    $("[data-studio-music-open]").setAttribute("aria-label","Adicionar música");
     active = false;
     if (typeof dialog.close === "function" && dialog.open) dialog.close();
     else dialog.removeAttribute("open");
@@ -404,6 +414,29 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       canvas.height = STORY_CANVAS_SIZE.height;
       const ctx = canvas.getContext("2d");
       drawLiveFrame(ctx, canvas);
+      if (settings.grid) {
+        // Real four-shot collage, 2×2, each captured panel remains 9:16.
+        if (!collageCanvas) {
+          collageCanvas = document.createElement("canvas");
+          collageCanvas.width=STORY_CANVAS_SIZE.width; collageCanvas.height=STORY_CANVAS_SIZE.height;
+          collageCanvas.getContext("2d").fillStyle="#000";
+          collageCanvas.getContext("2d").fillRect(0,0,collageCanvas.width,collageCanvas.height);
+        }
+        const cellWidth = collageCanvas.width/2, cellHeight=collageCanvas.height/2;
+        const cellX=(collageShots%2)*cellWidth, cellY=Math.floor(collageShots/2)*cellHeight;
+        collageCanvas.getContext("2d").drawImage(canvas,cellX,cellY,cellWidth,cellHeight);
+        collageShots++;
+        if (collageShots<4) {
+          status("Layout: "+collageShots+"/4 fotos capturadas. Capture a próxima.");
+          return;
+        }
+        const composite=await blobFromCanvas(collageCanvas,"image/jpeg");
+        collageCanvas=null;collageShots=0;settings.grid=false;
+        $("[data-studio-grid]").hidden=true;
+        $("[data-studio-grid-toggle]").setAttribute("aria-pressed","false");
+        showEditor(new File([composite],"story-layout-"+Date.now()+".jpg",{type:"image/jpeg"}),"image");
+        return;
+      }
       const blob = await blobFromCanvas(canvas, "image/jpeg");
       showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
     } finally {
@@ -443,6 +476,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (recorder?.state === "recording") recorder.stop();
   };
   const beginRecording = () => {
+    if (settings.grid) throw new Error("Layout é uma sequência de quatro fotos. Desative o layout para gravar vídeos.");
     if (!stream || !video.videoWidth) throw new Error("Câmera ainda não está pronta.");
     const mime = videoFormat();
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
@@ -472,6 +506,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     chunks = [];
     recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
     recorder.onstop = async () => {
+      handsfreeRecording = false;
+      $("[data-studio-handsfree]")?.setAttribute("aria-pressed","false");
       cancelAnimationFrame(frames);
       captureStream?.getTracks().forEach(track => { if (!stream?.getTracks().includes(track)) track.stop(); });
       stopRecordingTimer();
@@ -575,7 +611,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     removeCatalogCredit();
     music = track;
     $("[data-studio-track-label]").textContent = track.title;
-    $("[data-studio-music-remove]").hidden = false;
+    $("[data-studio-track-hint]").textContent = track.artist || "Áudio selecionado";
+    $("[data-studio-music-indicator]").hidden = false;
+    $("[data-studio-music-open]").setAttribute("aria-label","Alterar música: "+track.title);
+    $("[data-studio-music-open]").title = "Alterar música: "+track.title;
     modalClose();
     if(isAdmin)status("ADM: áudio selecionado para publicação: "+track.kind+" / "+(track.provider||"local"));
   };
@@ -584,6 +623,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopMusicPreview = openStoryMusicPicker({
       modal, body, builtin: BUILTIN, onSelect: selectStoryMusic, onStatus: status, isAdmin
     });
+    if (music) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.dataset.studioMusicRemove = "";
+      remove.className = "studio-remove-selected-music";
+      remove.textContent = "Remover música selecionada";
+      remove.setAttribute("aria-label","Remover a música deste Story");
+      body.querySelector(".studio-music-picker")?.append(remove);
+    }
   };
   const openAudience = () => {
     const people = $("[data-studio-people]");
@@ -602,7 +650,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       [...people.options].forEach(o => { o.selected = ids.includes(o.value); });
       $("[data-studio-visibility]").value = "selected"; modalClose();
       $("[data-studio-friends]").classList.add("is-selected");
-      status("Story para " + ids.length + " pessoas selecionadas.");
+      status("Publicando para " + ids.length + " pessoas selecionadas…");
+      void publish();
     };
   };
   const openMentions = () => {
@@ -848,7 +897,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     }
   };
   const activateShutter = async e => {
-    if (mode !== "camera") return;
+    if (mode !== "camera" || handsfreeRecording) return;
     e.preventDefault(); pointer = e.pointerId; held = false;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     hold = setTimeout(() => { held = true; try { beginRecording(); } catch (error) { status(error.message, true); } }, 340);
@@ -858,13 +907,25 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     pointer = null;
     if (hold) { clearTimeout(hold); hold = null; }
     stage.dataset.recording = "false";
-    if (held) finishRecording(); else await capturePhoto().catch(error => status(error.message, true));
+    if (held) finishRecording(); else {
+      if (cameraTimerSeconds) {const seconds=cameraTimerSeconds;status("Capturando em "+seconds+" s…");await new Promise(resolve=>setTimeout(resolve,seconds*1000));if(!active||mode!=="camera")return;}
+      await capturePhoto().catch(error=>status(error.message,true));
+    }
   };
   const handlers = {
     "[data-studio-close]": close,
     "[data-studio-back]": async () => { clearPreview(); await startCamera().catch(error => status(error.message, true)); },
     "[data-studio-text-mode]": createText,
-    "[data-studio-grid-toggle]": () => { settings.grid = !settings.grid; $("[data-studio-grid]").hidden = !settings.grid; },
+    "[data-studio-grid-toggle]": () => {
+      settings.grid = !settings.grid; collageCanvas=null; collageShots=0;
+      $("[data-studio-grid]").hidden = !settings.grid;
+      $("[data-studio-grid-toggle]").setAttribute("aria-pressed",String(settings.grid));
+      status(settings.grid?"Layout 2×2 ativado: capture quatro fotos.":"Layout desativado.");
+    },
+    "[data-studio-camera-more]": () => { const e=$("[data-studio-camera-extra]");e.hidden=!e.hidden;$("[data-studio-camera-more]").setAttribute("aria-expanded",String(!e.hidden)); },
+    "[data-studio-editor-more]": () => { const e=$("[data-studio-editor-extra]");e.hidden=!e.hidden;$("[data-studio-editor-more]").setAttribute("aria-expanded",String(!e.hidden)); },
+    "[data-studio-timer]": () => { modal("Temporizador", '<p class="studio-hint">Escolha quanto esperar antes da fotografia.</p><div class="studio-modal-actions"><button type="button" data-timer-value="0">Desligado</button><button type="button" data-timer-value="3">3 s</button><button type="button" data-timer-value="10">10 s</button></div>');body.querySelectorAll("[data-timer-value]").forEach(b=>b.onclick=()=>{cameraTimerSeconds=Number(b.dataset.timerValue);modalClose();status(cameraTimerSeconds?"Foto em "+cameraTimerSeconds+" segundos.":"Temporizador desligado.");}); },
+    "[data-studio-handsfree]": () => { if(mode!=="camera")return;if(recorder?.state==="recording"){finishRecording();handsfreeRecording=false;}else{try{beginRecording();handsfreeRecording=true;}catch(error){status(error.message,true);}}$("[data-studio-handsfree]").setAttribute("aria-pressed",String(handsfreeRecording)); },
     "[data-studio-flip]": async () => { await startCamera(settings.facing === "user" ? "environment" : "user").catch(error => status(error.message, true)); },
     "[data-studio-boomerang]": () => { isBoomerang = !isBoomerang; $("[data-studio-boomerang]").setAttribute("aria-pressed", String(isBoomerang)); status(isBoomerang ? "Boomerang ativado: segure para gravar." : "Boomerang desativado."); },
     "[data-studio-flash]": async () => {
@@ -907,9 +968,31 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       body.querySelector("[data-studio-length]").value = String(settings.maxDuration);
       body.querySelector("[data-studio-length]").onchange = e => { settings.maxDuration = +e.target.value; modalClose(); };
     },
-    "[data-studio-post]": () => { close(); root.querySelector("[data-toggle-composer]")?.click(); root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" }); },
+    "[data-studio-post]": () => {
+      close();
+      const composer = root.querySelector("[data-toggle-composer]");
+      if (composer?.getAttribute("aria-expanded") !== "true") composer?.click();
+      root.querySelector("#postBody")?.focus({ preventScroll: true });
+      root.querySelector("[data-social-post]")?.scrollIntoView({ behavior: "smooth" });
+    },
+    "[data-studio-reel]": () => {
+      const firstReel = root.querySelector("[data-open-reel]");
+      if (firstReel) { close(); firstReel.click(); }
+      else { status("Nenhum Reel disponível no Feed. Publique um vídeo no Feed para iniciar os Reels.", true); }
+    },
     "[data-studio-music-open]": openMusic,
-    "[data-studio-music-remove]": () => { music = null; removeCatalogCredit(); $("[data-studio-track-label]").textContent = "Adicionar música"; $("[data-studio-music-remove]").hidden = true; },
+    "[data-studio-effects-open]": () => { modal("Filtros da imagem e vídeo", '<p class="studio-hint">Filtro aplicado também ao arquivo final.</p><div class="studio-filter-options">'+Object.entries({none:"Original",glow:"Natural",golden:"Dourado",cool:"Azulado",mono:"Preto e branco"}).map(([key,name])=>'<button type="button" data-studio-filter="'+key+'" aria-pressed="'+String(editFilter===key)+'">'+name+'</button>').join("")+'</div>');body.querySelectorAll("[data-studio-filter]").forEach(button=>button.onclick=()=>{editFilter=button.dataset.studioFilter;edits.style.filter=FILTERS[editFilter];body.querySelectorAll("[data-studio-filter]").forEach(el=>el.setAttribute("aria-pressed",String(el===button)));status("Filtro: "+button.textContent);}); },
+    "[data-studio-music-remove]": () => {
+      music = null;
+      removeCatalogCredit();
+      $("[data-studio-track-label]").textContent = "Adicionar música";
+      $("[data-studio-track-hint]").textContent = "Trilha sonora";
+      $("[data-studio-music-indicator]").hidden = true;
+      $("[data-studio-music-open]").setAttribute("aria-label","Adicionar música");
+      $("[data-studio-music-open]").title = "Adicionar música";
+      modalClose();
+      status("Música removida do Story.");
+    },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
     "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
@@ -918,7 +1001,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     },
     "[data-studio-modal-close]": modalClose,
     "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; void publish(); },
-    "[data-studio-friends]": openAudience
+    "[data-studio-friends]": openAudience,
+    "[data-studio-send]": () => {
+      modal("Compartilhar Story", '<p class="studio-hint">Escolha quem poderá visualizar sua publicação.</p><div class="studio-modal-actions"><button type="button" data-share-public>Seu Story</button><button type="button" data-share-friends>Amigos próximos</button></div>');
+      body.querySelector("[data-share-public]").onclick=()=>{modalClose();$("[data-studio-visibility]").value="public";void publish();};
+      body.querySelector("[data-share-friends]").onclick=()=>{modalClose();openAudience();};
+    }
   };
   root.addEventListener("click", event => {
     if (event.target.closest("[data-story-create-open]")) { event.preventDefault(); event.stopPropagation(); void open(); return; }

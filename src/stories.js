@@ -248,7 +248,8 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
       '<div class="story-viewer-shell">' +
         '<div class="story-progress-list" data-story-progress-list></div>' +
         '<header class="story-viewer-header"><div class="story-viewer-author">' +
-          '<span data-story-viewer-avatar></span><span><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span>' +
+          '<span data-story-viewer-avatar></span><span class="story-viewer-person"><span class="story-viewer-identity"><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span><small class="story-song-label" data-story-viewer-music-label hidden></small></span>' +
+          '<span class="story-close-friends-indicator" data-story-close-friends hidden title="Story para amigos próximos" aria-label="Somente amigos próximos">★</span>' +
         '</div><div class="story-viewer-header-controls">' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
           '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></div></header>' +
@@ -260,18 +261,36 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
-          '<div class="story-viewer-owner-actions" data-story-owner-actions hidden>' +
-            '<button class="story-insights-button" type="button" data-story-insights-open>◉ <span data-story-view-count>Ver visualizações</span></button>' +
-            '<button class="story-delete-button" type="button" data-story-delete>Excluir</button>' +
-          '</div>' +
+          '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
+            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small>Atividade</small><span class="sr-only" data-story-view-count>Ver visualizações</span></button>' +
+            '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-boost disabled title="Publicidade ainda não disponível"><span aria-hidden="true">↗</span><small>Turbinar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-highlight disabled title="Destaques exigem armazenamento permanente e permissões próprias"><span aria-hidden="true">♡</span><small>Destacar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-mention-add><span aria-hidden="true">@</span><small>Mencionar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-more aria-expanded="false"><span aria-hidden="true">⋮</span><small>Mais</small></button>' +
+          '</nav>' +
           '<div class="story-viewer-reply-actions" data-story-reply-actions hidden>' +
-            '<button class="story-like-button" type="button" data-story-like aria-pressed="false"><span aria-hidden="true">♡</span><span data-story-like-label>Curtir</span></button>' +
+            '<button class="story-like-button" type="button" data-story-like aria-label="Curtir story" aria-pressed="false"><span aria-hidden="true">♡</span><span class="sr-only" data-story-like-label>Curtir</span></button>' +
             '<form class="story-reply-form" data-story-reply><label class="visually-hidden" for="storyReplyMessage">Responder em particular</label>' +
-              '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Responder em particular…" autocomplete="off" required>' +
-              '<button type="submit" aria-label="Enviar resposta">➤</button></form>' +
+              '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Enviar mensagem..." autocomplete="off" required>' +
+              '<button type="submit" aria-label="Enviar resposta privada">➤</button></form>' +
+            '<button type="button" class="story-aux-action" data-story-quick-reactions-toggle aria-label="Enviar reação rápida" aria-expanded="false">☺</button>' +
+            '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">➤</button>' +
             '<span class="story-reply-status" data-story-reply-status role="status" aria-live="polite"></span>' +
           '</div>' +
         '</footer>' +
+        '<div class="story-quick-reactions" data-story-quick-reactions hidden role="group" aria-label="Reações rápidas">' +
+          ['❤️','🔥','👏','😍','😂','😮','😢','💜'].map(emoji => '<button type="button" data-story-quick-reaction="' + emoji + '" aria-label="Reagir com ' + emoji + '">' + emoji + '</button>').join('') +
+        '</div>' +
+        '<div class="story-owner-menu" data-story-owner-menu hidden role="group" aria-label="Outras opções do Story">' +
+          '<button type="button" data-story-save>Salvar mídia</button>' +
+          '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
+          '<button type="button" data-story-more-close>Cancelar</button></div>' +
+        '<div class="story-mention-dialog" data-story-mention-dialog hidden role="dialog" aria-label="Mencionar no Story">' +
+          '<strong>Mencionar alguém</strong><p>Selecione uma pessoa que pode visualizar este story.</p>' +
+          '<label>Perfil<select data-story-mention-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
+          '<div><button type="button" data-story-mention-confirm>Confirmar</button><button type="button" data-story-mention-cancel>Cancelar</button></div></div>' +
+        '<div class="story-viewer-action-status" data-story-action-status role="status" aria-live="polite" hidden></div>' +
         '<section class="story-insights-panel" data-story-insights-panel hidden aria-label="Visualizações do story">' +
           '<header><strong>Atividade do story</strong><button type="button" class="icon-button" data-story-insights-close aria-label="Fechar atividade">' + icon("close") + '</button></header>' +
           '<p data-story-insights-summary>Carregando visualizações…</p><ul data-story-insights-list></ul>' +
@@ -442,12 +461,23 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     storyTime.dateTime = story.created_at;
     storyTime.title = timeLabels.exact ? "Publicado em " + timeLabels.exact : "";
     storyTime.setAttribute("aria-label", timeLabels.exact ? "Publicado em " + timeLabels.exact : "Publicado agora");
+    viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
+    viewer.querySelector("[data-story-owner-menu]").hidden = true;
+    viewer.querySelector("[data-story-mention-dialog]").hidden = true;
+    viewer.querySelector("[data-story-quick-reactions]").hidden = true;
+    viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
+    viewer.querySelector("[data-story-action-status]").hidden = true;
     const avatarHost = viewer.querySelector("[data-story-viewer-avatar]");
     avatarHost.innerHTML = storyAvatar(author, "", false);
     const caption = viewer.querySelector("[data-story-viewer-caption]");
     const catalogSong = decodeStorySong(story.body || "");
     const storyText = decodeStoryBody(catalogSong.text);
     caption.textContent = storyText.text;
+    const songLabel = viewer.querySelector("[data-story-viewer-music-label]");
+    const credit = storyText.text.match(/🎵\s*"([^"]+)"\s*—\s*([^\n(]+)/);
+    const soundName = catalogSong.song?.title ? [catalogSong.song.title,catalogSong.song.artist].filter(Boolean).join(" · ") : credit ? credit[1]+" · "+credit[2].trim() : "";
+    songLabel.textContent = soundName ? "♫ "+soundName : "";
+    songLabel.hidden = !soundName;
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(oldMusic=>{
@@ -775,6 +805,32 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStudioStop = bindStoryStudio(root, client, userId, refresh, isAdmin);
   cleanupExpiredStories(client);
 
+  const actionStatus = (message, error = false) => {
+    const messageNode = viewer.querySelector("[data-story-action-status]");
+    if (!messageNode) return;
+    messageNode.textContent = message;
+    messageNode.dataset.error = String(error);
+    messageNode.hidden = !message;
+  };
+  const shareCurrentStory = async () => {
+    const story = currentStory();
+    if (!story) return;
+    const url = new URL("home.html", window.location.href);
+    url.searchParams.set("storyId", story.id);
+    const data = { title: "Story no Loooply", text: "Veja este Story no Loooply", url: url.href };
+    try {
+      if (navigator.share) {
+        await navigator.share(data);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url.href);
+        actionStatus("Link copiado. Somente quem tem permissão poderá visualizar.");
+      } else {
+        actionStatus("Link do Story: "+url.href);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") actionStatus("Não foi possível compartilhar agora.", true);
+    }
+  };
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");
@@ -824,6 +880,105 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     if (event.target.closest("[data-story-close]")) {
       closeStoryDialog(viewer);
+      return;
+    }
+    if (event.target.closest("[data-story-share]")) {
+      await shareCurrentStory();
+      return;
+    }
+    if (event.target.closest("[data-story-quick-reactions-toggle]")) {
+      const picker=viewer.querySelector("[data-story-quick-reactions]");
+      picker.hidden=!picker.hidden;
+      viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded",String(!picker.hidden));
+      if(!picker.hidden) clearTimer();
+      else resumeStoryTimer();
+      return;
+    }
+    const reaction = event.target.closest("[data-story-quick-reaction]");
+    if (reaction) {
+      const story=currentStory();
+      const emoji=reaction.dataset.storyQuickReaction;
+      if(!story || story.author_id===userId || !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      reaction.disabled=true;
+      try {
+        const {data,error}=await client.rpc("send_story_reply",{p_story_id:story.id,p_body:emoji});
+        if(error) throw error;
+        const payload=Array.isArray(data)?data[0]:data;
+        if(!payload?.conversation_id) throw Error("reply_not_confirmed");
+        actionStatus("Reação enviada por mensagem privada.");
+        viewer.querySelector("[data-story-quick-reactions]").hidden=true;
+        viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
+        resumeStoryTimer();
+      } catch (error) {
+        actionStatus("Não foi possível enviar a reação. Confira as permissões e tente novamente.",true);
+      } finally {reaction.disabled=false;}
+      return;
+    }
+    if (event.target.closest("[data-story-more]")) {
+      const panel=viewer.querySelector("[data-story-owner-menu]");
+      panel.hidden=!panel.hidden;
+      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded",String(!panel.hidden));
+      return;
+    }
+    if (event.target.closest("[data-story-more-close]")) {
+      viewer.querySelector("[data-story-owner-menu]").hidden=true;
+      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded","false");
+      return;
+    }
+    if (event.target.closest("[data-story-save]")) {
+      const story=currentStory();
+      if (!story || (story.author_id!==userId && !isAdmin)) return;
+      const media=Array.isArray(story.media)?story.media[0]:story.media;
+      const src=rawSignedUrl(media?.signedUrl);
+      if (!src) {actionStatus("Mídia indisponível para salvar.",true);return;}
+      try {
+        const response=await fetch(src,{credentials:"omit"});
+        if(!response.ok)throw Error("download unavailable");
+        const blob=await response.blob();
+        if(!blob.size)throw Error("empty media");
+        const temporary=URL.createObjectURL(blob);
+        const anchor=document.createElement("a");
+        anchor.href=temporary;
+        const mime=String(blob.type || media?.mime_type || "").toLowerCase();
+        const extension=mime.includes("mp4") ? "mp4" : mime.includes("webm") ? "webm"
+          : mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+        anchor.download="looply-story-"+story.id+"."+extension;
+        document.body.append(anchor);anchor.click();anchor.remove();
+        setTimeout(()=>URL.revokeObjectURL(temporary),15000);
+        actionStatus("Download iniciado.");
+      } catch (error) {actionStatus("Não foi possível salvar esta mídia neste navegador.",true);}
+      viewer.querySelector("[data-story-owner-menu]").hidden=true;
+      return;
+    }
+    if (event.target.closest("[data-story-mention-add]")) {
+      const story=currentStory();
+      if (!story || story.author_id!==userId) {actionStatus("Apenas o autor pode adicionar menções.",true);return;}
+      if (story.visibility==="private") {actionStatus("Menções não são permitidas em Stories privados.",true);return;}
+      const selector=viewer.querySelector("[data-story-mention-person]");
+      [...selector.options].forEach(option=>{if(option.value)option.disabled=option.value===userId;});
+      viewer.querySelector("[data-story-mention-dialog]").hidden=false;
+      clearTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-mention-cancel]")) {
+      viewer.querySelector("[data-story-mention-dialog]").hidden=true;
+      resumeStoryTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-mention-confirm]")) {
+      const story=currentStory();
+      const selector=viewer.querySelector("[data-story-mention-person]");
+      if (!story || story.author_id!==userId || !selector?.value)return;
+      const button=viewer.querySelector("[data-story-mention-confirm]");
+      button.disabled=true;
+      try {
+        const {error}=await client.rpc("v5_add_story_mentions",{p_story_id:story.id,p_user_ids:[selector.value]});
+        if(error)throw error;
+        viewer.querySelector("[data-story-mention-dialog]").hidden=true;
+        actionStatus("Menção adicionada. A notificação será processada pelo servidor.");
+        resumeStoryTimer();
+      }catch(error){actionStatus("Não foi possível mencionar esse perfil. Confira a privacidade do Story.",true);}
+      finally{button.disabled=false;}
       return;
     }
     if (event.target.closest("[data-story-prev]")) {
