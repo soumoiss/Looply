@@ -722,3 +722,12 @@
 .page-chat .is-video-call .chat-v2-actions .chat-v2-button.is-primary { background:#e83149; }
 .page-chat .is-video-call .chat-v2-actions .chat-v2-button span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .page-chat .is-video-call .chat-v2-actions .chat-v2-button svg { width:22px; height:22px; }
+
+/* Video calls: mirror BOTH rendered feeds on each participant's screen.
+   CSS-only presentation: never modify or re-encode the transmitted WebRTC media.
+   Applies equally to front and rear camera, local preview and remote full screen. */
+.page-chat .chat-call-backdrop.is-video-call .chat-call-videos video[data-call-local],
+.page-chat .chat-call-backdrop.is-video-call .chat-call-videos video[data-call-remote] {
+  transform:scaleX(-1) !important;
+  transform-origin: center center;
+}
