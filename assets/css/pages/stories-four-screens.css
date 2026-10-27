@@ -229,3 +229,21 @@
 }
 
 .story-viewer-dialog .story-close-friends-indicator[hidden]{display:none!important;}
+
+/* Review adjustment: there is exactly one Add Music trigger, in the edit sidebar. */
+.story-studio .studio-edit-top {justify-content:flex-start;gap:0;}
+.story-studio .studio-edit-top-spacer {flex:1;pointer-events:none;}
+.story-studio .studio-music-side-button {position:relative;overflow:visible;}
+.story-studio .studio-music-side-button .studio-music-indicator:not([hidden]) {
+  position:absolute;top:4px;right:3px;display:block;
+  width:9px;height:9px;border:2px solid #111;border-radius:50%;background:#36d98d;
+}
+.story-studio .studio-remove-selected-music {
+  display:block;min-height:44px;width:100%;margin-top:12px;
+  padding:10px 15px;border-radius:12px;
+  border:1px solid #d7b3a8;background:#fff0e9;color:#752b24;
+  font-weight:700;font-size:12px;
+}
+.story-studio .studio-remove-selected-music:focus-visible {
+  outline:3px solid #2672eb;outline-offset:2px;
+}
