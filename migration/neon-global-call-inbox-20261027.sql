@@ -31,7 +31,7 @@ BEGIN
       JOIN public.conversations c ON c.id = e.conversation_id AND c.kind = 'direct'
      WHERE e.sender_id <> v_user
        AND e.kind = 'signal'
-       AND e.payload->>'type' IN ('offer','hangup','decline','failed')
+       AND e.payload->>'type' IN ('ring','offer','hangup','decline','failed')
        AND e.expires_at > clock_timestamp()
        AND e.id > p_after
        AND e.created_at >= GREATEST(COALESCE(p_from, clock_timestamp() - INTERVAL '35 seconds'),
