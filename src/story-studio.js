@@ -194,6 +194,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
   let cameraTimerSeconds = 0, handsfreeRecording = false;
+  let collageCanvas = null, collageShots = 0;
   const status = (text, bad = false) => {
     // Keep member feedback useful without exposing implementation details.
     const message = isAdmin || !bad || /Este serviço não autoriza incorporar essa música/.test(text)
@@ -413,6 +414,29 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       canvas.height = STORY_CANVAS_SIZE.height;
       const ctx = canvas.getContext("2d");
       drawLiveFrame(ctx, canvas);
+      if (settings.grid) {
+        // Real four-shot collage, 2×2, each captured panel remains 9:16.
+        if (!collageCanvas) {
+          collageCanvas = document.createElement("canvas");
+          collageCanvas.width=STORY_CANVAS_SIZE.width; collageCanvas.height=STORY_CANVAS_SIZE.height;
+          collageCanvas.getContext("2d").fillStyle="#000";
+          collageCanvas.getContext("2d").fillRect(0,0,collageCanvas.width,collageCanvas.height);
+        }
+        const cellWidth = collageCanvas.width/2, cellHeight=collageCanvas.height/2;
+        const cellX=(collageShots%2)*cellWidth, cellY=Math.floor(collageShots/2)*cellHeight;
+        collageCanvas.getContext("2d").drawImage(canvas,cellX,cellY,cellWidth,cellHeight);
+        collageShots++;
+        if (collageShots<4) {
+          status("Layout: "+collageShots+"/4 fotos capturadas. Capture a próxima.");
+          return;
+        }
+        const composite=await blobFromCanvas(collageCanvas,"image/jpeg");
+        collageCanvas=null;collageShots=0;settings.grid=false;
+        $("[data-studio-grid]").hidden=true;
+        $("[data-studio-grid-toggle]").setAttribute("aria-pressed","false");
+        showEditor(new File([composite],"story-layout-"+Date.now()+".jpg",{type:"image/jpeg"}),"image");
+        return;
+      }
       const blob = await blobFromCanvas(canvas, "image/jpeg");
       showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
     } finally {
@@ -452,6 +476,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (recorder?.state === "recording") recorder.stop();
   };
   const beginRecording = () => {
+    if (settings.grid) throw new Error("Layout é uma sequência de quatro fotos. Desative o layout para gravar vídeos.");
     if (!stream || !video.videoWidth) throw new Error("Câmera ainda não está pronta.");
     const mime = videoFormat();
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
@@ -879,7 +904,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     "[data-studio-close]": close,
     "[data-studio-back]": async () => { clearPreview(); await startCamera().catch(error => status(error.message, true)); },
     "[data-studio-text-mode]": createText,
-    "[data-studio-grid-toggle]": () => { settings.grid = !settings.grid; $("[data-studio-grid]").hidden = !settings.grid; $("[data-studio-grid-toggle]").setAttribute("aria-pressed",String(settings.grid)); },
+    "[data-studio-grid-toggle]": () => {
+      settings.grid = !settings.grid; collageCanvas=null; collageShots=0;
+      $("[data-studio-grid]").hidden = !settings.grid;
+      $("[data-studio-grid-toggle]").setAttribute("aria-pressed",String(settings.grid));
+      status(settings.grid?"Layout 2×2 ativado: capture quatro fotos.":"Layout desativado.");
+    },
     "[data-studio-camera-more]": () => { const e=$("[data-studio-camera-extra]");e.hidden=!e.hidden;$("[data-studio-camera-more]").setAttribute("aria-expanded",String(!e.hidden)); },
     "[data-studio-editor-more]": () => { const e=$("[data-studio-editor-extra]");e.hidden=!e.hidden;$("[data-studio-editor-more]").setAttribute("aria-expanded",String(!e.hidden)); },
     "[data-studio-timer]": () => { modal("Temporizador", '<p class="studio-hint">Escolha quanto esperar antes da fotografia.</p><div class="studio-modal-actions"><button type="button" data-timer-value="0">Desligado</button><button type="button" data-timer-value="3">3 s</button><button type="button" data-timer-value="10">10 s</button></div>');body.querySelectorAll("[data-timer-value]").forEach(b=>b.onclick=()=>{cameraTimerSeconds=Number(b.dataset.timerValue);modalClose();status(cameraTimerSeconds?"Foto em "+cameraTimerSeconds+" segundos.":"Temporizador desligado.");}); },
