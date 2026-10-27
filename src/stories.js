@@ -274,11 +274,14 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
             '<form class="story-reply-form" data-story-reply><label class="visually-hidden" for="storyReplyMessage">Responder em particular</label>' +
               '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Enviar mensagem..." autocomplete="off" required>' +
               '<button type="submit" aria-label="Enviar resposta privada">➤</button></form>' +
-            '<button type="button" class="story-aux-action" data-story-reply-focus aria-label="Escrever resposta">♧</button>' +
+            '<button type="button" class="story-aux-action" data-story-quick-reactions-toggle aria-label="Enviar reação rápida" aria-expanded="false">☺</button>' +
             '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">➤</button>' +
             '<span class="story-reply-status" data-story-reply-status role="status" aria-live="polite"></span>' +
           '</div>' +
         '</footer>' +
+        '<div class="story-quick-reactions" data-story-quick-reactions hidden role="group" aria-label="Reações rápidas">' +
+          ['❤️','🔥','👏','😍','😂','😮','😢','💜'].map(emoji => '<button type="button" data-story-quick-reaction="' + emoji + '" aria-label="Reagir com ' + emoji + '">' + emoji + '</button>').join('') +
+        '</div>' +
         '<div class="story-owner-menu" data-story-owner-menu hidden role="group" aria-label="Outras opções do Story">' +
           '<button type="button" data-story-save>Salvar mídia</button>' +
           '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
@@ -461,6 +464,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
     viewer.querySelector("[data-story-owner-menu]").hidden = true;
     viewer.querySelector("[data-story-mention-dialog]").hidden = true;
+    viewer.querySelector("[data-story-quick-reactions]").hidden = true;
+    viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
     viewer.querySelector("[data-story-action-status]").hidden = true;
     const avatarHost = viewer.querySelector("[data-story-viewer-avatar]");
     avatarHost.innerHTML = storyAvatar(author, "", false);
@@ -881,9 +886,32 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       await shareCurrentStory();
       return;
     }
-    if (event.target.closest("[data-story-reply-focus]")) {
-      const input=viewer.querySelector("[data-story-reply] input");
-      input?.focus();
+    if (event.target.closest("[data-story-quick-reactions-toggle]")) {
+      const picker=viewer.querySelector("[data-story-quick-reactions]");
+      picker.hidden=!picker.hidden;
+      viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded",String(!picker.hidden));
+      if(!picker.hidden) clearTimer();
+      else resumeStoryTimer();
+      return;
+    }
+    const reaction = event.target.closest("[data-story-quick-reaction]");
+    if (reaction) {
+      const story=currentStory();
+      const emoji=reaction.dataset.storyQuickReaction;
+      if(!story || story.author_id===userId || !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      reaction.disabled=true;
+      try {
+        const {data,error}=await client.rpc("send_story_reply",{p_story_id:story.id,p_body:emoji});
+        if(error) throw error;
+        const payload=Array.isArray(data)?data[0]:data;
+        if(!payload?.conversation_id) throw Error("reply_not_confirmed");
+        actionStatus("Reação enviada por mensagem privada.");
+        viewer.querySelector("[data-story-quick-reactions]").hidden=true;
+        viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
+        resumeStoryTimer();
+      } catch (error) {
+        actionStatus("Não foi possível enviar a reação. Confira as permissões e tente novamente.",true);
+      } finally {reaction.disabled=false;}
       return;
     }
     if (event.target.closest("[data-story-more]")) {
