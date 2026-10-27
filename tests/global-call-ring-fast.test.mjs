@@ -27,7 +27,7 @@ test("active Chat rings immediately but enables Atender only after an actual SDP
 });
 test("every other Looply tab shows a ringing overlay before the SDP, enabling answer after offer",async()=>{
  const s=await read("src/global-call-listener.js");
- assert.match(s,/payload\.type === "ring" && !payload\.description/);
+ assert.match(s,/payload\.type === "ring" \|\| payload\.type === "offer"/);
  assert.match(s,/if \(payload\.type === "offer" && payload\.description && !incoming\.payload\?\.description\)/);
  assert.match(s,/modal\.querySelector\("\[data-global-call-accept\]"\)\.disabled = !payload\.description/);
  assert.match(s,/type === "ring" \|\| type === "offer"/);
