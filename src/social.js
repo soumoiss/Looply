@@ -67,6 +67,34 @@ export function externalPlayerMessage(provider, action) {
   return null;
 }
 
+function classifyFeedImages(root) {
+  root.querySelectorAll("[data-feed-carousel]").forEach(carousel => {
+    if (carousel.dataset.carouselBound === "true") return;
+    carousel.dataset.carouselBound = "true";
+    let ticking = false;
+    carousel.addEventListener("scroll", () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const position = Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth));
+        carousel.closest("[data-post-card]")?.querySelectorAll("[data-carousel-dot]").forEach(dot => {
+          dot.classList.toggle("is-active", Number(dot.dataset.carouselDot) === position);
+        });
+      });
+    }, { passive: true });
+  });
+  root.querySelectorAll(".ig-post .post-media img").forEach(image => {
+    const apply = () => {
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      const ratio = image.naturalWidth / image.naturalHeight;
+      const figure = image.closest(".post-media");
+      if (figure) figure.dataset.aspect = ratio > 1.55 ? "wide" : ratio >= 0.94 && ratio <= 1.06 ? "square" : "portrait";
+    };
+    if (image.complete) apply();
+    else image.addEventListener("load", apply, { once: true });
+  });
+}
 function bindFeedVideoAutoplay(root) {
   root.__looplyVideoAutoplayDispose?.();
   const media = [...root.querySelectorAll("video[data-feed-video], [data-feed-embed]")];
@@ -277,7 +305,7 @@ function postMarkup(post, userId, isAdmin = false) {
     const source = escapeHtml(item.signedUrl);
     const alt = escapeHtml(item.alt_text || (item.kind === "video" ? "Vídeo compartilhado no Looply" : "Imagem compartilhada no Looply"));
     return item.kind === "video"
-      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}" data-feed-reel-id="${escapeHtml(post.id)}-${mediaIndex}"></video><button class="reel-expand-button" type="button" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" aria-label="Abrir vídeo em tela cheia" title="Abrir vídeo em tela cheia">⛶</button>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
+      ? `<figure class="post-media"><video src="${source}" data-feed-video controls muted playsinline preload="metadata" aria-label="${alt}" data-feed-reel-id="${escapeHtml(post.id)}-${mediaIndex}" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" title="Abrir vídeo em tela cheia"></video><button class="reel-expand-button" type="button" data-open-reel="${escapeHtml(post.id)}-${mediaIndex}" aria-label="Abrir vídeo em tela cheia" title="Abrir vídeo em tela cheia">⛶</button>${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`
       : `<figure class="post-media"><img src="${source}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">${item.alt_text ? `<figcaption>${escapeHtml(item.alt_text)}</figcaption>` : ""}</figure>`;
   }).join("");
 
@@ -288,11 +316,12 @@ function postMarkup(post, userId, isAdmin = false) {
       </div>
       <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
-    ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
-    ${mediaMarkup ? `<div class="post-media-grid">${mediaMarkup}</div>` : ""}
+    ${mediaMarkup ? `<div class="post-media-grid" data-feed-carousel>${mediaMarkup}</div>${(post.media || []).length > 1 ? `<div class="post-carousel-dots" aria-label="${post.media.length} mídias nesta publicação">${post.media.map((_, i) => `<span data-carousel-dot="${i}" class="${i === 0 ? "is-active" : ""}" aria-hidden="true"></span>`).join("")}</div>` : ""}` : ""}
     ${externalMarkup}
+    ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
     <div class="post-interactions ig-actions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
+      <button class="post-icon-button post-comments-toggle" type="button" data-toggle-post-comments="${escapeHtml(post.id)}" aria-expanded="false" aria-label="Ver ou adicionar comentários">${icon("chat")}<span>${comments.length}</span></button>
       ${saveButtonMarkup}
       <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação externamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
       <button class="post-icon-button" type="button" data-share-in-app="${escapeHtml(post.id)}" aria-label="Compartilhar no chat do Looply">Enviar no Looply</button>
@@ -477,9 +506,12 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
     <form class="post-composer" data-social-post>
       <header class="post-composer-heading"><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
-      <label for="postBody">Texto</label>
-      <textarea id="postBody" name="body" maxlength="5000" placeholder="Escreva uma publicação (opcional)"></textarea>
-      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>até 8 arquivos, 100 MB por arquivo</span></label>
+      <div class="post-create-header"><button type="button" data-close-composer aria-label="Cancelar publicação">✕</button><strong>Nova publicação</strong><button type="submit">Compartilhar</button></div>
+      <div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>
+      <button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>
+      <label for="postBody">Legenda</label>
+      <textarea id="postBody" name="body" maxlength="2200" placeholder="Escreva uma legenda (opcional)"></textarea>
+      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>até 8 arquivos, 25 MB por arquivo</span></label>
       <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">
       <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
       <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
@@ -504,6 +536,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       </div>
     </form>
     <div class="feed-list" data-social-feed>${feedMarkup(posts, postsError, userId, isAdmin)}</div>
+    <nav class="looply-feed-nav" aria-label="Navegação rápida"><a href="home.html" aria-current="page" aria-label="Início">${icon("home")}</a><button type="button" data-open-first-reel aria-label="Abrir Reels">${icon("play")}</button><a href="chat.html" aria-label="Mensagens">${icon("chat")}</a><a href="usuarios.html" aria-label="Buscar pessoas">${icon("search")}</a><a href="perfil.html" aria-label="Meu perfil">${icon("user")}</a></nav>
   </section>`;
 }
 
@@ -558,6 +591,7 @@ export async function hydrateTikTokEmbeds(root) {
   }));
   // Rebind after hydration, but never let feed media restart behind the viewer.
   if (root.querySelector("[data-reels-viewer]")?.open) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+  else if (root.querySelector("[data-reels-scroll]")) root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
   else bindFeedVideoAutoplay(root);
 }
 
@@ -569,7 +603,8 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     const posts = await loadPosts(client);
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
-    if (root.querySelector("[data-reels-viewer]")?.open) {
+    classifyFeedImages(feed);
+    if (root.querySelector("[data-reels-viewer]")?.open || root.querySelector("[data-reels-scroll]")) {
       root.__looplyVideoAutoplayDispose?.();
       feed.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
     } else bindFeedVideoAutoplay(root);
@@ -700,6 +735,25 @@ function bindReelsViewer(root) {
   root.__looplyReelsBound = true;
   root.insertAdjacentHTML("beforeend", reelsViewerMarkup());
   const viewer = root.querySelector("[data-reels-viewer]");
+  // Lazy-load the new vertical, scroll-snap viewer on explicit user interaction.
+  // Keep the existing dialog available if the new module is unavailable.
+  root.addEventListener("click", event => {
+    const trigger = event.target.closest("[data-open-reel], [data-open-first-reel]");
+    if (!trigger) return;
+    const key = trigger.dataset.openReel || root.querySelector("[data-feed-reel-id]")?.dataset.feedReelId;
+    if (!key) { event.preventDefault(); trigger.setAttribute("title", "Ainda não há vídeos disponíveis"); return; }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void import("./reels-scroll.js").then(({ openReelsScroll }) => openReelsScroll(root, key)).catch(error => {
+      console.error("Looply Reels viewer unavailable; opening legacy viewer", error);
+      root.__looplyVideoAutoplayDispose?.();
+      root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
+      try { viewer.showModal(); } catch { viewer.setAttribute("open", ""); }
+      viewer.dataset.reelsSoundOn = "false";
+      renderReelViewer(root, key, true);
+    });
+  }, { capture: true });
+  root.addEventListener("looply:reels-closed", () => bindFeedVideoAutoplay(root));
   const getCurrent = () => reelsItems(root).find(item => item.key === viewer.dataset.reelKey);
   const navigate = direction => {
     const items = reelsItems(root), index = items.findIndex(item => item.key === viewer.dataset.reelKey);
@@ -784,7 +838,11 @@ function refreshReelsViewer(root) {
 export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
   bindReelsViewer(root);
   bindFeedVideoAutoplay(root);
+  classifyFeedImages(root);
   void hydrateTikTokEmbeds(root);
+  let previewUrls = [];
+  const clearPreview = () => { previewUrls.forEach(url => URL.revokeObjectURL(url)); previewUrls = []; };
+  const resetPreview = () => { clearPreview(); const node = root.querySelector("[data-post-preview]"); if (node) node.innerHTML = '<p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p>'; };
   root.addEventListener("click", (event) => {
     const toggle = event.target.closest("[data-toggle-composer]");
     if (!toggle) return;
@@ -793,10 +851,57 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     fields.hidden = !fields.hidden;
     toggle.setAttribute("aria-expanded", String(!fields.hidden));
     toggle.setAttribute("aria-label", fields.hidden ? "Abrir formulário de nova publicação" : "Fechar formulário de nova publicação");
-    if (!fields.hidden) root.querySelector("#postBody")?.focus({ preventScroll: true });
+    document.body.style.overflow = fields.hidden ? "" : "hidden";
+    if (!fields.hidden) root.querySelector("[data-select-post-media]")?.focus({ preventScroll: true });
   });
 
+  root.addEventListener("click", event => {
+    if (event.target.closest("[data-select-post-media]")) { root.querySelector("#postFiles")?.click(); return; }
+    const close = event.target.closest("[data-close-composer]");
+    if (close) {
+      resetPreview();
+      const fields = root.querySelector("[data-composer-fields]");
+      if (fields) fields.hidden = true;
+      document.body.style.overflow = "";
+      const toggle = root.querySelector("[data-toggle-composer]");
+      toggle?.setAttribute("aria-expanded", "false");
+      toggle?.focus({ preventScroll: true });
+    }
+    const commentsToggle = event.target.closest("[data-toggle-post-comments]");
+    if (commentsToggle) {
+      const card = commentsToggle.closest("[data-post-card]");
+      const section = card?.querySelector(".post-comments");
+      if (section) {
+        section.dataset.commentsExpanded = String(section.dataset.commentsExpanded !== "true");
+        commentsToggle.setAttribute("aria-expanded", section.dataset.commentsExpanded);
+        if (section.dataset.commentsExpanded === "true") section.querySelector("textarea")?.focus({ preventScroll: true });
+      }
+    }
+  });
+  root.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !root.querySelector("[data-composer-fields]")?.hidden) {
+      event.preventDefault(); root.querySelector("[data-close-composer]")?.click();
+    }
+  });
   root.addEventListener("change", (event) => {
+    if (event.target.matches("#postFiles")) {
+      resetPreview();
+      const preview = root.querySelector("[data-post-preview]");
+      if (!preview) return;
+      const files = [...event.target.files].slice(0, 8);
+      if (!files.length) return;
+      preview.replaceChildren();
+      for (const file of files) {
+        const isVideo = file.type.startsWith("video/");
+        const media = document.createElement(isVideo ? "video" : "img");
+        const url = URL.createObjectURL(file);
+        previewUrls.push(url);
+        media.src = url;
+        if (isVideo) { media.controls = true; media.muted = true; media.playsInline = true; media.preload = "metadata"; }
+        else media.alt = file.name || "Pré-visualização da imagem";
+        preview.append(media);
+      }
+    }
     if (event.target.matches("#postVisibility")) {
       const picker = root.querySelector("[data-recipient-picker]");
       if (picker) picker.hidden = event.target.value !== "selected";
@@ -1100,7 +1205,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const visibility = String(formData.get("visibility") || "public");
         let externalUrl = String(formData.get("externalUrl") || "").trim();
         if (!body && !externalUrl && !files.length) throw new Error("empty body");
-        const postBody = body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
+        const parsedShare = !externalUrl ? extractExternalLinkFromText(body) : null;
+        if (parsedShare?.url) externalUrl = parsedShare.url;
+        const postBody = parsedShare?.url ? (parsedShare.text || "Compartilhou uma publicação externa.") : body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
           let parsed;
@@ -1153,10 +1260,13 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         const composerFields = root.querySelector("[data-composer-fields]");
         const composerToggle = root.querySelector("[data-toggle-composer]");
         if (composerFields) composerFields.hidden = true;
+        document.body.style.overflow = "";
+        resetPreview();
         if (composerToggle) { composerToggle.setAttribute("aria-expanded", "false"); composerToggle.setAttribute("aria-label", "Abrir formulário de nova publicação"); }
         const picker = root.querySelector("[data-recipient-picker]");
         if (picker) picker.hidden = true;
         setStatus(form, files.length ? "Sua publicação e as mídias foram salvas." : "Sua publicação foi salva.");
+        const toast = document.createElement("p"); toast.className = "looply-publish-toast"; toast.setAttribute("role", "status"); toast.textContent = "Publicado no Looply!"; root.append(toast); setTimeout(() => toast.remove(), 3500);
       } else {
         const postId = form.dataset.postId;
         const parentCommentId = form.dataset.parentCommentId || null;
