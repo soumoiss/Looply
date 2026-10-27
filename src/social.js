@@ -639,12 +639,18 @@ function renderReelViewer(root, key, autoplay = false) {
   viewer.dataset.reelKey = key;
   if (changed) {
     player.pause(); player.removeAttribute("src"); player.load();
-    player.src = source; player.dataset.source = source; player.currentTime = 0; player.muted = true; player.volume = 1;
-    viewer.querySelector("[data-reel-sound-toggle]").textContent = "Ativar som";
-    viewer.querySelector("[data-reel-sound-toggle]").setAttribute("aria-pressed", "false");
-    const backdrop = viewer.querySelector("[data-reel-backdrop]");
-    backdrop.replaceChildren();
-    const image = document.createElement("img"); image.src = source; image.alt = ""; image.referrerPolicy = "no-referrer"; backdrop.append(image);
+    // Preserve the viewer's explicit sound preference when swiping between Reels.
+    // A new viewer session still starts muted for browser autoplay compatibility.
+    const soundOn = viewer.dataset.reelsSoundOn === "true";
+    player.src = source; player.dataset.source = source; player.currentTime = 0; player.muted = !soundOn; player.volume = 1;
+    const soundButton = viewer.querySelector("[data-reel-sound-toggle]");
+    soundButton.textContent = soundOn ? "Silenciar" : "Ativar som";
+    soundButton.setAttribute("aria-pressed", String(soundOn));
+    soundButton.setAttribute("aria-label", soundOn ? "Silenciar vídeo" : "Ativar som");
+    // A video URL is not an image and cannot be used as an <img> backdrop.
+    // Keep the existing CSS gradient backdrop instead of rendering a broken image.
+    viewer.querySelector("[data-reel-backdrop]").replaceChildren();
+    viewer.querySelector("[data-reel-status]").textContent = "";
     if (autoplay) void player.play().catch(() => {
       viewer.querySelector("[data-reel-status]").textContent = "Toque em reproduzir para iniciar este vídeo.";
     });
@@ -683,6 +689,7 @@ function closeReelsViewer(root) {
   viewer.querySelector("[data-reel-backdrop]").replaceChildren();
   if (viewer.open) viewer.close(); else viewer.removeAttribute("open");
   viewer.dataset.reelKey = "";
+  viewer.dataset.reelsSoundOn = "false";
   viewer.querySelector("[data-reel-comments-panel]").hidden = true;
   viewer.querySelector("[data-reel-status]").textContent = "";
   const feed = root.querySelector("[data-social-feed]");
@@ -707,6 +714,7 @@ function bindReelsViewer(root) {
       feed?.__looplyVideoAutoplayDispose?.();
       feed?.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());
       try { viewer.showModal(); } catch { viewer.setAttribute("open", ""); }
+      viewer.dataset.reelsSoundOn = "false";
       renderReelViewer(root, open.dataset.openReel, true);
       return;
     }
@@ -742,6 +750,7 @@ function bindReelsViewer(root) {
     if (event.target.closest("[data-reel-sound-toggle]")) {
       const player = viewer.querySelector("[data-reel-active]");
       player.muted = !player.muted;
+      viewer.dataset.reelsSoundOn = String(!player.muted);
       const button = viewer.querySelector("[data-reel-sound-toggle]");
       button.setAttribute("aria-pressed", String(!player.muted));
       button.setAttribute("aria-label", player.muted ? "Ativar som" : "Silenciar vídeo");
@@ -757,10 +766,10 @@ function bindReelsViewer(root) {
   let pointerStart = null;
   const player = viewer.querySelector("[data-reel-active]");
   const playToggle = viewer.querySelector("[data-reel-toggle-play]");
-  player.addEventListener("play", () => { playToggle.textContent = "Ⅱ"; playToggle.setAttribute("aria-label", "Pausar vídeo"); });
+  player.addEventListener("play", () => { playToggle.textContent = "Ⅱ"; playToggle.setAttribute("aria-label", "Pausar vídeo"); viewer.querySelector("[data-reel-status]").textContent = ""; });
   player.addEventListener("pause", () => { playToggle.textContent = "▶"; playToggle.setAttribute("aria-label", "Continuar vídeo"); });
   player.addEventListener("pointerdown", event => { pointerStart = { x: event.clientX, y: event.clientY }; }, { passive: true });
-  player.addEventListener("ended", () => navigate(1));
+  player.addEventListener("ended", () => { if (viewer.open && player.ended) navigate(1); });
   player.addEventListener("pointerup", event => {
     if (!pointerStart) return;
     const delta = event.clientY - pointerStart.y; pointerStart = null;
