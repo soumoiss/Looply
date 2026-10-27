@@ -35,7 +35,7 @@ BEGIN
      OR octet_length(p_payload::text)>12000
   THEN RAISE EXCEPTION 'invalid_call_signal' USING ERRCODE='22023'; END IF;
   IF p_kind='signal'
-     AND COALESCE(p_payload->>'type','') NOT IN ('offer','answer','ice','hangup','decline','failed')
+     AND COALESCE(p_payload->>'type','') NOT IN ('ring','offer','answer','ice','hangup','decline','failed')
   THEN RAISE EXCEPTION 'invalid_call_signal_type' USING ERRCODE='22023'; END IF;
   -- One sender may send dozens of ICE candidates, but not a flood of spam.
   IF (SELECT count(*) FROM looply_migration.call_signal_events e
