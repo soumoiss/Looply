@@ -537,7 +537,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       </div>
     </form>
     <div class="feed-list" data-social-feed>${feedMarkup(posts, postsError, userId, isAdmin)}</div>
-    <nav class="looply-feed-nav" aria-label="Navegação rápida"><a href="home.html" aria-current="page" aria-label="Início">${icon("home")}</a><button type="button" data-open-first-reel aria-label="Abrir Reels">${icon("play")}</button><a href="chat.html" aria-label="Mensagens">${icon("chat")}</a><a href="usuarios.html" aria-label="Buscar pessoas">${icon("search")}</a><a href="perfil.html" aria-label="Meu perfil">${icon("user")}</a></nav>
+    <nav class="looply-feed-nav" aria-label="Navegação rápida"><a href="home.html" aria-current="page" aria-label="Início">${icon("home")}<small>Início</small></a><a href="cartas.html" aria-label="Cartas">${icon("mail")}<small>Cartas</small></a><a href="musicas.html" aria-label="Músicas">${icon("music")}<small>Músicas</small></a><a href="galeria.html" aria-label="Galeria">${icon("image")}<small>Galeria</small></a><a href="chat.html" aria-label="Chat">${icon("chat")}<small>Chat</small></a><a href="notificacoes.html" aria-label="Avisos">${icon("bell")}<small>Avisos</small></a></nav>
   </section>`;
 }
 
