@@ -1,3 +1,6 @@
+import { startGlobalCallInbox } from "./global-call-inbox.js";
+import { startIncomingCallAlert } from "./global-call-ringtone.js";
+
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 const pendingKey = (userId) => `looply:pending-call:${userId}`;
 
@@ -8,6 +11,8 @@ export function setupGlobalCallListener(client, userId, profile) {
   let incoming = null;
   let overlay = null;
   let closed = false;
+  let inbox = null;
+  let stopRinging = null;
 
   const activeConversationId = () => {
     const params = new URLSearchParams(window.location.search);
@@ -29,20 +34,37 @@ export function setupGlobalCallListener(client, userId, profile) {
     return overlay;
   };
   const hideOverlay = () => {
+    stopRinging?.();
+    stopRinging = null;
     if (overlay) overlay.hidden = true;
     incoming = null;
   };
   const signal = async (call, type) => {
-    if (!call?.channel) return;
+    if (!call?.conversationId) return;
+    // Inbox alerts can arrive before the optional fast WebSocket rooms load.
+    // Lazily create an authenticated Neon fallback channel for decline/hangup.
+    let channel = call.channel;
+    let ownChannel = false;
     try {
-      await call.channel.send({ type: "broadcast", event: "signal", payload: {
+      if (!channel) {
+        channel = client.channel(`looply-call-${call.conversationId}`);
+        ownChannel = true;
+        await new Promise((resolve, reject) => channel.subscribe((state, error) => {
+          if (state === "SUBSCRIBED") resolve();
+          if (state === "CHANNEL_ERROR") reject(error || new Error("call_signal_unavailable"));
+        }));
+      }
+      const status = await channel.send({ type: "broadcast", event: "signal", payload: {
         type, conversationId: call.conversationId, senderId: userId
       } });
-    } catch (error) { console.warn("Looply global call response failed", error); }
+      if (status !== "ok") console.warn("Looply global call response not delivered", status);
+    } catch (error) { console.warn("Looply global call response failed", error?.message); }
+    finally { if (ownChannel) void client.removeChannel(channel); }
   };
   const showIncoming = (call, payload) => {
-    if (incoming && incoming.conversationId !== call.conversationId) {
-      void signal(call, "decline");
+    if (incoming) {
+      if (incoming.conversationId !== call.conversationId) void signal(call, "decline");
+      // Avoid replaying the ringtone and stealing focus on retry broadcasts.
       return;
     }
     incoming = { ...call, payload };
@@ -53,6 +75,8 @@ export function setupGlobalCallListener(client, userId, profile) {
     modal.querySelector("[data-global-call-description]").textContent =
       `${name} está ligando por ${payload.mode === "video" ? "vídeo" : "áudio"}.`;
     modal.hidden = false;
+    stopRinging?.();
+    stopRinging = startIncomingCallAlert({ name, mode: payload.mode });
     modal.querySelector("[data-global-call-accept]").focus();
   };
   const subscribeConversation = async (conversation) => {
@@ -60,7 +84,9 @@ export function setupGlobalCallListener(client, userId, profile) {
     const participants = conversation.participants || [];
     if (!participants.some((p) => p.user_id === userId)) return;
     const channel = client.channel(`looply-call-${conversation.id}`, {
-      config: { private: true, broadcast: { ack: true, self: false } }
+      // Cloudflare/WebSocket is the fast path; the single shared Neon inbox
+      // polls ALL conversations once, instead of N separate database loops.
+      config: { private: true, fallback: false, broadcast: { ack: true, self: false } }
     });
     const call = { channel, conversationId: conversation.id, participants };
     channels.set(conversation.id, call);
@@ -84,6 +110,27 @@ export function setupGlobalCallListener(client, userId, profile) {
   };
 
   overlay = ensureOverlay();
+  // Start BEFORE loading the conversation list. This secure Neon RPC checks
+  // membership and catches an offer even if the fast per-room WS is blocked.
+  try {
+    inbox = startGlobalCallInbox({
+      dataApiUrl: client.dataApiUrl,
+      getSession: async () => (await client.auth.getSession()).data?.session || null,
+      onEvent: ({ conversationId, senderId, type, payload }) => {
+        if (closed || senderId === userId || activeConversationId() === conversationId) return;
+        const call = channels.get(conversationId) || {
+          conversationId, participants: [], channel: null
+        };
+        if (type === "offer") {
+          if (!payload.description || !["audio","video"].includes(payload.mode)) return;
+          showIncoming(call, payload);
+        } else if (["hangup","decline","failed"].includes(type)) {
+          if (incoming?.conversationId === conversationId) hideOverlay();
+        }
+      },
+      onError: error => console.warn("Looply global call inbox unavailable", error?.message)
+    });
+  } catch (error) { console.warn("Looply global call inbox setup failed", error); }
   overlay.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button || !incoming) return;
@@ -134,6 +181,7 @@ export function setupGlobalCallListener(client, userId, profile) {
 
   window.addEventListener("pagehide", () => {
     closed = true;
+    inbox?.stop();
     hideOverlay();
     for (const { channel } of channels.values()) void client.removeChannel(channel);
     channels.clear();
