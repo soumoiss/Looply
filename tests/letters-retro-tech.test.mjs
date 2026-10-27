@@ -20,7 +20,10 @@ test("Retro-Tech Letters UI exposes compact composition, file attachments, and a
   assert.match(css, /--letters-paper:\s*#f5f1e9/i);
   assert.match(css, /--letters-accent:\s*#20b99a/i);
   assert.match(css, /repeating-linear-gradient\(135deg/);
-  assert.match(page, /shared-calendar-admin-edit-hints-20261022/);
+  assert.match(page, /class="cartas-page"/);
+  assert.match(page, /id="modalEscrever"/);
+  assert.match(page, /\.insert\(payload\)\.select/);
+  assert.match(page, /\.from\("community_letters"\)/);
 });
 
 test("admin collection reads all letters and can delete letters while RLS remains admin-backed", async () => {
@@ -100,7 +103,9 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   assert.match(community, /modal-sheet/);
   assert.match(archive, /data-calendar-date/);
   assert.doesNotMatch(archive, /id="archiveCalendar"/);
-  assert.match(page, /archiveResult\.value\.cards/);
+  assert.match(page, /archive\.cards/);
+  assert.match(page, /data-filter="originais"/);
+  assert.match(page, /loadCurrent\(\)/);
   assert.match(css, /calendar-card/);
   assert.match(migration, /guard_archived_card_hint_update/);
   assert.match(migration, /archived_cards_recipient_hint_update/);
