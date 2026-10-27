@@ -20,6 +20,13 @@ for (const file of ["index.html", "login.html", "login-teste.html", "login-neon.
 await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config.js"));
 await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
+// GitHub Pages needs physical route entrypoints to support /car and /mu.
+for (const route of ["car", "mu"]) {
+  await mkdir(path.join(outputDirectory, route), { recursive: true });
+  await cp(path.join(projectRoot, route, "index.html"), path.join(outputDirectory, route, "index.html"));
+}
+
+
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
 console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration, and gallery.");
