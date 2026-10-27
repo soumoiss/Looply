@@ -45,7 +45,11 @@
   /* The Instagram iframe is cross-origin; its source page cannot be edited.
      This zoom hides most of the provider's header and white caption/footer.
      Variations in official embeds can still expose native provider UI. */
-  transform:translateY(5%) scale(1.52);
+  /* The official Instagram embed includes its own profile header and white
+     action/footer chrome. Crop that cross-origin document aggressively so the
+     immersive Looply viewer exposes the playable media area only. */
+  width:100%; height:100%;
+  transform:translateY(10%) scale(2.15);
   transform-origin:50% 50%;
 }
 .page-home .looply-reels-scroll .is-tiktok-embed .looply-reel-embed {
