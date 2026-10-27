@@ -80,6 +80,29 @@ function storageBucket(bucket) {
       const result = await storageRequest("sign", bucket, path, { expiresIn });
       return result.error ? result : { data: { signedUrl: result.data.signedUrl }, error: null };
     },
+    download: async path => {
+      try {
+        const session = await activeSession();
+        if (!session?.access_token) return { data: null, error: { message: "neon_session_required", status: 401 } };
+        const response = await fetch(storageFunction + "/storage/download", {
+          method: "POST", cache: "no-store",
+          headers: {
+            authorization: "Bearer " + session.access_token,
+            "content-type": "application/json",
+            "x-looply-bucket": bucket,
+            "x-looply-path": path
+          },
+          body: "{}"
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          return { data: null, error: { message: payload.error || "neon_storage_download_failed", status: response.status } };
+        }
+        return { data: await response.blob(), error: null };
+      } catch {
+        return { data: null, error: { message: "neon_storage_download_unavailable" } };
+      }
+    },
     createSignedUrls: async (paths, expiresIn = 1800) => {
       const values = await Promise.all(paths.map(path => storageBucket(bucket).createSignedUrl(path, expiresIn)));
       const error = values.find(value => value.error)?.error || null;
@@ -98,7 +121,7 @@ async function cleanupPendingGalleryMedia(name, args) {
     return { data: response.data, error: response.error || null };
   } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
 }
-const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media","v5_add_story_mentions"]);
+const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media","v5_add_story_mentions","v6_set_story_repost_permission","v6_link_story_repost"]);
 async function ownerPublicationRpc(name,args) {
   if(!publicationRpcNames.has(name)) return blocked();
   try {
@@ -111,7 +134,7 @@ async function ownerPublicationRpc(name,args) {
     });
     const value=await response.json().catch(()=>null);
     if(!response.ok) return {data:null,error:{message:value?.message||"neon_publication_rejected",status:response.status,code:value?.code||""}};
-    if(typeof value!=="string" && !(name==="v5_add_story_mentions" && Number.isInteger(value))) return {data:null,error:{message:"neon_publication_missing_id"}};
+    if(typeof value!=="string" && !(name==="v5_add_story_mentions" && Number.isInteger(value)) && !(name.startsWith("v6_") && value===true)) return {data:null,error:{message:"neon_publication_missing_id"}};
     return {data:value,error:null};
   } catch(error) {return {data:null,error:{message:"neon_publication_network_error",details:error?.message||""}};}
 }
