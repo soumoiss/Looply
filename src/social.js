@@ -415,6 +415,7 @@ const mediaExtensions = new Map([
   ["video/mp4", "mp4"], ["video/webm", "webm"]
 ]);
 const mediaMimeTypesByExtension = new Map([...mediaExtensions].map(([mimeType, extension]) => [extension, mimeType]));
+mediaMimeTypesByExtension.set("jpeg", "image/jpeg"); // Some Android providers omit the JPEG MIME type.
 // The previous 25 MB browser-side gate was arbitrary. The signed Neon Storage
 // upload path accepts substantially larger objects without proxying their bytes
 // through the application function. Keep a 10x safety ceiling so accidental
@@ -427,6 +428,11 @@ const maxCommentMediaCount = 4;
 export function normalizePublicationMedia(file) {
   const declaredType = String(file?.type || "").split(";")[0].toLocaleLowerCase("en-US");
   if (mediaExtensions.has(declaredType)) return file;
+  if (declaredType === "image/jpg" || declaredType === "image/pjpeg") {
+    return new File([file], file.name || "foto.jpg", {
+      type: "image/jpeg", lastModified: file.lastModified || Date.now()
+    });
+  }
   // Android document providers commonly return an empty/generic MIME type for a
   // user-selected content:// URI. Infer only that narrow case from an allowlisted
   // extension; explicit unsupported types are still rejected.
