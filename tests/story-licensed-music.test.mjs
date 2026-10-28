@@ -79,7 +79,9 @@ test("Rejects fake audio, hostile responses, oversized headers and empty downloa
 test("Story music UI keeps imported music in-app, and caption credits persist with uploads",async()=>{
   const picker=await readFile(new URL("../src/story-music-picker.js",import.meta.url),"utf8");
   const studio=await readFile(new URL("../src/story-studio.js",import.meta.url),"utf8");
-  assert.match(picker,/data-studio-provider="openverse"/);
+  assert.match(picker,/data-studio-provider="all"/);
+  assert.match(picker,/searchLicensed\(term,\{signal:current.signal\}\)/);
+  assert.doesNotMatch(picker,/data-studio-provider="openverse"/);
   assert.match(picker,/downloadLicensedStorySong\(track,\{signal:task.signal\}\)/);
   assert.match(picker,/onSelect\(imported\)/);
   assert.match(picker,/window\.confirm/);
