@@ -397,6 +397,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         }
       } catch { /* Inaccessible sensor zoom: pinch uses the digital fallback. */ }
     }
+    if(ticket!==cameraRequestId||!active)return;
     video.srcObject = stream;
     // The front camera is the sole video layer: no duplicate blurred playback
     // and no automatic crop/zoom.
@@ -782,7 +783,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const makeCanvas = (w = currentCanvasSize().width, h = currentCanvasSize().height) => {
     const c = document.createElement("canvas");
-    c.width = Math.min(1080, w); c.height = Math.min(1920, h);
+    // Preserve every selected export ratio; the previous separate min() clamps
+    // turned a 1920x1080 Story into a square 1080x1080 file.
+    c.width = w; c.height = h;
     return c;
   };
   const fillCanvas = async (canvas, media, filter) => {
@@ -995,11 +998,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     "[data-studio-camera-more]": () => { const e=$("[data-studio-camera-extra]");e.hidden=!e.hidden;$("[data-studio-camera-more]").setAttribute("aria-expanded",String(!e.hidden)); },
     "[data-studio-ratio]": () => {
       modal("Proporção da captura", '<div class="studio-ratio-options" role="radiogroup" aria-label="Escolher proporção">' +
-        Object.keys(STORY_ASPECTS).map(ratio => '<button type="button" role="radio" aria-checked="' + String(ratio === settings.ratio) + '" data-ratio-value="' + ratio + '">' + ratio + '</button>').join("") + '</div><p class="studio-hint">9:16 é o padrão dos Stories. A imagem inteira é preservada, sem zoom automático.</p>');
-      body.querySelectorAll("[data-ratio-value]").forEach(button => button.onclick = () => {
+        Object.keys(STORY_ASPECTS).map(ratio => '<button type="button" role="radio" aria-checked="' + String(ratio === settings.ratio) + '" data-ratio-value="' + ratio + '">' + ratio + '</button>').join("") + '</div>');
+      body.querySelectorAll("[data-ratio-value]").forEach(button => button.onclick = async () => {
+        if(settings.ratio === button.dataset.ratioValue){modalClose();return;}
         settings.ratio = button.dataset.ratioValue;
         collageCanvas=null; collageShots=0; applyAspect(); modalClose();
-        status("Proporção " + settings.ratio + " selecionada.");
+        if(mode === "camera" && active){
+          status("Ajustando câmera para " + settings.ratio + "…");
+          await startCamera(settings.facing).catch(error=>status(error.message,true));
+        }
       });
     },
     "[data-studio-editor-more]": () => { const e=$("[data-studio-editor-extra]");e.hidden=!e.hidden;$("[data-studio-editor-more]").setAttribute("aria-expanded",String(!e.hidden)); },
