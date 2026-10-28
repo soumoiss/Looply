@@ -1,7 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js";
 
-await mountAppPage({ page: "profile", render: async ({ root, client, profile }) => {
+await mountAppPage({ page: "profile", render: async ({ root, client, profile, isAdmin }) => {
   const targetId = new URLSearchParams(window.location.search).get("usuario");
   if (targetId && targetId !== profile.id) {
     await showProfileInContainer(client, targetId, root, { showBack: false });
@@ -12,6 +12,6 @@ await mountAppPage({ page: "profile", render: async ({ root, client, profile }) 
       .createSignedUrl(profile.avatar_path, 1800);
     if (!error && signed?.signedUrl) profile.avatarUrl = signed.signedUrl;
   }
-  root.innerHTML = profileAreaMarkup(profile);
+  root.innerHTML = profileAreaMarkup(profile, isAdmin);
   bindProfileEvents(root, client, () => window.location.reload(), profile.id);
 } });
