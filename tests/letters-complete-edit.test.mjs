@@ -111,7 +111,7 @@ test("visible editor renders complete-content field, password unlock, cancel and
   ]);
   assert.doesNotMatch(page,/Envie mensagens e memórias para pessoas do Looply/);
   assert.match(page,/fetchFullLetterForEdit\(client, kind, id, user\.id, isAdmin\)/);
-  assert.match(page,/form\.elements\.body\.value = full\.is_protected \? "" : full\.body/);
+  assert.match(page,/form\.elements\.body\.value = unlockedText !== null \? unlockedText : full\.is_protected \? "" : full\.body/);
   assert.match(page,/form\.elements\.body\.removeAttribute\("maxlength"\)/);
   assert.match(page,/data-edit-kind/);
   assert.match(page,/c\.raw\.sender_id===user\.id/);
