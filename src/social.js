@@ -666,7 +666,6 @@ function reelsViewerMarkup() {
       '<button type="button" data-reel-comments aria-expanded="false" aria-label="Comentários"><span aria-hidden="true">▤</span><small data-reel-comment-count>0</small></button>' +
       '<button type="button" data-reel-share aria-label="Compartilhar publicação"><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
       '<button type="button" data-reel-send aria-label="Enviar no Looply"><span aria-hidden="true">↗</span><small>Enviar</small></button>' +
-      '<button type="button" data-reel-save aria-pressed="false" aria-label="Salvar publicação"><span aria-hidden="true">▯</span><small>Salvar</small></button>' +
     '</aside>' +
     '<footer class="reels-details"><div class="reels-author" data-reel-author></div><p data-reel-caption></p></footer>' +
     '<section class="reels-comments-panel" data-reel-comments-panel hidden aria-label="Comentários">' +
@@ -729,16 +728,6 @@ function renderReelViewer(root, key, autoplay = false) {
   authorTarget.replaceChildren(...(author ? [author.cloneNode(true)] : []));
   viewer.querySelector("[data-reel-caption]").textContent = item.card.querySelector(".post-body")?.textContent || "";
   const originalLike = item.card.querySelector("[data-toggle-like]");
-  const originalSave = item.card.querySelector("[data-toggle-save]");
-  const reelSave = viewer.querySelector("[data-reel-save]");
-  if (reelSave) {
-    const saved = originalSave?.getAttribute("aria-pressed") === "true";
-    reelSave.setAttribute("aria-pressed", String(saved));
-    reelSave.setAttribute("aria-label", saved ? "Remover dos salvos" : "Salvar publicação");
-    reelSave.querySelector("span").textContent = saved ? "▣" : "▯";
-    reelSave.querySelector("small").textContent = saved ? "Salvo" : "Salvar";
-    reelSave.disabled = !originalSave;
-  }
   const like = viewer.querySelector("[data-reel-like]");
   like.setAttribute("aria-pressed", originalLike?.getAttribute("aria-pressed") || "false");
   like.querySelector("span").textContent = originalLike?.classList.contains("is-liked") ? "♥" : "♡";
@@ -838,7 +827,6 @@ function bindReelsViewer(root) {
     }
     if (event.target.closest("[data-reel-share]")) { current.card.querySelector("[data-share-post]")?.click(); return; }
     if (event.target.closest("[data-reel-send]")) { current.card.querySelector("[data-share-in-app]")?.click(); return; }
-    if (event.target.closest("[data-reel-save]")) { current.card.querySelector("[data-toggle-save]")?.click(); return; }
     if (event.target.closest("[data-reel-sound-toggle]")) {
       const player = viewer.querySelector("[data-reel-active]");
       player.muted = !player.muted;
