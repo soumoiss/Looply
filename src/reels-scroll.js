@@ -41,9 +41,9 @@ export function openReelsScroll(root, startKey) {
   dialog.innerHTML = '<div class="looply-reels-track" data-reels-track aria-label="Deslize para assistir aos próximos vídeos"></div><header class="looply-reels-top"><button type="button" data-reels-close aria-label="Voltar ao feed">←</button><strong>Reels <span>· Looply</span></strong><span class="looply-reels-top-space"></span></header><aside class="looply-reels-rail" data-reels-rail></aside><footer class="looply-reels-bottom"><div data-reels-creator></div><p data-reels-caption></p><div class="looply-reels-audio">♫ <span data-reels-audio>Áudio da publicação</span></div></footer><button type="button" class="looply-reels-mute" data-reels-sound aria-label="Ativar som">♪ Som</button><p class="looply-reels-message" data-reels-message role="status" aria-live="polite"></p><section class="looply-reels-comments" data-reels-comments hidden><header><strong>Comentários</strong><button type="button" data-close-reels-comments aria-label="Fechar comentários">×</button></header><div data-reels-comments-body></div></section>';
   const track = by(dialog, "[data-reels-track]");
   const rail = by(dialog, "[data-reels-rail]");
-  const actions = ["like", "comment", "repost", "share", "save", "more"];
-  const labels = { like: "Curtir", comment: "Comentários", repost: "Enviar no Looply", share: "Compartilhar", save: "Salvar", more: "Mais opções" };
-  const glyphs = { like: "♡", comment: "♧", repost: "⇄", share: "➤", save: "♧", more: "⋯" };
+  const actions = ["like", "comment", "repost", "share", "more"];
+  const labels = { like: "Curtir", comment: "Comentários", repost: "Enviar no Looply", share: "Compartilhar", more: "Mais opções" };
+  const glyphs = { like: "♡", comment: "♧", repost: "⇄", share: "➤", more: "⋯" };
   for (const type of actions) rail.append(action(type, labels[type], glyphs[type]));
   const slides = sources.map((source, index) => {
     const slide = make("section", "looply-reel-slide");
@@ -74,18 +74,15 @@ export function openReelsScroll(root, startKey) {
     by(dialog, "[data-reels-caption]").textContent = caption?.textContent || "";
     by(dialog, "[data-reels-audio]").textContent = "Áudio da publicação";
     const like = by(card, "[data-toggle-like]");
-    const save = by(card, "[data-toggle-save]");
     for (const type of actions) {
       const btn = by(rail, '[data-reel-action="' + type + '"]');
-      btn.disabled = (type === "save" && !save) || (type === "repost" && !by(card, "[data-share-in-app]"));
+      btn.disabled = type === "repost" && !by(card, "[data-share-in-app]");
       const counter = by(btn, "small");
       counter.textContent = type === "like" ? relativeCount(like?.querySelector("span")?.textContent) :
-        type === "comment" ? relativeCount(by(card, ".post-comments h3 span")?.textContent) :
-        type === "save" ? save?.getAttribute("aria-pressed") === "true" ? "Salvo" : "" : "";
-      const selected = type === "like" ? like?.getAttribute("aria-pressed") === "true" : type === "save" ? save?.getAttribute("aria-pressed") === "true" : false;
+        type === "comment" ? relativeCount(by(card, ".post-comments h3 span")?.textContent) : "";
+      const selected = type === "like" && like?.getAttribute("aria-pressed") === "true";
       btn.setAttribute("aria-pressed", String(selected));
       if (type === "like") by(btn, ".looply-reel-glyph").textContent = selected ? "♥" : "♡";
-      if (type === "save") by(btn, ".looply-reel-glyph").textContent = selected ? "▣" : "▯";
     }
   };
   const loadNear = index => {
@@ -184,7 +181,7 @@ export function openReelsScroll(root, startKey) {
     if (!card) { status("Esta publicação não está mais disponível."); return; }
     const type = control.dataset.reelAction;
     if (type === "comment") { showCommentPanel(); return; }
-    const selectors = { like: "[data-toggle-like]", save: "[data-toggle-save]", repost: "[data-share-in-app]", share: "[data-share-post]" };
+    const selectors = { like: "[data-toggle-like]", repost: "[data-share-in-app]", share: "[data-share-post]" };
     if (selectors[type]) { const button = by(card, selectors[type]); if (button) button.click(); else status("Esta ação não está disponível."); }
     else if (type === "more") { const link = by(card, "[data-delete-post]"); if (link) { by(dialog, "[data-reels-comments]").hidden = true; const ok = window.confirm("Excluir esta publicação do Looply?"); if (ok) link.click(); } else status("Use as opções da publicação no Feed."); }
   });
