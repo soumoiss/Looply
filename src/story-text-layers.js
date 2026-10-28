@@ -93,3 +93,82 @@ export function storyTextPaintLayer(ctx,layer,width,height) {
   ctx.restore();
   return layout;
 }
+
+
+// Executable pointer handler shared by touch, pen and mouse. Text selection is
+// separate from opening the keyboard. Drag and pinch never trigger edit().
+export function bindStoryTextGestures(element,{
+  getPosition,setPosition,getSize,setSize,getBounds,select,edit,
+  clock=()=>performance.now()
+}) {
+  const pointers=new Map();
+  let drag=null,pinch=null,hadGesture=false,lastTap=0;
+  const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+  const onDown=event=>{
+    event.preventDefault?.();event.stopPropagation?.();
+    select();
+    pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    try{element.setPointerCapture?.(event.pointerId);}catch{}
+    if(pointers.size===1){
+      hadGesture=false;
+      const pos=getPosition();
+      drag={id:event.pointerId,x:event.clientX,y:event.clientY,
+        left:pos.x,top:pos.y,moved:false};
+      pinch=null;
+    }else if(pointers.size===2){
+      pinch={distance:Math.max(1,distance([...pointers.values()])),size:getSize()};
+      hadGesture=true;drag=null;lastTap=0;
+    }
+  };
+  const onMove=event=>{
+    if(!pointers.has(event.pointerId))return;
+    pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if(pointers.size>=2&&pinch){
+      setSize(storyTextPinchSize(pinch.size,pinch.distance,
+        distance([...pointers.values()].slice(0,2))));
+      hadGesture=true;lastTap=0;
+    }else if(pointers.size===1&&drag&&drag.id===event.pointerId&&!hadGesture){
+      const bounds=getBounds();
+      if(!(bounds.width>0&&bounds.height>0))return;
+      const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+      if(Math.hypot(dx,dy)>5)drag.moved=true;
+      if(drag.moved){
+        lastTap=0;
+        setPosition(storyTextClampPosition(drag.left+dx/bounds.width,
+          drag.top+dy/bounds.height));
+      }
+    }
+    event.preventDefault?.();
+  };
+  const onUp=event=>{
+    if(!pointers.has(event.pointerId))return;
+    const tapped=!hadGesture && drag && !drag.moved && pointers.size===1;
+    pointers.delete(event.pointerId);
+    if(pointers.size<2)pinch=null;
+    if(pointers.size===0){
+      drag=null;hadGesture=false;
+      if(tapped){
+        const now=clock();
+        if(lastTap && now-lastTap<340){lastTap=0;edit();}
+        else lastTap=now;
+      }
+    }
+  };
+  const onCancel=event=>{
+    if(!pointers.has(event.pointerId))return;
+    pointers.delete(event.pointerId);drag=null;pinch=null;hadGesture=true;lastTap=0;
+    if(pointers.size===0)hadGesture=false;
+  };
+  const onClick=event=>{event.preventDefault?.();event.stopPropagation?.();};
+  const onKey=event=>{
+    if(event.key==="Enter"||event.key===" "){
+      event.preventDefault?.();select();edit();
+    }
+  };
+  const events=[
+    ["pointerdown",onDown],["pointermove",onMove],["pointerup",onUp],
+    ["pointercancel",onCancel],["click",onClick],["keydown",onKey]
+  ];
+  events.forEach(([name,fn])=>element.addEventListener(name,fn));
+  return ()=>events.forEach(([name,fn])=>element.removeEventListener(name,fn));
+}
