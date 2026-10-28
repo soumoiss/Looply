@@ -34,7 +34,6 @@
 .page-home .ig-post .post-icon-button svg { width:26px; height:26px; }
 .page-home .ig-post .post-icon-button:hover, .page-home .ig-post .post-icon-button:focus-visible { background:color-mix(in srgb,var(--primary) 10%,transparent); color:var(--primary); }
 .page-home .ig-post .post-like-button.is-liked { background:transparent; border:none; color:#ee407c; }
-.page-home .ig-post [data-toggle-save] { margin-left:auto; }
 .page-home .ig-post .post-icon-button[data-share-in-app] { font-size:11px; font-weight:700; }
 .page-home .ig-post .post-comments-toggle { display:inline-flex; align-items:center; gap:6px; }
 .page-home .ig-post .post-body { order:3; margin:0; padding:7px 15px 8px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
@@ -127,3 +126,17 @@
 .page-home .ig-post .post-carousel-dots { display:flex; gap:5px; align-items:center; justify-content:center; min-height:20px; }
 .page-home .ig-post .post-carousel-dots span { width:6px; height:6px; border-radius:50%; background:var(--muted); opacity:.4; transition:background .15s,transform .15s; }
 .page-home .ig-post .post-carousel-dots span.is-active { background:var(--primary); opacity:1; transform:scale(1.15); }
+
+/* Feed caption editing and swipeable multi-photo controls. */
+.page-home .post-caption-editor[hidden] { display:none; }
+.page-home .post-caption-editor { margin:8px 13px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface); display:grid; gap:10px; }
+.page-home .post-caption-editor textarea { width:100%; min-height:110px; resize:vertical; font:inherit; white-space:pre-wrap; color:var(--text); background:var(--surface-soft); border:1px solid var(--line); border-radius:10px; padding:10px; }
+.page-home .post-caption-editor-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.page-home .post-caption-editor button, .page-home .post-edit-button { min-height:42px; }
+.page-home .post-carousel-navigation { display:flex; align-items:center; justify-content:center; gap:18px; padding:4px 8px; min-height:38px; }
+.page-home .post-carousel-navigation button { border:1px solid var(--line); color:var(--text); border-radius:10px; background:var(--surface); min-width:42px; min-height:42px; font-size:25px; cursor:pointer; }
+.page-home .post-carousel-navigation button:disabled { opacity:.3; cursor:default; }
+.page-home .post-carousel-navigation [data-carousel-position] { font-size:12px; font-variant-numeric:tabular-nums; color:var(--muted); min-width:36px; text-align:center; }
+.page-home .post-heic-preview { padding:12px; font-size:13px; background:var(--surface); border-radius:12px; overflow-wrap:anywhere; }
+.page-home [data-feed-carousel] { touch-action:pan-x pan-y; }
+.page-home .post-body { overflow-wrap:anywhere; white-space:pre-wrap; }
