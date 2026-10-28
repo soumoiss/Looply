@@ -6,9 +6,10 @@ const gallery = await readFile(new URL("../assets/js/gallery.js", import.meta.ur
 const styles = await readFile(new URL("../assets/css/pages/gallery.css", import.meta.url), "utf8");
 const markup = gallery.slice(gallery.indexOf("const galleryMarkup"), gallery.indexOf('].join("");'));
 
-test("viewer keeps only back, like, admin edit, and more as primary actions", () => {
+test("viewer keeps back, like, comments, admin edit, and more as direct controls", () => {
   assert.match(gallery, /data-close-viewer/);
   assert.match(gallery, /data-viewer-like/);
+  assert.match(gallery, /data-open-comments aria-label="Comentários desta mídia"/);
   assert.match(gallery, /data-open-photo-adjust[^>]*hidden/);
   assert.match(gallery, /data-toggle-menu/);
   assert.match(gallery, /data-action-sheet/);
