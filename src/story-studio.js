@@ -264,7 +264,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
   let selectedMentionIds = [];
   let stopMusicPreview = () => {};
-  let sourceKind = "none", isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
+  let sourceKind = "none", sourceFromCamera = false, isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
   let zoomBusy = false, zoomPending = null, pinch = null;
   let cameraTimerSeconds = 0, handsfreeRecording = false;
@@ -302,7 +302,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const revokeUrl = () => { if (url) URL.revokeObjectURL(url); url = null; };
   const clearPreview = () => {
     edits.replaceChildren(); edits.hidden = true; revokeUrl();
-    overlayRoot.replaceChildren(); file = null; sourceKind = "none"; selectedMentionIds = [];
+    overlayRoot.replaceChildren(); file = null; sourceKind = "none"; sourceFromCamera = false; selectedMentionIds = [];
   };
   const flashButton = $("[data-studio-flash]");
   const resetFlash = () => {
@@ -485,8 +485,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (typeof dialog.close === "function" && dialog.open) dialog.close();
     else dialog.removeAttribute("open");
   };
-  const showEditor = (mediaFile, kind) => {
-    file = mediaFile || null; sourceKind = kind;
+  const showEditor = (mediaFile, kind, captured = false) => {
+    file = mediaFile || null; sourceKind = kind; sourceFromCamera = captured;
     if (file) {
       const holder = $("[data-studio-thumb]").closest(".studio-gallery-button");
       if (lastThumb) URL.revokeObjectURL(lastThumb);
@@ -551,13 +551,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         collageCanvas=null;collageShots=0;settings.grid=false;
         $("[data-studio-grid]").hidden=true;
         $("[data-studio-grid-toggle]").setAttribute("aria-pressed","false");
-        showEditor(new File([composite],"story-layout-"+Date.now()+".jpg",{type:"image/jpeg"}),"image");
+        showEditor(new File([composite],"story-layout-"+Date.now()+".jpg",{type:"image/jpeg"}),"image",true);
         return;
       }
       const blob = await blobFromCanvas(canvas, "image/jpeg");
       await verifyStoryImagePixels(blob,captureSize);
       if(ticket!==cameraRequestId || !active || mode!=="camera")return;
-      showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
+      showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image",true);
     } finally {
       photoPending=false;
       stage.dataset.screenFlash = settings.facing === "user" && settings.flash === "on" ? "ready" : "off";
@@ -648,7 +648,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           await verifyStoryVideoPixels(output,isBoomerang
             ? {width:snap.width,height:snap.height} : recordingSize);
           if(recordingTicket!==cameraRequestId || !active || mode!=="camera")return;
-          showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type.split(";")[0] }), "video");
+          showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type.split(";")[0] }), "video",true);
         } catch(error) {
           status("O vídeo não pôde ser validado. Grave novamente.",true);
           console.warn("Story video dimensions validation failed",error);
@@ -995,6 +995,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       if (!normalized || !FORMATS[normalized.type] || normalized.size > 100 * 1024 * 1024) {
         throw new Error("Mídia inválida ou maior que 100 MB.");
       }
+      // Validate the actual post-editor file, not just the source canvas. This
+      // runs before any Neon story record or uploaded object is created.
+      if(sourceFromCamera){
+        const expected=currentCanvasSize();
+        const dimensions=normalized.type.startsWith("image/")
+          ? await verifyStoryImagePixels(normalized,expected)
+          : await verifyStoryVideoPixels(normalized,expected);
+        console.info("Looply story final encoded pixels",dimensions);
+      }
       const text = music?.kind === "catalog"
         ? encodeStorySong(caption.value,music)
         : captionWithLicensedMusic(caption.value,music);
@@ -1100,12 +1109,14 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         return;
       }
       try {
-        await setRearCameraTorch(track,turnOn);
+        const physical=await setRearCameraTorch(track,turnOn);
         settings.flash=turnOn?"on":"off";
         flashButton.setAttribute("aria-pressed",String(turnOn));
         flashButton.title=turnOn?"Desligar lanterna traseira contínua":"Ligar lanterna traseira contínua";
         flashButton.setAttribute("aria-label",flashButton.title);
-        status(turnOn?"Lanterna traseira contínua ativada. Não é um flash de disparo.":"Lanterna traseira desligada.");
+        status(turnOn
+          ? (physical.confirmed?"Estado da lanterna contínua confirmado pelo navegador.":"Comando enviado à lanterna contínua; estado físico não informado pelo navegador.")
+          : "Lanterna traseira desligada.");
       }catch(error){
         resetFlash();
         status("Lanterna traseira indisponível: "+(error.message||"recurso não suportado"),true);
