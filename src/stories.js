@@ -3,7 +3,7 @@ import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { decodeStoryBody } from "./story-text-style.js";
-import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=story-music-unified-20261028";
+import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=story-publish-official-20261028";
 
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
