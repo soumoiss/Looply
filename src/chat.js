@@ -487,6 +487,33 @@ async function loadThread(client, conversationId, before = null) {
   if (conversationResult.error) throw conversationResult.error;
   if (!conversationResult.data) throw new Error("Conversation unavailable");
   const messages = (messageResult.data || []).reverse();
+  if (messages.length) {
+    const {data:stickerMessages,error:stickersError} = await client.from("chat_sticker_messages")
+      .select("message_id,sticker_id").eq("conversation_id",conversationId)
+      .in("message_id",messages.map(message => message.id)).limit(100);
+    if (stickersError) console.warn("Chat sticker references could not load",stickersError);
+    else {
+      const ids = [...new Set((stickerMessages || []).map(row=>row.sticker_id))];
+      if (ids.length) {
+        const {data:items,error:catalogError} = await client.from("sticker_catalog")
+          .select("id,title,asset_path").in("id",ids);
+        if (catalogError) console.warn("Chat sticker images could not load",catalogError);
+        else {
+          const byId = new Map((items || []).map(item=>[item.id,item]));
+          const byMessage = new Map((stickerMessages || []).map(item=>[item.message_id,byId.get(item.sticker_id)]));
+          for (const message of messages) message.sticker = byMessage.get(message.id) || null;
+        }
+      }
+    }
+  }
+  if (conversationResult.data.kind === "group") {
+    const {data:cover,error:coverError} = await client.from("group_covers")
+      .select("storage_path").eq("conversation_id",conversationId).maybeSingle();
+    if (!coverError && cover?.storage_path) {
+      const signed = await cachedSignedUrl(client,"looply-chat",cover.storage_path,1800);
+      conversationResult.data.coverUrl = signed?.data?.signedUrl || null;
+    } else if (coverError) console.warn("Chat group cover unavailable",coverError);
+  }
   // Show the original story in both participants' chat histories without
   // replacing the actual message body. The link still obeys story visibility.
   if (messages.length) {
@@ -525,6 +552,9 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
+    const sticker = message.sticker && /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker.asset_path)
+      ? `<img class="chat-catalog-message" src="${escapeHtml(message.sticker.asset_path)}" alt="Figurinha: ${escapeHtml(message.sticker.title)}" loading="lazy" decoding="async">`
+      : "";
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -538,7 +568,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}${storyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    ${replyContext}${storyContext}${sticker}<p data-chat-message-body${sticker ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
     <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>${message.media?.length ? "" : `<button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>`}` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
@@ -562,7 +592,13 @@ function messageComposerMarkup(conversationId) {
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button><span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span><div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div></header>`;
+    const avatar = conversationInfo.coverUrl
+      ? `<img class="chat-thread-avatar chat-group-avatar" src="${escapeHtml(conversationInfo.coverUrl)}" alt="Foto do grupo" referrerpolicy="no-referrer">`
+      : `<span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
+    const editor = conversationInfo.created_by === userId
+      ? `<button type="button" class="chat-cover-change" data-chat-group-cover-choose aria-label="Alterar foto do grupo">Foto do grupo</button><input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status"></span>`
+      : "";
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}</header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -794,8 +830,15 @@ export function bindChatEvents(root, client, getUserId) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
       root.style.setProperty("--looply-visible-height", viewport.height + "px");
-      const thread = root.querySelector("[data-chat-thread]");
-      if (document.activeElement?.matches(".chat-message-form textarea") && thread) requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+      const area = root.querySelector("[data-chat-area]");
+      const areaTop = Math.max(0,area?.getBoundingClientRect().top || 0);
+      const screenBottom = viewport.height + viewport.offsetTop;
+      const obscured = window.innerHeight - screenBottom > 96;
+      const typing = Boolean(document.activeElement?.closest(".chat-message-form"));
+      const nav = document.querySelector(".page-navigation");
+      const navSpace = obscured && typing ? 0 : (nav?.getBoundingClientRect().height || 0) + 14;
+      root.style.setProperty("--chat-panel-px",Math.max(170,Math.round(screenBottom-areaTop-navSpace))+"px");
+      root.classList.toggle("chat-keyboard-open",obscured && typing);
     };
     viewport.addEventListener("resize", updateViewport);
     viewport.addEventListener("scroll", updateViewport);
@@ -807,8 +850,13 @@ export function bindChatEvents(root, client, getUserId) {
       window.removeEventListener("orientationchange", updateViewport);
     }, { once: true });
     root.addEventListener("focusin", (event) => {
-      if (event.target.matches(".chat-message-form textarea")) window.setTimeout(updateViewport, 80);
+      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
     });
+    root.addEventListener("focusout", (event) => {
+      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
+    });
+    root.addEventListener("looply:conversation-activated",updateViewport);
+    window.addEventListener("resize",updateViewport);
   }
   root.addEventListener("looply:open-conversation", async (event) => {
     const conversationId = event.detail?.conversationId;
