@@ -67,7 +67,7 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   const viewer=readFileSync(new URL("../src/stories.js",import.meta.url),"utf8");
   assert.match(studio,/music\.kind !== "catalog"/);
   assert.match(studio,/encodeStorySong\(caption\.value,music\)/);
-  assert.match(picker,/searchStorySongs\(term/);
+  assert.match(picker,/searchCatalog\(term/);
   assert.match(viewer,/decodeStorySong\(story\.body/);
   assert.doesNotMatch(studio,/addLayer\("♪ " \+ track\.title/);
   assert.doesNotMatch(viewer,/story-viewer-song-credit|credit\.href = catalogSong/);
@@ -144,9 +144,9 @@ test("Android music cards have separate grid action row, readable text, and visi
   assert.match(css,/\.story-studio \.studio-catalog-song > \.studio-music-row-actions \{[\s\S]*?grid-row:2;/);
   assert.match(css,/\.story-studio \.studio-catalog-select \{[\s\S]*?color:#18141d!important/);
   assert.match(picker,/el\.controls=true/);
-  assert.match(picker,/void el\.play\(\)\.then/);
+  assert.match(picker,/void el\.play\(\)\.catch/);
   assert.match(picker,/el\.addEventListener\("error"/);
-  assert.match(picker,/const listen=addText\(actions,"button","▶ Ouvir prévia"/);
-  assert.match(picker,/const choose=addText\(actions,"button","Selecionar"/);
+  assert.match(picker,/const listen=addText\(buttons,"button","▶ Ouvir prévia"/);
+  assert.match(picker,/const choose=addText\(buttons,"button","Selecionar"/);
   assert.match(picker,/stopPreview/);
 });
