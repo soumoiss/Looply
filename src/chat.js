@@ -556,9 +556,14 @@ async function loadThread(client, conversationId, before = null) {
       const ids = [...new Set((stickerMessages || []).map(row=>row.sticker_id))];
       if (ids.length) {
         const {data:items,error:catalogError} = await client.from("sticker_catalog")
-          .select("id,title,asset_path").in("id",ids);
+          .select("id,title,asset_path,storage_path").in("id",ids);
         if (catalogError) console.warn("Chat sticker images could not load",catalogError);
         else {
+          await Promise.all((items || []).filter(item=>/^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(item.storage_path||""))
+            .map(async item => {
+              const result=await cachedSignedUrl(client,"looply-stickers",item.storage_path,1800);
+              item.imageUrl=result?.data?.signedUrl||null;
+            }));
           const byId = new Map((items || []).map(item=>[item.id,item]));
           const byMessage = new Map((stickerMessages || []).map(item=>[item.message_id,byId.get(item.sticker_id)]));
           for (const message of messages) message.sticker = byMessage.get(message.id) || null;
@@ -612,9 +617,14 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
-    const sticker = message.sticker && /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker.asset_path)
-      ? `<img class="chat-catalog-message" src="${escapeHtml(message.sticker.asset_path)}" alt="Figurinha: ${escapeHtml(message.sticker.title)}" loading="lazy" decoding="async">`
-      : "";
+    const stickerSource = /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker?.asset_path||"")
+      ? message.sticker.asset_path
+      : /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(message.sticker?.storage_path||"")
+        && /^https:\/\//.test(message.sticker?.imageUrl||"")
+          ? message.sticker.imageUrl : "";
+    const sticker = stickerSource
+      ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(message.sticker.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+      : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
