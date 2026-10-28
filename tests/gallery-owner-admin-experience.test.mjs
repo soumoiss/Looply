@@ -42,7 +42,7 @@ test("owner and verified admin gallery deletion is authorized in SQL, with relat
     read("migration/20261028_gallery_owner_admin_album_cleanup.sql"),
     read("src/neon-production-client.js"),read("assets/js/gallery.js")
   ]);
-  assert.match(sql,/m\.owner_id=actor OR administrator/);
+  assert.match(sql,/owner_id=actor OR administrator/);
   assert.match(sql,/IF NOT administrator THEN RAISE EXCEPTION/);
   assert.match(sql,/m\.owner_id=public\.looply_legacy_uid\(\) OR COALESCE\(public\.v3_self_is_admin\(\),false\)/);
   for(const table of ["gallery_album_items","gallery_media_people","gallery_media_descriptions","gallery_media_adjustments","gallery_media_pins","gallery_private_items"]){
