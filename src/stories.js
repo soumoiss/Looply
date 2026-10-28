@@ -261,7 +261,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
           '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
-            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small>Atividade</small><span class="sr-only" data-story-view-count>Ver visualizações</span></button>' +
+            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small data-story-view-count>Atividade</small></button>' +
             '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
 
 
@@ -285,8 +285,16 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button type="button" data-story-save>Salvar mídia</button>' +
           '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
           '<button type="button" data-story-more-close>Cancelar</button></div>' +
+        '<div class="story-share-panel" data-story-share-panel hidden role="group" aria-label="Compartilhar story">' +
+          '<strong>Compartilhar story</strong>' +
+          '<label>Enviar para<select data-story-share-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
+          '<button type="button" data-story-share-send>Enviar na conversa</button>' +
+          '<button type="button" data-story-share-native>Compartilhar pelo aparelho</button>' +
+          '<button type="button" data-story-share-copy>Copiar link</button>' +
+          '<button type="button" data-story-share-close>Cancelar</button>' +
+        '</div>' +
         '<div class="story-mention-dialog" data-story-mention-dialog hidden role="dialog" aria-label="Mencionar no Story">' +
-          '<strong>Mencionar alguém</strong><p>Selecione uma pessoa que pode visualizar este story.</p>' +
+          '<strong>Mencionar alguém</strong>' +
           '<label>Perfil<select data-story-mention-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
           '<div><button type="button" data-story-mention-confirm>Confirmar</button><button type="button" data-story-mention-cancel>Cancelar</button></div></div>' +
         '<div class="story-viewer-action-status" data-story-action-status role="status" aria-live="polite" hidden></div>' +
@@ -327,7 +335,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 
   const state = {
     groups: groupActiveStories(initialStories), active: null, index: 0, timer: null,
-    viewedThisSession: new Set(), likedStories: new Set(), likePending: new Set(), ignoreTapUntil: 0, paused: false
+    viewedThisSession: new Set(), viewPending: new Set(), likedStories: new Set(), likePending: new Set(),
+    replyPending: new Set(), replyDrafts: new Map(), slideVersion: 0, insightsToken: 0,
+    ignoreTapUntil: 0, paused: false
   };
   const showStatus = (message, isError = false) => {
     if (!status) return;
@@ -343,17 +353,30 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (state.timer) clearTimeout(state.timer);
     state.timer = null;
   };
+  const recordVisibleStoryView = async (storyId, version) => {
+    if (!viewer.open || state.slideVersion !== version || state.active?.stories?.[state.index]?.id !== storyId ||
+        state.viewedThisSession.has(storyId) || state.viewPending.has(storyId)) return;
+    state.viewPending.add(storyId);
+    try {
+      const { data, error } = await client.rpc("record_story_view", { p_story_id: storyId });
+      if (error || typeof data !== "boolean") throw error || Error("story_view_unconfirmed");
+      state.viewedThisSession.add(storyId);
+    } catch (error) {
+      console.warn("Looply story view could not be recorded.", error);
+    } finally { state.viewPending.delete(storyId); }
+  };
   const resumeStoryTimer = () => {
     if (state.paused || !viewer.open) return;
+    const timerVersion = state.slideVersion;
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const video = mediaHost.querySelector("video");
     if (video && !video.paused && Number.isFinite(video.duration)) {
       const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
       setProgressDuration(remaining);
-      state.timer = setTimeout(() => advance(1), remaining);
+      state.timer = setTimeout(() => { if (state.slideVersion === timerVersion && viewer.open && !state.paused) advance(1); }, remaining);
     } else if (!video) {
       setProgressDuration(7000);
-      state.timer = setTimeout(() => advance(1), 7000);
+      state.timer = setTimeout(() => { if (state.slideVersion === timerVersion && viewer.open && !state.paused) advance(1); }, 7000);
     }
   };
   const setStoryPaused = (paused) => {
@@ -416,6 +439,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const renderSlide = () => {
     clearTimer();
+    const version = ++state.slideVersion;
+    ++state.insightsToken;
     const previousAudio = viewer.querySelector("#story-audio");
     if (previousAudio) { previousAudio.pause(); previousAudio.currentTime = 0; }
     if (!state.active) return;
@@ -462,6 +487,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
     viewer.querySelector("[data-story-owner-menu]").hidden = true;
     viewer.querySelector("[data-story-mention-dialog]").hidden = true;
+    viewer.querySelector("[data-story-share-panel]").hidden = true;
     viewer.querySelector("[data-story-quick-reactions]").hidden = true;
     viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
     viewer.querySelector("[data-story-action-status]").hidden = true;
@@ -542,10 +568,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.preload = "metadata";
         video.setAttribute("aria-label", media.alt_text || "Vídeo do story");
         video.addEventListener("loadedmetadata", () => {
+          if (state.slideVersion !== version || !viewer.open) return;
           if (Number.isFinite(video.duration) && video.duration > 0) setProgressDuration(video.duration * 1000);
         }, { once: true });
         video.addEventListener("playing", () => {
-          if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
+          if (!video.isConnected || mediaHost.querySelector("video") !== video || state.slideVersion !== version || !viewer.open) return;
+          if (story.author_id !== userId) void recordVisibleStoryView(story.id, version);
           const songAudio = slideAudio;
           if(songAudio && !songAudio.paused && Number.isFinite(songAudio.currentTime)
             && Math.abs(songAudio.currentTime-video.currentTime)>1.25){
@@ -561,9 +589,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (Number.isFinite(video.duration) && video.duration > 0) {
             const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
             setProgressDuration(remaining);
-            state.timer = setTimeout(() => advance(1), remaining);
+            state.timer = setTimeout(() => { if (viewer.open && state.slideVersion === version && !state.paused) advance(1); }, remaining);
           }
         });
+        video.addEventListener("error", () => {
+          if (state.slideVersion === version && viewer.open && mediaHost.querySelector("video") === video) showMediaUnavailable(mediaHost);
+        }, { once: true });
         video.addEventListener("pause", () => {
           if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
           clearTimer();
@@ -580,28 +611,29 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         void startStoryMediaPlayback(video);
       } else {
         const image = document.createElement("img");
-        image.src = mediaUrl;
         image.alt = media.alt_text || "Foto do story";
         image.referrerPolicy = "no-referrer";
+        image.addEventListener("load", () => {
+          if (state.slideVersion !== version || !viewer.open || !image.isConnected || !image.naturalWidth) return;
+          if (story.author_id !== userId) void recordVisibleStoryView(story.id, version);
+          setProgressDuration(7000);
+          clearTimer();
+          if (!state.paused) state.timer = setTimeout(() => {
+            if (viewer.open && state.slideVersion === version && !state.paused) advance(1);
+          }, 7000);
+        }, { once: true });
+        image.addEventListener("error", () => {
+          if (state.slideVersion === version && viewer.open && image.isConnected) showMediaUnavailable(mediaHost);
+        }, { once: true });
         mediaHost.append(image);
-        setProgressDuration(7000);
-        state.timer = setTimeout(() => advance(1), 7000);
+        image.src = mediaUrl;
       }
     } else if (media) {
-      const missing = document.createElement("div");
-      missing.className = "story-media-unavailable";
-      const message = document.createElement("p");
-      message.textContent = "Não foi possível carregar a mídia deste story.";
-      const retry = document.createElement("button");
-      retry.type = "button";
-      retry.className = "text-button";
-      retry.dataset.storyMediaRetry = "";
-      retry.textContent = "Tentar carregar novamente";
-      missing.append(message, retry);
-      mediaHost.append(missing);
+      showMediaUnavailable(mediaHost);
     } else if (story.body) {
+      if (viewer.open && story.author_id !== userId) void recordVisibleStoryView(story.id, version);
       setProgressDuration(7000);
-      state.timer = setTimeout(() => advance(1), 7000);
+      state.timer = setTimeout(() => { if (viewer.open && state.slideVersion === version && !state.paused) advance(1); }, 7000);
     }
 
     const currentGroupIndex = state.groups.findIndex((group) => group.author_id === story.author_id);
@@ -611,7 +643,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
     viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
     const insightsButton = viewer.querySelector("[data-story-insights-open]");
-    if (insightsButton) insightsButton.setAttribute("aria-label", isAdmin && story.author_id !== userId ? "Ver visualizações do story do membro" : "Ver visualizações");
+    if (insightsButton) {
+      insightsButton.hidden = story.author_id !== userId;
+      insightsButton.setAttribute("aria-label", "Ver visualizações do meu story");
+    }
     viewer.querySelector("[data-story-reply-actions]").hidden = story.author_id === userId;
     viewer.querySelector("[data-story-insights-panel]").hidden = true;
     const replyStatus = viewer.querySelector("[data-story-reply-status]");
@@ -624,14 +659,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const likeIcon = likeButton.querySelector("[aria-hidden]");
     if (likeIcon) likeIcon.textContent = state.likedStories.has(story.id) ? "♥" : "♡";
     const replyInput = viewer.querySelector("[data-story-reply] input");
-    if (replyInput) replyInput.value = "";
-    if (story.author_id !== userId && !state.viewedThisSession.has(story.id)) {
-      state.viewedThisSession.add(story.id);
-      void client.rpc("record_story_view", { p_story_id: story.id }).then(({ error }) => {
-        if (error) console.warn("Looply story view could not be recorded.", error);
-      }).catch((error) => console.warn("Looply story view could not be recorded.", error));
-    }
-    if (story.author_id === userId || isAdmin) {
+    if (replyInput) replyInput.value = state.replyDrafts.get(story.id) || "";
+    if (story.author_id === userId) {
       const viewCount = viewer.querySelector("[data-story-view-count]");
       viewCount.textContent = "Carregando visualizações…";
       void client.from("story_views").select("viewer_id", { count: "exact", head: true }).eq("story_id", story.id)
@@ -656,8 +685,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         });
     }
   };
+  const showMediaUnavailable = mediaHost => {
+    const box = document.createElement("div");
+    box.className = "story-media-unavailable";
+    const message = document.createElement("p");
+    message.textContent = "Não foi possível carregar a mídia deste story.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "text-button";
+    retry.dataset.storyMediaRetry = "";
+    retry.textContent = "Tentar carregar novamente";
+    box.append(message, retry);
+    mediaHost.replaceChildren(box);
+  };
   const currentStory = () => state.active?.stories?.[state.index] || null;
   const loadStoryInsights = async (story) => {
+    if (!viewer.open || story.author_id !== userId) return;
+    const token = ++state.insightsToken;
+    const isCurrent = () => viewer.open && state.insightsToken === token &&
+      currentStory()?.id === story.id;
     const panel = viewer.querySelector("[data-story-insights-panel]");
     const summary = viewer.querySelector("[data-story-insights-summary]");
     const list = viewer.querySelector("[data-story-insights-list]");
@@ -666,11 +712,17 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     list.replaceChildren();
     clearTimer();
     try {
-      const { data, error } = await client.from("story_views")
-        .select("viewer_id,viewed_at")
-        .eq("story_id", story.id).order("viewed_at", { ascending: false }).limit(500);
-      if (error) throw error;
-      const views = data || [];
+      const views = [];
+      // The count uses one row per viewer (story_id, viewer_id is a PK).
+      for (let offset = 0; offset < 5000; offset += 500) {
+        const { data, error } = await client.from("story_views")
+          .select("viewer_id,viewed_at")
+          .eq("story_id", story.id).order("viewed_at", { ascending: false }).range(offset, offset + 499);
+        if (error) throw error;
+        if (!isCurrent()) return;
+        views.push(...(data || []));
+        if (!data || data.length < 500) break;
+      }
       const viewerIds = [...new Set(views.map(view => view.viewer_id).filter(Boolean))];
       let profiles = [];
       if (viewerIds.length) {
@@ -690,6 +742,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (url) avatarUrls.set(path, url);
         });
       }
+      if (!isCurrent()) return;
       summary.textContent = views.length === 1 ? "1 pessoa viu este story." : `${views.length} pessoas viram este story.`;
       if (!views.length) {
         const empty = document.createElement("li");
@@ -729,7 +782,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } catch (error) {
       console.error("Looply story insights could not load.", error);
-      summary.textContent = "Não foi possível carregar as visualizações agora.";
+      if (isCurrent()) summary.textContent = "Não foi possível carregar as visualizações agora.";
     }
   };
   const refresh = async () => {
@@ -774,7 +827,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
-    if (story && (story.author_id === userId || isAdmin) && !viewer.querySelector("[data-story-insights-panel]").hidden) {
+    if (story && story.author_id === userId && !viewer.querySelector("[data-story-insights-panel]").hidden) {
       void loadStoryInsights(story);
     }
   };
@@ -789,24 +842,87 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     messageNode.dataset.error = String(error);
     messageNode.hidden = !message;
   };
-  const shareCurrentStory = async () => {
-    const story = currentStory();
-    if (!story) return;
+  const sharePanel = viewer.querySelector("[data-story-share-panel]");
+  const storyShareUrl = story => {
     const url = new URL("home.html", window.location.href);
     url.searchParams.set("storyId", story.id);
-    const data = { title: "Story no Loooply", text: "Veja este Story no Loooply", url: url.href };
+    return url.href;
+  };
+  const availableToShare = async story => {
+    if (!story || Date.parse(story.expires_at) <= Date.now()) return false;
+    const { data, error } = await client.from("stories").select("id")
+      .eq("id", story.id).gt("expires_at", new Date().toISOString()).maybeSingle();
+    if (error) throw error;
+    return data?.id === story.id;
+  };
+  const shareCurrentStory = async (method) => {
+    const story = currentStory();
+    if (!story) return;
+    const version = state.slideVersion;
+    const button = sharePanel.querySelector(
+      method === "send" ? "[data-story-share-send]" :
+      method === "native" ? "[data-story-share-native]" : "[data-story-share-copy]");
+    if (button.disabled) return;
+    button.disabled = true;
     try {
-      if (navigator.share) {
-        await navigator.share(data);
+      if (!(await availableToShare(story))) throw Error("story_expired");
+      const url = storyShareUrl(story);
+      if (method === "send") {
+        const recipientId = sharePanel.querySelector("[data-story-share-person]").value;
+        if (!recipientId || recipientId === userId) {
+          actionStatus("Selecione outra pessoa para compartilhar.", true);
+          return;
+        }
+        if (story.visibility === "private" && recipientId !== story.author_id) {
+          actionStatus("Este story é privado e não pode ser encaminhado.", true);
+          return;
+        }
+        if (story.visibility === "selected" && recipientId !== story.author_id) {
+          const { data: permitted, error: permissionError } = await client.from("story_recipients")
+            .select("recipient_id").eq("story_id", story.id).eq("recipient_id", recipientId).maybeSingle();
+          if (permissionError) throw permissionError;
+          if (!permitted) {
+            actionStatus("Esse perfil não tem permissão para visualizar o story.", true);
+            return;
+          }
+        }
+        const created = await client.functions.invoke("looply-chat", {
+          body: { action: "create_direct", targetId: recipientId }
+        });
+        if (created.error || !created.data?.conversationId) throw created.error || Error("conversation_unconfirmed");
+        const { data: message, error } = await client.from("chat_messages")
+          .insert({ conversation_id: created.data.conversationId, sender_id: userId,
+            body: "Story compartilhado: " + url }).select("id").maybeSingle();
+        if (error || !message?.id) throw error || Error("share_message_unconfirmed");
+        if (viewer.open && currentStory()?.id === story.id && state.slideVersion === version) {
+          sharePanel.hidden = true;
+          actionStatus("Story enviado na conversa.");
+          resumeStoryTimer();
+        }
+      } else if (method === "native") {
+        if (!navigator.share) {
+          actionStatus("Compartilhamento do aparelho indisponível. Use Copiar link.", true);
+          return;
+        }
+        await navigator.share({ title: "Story no Looply", text: "Veja este story no Looply", url });
+        if (viewer.open && currentStory()?.id === story.id && state.slideVersion === version) {
+          sharePanel.hidden = true;
+          resumeStoryTimer();
+        }
       } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url.href);
-        actionStatus("Link copiado. Somente quem tem permissão poderá visualizar.");
+        await navigator.clipboard.writeText(url);
+        if (viewer.open && currentStory()?.id === story.id) actionStatus("Link copiado.");
       } else {
-        actionStatus("Link do Story: "+url.href);
+        actionStatus("Link do story: " + url);
       }
     } catch (error) {
-      if (error?.name !== "AbortError") actionStatus("Não foi possível compartilhar agora.", true);
-    }
+      if (error?.name !== "AbortError" && viewer.open && currentStory()?.id === story.id) {
+        console.warn("Looply story sharing failed.", error);
+        actionStatus(error?.message === "story_expired"
+          ? "Este story não está mais disponível."
+          : "Não foi possível compartilhar este story.", true);
+      }
+    } finally { button.disabled = false; }
   };
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
@@ -840,9 +956,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (event.target.closest("[data-story-media-retry]")) {
       const current = currentStory();
       if (!current) return;
+      const retryVersion = state.slideVersion;
       try {
         showStatus("Carregando mídia do story…");
         const refreshed = await loadStories(client);
+        if (!viewer.open || state.slideVersion !== retryVersion || currentStory()?.id !== current.id) return;
         state.groups = groupActiveStories(refreshed);
         const group = state.groups.find((item) => item.author_id === current.author_id);
         const nextStory = group?.stories.find((item) => item.id === current.id);
@@ -862,9 +980,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-share]")) {
-      await shareCurrentStory();
+      sharePanel.hidden = !sharePanel.hidden;
+      if (!sharePanel.hidden) {
+        clearTimer();
+        viewer.querySelector("[data-story-quick-reactions]").hidden = true;
+      } else resumeStoryTimer();
       return;
     }
+    if (event.target.closest("[data-story-share-close]")) {
+      sharePanel.hidden = true;
+      resumeStoryTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-share-send]")) { await shareCurrentStory("send"); return; }
+    if (event.target.closest("[data-story-share-copy]")) { await shareCurrentStory("copy"); return; }
+    if (event.target.closest("[data-story-share-native]")) { await shareCurrentStory("native"); return; }
     if (event.target.closest("[data-story-quick-reactions-toggle]")) {
       const picker=viewer.querySelector("[data-story-quick-reactions]");
       picker.hidden=!picker.hidden;
@@ -877,7 +1007,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (reaction) {
       const story=currentStory();
       const emoji=reaction.dataset.storyQuickReaction;
-      if(!story || story.author_id===userId || !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      if(!story || story.author_id===userId || state.replyPending.has(story.id) ||
+        !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      state.replyPending.add(story.id);
       reaction.disabled=true;
       try {
         const {data,error}=await client.rpc("send_story_reply",{p_story_id:story.id,p_body:emoji});
@@ -890,7 +1022,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         resumeStoryTimer();
       } catch (error) {
         actionStatus("Não foi possível enviar a reação. Confira as permissões e tente novamente.",true);
-      } finally {reaction.disabled=false;}
+      } finally {reaction.disabled=false;state.replyPending.delete(story.id);}
       return;
     }
     if (event.target.closest("[data-story-more]")) {
@@ -988,23 +1120,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (result.error) throw result.error;
         if (isLiked) state.likedStories.delete(story.id);
         else state.likedStories.add(story.id);
-        button.setAttribute("aria-pressed", isLiked ? "false" : "true");
-        viewer.querySelector("[data-story-like-label]").textContent = isLiked ? "Curtir" : "Curtido";
-        const icon = button.querySelector("[aria-hidden]");
-        if (icon) icon.textContent = isLiked ? "♡" : "♥";
+        if (viewer.open && currentStory()?.id === story.id) {
+          button.setAttribute("aria-pressed", isLiked ? "false" : "true");
+          viewer.querySelector("[data-story-like-label]").textContent = isLiked ? "Curtir" : "Curtido";
+          const icon = button.querySelector("[aria-hidden]");
+          if (icon) icon.textContent = isLiked ? "♡" : "♥";
+        }
       } catch (error) {
         console.error("Looply story reaction failed.", error);
         const status = viewer.querySelector("[data-story-reply-status]");
         status.textContent = "Não foi possível registrar sua curtida. Tente novamente.";
       } finally {
         state.likePending.delete(story.id);
-        button.disabled = false;
+        if (currentStory()?.id === story.id) button.disabled = false;
       }
       return;
     }
     if (event.target.closest("[data-story-insights-open]")) {
       const story = currentStory();
-      if (story && (story.author_id === userId || isAdmin)) await loadStoryInsights(story);
+      if (story && story.author_id === userId) await loadStoryInsights(story);
       return;
     }
     if (event.target.closest("[data-story-insights-close]")) {
@@ -1055,6 +1189,28 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const touchSurface = viewer.querySelector("[data-story-touch-surface]");
   let pointerStart = null;
   const replyForm = viewer.querySelector("[data-story-reply]");
+  const viewport = window.visualViewport;
+  const syncStoryKeyboard = () => {
+    const focused = viewer.open && viewer.contains(document.activeElement) &&
+      document.activeElement?.matches("input,textarea");
+    const obscured = focused && viewport
+      ? Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop)) : 0;
+    viewer.style.setProperty("--story-keyboard-inset", Math.round(obscured) + "px");
+  };
+  viewport?.addEventListener("resize", syncStoryKeyboard);
+  viewport?.addEventListener("scroll", syncStoryKeyboard);
+  viewer.addEventListener("focusin", syncStoryKeyboard);
+  viewer.addEventListener("focusout", () => requestAnimationFrame(syncStoryKeyboard));
+  root.__looplyStoryKeyboardCleanup = () => {
+    viewport?.removeEventListener("resize", syncStoryKeyboard);
+    viewport?.removeEventListener("scroll", syncStoryKeyboard);
+    viewer.style.removeProperty("--story-keyboard-inset");
+  };
+  replyForm.addEventListener("input", event => {
+    if (event.target.matches('input[name="reply"]') && currentStory()) {
+      state.replyDrafts.set(currentStory().id, event.target.value);
+    }
+  });
   replyForm.addEventListener("focusin", clearTimer);
   replyForm.addEventListener("focusout", (event) => {
     if (!replyForm.contains(event.relatedTarget)) resumeStoryTimer();
@@ -1093,14 +1249,22 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
   touchSurface.addEventListener("pointercancel", () => { pointerStart = null; });
   viewer.addEventListener("keydown", (event) => {
+    if (event.target.closest("input,select,textarea,[contenteditable=true]")) return;
     if (event.key === "ArrowRight") { event.preventDefault(); advance(1); }
     if (event.key === "ArrowLeft") { event.preventDefault(); advance(-1); }
   });
   viewer.addEventListener("close", () => {
     clearTimer();
-    const audio = viewer.querySelector("#story-audio");
-    if (audio) { audio.pause(); audio.currentTime = 0; }
-    viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
+    ++state.slideVersion;
+    ++state.insightsToken;
+    state.paused = false;
+    viewer.style.removeProperty("--story-keyboard-inset");
+    viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
+      audio.pause(); audio.removeAttribute("src"); audio.remove();
+    });
+    viewer.querySelectorAll("[data-story-viewer-media] video").forEach(video => {
+      video.pause(); video.removeAttribute("src"); video.load();
+    });
   });
   root.addEventListener("submit", async (event) => {
     const replyForm = event.target.closest("form[data-story-reply]");
@@ -1110,16 +1274,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const body = String(new FormData(replyForm).get("reply") || "").trim();
       const submit = replyForm.querySelector('button[type="submit"]');
       const replyStatus = viewer.querySelector("[data-story-reply-status]");
-      if (!story || story.author_id === userId || !body) return;
+      if (!story || story.author_id === userId || !body || state.replyPending.has(story.id)) return;
+      state.replyPending.add(story.id);
       submit.disabled = true;
+      state.replyDrafts.set(story.id, body);
       replyStatus.textContent = "Enviando em particular…";
       try {
         const { data, error } = await client.rpc("send_story_reply", { p_story_id: story.id, p_body: body });
         if (error) throw error;
         const reply = Array.isArray(data) ? data[0] : data;
-        if (!reply?.conversation_id) throw new Error("story_reply_unavailable");
-        replyStatus.textContent = "Resposta enviada em particular. Abrindo conversa…";
-        setTimeout(() => window.location.assign(`conversa.html?id=${encodeURIComponent(reply.conversation_id)}`), 650);
+        if (!reply?.conversation_id || !reply?.message_id || reply.story_id !== story.id) throw new Error("story_reply_unconfirmed");
+        state.replyDrafts.delete(story.id);
+        if (viewer.open && currentStory()?.id === story.id) {
+          replyStatus.textContent = "Resposta enviada. Abrindo conversa…";
+          window.location.assign(`conversa.html?id=${encodeURIComponent(reply.conversation_id)}`);
+        }
       } catch (error) {
         console.error("Looply story reply failed.", {
           code: error?.code || error?.cause?.code || "unknown",
@@ -1137,6 +1306,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           replyStatus.textContent = "A resposta não foi enviada. Verifique a conexão e tente novamente; sua mensagem não foi marcada como enviada.";
         }
       } finally {
+        state.replyPending.delete(story.id);
         submit.disabled = false;
       }
       return;
@@ -1159,8 +1329,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       state.active = { ...group, stories: activeStories };
       state.index = storyIndex;
-      renderSlide();
       openStoryDialog(viewer);
+      renderSlide();
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
     })();
   }
@@ -1198,6 +1368,8 @@ export function disposeStoriesRealtime(client, root) {
     root.__looplyStoryExpiryTimer = null;
     root.__looplyStoryStop?.();
     delete root.__looplyStoryStop;
+    root.__looplyStoryKeyboardCleanup?.();
+    delete root.__looplyStoryKeyboardCleanup;
     root.__looplyStudioStop?.();
     delete root.__looplyStudioStop;
     root.__looplyStoryClose?.();
