@@ -227,3 +227,85 @@ export async function saveNeonProfile({
     throw error;
   }
 }
+
+
+// Avatar-only flow: the crop dialog saves its own object and performs a Neon
+// compare-and-swap on avatar_path. It never submits unsaved name/bio/playlist
+// form inputs and cannot accidentally commit those edits.
+async function writeOnlyAvatar({dataApiUrl,token,profileId,fetchImpl,previousPath,nextPath}) {
+  let response;
+  try {
+    response = await fetchImpl(String(dataApiUrl).replace(/\/$/,"")+"/rpc/v9_save_self_avatar",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_previous_avatar:previousPath,p_next_avatar:nextPath})
+    });
+  }catch{throw fail("neon_profile_network_unavailable");}
+  if(!response.ok){
+    const issue=await response.json().catch(()=>null);
+    const error=fail(issue?.code==="40001"?"profile-update-conflict":
+      issue?.code==="42501"?"profile_permission_denied":
+      response.status===401?"session expired":"profile-update-not-confirmed",response.status);
+    if(issue?.code)error.code=issue.code;
+    throw error;
+  }
+  const rows=await response.json().catch(()=>null);
+  if(!Array.isArray(rows)||rows.length!==1||rows[0].id!==profileId||rows[0].avatar_path!==nextPath)
+    throw fail("profile-update-not-confirmed");
+  return rows[0];
+}
+
+export async function saveNeonAvatarOnly({
+  profileId,session,dataApiUrl,storage,avatarFile,
+  fetchImpl=fetch,randomUUID=()=>crypto.randomUUID(),imageCheck=verifySignedAvatar
+}) {
+  if(!UUID.test(profileId||""))throw fail("profile-not-owned");
+  const token=tokenFrom(session);
+  if(!dataApiUrl||!/^https:\/\//.test(dataApiUrl))throw fail("neon_profile_config_unavailable");
+  validateAvatarFile(avatarFile);
+  const previous=await profileRequest({dataApiUrl,token,profileId,fetchImpl});
+  const previousPath=previous.avatar_path||null;
+  const objectId=randomUUID();
+  if(!UUID.test(objectId))throw fail("avatar-upload-invalid-result");
+  const newPath=`avatars/${profileId}/${objectId}.${TYPES[avatarFile.type]}`;
+  const bucket=storage.from("looply-avatars");
+  let uploaded=false,committed=false;
+  try {
+    const {data,error}=await bucket.upload(newPath,avatarFile,{upsert:false,contentType:avatarFile.type});
+    if(error)throw error;
+    if(data?.path!==newPath)throw fail("avatar-upload-invalid-result");
+    uploaded=true;
+    await writeOnlyAvatar({dataApiUrl,token,profileId,fetchImpl,previousPath,nextPath:newPath});
+    committed=true;
+    const signed=await bucket.createSignedUrl(newPath,1800);
+    if(signed.error||!signed.data?.signedUrl)throw fail("avatar-upload-validation-failed");
+    await imageCheck(signed.data.signedUrl);
+    const reread=await profileRequest({dataApiUrl,token,profileId,fetchImpl});
+    if(reread.avatar_path!==newPath)throw fail("profile-update-not-confirmed");
+    if(previousPath&&previousPath!==newPath&&previousPath.startsWith(`avatars/${profileId}/`)){
+      try {
+        const removed=await bucket.remove([previousPath]);
+        if(removed.error)console.warn("Previous avatar cleanup unavailable",removed.error);
+      }catch(error){console.warn("Previous avatar cleanup unavailable",error);}
+    }
+    return {profile:reread,avatarPath:newPath,avatarUrl:signed.data.signedUrl};
+  }catch(error){
+    // Network response loss may happen AFTER the database committed.
+    // Do not remove the referenced object in that ambiguous situation.
+    let observed=null;
+    try { observed=await profileRequest({dataApiUrl,token,profileId,fetchImpl}); }
+    catch { /* unknown database state: keep object rather than risk corruption */ }
+    if(uploaded&&observed?.avatar_path===newPath){
+      try {
+        await writeOnlyAvatar({dataApiUrl,token,profileId,fetchImpl,previousPath:newPath,nextPath:previousPath});
+        committed=false;
+        observed=await profileRequest({dataApiUrl,token,profileId,fetchImpl});
+        if(observed.avatar_path!==previousPath)throw fail("avatar-rollback-failed");
+      }catch {throw fail("avatar-rollback-failed");}
+    }
+    if(uploaded&&observed&&observed.avatar_path!==newPath&&!committed){
+      try{await bucket.remove([newPath]);}catch{/* Leave server-side cleanup for retry. */}
+    }
+    throw error;
+  }
+}
