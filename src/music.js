@@ -317,9 +317,11 @@ export function musicMarkup(data, userId) {
   return musicContent(data, userId);
 }
 
-async function refreshMusic(root, client, userId) {
+async function refreshMusic(root, client, userId, { force = false } = {}) {
   const area = root.querySelector("[data-music-area]");
   if (!area) return false;
+  // Realtime updates must not destroy a user's open editing draft.
+  if (!force && area.querySelector("[data-music-dedication-edit-dialog][open]")) return false;
   area.setAttribute("aria-busy", "true");
   try {
     const latest = await loadMusicData(client, userId);
@@ -422,6 +424,14 @@ export function bindMusicEvents(root, client, getUserId) {
       form.elements.note.value = own.dedication_note;
       form.querySelector("[data-music-edit-status]").textContent = "";
       dedicationEdit = { id, userId: getUserId?.() };
+      dialog.addEventListener("close", () => {
+        if (dedicationEdit?.id === id) {
+          ++dedicationEditRequest;
+          dedicationEdit = null;
+          // Refresh any music events deferred while the draft was open.
+          void refreshMusic(root, client, getUserId?.());
+        }
+      }, { once: true });
       dialog.showModal();
       form.elements.note.focus();
     } catch (error) {
@@ -442,7 +452,7 @@ export function bindMusicEvents(root, client, getUserId) {
     try {
       await saveOwnDedicationNote(client, edit.id, edit.userId, note);
       if (dedicationEdit !== edit) return;
-      if (!await refreshMusic(root, client, edit.userId)) {
+      if (!await refreshMusic(root, client, edit.userId, { force: true })) {
         status.textContent = "Texto gravado no Neon, mas a lista não pôde ser atualizada. Seu texto continua aqui.";
         return;
       }
