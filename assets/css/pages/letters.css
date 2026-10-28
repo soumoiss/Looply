@@ -348,3 +348,13 @@
   .page-letters .carta-open .check { width:39px; height:44px; flex-basis:39px; }
 }
 @media(prefers-reduced-motion:reduce) { .page-letters .fab,.page-letters .filtros button { transition:none; } }
+
+/* Complete-letter editing remains usable above the mobile keyboard. */
+.page-letters #editorAdminCarta .modal-header { padding-top:max(14px, env(safe-area-inset-top)); }
+.page-letters #editorAdminCarta .modal-body { overscroll-behavior:contain; padding-bottom:max(22px, env(safe-area-inset-bottom)); }
+.page-letters #editorAdminCarta textarea[name="body"] { min-height:min(45dvh, 450px); max-width:100%; white-space:pre-wrap; overflow-wrap:anywhere; tab-size:4; }
+.page-letters #editorAdminCarta textarea:disabled { background:#f5f1e9; color:#666; opacity:1; }
+.page-letters #editorAdminCarta #adminEditStatus:not(:empty) { padding:8px 0; font-size:13px; line-height:1.45; }
+.page-letters #editorAdminCarta button:disabled { opacity:.55; cursor:not-allowed; }
+.page-letters #editorAdminCarta button:focus-visible, .page-letters #editorAdminCarta textarea:focus-visible { outline:3px solid #20b99a; outline-offset:3px; }
+.page-letters #editarCartaLida { min-height:44px; align-self:flex-start; }
