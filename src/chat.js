@@ -1,7 +1,8 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
-import { cachedSignedUrls } from "./storage-url-cache.js";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
+import { stickerCatalogMarkup, bindStickerCatalog } from "./chat-sticker-catalog.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
@@ -148,21 +149,37 @@ export async function loadChatData(client, userId) {
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const profiles = profilesResult.data || [];
-  const avatarProfiles = new Map();
-  for (const profile of profiles) if (profile.avatar_path) avatarProfiles.set(profile.id, profile);
-  for (const conversation of conversations) {
-    for (const participant of conversation.participants || []) {
-      if (participant.profile?.avatar_path) avatarProfiles.set(participant.profile.id, participant.profile);
-    }
-  }
-  const avatarList = [...avatarProfiles.values()];
-  if (avatarList.length) {
-    const { data: signed } = await cachedSignedUrls(client, "looply-avatars", avatarList.map((profile) => profile.avatar_path), 1800);
-    if (signed) avatarList.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+  // Both profile search and nested conversation participants hold distinct
+  // objects for the same profile ID. Assign signed URLs to EVERY reference,
+  // not just the last reference inserted into a Map.
+  const profileReferences = [...profiles, ...conversations.flatMap(c =>
+    (c.participants || []).map(participant => participant.profile).filter(Boolean))];
+  const paths = new Map();
+  for (const person of profileReferences) if (person?.id && person.avatar_path)
+    paths.set(person.id, person.avatar_path);
+  const avatarUrls = new Map();
+  await Promise.all([...paths.entries()].map(async ([id,path]) => {
+    const signed = await cachedSignedUrl(client, "looply-avatars", path, 1800);
+    if (signed?.data?.signedUrl) avatarUrls.set(id, signed.data.signedUrl);
+    else if (signed?.error) console.warn("Chat avatar unavailable for profile", id, signed.error);
+  }));
+  for (const person of profileReferences)
+    if (person?.id) person.avatarUrl = avatarUrls.get(person.id) || null;
+  const groupIds = conversations.filter(c => c.kind === "group").map(c => c.id);
+  const covers = new Map();
+  if (groupIds.length) {
+    const {data:rows,error} = await client.from("group_covers")
+      .select("conversation_id,storage_path").in("conversation_id",groupIds);
+    if (error) console.warn("Chat group covers unavailable",error);
+    else await Promise.all((rows || []).map(async row => {
+      const signed = await cachedSignedUrl(client,"looply-chat",row.storage_path,1800);
+      if (signed?.data?.signedUrl) covers.set(row.conversation_id,signed.data.signedUrl);
+    }));
   }
   return {
     conversations: conversations.map((conversation) => ({
       ...conversation,
+      coverUrl: covers.get(conversation.id) || null,
       lastMessage: latestByConversation.get(conversation.id) || null,
       lastReadAt: readByConversation.get(conversation.id),
       unreadCount: unreadByConversation.get(conversation.id) || 0
@@ -182,7 +199,9 @@ function conversationLabel(conversation, userId) {
 
 function conversationAvatar(conversation, userId) {
   if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
-  if (conversation.kind === "group") return `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
+  if (conversation.kind === "group") return conversation.coverUrl
+    ? `<img class="chat-conversation-avatar chat-group-avatar" src="${escapeHtml(conversation.coverUrl)}" alt="Foto do grupo" loading="lazy" referrerpolicy="no-referrer">`
+    : `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   return profile?.avatarUrl
@@ -221,8 +240,6 @@ export function chatMarkup(data, userId) {
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
     <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
       <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
-      <button type="button" data-chat-filter="groups" aria-pressed="${conversationFilter === "groups"}">Grupos</button>
-      <button type="button" data-chat-filter="unread" aria-pressed="${conversationFilter === "unread"}">Não lidas</button>
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
@@ -536,7 +553,7 @@ function messageComposerMarkup(conversationId) {
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
     <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
-    <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div><p>Escolha uma imagem estática do aparelho. A seleção de arquivo só abre depois deste passo.</p><button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Selecionar do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
+    <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div>${stickerCatalogMarkup()}<button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Usar imagem do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
     <div class="chat-recorder" data-chat-recording hidden><span class="chat-recording-indicator" aria-hidden="true"></span><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-pause aria-pressed="false">Pausar</button><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -757,6 +774,7 @@ export function disposeChatRealtime(client) {
 }
 
 export function bindChatEvents(root, client, getUserId) {
+  bindStickerCatalog(root,client,getUserId);
   root.dataset.chatUserId = getUserId?.() || "";
   // Signed avatar URLs may expire or the stored object may be missing. Replace only
   // failed images with the same visual fallback used when no avatar is configured.
@@ -894,8 +912,7 @@ export function bindChatEvents(root, client, getUserId) {
       return;
     }
     if (conversationFilterButton) {
-      conversationFilter = ["all", "unread", "groups", "favorites"].includes(conversationFilterButton.dataset.chatFilter)
-        ? conversationFilterButton.dataset.chatFilter : "all";
+      conversationFilter = "all";
       root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
       applyConversationFilter(root);
       return;
