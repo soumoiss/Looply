@@ -41,6 +41,24 @@ export function cameraCoverCrop(sourceWidth, sourceHeight, targetWidth, targetHe
   const height = sourceWidth / targetRatio;
   return { x:0, y:(sourceHeight-height)/2, width:sourceWidth, height };
 }
+// A single source rectangle drives the on-screen cover preview and actual encoded
+// frames. No stretching or initial digital zoom; pinch zoom is opt-in only.
+export function cameraCaptureCrop(sourceWidth, sourceHeight, targetWidth, targetHeight, zoom=1) {
+  const cover=cameraCoverCrop(sourceWidth,sourceHeight,targetWidth,targetHeight);
+  if(!cover)return null;
+  const factor=Math.max(1,Number.isFinite(zoom)?zoom:1);
+  const width=cover.width/factor,height=cover.height/factor;
+  return {x:cover.x+(cover.width-width)/2,y:cover.y+(cover.height-height)/2,width,height};
+}
+export function cameraMediaConstraints(facing, ratio="9:16") {
+  const size=storyCanvasSize(ratio);
+  return {video:{
+    facingMode:{ideal:facing},
+    width:{ideal:size.width},height:{ideal:size.height},
+    aspectRatio:{ideal:size.width/size.height},
+    resizeMode:{ideal:"none"}
+  },audio:true};
+}
 const FORMATS = Object.freeze({
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
   "video/mp4": "mp4", "video/webm": "webm"
@@ -57,8 +75,10 @@ export function storyStudioMarkup(recipientOptions) {
     '<form class="studio-shell" data-studio-form novalidate>' +
       '<div class="studio-stage" data-studio-stage>' +
         '<video class="studio-camera-backdrop studio-camera-only" data-studio-backdrop-video autoplay playsinline muted aria-hidden="true"></video>' +
-        '<video class="studio-camera" data-studio-video autoplay playsinline muted></video>' +
-        '<canvas class="studio-lens" data-studio-lens aria-hidden="true"></canvas>' +
+        '<div class="studio-camera-framing studio-camera-only" data-studio-camera-framing>' +
+          '<video class="studio-camera" data-studio-video autoplay playsinline muted></video>' +
+          '<canvas class="studio-lens" data-studio-lens aria-hidden="true"></canvas>' +
+        '</div>' +
         '<div class="studio-screen-light" data-studio-screen-light aria-hidden="true"></div>' +
         '<div class="studio-grid-lines" data-studio-grid hidden></div>' +
         '<div class="studio-aspect-frame studio-camera-only" data-studio-aspect-frame aria-hidden="true"></div>' +
@@ -219,6 +239,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const size = currentCanvasSize();
     const frame = $("[data-studio-aspect-frame]");
     frame.style.aspectRatio = size.width + " / " + size.height;
+    stage.style.setProperty("--studio-camera-ratio", String(size.width / size.height));
     stage.dataset.aspect = settings.ratio.replace(":", "x");
     $("[data-studio-ratio]").textContent = settings.ratio;
     $("[data-studio-ratio]").setAttribute("aria-label", "Proporção da captura: " + settings.ratio);
@@ -295,37 +316,27 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     await new Promise(resolve => setTimeout(resolve, 350));
   };
   const drawLiveFrame = (ctx, canvas) => {
-    const sourceW = video.videoWidth, sourceH = video.videoHeight;
-    if (!sourceW || !sourceH) throw new Error("A câmera ainda não está pronta.");
-    const factor = zoomMode === "digital" ? settings.zoom : 1;
-    // Encode a 9:16 file without inventing pixels or cropping the camera sensor.
-    // Landscape/square sensors are fitted inside the portrait canvas; this is
-    // the only way to keep the exact field of view without artificial zoom.
-    const frame = containRect(sourceW, sourceH, canvas.width, canvas.height);
-    if (!frame) throw new Error("Não foi possível preparar o enquadramento.");
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const cropW = sourceW / factor, cropH = sourceH / factor;
-    const sx = (sourceW - cropW) / 2, sy = (sourceH - cropH) / 2;
-    const drawLayer = layer => {
-      // HTMLVideoElement.width/height are often zero on Android unless explicit
-      // attributes were supplied. videoWidth/videoHeight are the decoded frame.
-      const layerW = layer.videoWidth || layer.width || sourceW;
-      const layerH = layer.videoHeight || layer.height || sourceH;
-      const scaleX = layerW / sourceW, scaleY = layerH / sourceH;
+    const sourceW=video.videoWidth,sourceH=video.videoHeight;
+    if(!sourceW||!sourceH)throw Error("A câmera ainda não está pronta.");
+    // The frame inside .studio-camera-framing uses object-fit:cover.
+    // Draw exactly the same centered source rectangle into output pixels.
+    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,
+      zoomMode==="digital"?settings.zoom:1);
+    if(!crop)throw Error("Não foi possível preparar o enquadramento.");
+    const drawLayer=layer=>{
+      const layerW=layer.videoWidth||layer.width||sourceW;
+      const layerH=layer.videoHeight||layer.height||sourceH;
+      const scaleX=layerW/sourceW,scaleY=layerH/sourceH;
       ctx.save();
-      if (settings.facing === "user") {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
+      if(settings.facing==="user"){
+        ctx.translate(canvas.width,0);ctx.scale(-1,1);
       }
-      ctx.drawImage(layer, sx * scaleX, sy * scaleY, cropW * scaleX, cropH * scaleY,
-        frame.x, frame.y, frame.width, frame.height);
+      ctx.drawImage(layer,crop.x*scaleX,crop.y*scaleY,crop.width*scaleX,crop.height*scaleY,
+        0,0,canvas.width,canvas.height);
       ctx.restore();
     };
     drawLayer(video);
-    // An empty WebGL/canvas layer may be opaque black on Android. Composite it
-    // only while a real, prepared face lens is active.
-    if (settings.face !== "none" && lensReady && lens.width && lens.height) drawLayer(lens);
+    if(settings.face!=="none"&&lensReady&&lens.width&&lens.height)drawLayer(lens);
   };
   const stopCamera = () => {
     if (recorder?.state === "recording") recorder.stop();
