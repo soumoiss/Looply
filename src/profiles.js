@@ -56,7 +56,7 @@ export function profileAreaMarkup(profile, isAdmin = false) {
           <label for="profileCropZoom">Zoom</label><input id="profileCropZoom" data-crop-zoom type="range" min="1" max="3" step="0.01" value="1">
           <label for="profileCropX">Mover para esquerda ou direita</label><input id="profileCropX" data-crop-x type="range" min="0" max="100" value="50">
           <label for="profileCropY">Mover para cima ou para baixo</label><input id="profileCropY" data-crop-y type="range" min="0" max="100" value="50">
-          <div class="profile-crop-actions"><button type="button" class="text-button" data-crop-cancel><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Cancelar</button><button type="button" class="primary-button compact-button" data-crop-save><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Salvar recorte</button></div>
+          <div class="profile-crop-actions"><button type="button" class="text-button" data-crop-cancel><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Cancelar</button><button type="button" class="primary-button compact-button" data-crop-save><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Salvar foto</button></div><p class="profile-crop-status" data-crop-save-status role="status" aria-live="polite"></p>
         </form>
       </dialog>
     </section>
@@ -262,6 +262,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         form,input,bitmap:source.bitmap,previewUrl:url};
       cropImage.src=url;
       cropZoom.value="1";cropX.value="50";cropY.value="50";updateCropPreview();
+      cropDialog.querySelector("[data-crop-save-status]").textContent="";
       if(!cropDialog.open)cropDialog.showModal();
       setStatus(form,"Ajuste a foto e toque em Salvar foto.", "info");
     }catch(error){
@@ -271,7 +272,8 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         : "Não foi possível processar esta imagem. Tente outra foto ou formato.");
     }
   });
-  const closeCrop=(discard)=>{
+  const closeCrop=(discard, force=false)=>{
+    if(avatarSaving&&!force)return;
     if(!cropContext)return;const {form,input,bitmap}=cropContext;
     if(discard){input.value="";setStatus(form,"Recorte cancelado. A foto atual foi preservada.","info");}
     bitmap.close();if(cropImage?.src.startsWith("blob:"))URL.revokeObjectURL(cropImage.src);cropImage?.removeAttribute("src");cropContext=null;
@@ -288,6 +290,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
     const controls=[...form.querySelectorAll("input[data-avatar-input], [data-avatar-remove]")];
     controls.forEach(control=>control.disabled=true);
     setStatus(form,"Salvando foto no Neon…","info");
+    cropDialog.querySelector("[data-crop-save-status]").textContent="Salvando foto…";
     try{
       const scale=Math.max(512/width,512/height)*Number(cropZoom.value||1);
       const dw=width*scale,dh=height*scale;
@@ -322,14 +325,16 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
       renderAvatarPreview(preview,saved.avatarUrl,form);
       const remove=form.querySelector("[data-avatar-remove]");
       if(remove){remove.hidden=false;remove.textContent="Remover foto";}
-      closeCrop(false);
+      closeCrop(false,true);
       setStatus(form,"Foto de perfil salva e confirmada no Neon.","success");
+      cropDialog.querySelector("[data-crop-save-status]").textContent="";
       window.dispatchEvent(new CustomEvent("looply:avatar-updated",{
         detail:{profileId:userId,avatar_path:saved.avatarPath,avatarUrl:saved.avatarUrl}
       }));
     }catch(error){
       console.error("Looply independent avatar save failed",error);
       setStatus(form,avatarSaveErrorMessage(error),"error");
+      cropDialog.querySelector("[data-crop-save-status]").textContent=avatarSaveErrorMessage(error);
       // Keep crop dialog and bitmap alive for retry; do not replace the saved URL.
     }finally{
       avatarSaving=false;button.disabled=false;
