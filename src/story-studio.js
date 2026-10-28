@@ -5,6 +5,9 @@ import { encodeStorySong } from "./story-music-catalog.js";
 import { openStoryMusicPicker } from "./story-music-picker.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
+import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
+  storyTextPinchSize, storyTextClampPosition, storyTextFont, storyTextFontCss,
+  storyTextLayerLayout, storyTextPaintLayer, storyTextEnsureFonts } from "./story-text-layers.js";
 
 const FILTERS = Object.freeze({ none:"none", glow:"brightness(1.07) contrast(1.04) saturate(1.12)", golden:"sepia(.18) saturate(1.24) contrast(1.07)", cool:"saturate(.86) hue-rotate(10deg) brightness(1.05)", mono:"grayscale(1) contrast(1.12)" });
 const LIMIT = 30_000;
@@ -137,6 +140,7 @@ export function storyStudioMarkup(recipientOptions) {
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
+          '<button type="button" class="studio-icon studio-layer-edit-action" data-studio-edit-selected aria-label="Editar texto selecionado" hidden>✎</button>' +
 
           '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">♫<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
           '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
@@ -215,15 +219,12 @@ function drawCover(ctx, media, w, h) {
 }
 function paintLayers(ctx, root, w, h) {
   root.querySelectorAll("[data-studio-overlay]").forEach(el => {
-    const x = (+el.dataset.x || 0.5) * w;
-    const y = (+el.dataset.y || 0.5) * h;
-    const size = (+el.dataset.size || 36) * (w / 390);
-    ctx.font = (el.dataset.font || "700 ") + size + "px " + (el.dataset.family || "system-ui");
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = el.dataset.color || "#ffffff";
-    ctx.shadowColor = "#0009"; ctx.shadowBlur = 10;
-    String(el.textContent || "").split("\n").slice(0, 8).forEach((line, i) => ctx.fillText(line, x, y + i * size * 1.1, w * .85));
-    ctx.shadowBlur = 0;
+    storyTextPaintLayer(ctx,{
+      text:el.dataset.text ?? el.textContent,
+      x:Number(el.dataset.x),y:Number(el.dataset.y),
+      size:Number(el.dataset.size),font:el.dataset.fontId||STORY_TEXT_DEFAULT_FONT,
+      color:el.dataset.color
+    },w,h);
   });
 }
 function makeSynthBuffer(context, track) {
@@ -240,7 +241,7 @@ function makeSynthBuffer(context, track) {
   return buffer;
 }
 function cleanName(value) {
-  return String(value || "").replace(/[\u0000-\u001F<>]/g, "").slice(0, 120);
+  return storyTextNormalize(value);
 }
 
 export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) {
@@ -263,6 +264,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let recorder = null, frames = null, captureStream = null, chunks = [], hold = null, held = false, pointer = null;
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
   let selectedMentionIds = [];
+  let selectedLayer=null;
+  const measureCanvas=document.createElement("canvas");
+  const measureContext=measureCanvas.getContext("2d");
   let stopMusicPreview = () => {};
   let sourceKind = "none", sourceFromCamera = false, isBoomerang = false, currentBackground = "#7c3ed7", editFilter = "none", lastThumb = null;
   let zoomMode = "digital", zoomLimit = 3, zoomBase = 1, zoomTrack = null;
@@ -303,6 +307,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const clearPreview = () => {
     edits.replaceChildren(); edits.hidden = true; revokeUrl();
     overlayRoot.replaceChildren(); file = null; sourceKind = "none"; sourceFromCamera = false; selectedMentionIds = [];
+    selectedLayer=null;
+    $("[data-studio-edit-selected]").hidden=true;
   };
   const flashButton = $("[data-studio-flash]");
   const resetFlash = () => {
