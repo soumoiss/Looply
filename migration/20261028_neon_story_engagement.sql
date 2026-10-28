@@ -59,3 +59,9 @@ END
 $fn$;
 REVOKE ALL ON FUNCTION public.send_story_reply(uuid,text) FROM public,anonymous;
 GRANT EXECUTE ON FUNCTION public.send_story_reply(uuid,text) TO authenticated;
+
+-- Only participants in the saved conversation may resolve reply-to-story
+-- references. Table RLS is already enabled in the current Neon schema.
+CREATE POLICY looply_v10_story_reply_conversation_read
+ON public.story_replies FOR SELECT TO authenticated
+USING (public.v3_is_conversation_participant(conversation_id));
