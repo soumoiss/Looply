@@ -22,7 +22,7 @@ export async function convertHeicAvatar(file) {
   if(!(blob instanceof Blob) || blob.size===0)throw Error("heic-decoder-unavailable");
   return new File([blob],"avatar-convertido.jpg",{type:"image/jpeg",lastModified:Date.now()});
 }
-export async function prepareAvatarSource(file,{bitmapFactory=createImageBitmap,heicConverter=convertHeicAvatar}={}) {
+export async function prepareAvatarSource(file,{bitmapFactory=(...args)=>createImageBitmap(...args),heicConverter=convertHeicAvatar}={}) {
   const mime=avatarFileType(file);
   if(!mime || !Number.isFinite(file?.size) || file.size<=0 || file.size>MAX_AVATAR_SOURCE_BYTES)
     throw Error("avatar-file-invalid");
