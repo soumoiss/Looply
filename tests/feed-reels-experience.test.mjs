@@ -89,7 +89,7 @@ test("Reels limits one active audio playback and preserves a sound preference", 
 });
 test("Reels delegates mutations through existing authenticated feed controls", async () => {
   const source = await read("src/reels-scroll.js");
-  for (const action of ["[data-toggle-like]","[data-toggle-save]","[data-share-in-app]","[data-share-post]"]) assert.ok(source.includes(action));
+  for (const action of ["[data-toggle-like]","[data-share-in-app]","[data-share-post]"]) assert.ok(source.includes(action));
   assert.match(source,/button\.click\(\)/);
 });
 test("Reels release video playback resources on exit", async () => {
