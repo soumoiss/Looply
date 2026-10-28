@@ -102,7 +102,7 @@ export function musicPlayerMarkup(item) {
 
 export async function loadMusicData(client, userId) {
   const [peopleResult, dedicationsResult, libraryResult, generalCommentsResult] = await Promise.all([
-    client.from("profiles").select("id,username,display_name,avatar_path").in("profile_visibility", ["members", "public"]).order("username").limit(250),
+    client.from("profiles").select("id,username,display_name,avatar_path") .order("username").limit(250),
     client.from("music_dedications")
       .select("id,sender_id,recipient_id,title,artist,listen_url,dedication_note,created_at,sender:profiles!music_dedications_sender_id_fkey(username,display_name),recipient:profiles!music_dedications_recipient_id_fkey(username,display_name),comments:music_comments(id,author_id,body,visibility,created_at,author:profiles!music_comments_author_id_fkey(username,display_name))")
       .order("created_at", { ascending: false }).limit(50),
@@ -842,7 +842,7 @@ export function bindMusicEvents(root, client, getUserId) {
         const listenUrl = song?.url || "";
         const supported = Boolean(song);
         const resolvedRecipientIds = recipientIds.includes("all-users")
-          ? (await client.from("profiles").select("id").neq("id", userId).in("profile_visibility", ["members", "public"])).data?.map((profile) => profile.id) || []
+          ? (await client.from("profiles").select("id").neq("id", userId) ).data?.map((profile) => profile.id) || []
           : recipientIds.filter((id) => id !== userId);
         if (!title || title.length > 160 || !resolvedRecipientIds.length || !supported) throw new Error("music-fields");
         const rows = resolvedRecipientIds.map((recipient_id) => ({ sender_id:userId, recipient_id, title, artist, dedication_note: note, listen_url: listenUrl }));
