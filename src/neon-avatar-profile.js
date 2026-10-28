@@ -309,3 +309,23 @@ export async function saveNeonAvatarOnly({
     throw error;
   }
 }
+
+
+// Remove the profile image without submitting or changing general profile fields.
+export async function removeNeonAvatarOnly({profileId,session,dataApiUrl,storage,fetchImpl=fetch}) {
+  if(!UUID.test(profileId||""))throw fail("profile-not-owned");
+  const token=tokenFrom(session);
+  if(!dataApiUrl||!/^https:\/\//.test(dataApiUrl))throw fail("neon_profile_config_unavailable");
+  const current=await profileRequest({dataApiUrl,token,profileId,fetchImpl});
+  const oldPath=current.avatar_path||null;
+  if(!oldPath)return {profile:current,avatarPath:null,avatarUrl:""};
+  await writeOnlyAvatar({dataApiUrl,token,profileId,fetchImpl,previousPath:oldPath,nextPath:null});
+  const verified=await profileRequest({dataApiUrl,token,profileId,fetchImpl});
+  if(verified.avatar_path!==null)throw fail("profile-update-not-confirmed");
+  // Historical recovery objects stay intact; current-owned paths can be cleaned.
+  if(oldPath.startsWith(`avatars/${profileId}/`)){
+    try{const result=await storage.from("looply-avatars").remove([oldPath]);if(result.error)console.warn("Old avatar object cleanup unavailable",result.error);}
+    catch(error){console.warn("Old avatar object cleanup unavailable",error);}
+  }
+  return {profile:verified,avatarPath:null,avatarUrl:""};
+}
