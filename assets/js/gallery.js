@@ -1059,7 +1059,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       if (e.clientY > box.bottom - Math.max(68, box.height * .23)) return;
       if (e.target.closest("button,input")) return;
     }
-    viewerMedia.setPointerCapture?.(e.pointerId);
+    // Capture the image for pan/zoom; leave native video tap/play controls intact.
+    if (img) viewerMedia.setPointerCapture?.(e.pointerId);
     gestureController.beginPointer(e.pointerId, e.clientX, e.clientY);
   });
   viewerMedia.addEventListener("pointermove", e => {
