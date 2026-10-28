@@ -1,4 +1,5 @@
 /* Loooply Stories Studio: isolated mobile-first editor. Legacy composer styles do not apply. */
+@import url("https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@700&family=Manrope:wght@700&family=Playfair+Display:wght@700&family=Space+Mono:wght@700&display=swap");
 .story-studio { position:fixed; inset:0; margin:0; width:100vw; height:100dvh; max-width:none; max-height:none; overflow:hidden; background:#000; color:#fff; border:0; border-radius:0; padding:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
 .story-studio::backdrop { background:#000; }
 .story-studio[open] { display:block; }
@@ -520,4 +521,112 @@
   .story-studio .studio-audio-pill { max-width: 55vw; }
   .story-studio .studio-pill { padding: 7px 8px; font-size: 10px !important; }
   .story-studio .studio-modal[data-sheet="music"] .studio-catalog-song { padding: 8px; }
+}
+
+/* Story typography workspace — canvas and editor share the same content plane. */
+.story-studio .studio-stage[data-mode="edit"] .studio-edited-media,
+.story-studio .studio-stage[data-mode="edit"] .studio-overlays,
+.story-studio .studio-stage[data-mode="text"] .studio-overlays {
+  position:absolute;
+  inset:auto;
+  left:50%;top:50%;
+  width:min(100%,calc(100dvh * var(--studio-camera-ratio,0.5625)));
+  height:auto;
+  aspect-ratio:var(--studio-camera-ratio,0.5625);
+  transform:translate(-50%,-50%);
+  overflow:visible;
+}
+.story-studio .studio-stage[data-mode="edit"] .studio-edited-media {
+  display:grid;place-items:center;
+  overflow:hidden;
+  background:#030303;
+}
+.story-studio .studio-stage[data-mode="edit"] .studio-edited-media > img,
+.story-studio .studio-stage[data-mode="edit"] .studio-edited-media > video {
+  display:block;width:100%;height:100%;
+  object-fit:contain!important;
+}
+.story-studio .studio-stage[data-mode="edit"] .studio-overlays,
+.story-studio .studio-stage[data-mode="text"] .studio-overlays {
+  z-index:6;pointer-events:none;
+}
+.story-studio .studio-overlays .studio-overlay {
+  position:absolute;
+  width:max-content;
+  max-width:85%;
+  padding:4px 7px;
+  margin:0;
+  border:1px solid transparent;
+  border-radius:10px;
+  background:transparent;
+  text-align:center;
+  white-space:pre;
+  overflow-wrap:normal;
+  word-break:normal;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+  pointer-events:auto;
+  line-height:1.14;
+  transform:translate(-50%,-50%);
+  cursor:grab;
+}
+.story-studio .studio-overlays .studio-overlay.is-selected {
+  border:1px dashed #f7f2ffb8;
+  outline:1px solid #000a;
+  background:#00000026;
+}
+.story-studio .studio-overlays .studio-overlay.is-selected::after {
+  content:"";
+  position:absolute;right:-7px;bottom:-7px;
+  width:11px;height:11px;border-radius:50%;
+  background:#e9e1ff;border:2px solid #6e48ac;
+  pointer-events:none;
+}
+.story-studio .studio-layer-edit-action:not([hidden]) {
+  border-color:#f7f2ff99;
+  background:#7949d6c9;
+}
+.story-studio .studio-font-fieldset {
+  border:0;margin:10px 0;padding:0;min-width:0;
+}
+.story-studio .studio-font-fieldset legend {
+  font-weight:700;font-size:13px;margin-bottom:9px;
+}
+.story-studio .studio-font-choices {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+}
+.story-studio .studio-font-choice {
+  display:grid;place-items:center;
+  min-height:56px;padding:9px 12px;
+  border:1px solid #ffffff48;border-radius:12px;
+  background:#ffffff13;color:#fff;font-size:17px;
+  text-align:center;
+}
+.story-studio .studio-font-choice[aria-pressed="true"] {
+  border:2px solid #d6c1ff;background:#6638ad77;
+}
+.story-studio .studio-font-sample {
+  display:grid;place-items:center;
+  min-height:62px;margin-top:8px;
+  padding:10px;overflow-wrap:anywhere;
+  border-radius:13px;background:#ffffff14;
+  text-align:center;
+}
+.story-studio .studio-font-status {
+  min-height:20px;color:#ffd1cd;font-size:12px;
+}
+.story-studio .studio-layer-text-label textarea {
+  min-height:96px;resize:vertical;line-height:1.45;
+  white-space:pre-wrap;user-select:text;-webkit-user-select:text;
+}
+.story-studio .studio-font-fieldset,
+.story-studio .studio-modal-panel textarea,
+.story-studio .studio-modal-panel input {
+  touch-action:auto;
+}
+@media(max-width:390px){
+ .story-studio .studio-font-choices{gap:6px}
+ .story-studio .studio-font-choice{font-size:15px;min-height:52px}
+ .story-studio .studio-modal-panel{max-height:85dvh}
 }
