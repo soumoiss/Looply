@@ -516,8 +516,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.addEventListener("playing",()=>{music.dataset.playback="playing";unlock.remove();});
       music.addEventListener("error",()=>{
         music.dataset.playback="unavailable";
-        if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
         unlock.hidden=false;
+        unlock.setAttribute("aria-label","Tentar reproduzir a música do Story");
+        // An unavailable stream must not be presented as playing.
+        if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
       });
       if (!waitsForVideo) void music.play().then(()=>{
         music.dataset.playback="playing";unlock.remove();
@@ -528,7 +530,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         }
       });
     }
-    if (storyText.music?.previewUrl) {
+    // A Story can carry both legacy text metadata and the newer Audius marker.
+    // Only one external soundtrack must play on a slide.
+    if (!audiusStream && storyText.music?.previewUrl) {
       const music = document.createElement("audio");
       music.id = "story-audio";
       music.dataset.storyViewerMusic = "";
