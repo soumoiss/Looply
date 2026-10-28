@@ -22,7 +22,7 @@ test("Stories Studio and original controller parse as ES modules", () => {
 
 test("Home loads the new editor and cache-busted controller", () => {
   assert.match(home, /story-studio\.css/);
-  assert.match(homeEntrypoint, /stories\.js\?v=(portrait-capture-20261026|profile-discovery-20261028|portrait-real-camera-20261028|story-text-mobile-20261028|story-music-unified-20261028)/);
+  assert.match(homeEntrypoint, /stories\.js\?v=(portrait-capture-20261026|profile-discovery-20261028|portrait-real-camera-20261028|story-text-mobile-20261028|story-music-unified-20261028|story-publish-official-20261028)/);
   assert.match(stories, /storyStudioMarkup\(recipientOptions\)/);
   assert.match(stories, /bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
   assert.doesNotMatch(stories, /story-create-dialog"/);
