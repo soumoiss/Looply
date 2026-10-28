@@ -190,7 +190,7 @@ async function importStickerFiles(picker,files,client,userId) {
   const state=stateFor(picker);
   if (state.importing) return;
   state.importing=true;
-  let imported=0,failed=0,uncertain=0;
+  let imported=0,failed=0,uncertain=0,duplicates=0;
   try {
     for (const [index,file] of files.entries()) {
       if (!picker.isConnected) break;
@@ -198,6 +198,12 @@ async function importStickerFiles(picker,files,client,userId) {
       let path="", inserted=false;
       try {
         const normalized=await normalizeImportedSticker(file);
+        const digest=await crypto.subtle.digest("SHA-256",await normalized.arrayBuffer());
+        const hash=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+        const existing=await client.from("sticker_catalog").select("id")
+          .eq("owner_id",userId).eq("content_sha256",hash).limit(1);
+        if (existing.error) throw existing.error;
+        if (existing.data?.length) {duplicates++;continue;}
         path=`stickers/${userId}/${crypto.randomUUID()}.webp`;
         const upload=await client.storage.from("looply-stickers").upload(path,normalized,{contentType:"image/webp"});
         if (upload.error) throw upload.error;
@@ -205,7 +211,7 @@ async function importStickerFiles(picker,files,client,userId) {
           .replace(/\.[^.]+$/,"").replace(/[<>]/g,"").trim().slice(0,100)||"Figurinha";
         const added=await client.from("sticker_catalog").insert({
           slug:"u-"+crypto.randomUUID(),title,owner_id:userId,storage_path:path,
-          byte_size:normalized.size,source_name:"Importação pessoal"
+          byte_size:normalized.size,source_name:"Importação pessoal",content_sha256:hash
         }).select("id,storage_path").single();
         if (added.error || !added.data?.id) throw added.error||Error("sticker_insert_failed");
         inserted=true;
@@ -229,7 +235,7 @@ async function importStickerFiles(picker,files,client,userId) {
       button.setAttribute("aria-pressed",String(button.dataset.chatCatalogTab==="all")));
     state.offset=0;
     await loadPage(picker,client,userId,true);
-    setStatus(picker,`${imported} figurinha(s) importada(s)${failed?" · "+failed+" falharam":""}${uncertain?" · "+uncertain+" pendente(s) de verificação":""}.`);
+    setStatus(picker,`${imported} importada(s)${duplicates?" · "+duplicates+" já existente(s)":""}${failed?" · "+failed+" falharam":""}${uncertain?" · "+uncertain+" pendente(s) de verificação":""}.`);
   } finally {state.importing=false;}
 }
 export function bindStickerCatalog(root, client, getUserId) {
@@ -339,7 +345,9 @@ export function bindStickerCatalog(root, client, getUserId) {
     if (!rights?.checked) {setStatus(picker,"Confirme que você pode compartilhar as imagens.");return;}
     if (files.length>30) {setStatus(picker,"Selecione até 30 imagens por lote.");return;}
     if (stateFor(picker).importing) return;
-    await importStickerFiles(picker,files,client,getUserId?.());
+    const userId=getUserId?.();
+    if (!userId) {setStatus(picker,"Entre na sua conta para importar.");return;}
+    await importStickerFiles(picker,files,client,userId);
   });
   root.addEventListener("input", event => {
     const input = event.target.closest("[data-chat-catalog-search]");
