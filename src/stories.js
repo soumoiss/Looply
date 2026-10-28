@@ -1,4 +1,4 @@
-import { audiusStoryStreamUrl, decodeStorySong } from "./story-music-catalog.js?v=story-music-unified-20261028";
+import { audiusStoryStreamUrl, decodeStorySong, officialStorySongEmbed } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
@@ -255,6 +255,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-media-backdrop" data-story-media-backdrop aria-hidden="true"></div>' +
           '<div class="story-viewer-media" data-story-viewer-media></div>' +
+          '<div class="story-official-audio" data-story-official-audio hidden><button type="button" class="story-official-audio-toggle" data-story-official-toggle aria-expanded="false">▶ Ouvir música</button><div class="story-official-audio-panel" data-story-official-panel hidden></div></div>' +
           '<button class="story-tap-zone story-tap-zone-next" type="button" data-story-next aria-label="Próximo story"></button>' +
         '</div>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
@@ -418,6 +419,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     clearTimer();
     const previousAudio = viewer.querySelector("#story-audio");
     if (previousAudio) { previousAudio.pause(); previousAudio.currentTime = 0; }
+    // Tear down cross-origin official players before changing a slide. An
+    // iframe can keep playing after its button disappears unless removed.
+    const oldPanel=viewer.querySelector("[data-story-official-panel]");
+    if(oldPanel){oldPanel.replaceChildren();oldPanel.hidden=true;}
+    const oldPlayer=viewer.querySelector("[data-story-official-audio]");
+    if(oldPlayer)oldPlayer.hidden=true;
     if (!state.active) return;
     const stories = activeStoriesFor(state.active);
     state.active.stories = stories;
@@ -469,6 +476,15 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     avatarHost.innerHTML = storyAvatar(author, "", false);
     const caption = viewer.querySelector("[data-story-viewer-caption]");
     const catalogSong = decodeStorySong(story.body || "");
+    const officialPlayer=officialStorySongEmbed(catalogSong.song);
+    const officialContainer=viewer.querySelector("[data-story-official-audio]");
+    if(officialContainer){
+      officialContainer.hidden=!officialPlayer;
+      officialContainer.dataset.playerUrl=officialPlayer?.src||"";
+      officialContainer.dataset.playerProvider=officialPlayer?.provider||"";
+      const toggle=officialContainer.querySelector("[data-story-official-toggle]");
+      if(toggle){toggle.textContent="▶ Ouvir "+(officialPlayer?.provider==="apple"?"Apple Music":"Deezer");toggle.setAttribute("aria-expanded","false");}
+    }
     const storyText = decodeStoryBody(catalogSong.text);
     caption.textContent = storyText.text;
     const songLabel = viewer.querySelector("[data-story-viewer-music-label]");
@@ -890,6 +906,35 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       return;
     }
+    const officialToggle=event.target.closest("[data-story-official-toggle]");
+    if(officialToggle){
+      event.preventDefault();event.stopPropagation();
+      const wrapper=viewer.querySelector("[data-story-official-audio]");
+      const panel=viewer.querySelector("[data-story-official-panel]");
+      if(!wrapper||!panel||wrapper.hidden)return;
+      if(!panel.hidden){
+        panel.replaceChildren();panel.hidden=true;
+        officialToggle.setAttribute("aria-expanded","false");
+        officialToggle.textContent="▶ Ouvir "+(wrapper.dataset.playerProvider==="apple"?"Apple Music":"Deezer");
+        setStoryPaused(false);
+      }else{
+        const source=wrapper.dataset.playerUrl;
+        if(!source||!/^https:\/\/(embed\.music\.apple\.com|widget\.deezer\.com)\//.test(source))return;
+        setStoryPaused(true);
+        const player=document.createElement("iframe");
+        player.className="story-official-music-iframe";
+        player.dataset.storyOfficialPlayer="";
+        player.title="Reprodutor oficial da música";
+        player.src=source;
+        player.allow="autoplay; encrypted-media";
+        player.referrerPolicy="strict-origin-when-cross-origin";
+        panel.replaceChildren(player);
+        panel.hidden=false;
+        officialToggle.setAttribute("aria-expanded","true");
+        officialToggle.textContent="✕ Fechar música";
+      }
+      return;
+    }
     if (event.target.closest("[data-story-close]")) {
       closeStoryDialog(viewer);
       return;
@@ -1132,6 +1177,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const audio = viewer.querySelector("#story-audio");
     if (audio) { audio.pause(); audio.currentTime = 0; }
     viewer.querySelectorAll("[data-story-sound-unlock]").forEach(b=>b.remove());
+    const panel=viewer.querySelector("[data-story-official-panel]");
+    if(panel){panel.replaceChildren();panel.hidden=true;}
     viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
   });
   root.addEventListener("submit", async (event) => {
