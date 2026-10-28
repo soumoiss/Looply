@@ -261,7 +261,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
           '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
-            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small>Atividade</small><span class="sr-only" data-story-view-count>Ver visualizações</span></button>' +
+            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small data-story-view-count>Atividade</small></button>' +
             '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
 
 
@@ -285,8 +285,16 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button type="button" data-story-save>Salvar mídia</button>' +
           '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
           '<button type="button" data-story-more-close>Cancelar</button></div>' +
+        '<div class="story-share-panel" data-story-share-panel hidden role="group" aria-label="Compartilhar story">' +
+          '<strong>Compartilhar story</strong>' +
+          '<label>Enviar para<select data-story-share-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
+          '<button type="button" data-story-share-send>Enviar na conversa</button>' +
+          '<button type="button" data-story-share-native>Compartilhar pelo aparelho</button>' +
+          '<button type="button" data-story-share-copy>Copiar link</button>' +
+          '<button type="button" data-story-share-close>Cancelar</button>' +
+        '</div>' +
         '<div class="story-mention-dialog" data-story-mention-dialog hidden role="dialog" aria-label="Mencionar no Story">' +
-          '<strong>Mencionar alguém</strong><p>Selecione uma pessoa que pode visualizar este story.</p>' +
+          '<strong>Mencionar alguém</strong>' +
           '<label>Perfil<select data-story-mention-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
           '<div><button type="button" data-story-mention-confirm>Confirmar</button><button type="button" data-story-mention-cancel>Cancelar</button></div></div>' +
         '<div class="story-viewer-action-status" data-story-action-status role="status" aria-live="polite" hidden></div>' +
@@ -327,7 +335,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
 
   const state = {
     groups: groupActiveStories(initialStories), active: null, index: 0, timer: null,
-    viewedThisSession: new Set(), likedStories: new Set(), likePending: new Set(), ignoreTapUntil: 0, paused: false
+    viewedThisSession: new Set(), viewPending: new Set(), likedStories: new Set(), likePending: new Set(),
+    replyPending: new Set(), replyDrafts: new Map(), slideVersion: 0, insightsToken: 0,
+    ignoreTapUntil: 0, paused: false
   };
   const showStatus = (message, isError = false) => {
     if (!status) return;
@@ -342,6 +352,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const clearTimer = () => {
     if (state.timer) clearTimeout(state.timer);
     state.timer = null;
+  };
+  const recordVisibleStoryView = async (storyId, version) => {
+    if (!viewer.open || state.slideVersion !== version || state.active?.stories?.[state.index]?.id !== storyId ||
+        state.viewedThisSession.has(storyId) || state.viewPending.has(storyId)) return;
+    state.viewPending.add(storyId);
+    try {
+      const { data, error } = await client.rpc("record_story_view", { p_story_id: storyId });
+      if (error || typeof data !== "boolean") throw error || Error("story_view_unconfirmed");
+      state.viewedThisSession.add(storyId);
+    } catch (error) {
+      console.warn("Looply story view could not be recorded.", error);
+    } finally { state.viewPending.delete(storyId); }
   };
   const resumeStoryTimer = () => {
     if (state.paused || !viewer.open) return;
@@ -416,6 +438,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const renderSlide = () => {
     clearTimer();
+    const version = ++state.slideVersion;
+    ++state.insightsToken;
     const previousAudio = viewer.querySelector("#story-audio");
     if (previousAudio) { previousAudio.pause(); previousAudio.currentTime = 0; }
     if (!state.active) return;
@@ -462,6 +486,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
     viewer.querySelector("[data-story-owner-menu]").hidden = true;
     viewer.querySelector("[data-story-mention-dialog]").hidden = true;
+    viewer.querySelector("[data-story-share-panel]").hidden = true;
     viewer.querySelector("[data-story-quick-reactions]").hidden = true;
     viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
     viewer.querySelector("[data-story-action-status]").hidden = true;
@@ -611,7 +636,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
     viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
     const insightsButton = viewer.querySelector("[data-story-insights-open]");
-    if (insightsButton) insightsButton.setAttribute("aria-label", isAdmin && story.author_id !== userId ? "Ver visualizações do story do membro" : "Ver visualizações");
+    if (insightsButton) {
+      insightsButton.hidden = story.author_id !== userId;
+      insightsButton.setAttribute("aria-label", "Ver visualizações do meu story");
+    }
     viewer.querySelector("[data-story-reply-actions]").hidden = story.author_id === userId;
     viewer.querySelector("[data-story-insights-panel]").hidden = true;
     const replyStatus = viewer.querySelector("[data-story-reply-status]");
@@ -624,14 +652,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const likeIcon = likeButton.querySelector("[aria-hidden]");
     if (likeIcon) likeIcon.textContent = state.likedStories.has(story.id) ? "♥" : "♡";
     const replyInput = viewer.querySelector("[data-story-reply] input");
-    if (replyInput) replyInput.value = "";
-    if (story.author_id !== userId && !state.viewedThisSession.has(story.id)) {
-      state.viewedThisSession.add(story.id);
-      void client.rpc("record_story_view", { p_story_id: story.id }).then(({ error }) => {
-        if (error) console.warn("Looply story view could not be recorded.", error);
-      }).catch((error) => console.warn("Looply story view could not be recorded.", error));
-    }
-    if (story.author_id === userId || isAdmin) {
+    if (replyInput) replyInput.value = state.replyDrafts.get(story.id) || "";
+    if (story.author_id === userId) {
       const viewCount = viewer.querySelector("[data-story-view-count]");
       viewCount.textContent = "Carregando visualizações…";
       void client.from("story_views").select("viewer_id", { count: "exact", head: true }).eq("story_id", story.id)
@@ -655,6 +677,19 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           }
         });
     }
+  };
+  const showMediaUnavailable = mediaHost => {
+    const box = document.createElement("div");
+    box.className = "story-media-unavailable";
+    const message = document.createElement("p");
+    message.textContent = "Não foi possível carregar a mídia deste story.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "text-button";
+    retry.dataset.storyMediaRetry = "";
+    retry.textContent = "Tentar carregar novamente";
+    box.append(message, retry);
+    mediaHost.replaceChildren(box);
   };
   const currentStory = () => state.active?.stories?.[state.index] || null;
   const loadStoryInsights = async (story) => {
@@ -774,7 +809,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   root.__looplyStoryClose = () => { if (viewer.open) closeStoryDialog(viewer); };
   root.__looplyRefreshStoryInsights = () => {
     const story = currentStory();
-    if (story && (story.author_id === userId || isAdmin) && !viewer.querySelector("[data-story-insights-panel]").hidden) {
+    if (story && story.author_id === userId && !viewer.querySelector("[data-story-insights-panel]").hidden) {
       void loadStoryInsights(story);
     }
   };
@@ -1004,7 +1039,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     }
     if (event.target.closest("[data-story-insights-open]")) {
       const story = currentStory();
-      if (story && (story.author_id === userId || isAdmin)) await loadStoryInsights(story);
+      if (story && story.author_id === userId) await loadStoryInsights(story);
       return;
     }
     if (event.target.closest("[data-story-insights-close]")) {
