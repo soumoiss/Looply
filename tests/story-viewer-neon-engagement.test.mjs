@@ -80,3 +80,15 @@ test("responsive controls preserve media aspect ratio, safe area and meaningful 
   assert.match(css, /env\(safe-area-inset-bottom\)/);
   assert.match(home, /stories-viewer-engagement\.css/);
 });
+
+test("chat keeps the concrete story relationship for both conversation participants", () => {
+  const sql = read("migration/20261028_neon_story_engagement.sql");
+  const chat = read("src/chat.js");
+  assert.match(sql, /CREATE POLICY looply_v10_story_reply_conversation_read/);
+  assert.match(sql, /USING \(public\.v3_is_conversation_participant\(conversation_id\)\)/);
+  assert.match(chat, /from\("story_replies"\)/);
+  assert.match(chat, /\.select\("message_id,story_id"\)/);
+  assert.match(chat, /message\.storyId = byMessage\.get\(message\.id\)/);
+  assert.match(chat, /Story respondido/);
+  assert.match(chat, /home\.html\?storyId=/);
+});
