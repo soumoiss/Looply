@@ -48,3 +48,7 @@ CREATE POLICY v8_gallery_people_admin_read ON public.gallery_media_people FOR SE
  USING(COALESCE(public.v3_self_is_admin(),false) AND public.v6_gallery_visible(source,media_id));
 CREATE POLICY v8_gallery_descriptions_admin_insert ON public.gallery_media_descriptions FOR INSERT TO authenticated
  WITH CHECK(user_id=public.looply_legacy_uid() AND COALESCE(public.v3_self_is_admin(),false) AND public.v6_gallery_visible(source,media_id));
+
+-- Administrators can read their own metadata edits on both community and archive media.
+CREATE POLICY v8_gallery_descriptions_admin_read ON public.gallery_media_descriptions FOR SELECT TO authenticated
+ USING(COALESCE(public.v3_self_is_admin(),false) AND public.v6_gallery_visible(source,media_id));
