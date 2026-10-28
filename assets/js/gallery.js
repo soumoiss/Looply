@@ -411,6 +411,11 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     const request = ++viewerRequest;
     $("[data-viewer-media]").querySelectorAll("video,audio").forEach(media => { media.pause(); media.removeAttribute("src"); media.load(); });
     activeKey = key;
+    if(commentKey && commentKey !== key) {
+      ++commentRequest;commentKey=null;
+      $("[data-comments-modal]").hidden=true;
+      $("[data-comments-modal]").classList.remove("is-open");
+    }
     viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; gestureController?.reset();
     const type = mediaType(x);
     const viewer = $("[data-viewer]");
@@ -995,7 +1000,15 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     const x = getItem(activeKey); if(x)applyPhotoAdjustment(x);
   };
   viewerMedia.addEventListener("pointerdown", e => {
-    if (!$("[data-viewer-media] img")) return;
+    const img = viewerMedia.querySelector("img");
+    const video = viewerMedia.querySelector("video");
+    if (!img && !video) return;
+    if (video) {
+      const box = video.getBoundingClientRect();
+      // Keep the lower native seek/playback control area interactive.
+      if (e.clientY > box.bottom - Math.max(68, box.height * .23)) return;
+      if (e.target.closest("button,input")) return;
+    }
     viewerMedia.setPointerCapture?.(e.pointerId);
     gestureController.beginPointer(e.pointerId, e.clientX, e.clientY);
   });
@@ -1018,7 +1031,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     }
   };
   viewerMedia.addEventListener("pointerup",endPointer);
-  viewerMedia.addEventListener("pointercancel",endPointer);
+  viewerMedia.addEventListener("pointercancel",()=>{gestureController.reset();syncGestureState();});
   viewerMedia.addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const rect=viewerMedia.getBoundingClientRect();setZoom(viewerZoom+(e.deltaY<0?0.15:-0.15),e.clientX-rect.left-rect.width/2,e.clientY-rect.top-rect.height/2);},{passive:false});
   try { await load(true); const linked = new URL(location.href).searchParams.get("media"); if (linked && getItem(linked)) await openViewer(linked); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
 } });
