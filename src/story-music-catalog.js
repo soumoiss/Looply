@@ -1,3 +1,4 @@
+import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 // Discovery + safe metadata markers for the Stories music picker.
 // Streaming services require separate licensed playback. No streaming preview
 // may be sampled, downloaded or baked into a published Story.
@@ -41,7 +42,12 @@ export function normalizeStorySong(track) {
   return url&&title&&artist
     ? {provider:track.provider,title,artist,url,id,
       artwork:typeof track.artwork==="string"?track.artwork:"",kind:"catalog",
-      previewUrl:officialPreviewUrl(track.previewUrl,track.provider)} : null;
+      previewUrl:officialPreviewUrl(track.previewUrl,track.provider),
+      album:clean(track.album,110),
+      durationSec:Number.isFinite(Number(track.durationSec)) && Number(track.durationSec)>0
+        ? Math.round(Number(track.durationSec)):0,
+      isrc:/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(String(track.isrc||"").toUpperCase())
+        ? String(track.isrc).toUpperCase():""} : null;
 }
 const markerStart="[[looply-music-v4|";
 const markerV5="[[looply-music-v5|";
@@ -108,16 +114,29 @@ export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
     .filter(x=>x.kind==="song")
     .map(x=>normalizeStorySong({
       provider:"apple",id:String(x.trackId||""),title:x.trackName,artist:x.artistName,
-      url:x.trackViewUrl,artwork:x.artworkUrl100,previewUrl:x.previewUrl
+      url:x.trackViewUrl,artwork:x.artworkUrl100,previewUrl:x.previewUrl,
+      album:x.collectionName,durationSec:Math.round(Number(x.trackTimeMillis||0)/1000),isrc:x.isrc
     })).filter(Boolean).slice(0,20);
 }
 export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
   const q=clean(value,70);
   if (q.length<2) return {providers:[],items:[]};
-  const result=await fetcher(STORY_MUSIC_ENDPOINT+"?q="+encodeURIComponent(q),{signal,cache:"no-store"});
-  if (!result.ok) throw new Error("A busca musical está temporariamente indisponível.");
-  const data=await result.json();
-  if (!Array.isArray(data.providers)) throw new Error("A busca musical retornou uma resposta inválida.");
+  let data;
+  try{
+    const result=await fetcher(STORY_MUSIC_ENDPOINT+"?q="+encodeURIComponent(q),{signal,cache:"no-store"});
+    if(!result.ok)throw Error("Worker HTTP "+result.status);
+    data=await result.json();
+    if(!Array.isArray(data.providers))throw Error("Worker returned invalid results");
+  }catch(error){
+    if(signal?.aborted)throw error;
+    // A broken Worker must not prevent Apple's documented, publicly
+    // available browser search; return a partial result, never fabricated data.
+    const apple=await searchAppleMusicPublic(q,{fetcher,signal}).catch(()=>[]);
+    if(!apple.length)throw new Error("A busca musical está temporariamente indisponível.");
+    data={providers:[{provider:"apple",available:true,items:apple},
+      {provider:"deezer",available:false,items:[]},
+      {provider:"audius",available:false,items:[]}]};
+  }
   // Apple may return 429 to a shared serverless egress IP while answering the
   // end user's browser normally. Restore the catalog from Apple directly.
   if (data.providers.some(p=>p.provider==="apple" && !p.available)) {
@@ -133,12 +152,7 @@ export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
     provider:p.provider,available:p.available===true,items:Array.isArray(p.items)
       ? p.items.map(normalizeStorySong).filter(Boolean).slice(0,20):[]
   })).filter(p=>PROVIDER_NAMES[p.provider]);
-  const keys=new Set();
-  const items=providers.flatMap(p=>p.items).filter(song=>{
-    const key=song.provider+":"+song.url;
-    if (keys.has(key)) return false;
-    keys.add(key);return true;
-  });
+  const items=dedupeStorySongRecordings(providers.flatMap(p=>p.items));
   return {providers,items};
 }
 export function storySongSearchLinks(query) {
