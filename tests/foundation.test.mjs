@@ -319,7 +319,8 @@ test("media storage stays private and follows post-level RLS", async () => {
 test("profile search and editing use only profile fields protected by Neon RLS", async () => {
   const [profiles,avatar] = await Promise.all([read("src/profiles.js"),read("src/neon-avatar-profile.js")]);
   assert.match(profiles, /saveNeonProfile\(/);
-  assert.match(profiles, /profile_visibility: visibility/);
+  assert.doesNotMatch(profiles, /name="visibility"/);
+  assert.match(profiles, /saveNeonAvatarOnly\(/);
   assert.match(avatar, /method = "GET"/);
   assert.match(avatar, /rpc\/v3_save_self_profile/);
   assert.match(avatar, /bucket\.upload\(newPath/);
