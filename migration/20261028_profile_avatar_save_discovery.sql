@@ -18,8 +18,24 @@ BEGIN
  IF actor IS NULL THEN
   RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501';
  END IF;
- IF p_next_avatar IS NULL
-    OR p_next_avatar !~ ('^avatars/' || actor::text || '/[a-f0-9-]{36}[.](jpg|jpeg|png|webp)$')
+ IF p_next_avatar IS NOT NULL
+    AND p_next_avatar !~ ('^avatars/' || actor::text || '/[a-f0-9-]{36}[.](jpg|jpeg|png|webp)
+ THEN
+  RAISE EXCEPTION 'Invalid avatar path' USING ERRCODE='22023';
+ END IF;
+ RETURN QUERY
+ UPDATE public.profiles AS profile
+ SET avatar_path=p_next_avatar, updated_at=pg_catalog.now()
+ WHERE profile.id=actor AND profile.avatar_path IS NOT DISTINCT FROM p_previous_avatar
+ RETURNING profile.id,profile.avatar_path;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'Avatar changed in another session' USING ERRCODE='40001';
+ END IF;
+END;
+$function$;
+REVOKE EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) TO authenticated;
+)
  THEN
   RAISE EXCEPTION 'Invalid avatar path' USING ERRCODE='22023';
  END IF;
