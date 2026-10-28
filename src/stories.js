@@ -831,24 +831,87 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     messageNode.dataset.error = String(error);
     messageNode.hidden = !message;
   };
-  const shareCurrentStory = async () => {
-    const story = currentStory();
-    if (!story) return;
+  const sharePanel = viewer.querySelector("[data-story-share-panel]");
+  const storyShareUrl = story => {
     const url = new URL("home.html", window.location.href);
     url.searchParams.set("storyId", story.id);
-    const data = { title: "Story no Loooply", text: "Veja este Story no Loooply", url: url.href };
+    return url.href;
+  };
+  const availableToShare = async story => {
+    if (!story || Date.parse(story.expires_at) <= Date.now()) return false;
+    const { data, error } = await client.from("stories").select("id")
+      .eq("id", story.id).gt("expires_at", new Date().toISOString()).maybeSingle();
+    if (error) throw error;
+    return data?.id === story.id;
+  };
+  const shareCurrentStory = async (method) => {
+    const story = currentStory();
+    if (!story) return;
+    const version = state.slideVersion;
+    const button = sharePanel.querySelector(
+      method === "send" ? "[data-story-share-send]" :
+      method === "native" ? "[data-story-share-native]" : "[data-story-share-copy]");
+    if (button.disabled) return;
+    button.disabled = true;
     try {
-      if (navigator.share) {
-        await navigator.share(data);
+      if (!(await availableToShare(story))) throw Error("story_expired");
+      const url = storyShareUrl(story);
+      if (method === "send") {
+        const recipientId = sharePanel.querySelector("[data-story-share-person]").value;
+        if (!recipientId || recipientId === userId) {
+          actionStatus("Selecione outra pessoa para compartilhar.", true);
+          return;
+        }
+        if (story.visibility === "private" && recipientId !== story.author_id) {
+          actionStatus("Este story é privado e não pode ser encaminhado.", true);
+          return;
+        }
+        if (story.visibility === "selected" && recipientId !== story.author_id) {
+          const { data: permitted, error: permissionError } = await client.from("story_recipients")
+            .select("recipient_id").eq("story_id", story.id).eq("recipient_id", recipientId).maybeSingle();
+          if (permissionError) throw permissionError;
+          if (!permitted) {
+            actionStatus("Esse perfil não tem permissão para visualizar o story.", true);
+            return;
+          }
+        }
+        const created = await client.functions.invoke("looply-chat", {
+          body: { action: "create_direct", targetId: recipientId }
+        });
+        if (created.error || !created.data?.conversationId) throw created.error || Error("conversation_unconfirmed");
+        const { data: message, error } = await client.from("chat_messages")
+          .insert({ conversation_id: created.data.conversationId, sender_id: userId,
+            body: "Story compartilhado: " + url }).select("id").maybeSingle();
+        if (error || !message?.id) throw error || Error("share_message_unconfirmed");
+        if (viewer.open && currentStory()?.id === story.id && state.slideVersion === version) {
+          sharePanel.hidden = true;
+          actionStatus("Story enviado na conversa.");
+          resumeStoryTimer();
+        }
+      } else if (method === "native") {
+        if (!navigator.share) {
+          actionStatus("Compartilhamento do aparelho indisponível. Use Copiar link.", true);
+          return;
+        }
+        await navigator.share({ title: "Story no Looply", text: "Veja este story no Looply", url });
+        if (viewer.open && currentStory()?.id === story.id && state.slideVersion === version) {
+          sharePanel.hidden = true;
+          resumeStoryTimer();
+        }
       } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url.href);
-        actionStatus("Link copiado. Somente quem tem permissão poderá visualizar.");
+        await navigator.clipboard.writeText(url);
+        if (viewer.open && currentStory()?.id === story.id) actionStatus("Link copiado.");
       } else {
-        actionStatus("Link do Story: "+url.href);
+        actionStatus("Link do story: " + url);
       }
     } catch (error) {
-      if (error?.name !== "AbortError") actionStatus("Não foi possível compartilhar agora.", true);
-    }
+      if (error?.name !== "AbortError" && viewer.open && currentStory()?.id === story.id) {
+        console.warn("Looply story sharing failed.", error);
+        actionStatus(error?.message === "story_expired"
+          ? "Este story não está mais disponível."
+          : "Não foi possível compartilhar este story.", true);
+      }
+    } finally { button.disabled = false; }
   };
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
@@ -904,9 +967,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-share]")) {
-      await shareCurrentStory();
+      sharePanel.hidden = !sharePanel.hidden;
+      if (!sharePanel.hidden) {
+        clearTimer();
+        viewer.querySelector("[data-story-quick-reactions]").hidden = true;
+      } else resumeStoryTimer();
       return;
     }
+    if (event.target.closest("[data-story-share-close]")) {
+      sharePanel.hidden = true;
+      resumeStoryTimer();
+      return;
+    }
+    if (event.target.closest("[data-story-share-send]")) { await shareCurrentStory("send"); return; }
+    if (event.target.closest("[data-story-share-copy]")) { await shareCurrentStory("copy"); return; }
+    if (event.target.closest("[data-story-share-native]")) { await shareCurrentStory("native"); return; }
     if (event.target.closest("[data-story-quick-reactions-toggle]")) {
       const picker=viewer.querySelector("[data-story-quick-reactions]");
       picker.hidden=!picker.hidden;
@@ -919,7 +994,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (reaction) {
       const story=currentStory();
       const emoji=reaction.dataset.storyQuickReaction;
-      if(!story || story.author_id===userId || !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      if(!story || story.author_id===userId || state.replyPending.has(story.id) ||
+        !['❤️','🔥','👏','😍','😂','😮','😢','💜'].includes(emoji)) return;
+      state.replyPending.add(story.id);
       reaction.disabled=true;
       try {
         const {data,error}=await client.rpc("send_story_reply",{p_story_id:story.id,p_body:emoji});
@@ -932,7 +1009,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         resumeStoryTimer();
       } catch (error) {
         actionStatus("Não foi possível enviar a reação. Confira as permissões e tente novamente.",true);
-      } finally {reaction.disabled=false;}
+      } finally {reaction.disabled=false;state.replyPending.delete(story.id);}
       return;
     }
     if (event.target.closest("[data-story-more]")) {
