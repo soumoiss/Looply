@@ -50,6 +50,19 @@ export function cameraCaptureCrop(sourceWidth, sourceHeight, targetWidth, target
   const width=cover.width/factor,height=cover.height/factor;
   return {x:cover.x+(cover.width-width)/2,y:cover.y+(cover.height-height)/2,width,height};
 }
+// Real physical illumination: continuously enabled torch, not a screen flare.
+export async function setRearCameraTorch(track, on) {
+  if(!track || track.readyState!=="live" || typeof track.applyConstraints!=="function")
+    throw Error("Câmera traseira indisponível.");
+  const capabilities=track.getCapabilities?.();
+  if(capabilities?.torch===false)throw Error("Lanterna traseira indisponível neste navegador.");
+  await track.applyConstraints({ advanced: [{ torch: on }] });
+  const reported=track.getSettings?.().torch;
+  if ((typeof reported==="boolean" && reported!==on) ||
+      (on && reported!==true && capabilities?.torch!==true))
+    throw Error("O navegador não confirmou o estado da lanterna traseira.");
+  return {requested:on,confirmed:reported===on};
+}
 export function cameraMediaConstraints(facing, ratio="9:16") {
   const size=storyCanvasSize(ratio);
   return {video:{
@@ -256,7 +269,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let zoomBusy = false, zoomPending = null, pinch = null;
   let cameraTimerSeconds = 0, handsfreeRecording = false;
   let collageCanvas = null, collageShots = 0;
-  let cameraRequestId = 0, photoPending = false;
+  let cameraRequestId = 0, photoPending = false, timerPending = false;
   const currentCanvasSize = () => storyCanvasSize(settings.ratio);
   const applyAspect = () => {
     const size = currentCanvasSize();
@@ -365,6 +378,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const stopCamera = () => {
     ++cameraRequestId; // Invalidate any pending getUserMedia before it resolves.
     if(hold){clearTimeout(hold);hold=null;}
+    timerPending=false;
     pointer=null;held=false;handsfreeRecording=false;
     stage.dataset.recording="false";
     if (recorder?.state === "recording") recorder.stop();
@@ -384,6 +398,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       throw new Error("A câmera exige HTTPS e um navegador compatível. Use a galeria.");
     }
     stopCamera();
+    showMode("camera");
     const ticket=cameraRequestId;
     // Ask for the selected output ratio, but do not assert a sensor mode
     // exists. Actual track/video dimensions are measured after negotiation.
@@ -1016,7 +1031,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     }
   };
   const activateShutter = async e => {
-    if (mode !== "camera" || handsfreeRecording) return;
+    if (mode !== "camera" || handsfreeRecording || photoPending || timerPending || recorder?.state==="recording") return;
     e.preventDefault(); pointer = e.pointerId; held = false;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     hold = setTimeout(() => { held = true; try { beginRecording(); } catch (error) { status(error.message, true); } }, 340);
@@ -1027,8 +1042,18 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (hold) { clearTimeout(hold); hold = null; }
     stage.dataset.recording = "false";
     if (held) finishRecording(); else {
-      if (cameraTimerSeconds) {const seconds=cameraTimerSeconds;status("Capturando em "+seconds+" s…");await new Promise(resolve=>setTimeout(resolve,seconds*1000));if(!active||mode!=="camera")return;}
-      await capturePhoto().catch(error=>status(error.message,true));
+      if(timerPending || photoPending)return;
+      const shotTicket=cameraRequestId;
+      timerPending=true;
+      try {
+        if (cameraTimerSeconds) {
+          const seconds=cameraTimerSeconds;
+          status("Capturando em "+seconds+" s…");
+          await new Promise(resolve=>setTimeout(resolve,seconds*1000));
+        }
+        if(shotTicket!==cameraRequestId||!active||mode!=="camera")return;
+        await capturePhoto().catch(error=>status(error.message,true));
+      } finally {timerPending=false;}
     }
   };
   const handlers = {
@@ -1074,29 +1099,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         status(turnOn ? "Iluminação da tela ativada. Não usa o LED traseiro." : "Iluminação da tela desligada.");
         return;
       }
-      const capabilities = track.getCapabilities?.();
-      if (capabilities && capabilities.torch === false) {
-        resetFlash(); status("A câmera traseira deste aparelho não disponibiliza a lanterna pelo navegador.", true); return;
-      }
       try {
-        // A torch constraint turns on the physical rear LED while previewing;
-        // verify the reported setting whenever browsers expose it.
-        await track.applyConstraints({ advanced: [{ torch: turnOn }] });
-        const confirmed = track.getSettings?.().torch;
-        // If getSettings explicitly reports torch, trust that over a nominal
-        // getCapabilities() claim. A false setting is not a confirmed LED.
-        if ((turnOn && confirmed === false) || (!turnOn && confirmed === true) ||
-          (turnOn && confirmed !== true && capabilities?.torch !== true)) {
-          throw new Error("O navegador não confirmou o estado da lanterna física.");
-        }
-        settings.flash = turnOn ? "on" : "off";
-        flashButton.setAttribute("aria-pressed", String(turnOn));
-        flashButton.title = turnOn ? "Desligar lanterna traseira contínua" : "Ligar lanterna traseira contínua";
+        await setRearCameraTorch(track,turnOn);
+        settings.flash=turnOn?"on":"off";
+        flashButton.setAttribute("aria-pressed",String(turnOn));
+        flashButton.title=turnOn?"Desligar lanterna traseira contínua":"Ligar lanterna traseira contínua";
         flashButton.setAttribute("aria-label",flashButton.title);
-        status(turnOn ? "Lanterna traseira contínua ativada. Não é um flash de disparo." : "Lanterna traseira desligada.");
-      } catch (error) {
+        status(turnOn?"Lanterna traseira contínua ativada. Não é um flash de disparo.":"Lanterna traseira desligada.");
+      }catch(error){
         resetFlash();
-        status("Não foi possível ligar a lanterna traseira: " + (error.message || "recurso indisponível"), true);
+        status("Lanterna traseira indisponível: "+(error.message||"recurso não suportado"),true);
       }
     },
     "[data-studio-settings]": () => {
