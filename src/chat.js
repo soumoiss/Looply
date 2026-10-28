@@ -470,6 +470,19 @@ async function loadThread(client, conversationId, before = null) {
   if (conversationResult.error) throw conversationResult.error;
   if (!conversationResult.data) throw new Error("Conversation unavailable");
   const messages = (messageResult.data || []).reverse();
+  // Show the original story in both participants' chat histories without
+  // replacing the actual message body. The link still obeys story visibility.
+  if (messages.length) {
+    const { data: links, error: linksError } = await client.from("story_replies")
+      .select("message_id,story_id").eq("conversation_id", conversationId)
+      .in("message_id", messages.map(message => message.id)).limit(100);
+    if (!linksError) {
+      const byMessage = new Map((links || []).map(link => [link.message_id, link.story_id]));
+      for (const message of messages) message.storyId = byMessage.get(message.id) || null;
+    } else {
+      console.warn("Looply story reply context could not load.", linksError);
+    }
+  }
   const media = messages.flatMap((message) => message.media || []);
   if (media.length) {
     const { data: signed, error: signedError } = await cachedSignedUrls(client, "looply-chat", media.map((item) => item.storage_path), 1800);
@@ -492,6 +505,9 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     lastDay = day || lastDay;
     const parent = message.reply_to ? byId.get(message.reply_to) : null;
     const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? (parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
+    const storyContext = message.storyId
+      ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
+      : "";
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -505,7 +521,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    ${replyContext}${storyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
     <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>${message.media?.length ? "" : `<button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>`}` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
