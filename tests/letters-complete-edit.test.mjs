@@ -101,7 +101,7 @@ test("original protected card never treats its null body as an editable empty le
 test("failed persistence does not modify original correspondence in the mock store", async () => {
   const row = {id:"d",sender_id:"sender",recipient_id:"other",subject:"Original",body:"Não mudar",is_protected:false};
   const db = localDatabase({community_letters:[row]},"intruder");
-  await assert.rejects(saveFullLetterEdit(db.client,{kind:"community",letter:row,userId:"sender",body:"alteração",subject:"Novo"}),/não confirmou/i);
+  await assert.rejects(saveFullLetterEdit(db.client,{kind:"community",letter:row,userId:"sender",body:"alteração",subject:"Novo"}),/row_count_mismatch|não confirmou/i);
   assert.equal(db.storage.community_letters[0].body,"Não mudar");
 });
 
