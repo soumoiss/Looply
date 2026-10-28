@@ -234,6 +234,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let zoomBusy = false, zoomPending = null, pinch = null;
   let cameraTimerSeconds = 0, handsfreeRecording = false;
   let collageCanvas = null, collageShots = 0;
+  let cameraRequestId = 0, photoPending = false;
   const currentCanvasSize = () => storyCanvasSize(settings.ratio);
   const applyAspect = () => {
     const size = currentCanvasSize();
@@ -339,7 +340,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if(settings.face!=="none"&&lensReady&&lens.width&&lens.height)drawLayer(lens);
   };
   const stopCamera = () => {
+    ++cameraRequestId; // Invalidate any pending getUserMedia before it resolves.
     if (recorder?.state === "recording") recorder.stop();
+    if(frames!=null){cancelAnimationFrame(frames);frames=null;}
+    captureStream?.getTracks().forEach(t=>t.stop());captureStream=null;
     stream?.getTracks().forEach(t => t.stop()); stream = null;
     video.srcObject = null; backdropVideo.srcObject = null; face?.stop(); face = null; lensReady = false;
     zoomTrack = null; zoomPending = null; pinch = null; zoomMode = "digital";
@@ -354,20 +358,30 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       throw new Error("A câmera exige HTTPS e um navegador compatível. Use a galeria.");
     }
     stopCamera();
-    // Do not request a forced portrait 1080x1920 crop or any initial zoom.
-    // Prefer the camera sensor's natural field of view.
-    const constraints = { video: {
-      facingMode: { ideal: facing },
-      width: { ideal: 1080 }, height: { ideal: 1920 },
-      aspectRatio: { ideal: 9 / 16 },
-      resizeMode: { ideal: "none" }
-    }, audio: true };
-    try { stream = await navigator.mediaDevices.getUserMedia(constraints); }
-    catch {
-      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false }); }
-      catch { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+    const ticket=cameraRequestId;
+    // Ask for the selected output ratio, but do not assert a sensor mode
+    // exists. Actual track/video dimensions are measured after negotiation.
+    const constraints=cameraMediaConstraints(facing,settings.ratio);
+    let acquired=null;
+    try{acquired=await navigator.mediaDevices.getUserMedia(constraints);}
+    catch{
+      if(ticket!==cameraRequestId||!active)return;
+      try{acquired=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:facing},aspectRatio:{ideal:storyCanvasSize(settings.ratio).width/storyCanvasSize(settings.ratio).height}},
+        audio:false
+      });}
+      catch{
+        if(ticket!==cameraRequestId||!active)return;
+        acquired=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
+      }
     }
-    const track = stream.getVideoTracks()[0];
+    if(ticket!==cameraRequestId||!active){
+      acquired?.getTracks().forEach(track=>track.stop());
+      return;
+    }
+    stream=acquired;
+    const track=stream.getVideoTracks()[0];
+    if(!track){stopCamera();throw Error("Nenhuma câmera de vídeo ficou disponível.");}
     const actualFacing = track?.getSettings?.().facingMode;
     settings.facing = ["user", "environment"].includes(actualFacing) ? actualFacing : facing;
     settings.zoom = 1; zoomMode = "digital"; zoomLimit = 3; zoomTrack = null; zoomPending = null;
@@ -392,6 +406,14 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     resetFlash();
     showMode("camera");
     try { await video.play(); } catch {}
+    if(ticket!==cameraRequestId||!active)return;
+    const trackSettings=track.getSettings?.()||{};
+    // Useful for device diagnostics without implying a physical test here.
+    console.info("Looply camera negotiated frame",{
+      requested:settings.ratio,trackWidth:trackSettings.width,trackHeight:trackSettings.height,
+      videoWidth:video.videoWidth,videoHeight:video.videoHeight,
+      mirror:settings.facing==="user"
+    });
     face = new StoryFaceLens(video, lens, () => settings.facing);
     face.start();
     if(settings.face!=="none"){
