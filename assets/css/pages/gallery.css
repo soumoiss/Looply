@@ -1753,3 +1753,28 @@ body.page-gallery{background:linear-gradient(155deg,#f5f3ff,#ede9fe 65%,#f8f2ff)
 
 /* Dialogs opened from the action sheet stay above its closing transition. */
 .page-gallery .gallery-modal[data-access-modal],.page-gallery .gallery-modal[data-tags-modal]{z-index:1700}
+
+/* Gallery corrections 2026-10-28 — user author, filters, comments and album picker. */
+.page-gallery .gallery-filter-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%; }
+.page-gallery .gallery-filter-heading .gallery-filter-sheet-title { display:block;margin:0; font-size:16px; }
+.page-gallery .gallery-filter-close { display:grid;place-items:center;width:40px;min-width:40px;height:40px;border-radius:50%;border:1px solid var(--border,#d9d1e1);background:var(--surface,#fff);color:var(--text,#25202d); }
+.page-gallery .gallery-viewer-top .gallery-viewer-uploader { display:flex;flex:1 1 auto;min-width:0;margin:0;align-items:center;gap:8px;overflow:hidden; }
+.page-gallery .gallery-viewer-top .gallery-viewer-uploader img,
+.page-gallery .gallery-viewer-top .gallery-viewer-uploader .gallery-uploader-fallback { width:34px;height:34px;flex:0 0 34px;border-radius:50%; }
+.page-gallery .gallery-viewer-top .gallery-viewer-uploader span:not(.gallery-uploader-fallback) { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px; }
+.page-gallery .gallery-viewer-top .gallery-viewer-uploader strong { font-size:13px; }
+.page-gallery .gallery-viewer-top-title { flex:0 1 auto;min-width:0; }
+.page-gallery .gallery-viewer-mentions { display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 9px; }
+.page-gallery .gallery-mention-link { padding:5px 9px; border:1px solid #ffffff44;border-radius:999px;background:#ffffff1a;color:#e6dfff;max-width:100%;overflow-wrap:anywhere;font-size:12px; }
+.page-gallery .gallery-viewer-media video { touch-action:pan-y; }
+.page-gallery .gallery-viewer-bottom [data-open-comments] { min-width:56px;min-height:56px; }
+.page-gallery [data-album-picker-modal] .gallery-dialog { width:min(440px,calc(100% - 24px));max-height:80dvh;overflow:auto;padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+.page-gallery [data-album-picker-form] select { width:100%;min-height:44px;padding:10px;border-radius:12px;border:1px solid var(--border,#dad2e2);background:var(--surface,#fff);color:var(--text,#212121);font:inherit; }
+.page-gallery [data-album-picker-form] button { min-height:44px; }
+@media(max-width:420px) {
+ .page-gallery .gallery-viewer-top { gap:8px; }
+ .page-gallery .gallery-viewer-top .gallery-viewer-uploader img,
+ .page-gallery .gallery-viewer-top .gallery-viewer-uploader .gallery-uploader-fallback { width:30px;height:30px;flex-basis:30px; }
+ .page-gallery .gallery-viewer-top-title { font-size:11px; }
+ .page-gallery .gallery-viewer-bottom { gap:6px; }
+}
