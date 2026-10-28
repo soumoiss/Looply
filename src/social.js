@@ -1331,6 +1331,14 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
             (persistedMedia || []).length !== files.length || files.some((_, index) => !persistedMedia?.some(item => item.storage_path === uploadedPaths[index]))) {
           throw postReadError || mediaReadError || Error("post_persistence_unconfirmed");
         }
+        if (uploadedPaths.length) {
+          const { data: signedMedia, error: signError } = await client.storage.from("looply-media")
+            .createSignedUrls(uploadedPaths, 300);
+          if (signError || signedMedia?.length !== uploadedPaths.length ||
+              signedMedia.some(item => !item?.signedUrl)) {
+            throw signError || Error("post_media_not_readable");
+          }
+        }
         published = true;
         form.reset();
         const composerFields = root.querySelector("[data-composer-fields]");
