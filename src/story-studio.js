@@ -752,6 +752,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     el.dataset.x="0.5";el.dataset.y="0.44";
     el.dataset.size=sticker?"48":"34";el.dataset.color="#ffffff";
     el.dataset.fontId=STORY_TEXT_DEFAULT_FONT;
+    el.dataset.sticker=String(sticker);
     el.dataset.text=cleanName(text);
     el.className="studio-overlay";
     el.tabIndex=0;el.setAttribute("role","button");
@@ -859,6 +860,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         const loaded=await storyTextEnsureFonts([fontInput.value]);
         if(!loaded)throw Error("A fonte selecionada não terminou de carregar.");
         if(!el.isConnected)return;
+        const size=currentCanvasSize();
+        const layout=storyTextLayerLayout(measureContext,{
+          text:value,x:Number(el.dataset.x),y:Number(el.dataset.y),
+          size:storyTextClampSize(sizeInput.value),font:fontInput.value,color:colorInput.value
+        },size.width,size.height);
+        if(!layout.fits)throw Error("O texto ultrapassa a área do Story. Reduza o tamanho ou mude sua posição.");
         el.dataset.text=value;
         delete el.dataset.textDraft;
         el.dataset.fontId=fontInput.value;
@@ -1092,10 +1099,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
     if(layered){
-      const fontIds=[...overlayRoot.querySelectorAll("[data-studio-overlay]")]
-        .map(layer=>layer.dataset.fontId||STORY_TEXT_DEFAULT_FONT);
+      const activeLayers=[...overlayRoot.querySelectorAll("[data-studio-overlay]")];
+      const fontIds=activeLayers.map(layer=>layer.dataset.fontId||STORY_TEXT_DEFAULT_FONT);
       if(!await storyTextEnsureFonts(fontIds))
         throw Error("As fontes do Story não carregaram. Confira sua conexão antes de publicar.");
+      const size=currentCanvasSize();
+      for(const layer of activeLayers){
+        if(layer.dataset.sticker==="true")continue;
+        const layout=storyTextLayerLayout(measureContext,layerValues(layer),size.width,size.height);
+        if(!layout.fits)throw Error("Um texto está fora da área do Story. Arraste-o para o centro ou reduza seu tamanho.");
+      }
       rerenderLayers();
     }
     if (sourceKind === "video" && (!music || music.kind === "catalog") && !layered && editFilter === "none") return file;
