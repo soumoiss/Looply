@@ -21,7 +21,9 @@ test("editing gallery mentions initializes the saved selection before filtering 
 test("gallery comments are created through the permission-checking RPC and reloaded after publishing", () => {
   assert.match(gallery, /create_community_gallery_comment/);
   assert.match(gallery, /Comentário publicado\./);
-  assert.match(gallery, /x\.hasComments = true; draw\(\); await loadComments\(\)/);
+  assert.match(gallery, /const key = commentKey, x = getItem\(key\)/);
+  assert.match(gallery, /const confirmed = await loadComments\(key\)/);
+  assert.match(gallery, /x\.hasComments = true; draw\(\)/);
   assert.match(gallery, /Ainda não há comentários visíveis para você\./);
 });
 
