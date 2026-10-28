@@ -114,6 +114,10 @@ test("existing story editor really imports gesture controller and embeds text in
  assert.match(studio,/paintLayers\(ctx, overlayRoot/);
  assert.match(studio,/data-studio-edit-selected/);
  assert.match(studio,/data-layer-text rows="4" maxlength="500"/);
+ assert.match(studio,/freezeEditorPlane\(\)/);
+ assert.match(studio,/unfreezeEditorPlane\(\)/);
+ assert.match(studio,/if\(createdNow\)\{el.remove\(\);selectLayer\(null\);\}/);
+ assert.match(studio,/openLayerEditor\(addLayer\("", false\),true\)/);
  assert.match(css,/font-family/); // via Google import and specific font cards
  assert.match(css,/family=Caveat/);
  assert.match(css,/studio-overlays \.studio-overlay\.is-selected/);
