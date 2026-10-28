@@ -1028,6 +1028,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         const mentioned = await client.rpc("v5_add_story_mentions", { p_story_id: storyId, p_user_ids: mentionIds });
         if (mentioned.error) throw mentioned.error;
       }
+      // Re-read the authenticated persisted media association, not merely
+      // the button state or the upload request result.
+      const {data:verifiedMedia,error:mediaReadError}=await client.from("story_media")
+        .select("id,story_id,storage_path,kind,mime_type")
+        .eq("story_id",storyId).eq("storage_path",uploadedPath).maybeSingle();
+      if(mediaReadError || !verifiedMedia ||
+         verifiedMedia.kind !== (normalized.type.startsWith("video/")?"video":"image") ||
+         verifiedMedia.mime_type !== normalized.type)
+        throw mediaReadError || Error("O Neon não confirmou a mídia publicada.");
       status("Story publicado!");
       publishing = false; close(); await refresh();
     } catch (error) {
