@@ -67,7 +67,8 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /"scaleX\(-1\) "/);
   assert.match(studio, /data-studio-screen-light/);
   assert.match(studio, /stage\.dataset\.screenFlash = "firing"/);
-  assert.match(studio, /await track\.applyConstraints\(\{ advanced: \[\{ torch: turnOn \}\] \}\)/);
+  assert.match(studio, /await track\.applyConstraints\(\{ advanced: \[\{ torch: on \}\] \}\)/);
+  assert.match(studio, /await setRearCameraTorch\(track,turnOn\)/);
   assert.match(studio, /track\.getSettings\?\.\(\)\.torch/);
   assert.match(studio, /resizeMode:\{ideal:"none"\}/);
   assert.match(studio, /zoomBase \* settings\.zoom/);
