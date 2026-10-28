@@ -23,6 +23,7 @@ const WRITABLE = Object.freeze({
   music_comments: ["dedication_id","author_id","body","visibility"],
   music_page_comments: ["comment_type","playlist_id","video_id","author_id","body","recipient_id"],
   music_track_comments: ["track_key","track_title","author_id","body"],
+  archive_media: [], // Read/delete only; RLS authorizes the verified ADM.
   community_gallery_media: ["owner_id","storage_path","file_name","kind","mime_type","byte_size","caption","visibility","comment_access","publication_state","private_owner_id"],
   gallery_media_descriptions: ["user_id","source","media_id","description","category"],
   gallery_media_people: ["source","media_id","person_id","created_by"],

@@ -1750,3 +1750,6 @@ body.page-gallery{background:linear-gradient(155deg,#f5f3ff,#ede9fe 65%,#f8f2ff)
 @keyframes gallery-heart{50%{transform:scale(1.2)}}
 @media(min-width:640px){.page-gallery .gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.page-gallery *{animation:none!important;transition:none!important}}
+
+/* Dialogs opened from the action sheet stay above its closing transition. */
+.page-gallery .gallery-modal[data-access-modal],.page-gallery .gallery-modal[data-tags-modal]{z-index:1700}

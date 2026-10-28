@@ -81,6 +81,15 @@ async function canUploadObject(token,profileId,bucket,path) {
   const query=mapping[object.type];
   return Boolean(query && (await rowsFor(token,query[0],query[1])).length);
 }
+// The database validates ADM membership and an exact registered gallery path.
+async function canAdminDeleteGalleryObject(token,bucket,path) {
+  if (!["looply-gallery","looply-media"].includes(bucket)) return false;
+  const response=await fetch(process.env.NEON_DATA_API_URL+"/rpc/v7_gallery_storage_delete_allowed",{
+    method:"POST",headers:{authorization:token,"content-type":"application/json"},
+    body:JSON.stringify({p_bucket:bucket,p_path:path}),cache:"no-store"
+  });
+  return response.ok && (await response.json().catch(()=>false))===true;
+}
 async function canSignObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
@@ -198,7 +207,7 @@ export default { async fetch(request) {
   }
   if (url.pathname.endsWith("/storage/remove") && request.method === "POST") {
     const owned=await canUploadObject(request.headers.get("authorization"),profileId,bucket,path);
-    if (!owned) return json({ error: "forbidden" }, 403, headers);
+    if (!owned && !(await canAdminDeleteGalleryObject(request.headers.get("authorization"),bucket,path))) return json({ error: "forbidden" }, 403, headers);
     const signed = await signedRequest({ method: "DELETE", bucket, path }), response = await fetch(signed.url, { method: "DELETE", headers: signed.headers });
     if (!response.ok) { console.error("S3 object removal failed", response.status); return json({ error: "storage_remove_failed" }, 502, headers); }
     return json({ path }, 200, headers);

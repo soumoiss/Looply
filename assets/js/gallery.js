@@ -78,7 +78,7 @@ const galleryMarkup = () => [
   '<div class="gallery-viewer-bottom" aria-label="Ações da mídia"><button type="button" class="gallery-viewer-action" data-viewer-like aria-label="Curtir foto" title="Curtir" aria-pressed="false">', icon("heart"), '<span>Curtir</span></button><button type="button" class="gallery-viewer-action" data-open-photo-adjust aria-label="Editar foto" title="Editar foto" hidden>', icon("pencil"), '<span>Editar</span></button><button type="button" class="gallery-viewer-action" data-toggle-menu aria-label="Mais opções" title="Mais opções" aria-expanded="false" aria-controls="galleryActionSheet">', icon("more"), '<span>Mais</span></button></div>',
   '<button type="button" data-previous hidden aria-hidden="true" tabindex="-1"></button><button type="button" data-next hidden aria-hidden="true" tabindex="-1"></button>',
   '</div>',
-  '<div class="gallery-action-sheet-backdrop" data-action-sheet id="galleryActionSheet" hidden><section class="gallery-action-sheet" role="dialog" aria-modal="true" aria-labelledby="gallery-action-title"><div class="gallery-sheet-handle" aria-hidden="true"></div><div class="gallery-dialog-heading"><h2 id="gallery-action-title">Opções da mídia</h2><button type="button" class="gallery-icon-button" data-close-action-sheet aria-label="Fechar opções">', icon("close"), '</button></div><div class="gallery-action-list"><button type="button" data-action-details>', icon("eye"), '<span>Informações da foto / Detalhes</span></button><button type="button" data-share-media>', icon("share"), '<span>Compartilhar / Enviar link</span></button><button type="button" data-open-comments>', icon("comment"), '<span>Ver comentários / Comentar</span></button><button type="button" data-viewer-admin-pin hidden>', icon("starFilled"), '<span>Fixar mídia</span></button><button type="button" data-viewer-toggle-private>', icon("lock"), '<span>Mover para pasta privada</span></button><button type="button" data-edit-description>', icon("pencil"), '<span>Editar descrição</span></button><button type="button" data-edit-mentions hidden>', icon("users"), '<span>Gerenciar menções</span></button><button type="button" data-manage-access hidden>', icon("shield"), '<span>Administrar acesso</span></button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), '<span>Excluir foto</span></button></div><div class="gallery-viewer-details" data-viewer-details hidden><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form></div></section></div>',
+  '<div class="gallery-action-sheet-backdrop" data-action-sheet id="galleryActionSheet" hidden><section class="gallery-action-sheet" role="dialog" aria-modal="true" aria-labelledby="gallery-action-title"><div class="gallery-sheet-handle" aria-hidden="true"></div><div class="gallery-dialog-heading"><h2 id="gallery-action-title">Opções da mídia</h2><button type="button" class="gallery-icon-button" data-close-action-sheet aria-label="Fechar opções">', icon("close"), '</button></div><p data-media-action-status class="gallery-status" role="status" aria-live="polite"></p><div class="gallery-action-list"><button type="button" data-action-details>', icon("eye"), '<span>Informações da foto / Detalhes</span></button><button type="button" data-share-media>', icon("share"), '<span>Compartilhar / Enviar link</span></button><button type="button" data-open-comments>', icon("comment"), '<span>Ver comentários / Comentar</span></button><button type="button" data-viewer-admin-pin hidden>', icon("starFilled"), '<span>Fixar mídia</span></button><button type="button" data-viewer-toggle-private>', icon("lock"), '<span>Mover para pasta privada</span></button><button type="button" data-edit-description>', icon("pencil"), '<span>Editar descrição</span></button><button type="button" data-edit-mentions hidden>', icon("users"), '<span>Gerenciar menções</span></button><button type="button" data-manage-access hidden>', icon("shield"), '<span>Administrar acesso</span></button><button type="button" data-viewer-admin-delete hidden>', icon("trash"), '<span>Excluir foto</span></button></div><div class="gallery-viewer-details" data-viewer-details hidden><p class="gallery-viewer-date" data-viewer-date></p><div class="gallery-viewer-description" data-viewer-description></div><form data-description-form hidden><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><button class="gallery-primary" type="submit">Salvar descrição</button></form></div></section></div>',
 '<div class="gallery-camera-modal" data-camera-modal hidden><div class="gallery-camera-panel"><video data-camera-preview autoplay muted playsinline></video><div><button type="button" class="gallery-tool" data-switch-camera>', icon("cameraSwitch"), ' Trocar câmera</button><button type="button" class="gallery-primary" data-record>', icon("video"), ' Iniciar gravação</button><button type="button" class="gallery-tool" data-stop-camera>Fechar</button></div><p data-camera-status role="status"></p></div></div>'
 ].join("");
 
@@ -415,6 +415,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     mediaHost.innerHTML = '<span class="gallery-skeleton gallery-viewer-skeleton" aria-hidden="true"></span>';
     $("[data-photo-adjust-panel]").hidden = true;
     $("[data-open-photo-adjust]").hidden = !(type === "image");
+    $("[data-media-action-status]").textContent = "";
     $("[data-viewer-details]").hidden = true;
     $("[data-action-details]").setAttribute("aria-expanded", "false");
     $("[data-viewer-like]").innerHTML = icon(x.likedByMe ? "heartFilled" : "heart") + "<span>" + (x.likedByMe ? "Curtido" : "Curtir") + "</span>";
@@ -732,10 +733,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (!window.confirm("Excluir permanentemente esta mídia? Esta ação não pode ser desfeita.")) return;
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
     const { error: storageError } = await client.storage.from(bucket).remove([x.storage_path]);
-    if (storageError) { say("Não foi possível remover o arquivo do armazenamento."); return; }
+    if (storageError) { say("Não foi possível remover o arquivo do armazenamento. Verifique sua conexão e o acesso de ADM.", $("[data-media-action-status]")); return; }
     const table = x.source === "archive" ? "archive_media" : "community_gallery_media";
-    const { error } = await client.from(table).delete().eq("id",x.id);
-    if (error) { say("O arquivo foi removido, mas os metadados não foram. Solicite a reconciliação à administração."); return; }
+    const { data: deleted, error } = await client.from(table).delete().eq("id",x.id).select("id");
+    if (error || !deleted?.some(row=>row.id===x.id)) { say("O arquivo foi removido, mas o banco não confirmou a exclusão. Atualize e tente novamente.", $("[data-media-action-status]")); return; }
     items = items.filter(y=>mediaKey(y)!==key); privateKeys.delete(key); draw(); closeViewer(); say("Mídia excluída.");
   };
 
@@ -810,19 +811,21 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (!x) return;
     const canManage = isAdmin;
     if (!canManage) {
-      say("Você não pode administrar o acesso desta mídia.");
+      say("Somente o ADM pode administrar o acesso desta mídia.", $("[data-media-action-status]"));
       return;
     }
-    hideSheet($("[data-action-sheet]"));
     selectedAccessRecipients.clear();
     try {
-      const table = x.source === "archive" ? "archive_media_recipients" : "community_gallery_media_recipients";
+      const table = x.source === "archive" ? "archive_media_recipients" : "gallery_media_viewers";
       const { data, error } = await client.from(table).select("user_id").eq("media_id", x.id);
       if (error) throw error;
       (data || []).forEach((row) => selectedAccessRecipients.add(row.user_id));
     } catch (error) {
       console.warn("Could not load current media audience", error);
+      say("Não foi possível carregar o acesso atual. Tente novamente.", $("[data-media-action-status]"));
+      return;
     }
+    hideSheet($("[data-action-sheet]"));
     const form = $("[data-access-form]");
     form.elements.visibility.value = x.visibility === "exclusive" ? "exclusive" : "members";
     $("[data-access-search]").value = "";
