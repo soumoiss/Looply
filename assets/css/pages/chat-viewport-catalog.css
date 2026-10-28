@@ -1,0 +1,139 @@
+/* Final chat layout: derive height from the real visual viewport and the
+   actual page position, never from one device's keyboard height. */
+@media(max-width:760px) {
+  .page-chat .chat-area.is-conversation-open .chat-thread-panel,
+  .page-chat.page-conversation .chat-thread-panel {
+    box-sizing:border-box!important;
+    height:var(--chat-panel-px,calc(100dvh - 120px))!important;
+    min-height:0!important;
+    max-height:none!important;
+    padding:0!important;
+    padding-bottom:0!important;
+    margin:0!important;
+    display:flex!important;
+    overflow:hidden!important;
+    flex-direction:column;
+  }
+  .page-chat .chat-area.is-conversation-open .chat-thread,
+  .page-chat.page-conversation .chat-thread {
+    display:flex!important;
+    flex-direction:column!important;
+    flex:1 1 auto!important;
+    min-height:0!important;
+    height:100%!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    padding-bottom:0!important;
+    scroll-padding-bottom:10px;
+  }
+  .page-chat .chat-message-form {
+    position:sticky!important;
+    bottom:0!important;
+    margin-top:auto!important;
+    margin-bottom:0!important;
+    flex-shrink:0!important;
+    width:calc(100% + 24px)!important;
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom))!important;
+    background:#fff!important;
+  }
+  .page-chat.chat-keyboard-open .page-navigation,
+  .page-chat:has(.chat-keyboard-open) .page-navigation {
+    display:none!important;
+  }
+  .page-chat .chat-message-form textarea {
+    resize:none!important;
+    max-height:min(32dvh,150px)!important;
+    height:auto!important;
+    min-height:44px!important;
+    line-height:1.4;
+    font-size:16px!important;
+  }
+}
+.page-chat .chat-conversation-avatar.chat-group-avatar,
+.page-chat .chat-thread-avatar.chat-group-avatar {object-fit:cover!important}
+.page-chat .chat-cover-change {
+  flex:0 0 auto;
+  min-width:44px;
+  min-height:44px;
+  padding:6px 9px;
+  border:1px solid #ddd6fe;
+  border-radius:12px;
+  background:#f5f3ff;
+  color:#6d28d9;
+  font:inherit;
+  font-size:11px;
+  font-weight:700;
+}
+.page-chat .chat-cover-change:disabled {opacity:.5}
+.page-chat .chat-cover-status {max-width:125px;font-size:10px;overflow-wrap:anywhere;color:#6d28d9}
+.page-chat .chat-thread-heading .chat-thread-identity {flex:1;min-width:0}
+.page-chat .chat-sticker-dialog {
+  width:min(440px,calc(100vw - 18px));
+  max-height:min(84dvh,680px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.page-chat .chat-catalog {display:grid;gap:9px;margin:14px 0;padding:0}
+.page-chat .chat-catalog-tabs {display:flex;gap:8px}
+.page-chat .chat-catalog-tabs button {
+  min-height:40px;flex:1;border:1px solid #ddd6fe;
+  border-radius:12px;background:#fff;color:#5b21b6;
+  font:inherit;font-size:13px;font-weight:700;
+}
+.page-chat .chat-catalog-tabs button[aria-pressed="true"] {background:#7c3aed;color:#fff}
+.page-chat .chat-catalog input {
+  width:100%;min-height:42px;padding:9px 12px;border-radius:12px;
+  border:1px solid #e5e7eb;background:#fff;font-size:16px;
+}
+.page-chat .chat-catalog-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  max-height:min(41dvh,330px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:3px;
+}
+.page-chat .chat-catalog-item {
+  position:relative;min-width:0;aspect-ratio:1;
+  border:1px solid #ede9fe;border-radius:14px;background:#faf8ff;
+}
+.page-chat .chat-catalog-item>button[data-chat-sticker-item] {
+  width:100%;height:100%;min-width:44px;min-height:52px;
+  display:grid;place-items:center;border:0;padding:8px;
+  background:transparent;cursor:pointer;
+}
+.page-chat .chat-catalog-item img {
+  display:block;max-width:100%;max-height:100%;width:100%;height:100%;
+  object-fit:contain;
+}
+.page-chat .chat-catalog-item .chat-catalog-favorite {
+  position:absolute;right:2px;top:2px;display:grid;place-items:center;
+  width:32px;height:32px;border:1px solid #ffffffa8;
+  background:#ffffffdf;color:#9333ea;border-radius:50%;
+  font-size:23px;z-index:1;cursor:pointer;
+}
+.page-chat .chat-catalog-favorite[aria-pressed="true"] {color:#d97706}
+.page-chat .chat-catalog-status {margin:0;font-size:12px;color:#64748b}
+.page-chat .chat-catalog-status:empty {display:none}
+.page-chat .chat-catalog-message {
+  display:block;
+  width:min(160px,45vw);
+  max-height:160px;
+  object-fit:contain;
+}
+.page-chat .chat-message:has(.chat-catalog-message) {
+  background:transparent!important;
+  box-shadow:none!important;
+  border:0!important;
+}
+.page-chat .chat-message:has(.chat-catalog-message) .chat-message-actions-inline,
+.page-chat .chat-message:has(.chat-catalog-message) .chat-message-meta {color:#64748b}
+@media(max-width:360px) {
+  .page-chat .chat-catalog-grid {grid-template-columns:repeat(3,minmax(0,1fr))}
+  .page-chat .chat-thread-heading {gap:5px!important}
+  .page-chat .chat-cover-change {font-size:0;width:44px;padding:0}
+  .page-chat .chat-cover-change::before {content:"📷";font-size:20px}
+}
