@@ -221,9 +221,7 @@ function storyListMarkup(groups, userId, profile) {
 
 export function storiesMarkup(stories, error, people, peopleError, userId, profile) {
   const groups = groupActiveStories(stories);
-  const eligiblePeople = (people || []).filter((person) =>
-    person.id !== userId && person.profile_visibility !== "private"
-  );
+  const eligiblePeople = (people || []).filter(person => person.id !== userId);
   const recipientOptions = eligiblePeople.map((person) =>
     '<option value="' + escapeHtml(person.id) + '" data-username="' + escapeHtml(person.username) + '" data-display-name="' + escapeHtml(person.display_name || person.username) + '" data-avatar="' + escapeHtml(person.avatarUrl || "") + '">' +
       escapeHtml(person.display_name || person.username) + " · @" + escapeHtml(person.username) +
