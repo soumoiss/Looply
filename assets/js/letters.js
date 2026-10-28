@@ -133,39 +133,48 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   const closeEdit = () => { ++editLoadGeneration; state.editor = null; close("editorAdminCarta"); };
   $("#fecharAdminCarta").addEventListener("click", closeEdit);
   $("#editorAdminCarta").addEventListener("close", () => { ++editLoadGeneration; state.editor = null; });
-  const openLetterEditor = async (kind, id, trigger) => {
+  const openLetterEditor = async (kind, id, trigger, unlockedPassword = "") => {
     const generation = ++editLoadGeneration;
     if (trigger) trigger.disabled = true;
     $("#cartasStatus").textContent = "Carregando conteúdo completo...";
     try {
       const full = await fetchFullLetterForEdit(client, kind, id, user.id, isAdmin);
+      const needsPassword = kind === "community" && full.is_protected;
+      // A letter already unlocked in the reader can open in edit mode with
+      // its full decrypted text. Never preload a stale list snapshot.
+      let unlockedText = null;
+      if (needsPassword && unlockedPassword) {
+        try { unlockedText = await unlockFullLetterForEdit(full, unlockedPassword); }
+        catch { /* Source may have changed since the reader opened. Ask for the password. */ }
+      }
       if (generation !== editLoadGeneration) return false;
       const form = $("#adminEditForm");
       form.reset();
-      state.editor = { kind, raw: full, unlocked: !full.is_protected };
+      state.editor = { kind, raw: full, unlocked: !full.is_protected || unlockedText !== null };
       form.elements.subject.value = full.subject || "";
-      form.elements.body.value = full.is_protected ? "" : full.body;
+      form.elements.password.value = unlockedText !== null ? unlockedPassword : "";
+      form.elements.body.value = unlockedText !== null ? unlockedText : full.is_protected ? "" : full.body;
       // Originals may be longer than the 5,000-character limit of new letters.
       if (kind === "community") form.elements.body.maxLength = COMMUNITY_LETTER_LIMIT;
       else form.elements.body.removeAttribute("maxlength");
-      form.elements.body.disabled = Boolean(full.is_protected);
+      form.elements.body.disabled = !state.editor.unlocked;
       form.elements.is_private.checked = Boolean(full.is_private);
       form.elements.password_hint.value = full.password_hint || "";
       $("#adminSubjectField").hidden = kind === "archive";
       $("#adminPrivateField").hidden = kind !== "archive";
       $("#adminHintField").hidden = kind !== "archive";
-      const needsPassword = kind === "community" && full.is_protected;
       $("#adminPasswordField").hidden = !needsPassword;
       $("#adminNewPasswordField").hidden = !needsPassword;
-      $("#desbloquearEdicaoCarta").hidden = !needsPassword;
-      $("#salvarAdminCarta").disabled = Boolean(full.is_protected);
+      $("#desbloquearEdicaoCarta").hidden = !needsPassword || state.editor.unlocked;
+      $("#salvarAdminCarta").disabled = !state.editor.unlocked;
       $("#adminDeleteCarta").hidden = !isAdmin;
       $("#adminEditTitle").textContent = "Editar carta";
-      $("#adminEditStatus").textContent = needsPassword
+      $("#adminEditStatus").textContent = needsPassword && !state.editor.unlocked
         ? "Digite a senha atual e carregue o texto antes de editar."
-        : full.is_protected ? "O texto desta carta original protegida não está disponível no banco. Nenhum conteúdo será substituído." : "";
+        : full.is_protected && !state.editor.unlocked
+          ? "O texto desta carta original protegida não está disponível no banco. Nenhum conteúdo será substituído." : "";
       $("#editorAdminCarta").showModal();
-      (needsPassword ? form.elements.password : form.elements.body).focus();
+      (needsPassword && !state.editor.unlocked ? form.elements.password : form.elements.body).focus();
       return true;
     } catch (error) {
       if (generation === editLoadGeneration) notify(asError(error), true);
@@ -199,7 +208,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   $("#editarCartaLida").addEventListener("click", async e => {
     const letter = state.reading;
     if (!letter || !(isAdmin || letter.sender_id === user.id)) return;
-    const opened = await openLetterEditor("community", letter.id, e.currentTarget);
+    const readPassword = letter.is_protected && $("#desbloquearNova").hidden ? $("#senhaLeituraNova").value : "";
+    const opened = await openLetterEditor("community", letter.id, e.currentTarget, readPassword);
     if (opened) close("modalLeituraNova");
   });
   $("#buscarDestinatario").addEventListener("input", e => renderRecipients(e.target.value));
