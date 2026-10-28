@@ -753,7 +753,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       }else if(pointers.size===2){
         const points=[...pointers.values()];
         pinchGesture={distance:Math.max(1,distance(points)),size:Number(el.dataset.size)};
-        drag=null;wasGesture=true;
+        drag=null;wasGesture=true;lastTap=0;
       }
     });
     el.addEventListener("pointermove",event=>{
@@ -770,6 +770,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;
         if(Math.hypot(dx,dy)>5)drag.moved=true;
         if(!drag.moved)return;
+        lastTap=0;
         const point=storyTextClampPosition(drag.x+dx/rect.width,drag.y+dy/rect.height);
         el.dataset.x=String(point.x);el.dataset.y=String(point.y);
         renderLayer(el);
@@ -1103,6 +1104,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const exportFinal = async (armedAudioContext = null) => {
     if (sourceKind === "none") throw new Error("Adicione uma foto, vídeo ou texto.");
     const layered = overlayRoot.childElementCount > 0;
+    if(layered){
+      const fontIds=[...overlayRoot.querySelectorAll("[data-studio-overlay]")]
+        .map(layer=>layer.dataset.fontId||STORY_TEXT_DEFAULT_FONT);
+      if(!await storyTextEnsureFonts(fontIds))
+        throw Error("As fontes do Story não carregaram. Confira sua conexão antes de publicar.");
+      rerenderLayers();
+    }
     if (sourceKind === "video" && (!music || music.kind === "catalog") && !layered && editFilter === "none") return file;
     if (sourceKind === "video") return exportVideo(null, Boolean(music && music.kind !== "catalog"), armedAudioContext);
     const canvas = await renderStill();
@@ -1316,6 +1324,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Música removida do Story.");
     },
     "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
+    "[data-studio-edit-selected]": () => {if(selectedLayer?.isConnected)openLayerEditor(selectedLayer);},
     "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
       modal("Figurinhas", '<div class="studio-stickers">' + ["❤️","✨","🌟","😍","🎉","🔥","🥳","💜"].map(t => '<button type="button" data-sticker="' + t + '">' + t + '</button>').join("") + '</div>');
