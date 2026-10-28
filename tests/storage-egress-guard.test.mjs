@@ -21,7 +21,7 @@ test("upload areas retain explicit guardrails while feed and Stories use authori
     read("src/chat.js"), read("src/profiles.js")
   ]);
   for (const source of [gallery, chat]) assert.match(source, /25 \* 1024 \* 1024/);
-  assert.match(social, /250 \* 1024 \* 1024/);
+  assert.match(social, /100 \* 1024 \* 1024/); // Live post_media CHECK caps attachments at 100 MiB.
   assert.doesNotMatch(stories, /25 \* 1024 \* 1024/);
   const client = await read("src/neon-production-client.js");
   assert.match(client, /storageRequest\("upload-url"/);
