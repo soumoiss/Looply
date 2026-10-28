@@ -644,8 +644,10 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     } else bindFeedVideoAutoplay(root);
     void hydrateTikTokEmbeds(root);
     refreshReelsViewer(root);
+    return true;
   } catch (error) {
     feed.innerHTML = feedMarkup([], error);
+    return false;
   } finally {
     feed.removeAttribute("aria-busy");
   }
@@ -1349,8 +1351,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         if (composerToggle) { composerToggle.setAttribute("aria-expanded", "false"); composerToggle.setAttribute("aria-label", "Abrir formulário de nova publicação"); }
         const picker = root.querySelector("[data-recipient-picker]");
         if (picker) picker.hidden = true;
-        setStatus(form, files.length ? "Sua publicação e as mídias foram salvas." : "Sua publicação foi salva.");
-        const toast = document.createElement("p"); toast.className = "looply-publish-toast"; toast.setAttribute("role", "status"); toast.textContent = "Publicado no Looply!"; root.append(toast); setTimeout(() => toast.remove(), 3500);
+        // Wait for a successful Feed reread before displaying a published toast.
       } else {
         const postId = form.dataset.postId;
         const parentCommentId = form.dataset.parentCommentId || null;
@@ -1371,7 +1372,19 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         form.reset();
         setStatus(form, parentCommentId ? "Sua resposta foi salva." : "Seu comentário foi salvo.");
       }
-      await refreshSocialFeed(root, client, getUserId?.(), isAdmin);
+      const refreshed = await refreshSocialFeed(root, client, getUserId?.(), isAdmin);
+      if (published) {
+        setStatus(form, refreshed ? "Sua publicação foi salva e aparece no Feed." :
+          "Publicação salva, mas o Feed não atualizou. Atualize a página para consultar.", !refreshed);
+        if (refreshed) {
+          const toast = document.createElement("p");
+          toast.className = "looply-publish-toast";
+          toast.setAttribute("role", "status");
+          toast.textContent = "Publicado no Looply!";
+          root.append(toast);
+          setTimeout(() => toast.remove(), 3500);
+        }
+      }
     } catch (error) {
       if (createdPostId && !published) {
         if (uploadedPaths.length) {
