@@ -2,6 +2,20 @@
 // enter this collection. External imports are intentionally not scraped here.
 const PAGE_SIZE = 36;
 const safeAsset = value => /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(String(value || ""));
+const safeUpload = value => /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(String(value || ""));
+async function prepareImages(client,rows) {
+  return Promise.all(rows.map(async row => {
+    if (safeAsset(row.asset_path)) return row;
+    if (!safeUpload(row.storage_path)) return {...row,imageUrl:null};
+    const result = await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
+    return {...row,imageUrl:result.error ? null : result.data?.signedUrl||null};
+  }));
+}
+function stickerSrc(row) {
+  if (safeAsset(row.asset_path)) return new URL(row.asset_path,document.baseURI).href;
+  return safeUpload(row.storage_path) ? row.imageUrl||null : null;
+}
+
 const states = new WeakMap();
 const esc = text => String(text ?? "").replace(/[&<>"']/g, ch =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -16,6 +30,15 @@ export function stickerCatalogMarkup() {
     <input id="chatStickerCatalogSearch" type="search" maxlength="60" placeholder="Buscar figurinha" data-chat-catalog-search>
     <div class="chat-catalog-grid" data-chat-catalog-grid aria-label="Escolher figurinha"></div>
     <button type="button" class="text-button" data-chat-catalog-more hidden>Carregar mais</button>
+    <div class="chat-catalog-import">
+      <label class="chat-catalog-import-rights"><input type="checkbox" data-chat-sticker-import-rights> Tenho direito de compartilhar estas imagens</label>
+      <label class="chat-catalog-import-button">Importar figurinhas <input type="file" data-chat-sticker-import-files accept="image/png,image/jpeg,image/webp" multiple></label>
+    </div>
+    <details class="chat-catalog-external"><summary>Fontes de figurinhas</summary>
+      <a href="https://lovecell.com.br/busca" rel="noopener noreferrer" target="_blank">Lovecell</a>
+      <a href="https://sticker.ly/s/E1XLQJ" rel="noopener noreferrer" target="_blank">Sticker.ly · E1XLQJ</a>
+      <a href="https://www.zapfigurinhas.com/" rel="noopener noreferrer" target="_blank">Zap Figurinhas</a>
+    </details>
     <p class="chat-catalog-status" data-chat-catalog-status role="status" aria-live="polite"></p>
   </div>`;
 }
@@ -27,7 +50,7 @@ const stateFor = picker => {
   let state = states.get(picker);
   if (!state) {
     state = { tab:"all", offset:0, query:"", pending:false, request:0,
-      favoriteIds:new Set(), rendered:new Map(), timer:null, sending:false };
+      favoriteIds:new Set(), rendered:new Map(), timer:null, sending:false, importing:false };
     states.set(picker,state);
   }
   return state;
@@ -37,7 +60,8 @@ function renderItems(picker, rows, append) {
   const state = stateFor(picker);
   if (!append) grid.replaceChildren();
   for (const entry of rows) {
-    if (!entry || !safeAsset(entry.asset_path)) continue;
+    const url = stickerSrc(entry);
+    if (!entry || !url) continue;
     state.rendered.set(entry.id, entry);
     const item = document.createElement("div");
     item.className = "chat-catalog-item";
@@ -46,7 +70,7 @@ function renderItems(picker, rows, append) {
     send.dataset.chatStickerItem = entry.id;
     send.setAttribute("aria-label", "Enviar figurinha: " + entry.title);
     const picture = document.createElement("img");
-    picture.src = new URL(entry.asset_path, document.baseURI).href;
+    picture.src = url;
     picture.alt = entry.title;
     picture.loading = "lazy";
     picture.decoding = "async";
@@ -101,22 +125,23 @@ async function loadPage(picker, client, userId, reset = false) {
       fetchedCount = ids.length;
       if (ids.length) {
         const catalog = await client.from("sticker_catalog")
-          .select("id,slug,title,asset_path").in("id",ids).limit(PAGE_SIZE);
+          .select("id,slug,title,asset_path,storage_path").in("id",ids).limit(PAGE_SIZE);
         if (catalog.error) throw catalog.error;
         const indexed = new Map((catalog.data || []).map(row=>[row.id,row]));
         rows = ids.map(id=>indexed.get(id)).filter(Boolean);
       }
     } else {
-      let query = client.from("sticker_catalog").select("id,slug,title,asset_path").order("slug");
+      let query = client.from("sticker_catalog").select("id,slug,title,asset_path,storage_path").order("slug");
       if (state.query) query = query.ilike("title","%"+state.query+"%");
       const result = await query.range(offset,offset+PAGE_SIZE-1);
       if (result.error) throw result.error;
       rows = result.data || [];
       fetchedCount = rows.length;
     }
+    const signedRows = await prepareImages(client,rows);
     if (sequence !== state.request || !picker.isConnected) return;
     if (reset) state.rendered.clear();
-    renderItems(picker, rows, !reset);
+    renderItems(picker,signedRows,!reset);
     state.offset = offset + fetchedCount;
     more.hidden = fetchedCount < PAGE_SIZE;
     if (rows.length) setStatus(picker, "Toque na imagem para enviar ou na estrela para favoritar.");
@@ -131,6 +156,87 @@ async function loadPage(picker, client, userId, reset = false) {
       void loadPage(picker,client,userId,queuedReset);
     }
   }
+}
+async function normalizeImportedSticker(file) {
+  if (!(file instanceof File) || !["image/png","image/jpeg","image/webp"].includes(file.type)
+    || file.size < 1 || file.size > 10*1024*1024)
+    throw Error("sticker_invalid_image");
+  let bitmap;
+  let tempUrl;
+  try {
+    if (typeof createImageBitmap === "function") bitmap = await createImageBitmap(file);
+    else {
+      tempUrl=URL.createObjectURL(file);
+      bitmap=new Image();
+      bitmap.src=tempUrl;
+      await bitmap.decode();
+    }
+    const w=bitmap.width||bitmap.naturalWidth, h=bitmap.height||bitmap.naturalHeight;
+    if (!w||!h||w*h>24000000) throw Error("sticker_invalid_dimensions");
+    const canvas=document.createElement("canvas");
+    const scale=Math.min(1,320/Math.max(w,h));
+    canvas.width=Math.max(1,Math.round(w*scale));
+    canvas.height=Math.max(1,Math.round(h*scale));
+    canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",0.84));
+    if (!blob || !blob.size || blob.size>1024*1024) throw Error("sticker_encoding_failed");
+    return new File([blob],"figurinha.webp",{type:"image/webp"});
+  } finally {
+    bitmap?.close?.();
+    if (tempUrl) URL.revokeObjectURL(tempUrl);
+  }
+}
+async function importStickerFiles(picker,files,client,userId) {
+  const state=stateFor(picker);
+  if (state.importing) return;
+  state.importing=true;
+  let imported=0,failed=0,uncertain=0,duplicates=0;
+  try {
+    for (const [index,file] of files.entries()) {
+      if (!picker.isConnected) break;
+      setStatus(picker,`Importando ${index+1}/${files.length}…`);
+      let path="", inserted=false;
+      try {
+        const normalized=await normalizeImportedSticker(file);
+        const digest=await crypto.subtle.digest("SHA-256",await normalized.arrayBuffer());
+        const hash=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+        const existing=await client.from("sticker_catalog").select("id")
+          .eq("owner_id",userId).eq("content_sha256",hash).limit(1);
+        if (existing.error) throw existing.error;
+        if (existing.data?.length) {duplicates++;continue;}
+        path=`stickers/${userId}/${crypto.randomUUID()}.webp`;
+        const upload=await client.storage.from("looply-stickers").upload(path,normalized,{contentType:"image/webp"});
+        if (upload.error) throw upload.error;
+        const title=String(file.name||"Figurinha")
+          .replace(/\.[^.]+$/,"").replace(/[<>]/g,"").trim().slice(0,100)||"Figurinha";
+        const added=await client.from("sticker_catalog").insert({
+          slug:"u-"+crypto.randomUUID(),title,owner_id:userId,storage_path:path,
+          byte_size:normalized.size,source_name:"Importação pessoal",content_sha256:hash
+        }).select("id,storage_path").single();
+        if (added.error || !added.data?.id) throw added.error||Error("sticker_insert_failed");
+        inserted=true;
+        const verified=await client.from("sticker_catalog").select("id,storage_path")
+          .eq("id",added.data.id).maybeSingle();
+        if (verified.error || verified.data?.storage_path!==path) {
+          uncertain++;continue;
+        }
+        imported++;
+      } catch (error) {
+        failed++;
+        console.warn("Looply personal sticker import failed.",error);
+        if (path&&!inserted) {
+          const cleanup=await client.storage.from("looply-stickers").remove([path]);
+          if (cleanup.error) console.warn("Sticker upload cleanup not confirmed.",cleanup.error);
+        }
+      }
+    }
+    state.tab="all";
+    picker.querySelectorAll("[data-chat-catalog-tab]").forEach(button=>
+      button.setAttribute("aria-pressed",String(button.dataset.chatCatalogTab==="all")));
+    state.offset=0;
+    await loadPage(picker,client,userId,true);
+    setStatus(picker,`${imported} importada(s)${duplicates?" · "+duplicates+" já existente(s)":""}${failed?" · "+failed+" falharam":""}${uncertain?" · "+uncertain+" pendente(s) de verificação":""}.`);
+  } finally {state.importing=false;}
 }
 export function bindStickerCatalog(root, client, getUserId) {
   root.addEventListener("click", async event => {
@@ -196,7 +302,7 @@ export function bindStickerCatalog(root, client, getUserId) {
     const sticker = state.rendered.get(send.dataset.chatStickerItem);
     const form = picker.closest("[data-chat-send]");
     const conversationId = form?.dataset.conversationId;
-    if (!sticker || !safeAsset(sticker.asset_path) || !conversationId ||
+    if (!sticker || !stickerSrc(sticker) || !conversationId ||
       root.querySelector("[data-chat-send]") !== form) return;
     state.sending = true;
     send.disabled = true;
@@ -227,6 +333,21 @@ export function bindStickerCatalog(root, client, getUserId) {
       console.warn("Looply sticker send failed.",error);
       setStatus(picker,"A figurinha não foi enviada. Tente novamente.");
     } finally { state.sending = false; send.disabled = false; }
+  });
+  root.addEventListener("change",async event=>{
+    const input=event.target.closest("[data-chat-sticker-import-files]");
+    if (!input) return;
+    const picker=input.closest("[data-chat-sticker-picker]");
+    const files=Array.from(input.files||[]);
+    input.value="";
+    if (!picker || !files.length) return;
+    const rights=picker.querySelector("[data-chat-sticker-import-rights]");
+    if (!rights?.checked) {setStatus(picker,"Confirme que você pode compartilhar as imagens.");return;}
+    if (files.length>30) {setStatus(picker,"Selecione até 30 imagens por lote.");return;}
+    if (stateFor(picker).importing) return;
+    const userId=getUserId?.();
+    if (!userId) {setStatus(picker,"Entre na sua conta para importar.");return;}
+    await importStickerFiles(picker,files,client,userId);
   });
   root.addEventListener("input", event => {
     const input = event.target.closest("[data-chat-catalog-search]");
