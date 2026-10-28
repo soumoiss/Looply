@@ -512,11 +512,15 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const revealSheet = sheet => { sheet.hidden = false; requestAnimationFrame(() => sheet.classList.add("is-open")); };
   const hideSheet = sheet => { if (!sheet || sheet.hidden) return; sheet.classList.remove("is-open"); window.setTimeout(() => { if (!sheet.classList.contains("is-open")) sheet.hidden = true; }, 220); };
   const openComments = async key => {
-    if (key) activeKey = key;
+    if (!key || !getItem(key)) return;
+    commentKey = key;
     const sheet = $("[data-comments-modal]");
+    sheet.dataset.mediaKey = key;
+    $("[data-comment-form]").reset();
+    $("[data-comment-status]").textContent = "";
     revealSheet(sheet);
     $("[data-comments-list]").innerHTML = '<div class="gallery-skeleton gallery-comment-skeleton" role="status">Carregando comentários…</div>';
-    await loadComments();
+    await loadComments(key);
   };
   const togglePrivate = async key => {
     const x = getItem(key); if (!x) return;
@@ -529,31 +533,32 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     draw();
     if (activeKey === key) $("[data-viewer-toggle-private]").innerHTML = icon("lock") + (next ? " Remover de Privadas" : " Mover para Privadas");
   };
-  const loadComments = async () => {
-    const x = getItem(activeKey); if (!x) return;
+  const loadComments = async (key = commentKey) => {
+    const x = getItem(key); if (!x) return false;
+    const request = ++commentRequest;
     $("[data-comments-modal]").hidden = false;
     $("[data-comments-modal]").classList.add("is-open");
     $("[data-comments-list]").innerHTML = '<div class="gallery-skeleton gallery-comment-skeleton" role="status">Carregando comentários…</div>';
     const table = x.source === "archive" ? "archive_media_comments" : "community_gallery_comments";
     const { data, error } = await client.from(table).select("id,media_id,author_id,body,audience,created_at").eq("media_id",x.id).order("created_at",{ascending:true}).limit(100);
+    if (request !== commentRequest || commentKey !== key || $("[data-comments-modal]").hidden) return false;
     if (error) { console.error("Looply comments load failed", error); say(error?.code === "42501" ? "Sem permissão para ver os comentários desta mídia. Atualize a página e confirme seu acesso." : "Não foi possível carregar os comentários" + (error?.code ? " (" + error.code + ")" : "") + ".", $("[data-comment-status]")); return; }
     const rows = data || [];
     const authorIds = [...new Set(rows.map(r=>r.author_id))];
     const authors = authorIds.length ? await client.from("profiles").select("id,username,display_name").in("id",authorIds) : {data:[]};
     const authorMap = new Map((authors.data || []).map(p=>[p.id,p]));
+    if (request !== commentRequest || commentKey !== key || $("[data-comments-modal]").hidden) return false;
     $("[data-comments-list]").innerHTML = rows.length ? rows.map(r => {
       const p = authorMap.get(r.author_id);
       return '<article class="gallery-comment"><div><strong>' + esc(p?.display_name || p?.username || "Usuário") + '</strong><time>' + esc(dateLabel(r.created_at)) + '</time></div><p>' + esc(r.body) + '</p>' + (r.audience === "selected" || r.audience === "author_only" ? '<small>' + icon("lock") + ' Comentário restrito</small>' : '') + '</article>';
     }).join("") : '<p class="gallery-empty-small">Ainda não há comentários visíveis para você.</p>';
     $("[data-comment-status]").textContent = "";
     $("[data-comments-modal]").hidden = false;
-    $("[data-comment-form]").querySelector('[name="audience"]').value = "media_viewers";
-    $("[data-comment-recipients]").hidden = true;
-    syncUserLists();
+    return true;
   };
   const publishComment = async event => {
     event.preventDefault();
-    const x = getItem(activeKey); if (!x) return;
+    const key = commentKey, x = getItem(key); if (!x || key !== $("[data-comments-modal]").dataset.mediaKey) return;
     const form = event.currentTarget, body = String(new FormData(form).get("body") || "").trim(), audience = String(new FormData(form).get("audience") || "media_viewers");
     const recipientIds = chosen("[data-comment-recipients]");
     if (!body) { say("Escreva um comentário antes de publicar.", $("[data-comment-status]")); return; }
@@ -563,8 +568,14 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       const rpc = x.source === "archive" ? "create_archive_media_comment" : "create_community_gallery_comment";
       const { error } = await client.rpc(rpc, { p_media_id:x.id, p_body:body, p_audience:audience, p_recipient_ids:audience === "selected" ? recipientIds : [] });
       if (error) throw error;
+      if (commentKey !== key) return;
+      const confirmed = await loadComments(key);
+      if (!confirmed || commentKey !== key) {
+        say("Comentário enviado; não foi possível confirmar a nova leitura. Seu texto foi preservado.", $("[data-comment-status]"));
+        return;
+      }
       form.reset(); say("Comentário publicado.", $("[data-comment-status]"));
-      x.hasComments = true; draw(); await loadComments();
+      x.hasComments = true; draw();
     } catch (error) {
       console.error("Looply comment publish failed", { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint });
       const message = String(error?.message || "");
@@ -776,7 +787,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-toggle-menu]").addEventListener("click",()=>{const sheet=$("[data-action-sheet]");if(sheet.hidden)revealSheet(sheet);else hideSheet(sheet);$("[data-toggle-menu]").setAttribute("aria-expanded",String(!sheet.hidden));});
   $("[data-close-action-sheet]").addEventListener("click",()=>hideSheet($("[data-action-sheet]")));
   $("[data-action-sheet]").addEventListener("click",e=>{if(e.target===$("[data-action-sheet]"))hideSheet($("[data-action-sheet]"));});
-  $$("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));window.setTimeout(()=>openComments(key),220);}));
+  $("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));void openComments(key);}));
   $$("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
   $$("[data-view]").forEach(b=>b.addEventListener("click",()=>{view=b.dataset.view;$$("[data-view]").forEach(v=>{v.classList.toggle("active",v===b);v.setAttribute("aria-pressed",String(v===b));});draw();}));
   $$("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;activeAlbumId=null;shuffled=false;draw();}));
@@ -845,8 +856,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $$("[data-close-tags]").forEach(b=>b.addEventListener("click",()=> $("[data-tags-modal]").hidden=true));
   $("[data-tag-search]").addEventListener("input",()=>{$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,$("[data-tag-search]").value);});
   $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(selectedTagPeople);const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];selectedTagPeople=new Set(selected);$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
-  $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>hideSheet($("[data-comments-modal]"))));
-  $("[data-comments-modal]").addEventListener("click",e=>{if(e.target===$("[data-comments-modal]"))hideSheet($("[data-comments-modal]"));});
+  $("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}));
+  $("[data-comments-modal]").addEventListener("click",e=>{if(e.target===$("[data-comments-modal]")){++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}});
   $("[data-comment-form]").addEventListener("submit",publishComment);
   $("[data-comment-form] [name=audience]").addEventListener("change",e=>{$("[data-comment-recipients]").hidden=e.target.value!=="selected";syncUserLists();});
   $("[data-comment-mention-search]").addEventListener("input", syncUserLists);
