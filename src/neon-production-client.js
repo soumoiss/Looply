@@ -110,6 +110,34 @@ async function galleryRpc(name,args) {
     return response.ok ? {data,error:null} : {data:null,error:{message:data?.message||"Ação recusada",code:data?.code,status:response.status}};
   } catch {return {data:null,error:{message:"Falha de conexão"}};}
 }
+// Story engagement RPCs are backed by Neon functions with authenticated
+// identity resolution, so callers cannot forge a viewer or a reply sender.
+const storyEngagementRpcNames = new Set(["record_story_view", "send_story_reply"]);
+async function storyEngagementRpc(name, args) {
+  if (!storyEngagementRpcNames.has(name)) return blocked();
+  try {
+    const session = await activeSession();
+    if (!session?.access_token) return { data: null, error: { message: "neon_session_required", status: 401 } };
+    const response = await fetch(config.data + "/rpc/" + name, {
+      method: "POST", cache: "no-store",
+      headers: { authorization: "Bearer " + session.access_token,
+        accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify(args)
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return { data: null, error: {
+      message: data?.message || "neon_story_engagement_failed",
+      status: response.status, code: data?.code || ""
+    } };
+    if (name === "record_story_view" && typeof data !== "boolean")
+      return { data: null, error: { message: "neon_story_view_unconfirmed" } };
+    if (name === "send_story_reply" && (!data?.conversation_id || !data?.message_id))
+      return { data: null, error: { message: "neon_story_reply_unconfirmed" } };
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: { message: error?.message || "neon_story_engagement_unavailable" } };
+  }
+}
 const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media","v5_add_story_mentions"]);
 async function ownerPublicationRpc(name,args) {
   if(!publicationRpcNames.has(name)) return blocked();
@@ -219,7 +247,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => galleryRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,
