@@ -77,7 +77,12 @@ async function fetchFavoriteIds(client, userId) {
 }
 async function loadPage(picker, client, userId, reset = false) {
   const state = stateFor(picker);
-  if (state.pending) { state.request++; return; }
+  if (state.pending) {
+    // Supersede an older search/tab request; run the latest query afterwards.
+    ++state.request;
+    state.queued = reset || Boolean(state.queued);
+    return;
+  }
   state.pending = true;
   const sequence = ++state.request;
   const offset = reset ? 0 : state.offset;
@@ -118,7 +123,14 @@ async function loadPage(picker, client, userId, reset = false) {
   } catch (error) {
     console.warn("Looply sticker catalog unavailable.", error);
     setStatus(picker,"Não foi possível carregar o catálogo. Tente novamente.");
-  } finally { state.pending = false; }
+  } finally {
+    state.pending = false;
+    if (state.queued && picker.isConnected) {
+      const queuedReset = state.queued;
+      state.queued = false;
+      void loadPage(picker,client,userId,queuedReset);
+    }
+  }
 }
 export function bindStickerCatalog(root, client, getUserId) {
   root.addEventListener("click", async event => {
