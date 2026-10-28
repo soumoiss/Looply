@@ -69,7 +69,7 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /stage\.dataset\.screenFlash = "firing"/);
   assert.match(studio, /await track\.applyConstraints\(\{ advanced: \[\{ torch: turnOn \}\] \}\)/);
   assert.match(studio, /track\.getSettings\?\.\(\)\.torch/);
-  assert.match(studio, /resizeMode: \{ ideal: "none" \}/);
+  assert.match(studio, /resizeMode:\{ideal:"none"\}/);
   assert.match(studio, /zoomBase \* settings\.zoom/);
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
