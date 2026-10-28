@@ -1,5 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028";
-import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js?v=avatar-autosave-20261028";
+import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b";
+import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js?v=avatar-autosave-20261028b";
 
 await mountAppPage({ page: "profile", render: async ({ root, client, profile, isAdmin }) => {
   const targetId = new URLSearchParams(window.location.search).get("usuario");
