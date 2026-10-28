@@ -111,12 +111,14 @@ test("published gallery media cannot be downgraded to pending to bypass deletion
 
 test("gallery binds multi-control groups with querySelectorAll instead of querySelector", () => {
   const lines = gallery.split(String.fromCharCode(10)).map(line => line.trimStart());
-  for (const selector of ["[data-kind]", "[data-main]", "[data-close-access]", "[data-close-tags]", "[data-close-album]"]) {
+  for (const selector of ["[data-main]", "[data-close-access]", "[data-close-tags]", "[data-close-album]"]) {
     const allQuery = "$$(" + '"' + selector + '"' + ").forEach(";
     const singleQuery = "$(" + '"' + selector + '"' + ").forEach(";
     assert.ok(lines.some(line => line.startsWith(allQuery)), "Expected all controls for " + selector);
     assert.ok(!lines.some(line => line.startsWith(singleQuery)), "Single-element query used for " + selector);
   }
+  assert.doesNotMatch(gallery, /data-kind="all"/, "Duplicate type chips must stay removed");
+  assert.match(gallery, /data-close-filters/, "Filter sheet keeps its own close action");
 });
 
 
