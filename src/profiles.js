@@ -1,7 +1,7 @@
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
-import { saveNeonProfile, saveNeonAvatarOnly } from "./neon-avatar-profile.js";
+import { saveNeonProfile, saveNeonAvatarOnly, removeNeonAvatarOnly } from "./neon-avatar-profile.js";
 import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js";
 
 function escapeHtml(value) {
@@ -415,16 +415,33 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         renderAvatarPreview(preview, originalUrl, form);
         avatarRemove.textContent = originalUrl ? "Remover foto" : "Escolher foto";
         setStatus(form, "Seleção cancelada.", "success");
-      } else if (removeState.value === "true") {
-        removeState.value = "false";
-        renderAvatarPreview(preview, originalUrl, form);
-        avatarRemove.textContent = "Remover foto";
-        setStatus(form, "Remoção desfeita.", "success");
       } else if (originalUrl) {
-        removeState.value = "true";
-        renderAvatarPreview(preview, "", form);
-        avatarRemove.textContent = "Desfazer";
-        setStatus(form, "A foto será removida ao salvar.", "success");
+        if(!window.confirm("Remover sua foto de perfil? Você poderá adicionar outra depois."))return;
+        avatarRemove.disabled=true;
+        try {
+          const {data:sessionData,error:sessionError}=await client.auth.getSession();
+          if(sessionError||!sessionData?.session?.access_token)throw Error("session expired");
+          const targetId=profileId||form.dataset.profileId;
+          if(!targetId)throw Error("session expired");
+          const deleted=await removeNeonAvatarOnly({
+            profileId:targetId,session:sessionData.session,
+            dataApiUrl:client.dataApiUrl,storage:client.storage
+          });
+          if(deleted.profile.avatar_path!==null)throw Error("profile-update-not-confirmed");
+          preview.dataset.originalAvatarUrl="";
+          form.dataset.hasAvatar="false";
+          removeState.value="false";
+          renderAvatarPreview(preview,"",form);
+          avatarRemove.hidden=true;
+          setStatus(form,"Foto removida e alteração confirmada no Neon.","success");
+          window.dispatchEvent(new CustomEvent("looply:avatar-updated",{
+            detail:{profileId:targetId,avatar_path:null,avatarUrl:""}
+          }));
+        }catch(error){
+          console.error("Looply avatar removal failed",error);
+          setStatus(form,avatarSaveErrorMessage(error),"error");
+        }finally{avatarRemove.disabled=false;}
+        return;
       } else {
         renderAvatarPreview(preview, "", form);
         avatarRemove.hidden = true;
