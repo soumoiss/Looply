@@ -815,25 +815,79 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     $("[data-studio-modal]").hidden = true; body.replaceChildren();
   };
   const openLayerEditor = el => {
-    const fonts = '<option value="system-ui">Moderna</option><option value="Georgia">Clássica</option><option value="cursive">Manuscrita</option><option value="monospace">Mono</option>';
-    modal("Editar texto", '<textarea data-layer-text rows="3" maxlength="120" placeholder="Seu texto"></textarea>' +
-      '<label>Fonte<select data-layer-font>' + fonts + '</select></label>' +
-      '<label>Cor<input type="color" data-layer-color value="#ffffff"></label>' +
-      '<label>Tamanho<input type="range" data-layer-size min="18" max="65" value="34"></label>' +
-      '<div class="studio-modal-actions"><button type="button" data-layer-delete>Remover</button><button type="button" data-layer-save>Concluir</button></div>');
-    body.querySelector("[data-layer-text]").value = el.textContent;
-    body.querySelector("[data-layer-font]").value = el.dataset.family;
-    body.querySelector("[data-layer-color]").value = el.dataset.color;
-    body.querySelector("[data-layer-size]").value = el.dataset.size;
-    body.querySelector("[data-layer-save]").onclick = () => {
-      el.textContent = cleanName(body.querySelector("[data-layer-text]").value);
-      el.dataset.family = body.querySelector("[data-layer-font]").value;
-      el.dataset.color = body.querySelector("[data-layer-color]").value;
-      el.dataset.size = body.querySelector("[data-layer-size]").value;
-      el.style.fontFamily = el.dataset.family; el.style.color = el.dataset.color;
-      el.style.fontSize = el.dataset.size + "px"; modalClose();
+    if(!el?.isConnected)return;
+    selectLayer(el);
+    const choices=Object.entries(STORY_TEXT_FONTS).map(([key,item])=>
+      '<button type="button" class="studio-font-choice" data-layer-font-choice="'+key+
+      '" aria-pressed="false">'+escapeHtml(item.label)+'</button>').join("");
+    modal("Editar texto", '<label class="studio-layer-text-label">Texto<textarea data-layer-text rows="4" maxlength="500" placeholder="Escreva seu texto"></textarea></label>'+
+      '<fieldset class="studio-font-fieldset"><legend>Estilo da fonte</legend><div class="studio-font-choices">'+choices+'</div></fieldset>'+
+      '<input type="hidden" data-layer-font value="modern">'+
+      '<div class="studio-font-sample" data-layer-font-sample aria-hidden="true">Aa ÁÉÍÓÚ ç ✨</div>'+
+      '<label>Cor<input type="color" data-layer-color value="#ffffff"></label>'+
+      '<label>Tamanho<input type="range" data-layer-size min="18" max="94" step="1" value="34"></label>'+
+      '<p data-layer-status class="studio-font-status" role="status" aria-live="polite"></p>'+
+      '<div class="studio-modal-actions"><button type="button" data-layer-cancel>Cancelar</button><button type="button" data-layer-delete>Remover</button><button type="button" data-layer-save>Concluir</button></div>');
+    const textarea=body.querySelector("[data-layer-text]");
+    const fontInput=body.querySelector("[data-layer-font]");
+    const colorInput=body.querySelector("[data-layer-color]");
+    const sizeInput=body.querySelector("[data-layer-size]");
+    const sample=body.querySelector("[data-layer-font-sample]");
+    const message=body.querySelector("[data-layer-status]");
+    textarea.value=el.dataset.text??el.textContent;
+    fontInput.value=el.dataset.fontId||STORY_TEXT_DEFAULT_FONT;
+    colorInput.value=el.dataset.color||"#ffffff";
+    sizeInput.value=String(storyTextClampSize(el.dataset.size));
+    const choicesButtons=[...body.querySelectorAll("[data-layer-font-choice]")];
+    const refreshSample=()=>{
+      const font=storyTextFont(fontInput.value);
+      sample.style.fontFamily=font.family;sample.style.fontWeight=font.weight;
+      sample.style.fontSize=Math.min(40,Number(sizeInput.value))+"px";
+      sample.style.color=colorInput.value;
+      sample.textContent=textarea.value.trim().slice(0,45)||"Aa ÁÉÍÓÚ ç ✨";
+      choicesButtons.forEach(button=>{
+        button.setAttribute("aria-pressed",String(button.dataset.layerFontChoice===fontInput.value));
+        const item=storyTextFont(button.dataset.layerFontChoice);
+        button.style.fontFamily=item.family;button.style.fontWeight=item.weight;
+      });
     };
-    body.querySelector("[data-layer-delete]").onclick = () => { el.remove(); modalClose(); };
+    refreshSample();
+    const loadChoice=async key=>{
+      const available=await storyTextEnsureFonts([key]);
+      if(!textarea.isConnected)return;
+      if(!available){
+        message.textContent="Não foi possível carregar essa fonte. Confira a conexão.";
+        return;
+      }
+      fontInput.value=key;message.textContent="";refreshSample();
+    };
+    choicesButtons.forEach(button=>button.onclick=()=>void loadChoice(button.dataset.layerFontChoice));
+    textarea.addEventListener("input",refreshSample);
+    sizeInput.addEventListener("input",refreshSample);
+    colorInput.addEventListener("input",refreshSample);
+    body.querySelector("[data-layer-save]").onclick=async()=>{
+      const button=body.querySelector("[data-layer-save]");
+      if(button.disabled)return;
+      const value=storyTextNormalize(textarea.value);
+      if(!value.trim()){message.textContent="Digite algum texto antes de concluir.";return;}
+      button.disabled=true;
+      try{
+        const loaded=await storyTextEnsureFonts([fontInput.value]);
+        if(!loaded)throw Error("A fonte selecionada não terminou de carregar.");
+        if(!el.isConnected)return;
+        el.dataset.text=value;
+        el.dataset.fontId=fontInput.value;
+        el.dataset.color=colorInput.value;
+        el.dataset.size=String(storyTextClampSize(sizeInput.value));
+        renderLayer(el);modalClose();selectLayer(el);
+      }catch(error){
+        message.textContent=error.message||"Não foi possível preparar esta fonte.";
+      }finally{button.disabled=false;}
+    };
+    body.querySelector("[data-layer-cancel]").onclick=modalClose;
+    body.querySelector("[data-layer-delete]").onclick=()=>{el.remove();selectLayer(null);modalClose();};
+    // The keyboard only opens on explicit edit, never on selection or drag.
+    textarea.focus({preventScroll:true});
   };
   // The song is metadata (and an authorized stream for Audius), never a
   // visible draggable sticker or a commercial audio file mixed into video.
