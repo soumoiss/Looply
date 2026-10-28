@@ -51,3 +51,11 @@ GRANT INSERT ON public.sticker_catalog TO authenticated;
 
 -- @statement
 CREATE INDEX IF NOT EXISTS sticker_catalog_owner_created_v11 ON public.sticker_catalog (owner_id,created_at DESC,id) WHERE owner_id IS NOT NULL;
+-- @statement
+ALTER TABLE public.sticker_catalog ADD COLUMN IF NOT EXISTS content_sha256 text;
+
+-- @statement
+ALTER TABLE public.sticker_catalog ADD CONSTRAINT sticker_catalog_sha_v11 CHECK (content_sha256 IS NULL OR content_sha256 ~ '^[a-f0-9]{64}$');
+
+-- @statement
+CREATE UNIQUE INDEX IF NOT EXISTS sticker_catalog_owner_sha_v11 ON public.sticker_catalog(owner_id,content_sha256) WHERE owner_id IS NOT NULL AND content_sha256 IS NOT NULL;
