@@ -765,7 +765,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stopMusicPreview(); stopMusicPreview = () => {};
     $("[data-studio-modal]").hidden = true; body.replaceChildren();
   };
-  const openLayerEditor = el => {
+  const openLayerEditor = (el, createdNow=false) => {
     if(!el?.isConnected)return;
     selectLayer(el);
     const choices=Object.entries(STORY_TEXT_FONTS).map(([key,item])=>
@@ -835,7 +835,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         message.textContent=error.message||"Não foi possível preparar esta fonte.";
       }finally{button.disabled=false;}
     };
-    body.querySelector("[data-layer-cancel]").onclick=modalClose;
+    body.querySelector("[data-layer-cancel]").onclick=()=>{
+      if(createdNow){el.remove();selectLayer(null);}
+      modalClose();
+    };
     body.querySelector("[data-layer-delete]").onclick=()=>{el.remove();selectLayer(null);modalClose();};
     // The keyboard only opens on explicit edit, never on selection or drag.
     textarea.focus({preventScroll:true});
@@ -1273,7 +1276,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       modalClose();
       status("Música removida do Story.");
     },
-    "[data-studio-add-text]": () => openLayerEditor(addLayer("Seu texto", false)),
+    "[data-studio-add-text]": () => openLayerEditor(addLayer("", false),true),
     "[data-studio-edit-selected]": () => {if(selectedLayer?.isConnected)openLayerEditor(selectedLayer);},
     "[data-studio-mentions-open]": openMentions,
     "[data-studio-stickers]": () => {
