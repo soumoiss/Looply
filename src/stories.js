@@ -483,7 +483,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if(oldMusic instanceof HTMLMediaElement)oldMusic.pause();
       oldMusic.remove();
     });
-    viewer.querySelectorAll("[data-story-sound-unlock]").forEach(button=>button.remove());
     // The track title/link stays in the Story metadata, not as an on-screen
     // label. Audius permits third-party streaming through its public API.
     // Apple/Deezer promo snippets are ONLY auditioned in their official
@@ -500,36 +499,14 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.src = audiusStream;
       music.setAttribute("aria-label", "Música de fundo do Story");
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      const unlock=document.createElement("button");
-      unlock.type="button";unlock.dataset.storySoundUnlock="";
-      unlock.className="story-sound-unlock";unlock.textContent="🔊";
-      unlock.setAttribute("aria-label","Ativar o som do story");
-      unlock.hidden=true;
-      unlock.addEventListener("click",event=>{
-        event.stopPropagation();
-        void music.play().then(()=>{
-          music.dataset.playback="playing";unlock.remove();
-        }).catch(error=>{
-          if(isAdmin)showStatus("ADM: Audius não reproduziu: "+error.message,true);
-        });
-      });
-      viewer.querySelector("[data-story-touch-surface]").append(unlock);
-      music.addEventListener("playing",()=>{music.dataset.playback="playing";unlock.remove();});
+      music.addEventListener("playing",()=>{music.dataset.playback="playing";});
       music.addEventListener("error",()=>{
         music.dataset.playback="unavailable";
-        unlock.hidden=false;
-        unlock.setAttribute("aria-label","Tentar reproduzir a música do Story");
-        // An unavailable stream must not be presented as playing.
         if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
       });
-      if (!waitsForVideo) void music.play().then(()=>{
-        music.dataset.playback="playing";unlock.remove();
-      }).catch(error=>{
-        if(music.isConnected){
-          music.dataset.playback="gesture-required";unlock.hidden=false;
-          if(isAdmin)showStatus("ADM: áudio bloqueado pelo navegador: "+error.message,true);
-        }
-      });
+      // Start within the Story-open gesture when possible. A video and its
+      // soundtrack are both started while the user activation is still valid.
+      void startStoryMediaPlayback(music);
     }
     // A Story can carry both legacy text metadata and the newer Audius marker.
     // Only one external soundtrack must play on a slide.
@@ -544,7 +521,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.src = storyText.music.previewUrl;
       music.addEventListener("error", () => { music.dataset.playback = "unavailable"; }, { once: true });
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      if (!waitsForVideo) void music.play().catch(() => { music.dataset.playback = "gesture-required"; });
+      void startStoryMediaPlayback(music);
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const slideAudio = viewer.querySelector("#story-audio");
@@ -575,13 +552,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
             // Start the soundtrack only after the video really starts, including
             // after a browser requires a tap to permit video playback.
             try { songAudio.currentTime = video.currentTime || 0; } catch { /* Live streams may not seek. */ }
-            void songAudio.play().catch(() => {
-              if (songAudio.isConnected) {
-                songAudio.dataset.playback = "gesture-required";
-                const unlock = viewer.querySelector("[data-story-sound-unlock]");
-                if (unlock) unlock.hidden = false;
-              }
-            });
+            void startStoryMediaPlayback(songAudio);
           }
           clearTimer();
           if (Number.isFinite(video.duration) && video.duration > 0) {
@@ -601,19 +572,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (video.isConnected && mediaHost.querySelector("video") === video && !state.paused) advance(1);
         }, { once: true });
         mediaHost.append(video);
-        // Browsers can reject unmuted autoplay. A single gesture unlocks playback;
-        // never leave an invisible, stalled video with no way to start it.
-        const unlock = document.createElement("button");
-        unlock.type = "button"; unlock.className = "story-start-audio";
-        unlock.textContent = "🔊";
-        unlock.setAttribute("aria-label","Ativar vídeo com som");
-        unlock.addEventListener("click", (event) => {
-          event.stopPropagation();
-          void video.play().then(() => unlock.remove()).catch(() => {
-            if(isAdmin)showStatus("ADM: vídeo do Story não iniciou no navegador.",true);
-          });
-        });
-        void video.play().catch(() => { if (video.isConnected) mediaHost.append(unlock); });
+        // Start unmuted video in the same viewer-opening click. If a browser
+        // blocks it, a subsequent tap on the Story retries without a popup.
+        void startStoryMediaPlayback(video);
       } else {
         const image = document.createElement("img");
         image.src = mediaUrl;
@@ -867,8 +828,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       state.active = { ...group, stories: activeStories };
       state.index = 0;
-      renderSlide();
+      // Showing the dialog before starting media preserves the opening tap's
+      // playback activation on mobile; no intermediate music modal is shown.
       openStoryDialog(viewer);
+      renderSlide();
       return;
     }
     if (event.target.closest("[data-story-media-retry]")) {
@@ -1132,7 +1095,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     clearTimer();
     const audio = viewer.querySelector("#story-audio");
     if (audio) { audio.pause(); audio.currentTime = 0; }
-    viewer.querySelectorAll("[data-story-sound-unlock]").forEach(b=>b.remove());
     viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
   });
   root.addEventListener("submit", async (event) => {
