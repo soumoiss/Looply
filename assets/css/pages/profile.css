@@ -76,3 +76,12 @@
 .profile-overview-shortcut svg,.profile-visibility-badge svg,.profile-crop-heading h2 svg,.account-menu-link svg,.account-menu-popover [data-sign-out] svg{width:16px;height:16px;flex:0 0 auto;display:inline-block;vertical-align:middle}
 .profile-visibility-badge{gap:6px}.profile-overview-shortcut{gap:7px}.profile-crop-heading h2{display:flex;align-items:center;gap:8px}
 .account-menu-link{display:flex;align-items:center;gap:9px}.account-menu-popover [data-sign-out]{display:flex;align-items:center;justify-content:flex-start;gap:9px}
+
+/* Avatar confirmation now saves immediately, without the general profile form. */
+.profile-crop-dialog .profile-crop-status{min-height:0;margin:0;font-size:13px;line-height:1.45;color:var(--danger,#b42318);overflow-wrap:anywhere}
+.profile-crop-dialog .profile-crop-status:empty{display:none}
+.profile-crop-dialog .profile-crop-actions button{min-height:44px}
+.profile-crop-dialog .profile-crop-actions button:disabled{opacity:.55;cursor:not-allowed}
+.profile-avatar-editor .profile-photo-picker,.profile-avatar-editor .profile-photo-remove{min-height:44px;touch-action:manipulation}
+.profile-avatar-editor .profile-photo-picker:has(+input:disabled){opacity:.55;pointer-events:none}
+@media(max-width:420px){.profile-avatar-actions{gap:8px}.profile-crop-dialog{width:min(96vw,460px);max-height:92dvh}.profile-crop-shell{padding-bottom:max(18px,env(safe-area-inset-bottom))}}
