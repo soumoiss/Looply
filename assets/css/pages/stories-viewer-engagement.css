@@ -165,3 +165,13 @@
     bottom:calc(65px + env(safe-area-inset-bottom))!important;
   }
 }
+
+/* VisualViewport reports the occluded keyboard region on Android and iOS.
+   With no focused input this variable is zero. */
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  bottom:var(--story-keyboard-inset,0px)!important;
+}
+.story-viewer-dialog .story-viewer-caption:not(:empty) {
+  bottom:calc(82px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
+}
