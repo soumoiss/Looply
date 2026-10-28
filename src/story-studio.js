@@ -297,7 +297,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     stage.dataset.screenFlash = "off";
     flashButton.setAttribute("aria-pressed", "false");
     flashButton.textContent = "ϟ";
-    flashButton.title = "Ativar flash";
+    flashButton.title = settings.facing === "environment" ? "Lanterna traseira (contínua)" : "Iluminação da tela";
+    flashButton.setAttribute("aria-label", flashButton.title);
   };
   const updateZoomPreview = () => {
     const digitalFactor = zoomMode === "digital" ? settings.zoom : 1;
@@ -363,6 +364,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const stopCamera = () => {
     ++cameraRequestId; // Invalidate any pending getUserMedia before it resolves.
+    if(hold){clearTimeout(hold);hold=null;}
+    pointer=null;held=false;handsfreeRecording=false;
+    stage.dataset.recording="false";
     if (recorder?.state === "recording") recorder.stop();
     if(frames!=null){cancelAnimationFrame(frames);frames=null;}
     captureStream?.getTracks().forEach(t=>t.stop());captureStream=null;
@@ -1065,8 +1069,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         stage.dataset.screenFlash = turnOn ? "ready" : "off";
         flashButton.setAttribute("aria-pressed", String(turnOn));
         flashButton.textContent = turnOn ? "ϟ" : "ϟ";
-        flashButton.title = turnOn ? "Desligar iluminação frontal" : "Ligar iluminação frontal";
-        status(turnOn ? "Luz branca da tela ativada para selfies." : "Luz da tela desligada.");
+        flashButton.title = turnOn ? "Desligar luz da tela (sem flash físico)" : "Luz da tela para selfies";
+        flashButton.setAttribute("aria-label",flashButton.title);
+        status(turnOn ? "Iluminação da tela ativada. Não usa o LED traseiro." : "Iluminação da tela desligada.");
         return;
       }
       const capabilities = track.getCapabilities?.();
@@ -1078,13 +1083,17 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         // verify the reported setting whenever browsers expose it.
         await track.applyConstraints({ advanced: [{ torch: turnOn }] });
         const confirmed = track.getSettings?.().torch;
-        if (turnOn && confirmed !== true && capabilities?.torch !== true) {
-          throw new Error("O navegador não confirmou suporte à lanterna física.");
+        // If getSettings explicitly reports torch, trust that over a nominal
+        // getCapabilities() claim. A false setting is not a confirmed LED.
+        if ((turnOn && confirmed === false) || (!turnOn && confirmed === true) ||
+          (turnOn && confirmed !== true && capabilities?.torch !== true)) {
+          throw new Error("O navegador não confirmou o estado da lanterna física.");
         }
         settings.flash = turnOn ? "on" : "off";
         flashButton.setAttribute("aria-pressed", String(turnOn));
-        flashButton.title = turnOn ? "Desligar lanterna traseira" : "Ligar lanterna traseira";
-        status(turnOn ? "Lanterna traseira ligada." : "Lanterna traseira desligada.");
+        flashButton.title = turnOn ? "Desligar lanterna traseira contínua" : "Ligar lanterna traseira contínua";
+        flashButton.setAttribute("aria-label",flashButton.title);
+        status(turnOn ? "Lanterna traseira contínua ativada. Não é um flash de disparo." : "Lanterna traseira desligada.");
       } catch (error) {
         resetFlash();
         status("Não foi possível ligar a lanterna traseira: " + (error.message || "recurso indisponível"), true);
