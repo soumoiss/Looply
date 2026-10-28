@@ -41,7 +41,7 @@ function mockNeon({ row, actor = "sender", rpcAllowed = true } = {}) {
 }
 
 test("author edits short, long and multiline notes exactly, verifies persistence and sends no song changes", async () => {
-  const notes=["Nova dedicatória!", "Texto longo com coração 💜 e acentuação.\n".repeat(25), "  Início\n\nFim com 😀.  "];
+  const notes=["Nova dedicatória!", "Texto longo com coração 💜 e acentuação.\n".repeat(15), "x".repeat(1000), "  Início\n\nFim com 😀.  "];
   for (const note of notes) {
     const db=mockNeon();
     const current=await readOwnDedicationForEdit(db.client,"dedication-01","sender");
