@@ -32,10 +32,12 @@ function letterAad(subject) {
   return encoder.encode("looply:community-letter:v1:" + subject);
 }
 export async function sealLetter(body, password, subject) {
-  const text = String(body || "").trim();
+  // Preserve line breaks, leading/trailing spaces, accents and emoji verbatim.
+  // Only validation (not storage) uses trim to reject empty text.
+  const text = String(body ?? "");
   const secret = String(password || "");
   const cleanSubject = String(subject || "").trim();
-  if (!text || text.length > maxBodyLength) throw new Error("A carta deve ter entre 1 e 5.000 caracteres.");
+  if (!text.trim() || text.length > maxBodyLength) throw new Error("A carta deve ter entre 1 e 5.000 caracteres.");
   if (!secret || /\s/.test(secret)) throw new Error("A senha deve conter pelo menos um caractere e não pode conter espaços.");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
