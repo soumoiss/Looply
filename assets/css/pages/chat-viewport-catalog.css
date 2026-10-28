@@ -45,7 +45,7 @@
   .page-chat .chat-message-form textarea {
     resize:none!important;
     max-height:min(32dvh,150px)!important;
-    height:auto!important;
+    height:44px;
     min-height:44px!important;
     line-height:1.4;
     font-size:16px!important;
