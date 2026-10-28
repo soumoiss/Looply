@@ -100,7 +100,7 @@ async function cleanupPendingGalleryMedia(name, args) {
     return { data: response.data, error: response.error || null };
   } catch { return { data: null, error: { message: "neon_gallery_cleanup_failed" } }; }
 }
-const galleryRpcNames = new Set(["set_gallery_media_adjustment","set_gallery_media_pinned","set_gallery_media_private","set_gallery_media_permissions","create_community_gallery_comment","create_archive_media_comment","v8_delete_gallery_media"]);
+const galleryRpcNames = new Set(["set_gallery_media_adjustment","set_gallery_media_pinned","set_gallery_media_private","set_gallery_media_permissions","create_community_gallery_comment","create_archive_media_comment","v8_delete_gallery_media","v8_create_gallery_comment"]);
 async function galleryRpc(name,args) {
   try {
     const session=await activeSession();
