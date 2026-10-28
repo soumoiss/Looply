@@ -367,15 +367,16 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const resumeStoryTimer = () => {
     if (state.paused || !viewer.open) return;
+    const timerVersion = state.slideVersion;
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const video = mediaHost.querySelector("video");
     if (video && !video.paused && Number.isFinite(video.duration)) {
       const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
       setProgressDuration(remaining);
-      state.timer = setTimeout(() => advance(1), remaining);
+      state.timer = setTimeout(() => { if (state.slideVersion === timerVersion && viewer.open && !state.paused) advance(1); }, remaining);
     } else if (!video) {
       setProgressDuration(7000);
-      state.timer = setTimeout(() => advance(1), 7000);
+      state.timer = setTimeout(() => { if (state.slideVersion === timerVersion && viewer.open && !state.paused) advance(1); }, 7000);
     }
   };
   const setStoryPaused = (paused) => {
@@ -567,10 +568,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.preload = "metadata";
         video.setAttribute("aria-label", media.alt_text || "Vídeo do story");
         video.addEventListener("loadedmetadata", () => {
+          if (state.slideVersion !== version || !viewer.open) return;
           if (Number.isFinite(video.duration) && video.duration > 0) setProgressDuration(video.duration * 1000);
         }, { once: true });
         video.addEventListener("playing", () => {
-          if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
+          if (!video.isConnected || mediaHost.querySelector("video") !== video || state.slideVersion !== version || !viewer.open) return;
+          if (story.author_id !== userId) void recordVisibleStoryView(story.id, version);
           const songAudio = slideAudio;
           if(songAudio && !songAudio.paused && Number.isFinite(songAudio.currentTime)
             && Math.abs(songAudio.currentTime-video.currentTime)>1.25){
@@ -586,9 +589,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (Number.isFinite(video.duration) && video.duration > 0) {
             const remaining = Math.max(1000, (video.duration - video.currentTime) * 1000);
             setProgressDuration(remaining);
-            state.timer = setTimeout(() => advance(1), remaining);
+            state.timer = setTimeout(() => { if (viewer.open && state.slideVersion === version && !state.paused) advance(1); }, remaining);
           }
         });
+        video.addEventListener("error", () => {
+          if (state.slideVersion === version && viewer.open && mediaHost.querySelector("video") === video) showMediaUnavailable(mediaHost);
+        }, { once: true });
         video.addEventListener("pause", () => {
           if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
           clearTimer();
@@ -605,28 +611,29 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         void startStoryMediaPlayback(video);
       } else {
         const image = document.createElement("img");
-        image.src = mediaUrl;
         image.alt = media.alt_text || "Foto do story";
         image.referrerPolicy = "no-referrer";
+        image.addEventListener("load", () => {
+          if (state.slideVersion !== version || !viewer.open || !image.isConnected || !image.naturalWidth) return;
+          if (story.author_id !== userId) void recordVisibleStoryView(story.id, version);
+          setProgressDuration(7000);
+          clearTimer();
+          if (!state.paused) state.timer = setTimeout(() => {
+            if (viewer.open && state.slideVersion === version && !state.paused) advance(1);
+          }, 7000);
+        }, { once: true });
+        image.addEventListener("error", () => {
+          if (state.slideVersion === version && viewer.open && image.isConnected) showMediaUnavailable(mediaHost);
+        }, { once: true });
         mediaHost.append(image);
-        setProgressDuration(7000);
-        state.timer = setTimeout(() => advance(1), 7000);
+        image.src = mediaUrl;
       }
     } else if (media) {
-      const missing = document.createElement("div");
-      missing.className = "story-media-unavailable";
-      const message = document.createElement("p");
-      message.textContent = "Não foi possível carregar a mídia deste story.";
-      const retry = document.createElement("button");
-      retry.type = "button";
-      retry.className = "text-button";
-      retry.dataset.storyMediaRetry = "";
-      retry.textContent = "Tentar carregar novamente";
-      missing.append(message, retry);
-      mediaHost.append(missing);
+      showMediaUnavailable(mediaHost);
     } else if (story.body) {
+      if (viewer.open && story.author_id !== userId) void recordVisibleStoryView(story.id, version);
       setProgressDuration(7000);
-      state.timer = setTimeout(() => advance(1), 7000);
+      state.timer = setTimeout(() => { if (viewer.open && state.slideVersion === version && !state.paused) advance(1); }, 7000);
     }
 
     const currentGroupIndex = state.groups.findIndex((group) => group.author_id === story.author_id);
@@ -1133,9 +1140,15 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
   viewer.addEventListener("close", () => {
     clearTimer();
-    const audio = viewer.querySelector("#story-audio");
-    if (audio) { audio.pause(); audio.currentTime = 0; }
-    viewer.querySelectorAll("video").forEach((video) => { video.pause(); video.removeAttribute("src"); });
+    ++state.slideVersion;
+    ++state.insightsToken;
+    state.paused = false;
+    viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
+      audio.pause(); audio.removeAttribute("src"); audio.remove();
+    });
+    viewer.querySelectorAll("[data-story-viewer-media] video").forEach(video => {
+      video.pause(); video.removeAttribute("src"); video.load();
+    });
   });
   root.addEventListener("submit", async (event) => {
     const replyForm = event.target.closest("form[data-story-reply]");
@@ -1194,8 +1207,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
       state.active = { ...group, stories: activeStories };
       state.index = storyIndex;
-      renderSlide();
       openStoryDialog(viewer);
+      renderSlide();
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
     })();
   }
