@@ -383,23 +383,6 @@ export function bindAdminEvents(root, client) {
           field.append(label, input);
           form.append(field);
         }
-        const visibilityField = document.createElement("div");
-        visibilityField.className = "field";
-        const visibilityLabel = document.createElement("label");
-        visibilityLabel.textContent = "Visibilidade do perfil";
-        visibilityLabel.htmlFor = "user-" + user.id + "-visibility";
-        const visibility = document.createElement("select");
-        visibility.id = visibilityLabel.htmlFor;
-        visibility.name = "profileVisibility";
-        for (const [value, labelText] of [["members", "Membros"], ["private", "Privado"]]) {
-          const option = document.createElement("option");
-          option.value = value;
-          option.textContent = labelText;
-          option.selected = user.profile_visibility === value;
-          visibility.append(option);
-        }
-        visibilityField.append(visibilityLabel, visibility);
-        form.append(visibilityField);
         const save = document.createElement("button");
         save.type = "submit";
         save.className = "primary-button compact-button";
@@ -992,7 +975,7 @@ export function bindAdminEvents(root, client) {
           displayName: String(values.get("displayName") || "").trim(),
           bio: String(values.get("bio") || "").trim(),
           playlistUrl: String(values.get("playlistUrl") || "").trim(),
-          profileVisibility: String(values.get("profileVisibility") || ""), purpose
+          profileVisibility: "members", purpose
         });
         if (error) throw error;
         setStatus(userProfileForm, "Perfil atualizado.", "success");
