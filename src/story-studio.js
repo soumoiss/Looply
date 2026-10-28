@@ -1,8 +1,8 @@
 import { StoryFaceLens } from "./story-ar.js";
 import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest } from "./story-ar-catalog.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
-import { encodeStorySong } from "./story-music-catalog.js";
-import { openStoryMusicPicker } from "./story-music-picker.js";
+import { encodeStorySong } from "./story-music-catalog.js?v=story-music-unified-20261028";
+import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-unified-20261028";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
