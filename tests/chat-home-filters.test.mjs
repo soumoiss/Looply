@@ -22,7 +22,7 @@ test("chat renders explicit conversation metadata and applies shared data filter
   assert.match(chat, /data-chat-unread-count=/);
   assert.doesNotMatch(chat, /Boolean\(item\.querySelector\("\.chat-unread"\)\)/);
   assert.match(chat, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
-  assert.match(chat, /conversationFilterButton\.dataset\.chatFilter/);
+  assert.match(chat, /const conversationFilterButton = event\.target\.closest\("\[data-chat-filter\]"\)/);
   assert.match(chat, /conversationFilter = "all"/);
   assert.match(chat, /avatar_path/);
   assert.match(chat, /const profileReferences = /);
