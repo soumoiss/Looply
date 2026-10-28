@@ -58,7 +58,7 @@ test("Resilient catalog search: one unavailable provider does not lose other res
 });
 test("Additional platforms are explicit official search links, not fake catalog/audio streams",()=>{
   const links=storySongSearchLinks("Hello Adele");
-  assert.deepEqual(links.map(x=>x.name),["Apple Music","Spotify","YouTube Music","SoundCloud","TIDAL"]);
+  assert.deepEqual(links.map(x=>x.name),["Apple Music","YouTube Music","SoundCloud","TIDAL"]);
   assert.ok(links.every(x=>x.url.startsWith("https://")));
 });
 test("Published Story does not try to decode Spotify, Apple or Deezer previews as audio files",()=>{
