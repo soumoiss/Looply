@@ -74,17 +74,26 @@ function classifyFeedImages(root) {
     if (carousel.dataset.carouselBound === "true") return;
     carousel.dataset.carouselBound = "true";
     let ticking = false;
+    const updateIndex = () => {
+      const index = Math.min(carousel.children.length - 1, Math.max(0, Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth))));
+      const card = carousel.closest("[data-post-card]");
+      card?.querySelectorAll("[data-carousel-dot]").forEach(dot => dot.classList.toggle("is-active", Number(dot.dataset.carouselDot) === index));
+      const count = card?.querySelector("[data-carousel-position]");
+      if (count) count.textContent = (index + 1) + " / " + carousel.children.length;
+      const previous = card?.querySelector('[data-carousel-step="-1"]');
+      const next = card?.querySelector('[data-carousel-step="1"]');
+      if (previous) previous.disabled = index === 0;
+      if (next) next.disabled = index === carousel.children.length - 1;
+    };
     carousel.addEventListener("scroll", () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        const position = Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth));
-        carousel.closest("[data-post-card]")?.querySelectorAll("[data-carousel-dot]").forEach(dot => {
-          dot.classList.toggle("is-active", Number(dot.dataset.carouselDot) === position);
-        });
+        updateIndex();
       });
     }, { passive: true });
+    updateIndex();
   });
   root.querySelectorAll(".ig-post .post-media img").forEach(image => {
     const apply = () => {
@@ -266,9 +275,6 @@ function postMarkup(post, userId, isAdmin = false) {
     : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
-  const saved = Boolean(post.savedByMe);
-  const saveAvailable = post.savedPostsAvailable === true;
-  const saveButtonMarkup = saveAvailable ? '<button class="post-icon-button post-save-button" type="button" data-toggle-save="' + escapeHtml(post.id) + '" aria-pressed="' + String(saved) + '" aria-label="' + (saved ? "Remover dos salvos" : "Salvar publicação") + '"><span aria-hidden="true">' + (saved ? "▣" : "▯") + '</span><span>' + (saved ? "Salvo" : "Salvar") + '</span></button>' : "";
   const likeCount = Number(post.likeCount || 0);
   const normalizedExternalUrl = normalizeExternalUrl(post.external_url);
   const externalUrl = normalizedExternalUrl ? new URL(normalizedExternalUrl) : null;
@@ -317,15 +323,15 @@ function postMarkup(post, userId, isAdmin = false) {
       <div class="post-author"><button type="button" class="post-author-profile" data-profile-open="${escapeHtml(post.author_id)}" aria-label="Visualizar perfil do autor"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div></button>
       </div>
-      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
+      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<button type="button" class="text-button post-edit-button" data-edit-post="${escapeHtml(post.id)}">Editar legenda</button>` : ""}${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
-    ${mediaMarkup ? `<div class="post-media-grid" data-feed-carousel>${mediaMarkup}</div>${(post.media || []).length > 1 ? `<div class="post-carousel-dots" aria-label="${post.media.length} mídias nesta publicação">${post.media.map((_, i) => `<span data-carousel-dot="${i}" class="${i === 0 ? "is-active" : ""}" aria-hidden="true"></span>`).join("")}</div>` : ""}` : ""}
+    ${mediaMarkup ? `<div class="post-media-grid" data-feed-carousel>${mediaMarkup}</div>${(post.media || []).length > 1 ? `<div class="post-carousel-navigation" role="group" aria-label="Navegar pelas fotos da publicação"><button type="button" data-carousel-step="-1" aria-label="Foto anterior" disabled>‹</button><span data-carousel-position aria-live="polite">1 / ${post.media.length}</span><button type="button" data-carousel-step="1" aria-label="Próxima foto">›</button></div><div class="post-carousel-dots" aria-hidden="true">${post.media.map((_, i) => `<span data-carousel-dot="${i}" class="${i === 0 ? "is-active" : ""}"></span>`).join("")}</div>` : ""}` : ""}
     ${externalMarkup}
     ${post.body && !(post.external_url && /^Compartilhou uma publicação externa\.?$/i.test(post.body.trim())) ? `<p class="post-body">${escapeHtml(post.body)}</p>` : ""}
+    ${post.author_id === userId ? `<form class="post-caption-editor" data-post-edit-form="${escapeHtml(post.id)}" hidden><label for="caption-${escapeHtml(post.id)}">Editar legenda</label><textarea id="caption-${escapeHtml(post.id)}" name="body" maxlength="2200">${escapeHtml(post.body || "")}</textarea><div class="post-caption-editor-actions"><button type="submit" class="primary-button compact-button">Salvar edição</button><button type="button" class="text-button" data-cancel-post-edit>Cancelar</button></div><span data-edit-status role="status" aria-live="polite"></span></form>` : ""}
     <div class="post-interactions ig-actions">
       <button class="post-icon-button post-like-button${liked ? " is-liked" : ""}" type="button" data-toggle-like="${escapeHtml(post.id)}" aria-pressed="${liked ? "true" : "false"}" aria-label="${liked ? "Descurtir publicação" : "Curtir publicação"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>${likeCount}</span></button>
       <button class="post-icon-button post-comments-toggle" type="button" data-toggle-post-comments="${escapeHtml(post.id)}" aria-expanded="false" aria-label="Ver ou adicionar comentários">${icon("chat")}<span>${comments.length}</span></button>
-      ${saveButtonMarkup}
       <button class="post-icon-button" type="button" data-share-post="${escapeHtml(post.id)}" aria-label="Compartilhar publicação externamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compartilhar</span></button>
       <button class="post-icon-button" type="button" data-share-in-app="${escapeHtml(post.id)}" aria-label="Compartilhar no chat do Looply">Enviar no Looply</button>
       ${post.author_id !== userId ? '<button class="post-icon-button" type="button" data-private-reply="' + escapeHtml(post.author_id) + '" data-private-post="' + escapeHtml(post.id) + '">Responder em particular</button>' : ""}
@@ -358,22 +364,18 @@ async function loadPosts(client) {
     const { data: currentUserData } = await client.auth.getUser();
     const currentUserId = currentUserData?.user?.id;
     const postIds = posts.map((post) => post.id);
-    const [{ data: likes, error: likesError }, { data: mine, error: mineError }, savedResult] = await Promise.all([
+    const [{ data: likes, error: likesError }, { data: mine, error: mineError }] = await Promise.all([
       client.from("post_likes").select("post_id").in("post_id", postIds),
-      currentUserId ? client.from("post_likes").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null}),
-      currentUserId ? client.from("saved_posts").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null})
+      currentUserId ? client.from("post_likes").select("post_id").in("post_id", postIds).eq("user_id", currentUserId) : Promise.resolve({data:[],error:null})
     ]);
     if (likesError) throw likesError;
     if (mineError) throw mineError;
     const counts = new Map();
     for (const like of likes || []) counts.set(like.post_id, (counts.get(like.post_id) || 0) + 1);
     const mineIds = new Set((mine || []).map((like) => like.post_id));
-    const savedIds = new Set((savedResult.data || []).map((row) => row.post_id));
     for (const post of posts) {
       post.likeCount = counts.get(post.id) || 0;
       post.likedByMe = mineIds.has(post.id);
-      post.savedByMe = savedIds.has(post.id);
-      post.savedPostsAvailable = Boolean(currentUserId && !savedResult.error);
     }
   }
   const profileRows = [];
@@ -402,7 +404,8 @@ async function loadPosts(client) {
       items.push(item);
       byPost.set(item.postId, items);
     }
-    for (const post of posts) post.media = byPost.get(post.id) || [];
+    for (const post of posts) post.media = (byPost.get(post.id) || []).sort((a, b) =>
+      new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)));
   }
   return posts;
 }
@@ -416,7 +419,8 @@ const mediaMimeTypesByExtension = new Map([...mediaExtensions].map(([mimeType, e
 // upload path accepts substantially larger objects without proxying their bytes
 // through the application function. Keep a 10x safety ceiling so accidental
 // multi-gigabyte selections still fail locally and predictably.
-const maxMediaBytes = 250 * 1024 * 1024;
+// Database post_media_byte_size_check limits every attached file to 100 MiB.
+const maxMediaBytes = 100 * 1024 * 1024;
 const maxMediaCount = 8;
 const maxCommentMediaCount = 4;
 
@@ -436,11 +440,36 @@ export function normalizePublicationMedia(file) {
   });
 }
 
-function selectedMedia(formData) {
-  const files = formData.getAll("media").filter((file) => file instanceof File && file.size > 0).map(normalizePublicationMedia);
-  if (files.length > maxMediaCount) throw new Error("too many files");
-  for (const file of files) {
+// HEIC/HEIF must be decoded before being uploaded: browsers and the current
+// post_media schema do not consistently support displaying HEIC objects.
+export async function preparePublicationMedia(file) {
+  const extension = String(file?.name || "").split(".").pop()?.toLowerCase() || "";
+  const type = String(file?.type || "").split(";")[0].toLowerCase();
+  if (["image/heic", "image/heif"].includes(type) || ["heic", "heif"].includes(extension)) {
+    try {
+      // Lazy-load only for HEIC/HEIF; all conversions stay on the user's device.
+      const { heicTo } = await import("https://esm.sh/heic-to@1.6.6?bundle");
+      const converted = await heicTo({ blob: file, type: "image/jpeg", quality: 0.94 });
+      if (!(converted instanceof Blob) || !converted.size) throw new Error("heic_empty_output");
+      return new File([converted], (file.name || "foto.heic").replace(/\.(heic|heif)$/i, "") + ".jpg", {
+        type: "image/jpeg", lastModified: file.lastModified || Date.now()
+      });
+    } catch (error) {
+      console.error("HEIC/HEIF conversion failed", error);
+      throw new Error("heic_conversion_failed");
+    }
+  }
+  return normalizePublicationMedia(file);
+}
+
+async function selectedMedia(formData) {
+  const originals = formData.getAll("media").filter((file) => file instanceof File && file.size > 0);
+  if (originals.length > maxMediaCount) throw new Error("too many files");
+  const files = [];
+  for (const original of originals) {
+    const file = await preparePublicationMedia(original);
     if (!file || !mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
+    files.push(file);
   }
   return files;
 }
@@ -518,13 +547,10 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       <button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>
       <label for="postBody">Legenda</label>
       <textarea id="postBody" name="body" maxlength="2200" placeholder="Escreva uma legenda (opcional)"></textarea>
-      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>carrossel com até 8 arquivos, 250 MB por arquivo</span></label>
-      <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">
+      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>Até 8 arquivos, 100 MB por arquivo</span></label>
+      <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm">
       <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
       <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
-      <span class="field-hint">YouTube pode ser incorporado quando compatível. Instagram e TikTok abrem o conteúdo original quando a incorporação não é autorizada.</span>
-      <label class="visually-hidden" for="mediaAlt">Descrição das mídias</label>
-      <input id="mediaAlt" name="altText" class="media-alt-input" type="text" maxlength="500" placeholder="Descrição acessível das fotos ou vídeos (opcional)">
       <div class="composer-options">
         <label for="postVisibility">Quem pode ver?</label>
         <select id="postVisibility" name="visibility">
@@ -559,7 +585,8 @@ function explainWriteError(error) {
   const message = String(error?.message || "");
   if (/too many files/i.test(message)) return "Escolha no máximo 8 arquivos para esta publicação.";
   if (/too many comment files/i.test(message)) return "Anexe no máximo 4 fotos ou vídeos a cada comentário.";
-  if (/unsupported file/i.test(message)) return "Use uma foto JPEG, PNG ou WebP, ou um vídeo MP4 ou WebM de até 100 MB.";
+  if (/heic_conversion_failed/i.test(message)) return "Não foi possível converter esta foto HEIC/HEIF neste navegador. Tente novamente com conexão ativa.";
+  if (/unsupported file/i.test(message)) return "Use JPEG, PNG, WebP, HEIC/HEIF (conversão necessária) ou MP4/WebM com até 100 MB.";
   if (/duplicate|unique/i.test(message)) return "Essa publicação ou interação já foi registrada.";
   if (/permission|policy|row-level|42501/i.test(message)) return "Sua conta não tem permissão para essa ação ou o conteúdo não está mais disponível.";
   if (/recipient|recipients/i.test(message)) return "Revise os perfis escolhidos para compartilhar.";
@@ -904,6 +931,13 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       preview.replaceChildren();
       for (const file of files) {
         const isVideo = file.type.startsWith("video/");
+        if (/\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type)) {
+          const notice = document.createElement("span");
+          notice.className = "post-heic-preview";
+          notice.textContent = file.name + " · será convertido em JPEG ao publicar";
+          preview.append(notice);
+          continue;
+        }
         const media = document.createElement(isVideo ? "video" : "img");
         const url = URL.createObjectURL(file);
         previewUrls.push(url);
@@ -925,6 +959,56 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     }
   });
 
+  root.addEventListener("click", event => {
+    const step = event.target.closest("[data-carousel-step]");
+    if (step) {
+      const carousel = step.closest("[data-post-card]")?.querySelector("[data-feed-carousel]");
+      if (!carousel) return;
+      const current = Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth));
+      const target = Math.max(0, Math.min(carousel.children.length - 1, current + Number(step.dataset.carouselStep)));
+      carousel.scrollTo({ left: target * carousel.clientWidth, behavior: "smooth" });
+      return;
+    }
+    const edit = event.target.closest("[data-edit-post]");
+    if (edit) {
+      const form = edit.closest("[data-post-card]")?.querySelector("[data-post-edit-form]");
+      if (!form) return;
+      form.hidden = false;
+      form.querySelector("textarea")?.focus({ preventScroll: true });
+      return;
+    }
+    const cancel = event.target.closest("[data-cancel-post-edit]");
+    if (cancel) {
+      const form = cancel.closest("[data-post-edit-form]");
+      form.querySelector("textarea").value = form.closest("[data-post-card]")?.querySelector(".post-body")?.textContent || "";
+      form.hidden = true;
+    }
+  });
+  root.addEventListener("submit", async event => {
+    const form = event.target.closest("[data-post-edit-form]");
+    if (!form || !client) return;
+    event.preventDefault();
+    if (form.dataset.submitting === "true") return;
+    const postId = form.dataset.postEditForm;
+    const userId = getUserId?.();
+    if (!userId || !postId) return;
+    const nextBody = form.querySelector("textarea").value;
+    const status = form.querySelector("[data-edit-status]");
+    form.dataset.submitting = "true";
+    form.querySelectorAll("button").forEach(button => button.disabled = true);
+    try {
+      const { data, error } = await client.from("posts").update({ body: nextBody || null })
+        .eq("id", postId).eq("author_id", userId).select("id,body").single();
+      if (error || !data || (data.body || "") !== nextBody) throw error || Error("post_caption_unconfirmed");
+      await refreshSocialFeed(root, client, userId, isAdmin);
+    } catch (error) {
+      console.error("Looply post caption update failed", error);
+      if (status) status.textContent = explainWriteError(error);
+    } finally {
+      form.dataset.submitting = "false";
+      form.querySelectorAll("button").forEach(button => button.disabled = false);
+    }
+  });
   root.addEventListener("click", async (event) => {
     const editCommentButton = event.target.closest("[data-edit-comment]");
     if (editCommentButton && client) {
@@ -1087,31 +1171,6 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       } finally { likeButton.disabled = false; }
       return;
     }
-    const saveButton = event.target.closest("[data-toggle-save]");
-    if (saveButton && client) {
-      const postId = saveButton.dataset.toggleSave;
-      const userId = getUserId?.();
-      if (!postId || !userId || saveButton.disabled) return;
-      saveButton.disabled = true;
-      try {
-        if (saveButton.getAttribute("aria-pressed") === "true") {
-          const { error } = await client.from("saved_posts").delete().eq("post_id", postId).eq("user_id", userId);
-          if (error) throw error;
-        } else {
-          const { error } = await client.from("saved_posts").insert({ post_id: postId, user_id: userId });
-          if (error) throw error;
-        }
-        await refreshSocialFeed(root, client, userId, isAdmin);
-      } catch (error) {
-        console.error("Looply post save failed", error);
-        const viewerStatus = root.querySelector("[data-reel-status]");
-        const postStatus = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
-        const reelsOpen = root.querySelector("[data-reels-viewer]")?.open;
-        const status = reelsOpen ? viewerStatus : postStatus;
-        if (status) status.textContent = "Não foi possível atualizar seus salvos agora.";
-      } finally { saveButton.disabled = false; }
-      return;
-    }
     const shareButton = event.target.closest("[data-share-post]");
     if (shareButton) {
       const postId = shareButton.dataset.sharePost;
@@ -1204,21 +1263,25 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     if (!form || !client) return;
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
-    if (button) button.disabled = true;
+    if (form.dataset.submitting === "true") return;
+    form.dataset.submitting = "true";
+    form.querySelectorAll('button[type="submit"]').forEach(control => control.disabled = true);
     let createdPostId = null;
+    let published = false;
     let createdCommentId = null;
     const uploadedPaths = [];
     try {
       const formData = new FormData(form);
       const body = String(formData.get("body") || "").trim();
       if (form.matches("[data-social-post]")) {
-        const files = selectedMedia(formData);
+        setStatus(form, "Preparando arquivos...");
+        const files = await selectedMedia(formData);
         const visibility = String(formData.get("visibility") || "public");
         let externalUrl = String(formData.get("externalUrl") || "").trim();
         if (!body && !externalUrl && !files.length) throw new Error("empty body");
         const parsedShare = !externalUrl ? extractExternalLinkFromText(body) : null;
         if (parsedShare?.url) externalUrl = parsedShare.url;
-        const postBody = parsedShare?.url ? (parsedShare.text || "Compartilhou uma publicação externa.") : body || (externalUrl ? "Compartilhou uma publicação externa." : "Compartilhou uma mídia.");
+        const postBody = parsedShare?.url ? (parsedShare.text || null) : (body || null);
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
           let parsed;
@@ -1243,7 +1306,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           if (error) throw error;
           createdPostId = data;
         }
-        const altText = String(formData.get("altText") || "").trim().slice(0, 500);
+        const altText = ""; // The removed extra field is not needed to describe the whole post.
         for (const [index, file] of files.entries()) {
           const extension = mediaExtensions.get(file.type);
           const mediaId = crypto.randomUUID();
@@ -1267,6 +1330,17 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
           const { error: linkError } = await client.from("posts").update({ external_url: externalUrl }).eq("id", createdPostId);
           if (linkError) throw linkError;
         }
+        // A successful object PUT is not a successful publication until every
+        // attachment and the caption are readable again from the database.
+        const [{ data: persistedPost, error: postReadError }, { data: persistedMedia, error: mediaReadError }] = await Promise.all([
+          client.from("posts").select("id,body").eq("id", createdPostId).single(),
+          client.from("post_media").select("storage_path").eq("post_id", createdPostId)
+        ]);
+        if (postReadError || mediaReadError || !persistedPost || (persistedPost.body || null) !== postBody ||
+            (persistedMedia || []).length !== files.length || files.some((_, index) => !persistedMedia?.some(item => item.storage_path === uploadedPaths[index]))) {
+          throw postReadError || mediaReadError || Error("post_persistence_unconfirmed");
+        }
+        published = true;
         form.reset();
         const composerFields = root.querySelector("[data-composer-fields]");
         const composerToggle = root.querySelector("[data-toggle-composer]");
@@ -1298,9 +1372,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         form.reset();
         setStatus(form, parentCommentId ? "Sua resposta foi salva." : "Seu comentário foi salvo.");
       }
-      await refreshSocialFeed(root, client);
+      await refreshSocialFeed(root, client, getUserId?.(), isAdmin);
     } catch (error) {
-      if (createdPostId) {
+      if (createdPostId && !published) {
         if (uploadedPaths.length) {
           const { error: cleanupError } = await client.storage.from("looply-media").remove(uploadedPaths);
           if (cleanupError) console.error("Could not clean up uploaded media", cleanupError);
@@ -1319,7 +1393,8 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       setStatus(form, explainWriteError(error), true);
       if (button) button.disabled = false;
     } finally {
-      if (button) button.disabled = false;
+      form.dataset.submitting = "false";
+      form.querySelectorAll('button[type="submit"]').forEach(control => control.disabled = false);
     }
   });
 }
