@@ -153,6 +153,28 @@ export function storyStudioMarkup(recipientOptions) {
 function blobFromCanvas(canvas, type, quality = .89) {
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Falha na conversão de imagem.")), type, quality));
 }
+// Decode the JPEG that will be attached to the Story, rather than trusting
+// the size of the canvas element or the 9:16 label in the UI.
+export async function verifyStoryImagePixels(blob, size, bitmapFactory=(file)=>createImageBitmap(file)) {
+  const bitmap=await bitmapFactory(blob);
+  try {
+    if(bitmap.width!==size.width || bitmap.height!==size.height)
+      throw Error("A foto gerada não corresponde à proporção selecionada.");
+    return {width:bitmap.width,height:bitmap.height};
+  }finally{bitmap.close?.();}
+}
+export async function verifyStoryVideoPixels(blob, size, videoFactory=()=>document.createElement("video")) {
+  const element=videoFactory();
+  const objectUrl=URL.createObjectURL(blob);
+  try {
+    element.preload="metadata";element.muted=true;element.playsInline=true;
+    element.src=objectUrl;element.load?.();
+    if(element.readyState<1)await waitEvent(element,"loadedmetadata");
+    if(element.videoWidth!==size.width || element.videoHeight!==size.height)
+      throw Error("O vídeo gerado não corresponde à proporção selecionada.");
+    return {width:element.videoWidth,height:element.videoHeight};
+  }finally{element.pause?.();element.removeAttribute?.("src");element.load?.();URL.revokeObjectURL(objectUrl);}
+}
 function videoFormat(withAudio=false) {
   if (typeof MediaRecorder !== "function") return null;
   const audioFirst = ["video/webm;codecs=vp8,opus","video/webm;codecs=vp9,opus",
@@ -475,9 +497,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     addLayer("Toque para editar", false);
   };
   const capturePhoto = async () => {
+    if(photoPending || !active || mode!=="camera")return;
     if (!video.videoWidth) { status("A câmera ainda está iniciando.", true); return; }
-    await flashPhoto();
+    const ticket=cameraRequestId;
+    photoPending=true;
     try {
+      await flashPhoto();
+      if(ticket!==cameraRequestId || !active || mode!=="camera")return;
       const canvas = document.createElement("canvas");
       const captureSize = currentCanvasSize();
       canvas.width = captureSize.width;
@@ -501,6 +527,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           return;
         }
         const composite=await blobFromCanvas(collageCanvas,"image/jpeg");
+        await verifyStoryImagePixels(composite,captureSize);
+        if(ticket!==cameraRequestId || !active || mode!=="camera")return;
         collageCanvas=null;collageShots=0;settings.grid=false;
         $("[data-studio-grid]").hidden=true;
         $("[data-studio-grid-toggle]").setAttribute("aria-pressed","false");
@@ -508,8 +536,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         return;
       }
       const blob = await blobFromCanvas(canvas, "image/jpeg");
+      await verifyStoryImagePixels(blob,captureSize);
+      if(ticket!==cameraRequestId || !active || mode!=="camera")return;
       showEditor(new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" }), "image");
     } finally {
+      photoPending=false;
       stage.dataset.screenFlash = settings.facing === "user" && settings.flash === "on" ? "ready" : "off";
     }
   };
@@ -557,7 +588,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const ctx = canvas.getContext("2d", { alpha: false });
     const savedFrames = [];
     const snap = document.createElement("canvas");
-    snap.width = 360; snap.height = 640;
+    // A 16:9 / square recording must not turn into a 9:16 Boomerang.
+    snap.width = Math.max(2,Math.round(recordingSize.width / 3));
+    snap.height = Math.max(2,Math.round(recordingSize.height / 3));
     const snapContext = snap.getContext("2d");
     let lastFrame = 0;
     const loop = () => {
@@ -576,6 +609,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     recorder = new MediaRecorder(captureStream, { mimeType: mime });
     chunks = [];
     recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+    const recordingTicket=cameraRequestId;
     recorder.onstop = async () => {
       handsfreeRecording = false;
       $("[data-studio-handsfree]")?.setAttribute("aria-pressed","false");
@@ -584,14 +618,22 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       stopRecordingTimer();
       let output = new Blob(chunks, { type: recorder.mimeType || mime });
       recorder = null;
-      if (output.size && active && mode === "camera") {
+      if (output.size && active && mode === "camera" && recordingTicket===cameraRequestId) {
         if (isBoomerang && savedFrames.length >= 3) {
           status("Criando Boomerang…");
           try { output = await renderBoomerang(savedFrames, snap.width, snap.height, mime); }
           catch (error) { status(error.message, true); return; }
         }
         const ext = output.type.includes("mp4") ? "mp4" : "webm";
-        showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type.split(";")[0] }), "video");
+        try {
+          await verifyStoryVideoPixels(output,isBoomerang
+            ? {width:snap.width,height:snap.height} : recordingSize);
+          if(recordingTicket!==cameraRequestId || !active || mode!=="camera")return;
+          showEditor(new File([output], "story-" + Date.now() + "." + ext, { type: output.type.split(";")[0] }), "video");
+        } catch(error) {
+          status("O vídeo não pôde ser validado. Grave novamente.",true);
+          console.warn("Story video dimensions validation failed",error);
+        }
       } else if (active) status("A gravação ficou vazia.", true);
     };
     recorder.start(250); startedAt = performance.now();
