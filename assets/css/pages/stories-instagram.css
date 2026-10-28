@@ -25,37 +25,3 @@
 .story-tap-zone:focus-visible, .story-viewer-dialog button:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
 @media (max-width: 560px) { .story-viewer-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; } .story-viewer-shell { height: 100dvh; } .story-viewer-actions { padding-bottom: max(14px, env(safe-area-inset-bottom)); } }
 @media (prefers-reduced-motion: reduce) { .story-viewer-dialog *, .story-viewer-dialog *::before, .story-viewer-dialog *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-
-/* Licensed provider widgets in published Stories. Activated by the viewer,
-   not an unlicensed audio copy or a background autoplay attempt. */
-.story-viewer-dialog .story-official-audio:not([hidden]) {
-  position:absolute;
-  left:max(12px,env(safe-area-inset-left));
-  right:max(12px,env(safe-area-inset-right));
-  bottom:clamp(80px,16dvh,160px);
-  z-index:45;display:flex;flex-direction:column;
-  align-items:center;gap:7px;
-  pointer-events:auto;max-width:100%;
-}
-.story-viewer-dialog .story-official-audio-toggle {
-  display:flex;align-items:center;justify-content:center;
-  min-width:140px;max-width:100%;min-height:44px;
-  padding:8px 16px;border-radius:999px;
-  border:1px solid #ffffff80;background:#201c2ae6;color:#fff;
-  font-size:13px;font-weight:750;
-  box-shadow:0 3px 18px #0008;
-}
-.story-viewer-dialog .story-official-audio-panel:not([hidden]) {
-  width:min(100%,460px);min-height:150px;max-height:38dvh;
-  border:1px solid #ffffff40;border-radius:13px;
-  overflow:hidden;background:#141219;
-}
-.story-viewer-dialog .story-official-music-iframe {
-  width:100%;height:min(190px,38dvh);
-  min-height:150px;display:block;border:0;
-}
-@media(max-width:390px){
- .story-viewer-dialog .story-official-audio:not([hidden]){bottom:max(76px,env(safe-area-inset-bottom))}
- .story-viewer-dialog .story-official-audio-panel:not([hidden]){max-height:32dvh}
- .story-viewer-dialog .story-official-music-iframe{height:min(168px,32dvh)}
-}
