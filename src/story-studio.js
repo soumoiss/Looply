@@ -151,7 +151,7 @@ export function storyStudioMarkup(recipientOptions) {
         '<div class="studio-edit-bottom studio-edit-only" hidden>' +
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
           '<div class="studio-publish-row">' +
-            '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Seu story</button>' +
+            '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Publicar story</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
             '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">➜</button>' +
           '</div>' +
@@ -931,7 +931,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       $("[data-studio-visibility]").value = "selected"; modalClose();
       $("[data-studio-friends]").classList.add("is-selected");
       status("Publicando para " + ids.length + " pessoas selecionadas…");
-      void publish();
+      // Audience selection is draft-only. Publishing requires a separate
+      // explicit tap on the Story publishing control.
+      status("Amigos próximos selecionados. Toque em Publicar story para enviar.");
     };
   };
   const openMentions = () => {
@@ -1118,7 +1120,15 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const blob = await blobFromCanvas(canvas, "image/jpeg");
     return new File([blob], "story-" + Date.now() + ".jpg", { type: "image/jpeg" });
   };
-  const publish = async () => {
+  const explicitStoryPublication=Symbol("user-clicked-publish-story");
+  const requestStoryPublish=event=>{
+    if(!event?.target)return;
+    // Only designated buttons generate this intent: never form submit,
+    // picker selection, keyboard Enter or a modal closing.
+    void publish(explicitStoryPublication);
+  };
+  const publish = async (authorization) => {
+    if (authorization !== explicitStoryPublication || !active || mode!=="edit") return;
     if (publishing) return;
     publishing = true;
     // Start WebAudio directly within the Publish tap, BEFORE awaiting image
@@ -1331,11 +1341,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       body.querySelectorAll("[data-sticker]").forEach(b => b.onclick = () => { addLayer(b.dataset.sticker, true); modalClose(); });
     },
     "[data-studio-modal-close]": modalClose,
-    "[data-studio-publicar]": () => { $("[data-studio-visibility]").value = "public"; void publish(); },
+    "[data-studio-publicar]": event => { $("[data-studio-visibility]").value = "public"; requestStoryPublish(event); },
     "[data-studio-friends]": openAudience,
     "[data-studio-send]": () => {
-      modal("Compartilhar Story", '<p class="studio-hint">Escolha quem poderá visualizar sua publicação.</p><div class="studio-modal-actions"><button type="button" data-share-public>Seu Story</button><button type="button" data-share-friends>Amigos próximos</button></div>');
-      body.querySelector("[data-share-public]").onclick=()=>{modalClose();$("[data-studio-visibility]").value="public";void publish();};
+      modal("Compartilhar Story", '<p class="studio-hint">Escolha quem poderá visualizar sua publicação.</p><div class="studio-modal-actions"><button type="button" data-share-public>Publicar Story</button><button type="button" data-share-friends>Amigos próximos</button></div>');
+      body.querySelector("[data-share-public]").onclick=event=>{
+        modalClose();$("[data-studio-visibility]").value="public";requestStoryPublish(event);
+      };
       body.querySelector("[data-share-friends]").onclick=()=>{modalClose();openAudience();};
     }
   };
@@ -1421,7 +1433,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   shutter.addEventListener("pointercancel", e => { if (hold) clearTimeout(hold); pointer = null; if (held) finishRecording(); });
   shutter.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void capturePhoto(); } });
   $("[data-studio-form]").addEventListener("submit", e => {
-    e.preventDefault(); e.stopPropagation(); void publish();
+    // Enter inside music search or text editor is NOT permission to publish.
+    e.preventDefault();e.stopPropagation();
   });
   dialog.addEventListener("cancel", e => { e.preventDefault(); close(); });
   dialog.addEventListener("close", () => { active = false; stopCamera(); unfreezeEditorPlane(); revokeUrl(); });
