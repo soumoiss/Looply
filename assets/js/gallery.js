@@ -104,7 +104,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   let items = [], people = [], albums = [], albumItemKeys = new Map(), activeAlbumId = null, privateKeys = new Set(), selectedPeople = new Set(), selectedRecipients = new Set(), selectedTagPeople = new Set(), selectedAccessRecipients = new Set(), filterPeople = new Set();
   let previewObserver = null;
   let main = "recentes", kind = "all", view = "grid", matchAny = false, commentsOnly = false, shuffled = false;
-  let activeKey = null, commentKey = null, commentRequest = 0, viewerRequest = 0, deletingMedia = new Set(), albumPickerKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", cameraVideoMode = false, uploadBusy = false, signedUrlFailures = 0;
+  let activeKey = null, commentKey = null, commentRequest = 0, commentMentionIds = new Set(), viewerRequest = 0, deletingMedia = new Set(), albumPickerKey = null, viewerTrigger = null, loadPage = 0, hasMore = true, loading = false, mediaStream = null, recorder = null, recordedChunks = [], cameraFacing = "environment", cameraVideoMode = false, uploadBusy = false, signedUrlFailures = 0;
   let gestureController = null;
   const inlineComments = new Map();
   const inlineCommentsPending = new Set();
@@ -118,7 +118,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const commentMentionMarkup = (query = "") => {
     const q = query.trim().toLocaleLowerCase("pt-BR");
     const list = people.filter(p => !q || [p.display_name,p.username].some(v => String(v || "").toLocaleLowerCase("pt-BR").includes(q)));
-    return list.map(p => '<button type="button" class="gallery-tool" data-comment-username="' + esc(p.username) + '">@' + esc(p.username) + ' <small>' + esc(p.display_name || p.username) + '</small></button>').join("") || '<p class="gallery-empty-small">Nenhuma pessoa encontrada.</p>';
+    return list.map(p => '<button type="button" class="gallery-tool" data-comment-username="' + esc(p.username) + '" data-comment-user-id="' + esc(p.id) + '">@' + esc(p.username) + ' <small>' + esc(p.display_name || p.username) + '</small></button>').join("") || '<p class="gallery-empty-small">Nenhuma pessoa encontrada.</p>';
   };
   const chosen = selector => $$(selector + " input[type=checkbox]:checked").map(el => el.value);
   const syncUserLists = () => {
@@ -530,6 +530,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     const sheet = $("[data-comments-modal]");
     sheet.dataset.mediaKey = key;
     $("[data-comment-form]").reset();
+    commentMentionIds.clear();
     $("[data-comment-status]").textContent = "";
     revealSheet(sheet);
     $("[data-comments-list]").innerHTML = '<div class="gallery-skeleton gallery-comment-skeleton" role="status">Carregando comentários…</div>';
@@ -557,13 +558,25 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (request !== commentRequest || commentKey !== key || $("[data-comments-modal]").hidden) return false;
     if (error) { console.error("Looply comments load failed", error); say(error?.code === "42501" ? "Sem permissão para ver os comentários desta mídia. Atualize a página e confirme seu acesso." : "Não foi possível carregar os comentários" + (error?.code ? " (" + error.code + ")" : "") + ".", $("[data-comment-status]")); return; }
     const rows = data || [];
+    const mentionResponse = rows.length ? await client.from("gallery_comment_mentions")
+      .select("comment_id,person_id").eq("source",x.source).in("comment_id",rows.map(row=>row.id))
+      : {data:[],error:null};
+    if (mentionResponse.error) console.warn("Gallery comment mention references unavailable",mentionResponse.error);
+    const mentionMap = new Map();
+    for(const ref of mentionResponse.data||[]){
+      if(!mentionMap.has(ref.comment_id))mentionMap.set(ref.comment_id,[]);
+      mentionMap.get(ref.comment_id).push(ref.person_id);
+    }
     const authorIds = [...new Set(rows.map(r=>r.author_id))];
     const authors = authorIds.length ? await client.from("profiles").select("id,username,display_name").in("id",authorIds) : {data:[]};
     const authorMap = new Map((authors.data || []).map(p=>[p.id,p]));
     if (request !== commentRequest || commentKey !== key || $("[data-comments-modal]").hidden) return false;
     $("[data-comments-list]").innerHTML = rows.length ? rows.map(r => {
       const p = authorMap.get(r.author_id);
-      return '<article class="gallery-comment"><div><strong>' + esc(p?.display_name || p?.username || "Usuário") + '</strong><time>' + esc(dateLabel(r.created_at)) + '</time></div><p>' + esc(r.body) + '</p>' + (r.audience === "selected" || r.audience === "author_only" ? '<small>' + icon("lock") + ' Comentário restrito</small>' : '') + '</article>';
+      return '<article class="gallery-comment"><div><strong>' + esc(p?.display_name || p?.username || "Usuário") + '</strong><time>' + esc(dateLabel(r.created_at)) + '</time></div><p>' + esc(r.body) + '</p>' + (mentionMap.get(r.id)||[]).map(id=>{
+        const person=peopleMap.get(id);
+        return person?'<a class="gallery-comment-mention-link" href="perfil.html?usuario='+encodeURIComponent(id)+'">@'+esc(person.username||person.display_name)+'</a>':"";
+      }).join(" ") + (r.audience === "selected" || r.audience === "author_only" ? '<small>' + icon("lock") + ' Comentário restrito</small>' : '') + '</article>';
     }).join("") : '<p class="gallery-empty-small">Ainda não há comentários visíveis para você.</p>';
     $("[data-comment-status]").textContent = "";
     $("[data-comments-modal]").hidden = false;
@@ -578,8 +591,16 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (audience === "selected" && !recipientIds.length) { say("Selecione pelo menos uma pessoa.", $("[data-comment-status]")); return; }
     const submit = form.querySelector('[type="submit"]'); submit.disabled = true;
     try {
-      const rpc = x.source === "archive" ? "create_archive_media_comment" : "create_community_gallery_comment";
-      const { error } = await client.rpc(rpc, { p_media_id:x.id, p_body:body, p_audience:audience, p_recipient_ids:audience === "selected" ? recipientIds : [] });
+      // The Neon wrapper calls create_archive_media_comment/create_community_gallery_comment,
+      // checks its established audience permissions and persists stable person IDs atomically.
+      const ids=[...commentMentionIds].filter(id=>{
+        const person=peopleMap.get(id);
+        return person && body.toLocaleLowerCase("pt-BR").includes("@"+String(person.username||"").toLocaleLowerCase("pt-BR"));
+      });
+      const { error } = await client.rpc("v8_create_gallery_comment", {
+        p_source:x.source, p_media_id:x.id, p_body:body, p_audience:audience,
+        p_recipient_ids:audience==="selected"?recipientIds:[], p_mention_ids:ids
+      });
       if (error) throw error;
       if (commentKey !== key) return;
       const confirmed = await loadComments(key);
@@ -587,7 +608,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
         say("Comentário enviado; não foi possível confirmar a nova leitura. Seu texto foi preservado.", $("[data-comment-status]"));
         return;
       }
-      form.reset(); say("Comentário publicado.", $("[data-comment-status]"));
+      form.reset(); commentMentionIds.clear(); say("Comentário publicado.", $("[data-comment-status]"));
       x.hasComments = true; draw();
     } catch (error) {
       console.error("Looply comment publish failed", { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint });
@@ -961,6 +982,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     if (!button) return;
     const textarea = $("[data-comment-form] [name=body]");
     const mention = "@" + button.dataset.commentUsername;
+    if (button.dataset.commentUserId) commentMentionIds.add(button.dataset.commentUserId);
     const current = textarea.value;
     if (current.toLocaleLowerCase("pt-BR").includes(mention.toLocaleLowerCase("pt-BR"))) { textarea.focus(); return; }
     const separator = current && !/\s$/.test(current) ? " " : "";
