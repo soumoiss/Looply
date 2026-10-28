@@ -1,4 +1,4 @@
-import { PROVIDER_NAMES, officialSongPreview, searchStorySongs } from "./story-music-catalog.js";
+import { PROVIDER_NAMES, officialSongPreview, searchStorySongs } from "./story-music-catalog.js?v=story-music-unified-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 
