@@ -1,7 +1,8 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
-import { cachedSignedUrls } from "./storage-url-cache.js";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
+import { stickerCatalogMarkup, bindStickerCatalog } from "./chat-sticker-catalog.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
@@ -117,7 +118,20 @@ async function loadUnreadChatNotifications(client, userId, conversationIds) {
 
 export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
-    client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
+    (async () => {
+      const rows = [];
+      // RLS still decides which conversations are accessible. Pagination
+      // prevents a silent 1,000-row or 50-conversation cutoff.
+      for (let offset=0; offset<10000; offset+=500) {
+        const result = await client.from("conversation_participants")
+          .select("conversation_id,last_read_at").eq("user_id",userId)
+          .order("conversation_id").range(offset,offset+499);
+        if (result.error) return {data:null,error:result.error};
+        rows.push(...(result.data || []));
+        if ((result.data || []).length < 500) break;
+      }
+      return {data:rows,error:null};
+    })(),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
@@ -133,36 +147,68 @@ export async function loadChatData(client, userId) {
   let conversations = [];
   let latestMessages = [];
   if (ids.length) {
-    const { data, error } = await client.from("conversations")
-      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
-      .in("id", ids).order("updated_at", { ascending: false }).limit(50);
-    if (error) throw error;
-    conversations = data || [];
-    const { data: latest, error: messagesError } = await client.from("chat_messages")
-      .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
-      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
-    if (messagesError) throw messagesError;
-    latestMessages = latest || [];
+    for (let start=0; start<ids.length; start+=50) {
+      const batch = ids.slice(start,start+50);
+      const [conversationResult,latestResult] = await Promise.all([
+        client.from("conversations")
+          .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
+          .in("id",batch).order("updated_at",{ascending:false}).limit(50),
+        client.from("chat_messages")
+          .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+          .in("conversation_id",batch).order("created_at",{ascending:false}).limit(500)
+      ]);
+      if (conversationResult.error) throw conversationResult.error;
+      if (latestResult.error) throw latestResult.error;
+      conversations.push(...(conversationResult.data || []));
+      latestMessages.push(...(latestResult.data || []));
+    }
+    conversations.sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
   }
   const latestByConversation = new Map();
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+  const missingPreviews = conversations.filter(c=>!latestByConversation.has(c.id));
+  for (let start=0; start<missingPreviews.length; start+=8) {
+    await Promise.all(missingPreviews.slice(start,start+8).map(async conversation => {
+      const result = await client.from("chat_messages")
+        .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+        .eq("conversation_id",conversation.id).order("created_at",{ascending:false}).limit(1);
+      if (result.error) console.warn("Latest chat preview unavailable",conversation.id,result.error);
+      else if (result.data?.[0]) latestByConversation.set(conversation.id,result.data[0]);
+    }));
+  }
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const profiles = profilesResult.data || [];
-  const avatarProfiles = new Map();
-  for (const profile of profiles) if (profile.avatar_path) avatarProfiles.set(profile.id, profile);
-  for (const conversation of conversations) {
-    for (const participant of conversation.participants || []) {
-      if (participant.profile?.avatar_path) avatarProfiles.set(participant.profile.id, participant.profile);
-    }
-  }
-  const avatarList = [...avatarProfiles.values()];
-  if (avatarList.length) {
-    const { data: signed } = await cachedSignedUrls(client, "looply-avatars", avatarList.map((profile) => profile.avatar_path), 1800);
-    if (signed) avatarList.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
+  // Both profile search and nested conversation participants hold distinct
+  // objects for the same profile ID. Assign signed URLs to EVERY reference,
+  // not just the last reference inserted into a Map.
+  const profileReferences = [...profiles, ...conversations.flatMap(c =>
+    (c.participants || []).map(participant => participant.profile).filter(Boolean))];
+  const paths = new Map();
+  for (const person of profileReferences) if (person?.id && person.avatar_path)
+    paths.set(person.id, person.avatar_path);
+  const avatarUrls = new Map();
+  await Promise.all([...paths.entries()].map(async ([id,path]) => {
+    const signed = await cachedSignedUrl(client, "looply-avatars", path, 1800);
+    if (signed?.data?.signedUrl) avatarUrls.set(id, signed.data.signedUrl);
+    else if (signed?.error) console.warn("Chat avatar unavailable for profile", id, signed.error);
+  }));
+  for (const person of profileReferences)
+    if (person?.id) person.avatarUrl = avatarUrls.get(person.id) || null;
+  const groupIds = conversations.filter(c => c.kind === "group").map(c => c.id);
+  const covers = new Map();
+  if (groupIds.length) {
+    const {data:rows,error} = await client.from("group_covers")
+      .select("conversation_id,storage_path").in("conversation_id",groupIds);
+    if (error) console.warn("Chat group covers unavailable",error);
+    else await Promise.all((rows || []).map(async row => {
+      const signed = await cachedSignedUrl(client,"looply-chat",row.storage_path,1800);
+      if (signed?.data?.signedUrl) covers.set(row.conversation_id,signed.data.signedUrl);
+    }));
   }
   return {
     conversations: conversations.map((conversation) => ({
       ...conversation,
+      coverUrl: covers.get(conversation.id) || null,
       lastMessage: latestByConversation.get(conversation.id) || null,
       lastReadAt: readByConversation.get(conversation.id),
       unreadCount: unreadByConversation.get(conversation.id) || 0
@@ -182,7 +228,9 @@ function conversationLabel(conversation, userId) {
 
 function conversationAvatar(conversation, userId) {
   if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
-  if (conversation.kind === "group") return `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
+  if (conversation.kind === "group") return conversation.coverUrl
+    ? `<img class="chat-conversation-avatar chat-group-avatar" data-group-cover-id="${escapeHtml(conversation.id)}" src="${escapeHtml(conversation.coverUrl)}" alt="Foto do grupo" loading="lazy" referrerpolicy="no-referrer">`
+    : `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   return profile?.avatarUrl
@@ -221,8 +269,6 @@ export function chatMarkup(data, userId) {
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
     <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
       <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
-      <button type="button" data-chat-filter="groups" aria-pressed="${conversationFilter === "groups"}">Grupos</button>
-      <button type="button" data-chat-filter="unread" aria-pressed="${conversationFilter === "unread"}">Não lidas</button>
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
@@ -442,6 +488,37 @@ async function uploadResumable(client, path, file, onProgress) {
   onProgress?.(100);
 }
 
+async function normalizeGroupCover(file) {
+  if (!(file instanceof File) || !["image/jpeg","image/png","image/webp"].includes(file.type) ||
+      !file.size || file.size > 10*1024*1024)
+    throw Error("invalid_group_cover");
+  let image;
+  let objectUrl;
+  try {
+    if (typeof createImageBitmap === "function") image = await createImageBitmap(file);
+    else {
+      objectUrl = URL.createObjectURL(file);
+      image = new Image();
+      image.src = objectUrl;
+      await image.decode();
+    }
+    const width = image.width || image.naturalWidth;
+    const height = image.height || image.naturalHeight;
+    if (!width || !height) throw Error("invalid_group_cover");
+    const size = 512, scale = Math.min(1,size/Math.max(width,height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1,Math.round(width*scale));
+    canvas.height = Math.max(1,Math.round(height*scale));
+    canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+    const blob = await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",0.83));
+    if (!blob?.size) throw Error("invalid_group_cover");
+    return new File([blob],"capa-grupo.webp",{type:"image/webp"});
+  } finally {
+    image?.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function renderMedia(media) {
   if (!media.signedUrl) return `<span class="chat-media-unavailable">Anexo temporariamente indisponível.</span>`;
   const url = escapeHtml(media.signedUrl);
@@ -463,13 +540,40 @@ async function loadThread(client, conversationId, before = null) {
   const [messageResult, participantResult, conversationResult] = await Promise.all([
     messageQuery.order("created_at", { ascending: false }).limit(100),
     client.from("conversation_participants").select("user_id,last_read_at,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path)").eq("conversation_id", conversationId),
-    client.from("conversations").select("id,kind,subject").eq("id", conversationId).maybeSingle()
+    client.from("conversations").select("id,kind,subject,created_by").eq("id", conversationId).maybeSingle()
   ]);
   if (messageResult.error) throw messageResult.error;
   if (participantResult.error) throw participantResult.error;
   if (conversationResult.error) throw conversationResult.error;
   if (!conversationResult.data) throw new Error("Conversation unavailable");
   const messages = (messageResult.data || []).reverse();
+  if (messages.length) {
+    const {data:stickerMessages,error:stickersError} = await client.from("chat_sticker_messages")
+      .select("message_id,sticker_id").eq("conversation_id",conversationId)
+      .in("message_id",messages.map(message => message.id)).limit(100);
+    if (stickersError) console.warn("Chat sticker references could not load",stickersError);
+    else {
+      const ids = [...new Set((stickerMessages || []).map(row=>row.sticker_id))];
+      if (ids.length) {
+        const {data:items,error:catalogError} = await client.from("sticker_catalog")
+          .select("id,title,asset_path").in("id",ids);
+        if (catalogError) console.warn("Chat sticker images could not load",catalogError);
+        else {
+          const byId = new Map((items || []).map(item=>[item.id,item]));
+          const byMessage = new Map((stickerMessages || []).map(item=>[item.message_id,byId.get(item.sticker_id)]));
+          for (const message of messages) message.sticker = byMessage.get(message.id) || null;
+        }
+      }
+    }
+  }
+  if (conversationResult.data.kind === "group") {
+    const {data:cover,error:coverError} = await client.from("group_covers")
+      .select("storage_path").eq("conversation_id",conversationId).maybeSingle();
+    if (!coverError && cover?.storage_path) {
+      const signed = await cachedSignedUrl(client,"looply-chat",cover.storage_path,1800);
+      conversationResult.data.coverUrl = signed?.data?.signedUrl || null;
+    } else if (coverError) console.warn("Chat group cover unavailable",coverError);
+  }
   // Show the original story in both participants' chat histories without
   // replacing the actual message body. The link still obeys story visibility.
   if (messages.length) {
@@ -508,11 +612,14 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
+    const sticker = message.sticker && /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker.asset_path)
+      ? `<img class="chat-catalog-message" src="${escapeHtml(message.sticker.asset_path)}" alt="Figurinha: ${escapeHtml(message.sticker.title)}" loading="lazy" decoding="async">`
+      : "";
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
     const avatar = !isMine && authorProfile ? (authorProfile.avatarUrl
-      ? `<img class="chat-message-avatar" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      ? `<img class="chat-message-avatar" data-profile-avatar-id="${escapeHtml(authorProfile.id)}" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
       : `<span class="chat-message-avatar" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
     const readCount = isGroup ? participants.filter((participant) => participant.user_id !== userId && participant.last_read_at && new Date(participant.last_read_at) >= new Date(message.created_at)).length : 0;
     const readTotal = Math.max(0, participants.length - 1);
@@ -521,7 +628,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}">
     <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}${storyContext}<p data-chat-message-body>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    ${replyContext}${storyContext}${sticker}<p data-chat-message-body${sticker ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
     <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>${message.media?.length ? "" : `<button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>`}` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
@@ -536,7 +643,7 @@ function messageComposerMarkup(conversationId) {
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
     <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
-    <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div><p>Escolha uma imagem estática do aparelho. A seleção de arquivo só abre depois deste passo.</p><button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Selecionar do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
+    <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div>${stickerCatalogMarkup()}<button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Usar imagem do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
     <div class="chat-recorder" data-chat-recording hidden><span class="chat-recording-indicator" aria-hidden="true"></span><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-pause aria-pressed="false">Pausar</button><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
@@ -545,7 +652,13 @@ function messageComposerMarkup(conversationId) {
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button><span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span><div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div></header>`;
+    const avatar = conversationInfo.coverUrl
+      ? `<img class="chat-thread-avatar chat-group-avatar" data-group-cover-id="${escapeHtml(conversationInfo.id)}" src="${escapeHtml(conversationInfo.coverUrl)}" alt="Foto do grupo" referrerpolicy="no-referrer">`
+      : `<span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
+    const editor = conversationInfo.created_by === userId
+      ? `<button type="button" class="chat-cover-change" data-chat-group-cover-choose aria-label="Alterar foto do grupo">Foto do grupo</button><input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status"></span>`
+      : "";
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}</header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -553,7 +666,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
   const image = conversation?.querySelector(".chat-conversation-avatar[src]");
   const avatarUrl = image?.src || peer?.avatarUrl;
   const avatar = avatarUrl
-    ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
+    ? `<img class="chat-thread-avatar" data-profile-avatar-id="${escapeHtml(peer?.id || "")}" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
   return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(name)}</strong><small>Conversa em tempo real</small></div></header>`;
@@ -600,7 +713,9 @@ function scrollInitialThreadToLatest(thread) {
   });
   thread.querySelectorAll("img, video").forEach((media) => {
     const eventName = media instanceof HTMLVideoElement ? "loadedmetadata" : "load";
-    media.addEventListener(eventName, scrollToLatest, { once: true });
+    media.addEventListener(eventName, () => {
+      if (thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140) scrollToLatest();
+    }, { once: true });
   });
 }
 
@@ -757,12 +872,44 @@ export function disposeChatRealtime(client) {
 }
 
 export function bindChatEvents(root, client, getUserId) {
+  bindStickerCatalog(root,client,getUserId);
   root.dataset.chatUserId = getUserId?.() || "";
   // Signed avatar URLs may expire or the stored object may be missing. Replace only
   // failed images with the same visual fallback used when no avatar is configured.
-  root.addEventListener("error", (event) => {
+  root.addEventListener("error", async (event) => {
     const image = event.target;
     if (!(image instanceof HTMLImageElement) || !image.matches(".chat-conversation-avatar, .chat-person-avatar, .chat-group-option-avatar, .chat-thread-avatar, .chat-message-avatar")) return;
+    if (!image.dataset.avatarRetried && (image.dataset.profileAvatarId || image.dataset.groupCoverId)) {
+      image.dataset.avatarRetried = "true";
+      try {
+        let path = null, bucket = "looply-avatars";
+        if (image.dataset.profileAvatarId) {
+          const {data,error} = await client.from("profiles").select("avatar_path")
+            .eq("id",image.dataset.profileAvatarId).maybeSingle();
+          if (error) throw error;
+          path = data?.avatar_path || null;
+        } else {
+          const {data,error} = await client.from("group_covers").select("storage_path")
+            .eq("conversation_id",image.dataset.groupCoverId).maybeSingle();
+          if (error) throw error;
+          path = data?.storage_path || null;
+          bucket = "looply-chat";
+        }
+        if (path) {
+          // A fresh direct signature bypasses an expired in-memory URL cache.
+          const {data,error} = await client.storage.from(bucket).createSignedUrl(path,1800);
+          if (error) throw error;
+          if (image.isConnected && data?.signedUrl && data.signedUrl !== image.src) {
+            image.src = data.signedUrl;
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("Chat registered avatar/cover could not be recovered.",error);
+      }
+    }
+    if (!image.isConnected) return;
+    console.warn("Chat avatar or group cover could not be displayed.", image.dataset.profileAvatarId || image.dataset.groupCoverId || "");
     const container = image.closest(".chat-conversation, .chat-person, .chat-group-option, .chat-thread-heading, .chat-message-row");
     const label = container?.querySelector(".chat-conversation-copy strong, .chat-person strong, .chat-group-option strong, .chat-thread-heading strong, .chat-message-meta strong");
     const initial = (label?.textContent?.trim() || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -776,8 +923,15 @@ export function bindChatEvents(root, client, getUserId) {
     const viewport = window.visualViewport;
     const updateViewport = () => {
       root.style.setProperty("--looply-visible-height", viewport.height + "px");
-      const thread = root.querySelector("[data-chat-thread]");
-      if (document.activeElement?.matches(".chat-message-form textarea") && thread) requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+      const area = root.querySelector("[data-chat-area]");
+      const areaTop = Math.max(0,area?.getBoundingClientRect().top || 0);
+      const screenBottom = viewport.height + viewport.offsetTop;
+      const obscured = window.innerHeight - screenBottom > 96;
+      const typing = Boolean(document.activeElement?.closest(".chat-message-form"));
+      const nav = document.querySelector(".page-navigation");
+      const navSpace = obscured && typing ? 0 : (nav?.getBoundingClientRect().height || 0) + 14;
+      root.style.setProperty("--chat-panel-px",Math.max(170,Math.round(screenBottom-areaTop-navSpace))+"px");
+      root.classList.toggle("chat-keyboard-open",obscured && typing);
     };
     viewport.addEventListener("resize", updateViewport);
     viewport.addEventListener("scroll", updateViewport);
@@ -788,9 +942,21 @@ export function bindChatEvents(root, client, getUserId) {
       viewport.removeEventListener("scroll", updateViewport);
       window.removeEventListener("orientationchange", updateViewport);
     }, { once: true });
-    root.addEventListener("focusin", (event) => {
-      if (event.target.matches(".chat-message-form textarea")) window.setTimeout(updateViewport, 80);
+    root.addEventListener("input", event => {
+      const textarea = event.target.closest(".chat-message-form textarea");
+      if (!textarea) return;
+      textarea.style.height = "44px";
+      textarea.style.height = Math.min(150,Math.max(44,textarea.scrollHeight)) + "px";
+      requestAnimationFrame(updateViewport);
     });
+    root.addEventListener("focusin", (event) => {
+      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
+    });
+    root.addEventListener("focusout", (event) => {
+      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
+    });
+    root.addEventListener("looply:conversation-activated",updateViewport);
+    window.addEventListener("resize",updateViewport);
   }
   root.addEventListener("looply:open-conversation", async (event) => {
     const conversationId = event.detail?.conversationId;
@@ -799,6 +965,70 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
+  // The group creator can replace the cover. The image is stored once in
+  // the already-authorized chat-media bucket, and the cover points to it.
+  root.addEventListener("click", event => {
+    if (!event.target.closest("[data-chat-group-cover-choose]")) return;
+    root.querySelector(".chat-thread-heading [data-chat-group-cover-input]")?.click();
+  });
+  root.addEventListener("change", async event => {
+    const input = event.target.closest("[data-chat-group-cover-input]");
+    if (!input || !input.files?.length) return;
+    const file = input.files[0];
+    const heading = input.closest(".chat-thread-heading");
+    const conversationId = heading?.dataset.conversationId;
+    const userId = getUserId?.();
+    const status = heading?.querySelector("[data-chat-cover-status]");
+    const button = heading?.querySelector("[data-chat-group-cover-choose]");
+    input.value = "";
+    if (!conversationId || !userId || !status || !button || button.disabled) return;
+    button.disabled = true;
+    let messageId = null;
+    let uploadedPath = "";
+    let persisted = false;
+    try {
+      status.textContent = "Salvando foto…";
+      const image = await normalizeGroupCover(file);
+      const message = await client.from("chat_messages").insert({
+        conversation_id:conversationId,sender_id:userId,body:"Atualizou a foto do grupo."
+      }).select("id").single();
+      if (message.error || !message.data?.id) throw message.error || Error("message_not_confirmed");
+      messageId = message.data.id;
+      uploadedPath = `conversations/${conversationId}/${messageId}/${crypto.randomUUID()}.webp`;
+      await uploadResumable(client,uploadedPath,image);
+      const media = await client.from("chat_media").insert({
+        conversation_id:conversationId,message_id:messageId,created_by:userId,
+        storage_path:uploadedPath,mime_type:"image/webp",byte_size:image.size,file_name:"capa-grupo.webp"
+      }).select("id").maybeSingle();
+      if (media.error || !media.data?.id) throw media.error || Error("cover_media_unconfirmed");
+      const saved = await client.rpc("v10_set_group_cover",{
+        p_conversation_id:conversationId,p_storage_path:uploadedPath
+      });
+      if (saved.error || saved.data !== uploadedPath) throw saved.error || Error("cover_rpc_unconfirmed");
+      persisted = true;
+      const read = await client.from("group_covers").select("storage_path")
+        .eq("conversation_id",conversationId).maybeSingle();
+      if (read.error || read.data?.storage_path !== uploadedPath)
+        throw read.error || Error("cover_read_unconfirmed");
+      status.textContent = "Foto do grupo atualizada.";
+      root.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+      await refreshChat(root,client,userId,{keepThread:true});
+    } catch (error) {
+      console.error("Looply group cover failed",error);
+      if (!persisted && messageId) {
+        if (uploadedPath) {
+          const removed = await client.storage.from("looply-chat").remove([uploadedPath]);
+          if (removed.error) console.warn("Cover upload cleanup failed",removed.error);
+        }
+        const deleted = await client.from("chat_messages").delete()
+          .eq("id",messageId).eq("conversation_id",conversationId);
+        if (deleted.error) console.warn("Cover message cleanup failed",deleted.error);
+      }
+      if (status.isConnected) status.textContent = persisted
+        ? "Foto salva, mas não foi possível atualizar a tela. Reabra o grupo."
+        : "Não foi possível alterar a foto. Confira o acesso.";
+    } finally { button.disabled=false; }
+  });
   // Keep attachment selection isolated from conversation and call controls.
   root.addEventListener("click", (event) => {
     const stickerButton = event.target.closest("[data-chat-choose-sticker]");
@@ -894,8 +1124,7 @@ export function bindChatEvents(root, client, getUserId) {
       return;
     }
     if (conversationFilterButton) {
-      conversationFilter = ["all", "unread", "groups", "favorites"].includes(conversationFilterButton.dataset.chatFilter)
-        ? conversationFilterButton.dataset.chatFilter : "all";
+      conversationFilter = "all";
       root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === conversationFilterButton)));
       applyConversationFilter(root);
       return;
@@ -1218,7 +1447,7 @@ export function bindChatEvents(root, client, getUserId) {
           if (signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
         }
         const container = root.querySelector("[data-chat-people]");
-        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
         setStatus(form, `${profiles.length} perfil(is) encontrado(s).`);
       } else if (form.matches("[data-letter-send]")) {
         const subject = String(values.get("subject") || "").trim();

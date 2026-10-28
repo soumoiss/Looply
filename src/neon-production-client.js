@@ -112,6 +112,25 @@ async function galleryRpc(name,args) {
 }
 // Story engagement RPCs are backed by Neon functions with authenticated
 // identity resolution, so callers cannot forge a viewer or a reply sender.
+// Group cover writes must pass the creator-only Neon RPC.
+async function setGroupCoverRpc(args) {
+  try {
+    const session = await activeSession();
+    if (!session?.access_token) return {data:null,error:{message:"neon_session_required",status:401}};
+    const response = await fetch(config.data + "/rpc/v10_set_group_cover", {
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,
+        "content-type":"application/json",accept:"application/json"},
+      body:JSON.stringify(args)
+    });
+    const data = await response.json().catch(()=>null);
+    if (!response.ok) return {data:null,error:{
+      message:data?.message||"group_cover_rejected",code:data?.code||"",status:response.status
+    }};
+    if (data !== args?.p_storage_path) return {data:null,error:{message:"group_cover_unconfirmed"}};
+    return {data,error:null};
+  } catch(error) {return {data:null,error:{message:error?.message||"group_cover_unavailable"}};}
+}
 const storyEngagementRpcNames = new Set(["record_story_view", "send_story_reply"]);
 async function storyEngagementRpc(name, args) {
   if (!storyEngagementRpcNames.has(name)) return blocked();
@@ -247,7 +266,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: chatFunctionInvoke }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,

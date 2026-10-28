@@ -22,10 +22,12 @@ test("chat renders explicit conversation metadata and applies shared data filter
   assert.match(chat, /data-chat-unread-count=/);
   assert.doesNotMatch(chat, /Boolean\(item\.querySelector\("\.chat-unread"\)\)/);
   assert.match(chat, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
-  assert.match(chat, /conversationFilterButton\.dataset\.chatFilter/);
-  assert.match(chat, /\["all", "unread", "groups", "favorites"\]/);
+  assert.match(chat, /const conversationFilterButton = event\.target\.closest\("\[data-chat-filter\]"\)/);
+  assert.match(chat, /conversationFilter = "all"/);
   assert.match(chat, /avatar_path/);
-  assert.match(chat, /cachedSignedUrls\(client, "looply-avatars", avatarProfiles\.map\(\(profile\) => profile\.avatar_path\)/);
+  assert.match(chat, /const profileReferences = /);
+  assert.match(chat, /avatarUrls\.get\(person\.id\)/);
+  assert.match(chat, /cachedSignedUrl\(client, "looply-avatars", path, 1800\)/);
 });
 
 test("chat keeps the global header and gives the send icon a fixed size", async () => {

@@ -53,8 +53,8 @@ test("conversation list renders real authorized data without hard-coded sample c
   const markup=chatMarkup({conversations:[],profiles:[],notifications:[]}, "viewer");
   assert.match(markup,/data-chat-conversations/);
   assert.match(markup,/data-chat-conversation-search/);
-  assert.match(markup,/data-chat-filter="groups"/);
-  assert.match(markup,/data-chat-filter="unread"/);
+  assert.match(markup,/data-chat-filter="all"/);
+  assert.doesNotMatch(markup,/data-chat-filter="groups"|data-chat-filter="unread"|data-chat-filter="favorites"/);
   assert.doesNotMatch(markup,/Bielzinho|Kizuna forever|Yarinhaa|images\.unsplash/);
 });
 test("stories, real group creation and user search remain wired in Chat",async()=>{

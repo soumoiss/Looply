@@ -18,8 +18,8 @@ test("chat filters use explicit conversation data and keep required empty states
   const [source, logic] = await Promise.all([
     read("src/chat.js"), read("src/chat-filter-logic.js")
   ]);
-  assert.match(source, /data-chat-filter="groups"/);
-  assert.match(source, /data-chat-filter="unread"/);
+  assert.match(source, /data-chat-filter="all"/);
+  assert.doesNotMatch(source, /data-chat-filter="groups"|data-chat-filter="unread"/);
   assert.match(source, /data-chat-kind=/);
   assert.match(source, /data-chat-unread-count=/);
   assert.match(source, /matchesConversationFilter\(/);
@@ -79,7 +79,8 @@ test("a newly opened conversation scrolls to the latest rendered message without
   const source = await read("src/chat.js");
   assert.match(source, /function scrollInitialThreadToLatest\(thread\)/);
   assert.match(source, /requestAnimationFrame\(\(\) => \{\s*scrollToLatest\(\);\s*requestAnimationFrame\(scrollToLatest\)/);
-  assert.match(source, /media\.addEventListener\(eventName, scrollToLatest, \{ once: true \}\)/);
+  assert.match(source, /media\.addEventListener\(eventName, \(\) => \{/);
+  assert.match(source, /thread\.scrollHeight - thread\.scrollTop - thread\.clientHeight < 140/);
   assert.match(source, /scrollInitialThreadToLatest\(thread\)/);
   assert.match(source, /if \(wasNearBottom\) thread\.scrollTop = thread\.scrollHeight/);
 });
@@ -179,7 +180,7 @@ test("voice recorder pause and resume exclude paused time and expose accessible 
 
 test("chat avatars fall back only after an image fails to load", async () => {
   const source = await read("src/chat.js");
-  assert.match(source, /root\.addEventListener\("error", \(event\) =>/);
+  assert.match(source, /root\.addEventListener\("error", async \(event\) =>/);
   assert.match(source, /chat-conversation-avatar, \.chat-person-avatar/);
   assert.match(source, /image\.replaceWith\(fallback\)/);
 });

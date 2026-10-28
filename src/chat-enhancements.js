@@ -154,9 +154,7 @@ export function setupChatEnhancements(root, client, userId) {
       topHeading.prepend(button);
     }
     const filters = root.querySelector(".chat-filter-tabs");
-    if (filters && !filters.querySelector('[data-chat-filter="groups"]')) {
-      filters.insertAdjacentHTML("beforeend", '<button type="button" data-chat-filter="groups" aria-pressed="false">Grupos</button><button type="button" data-chat-filter="favorites" aria-pressed="false">Favoritas</button>');
-    }
+    filters?.querySelectorAll('[data-chat-filter]:not([data-chat-filter="all"])').forEach(button => button.remove());
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
       heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">' + icon("more") + '</button>');
@@ -197,7 +195,8 @@ export function setupChatEnhancements(root, client, userId) {
     if (heading && id === selectedConversation() && name) heading.textContent = name;
   };
   const applyFilters = () => {
-    const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter || "all";
+    const activeFilter = "all";
+    const search = (root.querySelector("[data-chat-conversation-search]")?.value || "").toLocaleLowerCase("pt-BR").trim();
     const items = root.querySelectorAll("[data-chat-conversations] [data-chat-open]");
     let visible = 0;
     items.forEach((item) => {
@@ -206,7 +205,7 @@ export function setupChatEnhancements(root, client, userId) {
         id,
         kind: item.dataset.chatKind,
         unreadCount: item.dataset.chatUnreadCount
-      }, activeFilter, favorites);
+      }, activeFilter, favorites) && (!search || item.textContent.toLocaleLowerCase("pt-BR").includes(search));
       item.hidden = !matches;
       if (matches) visible += 1;
     });
@@ -315,7 +314,7 @@ export function setupChatEnhancements(root, client, userId) {
   root.addEventListener("click", (event) => {
     const filter = event.target.closest("[data-chat-filter]");
     if (!filter) return;
-    if (["all","unread","groups","favorites"].includes(filter.dataset.chatFilter)) {
+    if (filter.dataset.chatFilter === "all") {
       root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === filter)));
       queueMicrotask(applyFilters);
     }
