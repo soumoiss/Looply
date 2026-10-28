@@ -40,11 +40,16 @@ test("the configured profile playlist is normalized and overrides legacy usernam
   assert.equal(playlist.playlistIdFor("misol", "https://www.youtube.com/playlist?list=PLcustom_123"), "PLcustom_123");
 });
 
-test("Neon page runtime resolves the existing profile identity and retains the playlist editor", async () => {
+test("Neon page runtime resolves identity and keeps playlist editing administrative", async () => {
   const [runtime, profiles] = await Promise.all([read("src/page-runtime.js"), read("src/profiles.js")]);
   assert.match(runtime, /looplyClient as supabase, selfProfile/);
   assert.match(runtime, /await selfProfile\(\)/);
   assert.match(profiles, /name="playlistUrl"/);
   assert.match(profiles, /normalizeYouTubePlaylistUrl/);
-  assert.match(profiles, /playlist_url: playlistUrl \|\| null/);
+  assert.match(profiles, /profileAreaMarkup\(profile, isAdmin = false\)/);
+  assert.match(profiles, /isAdmin \? `<div class="field"><label for="editPlaylistUrl">/);
+  assert.match(profiles, /if \(form\.elements\.playlistUrl\) updates\.playlist_url = playlistUrl \|\| null/);
+  const guard = await read("migration/20261028_music_dedication_edit_playlist_guard.sql");
+  assert.match(guard, /BEFORE UPDATE OF playlist_url ON public\.profiles/);
+  assert.match(guard, /public\.v3_self_is_admin\(\)/);
 });
