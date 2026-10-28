@@ -56,6 +56,22 @@ export function audiusStoryStreamUrl(song) {
     ? "https://api.audius.co/v1/tracks/"+encodeURIComponent(song.id)+"/stream?app_name=Looply"
     : "";
 }
+/** Authorized provider-owned widgets are played in the published Story after
+ * the viewer taps Play. They are never captured or mixed into its media file.
+ * Deezer previews are normally limited; Apple full playback may require sign-in.
+ */
+export function officialStorySongEmbed(track) {
+  const song=normalizeStorySong(track);
+  if(!song)return null;
+  const u=new URL(song.url);
+  if(song.provider==="apple" && u.hostname==="music.apple.com")
+    return {provider:"apple",kind:"embed",src:"https://embed.music.apple.com"+u.pathname+u.search};
+  if(song.provider==="deezer"){
+    const match=u.pathname.match(/^\/(?:[a-z]{2}\/)?track\/(\d+)/i);
+    if(match)return {provider:"deezer",kind:"embed",src:"https://widget.deezer.com/widget/dark/track/"+match[1]};
+  }
+  return null;
+}
 /** A provider-owned preview is never mixed into the exported video. */
 export function officialSongPreview(track) {
   const song=normalizeStorySong(track);
