@@ -7,7 +7,7 @@ import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
   storyTextPinchSize, storyTextClampPosition, storyTextFont, storyTextFontCss,
-  storyTextLayerLayout, storyTextPaintLayer, storyTextEnsureFonts } from "./story-text-layers.js";
+  storyTextLayerLayout, storyTextPaintLayer, storyTextEnsureFonts, bindStoryTextGestures } from "./story-text-layers.js";
 
 const FILTERS = Object.freeze({ none:"none", glow:"brightness(1.07) contrast(1.04) saturate(1.12)", golden:"sepia(.18) saturate(1.24) contrast(1.07)", cool:"saturate(.86) hue-rotate(10deg) brightness(1.05)", mono:"grayscale(1) contrast(1.12)" });
 const LIMIT = 30_000;
@@ -736,69 +736,19 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     overlayRoot.append(el);
     renderLayer(el);
     selectLayer(el);
-    const pointers=new Map();
-    let drag=null,pinchGesture=null,wasGesture=false,lastTap=0;
-    const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
-    el.addEventListener("pointerdown",event=>{
-      if(mode!=="edit" && mode!=="text")return;
-      event.preventDefault();event.stopPropagation();
-      selectLayer(el);
-      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
-      try{el.setPointerCapture(event.pointerId);}catch{}
-      if(pointers.size===1){
-        wasGesture=false;
-        drag={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,
-          x:Number(el.dataset.x),y:Number(el.dataset.y),moved:false};
-        pinchGesture=null;
-      }else if(pointers.size===2){
-        const points=[...pointers.values()];
-        pinchGesture={distance:Math.max(1,distance(points)),size:Number(el.dataset.size)};
-        drag=null;wasGesture=true;lastTap=0;
-      }
+    bindStoryTextGestures(el,{
+      getPosition:()=>({x:Number(el.dataset.x),y:Number(el.dataset.y)}),
+      setPosition:point=>{
+        el.dataset.x=String(point.x);el.dataset.y=String(point.y);renderLayer(el);
+      },
+      getSize:()=>Number(el.dataset.size),
+      setSize:size=>{el.dataset.size=String(size);renderLayer(el);},
+      getBounds:()=>overlayRoot.getBoundingClientRect(),
+      select:()=>selectLayer(el),
+      edit:()=>openLayerEditor(el)
     });
-    el.addEventListener("pointermove",event=>{
-      if(!pointers.has(event.pointerId))return;
-      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
-      if(pointers.size>=2 && pinchGesture){
-        const size=storyTextPinchSize(pinchGesture.size,pinchGesture.distance,
-          distance([...pointers.values()].slice(0,2)));
-        el.dataset.size=String(size);
-        renderLayer(el);wasGesture=true;
-      }else if(pointers.size===1 && drag && drag.pointerId===event.pointerId && !wasGesture){
-        const rect=overlayRoot.getBoundingClientRect();
-        if(rect.width<=0||rect.height<=0)return;
-        const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;
-        if(Math.hypot(dx,dy)>5)drag.moved=true;
-        if(!drag.moved)return;
-        lastTap=0;
-        const point=storyTextClampPosition(drag.x+dx/rect.width,drag.y+dy/rect.height);
-        el.dataset.x=String(point.x);el.dataset.y=String(point.y);
-        renderLayer(el);
-      }
-      event.preventDefault();
-    });
-    const endPointer=event=>{
-      if(!pointers.has(event.pointerId))return;
-      const wasTap=!wasGesture && drag && !drag.moved && pointers.size===1;
-      pointers.delete(event.pointerId);
-      if(pointers.size<2)pinchGesture=null;
-      if(!pointers.size){
-        drag=null;wasGesture=false;
-        if(wasTap){
-          const now=performance.now();
-          if(lastTap && now-lastTap<340){lastTap=0;openLayerEditor(el);}
-          else lastTap=now;
-        }
-      }
-    };
-    el.addEventListener("pointerup",endPointer);
-    el.addEventListener("pointercancel",endPointer);
-    // Pointerup handles taps deliberately: dragging must never reopen the keyboard.
-    el.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();});
     el.addEventListener("keydown",event=>{
-      if(event.key==="Enter"||event.key===" "){
-        event.preventDefault();selectLayer(el);openLayerEditor(el);
-      }else if(event.key==="Delete"||event.key==="Backspace"){
+      if(event.key==="Delete"||event.key==="Backspace"){
         event.preventDefault();el.remove();selectLayer(null);
       }
     });
