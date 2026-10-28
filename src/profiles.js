@@ -1,7 +1,8 @@
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js";
-import { saveNeonProfile } from "./neon-avatar-profile.js";
+import { saveNeonProfile, saveNeonAvatarOnly } from "./neon-avatar-profile.js";
+import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -13,8 +14,7 @@ export function profileAreaMarkup(profile, isAdmin = false) {
   const username = escapeHtml(profile.username);
   const displayName = escapeHtml(profile.display_name);
   const bio = escapeHtml(profile.bio || "");
-  const visibility = profile.profile_visibility || "members";
-  const visibilityLabel = visibility === "private" ? "Perfil privado" : visibility === "public" ? "Público" : "Visível para membros";
+  const visibilityLabel = "Visível para membros";
   const avatarUrl = profile.avatarUrl ? escapeHtml(profile.avatarUrl) : "";
   const avatar = profile.avatarUrl
     ? `<img class="profile-avatar-edit-image" src="${escapeHtml(profile.avatarUrl)}" alt="Sua foto de perfil" referrerpolicy="no-referrer">`
@@ -28,15 +28,15 @@ export function profileAreaMarkup(profile, isAdmin = false) {
       <a class="profile-overview-shortcut" href="#profileEditor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Editar perfil</a>
     </article>
     <section class="profile-editor-card" id="profileEditor" aria-labelledby="profileEditorTitle">
-      <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Editar perfil</h2><p>Atualize seu nome, foto, apresentação e privacidade.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
+      <header class="profile-editor-heading"><div><span class="section-kicker">Personalização</span><h2 id="profileEditorTitle">Editar perfil</h2><p>Atualize seu nome e apresentação.</p></div><span class="profile-editor-mark" aria-hidden="true">✦</span></header>
       <form class="profile-editor-form" data-profile-edit data-profile-id="${escapeHtml(profile.id)}" data-has-avatar="${profile.avatar_path ? "true" : "false"}">
         <div class="profile-avatar-editor">
           <div class="profile-avatar-edit-preview" data-avatar-preview data-original-avatar-url="${avatarUrl}">${avatar}</div>
-          <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG ou WebP · até 10 MB</span></div>
+          <div class="profile-avatar-controls"><div><strong>Sua foto de perfil</strong><span class="field-hint">JPEG, PNG, WebP, HEIC ou HEIF</span></div>
             <div class="profile-avatar-actions"><label class="profile-photo-picker" for="profileAvatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Câmera</label>
-              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" capture="user" data-avatar-input>
+              <input class="profile-photo-input" id="profileAvatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" capture="user" data-avatar-input>
               <label class="profile-photo-picker" for="profileAvatarGallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="9" r="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 17 5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Galeria</label>
-              <input class="profile-photo-input" id="profileAvatarGallery" name="avatarGallery" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
+              <input class="profile-photo-input" id="profileAvatarGallery" name="avatarGallery" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" data-avatar-input>
               <input type="hidden" name="removeAvatar" value="false" data-avatar-remove-state>
               <button class="profile-photo-remove" type="button" data-avatar-remove ${profile.avatarUrl ? "" : "hidden"}>${profile.avatarUrl ? "Remover foto" : "Cancelar seleção"}</button></div>
           </div>
@@ -47,13 +47,6 @@ export function profileAreaMarkup(profile, isAdmin = false) {
         </div>
         <div class="field"><label for="editBio">Sobre mim</label><textarea id="editBio" name="bio" maxlength="280" rows="3">${bio}</textarea></div>
         ${isAdmin ? `<div class="field"><label for="editPlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="editPlaylistUrl" name="playlistUrl" type="url" maxlength="260" value="${escapeHtml(profile.playlist_url || "")}" placeholder="https://www.youtube.com/playlist?list=..."></div>` : ""}
-        <div class="profile-privacy-field"><div><label for="profileVisibility">Quem pode encontrar seu perfil?</label><span class="field-hint">A visibilidade do perfil não altera as permissões de cada story ou mídia.</span></div>
-          <select id="profileVisibility" name="visibility">
-            <option value="members" ${visibility === "members" ? "selected" : ""}>Membros</option>
-            <option value="public" ${visibility === "public" ? "selected" : ""}>Público</option>
-            <option value="private" ${visibility === "private" ? "selected" : ""}>Privado</option>
-          </select>
-        </div>
         <footer class="profile-edit-footer"><span class="form-status" data-status role="status" aria-live="polite"></span><button class="primary-button compact-button" type="submit">Salvar alterações</button></footer>
       </form>
       <dialog class="profile-crop-dialog" data-profile-crop-dialog aria-labelledby="profileCropTitle">
@@ -192,11 +185,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
       || form.querySelector(".profile-username-readonly")?.textContent.replace(/^@/, "").trim() || "Meu perfil";
     if (overviewBio) overviewBio.textContent = form.elements.bio.value.trim() || "Conte um pouco sobre você.";
     if (overviewAvatar && preview?.firstElementChild) overviewAvatar.replaceChildren(preview.firstElementChild.cloneNode(true));
-    if (visibilityBadge) {
-      const visibility = form.elements.visibility.value;
-      visibilityBadge.textContent = visibility === "private" ? "◉ Perfil privado"
-        : visibility === "public" ? "◉ Público" : "◉ Visível para membros";
-    }
+    // Profile discovery is always enabled for signed-in members.
   };
 
   const renderAvatarPreview = (preview, url, form) => {
@@ -236,10 +225,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
     const form = event.target.closest("form[data-profile-edit]");
     if (form && ["displayName", "bio"].includes(event.target.name)) syncProfileOverview(form);
   });
-  root.addEventListener("change", (event) => {
-    const form = event.target.closest("form[data-profile-edit]");
-    if (form && event.target.name === "visibility") syncProfileOverview(form);
-  });
+  // Discovery no longer has a mutable profile visibility selector.
 
 
   const cropDialog = root.querySelector("[data-profile-crop-dialog]");
@@ -248,6 +234,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
   const cropX = cropDialog?.querySelector("[data-crop-x]");
   const cropY = cropDialog?.querySelector("[data-crop-y]");
   let cropContext = null;
+  let avatarSaving = false;
   const updateCropPreview = () => {
     if (!cropImage || !cropContext) return;
     const { width, height } = cropContext, zoom = Number(cropZoom.value || 1), unit = Math.min(width, height);
@@ -264,16 +251,25 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
       if (other !== input && other.name === "avatar") other.name = "avatarCamera";
     }
     input.name = "avatar";
-    const fail=(message)=>{input.value="";setStatus(form,message,"error");};
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){fail("Escolha JPEG, PNG ou WebP de até 10 MB. Sua foto atual foi preservada.");return;}
+    const fail=message=>{input.value="";setStatus(form,message,"error");};
+    if(avatarSaving){fail("Aguarde a conclusão do envio anterior.");return;}
     try {
-      const bitmap=await createImageBitmap(file);
-      if(bitmap.width<128||bitmap.height<128||bitmap.width>12000||bitmap.height>12000){bitmap.close();fail("A imagem precisa ter pelo menos 128 × 128 px e no máximo 12.000 px por lado.");return;}
-      cropContext={file,width:bitmap.width,height:bitmap.height,form,input,bitmap};
-      cropImage.src=URL.createObjectURL(file);cropZoom.value="1";cropX.value="50";cropY.value="50";updateCropPreview();
+      const source=await prepareAvatarSource(file);
+      const previewBlob=await avatarPreviewFromBitmap(source.bitmap);
+      const url=URL.createObjectURL(previewBlob);
+      if(cropContext){cropContext.bitmap.close();if(cropImage.src.startsWith("blob:"))URL.revokeObjectURL(cropImage.src);}
+      cropContext={file,width:source.bitmap.width,height:source.bitmap.height,
+        form,input,bitmap:source.bitmap,previewUrl:url};
+      cropImage.src=url;
+      cropZoom.value="1";cropX.value="50";cropY.value="50";updateCropPreview();
       if(!cropDialog.open)cropDialog.showModal();
-      setStatus(form,"Selecione a área quadrada e confirme. A foto atual continua salva até o envio terminar.","info");
-    } catch(error){console.error("Looply avatar image validation failed",error);fail("Não foi possível ler essa imagem. Tente outro arquivo.");}
+      setStatus(form,"Ajuste a foto e toque em Salvar foto.", "info");
+    }catch(error){
+      console.error("Looply avatar source decoding failed",error);
+      fail(error?.message==="avatar-file-invalid"
+        ? "Escolha JPEG, PNG, WebP, HEIC ou HEIF de até 35 MB."
+        : "Não foi possível processar esta imagem. Tente outra foto ou formato.");
+    }
   });
   const closeCrop=(discard)=>{
     if(!cropContext)return;const {form,input,bitmap}=cropContext;
@@ -285,22 +281,60 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
   cropDialog?.querySelector(".profile-icon-button")?.addEventListener("click",(event)=>{event.preventDefault();closeCrop(true);});
   cropDialog?.addEventListener("cancel",(event)=>{event.preventDefault();closeCrop(true);});
   cropDialog?.querySelector("[data-crop-save]")?.addEventListener("click",async()=>{
-    if(!cropContext)return;const button=cropDialog.querySelector("[data-crop-save]");button.disabled=true;
+    if(!cropContext||avatarSaving)return;
+    const button=cropDialog.querySelector("[data-crop-save]");
+    const {form,bitmap,width,height}=cropContext;
+    avatarSaving=true;button.disabled=true;
+    const controls=[...form.querySelectorAll("input[data-avatar-input], [data-avatar-remove]")];
+    controls.forEach(control=>control.disabled=true);
+    setStatus(form,"Salvando foto no Neon…","info");
     try{
-      const {form,input,bitmap,width,height}=cropContext,scale=Math.max(512/width,512/height)*Number(cropZoom.value||1);
-      const dw=width*scale,dh=height*scale,dx=(512-dw)*Number(cropX.value||50)/100,dy=(512-dh)*Number(cropY.value||50)/100;
-      const canvas=document.createElement("canvas");canvas.width=512;canvas.height=512;const ctx=canvas.getContext("2d",{alpha:false});
-      if(!ctx)throw new Error("canvas unavailable");ctx.fillStyle="#fff";ctx.fillRect(0,0,512,512);ctx.drawImage(bitmap,dx,dy,dw,dh);
-      const blob=await new Promise((resolve,reject)=>canvas.toBlob((v)=>v?resolve(v):reject(new Error("crop failed")),"image/jpeg",.92));
-      if(!blob||blob.size>10*1024*1024)throw new Error("invalid crop result");
-      const cropped=new File([blob],"profile-photo.jpg",{type:"image/jpeg",lastModified:Date.now()}),transfer=new DataTransfer();transfer.items.add(cropped);input.files=transfer.files;
+      const scale=Math.max(512/width,512/height)*Number(cropZoom.value||1);
+      const dw=width*scale,dh=height*scale;
+      const dx=(512-dw)*Number(cropX.value||50)/100,dy=(512-dh)*Number(cropY.value||50)/100;
+      const canvas=document.createElement("canvas");canvas.width=512;canvas.height=512;
+      const ctx=canvas.getContext("2d",{alpha:false});
+      if(!ctx)throw Error("canvas unavailable");
+      ctx.fillStyle="#fff";ctx.fillRect(0,0,512,512);ctx.drawImage(bitmap,dx,dy,dw,dh);
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(Error("crop failed")),"image/jpeg",.92));
+      if(!blob||!blob.size||blob.size>10*1024*1024)throw Error("unsupported avatar");
+      const cropped=new File([blob],"profile-photo.jpg",{type:"image/jpeg",lastModified:Date.now()});
+      const validatedBitmap=await createImageBitmap(cropped);
+      const squareValid=validatedBitmap.width===512&&validatedBitmap.height===512;
+      validatedBitmap.close();
+      if(!squareValid)throw Error("avatar-not-square");
+      const {data:sessionData,error:sessionError}=await client.auth.getSession();
+      if(sessionError||!sessionData?.session?.access_token)throw Error("session expired");
+      const userId=profileId||form.dataset.profileId;
+      if(!userId)throw Error("session expired");
+      const saved=await saveNeonAvatarOnly({
+        profileId:userId,session:sessionData.session,dataApiUrl:client.dataApiUrl,
+        storage:client.storage,avatarFile:cropped
+      });
+      // The source and the new signed URL were both verified by the server flow.
+      if(!saved.avatarUrl||saved.profile.avatar_path!==saved.avatarPath)throw Error("profile-update-not-confirmed");
       if(form.dataset.avatarPreviewUrl)URL.revokeObjectURL(form.dataset.avatarPreviewUrl);
-      const url=URL.createObjectURL(cropped);form.dataset.avatarPreviewUrl=url;
-      const state=form.querySelector("[data-avatar-remove-state]");if(state)state.value="false";
-      const remove=form.querySelector("[data-avatar-remove]");if(remove){remove.hidden=false;remove.textContent="Cancelar seleção";}
-      renderAvatarPreview(form.querySelector("[data-avatar-preview]"),url,form);setStatus(form,"Recorte quadrado de 512 × 512 px pronto. Salve para enviar.","success");closeCrop(false);
-    }catch(error){console.error("Looply avatar crop failed",error);if(cropContext?.form)setStatus(cropContext.form,"Não foi possível recortar essa imagem. A foto atual foi preservada.","error");}
-    finally{button.disabled=false;}
+      delete form.dataset.avatarPreviewUrl;
+      form.querySelectorAll("input[data-avatar-input]").forEach(input=>input.value="");
+      form.dataset.hasAvatar="true";
+      const preview=form.querySelector("[data-avatar-preview]");
+      preview.dataset.originalAvatarUrl=saved.avatarUrl;
+      renderAvatarPreview(preview,saved.avatarUrl,form);
+      const remove=form.querySelector("[data-avatar-remove]");
+      if(remove){remove.hidden=false;remove.textContent="Remover foto";}
+      closeCrop(false);
+      setStatus(form,"Foto de perfil salva e confirmada no Neon.","success");
+      window.dispatchEvent(new CustomEvent("looply:avatar-updated",{
+        detail:{profileId:userId,avatar_path:saved.avatarPath,avatarUrl:saved.avatarUrl}
+      }));
+    }catch(error){
+      console.error("Looply independent avatar save failed",error);
+      setStatus(form,avatarSaveErrorMessage(error),"error");
+      // Keep crop dialog and bitmap alive for retry; do not replace the saved URL.
+    }finally{
+      avatarSaving=false;button.disabled=false;
+      controls.forEach(control=>control.disabled=false);
+    }
   });
 
 
@@ -317,25 +351,15 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         const bio = String(values.get("bio") || "").trim();
         const playlistUrlInput = form.elements.playlistUrl ? String(values.get("playlistUrl") || "").trim() : "";
         const playlistUrl = normalizeYouTubePlaylistUrl(playlistUrlInput);
-        const visibility = String(values.get("visibility") || "members");
-        const avatarFile = values.get("avatar");
-        const hasAvatarFile = avatarFile instanceof File && avatarFile.size > 0;
-        const removeAvatar = String(values.get("removeAvatar") || "false") === "true" && !hasAvatarFile;
-        if (removeAvatar) throw new Error("avatar-replacement-required");
-        if (form.dataset.hasAvatar !== "true" && !hasAvatarFile) throw new Error("avatar-required");
+        // General profile save never uploads an avatar. The cropper saves it independently.
+        if (avatarSaving) throw Error("avatar-upload-in-progress");
         if (!displayName || displayName.length > 80 || bio.length > 280 || (playlistUrlInput && !playlistUrl)) throw new Error("profile-fields");
         const userId = profileId || form.dataset.profileId;
         if (!userId) throw new Error("session expired");
-        if (hasAvatarFile) {
-          const validatedBitmap = await createImageBitmap(avatarFile);
-          const squareValid = validatedBitmap.width === 512 && validatedBitmap.height === 512;
-          validatedBitmap.close();
-          if (!squareValid) throw new Error("avatar-not-square");
-        }
-        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+         const { data: sessionData, error: sessionError } = await client.auth.getSession();
         if (sessionError || !sessionData?.session?.access_token) throw new Error("session expired");
         const updates = {
-          display_name: displayName, bio, profile_visibility: visibility
+          display_name: displayName, bio
         };
         // Only an admin's visible control may request a playlist change.
         // The Neon trigger independently denies forged requests.
@@ -343,11 +367,8 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         await saveNeonProfile({
           profileId: userId, session: sessionData.session,
           dataApiUrl: client.dataApiUrl, storage: client.storage,
-          updates, avatarFile: hasAvatarFile ? avatarFile : null
+          updates, avatarFile: null
         });
-        if (hasAvatarFile) form.dataset.hasAvatar = "true";
-        const previewUrl = form.dataset.avatarPreviewUrl;
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
         setStatus(form, "Perfil atualizado.");
         await onProfileUpdated?.();
       } else {
