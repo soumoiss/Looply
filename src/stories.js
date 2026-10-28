@@ -370,10 +370,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (progress) progress.style.animationPlayState = "paused";
     } else {
       if (progress) progress.style.animationPlayState = "running";
-      if (video && video.paused) void video.play().catch(() => {});
-      if (audio && audio.paused && !video) void audio.play().catch(() => {
-        if(isAdmin)showStatus("ADM: O navegador bloqueou a trilha; é necessária interação.",true);
-      });
+      if (video && video.paused) void startStoryMediaPlayback(video);
+      if (audio && audio.paused) void startStoryMediaPlayback(audio);
+
       resumeStoryTimer();
     }
     if (button) {
@@ -548,6 +547,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         video.addEventListener("playing", () => {
           if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
           const songAudio = slideAudio;
+          if(songAudio && !songAudio.paused && Number.isFinite(songAudio.currentTime)
+            && Math.abs(songAudio.currentTime-video.currentTime)>1.25){
+            try{songAudio.currentTime=video.currentTime||0;}catch{/* Live streams may not seek. */}
+          }
           if (songAudio?.paused && !state.paused) {
             // Start the soundtrack only after the video really starts, including
             // after a browser requires a tap to permit video playback.
@@ -1062,16 +1065,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     setStoryPaused(!state.paused);
   });
   touchSurface.addEventListener("pointerdown", (event) => {
-    // Retry sound through the next actual gesture if mobile autoplay policy
-    // rejected the first attempt; do not add an overlay or a Play button.
-    const backgroundAudio = viewer.querySelector("#story-audio");
-    if (backgroundAudio?.dataset.playback === "gesture-required" && !state.paused) {
-      // Do not immediately pause the unlocked song on the ensuing click.
-      state.ignoreTapUntil=Date.now()+450;
-      void backgroundAudio.play().then(()=>{
-        backgroundAudio.dataset.playback="playing";
-        viewer.querySelector("[data-story-sound-unlock]")?.remove();
-      }).catch(()=>{});
+    // If mobile autoplay was denied, the next natural tap on the image/video
+    // retries directly inside the user's gesture. No music box or modal.
+    const backgroundAudio=viewer.querySelector("#story-audio");
+    const currentVideo=viewer.querySelector("[data-story-viewer-media] video");
+    if(!state.paused){
+      const retryAudio=backgroundAudio?.dataset.playback==="gesture-required";
+      const retryVideo=currentVideo?.dataset.playback==="gesture-required";
+      if(retryAudio||retryVideo){
+        state.ignoreTapUntil=Date.now()+450;
+        if(retryAudio)void startStoryMediaPlayback(backgroundAudio);
+        if(retryVideo)void startStoryMediaPlayback(currentVideo);
+      }
     }
     if (event.isPrimary && event.pointerType !== "mouse") pointerStart = { x: event.clientX, y: event.clientY };
   });
