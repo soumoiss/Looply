@@ -19,7 +19,7 @@ BEGIN
   RAISE EXCEPTION 'Authentication required' USING ERRCODE='42501';
  END IF;
  IF p_next_avatar IS NOT NULL
-    AND p_next_avatar !~ ('^avatars/' || actor::text || '/[a-f0-9-]{36}[.](jpg|jpeg|png|webp)
+    AND p_next_avatar !~ ('^avatars/' || actor::text || '/[a-f0-9-]{36}[.](jpg|jpeg|png|webp)$')
  THEN
   RAISE EXCEPTION 'Invalid avatar path' USING ERRCODE='22023';
  END IF;
