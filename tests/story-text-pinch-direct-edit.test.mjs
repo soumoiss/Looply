@@ -107,10 +107,10 @@ test("the exact same text model wraps and paints at mobile and 1080p canvas scal
  assert.equal(storyTextFont("serif").face,"Playfair Display");
 });
 test("oversized text is detected before saving and can be recovered by editing position and size",()=>{
- const ctx={font:"",measureText(text){const size=Number(this.font.match(/[\\d.]+px/)?.[0].replace("px",""))||40;return {width:Array.from(text).length*size*.55}}};
+ const ctx={font:"",measureText(text){const size=Number(this.font.match(/[\d.]+px/)?.[0].replace("px",""))||40;return {width:Array.from(text).length*size*.55}}};
  const oversized=storyTextLayerLayout(ctx,{text:"💜".repeat(500),x:.9,y:.9,size:94,font:"modern"},1080,1920);
  assert.equal(oversized.fits,false);
- const recovered=storyTextLayerLayout(ctx,{text:"Olá, Moisés! 🥳\\nDeus te abençoe!",x:.5,y:.44,size:34,font:"modern"},1080,1920);
+ const recovered=storyTextLayerLayout(ctx,{text:"Olá, Moisés! 🥳\nDeus te abençoe!",x:.5,y:.44,size:34,font:"modern"},1080,1920);
  assert.equal(recovered.fits,true);
 });
 test("existing story editor really imports gesture controller and embeds text into exported media",async()=>{
