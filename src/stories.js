@@ -700,6 +700,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const currentStory = () => state.active?.stories?.[state.index] || null;
   const loadStoryInsights = async (story) => {
+    if (!viewer.open || story.author_id !== userId) return;
+    const token = ++state.insightsToken;
+    const isCurrent = () => viewer.open && state.insightsToken === token &&
+      currentStory()?.id === story.id;
     const panel = viewer.querySelector("[data-story-insights-panel]");
     const summary = viewer.querySelector("[data-story-insights-summary]");
     const list = viewer.querySelector("[data-story-insights-list]");
@@ -708,11 +712,17 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     list.replaceChildren();
     clearTimer();
     try {
-      const { data, error } = await client.from("story_views")
-        .select("viewer_id,viewed_at")
-        .eq("story_id", story.id).order("viewed_at", { ascending: false }).limit(500);
-      if (error) throw error;
-      const views = data || [];
+      const views = [];
+      // The count uses one row per viewer (story_id, viewer_id is a PK).
+      for (let offset = 0; offset < 5000; offset += 500) {
+        const { data, error } = await client.from("story_views")
+          .select("viewer_id,viewed_at")
+          .eq("story_id", story.id).order("viewed_at", { ascending: false }).range(offset, offset + 499);
+        if (error) throw error;
+        if (!isCurrent()) return;
+        views.push(...(data || []));
+        if (!data || data.length < 500) break;
+      }
       const viewerIds = [...new Set(views.map(view => view.viewer_id).filter(Boolean))];
       let profiles = [];
       if (viewerIds.length) {
@@ -732,6 +742,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (url) avatarUrls.set(path, url);
         });
       }
+      if (!isCurrent()) return;
       summary.textContent = views.length === 1 ? "1 pessoa viu este story." : `${views.length} pessoas viram este story.`;
       if (!views.length) {
         const empty = document.createElement("li");
@@ -771,7 +782,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } catch (error) {
       console.error("Looply story insights could not load.", error);
-      summary.textContent = "Não foi possível carregar as visualizações agora.";
+      if (isCurrent()) summary.textContent = "Não foi possível carregar as visualizações agora.";
     }
   };
   const refresh = async () => {
@@ -945,9 +956,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (event.target.closest("[data-story-media-retry]")) {
       const current = currentStory();
       if (!current) return;
+      const retryVersion = state.slideVersion;
       try {
         showStatus("Carregando mídia do story…");
         const refreshed = await loadStories(client);
+        if (!viewer.open || state.slideVersion !== retryVersion || currentStory()?.id !== current.id) return;
         state.groups = groupActiveStories(refreshed);
         const group = state.groups.find((item) => item.author_id === current.author_id);
         const nextStory = group?.stories.find((item) => item.id === current.id);
@@ -1107,17 +1120,19 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (result.error) throw result.error;
         if (isLiked) state.likedStories.delete(story.id);
         else state.likedStories.add(story.id);
-        button.setAttribute("aria-pressed", isLiked ? "false" : "true");
-        viewer.querySelector("[data-story-like-label]").textContent = isLiked ? "Curtir" : "Curtido";
-        const icon = button.querySelector("[aria-hidden]");
-        if (icon) icon.textContent = isLiked ? "♡" : "♥";
+        if (viewer.open && currentStory()?.id === story.id) {
+          button.setAttribute("aria-pressed", isLiked ? "false" : "true");
+          viewer.querySelector("[data-story-like-label]").textContent = isLiked ? "Curtir" : "Curtido";
+          const icon = button.querySelector("[aria-hidden]");
+          if (icon) icon.textContent = isLiked ? "♡" : "♥";
+        }
       } catch (error) {
         console.error("Looply story reaction failed.", error);
         const status = viewer.querySelector("[data-story-reply-status]");
         status.textContent = "Não foi possível registrar sua curtida. Tente novamente.";
       } finally {
         state.likePending.delete(story.id);
-        button.disabled = false;
+        if (currentStory()?.id === story.id) button.disabled = false;
       }
       return;
     }
@@ -1174,6 +1189,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const touchSurface = viewer.querySelector("[data-story-touch-surface]");
   let pointerStart = null;
   const replyForm = viewer.querySelector("[data-story-reply]");
+  replyForm.addEventListener("input", event => {
+    if (event.target.matches('input[name="reply"]') && currentStory()) {
+      state.replyDrafts.set(currentStory().id, event.target.value);
+    }
+  });
   replyForm.addEventListener("focusin", clearTimer);
   replyForm.addEventListener("focusout", (event) => {
     if (!replyForm.contains(event.relatedTarget)) resumeStoryTimer();
@@ -1212,6 +1232,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   });
   touchSurface.addEventListener("pointercancel", () => { pointerStart = null; });
   viewer.addEventListener("keydown", (event) => {
+    if (event.target.closest("input,select,textarea,[contenteditable=true]")) return;
     if (event.key === "ArrowRight") { event.preventDefault(); advance(1); }
     if (event.key === "ArrowLeft") { event.preventDefault(); advance(-1); }
   });
@@ -1235,16 +1256,21 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const body = String(new FormData(replyForm).get("reply") || "").trim();
       const submit = replyForm.querySelector('button[type="submit"]');
       const replyStatus = viewer.querySelector("[data-story-reply-status]");
-      if (!story || story.author_id === userId || !body) return;
+      if (!story || story.author_id === userId || !body || state.replyPending.has(story.id)) return;
+      state.replyPending.add(story.id);
       submit.disabled = true;
+      state.replyDrafts.set(story.id, body);
       replyStatus.textContent = "Enviando em particular…";
       try {
         const { data, error } = await client.rpc("send_story_reply", { p_story_id: story.id, p_body: body });
         if (error) throw error;
         const reply = Array.isArray(data) ? data[0] : data;
-        if (!reply?.conversation_id) throw new Error("story_reply_unavailable");
-        replyStatus.textContent = "Resposta enviada em particular. Abrindo conversa…";
-        setTimeout(() => window.location.assign(`conversa.html?id=${encodeURIComponent(reply.conversation_id)}`), 650);
+        if (!reply?.conversation_id || !reply?.message_id || reply.story_id !== story.id) throw new Error("story_reply_unconfirmed");
+        state.replyDrafts.delete(story.id);
+        if (viewer.open && currentStory()?.id === story.id) {
+          replyStatus.textContent = "Resposta enviada. Abrindo conversa…";
+          window.location.assign(`conversa.html?id=${encodeURIComponent(reply.conversation_id)}`);
+        }
       } catch (error) {
         console.error("Looply story reply failed.", {
           code: error?.code || error?.cause?.code || "unknown",
@@ -1262,6 +1288,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           replyStatus.textContent = "A resposta não foi enviada. Verifique a conexão e tente novamente; sua mensagem não foi marcada como enviada.";
         }
       } finally {
+        state.replyPending.delete(story.id);
         submit.disabled = false;
       }
       return;
