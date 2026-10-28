@@ -118,7 +118,20 @@ async function loadUnreadChatNotifications(client, userId, conversationIds) {
 
 export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
-    client.from("conversation_participants").select("conversation_id,last_read_at").eq("user_id", userId),
+    (async () => {
+      const rows = [];
+      // RLS still decides which conversations are accessible. Pagination
+      // prevents a silent 1,000-row or 50-conversation cutoff.
+      for (let offset=0; offset<10000; offset+=500) {
+        const result = await client.from("conversation_participants")
+          .select("conversation_id,last_read_at").eq("user_id",userId)
+          .order("conversation_id").range(offset,offset+499);
+        if (result.error) return {data:null,error:result.error};
+        rows.push(...(result.data || []));
+        if ((result.data || []).length < 500) break;
+      }
+      return {data:rows,error:null};
+    })(),
     client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
     client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
   ]);
@@ -134,19 +147,35 @@ export async function loadChatData(client, userId) {
   let conversations = [];
   let latestMessages = [];
   if (ids.length) {
-    const { data, error } = await client.from("conversations")
-      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
-      .in("id", ids).order("updated_at", { ascending: false }).limit(50);
-    if (error) throw error;
-    conversations = data || [];
-    const { data: latest, error: messagesError } = await client.from("chat_messages")
-      .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
-      .in("conversation_id", ids).order("created_at", { ascending: false }).limit(500);
-    if (messagesError) throw messagesError;
-    latestMessages = latest || [];
+    for (let start=0; start<ids.length; start+=50) {
+      const batch = ids.slice(start,start+50);
+      const [conversationResult,latestResult] = await Promise.all([
+        client.from("conversations")
+          .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
+          .in("id",batch).order("updated_at",{ascending:false}).limit(50),
+        client.from("chat_messages")
+          .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+          .in("conversation_id",batch).order("created_at",{ascending:false}).limit(500)
+      ]);
+      if (conversationResult.error) throw conversationResult.error;
+      if (latestResult.error) throw latestResult.error;
+      conversations.push(...(conversationResult.data || []));
+      latestMessages.push(...(latestResult.data || []));
+    }
+    conversations.sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
   }
   const latestByConversation = new Map();
   for (const message of latestMessages) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+  const missingPreviews = conversations.filter(c=>!latestByConversation.has(c.id));
+  for (let start=0; start<missingPreviews.length; start+=8) {
+    await Promise.all(missingPreviews.slice(start,start+8).map(async conversation => {
+      const result = await client.from("chat_messages")
+        .select("conversation_id,body,created_at,sender_id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+        .eq("conversation_id",conversation.id).order("created_at",{ascending:false}).limit(1);
+      if (result.error) console.warn("Latest chat preview unavailable",conversation.id,result.error);
+      else if (result.data?.[0]) latestByConversation.set(conversation.id,result.data[0]);
+    }));
+  }
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const profiles = profilesResult.data || [];
   // Both profile search and nested conversation participants hold distinct
@@ -1418,7 +1447,7 @@ export function bindChatEvents(root, client, getUserId) {
           if (signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
         }
         const container = root.querySelector("[data-chat-people]");
-        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
         setStatus(form, `${profiles.length} perfil(is) encontrado(s).`);
       } else if (form.matches("[data-letter-send]")) {
         const subject = String(values.get("subject") || "").trim();
