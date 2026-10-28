@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { socialMarkup } from "../src/social.js";
+import { socialMarkup, normalizePublicationMedia } from "../src/social.js";
 
 const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
 const author = {id:"author-1",username:"pessoa",display_name:"Pessoa"};
@@ -78,4 +78,22 @@ test("caption edits require a verified owner-filtered PATCH before refreshing Fe
   const bridge = await read("src/neon-rest-bridge.js");
   assert.match(bridge,/posts: \["author_id","body"/);
   assert.match(bridge,/state\.mode==="update"\?"PATCH"/);
+});
+
+test("Android JPEG aliases and opaque .jpeg uploads are normalized without losing bytes", async () => {
+  const cases = [
+    ["picture.jpeg","application/octet-stream","image/jpeg"],
+    ["picture.jpg","image/jpg","image/jpeg"],
+    ["picture.jpg","image/pjpeg","image/jpeg"],
+    ["picture.png","image/png","image/png"],
+    ["picture.webp","image/webp","image/webp"]
+  ];
+  for (const [name,type,expected] of cases) {
+    const original = new File([new Uint8Array([1,2,3,4])],name,{type});
+    const normalized = normalizePublicationMedia(original);
+    assert.ok(normalized,name);
+    assert.equal(normalized.type,expected);
+    assert.equal(normalized.size,4);
+    assert.deepEqual(new Uint8Array(await normalized.arrayBuffer()),new Uint8Array([1,2,3,4]));
+  }
 });
