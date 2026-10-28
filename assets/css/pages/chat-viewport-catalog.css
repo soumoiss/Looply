@@ -137,3 +137,33 @@
   .page-chat .chat-cover-change {font-size:0;width:44px;padding:0}
   .page-chat .chat-cover-change::before {content:"📷";font-size:20px}
 }
+
+
+/* First-party file import: simple, explicit controls kept inside the picker. */
+.page-chat .chat-catalog-import {
+  display:grid;gap:8px;padding:9px 10px;
+  border:1px solid #ede9fe;border-radius:13px;background:#faf8ff;
+}
+.page-chat .chat-catalog-import-rights {
+  display:flex;align-items:center;gap:8px;line-height:1.4;
+  font-size:12px;color:#5b5568;
+}
+.page-chat .chat-catalog-import-rights input {flex:0 0 auto;width:18px;height:18px;accent-color:#7c3aed}
+.page-chat .chat-catalog-import-button {
+  display:grid;place-items:center;min-height:43px;padding:9px 12px;
+  border:1px solid #7c3aed;border-radius:12px;
+  color:#fff;background:#7c3aed;font-size:13px;font-weight:700;
+  cursor:pointer;text-align:center;
+}
+.page-chat .chat-catalog-import-button input[type=file] {
+  position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;
+  pointer-events:none;clip-path:inset(50%);
+}
+.page-chat .chat-catalog-import-button:focus-within {outline:2px solid #a78bfa;outline-offset:2px}
+.page-chat .chat-catalog-external {font-size:12px;color:#6d28d9}
+.page-chat .chat-catalog-external summary {min-height:35px;padding:7px 2px;cursor:pointer}
+.page-chat .chat-catalog-external a {
+  display:inline-block;min-height:35px;margin:0 6px 4px 0;
+  padding:8px 10px;border:1px solid #ddd6fe;border-radius:10px;color:#5b21b6;
+  text-decoration:none;
+}
