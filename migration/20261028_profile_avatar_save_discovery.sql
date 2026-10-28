@@ -51,3 +51,35 @@ END;
 $function$;
 REVOKE EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) TO authenticated;
+)
+ THEN
+  RAISE EXCEPTION 'Invalid avatar path' USING ERRCODE='22023';
+ END IF;
+ RETURN QUERY
+ UPDATE public.profiles AS profile
+ SET avatar_path=p_next_avatar, updated_at=pg_catalog.now()
+ WHERE profile.id=actor AND profile.avatar_path IS NOT DISTINCT FROM p_previous_avatar
+ RETURNING profile.id,profile.avatar_path;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'Avatar changed in another session' USING ERRCODE='40001';
+ END IF;
+END;
+$function$;
+REVOKE EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) TO authenticated;
+)
+ THEN
+  RAISE EXCEPTION 'Invalid avatar path' USING ERRCODE='22023';
+ END IF;
+ RETURN QUERY
+ UPDATE public.profiles AS profile
+ SET avatar_path=p_next_avatar, updated_at=pg_catalog.now()
+ WHERE profile.id=actor AND profile.avatar_path IS NOT DISTINCT FROM p_previous_avatar
+ RETURNING profile.id,profile.avatar_path;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'Avatar changed in another session' USING ERRCODE='40001';
+ END IF;
+END;
+$function$;
+REVOKE EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.v9_save_self_avatar(text,text) TO authenticated;
