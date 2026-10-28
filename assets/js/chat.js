@@ -2,7 +2,7 @@ import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b"
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=avatar-sync-20261028";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
 import { setupChatCalls } from "../../src/chat-calls.js?v=chat-mobile-webrtc-20261027";
-import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=story-text-mobile-20261028";
+import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=story-music-unified-20261028";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");
