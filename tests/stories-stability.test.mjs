@@ -30,7 +30,7 @@ test("legacy text stories keep their font envelope and new text editor exports r
   assert.match(studio, /data-studio-text-mode/);
   assert.match(studio, /data-layer-font/);
   assert.match(studio, /data-layer-color/);
-  assert.match(studio, /data-layer-size min="18" max="65"/);
+  assert.match(studio, /data-layer-size min="18" max="94"/);
   assert.match(studio, /paintLayers\(ctx, overlayRoot/);
   assert.match(story, /caption\.style\.fontSize = !media && storyText\.styled/);
   assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
