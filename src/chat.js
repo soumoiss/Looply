@@ -200,7 +200,7 @@ function conversationLabel(conversation, userId) {
 function conversationAvatar(conversation, userId) {
   if (conversation.kind === "letter") return `<span class="chat-conversation-avatar" aria-hidden="true">✉</span>`;
   if (conversation.kind === "group") return conversation.coverUrl
-    ? `<img class="chat-conversation-avatar chat-group-avatar" src="${escapeHtml(conversation.coverUrl)}" alt="Foto do grupo" loading="lazy" referrerpolicy="no-referrer">`
+    ? `<img class="chat-conversation-avatar chat-group-avatar" data-group-cover-id="${escapeHtml(conversation.id)}" src="${escapeHtml(conversation.coverUrl)}" alt="Foto do grupo" loading="lazy" referrerpolicy="no-referrer">`
     : `<span class="chat-conversation-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -590,7 +590,7 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
     const avatar = !isMine && authorProfile ? (authorProfile.avatarUrl
-      ? `<img class="chat-message-avatar" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      ? `<img class="chat-message-avatar" data-profile-avatar-id="${escapeHtml(authorProfile.id)}" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
       : `<span class="chat-message-avatar" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
     const readCount = isGroup ? participants.filter((participant) => participant.user_id !== userId && participant.last_read_at && new Date(participant.last_read_at) >= new Date(message.created_at)).length : 0;
     const readTotal = Math.max(0, participants.length - 1);
@@ -624,7 +624,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
     const avatar = conversationInfo.coverUrl
-      ? `<img class="chat-thread-avatar chat-group-avatar" src="${escapeHtml(conversationInfo.coverUrl)}" alt="Foto do grupo" referrerpolicy="no-referrer">`
+      ? `<img class="chat-thread-avatar chat-group-avatar" data-group-cover-id="${escapeHtml(conversationInfo.id)}" src="${escapeHtml(conversationInfo.coverUrl)}" alt="Foto do grupo" referrerpolicy="no-referrer">`
       : `<span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
     const editor = conversationInfo.created_by === userId
       ? `<button type="button" class="chat-cover-change" data-chat-group-cover-choose aria-label="Alterar foto do grupo">Foto do grupo</button><input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status"></span>`
@@ -637,7 +637,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
   const image = conversation?.querySelector(".chat-conversation-avatar[src]");
   const avatarUrl = image?.src || peer?.avatarUrl;
   const avatar = avatarUrl
-    ? `<img class="chat-thread-avatar" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
+    ? `<img class="chat-thread-avatar" data-profile-avatar-id="${escapeHtml(peer?.id || "")}" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
   return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(name)}</strong><small>Conversa em tempo real</small></div></header>`;
@@ -847,9 +847,40 @@ export function bindChatEvents(root, client, getUserId) {
   root.dataset.chatUserId = getUserId?.() || "";
   // Signed avatar URLs may expire or the stored object may be missing. Replace only
   // failed images with the same visual fallback used when no avatar is configured.
-  root.addEventListener("error", (event) => {
+  root.addEventListener("error", async (event) => {
     const image = event.target;
     if (!(image instanceof HTMLImageElement) || !image.matches(".chat-conversation-avatar, .chat-person-avatar, .chat-group-option-avatar, .chat-thread-avatar, .chat-message-avatar")) return;
+    if (!image.dataset.avatarRetried && (image.dataset.profileAvatarId || image.dataset.groupCoverId)) {
+      image.dataset.avatarRetried = "true";
+      try {
+        let path = null, bucket = "looply-avatars";
+        if (image.dataset.profileAvatarId) {
+          const {data,error} = await client.from("profiles").select("avatar_path")
+            .eq("id",image.dataset.profileAvatarId).maybeSingle();
+          if (error) throw error;
+          path = data?.avatar_path || null;
+        } else {
+          const {data,error} = await client.from("group_covers").select("storage_path")
+            .eq("conversation_id",image.dataset.groupCoverId).maybeSingle();
+          if (error) throw error;
+          path = data?.storage_path || null;
+          bucket = "looply-chat";
+        }
+        if (path) {
+          // A fresh direct signature bypasses an expired in-memory URL cache.
+          const {data,error} = await client.storage.from(bucket).createSignedUrl(path,1800);
+          if (error) throw error;
+          if (image.isConnected && data?.signedUrl && data.signedUrl !== image.src) {
+            image.src = data.signedUrl;
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("Chat registered avatar/cover could not be recovered.",error);
+      }
+    }
+    if (!image.isConnected) return;
+    console.warn("Chat avatar or group cover could not be displayed.", image.dataset.profileAvatarId || image.dataset.groupCoverId || "");
     const container = image.closest(".chat-conversation, .chat-person, .chat-group-option, .chat-thread-heading, .chat-message-row");
     const label = container?.querySelector(".chat-conversation-copy strong, .chat-person strong, .chat-group-option strong, .chat-thread-heading strong, .chat-message-meta strong");
     const initial = (label?.textContent?.trim() || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
