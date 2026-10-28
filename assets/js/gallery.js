@@ -801,19 +801,34 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     syncUserLists();
   });
   $("[data-search]").addEventListener("input",draw);
-  $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");panel.hidden=!panel.hidden;panel.classList.toggle("is-open",!panel.hidden);$("[data-toggle-filters]").setAttribute("aria-expanded",String(!panel.hidden));if(!panel.hidden)panel.querySelector("select,button")?.focus();});
+  const closeFilters = () => { const panel=$("[data-filter-panel]");panel.hidden=true;panel.classList.remove("is-open");$("[data-toggle-filters]").setAttribute("aria-expanded","false"); };
+  $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");if(!panel.hidden)closeFilters();else{panel.hidden=false;panel.classList.add("is-open");$("[data-toggle-filters]").setAttribute("aria-expanded","true");panel.querySelector("[data-title-filter]")?.focus();}});
+  $("[data-close-filters]").addEventListener("click",closeFilters);
   $("[data-toggle-page-menu]").addEventListener("click",()=>{const menu=$("[data-page-menu]");menu.hidden=!menu.hidden;$("[data-toggle-page-menu]").setAttribute("aria-expanded",String(!menu.hidden));});
   $$("[data-page-menu] button").forEach(button=>button.addEventListener("click",()=>{$("[data-page-menu]").hidden=true;$("[data-toggle-page-menu]").setAttribute("aria-expanded","false");}));
   $("[data-action-details]").addEventListener("click",()=>{const details=$("[data-viewer-details]");details.hidden=!details.hidden;$("[data-action-details]").setAttribute("aria-expanded",String(!details.hidden));});
   $("[data-viewer-like]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const button=$("[data-viewer-like]");const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";button.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}button.innerHTML=icon(x.likedByMe?"heartFilled":"heart")+"<span>"+(x.likedByMe?"Curtido":"Curtir")+"</span>";button.setAttribute("aria-label",x.likedByMe?"Remover curtida da foto":"Curtir foto");button.setAttribute("aria-pressed",String(Boolean(x.likedByMe)));draw();}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{button.disabled=false;}});
-  const togglePinned = async key => { const x=getItem(key); if(!x)return; if(!isAdmin){say("Somente o ADM pode fixar mídias.");return;} const next=!x.isPinned; try { const {error}=await client.rpc("set_gallery_media_pinned",{p_source:x.source,p_media_id:x.id,p_pinned:next}); if(error)throw error; x.isPinned=next; draw(); if(activeKey===key)$("[data-viewer-admin-pin]").innerHTML=icon("starFilled")+'<span>'+(next?"Desafixar mídia":"Fixar mídia")+'</span>'; say(next?"Mídia fixada.":"Mídia desafixada."); } catch(error){console.error(error);say("Não foi possível alterar a fixação desta mídia.");} };
+  const togglePinned = async key => {
+    const x=getItem(key);if(!x)return;
+    if(!isAdmin){say("Somente o ADM pode fixar mídias.");return;}
+    const next=!x.isPinned;
+    try {
+      const {error}=await client.rpc("set_gallery_media_pinned",{p_source:x.source,p_media_id:x.id,p_pinned:next});
+      if(error)throw error;
+      const {data,error:verifyError}=await client.from("gallery_media_pins").select("source,media_id").eq("source",x.source).eq("media_id",x.id);
+      if(verifyError || (data||[]).some(r=>r.media_id===x.id) !== next) throw verifyError || Error("A fixação não foi confirmada no Neon.");
+      x.isPinned=next;draw();
+      if(activeKey===key)$("[data-viewer-admin-pin]").innerHTML=icon("starFilled")+'<span>'+(next?"Desafixar mídia":"Fixar mídia")+'</span>';
+      say(next?"Mídia fixada.":"Mídia desafixada.");
+    } catch(error){console.error(error);say("Não foi possível confirmar a fixação desta mídia.");}
+  };
   $("[data-viewer-admin-pin]").addEventListener("click",()=>{if(activeKey)void togglePinned(activeKey);});
   $("[data-share-media]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const shareData={title:"Looply — Galeria",text:x.description||"Veja esta mídia no Looply",url:new URL("galeria.html?media="+encodeURIComponent(mediaKey(x)),location.href).href};try{if(navigator.share)await navigator.share(shareData);else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareData.url);say("Link da mídia copiado.");}else say("O compartilhamento não está disponível neste navegador.");}catch(error){if(error?.name!=="AbortError")say("Não foi possível compartilhar neste dispositivo.");}});
   $("[data-toggle-menu]").addEventListener("click",()=>{const sheet=$("[data-action-sheet]");if(sheet.hidden)revealSheet(sheet);else hideSheet(sheet);$("[data-toggle-menu]").setAttribute("aria-expanded",String(!sheet.hidden));});
   $("[data-close-action-sheet]").addEventListener("click",()=>hideSheet($("[data-action-sheet]")));
   $("[data-action-sheet]").addEventListener("click",e=>{if(e.target===$("[data-action-sheet]"))hideSheet($("[data-action-sheet]"));});
   $("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));void openComments(key);}));
-  $$("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
+  $("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
   $$("[data-view]").forEach(b=>b.addEventListener("click",()=>{view=b.dataset.view;$$("[data-view]").forEach(v=>{v.classList.toggle("active",v===b);v.setAttribute("aria-pressed",String(v===b));});draw();}));
   $$("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;activeAlbumId=null;shuffled=false;draw();}));
   $("[data-shuffle]").addEventListener("click",()=>{shuffled=!shuffled;$("[data-shuffle]").classList.toggle("active",shuffled);draw();});
@@ -913,7 +928,40 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     main = "recentes";
     draw();
   });
-  grid.addEventListener("click",async e=>{const openAlbum=e.target.closest("[data-open-album]");const deleteAlbum=e.target.closest("[data-delete-album]");const add=e.target.closest("[data-album-add]");const remove=e.target.closest("[data-album-remove]");if(openAlbum){activeAlbumId=openAlbum.dataset.openAlbum;kind="album";$("[data-title-filter]").value="album";draw();return;}if(deleteAlbum){const album=albums.find(a=>a.id===deleteAlbum.dataset.deleteAlbum);if(!album)return;const {error}=await client.from("gallery_albums").delete().eq("id",album.id).eq("owner_id",user.id);if(error){say("Não foi possível excluir o álbum.");return;}albums=albums.filter(a=>a.id!==album.id);albumItemKeys.delete(album.id);if(activeAlbumId===album.id)activeAlbumId=null;draw();say("Álbum excluído; as mídias originais foram preservadas.");return;}if(add){const albumId=$("[data-album-select]").value;if(!albumId){say("Selecione um álbum na barra de álbuns antes de adicionar mídia.");return;}const x=getItem(add.dataset.albumAdd);if(!x)return;const {error}=await client.from("gallery_album_items").upsert({album_id:albumId,source:x.source,media_id:x.id},{onConflict:"album_id,source,media_id"});if(error){say("Não foi possível adicionar esta mídia ao álbum.");return;}if(!albumItemKeys.has(albumId))albumItemKeys.set(albumId,new Set());albumItemKeys.get(albumId).add(mediaKey(x));draw();say("Mídia adicionada ao álbum.");return;}if(remove&&activeAlbumId){const x=getItem(remove.dataset.albumRemove);if(!x)return;const {error}=await client.from("gallery_album_items").delete().eq("album_id",activeAlbumId).eq("source",x.source).eq("media_id",x.id);if(error){say("Não foi possível remover a mídia do álbum.");return;}albumItemKeys.get(activeAlbumId)?.delete(mediaKey(x));draw();say("Mídia removida do álbum; o arquivo original foi preservado.");return;}});
+  const showAlbumPicker = key => {
+    if(!getItem(key))return;
+    if(!albums.length){say("Crie um álbum para organizar suas mídias.");return;}
+    albumPickerKey=key;
+    const select=$("[data-album-picker-select]");
+    select.innerHTML='<option value="">Selecione um álbum</option>'+albums.map(album=>'<option value="'+esc(album.id)+'">'+esc(album.name)+'</option>').join("");
+    select.value=activeAlbumId || "";
+    $("[data-album-picker-status]").textContent="";
+    $("[data-album-picker-modal]").hidden=false;
+    select.focus();
+  };
+  $("[data-close-album-picker]").forEach(button=>button.addEventListener("click",()=>{albumPickerKey=null;$("[data-album-picker-modal]").hidden=true;}));
+  $("[data-viewer-album-add]").addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));showAlbumPicker(key);});
+  $("[data-album-picker-form]").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const form=event.currentTarget,albumId=form.elements.albumId.value,key=albumPickerKey,x=getItem(key);
+    if(!x||!albums.some(album=>album.id===albumId)){say("Escolha um álbum válido.",$("[data-album-picker-status]"));return;}
+    const button=form.querySelector('[type="submit"]');if(button.disabled)return;button.disabled=true;
+    try {
+      const {error}=await client.from("gallery_album_items").upsert({album_id:albumId,source:x.source,media_id:x.id},{onConflict:"album_id,source,media_id"});
+      if(error)throw error;
+      const {data:verify,error:readError}=await client.from("gallery_album_items").select("album_id,source,media_id")
+        .eq("album_id",albumId).eq("source",x.source).eq("media_id",x.id);
+      if(readError||!verify?.some(row=>row.media_id===x.id))throw readError||Error("A associação não foi confirmada no Neon.");
+      if(!albumItemKeys.has(albumId))albumItemKeys.set(albumId,new Set());
+      albumItemKeys.get(albumId).add(key);
+      albumPickerKey=null;
+      $("[data-album-picker-modal]").hidden=true;
+      activeAlbumId=albumId;kind="album";$("[data-title-filter]").value="album";draw();
+      say("Mídia adicionada ao álbum e confirmada no Neon.");
+    } catch(error){console.error(error);say("Não foi possível confirmar a inclusão no álbum.",$("[data-album-picker-status]"));}
+    finally{button.disabled=false;}
+  });
+  grid.addEventListener("click",async e=>{const openAlbum=e.target.closest("[data-open-album]");const deleteAlbum=e.target.closest("[data-delete-album]");const add=e.target.closest("[data-album-add]");const remove=e.target.closest("[data-album-remove]");if(openAlbum){activeAlbumId=openAlbum.dataset.openAlbum;kind="album";$("[data-title-filter]").value="album";draw();return;}if(deleteAlbum){const album=albums.find(a=>a.id===deleteAlbum.dataset.deleteAlbum);if(!album)return;const {error}=await client.from("gallery_albums").delete().eq("id",album.id).eq("owner_id",user.id);if(error){say("Não foi possível excluir o álbum.");return;}albums=albums.filter(a=>a.id!==album.id);albumItemKeys.delete(album.id);if(activeAlbumId===album.id)activeAlbumId=null;draw();say("Álbum excluído; as mídias originais foram preservadas.");return;}if(add){showAlbumPicker(add.dataset.albumAdd);return;}if(remove&&activeAlbumId){const x=getItem(remove.dataset.albumRemove);if(!x)return;const {error}=await client.from("gallery_album_items").delete().eq("album_id",activeAlbumId).eq("source",x.source).eq("media_id",x.id);if(error){say("Não foi possível remover a mídia do álbum.");return;}albumItemKeys.get(activeAlbumId)?.delete(mediaKey(x));draw();say("Mídia removida do álbum; o arquivo original foi preservado.");return;}});
   grid.addEventListener("click",async e=>{const open=e.target.closest("[data-open-media]");const comments=e.target.closest("[data-comments]");const privateButton=e.target.closest("[data-toggle-private]");const like=e.target.closest("[data-like]");const pin=e.target.closest("[data-admin-pin]");const del=e.target.closest("[data-admin-delete]");if(open){viewerTrigger=open;openViewer(open.dataset.openMedia);return;}if(comments){openComments(comments.dataset.comments);return;}if(privateButton){togglePrivate(privateButton.dataset.togglePrivate);return;}if(pin){void togglePinned(pin.dataset.adminPin);return;}if(del){deleteMedia(del.dataset.adminDelete);return;}if(like){const x=getItem(like.dataset.like);if(!x)return;const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";like.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}draw();say(x.likedByMe?"Curtida registrada.":"Curtida removida.");}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{like.disabled=false;}}});
   $("[data-file-preview]").addEventListener("click",e=>{const remove=e.target.closest("[data-remove-file]");if(remove)removeFile(Number(remove.dataset.removeFile));});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("[data-camera-modal]").hidden)stopCamera();else if(!$("[data-comments-modal]").hidden)hideSheet($("[data-comments-modal]"));else if(!$("[data-action-sheet]").hidden)hideSheet($("[data-action-sheet]"));else if(!$("[data-viewer]").hidden)closeViewer();else if(!$("[data-filter-panel]").hidden){$("[data-filter-panel]").hidden=true;$("[data-filter-panel]").classList.remove("is-open");$("[data-toggle-filters]").setAttribute("aria-expanded","false");}else if(!$("[data-upload-modal]").hidden)$("[data-upload-modal]").hidden=true;}if(!$("[data-viewer]").hidden&&e.key==="ArrowLeft"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>0)openViewer(mediaKey(list[index-1]));}if(!$("[data-viewer]").hidden&&e.key==="ArrowRight"&&viewerZoom<=1.02){const list=visible(),index=list.findIndex(item=>mediaKey(item)===activeKey);if(index>=0&&index<list.length-1)openViewer(mediaKey(list[index+1]));}});
