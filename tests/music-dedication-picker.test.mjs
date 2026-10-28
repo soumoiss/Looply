@@ -63,7 +63,7 @@ test("unavailable received or sent views have explicit empty states", () => {
   assert.match(markup, /Você ainda não dedicou músicas/);
 });
 
-test("recipient selection is searchable, avatar based, multi-select, and profile visibility scoped", async () => {
+test("recipient selection is searchable, avatar based, multi-select, and available to all authenticated members", async () => {
   const data = {
     people: [
       { id: "recipient-1", username: "ana", display_name: "Ana", avatarUrl: "https://cdn.example/avatar.jpg" },
@@ -81,7 +81,8 @@ test("recipient selection is searchable, avatar based, multi-select, and profile
   assert.match(markup, /data-music-recipient-all/);
   assert.doesNotMatch(markup, /<select[^>]+multiple/);
   const source = await (await import("node:fs/promises")).readFile(new URL("../src/music.js", import.meta.url), "utf8");
-  assert.match(source, /\.in\("profile_visibility", \["members", "public"\]\)/);
+  assert.doesNotMatch(source, /\.in\("profile_visibility", \["members", "public"\]\)/);
+  assert.match(source, /client\.from\("profiles"\)\.select\("id,username,display_name,avatar_path"\)/);
   assert.match(source, /input\.name = "recipientId"/);
   assert.match(source, /selectedRecipientIds\.add\(id\)/);
   assert.match(source, /recipientIds\.includes\("all-users"\)/);
