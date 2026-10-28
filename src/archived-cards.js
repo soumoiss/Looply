@@ -300,13 +300,13 @@ export function bindArchivedCards(root, client, userId, { cards, reads, readsUna
       event.stopPropagation();
       const card = state.cards.find((item) => item.id === adminEdit.dataset.adminEditCard);
       if (!card) return;
-      const updatedBody = window.prompt("Editar conteúdo da carta original:", card.body || "");
-      if (updatedBody === null) return;
-      const { error } = await client.from("archived_cards").update({ body: updatedBody }).eq("id", card.id);
-      if (error) { window.alert("Não foi possível salvar a carta. Verifique as permissões."); return; }
-      card.body = updatedBody;
-      renderRows(root, state);
-      if (status) status.textContent = "Carta original atualizada na nuvem.";
+      // The long-form editor fetches the complete, current record from Neon
+      // and enforces author/ADM permissions before writing. Do not use a
+      // browser prompt populated from a potentially stale collection preview.
+      const primaryEditor = [...root.querySelectorAll("[data-edit-kind='archive'][data-edit-id]")]
+        .find(button => button.dataset.editId === card.id);
+      if (primaryEditor) primaryEditor.click();
+      else if (status) status.textContent = "Abra a aba Cartas para editar o texto completo.";
       return;
     }
     const adminDelete = event.target.closest("[data-admin-delete-card]");
