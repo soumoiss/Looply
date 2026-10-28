@@ -459,6 +459,37 @@ async function uploadResumable(client, path, file, onProgress) {
   onProgress?.(100);
 }
 
+async function normalizeGroupCover(file) {
+  if (!(file instanceof File) || !["image/jpeg","image/png","image/webp"].includes(file.type) ||
+      !file.size || file.size > 10*1024*1024)
+    throw Error("invalid_group_cover");
+  let image;
+  let objectUrl;
+  try {
+    if (typeof createImageBitmap === "function") image = await createImageBitmap(file);
+    else {
+      objectUrl = URL.createObjectURL(file);
+      image = new Image();
+      image.src = objectUrl;
+      await image.decode();
+    }
+    const width = image.width || image.naturalWidth;
+    const height = image.height || image.naturalHeight;
+    if (!width || !height) throw Error("invalid_group_cover");
+    const size = 512, scale = Math.min(1,size/Math.max(width,height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1,Math.round(width*scale));
+    canvas.height = Math.max(1,Math.round(height*scale));
+    canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+    const blob = await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",0.83));
+    if (!blob?.size) throw Error("invalid_group_cover");
+    return new File([blob],"capa-grupo.webp",{type:"image/webp"});
+  } finally {
+    image?.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function renderMedia(media) {
   if (!media.signedUrl) return `<span class="chat-media-unavailable">Anexo temporariamente indisponível.</span>`;
   const url = escapeHtml(media.signedUrl);
@@ -865,6 +896,70 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
+  // The group creator can replace the cover. The image is stored once in
+  // the already-authorized chat-media bucket, and the cover points to it.
+  root.addEventListener("click", event => {
+    if (!event.target.closest("[data-chat-group-cover-choose]")) return;
+    root.querySelector(".chat-thread-heading [data-chat-group-cover-input]")?.click();
+  });
+  root.addEventListener("change", async event => {
+    const input = event.target.closest("[data-chat-group-cover-input]");
+    if (!input || !input.files?.length) return;
+    const file = input.files[0];
+    const heading = input.closest(".chat-thread-heading");
+    const conversationId = heading?.dataset.conversationId;
+    const userId = getUserId?.();
+    const status = heading?.querySelector("[data-chat-cover-status]");
+    const button = heading?.querySelector("[data-chat-group-cover-choose]");
+    input.value = "";
+    if (!conversationId || !userId || !status || !button || button.disabled) return;
+    button.disabled = true;
+    let messageId = null;
+    let uploadedPath = "";
+    let persisted = false;
+    try {
+      status.textContent = "Salvando foto…";
+      const image = await normalizeGroupCover(file);
+      const message = await client.from("chat_messages").insert({
+        conversation_id:conversationId,sender_id:userId,body:"Atualizou a foto do grupo."
+      }).select("id").single();
+      if (message.error || !message.data?.id) throw message.error || Error("message_not_confirmed");
+      messageId = message.data.id;
+      uploadedPath = `conversations/${conversationId}/${messageId}/${crypto.randomUUID()}.webp`;
+      await uploadResumable(client,uploadedPath,image);
+      const media = await client.from("chat_media").insert({
+        conversation_id:conversationId,message_id:messageId,created_by:userId,
+        storage_path:uploadedPath,mime_type:"image/webp",byte_size:image.size,file_name:"capa-grupo.webp"
+      }).select("id").maybeSingle();
+      if (media.error || !media.data?.id) throw media.error || Error("cover_media_unconfirmed");
+      const saved = await client.rpc("v10_set_group_cover",{
+        p_conversation_id:conversationId,p_storage_path:uploadedPath
+      });
+      if (saved.error || saved.data !== uploadedPath) throw saved.error || Error("cover_rpc_unconfirmed");
+      persisted = true;
+      const read = await client.from("group_covers").select("storage_path")
+        .eq("conversation_id",conversationId).maybeSingle();
+      if (read.error || read.data?.storage_path !== uploadedPath)
+        throw read.error || Error("cover_read_unconfirmed");
+      status.textContent = "Foto do grupo atualizada.";
+      root.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+      await refreshChat(root,client,userId,{keepThread:true});
+    } catch (error) {
+      console.error("Looply group cover failed",error);
+      if (!persisted && messageId) {
+        if (uploadedPath) {
+          const removed = await client.storage.from("looply-chat").remove([uploadedPath]);
+          if (removed.error) console.warn("Cover upload cleanup failed",removed.error);
+        }
+        const deleted = await client.from("chat_messages").delete()
+          .eq("id",messageId).eq("conversation_id",conversationId);
+        if (deleted.error) console.warn("Cover message cleanup failed",deleted.error);
+      }
+      if (status.isConnected) status.textContent = persisted
+        ? "Foto salva, mas não foi possível atualizar a tela. Reabra o grupo."
+        : "Não foi possível alterar a foto. Confira o acesso.";
+    } finally { button.disabled=false; }
+  });
   // Keep attachment selection isolated from conversation and call controls.
   root.addEventListener("click", (event) => {
     const stickerButton = event.target.closest("[data-chat-choose-sticker]");
