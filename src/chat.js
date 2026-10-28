@@ -882,6 +882,13 @@ export function bindChatEvents(root, client, getUserId) {
       viewport.removeEventListener("scroll", updateViewport);
       window.removeEventListener("orientationchange", updateViewport);
     }, { once: true });
+    root.addEventListener("input", event => {
+      const textarea = event.target.closest(".chat-message-form textarea");
+      if (!textarea) return;
+      textarea.style.height = "44px";
+      textarea.style.height = Math.min(150,Math.max(44,textarea.scrollHeight)) + "px";
+      requestAnimationFrame(updateViewport);
+    });
     root.addEventListener("focusin", (event) => {
       if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
     });
