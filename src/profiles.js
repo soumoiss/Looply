@@ -9,7 +9,7 @@ function escapeHtml(value) {
   })[character]);
 }
 
-export function profileAreaMarkup(profile) {
+export function profileAreaMarkup(profile, isAdmin = false) {
   const username = escapeHtml(profile.username);
   const displayName = escapeHtml(profile.display_name);
   const bio = escapeHtml(profile.bio || "");
@@ -46,7 +46,7 @@ export function profileAreaMarkup(profile) {
           <div class="field"><label for="editDisplayName">Nome de exibição</label><input id="editDisplayName" name="displayName" value="${displayName}" maxlength="80" required></div>
         </div>
         <div class="field"><label for="editBio">Sobre mim</label><textarea id="editBio" name="bio" maxlength="280" rows="3">${bio}</textarea></div>
-        <div class="field"><label for="editPlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="editPlaylistUrl" name="playlistUrl" type="url" maxlength="260" value="${escapeHtml(profile.playlist_url || "")}" placeholder="https://www.youtube.com/playlist?list=..."><span class="field-hint">Use uma playlist pública do YouTube para personalizar a aba Música.</span></div>
+        ${isAdmin ? `<div class="field"><label for="editPlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="editPlaylistUrl" name="playlistUrl" type="url" maxlength="260" value="${escapeHtml(profile.playlist_url || "")}" placeholder="https://www.youtube.com/playlist?list=..."></div>` : ""}
         <div class="profile-privacy-field"><div><label for="profileVisibility">Quem pode encontrar seu perfil?</label><span class="field-hint">A visibilidade do perfil não altera as permissões de cada story ou mídia.</span></div>
           <select id="profileVisibility" name="visibility">
             <option value="members" ${visibility === "members" ? "selected" : ""}>Membros</option>
@@ -315,7 +315,7 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
       if (form.matches("[data-profile-edit]")) {
         const displayName = String(values.get("displayName") || "").trim();
         const bio = String(values.get("bio") || "").trim();
-        const playlistUrlInput = String(values.get("playlistUrl") || "").trim();
+        const playlistUrlInput = form.elements.playlistUrl ? String(values.get("playlistUrl") || "").trim() : "";
         const playlistUrl = normalizeYouTubePlaylistUrl(playlistUrlInput);
         const visibility = String(values.get("visibility") || "members");
         const avatarFile = values.get("avatar");
@@ -335,9 +335,11 @@ export function bindProfileEvents(root, client, onProfileUpdated, profileId) {
         const { data: sessionData, error: sessionError } = await client.auth.getSession();
         if (sessionError || !sessionData?.session?.access_token) throw new Error("session expired");
         const updates = {
-          display_name: displayName, bio,
-          profile_visibility: visibility, playlist_url: playlistUrl || null
+          display_name: displayName, bio, profile_visibility: visibility
         };
+        // Only an admin's visible control may request a playlist change.
+        // The Neon trigger independently denies forged requests.
+        if (form.elements.playlistUrl) updates.playlist_url = playlistUrl || null;
         await saveNeonProfile({
           profileId: userId, session: sessionData.session,
           dataApiUrl: client.dataApiUrl, storage: client.storage,
