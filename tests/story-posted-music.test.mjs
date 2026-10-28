@@ -14,7 +14,7 @@ test("Catalog music selection stays in app and never opens the device picker aut
  assert.match(picker,/onSelect\(track\)/);
  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
  assert.match(picker,/data-studio-audio-file/);
- assert.match(picker,/Adicionar áudio próprio \(opcional\)/);
+ assert.match(picker,/Áudio próprio/);
  assert.match(studio,/music\.kind === "file"/);
 });
 
@@ -48,9 +48,10 @@ test("Catalog limitations are clear to members without exposing provider diagnos
  assert.match(studio,/Não foi possível concluir essa ação/);
  assert.match(studio,/onStatus: status, isAdmin/);
  assert.match(viewer,/bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
- assert.match(picker,/Você pode ouvir esta faixa aqui/);
+ assert.match(picker,/Esta faixa oferece apenas prévia/);
  assert.doesNotMatch(picker,/Prévia promocional/);
- assert.match(picker,/isAdmin&&\(commercial\.status==="rejected"\|\|licensed\.status==="rejected"\)/);
+ assert.match(picker,/some? fontes indisponíveis|algumas fontes indisponíveis/);
+ assert.doesNotMatch(picker,/data-studio-provider="spotify"/);
 });
 
 
