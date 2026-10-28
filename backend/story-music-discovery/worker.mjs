@@ -16,18 +16,24 @@ const normalize = {
   apple: data => (Array.isArray(data?.results) ? data.results : []).filter(x => x.kind === "song").map(x=>({
     provider:"apple",id:String(x.trackId||""),title:filterText(x.trackName),
     artist:filterText(x.artistName),album:filterText(x.collectionName),
+    durationSec:Number(x.trackTimeMillis)>0?Math.round(Number(x.trackTimeMillis)/1000):0,
+    isrc:filterText(x.isrc||"",16),
     artwork:safeUrl(x.artworkUrl100,["mzstatic.com"]),url:safeUrl(x.trackViewUrl,["apple.com","itunes.com"]),
     previewUrl:safeUrl(x.previewUrl,["apple.com","itunes.com","mzstatic.com"])
   })),
   deezer: data => (Array.isArray(data?.data) ? data.data : []).map(x=>({
     provider:"deezer",id:String(x.id||""),title:filterText(x.title),
     artist:filterText(x.artist?.name),album:filterText(x.album?.title),
+    durationSec:Number(x.duration)>0?Number(x.duration):0,
+    isrc:filterText(x.isrc||"",16),
     artwork:safeUrl(x.album?.cover_medium,["dzcdn.net"]),url:safeUrl(x.link,["deezer.com"]),
     previewUrl:safeUrl(x.preview,["dzcdn.net"])
   })),
   audius: data => (Array.isArray(data?.data) ? data.data : []).map(x=>({
     provider:"audius",id:filterText(x.id,80),title:filterText(x.title),
-    artist:filterText(x.user?.name),album:"",
+    artist:filterText(x.user?.name),album:filterText(x.album_title||"",140),
+    durationSec:Number(x.duration)>0?Number(x.duration):0,
+    isrc:filterText(x.isrc||"",16),
     artwork:safeUrl(x.artwork?.["150x150"],["audius.co","audiuscdn.com","audius-cdn.com"]),
     url:safeUrl(x.permalink && (x.permalink.startsWith("https://") ? x.permalink : "https://audius.co"+x.permalink),["audius.co"])
   }))
