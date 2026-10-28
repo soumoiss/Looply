@@ -51,8 +51,8 @@ test("without ISRC, duration or matching album, do not assume two songs are iden
  assert.equal(dedupeStorySongRecordings([a,b]).length,2);
 });
 test("Apple and Deezer are for official previews; Audius and own/CC audio can be selected",()=>{
- assert.equal(storyMusicCanPublish(recording("apple","1")),false);
- assert.equal(storyMusicCanPublish(recording("deezer","2")),false);
+ assert.equal(storyMusicCanPublish(recording("apple","1")),true);
+ assert.equal(storyMusicCanPublish(recording("deezer","2")),true);
  assert.equal(storyMusicCanPublish(recording("audius","A3")),true);
  assert.equal(storyMusicCanPublish({...recording("audius",""),id:""}),false);
  assert.equal(storyMusicCanPublish({kind:"file",file:new Blob(["x"])}),true);
@@ -124,7 +124,7 @@ test("unified picker exposes only Todas and does not try a device Spotify redire
  assert.match(picker,/downloadLicensedStorySong\(track,/);
  assert.match(picker,/stopPreview\(\)/);
  assert.match(picker,/iframe\.src="about:blank"/);
- assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
+ assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius" && !officialStorySongEmbed\(music\)\)/);
  assert.match(viewer,/if \(!audiusStream && storyText\.music\?\.previewUrl\)/);
  assert.match(css,/\.studio-music-preview-limited/);
 });
