@@ -707,3 +707,18 @@
  .story-studio .studio-modal[data-sheet="music"] .studio-catalog-song{padding:7px;gap:6px}
  .story-studio .studio-modal[data-sheet="music"] .studio-music-row-actions > button{min-height:44px}
 }
+
+/* Explicit publishing: selecting a song or friends must never submit the form. */
+.story-studio [data-studio-publish-friends][hidden] {display:none!important}
+.story-studio .studio-publish-row {
+  display:flex;align-items:center;flex-wrap:wrap;
+  max-width:100%;gap:7px;
+}
+.story-studio .studio-publish-row [data-studio-publish-friends]:not([hidden]) {
+  order:5;flex:1 1 100%;min-height:44px;
+  justify-content:center;background:#6c42b8;color:#fff;
+  border:1px solid #b69ce8;font-weight:750;
+}
+.story-studio .studio-publish-row [data-studio-publicar] {
+  min-height:44px;
+}
