@@ -140,3 +140,11 @@
 .page-home .post-heic-preview { padding:12px; font-size:13px; background:var(--surface); border-radius:12px; overflow-wrap:anywhere; }
 .page-home [data-feed-carousel] { touch-action:pan-x pan-y; }
 .page-home .post-body { overflow-wrap:anywhere; white-space:pre-wrap; }
+
+.page-home .post-controls { position:relative; }
+.page-home .post-owner-menu { position:relative; }
+.page-home .post-owner-menu summary { cursor:pointer; list-style:none; display:grid; place-items:center; min-width:44px; min-height:44px; border-radius:10px; font-weight:800; font-size:22px; }
+.page-home .post-owner-menu summary::-webkit-details-marker { display:none; }
+.page-home .post-owner-menu summary:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.page-home .post-owner-menu-actions { position:absolute; right:0; top:calc(100% + 2px); min-width:150px; z-index:6; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 28px #0003; padding:4px; }
+.page-home .post-owner-menu-actions button { width:100%; text-align:left; white-space:nowrap; padding-inline:10px; }
