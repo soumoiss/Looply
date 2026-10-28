@@ -19,7 +19,7 @@ export async function mountMusicAdminPlaylistPanel(root,client){
   const panel=document.createElement("section");
   panel.className="music-admin-playlists";
   panel.setAttribute("aria-label","Administração das playlists");
-  panel.innerHTML='<div class="music-admin-playlists-heading"><span class="section-kicker">Área administrativa</span><h2>Playlists dos usuários</h2><p>Inspecione playlists reais e escreva comentários privados visíveis somente para o destinatário e a administração.</p></div>'+
+  panel.innerHTML='<div class="music-admin-playlists-heading"><span class="section-kicker">Área administrativa</span><h2>Playlists dos usuários</h2></div>'+
     '<div class="field"><label for="adminSearchOwner">Pesquisar usuário</label><input id="adminSearchOwner" type="search" placeholder="Nome ou @usuário" autocomplete="off"></div>'+
     '<div class="field"><label for="adminMusicOwner">Selecionar usuário</label><select id="adminMusicOwner"></select></div>'+
     '<div class="music-admin-owner-avatar" data-admin-owner-avatar></div>'+
