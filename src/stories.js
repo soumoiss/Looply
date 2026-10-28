@@ -1211,9 +1211,19 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       state.replyDrafts.set(currentStory().id, event.target.value);
     }
   });
-  replyForm.addEventListener("focusin", clearTimer);
+  let replyFocusActive = false;
+  let resumeAfterReplyFocus = false;
+  replyForm.addEventListener("focusin", () => {
+    if (replyFocusActive) return;
+    replyFocusActive = true;
+    resumeAfterReplyFocus = !state.paused;
+    // Typing must not allow a video to advance and replace the reply target.
+    setStoryPaused(true);
+  });
   replyForm.addEventListener("focusout", (event) => {
-    if (!replyForm.contains(event.relatedTarget)) resumeStoryTimer();
+    if (replyForm.contains(event.relatedTarget)) return;
+    replyFocusActive = false;
+    if (resumeAfterReplyFocus && viewer.open) setStoryPaused(false);
   });
   touchSurface.addEventListener("click", (event) => {
     if (event.target.closest("button, a, input, form, [data-story-prev], [data-story-next]")) return;
