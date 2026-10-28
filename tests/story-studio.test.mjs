@@ -73,8 +73,8 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /zoomBase \* settings\.zoom/);
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
-  assert.match(studio, /const cropW = sourceW \/ factor/);
-  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:contain !important/);
+  assert.match(studio, /cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:cover!important/);
   assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
   assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
@@ -104,9 +104,9 @@ test("camera photo and recording output preserve the sensor inside portrait 9:16
   assert.deepEqual(storyCanvasSize("2:5"), { width:768, height:1920 });
   assert.deepEqual(storyCanvasSize("1:1"), { width:1080, height:1080 });
   assert.match(studio, /const captureSize = currentCanvasSize\(\)/);
-  assert.match(studio, /layer\.videoWidth \|\| layer\.width \|\| sourceW/);
-  assert.match(studio, /const frame = containRect\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
-  assert.match(studio, /settings\.face !== "none" && lensReady/);
+  assert.match(studio, /layer\.videoWidth\|\|layer\.width\|\|sourceW/);
+  assert.match(studio, /const crop=cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
+  assert.match(studio, /settings.face!=="none"&&lensReady/);
     const cameraSegment = studio.slice(studio.indexOf("const drawLiveFrame ="),studio.indexOf("const stopCamera ="));
   assert.doesNotMatch(cameraSegment, /ctx\.filter = "blur\(28px\)/);
   assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /\.studio-camera-backdrop[^{}]*\{\s*display:none !important/);
@@ -116,9 +116,9 @@ test("camera photo and recording output preserve the sensor inside portrait 9:16
 
 
 test("Final 9:16 portrait capture and licensed audio export meet requested contracts",()=>{
-  assert.match(studio,/width: \{ ideal: 1080 \}/);
-  assert.match(studio,/height: \{ ideal: 1920 \}/);
-  assert.match(studio,/aspectRatio: \{ ideal: 9 \/ 16 \}/);
+  assert.match(studio,/width:\{ideal:size.width\}/);
+  assert.match(studio,/height:\{ideal:size.height\}/);
+  assert.match(studio,/aspectRatio:\{ideal:size.width\/size.height\}/);
   assert.match(studio,/withMusic \? 7000 : 15000/);
   assert.match(studio,/source\.start\(\)/);
   assert.match(studio,/recorded\.start\(250\)/);
