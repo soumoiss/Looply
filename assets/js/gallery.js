@@ -90,7 +90,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const uploaderInfo = document.createElement("div");
   uploaderInfo.className = "gallery-viewer-uploader";
   uploaderInfo.dataset.viewerUploader = "";
-  $("[data-viewer-description]")?.before(uploaderInfo);
+  $("[data-viewer-author]")?.replaceWith(uploaderInfo);
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
   const extensionMime = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",avif:"image/avif",heic:"image/heic",heif:"image/heif",tif:"image/tiff",tiff:"image/tiff",bmp:"image/bmp",svg:"image/svg+xml",ico:"image/x-icon",jxl:"image/jxl",raw:"image/x-raw",dng:"image/x-adobe-dng",cr2:"image/x-canon-cr2",nef:"image/x-nikon-nef",arw:"image/x-sony-arw",mp4:"video/mp4",m4v:"video/x-m4v",mov:"video/quicktime",qt:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska",avi:"video/x-msvideo",wmv:"video/x-ms-wmv",flv:"video/x-flv",mpeg:"video/mpeg",mpg:"video/mpeg",m2v:"video/mpeg","3gp":"video/3gpp","3g2":"video/3gpp2",mts:"video/mp2t",m2ts:"video/mp2t",ts:"video/mp2t",ogv:"video/ogg",vob:"video/dvd",asf:"video/x-ms-asf",mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",ogg:"audio/ogg",oga:"audio/ogg",opus:"audio/opus",wav:"audio/wav",flac:"audio/flac",aiff:"audio/aiff",aif:"audio/aiff",wma:"audio/x-ms-wma",amr:"audio/amr"};
   const getFileMime = file => { const declared=String(file.type||"").toLowerCase(); if (declared.startsWith("image/") || declared.startsWith("video/") || declared.startsWith("audio/")) return declared; const ext=String(file.name||"").split(".").pop().toLowerCase(); return extensionMime[ext]||""; };
@@ -408,6 +408,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const openViewer = async key => {
     const x = getItem(key);
     if (!x) return;
+    const request = ++viewerRequest;
+    $("[data-viewer-media]").querySelectorAll("video,audio").forEach(media => { media.pause(); media.removeAttribute("src"); media.load(); });
     activeKey = key;
     viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; gestureController?.reset();
     const type = mediaType(x);
@@ -438,17 +440,18 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     $("[data-description-form]").hidden = true;
     $("[data-action-sheet]").hidden = true;
     $("[data-action-sheet]").classList.remove("is-open");
-    $("[data-viewer-admin-delete]").hidden = !isAdmin;
-    $("[data-viewer-admin-pin]").hidden = false;
+    $("[data-viewer-admin-delete]").hidden = !(isAdmin || (x.source==="community" && x.owner_id===user.id));
+    $("[data-viewer-admin-pin]").hidden = !isAdmin;
     $("[data-viewer-admin-pin]").innerHTML = icon("starFilled") + '<span>' + (x.isPinned ? "Desafixar mídia" : "Fixar mídia") + '</span>';
     $("[data-edit-mentions]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
-    $("[data-manage-access]").hidden = false;
+    $("[data-manage-access]").hidden = !isAdmin;
+    $("[data-viewer-album-add]").hidden = !albums.length;
     $("[data-viewer-toggle-private]").innerHTML = icon("lock") + '<span>' + (x.isPrivate ? "Remover da pasta privada" : "Mover para pasta privada") + '</span>';
     viewer.hidden = false;
     document.body.classList.add("gallery-viewer-open");
     try {
       const url = await ensureMediaUrl(x, false);
-      if (activeKey !== key || viewer.hidden) return;
+      if (request !== viewerRequest || activeKey !== key || viewer.hidden) return;
       if (!url) throw new Error("Empty signed URL");
       const media = type === "video" ? '<video src="' + esc(url) + '" controls autoplay playsinline preload="metadata"></video>' : type === "audio" ? '<audio src="' + esc(url) + '" controls autoplay></audio>' : '<img src="' + esc(url) + '" alt="" draggable="false">';
       mediaHost.innerHTML = media;
@@ -496,6 +499,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     } finally { button.disabled = false; }
   };
   const closeViewer = () => {
+    ++viewerRequest;
+    $("[data-viewer-media]").querySelectorAll("video,audio").forEach(media => { media.pause(); media.removeAttribute("src"); media.load(); });
     hideSheet($("[data-action-sheet]"));
     $("[data-viewer]").hidden = true;
     document.body.classList.remove("gallery-viewer-open");
