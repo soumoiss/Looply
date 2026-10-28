@@ -236,8 +236,37 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     if (error) event.currentTarget.disabled = false;
   });
 
+  // Keep the signed avatar in the global header current without reloading
+  // unsaved profile form fields. BroadcastChannel covers other open Looply tabs.
+  const avatarBus=typeof BroadcastChannel==="function"?new BroadcastChannel("looply-avatar-v1"):null;
+  const applyAvatarChange=detail=>{
+    if(!detail?.profileId || !/^https:\/\//i.test(detail.avatarUrl||""))return;
+    if(detail.profileId===user.id){
+      profile.avatar_path=detail.avatar_path||profile.avatar_path;
+      profile.avatarUrl=detail.avatarUrl;
+      const old=header.querySelector(".looply-user-avatar, .looply-user-initial");
+      if(old){
+        const img=document.createElement("img");
+        img.className="looply-user-avatar";img.alt="";img.referrerPolicy="no-referrer";
+        img.src=detail.avatarUrl;old.replaceWith(img);
+      }
+    }
+    document.querySelectorAll("[data-profile-avatar-id]").forEach(old=>{
+      if(old.dataset.profileAvatarId!==detail.profileId)return;
+      const img=document.createElement("img");
+      img.className=old.className;img.alt="";img.loading="lazy";
+      img.referrerPolicy="no-referrer";img.dataset.profileAvatarId=detail.profileId;
+      img.src=detail.avatarUrl;old.replaceWith(img);
+    });
+  };
+  const onLocalAvatar=e=>{applyAvatarChange(e.detail);avatarBus?.postMessage(e.detail);};
+  window.addEventListener("looply:avatar-updated",onLocalAvatar);
+  if(avatarBus)avatarBus.onmessage=e=>applyAvatarChange(e.data);
+
   void refreshUnreadBadge(header, supabase).catch((error) => console.warn("Looply unread count refresh failed", error));
+  const originalHeaderAvatarPath=profile.avatar_path;
   void loadProfileAvatar(profile).then((avatarUrl) => {
+    if(profile.avatar_path!==originalHeaderAvatarPath)return;
     if (!avatarUrl) return;
     profile.avatarUrl = avatarUrl;
     const current = header.querySelector(".looply-user-avatar, .looply-user-initial");
@@ -293,6 +322,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
 
   window.addEventListener("pagehide", () => {
+    window.removeEventListener("looply:avatar-updated",onLocalAvatar);
+    avatarBus?.close();
     clearTimeout(badgeTimer);
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
