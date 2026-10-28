@@ -91,6 +91,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   uploaderInfo.className = "gallery-viewer-uploader";
   uploaderInfo.dataset.viewerUploader = "";
   $("[data-viewer-author]")?.replaceWith(uploaderInfo);
+  const mentionLine=document.createElement("div");
+  mentionLine.className="gallery-viewer-mentions";
+  mentionLine.dataset.viewerMentions="";
+  $("[data-viewer-description]")?.before(mentionLine);
   const grid = $("[data-grid]"), status = $("[data-status]"), count = $("[data-count]");
   const extensionMime = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",avif:"image/avif",heic:"image/heic",heif:"image/heif",tif:"image/tiff",tiff:"image/tiff",bmp:"image/bmp",svg:"image/svg+xml",ico:"image/x-icon",jxl:"image/jxl",raw:"image/x-raw",dng:"image/x-adobe-dng",cr2:"image/x-canon-cr2",nef:"image/x-nikon-nef",arw:"image/x-sony-arw",mp4:"video/mp4",m4v:"video/x-m4v",mov:"video/quicktime",qt:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska",avi:"video/x-msvideo",wmv:"video/x-ms-wmv",flv:"video/x-flv",mpeg:"video/mpeg",mpg:"video/mpeg",m2v:"video/mpeg","3gp":"video/3gpp","3g2":"video/3gpp2",mts:"video/mp2t",m2ts:"video/mp2t",ts:"video/mp2t",ogv:"video/ogg",vob:"video/dvd",asf:"video/x-ms-asf",mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",ogg:"audio/ogg",oga:"audio/ogg",opus:"audio/opus",wav:"audio/wav",flac:"audio/flac",aiff:"audio/aiff",aif:"audio/aiff",wma:"audio/x-ms-wma",amr:"audio/amr"};
   const getFileMime = file => { const declared=String(file.type||"").toLowerCase(); if (declared.startsWith("image/") || declared.startsWith("video/") || declared.startsWith("audio/")) return declared; const ext=String(file.name||"").split(".").pop().toLowerCase(); return extensionMime[ext]||""; };
@@ -442,6 +446,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
         : '<span class="gallery-uploader-fallback" aria-hidden="true">' + esc((uploaderName.replace(/^@/, "").slice(0, 1) || "?").toLocaleUpperCase("pt-BR")) + '</span><span>Enviado por <strong>' + esc(uploaderName) + '</strong></span>')
       : '<span class="gallery-uploader-fallback" aria-hidden="true">?</span><span>Enviado por <strong>Responsável não registrado</strong></span>';
     $("[data-viewer-description]").innerHTML = descriptionMarkup(x);
+    $("[data-viewer-mentions]").innerHTML = (x.peopleIds||[]).map(personId=>{
+      const person=peopleMap.get(personId);
+      return person ? '<a href="perfil.html?usuario='+encodeURIComponent(personId)+'" class="gallery-mention-link">@'+esc(person.username||person.display_name)+'</a>' : "";
+    }).filter(Boolean).join(" ");
     $("[data-description-form]").hidden = true;
     $("[data-action-sheet]").hidden = true;
     $("[data-action-sheet]").classList.remove("is-open");
@@ -900,7 +908,49 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-edit-mentions]").addEventListener("click",()=>{const x=getItem(activeKey);if(!x)return;if(!(isAdmin||(x.source==="community"&&x.owner_id===user.id))){say("Somente o proprietário ou a administração pode alterar as menções.");return;}hideSheet($("[data-action-sheet]"));$("[data-tag-search]").value="";selectedTagPeople=new Set(x.peopleIds||[]);$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,"");$("[data-tag-status]").textContent="";$("[data-tags-modal]").hidden=false;});
   $$("[data-close-tags]").forEach(b=>b.addEventListener("click",()=> $("[data-tags-modal]").hidden=true));
   $("[data-tag-search]").addEventListener("input",()=>{$("[data-tag-users]").innerHTML=usersHtml(selectedTagPeople,$("[data-tag-search]").value);});
-  $("[data-save-tags]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const selected=new Set(selectedTagPeople);const old=new Set(x.peopleIds||[]);const add=[...selected].filter(id=>!old.has(id));const remove=[...old].filter(id=>!selected.has(id));const button=$("[data-save-tags]");button.disabled=true;try{if(add.length){const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({source:x.source,media_id:x.id,person_id,created_by:user.id})));if(error)throw error;}if(remove.length){const {error}=await client.from("gallery_media_people").delete().eq("source",x.source).eq("media_id",x.id).in("person_id",remove);if(error)throw error;}x.peopleIds=[...selected];selectedTagPeople=new Set(selected);$("[data-tags-modal]").hidden=true;draw();say("Menções atualizadas.");}catch(error){console.error(error);say("Não foi possível salvar as menções. Verifique a autorização dos destinatários.",$("[data-tag-status]"));}finally{button.disabled=false;}});
+  $("[data-save-tags]").addEventListener("click",async()=>{
+    const key=activeKey,x=getItem(key);if(!x)return;
+    if(!(isAdmin || (x.source==="community" && x.owner_id===user.id))) {
+      say("Somente o proprietário ou a administração pode editar menções.",$("[data-tag-status]"));return;
+    }
+    const selected=new Set(selectedTagPeople);
+    const old=new Set(x.peopleIds||[]);
+    const add=[...selected].filter(id=>!old.has(id));
+    const remove=[...old].filter(id=>!selected.has(id));
+    const button=$("[data-save-tags]");if(button.disabled)return;button.disabled=true;
+    try {
+      if(add.length){
+        const {error}=await client.from("gallery_media_people").insert(add.map(person_id=>({
+          source:x.source,media_id:x.id,person_id,created_by:user.id
+        })));
+        if(error)throw error;
+      }
+      if(remove.length){
+        const {error}=await client.from("gallery_media_people").delete().eq("source",x.source)
+          .eq("media_id",x.id).in("person_id",remove);
+        if(error)throw error;
+      }
+      const {data:verified,error:readError}=await client.from("gallery_media_people")
+        .select("person_id").eq("source",x.source).eq("media_id",x.id);
+      if(readError)throw readError;
+      const actual=new Set((verified||[]).map(row=>row.person_id));
+      if(actual.size!==selected.size || [...selected].some(id=>!actual.has(id)))
+        throw Error("O Neon não confirmou as menções selecionadas.");
+      x.peopleIds=[...actual];
+      selectedTagPeople=new Set(actual);
+      $("[data-tags-modal]").hidden=true;
+      if(activeKey===key) {
+        $("[data-viewer-mentions]").innerHTML=x.peopleIds.map(id=>{
+          const person=peopleMap.get(id);
+          return person?'<a href="perfil.html?usuario='+encodeURIComponent(id)+'" class="gallery-mention-link">@'+esc(person.username||person.display_name)+'</a>':"";
+        }).filter(Boolean).join(" ");
+      }
+      draw();say("Menções atualizadas e confirmadas no Neon.");
+    }catch(error){
+      console.error("Gallery mention save failed",error);
+      say("Não foi possível confirmar todas as menções. Reabra para atualizar os dados.",$("[data-tag-status]"));
+    }finally{button.disabled=false;}
+  });
   $("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}));
   $("[data-comments-modal]").addEventListener("click",e=>{if(e.target===$("[data-comments-modal]")){++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}});
   $("[data-comment-form]").addEventListener("submit",publishComment);
