@@ -1,7 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022-fast-global-ring-20261027";
-import { bindMusicEvents, disposeMusicRealtime, loadMusicData, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-embedded-players-20261022";
+import { bindMusicEvents, disposeMusicRealtime, loadMusicData, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-dedication-edit-20261028";
 import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js";
-import { mountMusicAdminPlaylistPanel } from "../../src/music-admin-playlists.js";
+import { mountMusicAdminPlaylistPanel } from "../../src/music-admin-playlists.js?v=admin-description-clean-20261028";
 
 await mountAppPage({ page: "music", render: async ({ root, client, user, profile }) => {
   const data = await loadMusicData(client, user.id);
