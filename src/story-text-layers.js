@@ -86,8 +86,11 @@ export function storyTextLayerLayout(ctx,layer,width,height) {
   const maxWidth=width*.85;
   const lines=storyTextWrap(ctx,layer.text,maxWidth);
   const lineHeight=px*1.14;
-  return {x:x.x*width,y:x.y*height,px,font,lines,lineHeight,maxWidth,
-    startY:x.y*height-(lines.length-1)*lineHeight/2};
+  const startY=x.y*height-(lines.length-1)*lineHeight/2;
+  const top=startY-px*.6;
+  const bottom=startY+(lines.length-1)*lineHeight+px*.6;
+  return {x:x.x*width,y:x.y*height,px,font,lines,lineHeight,maxWidth,startY,
+    fits:top>=height*.06 && bottom<=height*.94};
 }
 export function storyTextPaintLayer(ctx,layer,width,height) {
   const layout=storyTextLayerLayout(ctx,layer,width,height);
