@@ -323,7 +323,7 @@ function postMarkup(post, userId, isAdmin = false) {
       <div class="post-author"><button type="button" class="post-author-profile" data-profile-open="${escapeHtml(post.author_id)}" aria-label="Visualizar perfil do autor"><span class="post-avatar" aria-hidden="true">${post.author?.avatarUrl ? '<img src="' + escapeHtml(post.author.avatarUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : escapeHtml((post.author?.display_name || post.author?.username || "M").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>
         <div><strong>${profileLabel(post.author)}</strong><time datetime="${escapeHtml(post.created_at)}">${escapeHtml(formatDate(post.created_at))}</time></div></button>
       </div>
-      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<button type="button" class="text-button post-edit-button" data-edit-post="${escapeHtml(post.id)}">Editar legenda</button>` : ""}${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
+      <div class="post-controls"><span class="visibility-pill">${labels[post.visibility] || "Publicação"}</span>${post.author_id === userId ? `<details class="post-owner-menu"><summary aria-label="Opções da publicação">⋯</summary><div class="post-owner-menu-actions"><button type="button" class="text-button post-edit-button" data-edit-post="${escapeHtml(post.id)}">Editar legenda</button></div></details>` : ""}${post.author_id === userId || isAdmin ? `<button class="post-delete-button${isAdmin && post.author_id !== userId ? " admin-content-delete" : ""}" type="button" data-delete-post="${escapeHtml(post.id)}" aria-label="Excluir publicação">${isAdmin && post.author_id !== userId ? "Excluir como ADM" : "Excluir"}</button>` : ""}</div>
     </header>
     ${mediaMarkup ? `<div class="post-media-grid" data-feed-carousel>${mediaMarkup}</div>${(post.media || []).length > 1 ? `<div class="post-carousel-navigation" role="group" aria-label="Navegar pelas fotos da publicação"><button type="button" data-carousel-step="-1" aria-label="Foto anterior" disabled>‹</button><span data-carousel-position aria-live="polite">1 / ${post.media.length}</span><button type="button" data-carousel-step="1" aria-label="Próxima foto">›</button></div><div class="post-carousel-dots" aria-hidden="true">${post.media.map((_, i) => `<span data-carousel-dot="${i}" class="${i === 0 ? "is-active" : ""}"></span>`).join("")}</div>` : ""}` : ""}
     ${externalMarkup}
@@ -981,13 +981,14 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     const userId = getUserId?.();
     if (!userId || !postId) return;
     const nextBody = form.querySelector("textarea").value;
+    const storedBody = nextBody.trim() ? nextBody : null;
     const status = form.querySelector("[data-edit-status]");
     form.dataset.submitting = "true";
     form.querySelectorAll("button").forEach(button => button.disabled = true);
     try {
-      const { data, error } = await client.from("posts").update({ body: nextBody || null })
+      const { data, error } = await client.from("posts").update({ body: storedBody })
         .eq("id", postId).eq("author_id", userId).select("id,body").single();
-      if (error || !data || (data.body || "") !== nextBody) throw error || Error("post_caption_unconfirmed");
+      if (error || !data || (data.body || null) !== storedBody) throw error || Error("post_caption_unconfirmed");
       await refreshSocialFeed(root, client, userId, isAdmin);
     } catch (error) {
       console.error("Looply post caption update failed", error);
@@ -1269,7 +1270,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         if (!body && !externalUrl && !files.length) throw new Error("empty body");
         const parsedShare = !externalUrl ? extractExternalLinkFromText(body) : null;
         if (parsedShare?.url) externalUrl = parsedShare.url;
-        const postBody = parsedShare?.url ? (parsedShare.text || null) : (body || null);
+        // Preserve the entire caption, including hyperlinks, spaces, newlines
+        // and emoji. Link detection may add an embed, but cannot rewrite text.
+        const postBody = body ? String(formData.get("body") ?? "") : null;
         if (!["public", "private", "selected"].includes(visibility)) throw new Error("invalid visibility");
         if (externalUrl) {
           let parsed;
