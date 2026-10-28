@@ -265,6 +265,28 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   let startedAt = 0, progressAnimation = null, lensReady = false, music = null, audioPreview = null, publishing = false;
   let selectedMentionIds = [];
   let selectedLayer=null;
+  let editorPlaneLock=null;
+  const freezeEditorPlane=()=>{
+    if(editorPlaneLock)return;
+    const bounds=overlayRoot.getBoundingClientRect(),stageBounds=stage.getBoundingClientRect();
+    if(!(bounds.width>0&&bounds.height>0))return;
+    const keys=["width","height","left","top","right","bottom","transform","aspectRatio"];
+    editorPlaneLock=[edits,overlayRoot].map(element=>({
+      element,previous:Object.fromEntries(keys.map(key=>[key,element.style[key]]))
+    }));
+    for(const {element} of editorPlaneLock){
+      Object.assign(element.style,{
+        width:bounds.width+"px",height:bounds.height+"px",
+        left:(bounds.left-stageBounds.left)+"px",top:(bounds.top-stageBounds.top)+"px",
+        right:"auto",bottom:"auto",transform:"none",aspectRatio:"auto"
+      });
+    }
+  };
+  const unfreezeEditorPlane=()=>{
+    if(!editorPlaneLock)return;
+    for(const {element,previous} of editorPlaneLock)Object.assign(element.style,previous);
+    editorPlaneLock=null;
+  };
   const measureCanvas=document.createElement("canvas");
   const measureContext=measureCanvas.getContext("2d");
   let stopMusicPreview = () => {};
@@ -305,6 +327,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const revokeUrl = () => { if (url) URL.revokeObjectURL(url); url = null; };
   const clearPreview = () => {
+    unfreezeEditorPlane();
     edits.replaceChildren(); edits.hidden = true; revokeUrl();
     overlayRoot.replaceChildren(); file = null; sourceKind = "none"; sourceFromCamera = false; selectedMentionIds = [];
     selectedLayer=null;
@@ -764,10 +787,14 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const modalClose = () => {
     stopMusicPreview(); stopMusicPreview = () => {};
     $("[data-studio-modal]").hidden = true; body.replaceChildren();
+    unfreezeEditorPlane();
   };
   const openLayerEditor = (el, createdNow=false) => {
     if(!el?.isConnected)return;
     selectLayer(el);
+    // Mobile keyboard changes the visual viewport height: freeze the actual
+    // media/text content plane until edit completes, never the saved x/y.
+    freezeEditorPlane();
     const choices=Object.entries(STORY_TEXT_FONTS).map(([key,item])=>
       '<button type="button" class="studio-font-choice" data-layer-font-choice="'+key+
       '" aria-pressed="false">'+escapeHtml(item.label)+'</button>').join("");
@@ -1377,7 +1404,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     e.preventDefault(); e.stopPropagation(); void publish();
   });
   dialog.addEventListener("cancel", e => { e.preventDefault(); close(); });
-  dialog.addEventListener("close", () => { active = false; stopCamera(); revokeUrl(); });
+  dialog.addEventListener("close", () => { active = false; stopCamera(); unfreezeEditorPlane(); revokeUrl(); });
   return () => {
     close();
     if (lastThumb) { URL.revokeObjectURL(lastThumb); lastThumb = null; }
