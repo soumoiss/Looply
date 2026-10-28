@@ -152,6 +152,7 @@ export function storyStudioMarkup(recipientOptions) {
           '<textarea data-studio-caption name="body" maxlength="700" rows="2" placeholder="Adicione uma legenda..." aria-label="Legenda do story"></textarea>' +
           '<div class="studio-publish-row">' +
             '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Publicar story</button>' +
+            '<button type="button" class="studio-pill" data-studio-publish-friends hidden>Publicar para amigos</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
             '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">➜</button>' +
           '</div>' +
@@ -930,10 +931,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       [...people.options].forEach(o => { o.selected = ids.includes(o.value); });
       $("[data-studio-visibility]").value = "selected"; modalClose();
       $("[data-studio-friends]").classList.add("is-selected");
-      status("Publicando para " + ids.length + " pessoas selecionadas…");
-      // Audience selection is draft-only. Publishing requires a separate
-      // explicit tap on the Story publishing control.
-      status("Amigos próximos selecionados. Toque em Publicar story para enviar.");
+      // Audience selection updates draft state only.
+      $("[data-studio-publish-friends]").hidden=false;
+      status("Amigos próximos selecionados. Toque em Publicar para amigos para enviar.");
     };
   };
   const openMentions = () => {
@@ -1128,7 +1128,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     void publish(explicitStoryPublication);
   };
   const publish = async (authorization) => {
-    if (authorization !== explicitStoryPublication || !active || mode!=="edit") return;
+    if (authorization !== explicitStoryPublication || !active || !["edit","text"].includes(mode)) return;
     if (publishing) return;
     publishing = true;
     // Start WebAudio directly within the Publish tap, BEFORE awaiting image
@@ -1343,6 +1343,10 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     "[data-studio-modal-close]": modalClose,
     "[data-studio-publicar]": event => { $("[data-studio-visibility]").value = "public"; requestStoryPublish(event); },
     "[data-studio-friends]": openAudience,
+    "[data-studio-publish-friends]": event => {
+      if($("[data-studio-visibility]").value!=="selected")return;
+      requestStoryPublish(event);
+    },
     "[data-studio-send]": () => {
       modal("Compartilhar Story", '<p class="studio-hint">Escolha quem poderá visualizar sua publicação.</p><div class="studio-modal-actions"><button type="button" data-share-public>Publicar Story</button><button type="button" data-share-friends>Amigos próximos</button></div>');
       body.querySelector("[data-share-public]").onclick=event=>{
