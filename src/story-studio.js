@@ -498,6 +498,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const open = async () => {
     if (active) return;
     active = true; clearPreview(); status(""); showMode("camera");
+    $("[data-studio-visibility]").value="public";
+    $("[data-studio-publish-friends]").hidden=true;
     if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
     try { await startCamera(); }
     catch (error) { status(error.message || "Câmera indisponível. Use a galeria.", true); }
@@ -506,6 +508,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (publishing) return;
     stopMusicPreview(); stopMusicPreview = () => {};
     stopRecordingTimer(); stopCamera(); clearPreview();
+    $("[data-studio-publish-friends]").hidden=true;
     if (audioPreview) { audioPreview.pause(); audioPreview = null; }
     music = null; $("[data-studio-track-label]").textContent = "Adicionar música";
     $("[data-studio-track-hint]").textContent = "Trilha sonora";
