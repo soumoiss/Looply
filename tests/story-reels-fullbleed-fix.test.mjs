@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { containRect, STORY_CANVAS_SIZE } from "../src/story-studio.js";
+import { containRect, cameraCaptureCrop, STORY_CANVAS_SIZE } from "../src/story-studio.js";
 const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
 
 test("Stories canvas remains portrait 1080x1920", () => {
@@ -22,14 +22,15 @@ test("invalid camera dimensions fail closed", () => {
 });
 test("both front and rear camera use same cover preview with preserved facing", async () => {
   const [css, source] = await Promise.all([read("assets/css/pages/story-reels-viewport-fix.css"),read("src/story-studio.js")]);
-  assert.match(css,/\.studio-stage\[data-mode="camera"\] \.studio-camera\s*\{/);
-  assert.match(css,/object-fit:contain !important/);
+  assert.match(css,/\.studio-camera-framing \.studio-camera\s*\{/);
+  assert.match(css,/object-fit:cover!important/);
   assert.match(source,/settings\.facing === "user" \? "scaleX\(-1\) "/);
   assert.match(source,/\[data-studio-flip\]/);
 });
 test("camera capture no longer duplicates a blurred background into the encoded photo or video", async () => {
   const source=await read("src/story-studio.js");
-  assert.match(source,/const frame = containRect\(sourceW, sourceH, canvas\.width, canvas\.height\)/);
+  assert.match(source,/const crop=cameraCaptureCrop\(sourceW,sourceH,canvas\.width,canvas\.height/);
+  assert.equal(cameraCaptureCrop(1080,1080,1080,1920).width,607.5);
   const cameraSegment = source.slice(source.indexOf("const drawLiveFrame ="),source.indexOf("const stopCamera ="));
   assert.doesNotMatch(cameraSegment,/ctx\.filter = "blur\(28px\)/);
   assert.match(source,/backdropVideo\.srcObject = null/);
@@ -38,7 +39,7 @@ test("camera capture no longer duplicates a blurred background into the encoded 
 test("preview removes fallback blur and contains the complete camera frame", async () => {
   const css=await read("assets/css/pages/story-reels-viewport-fix.css");
   assert.match(css,/\.studio-camera-backdrop\s*\{\s*display:none !important/);
-  assert.match(css,/\.studio-lens\s*\{[\s\S]*?object-fit:contain !important/);
+  assert.match(css,/\.studio-camera-framing \.studio-lens\s*\{[\s\S]*?object-fit:cover!important/);
 });
 test("Reels only expose like, comments, external share and chat, no save button", async () => {
   const js=await read("src/home-hybrid-reels.js");
