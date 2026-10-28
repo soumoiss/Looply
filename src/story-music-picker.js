@@ -1,4 +1,4 @@
-import { PROVIDER_NAMES, officialSongPreview, searchStorySongs } from "./story-music-catalog.js?v=story-music-unified-20261028";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 
@@ -8,6 +8,7 @@ import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 export function storyMusicCanPublish(track) {
   return track?.kind==="file" ||
     (track?.kind==="catalog" && track.provider==="audius" && Boolean(track.id)) ||
+    (track?.kind==="catalog" && Boolean(officialStorySongEmbed(track))) ||
     track?.kind==="openverse";
 }
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false,
@@ -28,7 +29,8 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const fileInput=body.querySelector("[data-studio-audio-file]");
   let items=[],seq=0,timer=null,controller=null,importController=null,importBusy=false;
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
-  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
+  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius" &&
+    !officialStorySongEmbed(track);
   const addText=(parent,tag,value,className)=>{
     const el=document.createElement(tag);el.textContent=String(value??"");
     if(className)el.className=className;
@@ -71,6 +73,8 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     if(!storyMusicCanPublish(track)){found.textContent="Este resultado não possui áudio utilizável.";return;}
     stopPreview();
     onSelect(track);
+    if(track.kind==="catalog" && track.provider!=="audius")
+      onStatus?.("O Story incluirá o player oficial: quem assistir poderá tocar para ouvir.",false);
   };
   const makeAudio=src=>{
     const el=document.createElement("audio");audio=el;
@@ -108,7 +112,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     }
     const actions=addText(player,"div","","studio-music-preview-actions");
     if(storyMusicCanPublish(track)){
-      const choose=addText(actions,"button","Selecionar para o Story","studio-catalog-select");
+      const choose=addText(actions,"button",officialStorySongEmbed(track)?"Usar player no Story":"Selecionar para o Story","studio-catalog-select");
       choose.type="button";choose.onclick=()=>void chooseForStory(track);
     }else{
       const reason=addText(actions,"span","Prévia apenas · sem áudio para publicação","studio-music-preview-limited");
@@ -146,7 +150,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       listen.type="button";listen.setAttribute("aria-label","Ouvir prévia de "+track.title);
       listen.onclick=()=>preview(track);
       if(storyMusicCanPublish(track)){
-        const choose=addText(buttons,"button","Selecionar","studio-catalog-select");
+        const choose=addText(buttons,"button",officialStorySongEmbed(track)?"Usar player":"Selecionar","studio-catalog-select");
         choose.type="button";choose.setAttribute("aria-label","Selecionar "+track.title);
         choose.onclick=()=>void chooseForStory(track);
       }else{
