@@ -355,7 +355,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       const privateIcon = x.isPrivate ? '<span class="gallery-private-indicator" title="Na sua pasta privada" aria-label="Na sua pasta privada">' + icon("lock") + '</span>' : "";
       const exclusiveIcon = x.visibility === "exclusive" ? '<span class="gallery-private-indicator" title="Mídia exclusiva" aria-label="Mídia exclusiva">' + icon("shield") + '</span>' : "";
       const pinnedIcon = x.isPinned ? '<span class="gallery-private-indicator gallery-pinned-indicator" title="Fixada pela administração" aria-label="Fixada pela administração">' + icon("starFilled") + '</span>' : "";
-      return '<article class="gallery-card' + (x.isPinned ? ' is-pinned' : '') + '" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + pinnedIcon + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) + inlineCommentsMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" class="gallery-comment-button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + (x.hasComments ? '<span class="gallery-comment-dot" aria-label="Há comentários" title="Há comentários"></span>' : '') + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-pin="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPinned ? "Desafixar mídia" : "Fixar mídia") + '">' + icon("starFilled") + '</button><button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
+      return '<article class="gallery-card' + (x.isPinned ? ' is-pinned' : '') + '" data-card="' + esc(mediaKey(x)) + '"><button type="button" class="gallery-media" data-open-media="' + esc(mediaKey(x)) + '" aria-label="Abrir mídia publicada ' + esc(dateLabel(x.date)) + '">' + cardMedia(x) + pinnedIcon + privateIcon + exclusiveIcon + '</button><div class="gallery-card-body"><div class="gallery-meta">' + esc(dateLabel(x.date)) + '</div>' + (view === "list" ? descriptionMarkup(x) + inlineCommentsMarkup(x) : '') + '<div class="gallery-card-actions"><button type="button" data-like="' + esc(mediaKey(x)) + '" aria-label="' + (x.likedByMe ? "Remover curtida" : "Curtir mídia") + '" aria-pressed="' + String(Boolean(x.likedByMe)) + '">' + icon(x.likedByMe ? "starFilled" : "star") + '<span>' + String(x.likeCount || 0) + '</span></button><button type="button" class="gallery-comment-button" data-comments="' + esc(mediaKey(x)) + '" aria-label="Abrir comentários">' + icon("comment") + (x.hasComments ? '<span class="gallery-comment-dot" aria-label="Há comentários" title="Há comentários"></span>' : '') + '</button><button type="button" data-toggle-private="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPrivate ? "Remover da pasta privada" : "Mover para a pasta privada") + '">' + icon("lock") + '</button>' + (activeAlbumId ? '<button type="button" data-album-remove="' + esc(mediaKey(x)) + '" aria-label="Remover do álbum">' + icon("minus") + '</button>' : (albums.length ? '<button type="button" data-album-add="' + esc(mediaKey(x)) + '" aria-label="Adicionar ao álbum">' + icon("plus") + '</button>' : '')) + (isAdmin ? '<button type="button" data-admin-pin="' + esc(mediaKey(x)) + '" aria-label="' + (x.isPinned ? "Desafixar mídia" : "Fixar mídia") + '">' + icon("starFilled") + '</button>' : '') + (isAdmin || (x.source==="community" && x.owner_id===user.id) ? '<button type="button" data-admin-delete="' + esc(mediaKey(x)) + '" aria-label="Excluir mídia">' + icon("trash") + '</button>' : '') + '</div></div></article>';
     }).join("") : '<div class="gallery-empty">' + (main === "privadas" ? "Sua pasta privada ainda não tem mídias." : "Nenhuma mídia encontrada. Ajuste os filtros ou adicione uma lembrança.") + '</div>';
     observePreviewSlots();
     if (view === "list") void loadInlineComments(list);
@@ -745,16 +745,41 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   };
   const removeFile = index => { const transfer = new DataTransfer(); Array.from($("[data-files]").files).forEach((f,i)=>{if(i!==index)transfer.items.add(f)}); $("[data-files]").files=transfer.files; renderPreview(); };
   const deleteMedia = async key => {
-    if (!isAdmin) { say("Somente a administração pode excluir mídias."); return; }
-    const x = getItem(key); if (!x) return;
+    const x = getItem(key);
+    if (!x || deletingMedia.has(key)) return;
+    const authorized = isAdmin || (x.source === "community" && x.owner_id === user.id);
+    if (!authorized) { say("Você só pode excluir suas próprias mídias.", $("[data-media-action-status]")); return; }
     if (!window.confirm("Excluir permanentemente esta mídia? Esta ação não pode ser desfeita.")) return;
+    deletingMedia.add(key);
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
-    const { error: storageError } = await client.storage.from(bucket).remove([x.storage_path]);
-    if (storageError) { say("Não foi possível remover o arquivo do armazenamento. Verifique sua conexão e o acesso de ADM.", $("[data-media-action-status]")); return; }
-    const table = x.source === "archive" ? "archive_media" : "community_gallery_media";
-    const { data: deleted, error } = await client.from(table).delete().eq("id",x.id).select("id");
-    if (error || !deleted?.some(row=>row.id===x.id)) { say("O arquivo foi removido, mas o banco não confirmou a exclusão. Atualize e tente novamente.", $("[data-media-action-status]")); return; }
-    items = items.filter(y=>mediaKey(y)!==key); privateKeys.delete(key); draw(); closeViewer(); say("Mídia excluída.");
+    let fileDeleted = false;
+    try {
+      const { error: storageError } = await client.storage.from(bucket).remove([x.storage_path]);
+      if (storageError) throw storageError;
+      fileDeleted = true;
+      // Transactional Neon RPC removes the media row and its polymorphic album,
+      // descriptions, mentions, pin, and private-folder links in one operation.
+      const { data: deleted, error } = await client.rpc("v8_delete_gallery_media", {
+        p_source:x.source, p_media_id:x.id
+      });
+      if (error || deleted !== true) throw error || Error("O Neon não confirmou a exclusão.");
+      const table = x.source === "archive" ? "archive_media" : "community_gallery_media";
+      const { data: check, error: checkError } = await client.from(table).select("id").eq("id",x.id).maybeSingle();
+      if (checkError || check) throw checkError || Error("A exclusão não foi confirmada na releitura.");
+      items = items.filter(y => mediaKey(y) !== key);
+      privateKeys.delete(key);
+      inlineComments.delete(key);
+      albumItemKeys.forEach(keys => keys.delete(key));
+      if (commentKey === key) { ++commentRequest; commentKey = null; $("[data-comments-modal]").hidden = true; }
+      if (activeKey === key) closeViewer();
+      draw();
+      say("Mídia excluída do armazenamento e do Neon.");
+    } catch(error) {
+      console.error("Gallery media delete failed", error);
+      say(fileDeleted
+        ? "O arquivo foi removido, mas a exclusão no banco não foi confirmada. Tente novamente ou solicite reconciliação administrativa."
+        : "Não foi possível excluir o arquivo. A mídia permanece registrada.", $("[data-media-action-status]"));
+    } finally { deletingMedia.delete(key); }
   };
 
   $("[data-open-upload]").addEventListener("click",()=>{ $("[data-upload-modal]").hidden=false; syncUserLists(); });
