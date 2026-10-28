@@ -27,7 +27,8 @@ test("ADM write actions stay direct except permanent letter deletions, which req
   const safeAdmin = admin
     .replace('if (!window.confirm("Excluir esta carta permanentemente? Esta ação não pode ser desfeita.")) return;', "")
     .replace('if (!window.confirm("Excluir permanentemente esta carta importada e seu conteúdo protegido? Esta ação não pode ser desfeita.")) return;', "");
-  assert.doesNotMatch(safeAdmin + gallery, /prompt\(|confirm\(/);
+  assert.doesNotMatch(safeAdmin + gallery.replace('if (!window.confirm("Excluir permanentemente esta mídia? Esta ação não pode ser desfeita.")) return;', ""), /prompt\(|confirm\(/);
+  assert.match(gallery, /window\.confirm\("Excluir permanentemente esta mídia/);
   assert.match(admin, /if \(!window\.confirm\("Excluir esta carta permanentemente\?/);
   assert.match(admin, /if \(!window\.confirm\("Excluir permanentemente esta carta importada/);
   assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
@@ -41,5 +42,5 @@ test("story and gallery media-only forms remain optional for text", async () => 
   assert.doesNotMatch(studio, /name="body"[^>]*required/);
   assert.match(studio, /sourceKind === "none"/);
   assert.match(studio, /if \(sourceKind === "text"\)/);
-  assert.match(gallery, /Descrição \S*<textarea name="description" maxlength="10000" placeholder="Adicione uma descrição \(opcional\)"/);
+  assert.match(gallery, /Descrição \S*<textarea name="description" maxlength="1000" placeholder="Adicione um texto, até 1.000 caracteres"/);
 });
