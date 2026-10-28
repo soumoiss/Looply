@@ -2,6 +2,7 @@ import { mountAppPage } from "../../src/page-runtime.js?v=letters-rebuild-202610
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=card-read-state-fallback-20261026";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 import { signProfileAvatars } from "../../src/profiles.js";
+import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const day = (value) => value && !Number.isNaN(new Date(value).valueOf()) ? new Date(value).toLocaleDateString("pt-BR") : "Sem data";
@@ -15,13 +16,13 @@ const asError = (error) => typeof error?.message === "string" ? error.message : 
 function visual() {
   return '<section class="cartas-page">' +
     '<div class="cartas-hero"><span>CARTAS</span><h1>Minha coleção</h1></div>' +
-    '<section class="cartas-action" aria-label="Escrever carta"><div class="action-header"><div><span>CARTAS</span><h2>✎ Escrever carta</h2></div><button id="btnEscrever" class="fab" type="button" aria-label="Escrever nova carta">+</button></div><p>Envie mensagens e memórias para pessoas do Looply.</p></section>' +
+    '<section class="cartas-action" aria-label="Escrever carta"><div class="action-header"><div><span>CARTAS</span><h2>✎ Escrever carta</h2></div><button id="btnEscrever" class="fab" type="button" aria-label="Escrever nova carta">+</button></div></section>' +
     '<section class="filtros" aria-label="Filtros"><div class="row date-buttons"><button type="button" id="filtrarData">Filtrar por data</button><button type="button" id="limparData">Limpar data</button></div><label class="date-input-label" id="dataWrap" hidden>Selecionar dia<input type="date" id="dataCartas" /></label><div class="row types"><button type="button" class="filter-btn active" data-filter="recebidas" aria-pressed="true">Cartas recebidas</button><button type="button" class="filter-btn" data-filter="enviadas" aria-pressed="false">Cartas enviadas</button><button type="button" class="filter-btn" data-filter="originais" aria-pressed="false">Cartas originais</button></div></section>' +
     '<section class="colecao-container" aria-label="Coleção de cartas"><div class="colecao-header"><div><span>COLEÇÃO</span><h2 id="colecaoTitulo">Minhas Cartas</h2></div><small id="colecaoCount">Carregando...</small></div><div class="progress-badge"><span id="lidasCount">Carregando leituras...</span></div><div class="subfiltros"><button type="button" data-sub="todas" class="sub active" aria-pressed="true">Todas</button><button type="button" data-sub="semdata" class="sub" aria-pressed="false">Sem data</button></div><p id="cartasStatus" role="status" aria-live="polite"></p><div id="cartasList" class="cartas-list" aria-live="polite"></div></section>' +
     '<section class="cartas-admin" id="cartasAdmin" hidden><div class="admin-title"><span>ADMINISTRAÇÃO</span><h2>Gerenciar cartas de usuários</h2></div><label>Consultar coleção de <select id="adminUserFilter"></select></label><div id="adminCartasCount" role="status"></div></section></section>' +
     '<dialog class="modal-carta" id="modalEscrever" aria-labelledby="modalEscreverTitle"><div class="modal-header"><button type="button" id="fecharModal" aria-label="Fechar editor">✕</button><strong id="modalEscreverTitle">Escrever carta</strong><button type="submit" form="cartaComposeForm" id="enviarCarta" class="btn-enviar">Enviar</button></div><form id="cartaComposeForm" class="modal-body"><label>Título da carta<input id="tituloCarta" name="subject" placeholder="Ex.: Estou feliz! De Moisés" maxlength="80" required /></label><div class="destinatario-picker" id="destPicker"><label>Destinatário<input type="search" id="buscarDestinatario" placeholder="Pesquisar pessoa..." autocomplete="off" /></label><div id="listaUsuarios" role="group" aria-label="Escolher destinatário"></div></div><label>Mensagem<textarea id="textoCarta" name="body" placeholder="Escreva sua carta..." maxlength="5000" required></textarea></label><div class="privada-section"><label><input type="checkbox" id="isPrivada" /> Carta privada com senha</label><div id="privadaFields" hidden><label>Senha<input id="senhaCarta" type="password" minlength="8" maxlength="256" autocomplete="new-password" /></label><label>Dica (opcional)<input id="dicaCarta" maxlength="240" placeholder="Dica para a senha" /></label></div></div><p id="enviarStatus" role="alert"></p></form></dialog>' +
-    '<dialog class="modal-carta modal-read" id="modalLeituraNova" aria-labelledby="readCartaTitulo"><div class="modal-header"><button type="button" id="fecharLeituraNova">✕</button><strong>Leitura da carta</strong><span aria-hidden="true">✉</span></div><div class="modal-body"><h2 id="readCartaTitulo"></h2><p id="readCartaAutor"></p><p id="readCartaData"></p><div id="readCartaDicas"></div><form id="desbloquearNova" hidden><label>Senha da carta<input id="senhaLeituraNova" type="password" required /></label><button class="btn-enviar" type="submit">Desbloquear</button></form><div id="readCartaTexto" class="carta-texto"></div><p id="readCartaStatus" role="status"></p></div></dialog>' +
-    '<dialog class="modal-carta" id="editorAdminCarta" aria-labelledby="adminEditTitle"><div class="modal-header"><button type="button" id="fecharAdminCarta">✕</button><strong id="adminEditTitle">Editar carta · ADM</strong><button type="submit" form="adminEditForm" class="btn-enviar">Salvar</button></div><form class="modal-body" id="adminEditForm"><label id="adminSubjectField">Título<input name="subject" maxlength="120" /></label><label>Conteúdo<textarea name="body" maxlength="5000"></textarea></label><label id="adminPrivateField"><input type="checkbox" name="is_private" /> Carta privada</label><label id="adminHintField">Dica de senha<input name="password_hint" maxlength="240" /></label><label id="adminPasswordField" hidden>Senha atual da carta protegida<input type="password" name="password" autocomplete="current-password" /></label><label id="adminNewPasswordField" hidden>Nova senha (opcional)<input type="password" name="new_password" minlength="8" /></label><p id="adminEditStatus" role="status"></p><button id="adminDeleteCarta" class="danger" type="button">Excluir carta permanentemente</button></form></dialog>' +
+    '<dialog class="modal-carta modal-read" id="modalLeituraNova" aria-labelledby="readCartaTitulo"><div class="modal-header"><button type="button" id="fecharLeituraNova">✕</button><strong>Leitura da carta</strong><span aria-hidden="true">✉</span></div><div class="modal-body"><h2 id="readCartaTitulo"></h2><p id="readCartaAutor"></p><p id="readCartaData"></p><div id="readCartaDicas"></div><form id="desbloquearNova" hidden><label>Senha da carta<input id="senhaLeituraNova" type="password" required /></label><button class="btn-enviar" type="submit">Desbloquear</button></form><div id="readCartaTexto" class="carta-texto"></div><button id="editarCartaLida" class="btn-enviar" type="button" hidden>Editar carta</button><p id="readCartaStatus" role="status"></p></div></dialog>' +
+    '<dialog class="modal-carta" id="editorAdminCarta" aria-labelledby="adminEditTitle"><div class="modal-header"><button type="button" id="fecharAdminCarta">✕</button><strong id="adminEditTitle">Editar carta</strong><button id="salvarAdminCarta" type="submit" form="adminEditForm" class="btn-enviar">Salvar</button></div><form class="modal-body" id="adminEditForm"><label id="adminSubjectField">Título<input name="subject" maxlength="120" /></label><label>Conteúdo completo<textarea name="body" rows="14" spellcheck="true"></textarea></label><label id="adminPrivateField"><input type="checkbox" name="is_private" /> Carta privada</label><label id="adminHintField">Dica de senha<input name="password_hint" maxlength="240" /></label><label id="adminPasswordField" hidden>Senha atual da carta protegida<input type="password" name="password" autocomplete="current-password" /></label><label id="adminNewPasswordField" hidden>Nova senha (opcional)<input type="password" name="new_password" minlength="8" /></label><button type="button" id="desbloquearEdicaoCarta" class="btn-enviar" hidden>Carregar texto com a senha</button><p id="adminEditStatus" role="status" aria-live="polite"></p><button id="adminDeleteCarta" class="danger" type="button">Excluir carta permanentemente</button></form></dialog>' +
     '<div id="cartasToast" role="status" aria-live="polite" class="cartas-toast" hidden></div>';
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdmin }) => {
@@ -87,7 +88,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#cartasList").innerHTML = rows.length ? rows.map((c, i) =>
       '<article class="carta-item">' +
       '<button type="button" class="carta-open" data-letter-kind="'+c.kind+'" data-letter-id="'+h(c.id)+'" aria-label="Ler '+h(c.title)+'"><span class="num">'+String(c.num || i + 1).padStart(2,"0")+'</span><span class="info"><span class="carta-kicker">CARTA '+String(c.num || i + 1).padStart(2,"0")+'</span><span class="titulo">'+h(c.title)+'</span><span class="date">'+h(day(c.date))+'</span><span class="sender">'+(c.kind === "archive" ? "Enviada por " : "")+h(c.author)+'</span></span><span class="check '+(c.read?'checked':'')+'" aria-label="'+(c.read?"Lida":"Não lida")+'">'+(c.read ? "✓" : "✉")+'</span></button>' +
-      (isAdmin ? '<button class="carta-admin-edit" type="button" data-edit-kind="'+c.kind+'" data-edit-id="'+h(c.id)+'">Editar · ADM</button>' : "") +
+      ((c.kind==="community" && (isAdmin || c.raw.sender_id===user.id)) || (isAdmin && c.kind==="archive") ? '<button class="carta-admin-edit" type="button" data-edit-kind="'+c.kind+'" data-edit-id="'+h(c.id)+'">'+(isAdmin && c.raw.sender_id!==user.id ? "Editar · ADM" : "Editar")+'</button>' : "") +
       '</article>').join("") : '<p class="cartas-empty">Nenhuma carta encontrada para os filtros selecionados.</p>';
     if (isAdmin) $("#adminCartasCount").textContent = "Cartas arquivadas: "+archives.length+" · correspondências: "+total;
   };
@@ -107,7 +108,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     }
     if (cr.status === "fulfilled") state.letters = cr.value;
     updateList();
-    if (ar.status !== "fulfilled" || cr.status !== "fulfilled") notify("Parte das cartas não pôde ser sincronizada com o Neon.", true);
+    const complete = ar.status === "fulfilled" && cr.status === "fulfilled";
+    if (!complete) notify("Parte das cartas não pôde ser sincronizada com o Neon.", true);
+    return complete;
   };
   if (isAdmin) {
     $("#cartasAdmin").hidden = false;
@@ -126,7 +129,79 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   $("#btnEscrever").addEventListener("click", () => { state.selectedRecipient = null; $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#enviarStatus").textContent=""; renderRecipients(); $("#modalEscrever").showModal(); });
   $("#fecharModal").addEventListener("click", ()=>close("modalEscrever"));
   $("#fecharLeituraNova").addEventListener("click", ()=>close("modalLeituraNova"));
-  $("#fecharAdminCarta").addEventListener("click", ()=>close("editorAdminCarta"));
+  let editLoadGeneration = 0;
+  const closeEdit = () => { ++editLoadGeneration; state.editor = null; close("editorAdminCarta"); };
+  $("#fecharAdminCarta").addEventListener("click", closeEdit);
+  $("#editorAdminCarta").addEventListener("close", () => { ++editLoadGeneration; state.editor = null; });
+  const openLetterEditor = async (kind, id, trigger) => {
+    const generation = ++editLoadGeneration;
+    if (trigger) trigger.disabled = true;
+    $("#cartasStatus").textContent = "Carregando conteúdo completo...";
+    try {
+      const full = await fetchFullLetterForEdit(client, kind, id, user.id, isAdmin);
+      if (generation !== editLoadGeneration) return false;
+      const form = $("#adminEditForm");
+      form.reset();
+      state.editor = { kind, raw: full, unlocked: !full.is_protected };
+      form.elements.subject.value = full.subject || "";
+      form.elements.body.value = full.is_protected ? "" : full.body;
+      // Originals may be longer than the 5,000-character limit of new letters.
+      if (kind === "community") form.elements.body.maxLength = COMMUNITY_LETTER_LIMIT;
+      else form.elements.body.removeAttribute("maxlength");
+      form.elements.body.disabled = Boolean(full.is_protected);
+      form.elements.is_private.checked = Boolean(full.is_private);
+      form.elements.password_hint.value = full.password_hint || "";
+      $("#adminSubjectField").hidden = kind === "archive";
+      $("#adminPrivateField").hidden = kind !== "archive";
+      $("#adminHintField").hidden = kind !== "archive";
+      const needsPassword = kind === "community" && full.is_protected;
+      $("#adminPasswordField").hidden = !needsPassword;
+      $("#adminNewPasswordField").hidden = !needsPassword;
+      $("#desbloquearEdicaoCarta").hidden = !needsPassword;
+      $("#salvarAdminCarta").disabled = Boolean(full.is_protected);
+      $("#adminDeleteCarta").hidden = !isAdmin;
+      $("#adminEditTitle").textContent = "Editar carta";
+      $("#adminEditStatus").textContent = needsPassword
+        ? "Digite a senha atual e carregue o texto antes de editar."
+        : full.is_protected ? "O texto desta carta original protegida não está disponível no banco. Nenhum conteúdo será substituído." : "";
+      $("#editorAdminCarta").showModal();
+      (needsPassword ? form.elements.password : form.elements.body).focus();
+      return true;
+    } catch (error) {
+      if (generation === editLoadGeneration) notify(asError(error), true);
+      return false;
+    } finally {
+      if (trigger) trigger.disabled = false;
+      if (generation === editLoadGeneration) $("#cartasStatus").textContent = "";
+    }
+  };
+  $("#desbloquearEdicaoCarta").addEventListener("click", async () => {
+    const edit = state.editor, form = $("#adminEditForm"), status = $("#adminEditStatus");
+    if (!edit || edit.kind !== "community" || !edit.raw.is_protected || edit.unlocked) return;
+    const generation = editLoadGeneration;
+    const button = $("#desbloquearEdicaoCarta");
+    button.disabled = true;
+    try {
+      const value = await unlockFullLetterForEdit(edit.raw, form.elements.password.value);
+      if (generation !== editLoadGeneration || state.editor !== edit) return;
+      // Disabled until decrypted: no pending request can overwrite user typing.
+      form.elements.body.value = value;
+      edit.unlocked = true;
+      form.elements.body.disabled = false;
+      $("#salvarAdminCarta").disabled = false;
+      button.hidden = true;
+      status.textContent = "";
+      form.elements.body.focus();
+    } catch (error) {
+      status.textContent = asError(error);
+    } finally { button.disabled = false; }
+  });
+  $("#editarCartaLida").addEventListener("click", async e => {
+    const letter = state.reading;
+    if (!letter || !(isAdmin || letter.sender_id === user.id)) return;
+    const opened = await openLetterEditor("community", letter.id, e.currentTarget);
+    if (opened) close("modalLeituraNova");
+  });
   $("#buscarDestinatario").addEventListener("input", e => renderRecipients(e.target.value));
   $("#listaUsuarios").addEventListener("click",e=>{ const b=e.target.closest("[data-recipient]"); if(!b)return;state.selectedRecipient=b.dataset.recipient;renderRecipients($("#buscarDestinatario").value);});
   $("#isPrivada").addEventListener("change", e=> {$("#privadaFields").hidden=!e.target.checked;$("#senhaCarta").required=e.target.checked;});
@@ -165,14 +240,10 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   $("#limparData").addEventListener("click",()=>{state.date="";$("#dataCartas").value="";$("#dataWrap").hidden=true;updateList();});
   $("#cartasList").addEventListener("click",async e=>{
     const edit=e.target.closest("[data-edit-id]");
-    if(edit&&isAdmin){const raw=edit.dataset.editKind==="archive"?state.cards.find(c=>c.id===edit.dataset.editId):state.letters.find(c=>c.id===edit.dataset.editId);
-      if(!raw)return;state.editor={kind:edit.dataset.editKind,raw};
-      const form=$("#adminEditForm");form.reset();form.elements.subject.value=raw.subject||"";form.elements.body.value=raw.is_protected?"":raw.body||"";
-      form.elements.is_private.checked=Boolean(raw.is_private);form.elements.password_hint.value=raw.password_hint||"";
-      $("#adminSubjectField").hidden=state.editor.kind==="archive";$("#adminPrivateField").hidden=state.editor.kind!=="archive";
-      $("#adminHintField").hidden=state.editor.kind!=="archive";$("#adminPasswordField").hidden=!raw.is_protected||state.editor.kind!=="community";$("#adminNewPasswordField").hidden=!raw.is_protected||state.editor.kind!=="community";
-      $("#adminEditStatus").textContent=raw.is_protected ? "Conteúdo criptografado: para alterá-lo, informe a senha atual. O ADM não pode ignorar a proteção." : "";
-      $("#editorAdminCarta").showModal();return;
+    if (edit) {
+      e.preventDefault();
+      await openLetterEditor(edit.dataset.editKind,edit.dataset.editId,edit);
+      return;
     }
     const button=e.target.closest("[data-letter-id]");if(!button)return;
     if(button.dataset.letterKind==="archive"){
@@ -183,7 +254,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       return;
     }
     const letter=state.letters.find(c=>c.id===button.dataset.letterId);if(!letter)return;
-    state.reading=letter;$("#readCartaTitulo").textContent=letter.subject;
+    state.reading=letter;$("#editarCartaLida").hidden = !(isAdmin || letter.sender_id === user.id);
+    $("#readCartaTitulo").textContent=letter.subject;
     $("#readCartaAutor").textContent="De "+fullName(letter.sender_id)+" · Para "+fullName(letter.recipient_id);
     $("#readCartaData").textContent=day(letter.created_at);
     $("#readCartaDicas").textContent=letter.is_protected ? (Array.isArray(letter.password_hints)&&letter.password_hints.length?letter.password_hints.join(" · "):letter.password_hint||"") : "";
@@ -197,30 +269,37 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     catch{$("#readCartaStatus").textContent="Senha incorreta ou conteúdo indisponível.";}
   });
   $("#adminEditForm").addEventListener("submit",async e=>{
-    e.preventDefault();if(!isAdmin||!state.editor)return;
-    const {kind,raw}=state.editor,form=e.currentTarget,save=$("#editorAdminCarta .btn-enviar");
+    e.preventDefault();
+    const editor = state.editor;
+    if (!editor || (!isAdmin && (editor.kind !== "community" || editor.raw.sender_id !== user.id))) return;
+    if (editor.raw.is_protected && !editor.unlocked) {
+      $("#adminEditStatus").textContent = "Carregue o texto completo com a senha antes de salvar.";
+      return;
+    }
+    const form=e.currentTarget, save=$("#salvarAdminCarta"), generation=editLoadGeneration;
+    if (save.disabled || form.dataset.saving === "true") return;
     save.disabled=true;
+    form.dataset.saving="true";
     try {
-      const text=form.elements.body.value.trim();
-      if(kind==="archive"){
-        const changes={is_private:form.elements.is_private.checked,password_hint:form.elements.password_hint.value.trim()||null};
-        if(!raw.is_protected){if(!text)throw Error("A carta precisa de conteúdo.");changes.body=text;}
-        const {data,error}=await client.from("archived_cards").update(changes).eq("id",raw.id).select("id");
-        if(error||!data?.length)throw error||Error("Alteração não autorizada pelo Neon.");
-      }else{
-        const subject=form.elements.subject.value.trim();if(!subject)throw Error("Informe um título.");
-        let changes={subject};
-        if(raw.is_protected){
-          const pwd=form.elements.password.value;
-          const unsealed=await openProtectedLetter(raw,pwd);
-          const resealed=await sealLetter(text||unsealed,form.elements.new_password.value||pwd,subject);
-          changes={...changes,...resealed};
-        }else{if(!text)throw Error("A carta precisa de conteúdo.");changes.body=text;}
-        const {data,error}=await client.from("community_letters").update(changes).eq("id",raw.id).select("id");
-        if(error||!data?.length)throw error||Error("Alteração não autorizada pelo Neon.");
+      const persisted = await saveFullLetterEdit(client,{
+        kind: editor.kind, letter: editor.raw, userId:user.id, isAdmin,
+        subject:form.elements.subject.value, body:form.elements.body.value,
+        password:form.elements.password.value, newPassword:form.elements.new_password.value,
+        isPrivate:form.elements.is_private.checked, passwordHint:form.elements.password_hint.value
+      });
+      if (generation !== editLoadGeneration || state.editor !== editor) return;
+      editor.raw = persisted;
+      const synced = await loadCurrent();
+      if (generation !== editLoadGeneration || state.editor !== editor) return;
+      if (!synced) {
+        $("#adminEditStatus").textContent = "Alterações gravadas, mas não foi possível atualizar a lista. O texto continua no editor.";
+        return;
       }
-      close("editorAdminCarta");await loadCurrent();notify("Carta atualizada no Neon.");
-    }catch(err){$("#adminEditStatus").textContent=asError(err);}finally{save.disabled=false;}
+      closeEdit();
+      notify("Carta atualizada e confirmada no Neon.");
+    } catch(err) {
+      if (generation===editLoadGeneration && state.editor===editor) $("#adminEditStatus").textContent=asError(err);
+    } finally { form.dataset.saving="false"; if (generation===editLoadGeneration && state.editor===editor) save.disabled=false; }
   });
   $("#adminDeleteCarta").addEventListener("click",async()=>{
     if(!isAdmin||!state.editor)return;
