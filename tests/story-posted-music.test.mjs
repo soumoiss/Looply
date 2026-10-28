@@ -38,8 +38,11 @@ test("Story player unblocks sound without auto-pausing it on same tap, and pause
  assert.match(viewer,/video\.volume = 1/);
  assert.match(viewer,/state\.ignoreTapUntil=Date\.now\(\)\+450/);
  assert.match(viewer,/if \(audio && !audio\.paused\) audio\.pause\(\)/);
- assert.match(viewer,/if \(audio && audio\.paused && !video\) void audio\.play/);
- assert.match(viewer,/data-story-sound-unlock/);
+ assert.match(viewer,/if \\(audio && audio.paused\\) void startStoryMediaPlayback\\(audio\\)/);
+ assert.doesNotMatch(viewer,/data-story-sound-unlock/);
+ assert.doesNotMatch(viewer,/data-story-official-toggle/);
+ assert.match(viewer,/startStoryMediaPlayback\\(video\\)/);
+ assert.match(viewer,/startStoryMediaPlayback\\(music\\)/);
  assert.match(viewer,/resumeStoryTimer\(\);/);
 });
 
