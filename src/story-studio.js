@@ -787,10 +787,16 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const modalClose = () => {
     stopMusicPreview(); stopMusicPreview = () => {};
     $("[data-studio-modal]").hidden = true; body.replaceChildren();
+    // The general X button must cancel an unsaved newly created text too.
+    overlayRoot.querySelectorAll('[data-studio-overlay][data-text-draft="true"]').forEach(layer=>{
+      layer.remove();
+      if(selectedLayer===layer)selectLayer(null);
+    });
     unfreezeEditorPlane();
   };
   const openLayerEditor = (el, createdNow=false) => {
     if(!el?.isConnected)return;
+    if(createdNow)el.dataset.textDraft="true";
     selectLayer(el);
     // Mobile keyboard changes the visual viewport height: freeze the actual
     // media/text content plane until edit completes, never the saved x/y.
@@ -854,6 +860,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         if(!loaded)throw Error("A fonte selecionada não terminou de carregar.");
         if(!el.isConnected)return;
         el.dataset.text=value;
+        delete el.dataset.textDraft;
         el.dataset.fontId=fontInput.value;
         el.dataset.color=colorInput.value;
         el.dataset.size=String(storyTextClampSize(sizeInput.value));
