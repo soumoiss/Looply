@@ -3,6 +3,7 @@ import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest 
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { encodeStorySong, officialStorySongEmbed } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-official-widget-20261028";
+import { isExplicitStoryPublishGesture, preventImplicitStorySubmit } from "./story-publish-intent.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
@@ -1125,7 +1126,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   };
   const explicitStoryPublication=Symbol("user-clicked-publish-story");
   const requestStoryPublish=event=>{
-    if(!event?.target)return;
+    if(!isExplicitStoryPublishGesture(event))return;
     // Only designated buttons generate this intent: never form submit,
     // picker selection, keyboard Enter or a modal closing.
     void publish(explicitStoryPublication);
@@ -1440,8 +1441,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   shutter.addEventListener("pointercancel", e => { if (hold) clearTimeout(hold); pointer = null; if (held) finishRecording(); });
   shutter.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void capturePhoto(); } });
   $("[data-studio-form]").addEventListener("submit", e => {
-    // Enter inside music search or text editor is NOT permission to publish.
-    e.preventDefault();e.stopPropagation();
+    // Pressing Enter in music search, text editor or IME is not publishing.
+    preventImplicitStorySubmit(e);
   });
   dialog.addEventListener("cancel", e => { e.preventDefault(); close(); });
   dialog.addEventListener("close", () => { active = false; stopCamera(); unfreezeEditorPlane(); revokeUrl(); });
