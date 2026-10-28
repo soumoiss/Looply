@@ -26,7 +26,13 @@ export async function prepareAvatarSource(file,{bitmapFactory=(...args)=>createI
   const mime=avatarFileType(file);
   if(!mime || !Number.isFinite(file?.size) || file.size<=0 || file.size>MAX_AVATAR_SOURCE_BYTES)
     throw Error("avatar-file-invalid");
-  const converted=mime==="image/heic"||mime==="image/heif"?await heicConverter(file):file;
+  let converted=file;
+  if(mime==="image/heic"||mime==="image/heif"){
+    // Decode with libheif when available; Safari/mobile native HEIC decoding
+    // remains a valid fallback if the converter CDN cannot be reached.
+    try{converted=await heicConverter(file);}
+    catch(error){console.warn("HEIC converter unavailable; trying native image decoder",error);}
+  }
   // ImageBitmap applies orientation metadata before returning width and height.
   let bitmap;
   try{bitmap=await bitmapFactory(converted,{imageOrientation:"from-image"});}
