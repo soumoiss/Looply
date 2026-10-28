@@ -26,7 +26,9 @@ test("upload areas retain explicit guardrails while feed and Stories use authori
   const client = await read("src/neon-production-client.js");
   assert.match(client, /storageRequest\("upload-url"/);
   assert.match(client, /fetch\(authorization\.data\.uploadUrl/);
-  assert.match(profiles, /file\.size>10\*1024\*1024/);
+  assert.match(profiles, /blob\.size>10\*1024\*1024/);
+  const avatarImage = await read("src/avatar-image-processing.js");
+  assert.match(avatarImage, /MAX_AVATAR_SOURCE_BYTES = 35 \* 1024 \* 1024/);
 });
 
 test("deployed cleanup removes expired stories and unreferenced avatar versions", async () => {
