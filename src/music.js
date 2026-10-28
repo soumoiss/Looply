@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { signProfileAvatars } from "./profiles.js";
+import { readOwnDedicationForEdit, saveOwnDedicationNote } from "./music-dedication-edit.js";
 import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -183,6 +184,7 @@ function dedicationMarkup(item, userId) {
     <h3>${escapeHtml(item.title)}</h3>
     ${item.artist ? `<p class="music-artist">${escapeHtml(item.artist)}</p>` : ""}
     ${notes}
+    ${senderIsCurrent ? `<button type="button" class="text-button music-dedication-edit-button" data-music-edit-dedication="${escapeHtml(item.id)}">Editar dedicatória</button>` : ""}
     ${musicPlayerMarkup(item)}
     <section class="music-comments" aria-label="Comentários privados da música">
       <h4>Comentários <span>${comments.length}</span></h4>
@@ -276,6 +278,15 @@ function musicContent(data, userId) {
       ${directionPanel(received, "received", "Você ainda não recebeu músicas dedicadas.")}
       ${directionPanel(sent, "sent", "Você ainda não dedicou músicas.")}
     </div>
+    <dialog class="music-dedication-edit-dialog" data-music-dedication-edit-dialog aria-labelledby="musicDedicationEditTitle">
+      <form data-music-dedication-edit-form class="music-dedication-edit-form">
+        <header><h3 id="musicDedicationEditTitle">Editar dedicatória</h3><button type="button" class="music-edit-close" data-music-dedication-edit-close aria-label="Cancelar edição">×</button></header>
+        <label for="musicEditDedicationNote">Texto da dedicatória</label>
+        <textarea id="musicEditDedicationNote" name="note" rows="9" maxlength="1000" spellcheck="true"></textarea>
+        <p class="form-status" data-music-edit-status role="status" aria-live="polite"></p>
+        <footer><button type="button" class="text-button" data-music-dedication-edit-close>Cancelar</button><button type="submit" class="primary-button compact-button">Salvar alterações</button></footer>
+      </form>
+    </dialog>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
     <div class="music-picker-backdrop music-recipient-backdrop" data-music-recipient-picker hidden>
       <section class="music-picker-dialog music-recipient-dialog" role="dialog" aria-modal="true" aria-labelledby="musicRecipientPickerTitle">
@@ -308,14 +319,19 @@ export function musicMarkup(data, userId) {
 
 async function refreshMusic(root, client, userId) {
   const area = root.querySelector("[data-music-area]");
-  if (!area) return;
+  if (!area) return false;
   area.setAttribute("aria-busy", "true");
   try {
-    area.outerHTML = musicMarkup(await loadMusicData(client, userId), userId);
+    const latest = await loadMusicData(client, userId);
+    if (latest.dedicationsError) throw latest.dedicationsError;
+    area.outerHTML = musicMarkup(latest, userId);
     bindMusicPlayers(root);
+    return true;
   } catch (error) {
     console.error("Looply music refresh failed", error);
-    area.innerHTML = `<div class="social-message social-error" role="alert">Não foi possível atualizar agora.</div>`;
+    // Keep the current list and any unsent edit text intact on a failed read.
+    area.removeAttribute("aria-busy");
+    return false;
   }
 }
 
@@ -378,6 +394,68 @@ function setStatus(form, message, kind = "success") {
 
 export function bindMusicEvents(root, client, getUserId) {
   bindMusicPlayers(root);
+  let dedicationEdit = null;
+  let dedicationEditRequest = 0;
+  const cancelDedicationEdit = () => {
+    ++dedicationEditRequest;
+    dedicationEdit = null;
+    const dialog = root.querySelector("[data-music-dedication-edit-dialog]");
+    if (dialog?.open) dialog.close();
+  };
+  root.addEventListener("click", async (event) => {
+    if (event.target.closest("[data-music-dedication-edit-close]")) {
+      cancelDedicationEdit();
+      return;
+    }
+    const button = event.target.closest("[data-music-edit-dedication]");
+    if (!button) return;
+    const id = button.dataset.musicEditDedication;
+    const request = ++dedicationEditRequest;
+    button.disabled = true;
+    try {
+      const own = await readOwnDedicationForEdit(client, id, getUserId?.());
+      if (request !== dedicationEditRequest) return;
+      const dialog = root.querySelector("[data-music-dedication-edit-dialog]");
+      const form = dialog?.querySelector("[data-music-dedication-edit-form]");
+      if (!dialog || !form) return;
+      form.reset();
+      form.elements.note.value = own.dedication_note;
+      form.querySelector("[data-music-edit-status]").textContent = "";
+      dedicationEdit = { id, userId: getUserId?.() };
+      dialog.showModal();
+      form.elements.note.focus();
+    } catch (error) {
+      const status = root.querySelector("[data-music-realtime]");
+      if (request === dedicationEditRequest && status) status.textContent = error?.message || "Não foi possível carregar o texto desta dedicatória.";
+    } finally { button.disabled = false; }
+  });
+  root.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-music-dedication-edit-form]");
+    if (!form) return;
+    event.preventDefault();
+    const edit = dedicationEdit, submit = form.querySelector('button[type="submit"]');
+    if (!edit || submit.disabled || form.dataset.saving === "true") return;
+    const note = form.elements.note.value;
+    const status = form.querySelector("[data-music-edit-status]");
+    submit.disabled = true;
+    form.dataset.saving = "true";
+    try {
+      await saveOwnDedicationNote(client, edit.id, edit.userId, note);
+      if (dedicationEdit !== edit) return;
+      if (!await refreshMusic(root, client, edit.userId)) {
+        status.textContent = "Texto gravado no Neon, mas a lista não pôde ser atualizada. Seu texto continua aqui.";
+        return;
+      }
+      dedicationEdit = null;
+      const realtime = root.querySelector("[data-music-realtime]");
+      if (realtime) realtime.textContent = "Dedicatória atualizada.";
+    } catch (error) {
+      if (dedicationEdit === edit) status.textContent = error?.message || "Não foi possível salvar. Seu texto foi preservado.";
+    } finally {
+      form.dataset.saving = "false";
+      submit.disabled = false;
+    }
+  });
   let selectedDedicationSong = null;
   let catalogSongs = [];
   let selectedCatalogIndex = -1;
