@@ -22,11 +22,11 @@ const descriptionMarkup = x => {
 
 const galleryMarkup = () => [
 '<section class="gallery-shell">',
-  '<div class="gallery-hero"><h1 class="gallery-title">Galeria</h1></div>',
+  '<div class="gallery-hero"><div><span class="gallery-eyebrow">GALERIA</span><h1 class="gallery-title">Sua Galeria de Mídias</h1></div></div>',
   '<div class="gallery-main-controls" aria-label="Navegação e filtros da galeria">',
     '<div class="gallery-primary-tabs">',
       '<div class="gallery-action-row">',
-        '<button class="gallery-primary gallery-add-action" type="button" data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia">', icon("plus"), '<span>Adicionar</span></button>',
+        '<button class="gallery-primary gallery-add-action" type="button" data-open-upload aria-label="Adicionar mídia" title="Adicionar mídia">', icon("plus"), '<span>Adicionar mídia</span></button>',
         '<button class="gallery-tab gallery-filter-toggle" type="button" data-toggle-filters aria-expanded="false" aria-controls="galleryFilterPanel">', icon("filter"), '<span>Filtros</span></button>',
         '<div class="gallery-page-more-wrap"><button class="gallery-tab gallery-page-more-toggle" type="button" data-toggle-page-menu aria-expanded="false" aria-label="Mais ações da galeria" title="Mais ações">', icon("more"), '</button><div class="gallery-page-more-menu" data-page-menu hidden><button type="button" data-main="favoritos" aria-label="Favoritos">', icon("star"), '<span>Favoritos</span></button><button type="button" data-open-people-filter>', icon("users"), '<span>Filtrar por pessoas</span></button><button type="button" data-shuffle>', icon("sync"), '<span>Embaralhar mídias</span></button><button type="button" data-create-album>', icon("plus"), '<span>Criar álbum</span></button></div></div>',
       '</div>',
@@ -34,6 +34,7 @@ const galleryMarkup = () => [
         '<button class="gallery-tab active" type="button" data-main="recentes" aria-label="Recentes" title="Recentes">', icon("refresh"), '<span>Recentes</span></button>',
         '<button class="gallery-tab" type="button" data-main="privadas" aria-label="Privadas" title="Privadas">', icon("lock"), '<span>Privadas</span></button>',
         '<button class="gallery-tab" type="button" data-main="exclusivos" aria-label="Exclusivos" title="Exclusivos">', icon("shield"), '<span>Exclusivos</span></button>',
+        '<button class="gallery-tab" type="button" data-main="favoritos">', icon("star"), '<span>Favoritos</span></button>',
       '</div>',
     '</div>',
     '<div class="gallery-filter-panel gallery-filter-sheet" id="galleryFilterPanel" data-filter-panel data-filter-sheet role="dialog" aria-modal="true" aria-labelledby="galleryFilterTitle" hidden>',
@@ -55,10 +56,11 @@ const galleryMarkup = () => [
     '<div class="gallery-capture-actions"><button class="gallery-tool" type="button" data-camera-photo>', icon("camera"), ' Tirar foto</button><button class="gallery-tool" type="button" data-camera-video>', icon("video"), ' Gravar vídeo</button></div>',
     '<input class="gallery-file-input" type="file" name="files" accept="image/*,video/*,audio/*" multiple data-files>',
     '<div class="gallery-file-preview" data-file-preview><p>Selecione um ou vários arquivos. Fotos, vídeos e áudios compatíveis são aceitos.</p></div>',
-    '<label>Descrição <textarea name="description" maxlength="10000" placeholder="Adicione uma descrição (opcional)"></textarea></label>',
+    '<label>Descrição <textarea name="description" maxlength="1000" placeholder="Adicione um texto, até 1.000 caracteres"></textarea></label>',
     '<label class="gallery-check-row"><input type="checkbox" name="mention_all" data-mention-all> Mencionar todos os usuários disponíveis</label>',
     '<label>Pesquisar pessoas para mencionar <input type="search" data-user-search placeholder="Buscar pelo nome"></label><div class="gallery-user-list" data-mention-users aria-label="Pessoas mencionadas"></div>',
-    '<label class="gallery-check-row"><input type="checkbox" name="exclusive" data-exclusive> Mídia exclusiva — somente pessoas selecionadas poderão ver</label>',
+    '<label>Quem pode ver?<select name="privacy" data-upload-privacy><option value="members">Todos os membros</option><option value="exclusive">Pessoas selecionadas</option><option value="self">Apenas eu</option></select></label>',
+    '<label class="gallery-check-row" hidden><input type="checkbox" name="exclusive" data-exclusive> Mídia exclusiva — somente pessoas selecionadas poderão ver</label>',
     '<div class="gallery-exclusive-panel" data-exclusive-panel hidden><label>Pesquisar destinatários <input type="search" data-recipient-search placeholder="Buscar pessoas autorizadas"></label><div class="gallery-user-list" data-recipient-users aria-label="Destinatários exclusivos"></div><p class="gallery-help">Escolha pelo menos uma pessoa. O acesso é validado pelo Neon, não apenas pela interface.</p></div>',
     '<div class="gallery-upload-progress" data-upload-progress hidden><progress max="100" value="0" data-progress></progress><span data-progress-label>0%</span></div>',
     '<p class="gallery-status" data-upload-status role="status"></p>',
@@ -72,7 +74,7 @@ const galleryMarkup = () => [
   '<div class="gallery-modal" data-comments-modal hidden><section class="gallery-dialog gallery-comments-dialog" role="dialog" aria-modal="true" aria-labelledby="comments-title"><div class="gallery-dialog-heading"><h2 id="comments-title">Comentários</h2><button type="button" class="gallery-icon-button" data-close-comments aria-label="Fechar comentários">', icon("close"), '</button></div><div class="gallery-comments-list" data-comments-list></div><form class="gallery-form" data-comment-form><label>Comentário<textarea name="body" maxlength="5000" required placeholder="Escreva um comentário"></textarea></label><label>Visibilidade<select name="audience"><option value="media_viewers">Pessoas com acesso à mídia</option><option value="selected">Somente pessoas selecionadas</option><option value="author_only">Somente o autor da mídia</option></select></label><div class="gallery-user-list" data-comment-recipients hidden aria-label="Destinatários do comentário"></div><label>Marcar alguém <input type="search" data-comment-mention-search placeholder="Buscar usuário"></label><div class="gallery-user-list" data-comment-mention-users aria-label="Usuários para mencionar"></div><p class="gallery-status" data-comment-status role="status"></p><div class="gallery-dialog-actions"><button type="submit" class="gallery-primary">Enviar comentário</button></div></form></section></div>',
   '<div class="gallery-viewer" data-viewer hidden role="dialog" aria-modal="true" aria-label="Visualização de mídia">',
   '<div class="gallery-viewer-top"><button type="button" data-close-viewer aria-label="Voltar à galeria">', icon("back"), '</button><div class="gallery-viewer-top-title" data-viewer-top-title>Visualizar mídia</div></div>',
-  '<div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media><span class="gallery-skeleton" aria-hidden="true"></span></div><section class="gallery-photo-adjust" data-photo-adjust-panel hidden aria-label="Editar enquadramento da foto"><div class="gallery-photo-adjust-heading"><strong>Editar foto</strong><button type="button" class="gallery-icon-button" data-cancel-photo-adjust aria-label="Fechar edição">', icon("close"), '</button></div><div class="gallery-photo-adjust-actions"><button type="button" class="gallery-tool" data-rotate-left aria-label="Girar 90 graus para a esquerda">', icon("rotateLeft"), ' Girar à esquerda</button><button type="button" class="gallery-tool" data-rotate-right aria-label="Girar 90 graus para a direita">', icon("rotateRight"), ' Girar à direita</button><button type="button" class="gallery-tool" data-reset-photo-adjust>Restaurar</button></div><label>Posição horizontal <input type="range" min="-20" max="20" step="1" value="0" data-position-x></label><label>Posição vertical <input type="range" min="-20" max="20" step="1" value="0" data-position-y></label><div class="gallery-photo-adjust-footer"><button type="button" class="gallery-tool" data-cancel-photo-adjust>Cancelar</button><button type="button" class="gallery-primary" data-save-photo-adjust>Salvar edição</button></div><p class="gallery-status" data-photo-adjust-status role="status"></p></section></div>',
+  '<div class="gallery-viewer-content"><div class="gallery-viewer-media" data-viewer-media><span class="gallery-skeleton" aria-hidden="true"></span></div><section class="gallery-photo-adjust" data-photo-adjust-panel hidden aria-label="Editar enquadramento da foto"><div class="gallery-photo-adjust-heading"><strong>Editar foto</strong><button type="button" class="gallery-icon-button" data-cancel-photo-adjust aria-label="Fechar edição">', icon("close"), '</button></div><div class="gallery-photo-adjust-actions"><button type="button" class="gallery-tool" data-rotate-left aria-label="Girar 90 graus para a esquerda">', icon("rotateLeft"), ' Girar à esquerda</button><button type="button" class="gallery-tool" data-rotate-right aria-label="Girar 90 graus para a direita">', icon("rotateRight"), ' Girar à direita</button><button type="button" class="gallery-tool" data-reset-photo-adjust>Restaurar</button></div><label>Recortar / ampliar<input type="range" min="1" max="3" step="0.05" value="1" data-edit-zoom></label><label>Filtro<select data-edit-filter><option value="none">Original</option><option value="grayscale(1)">Preto e branco</option><option value="sepia(1)">Sépia</option><option value="contrast(1.2) saturate(1.3)">Vivo</option></select></label><label>Posição horizontal <input type="range" min="-20" max="20" step="1" value="0" data-position-x></label><label>Posição vertical <input type="range" min="-20" max="20" step="1" value="0" data-position-y></label><div class="gallery-photo-adjust-footer"><button type="button" class="gallery-tool" data-cancel-photo-adjust>Cancelar</button><button type="button" class="gallery-primary" data-save-photo-adjust>Salvar edição</button></div><p class="gallery-status" data-photo-adjust-status role="status"></p></section></div>',
   '<div class="gallery-viewer-bottom" aria-label="Ações da mídia"><button type="button" class="gallery-viewer-action" data-viewer-like aria-label="Curtir foto" title="Curtir" aria-pressed="false">', icon("heart"), '<span>Curtir</span></button><button type="button" class="gallery-viewer-action" data-open-photo-adjust aria-label="Editar foto" title="Editar foto" hidden>', icon("pencil"), '<span>Editar</span></button><button type="button" class="gallery-viewer-action" data-toggle-menu aria-label="Mais opções" title="Mais opções" aria-expanded="false" aria-controls="galleryActionSheet">', icon("more"), '<span>Mais</span></button></div>',
   '<button type="button" data-previous hidden aria-hidden="true" tabindex="-1"></button><button type="button" data-next hidden aria-hidden="true" tabindex="-1"></button>',
   '</div>',
@@ -133,6 +135,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   };
   const safeQuery = async query => { try { return await query; } catch (error) { return { data: null, error }; } };
   const signedUrl = async (x, thumbnail = false) => {
+    if (!window.confirm("Excluir permanentemente esta mídia? Esta ação não pode ser desfeita.")) return;
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
     // Neon Storage issues signed URLs to originals. A 256-KiB thumbnail guard
     // previously caused almost every actual gallery photo to render as unavailable.
@@ -204,9 +207,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
         if (!avatarResult.error) uploaderProfiles.forEach((profile, index) => { profile.avatarUrl = avatarResult.data?.[index]?.signedUrl || ""; });
       }
       const adjustmentIds = fresh.map(x => x.id);
-      const adjustmentsResult = adjustmentIds.length ? await safeQuery(client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y").in("media_id", adjustmentIds)) : {data:[],error:null};
+      const adjustmentsResult = adjustmentIds.length ? await safeQuery(client.from("gallery_media_adjustments").select("source,media_id,rotation,position_x,position_y,zoom,filter").in("media_id", adjustmentIds)) : {data:[],error:null};
       const adjustmentMap = new Map((adjustmentsResult.data || []).map(row => [row.source + ":" + row.media_id, row]));
-      fresh.forEach(x => { const row = adjustmentMap.get(mediaKey(x)); x.adjustment = { rotation:Number(row?.rotation || 0), positionX:Number(row?.position_x || 0), positionY:Number(row?.position_y || 0) }; x.savedAdjustment = {...x.adjustment}; });
+      fresh.forEach(x => { const row = adjustmentMap.get(mediaKey(x)); x.adjustment = { rotation:Number(row?.rotation || 0), positionX:Number(row?.position_x || 0), positionY:Number(row?.position_y || 0), zoom:Number(row?.zoom || 1), filter:row?.filter || "none" }; x.savedAdjustment = {...x.adjustment}; });
       if (adjustmentsResult.error) console.warn("Ajustes de foto compartilhados indisponíveis", adjustmentsResult.error);
       const descArchiveIds = fresh.filter(x=>x.source==="archive").map(x=>x.id);
       const descCommunityIds = fresh.filter(x=>x.source==="community").map(x=>x.id);
@@ -412,7 +415,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     const mediaHost = $("[data-viewer-media]");
     mediaHost.innerHTML = '<span class="gallery-skeleton gallery-viewer-skeleton" aria-hidden="true"></span>';
     $("[data-photo-adjust-panel]").hidden = true;
-    $("[data-open-photo-adjust]").hidden = !(isAdmin && type === "image");
+    $("[data-open-photo-adjust]").hidden = !(type === "image");
     $("[data-viewer-details]").hidden = true;
     $("[data-action-details]").setAttribute("aria-expanded", "false");
     $("[data-viewer-like]").innerHTML = icon(x.likedByMe ? "heartFilled" : "heart") + "<span>" + (x.likedByMe ? "Curtido" : "Curtir") + "</span>";
@@ -422,7 +425,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     $("[data-position-x]").value = String(x.adjustment?.positionX || 0);
     $("[data-position-y]").value = String(x.adjustment?.positionY || 0);
     $("[data-photo-adjust-status]").textContent = "";
-    $("[data-viewer-date]").textContent = dateLabel(x.date);
+    $("[data-viewer-date]").textContent = [dateLabel(x.date), x.file_name, x.byte_size ? formatBytes(x.byte_size) : "", x.mime_type].filter(Boolean).join(" · ");
     const uploader = x.owner;
     const uploaderName = uploader?.display_name || (uploader?.username ? "@" + uploader.username : "Responsável não registrado");
     $("[data-viewer-uploader]").innerHTML = x.source === "community"
@@ -435,10 +438,10 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     $("[data-action-sheet]").hidden = true;
     $("[data-action-sheet]").classList.remove("is-open");
     $("[data-viewer-admin-delete]").hidden = !isAdmin;
-    $("[data-viewer-admin-pin]").hidden = !isAdmin;
+    $("[data-viewer-admin-pin]").hidden = false;
     $("[data-viewer-admin-pin]").innerHTML = icon("starFilled") + '<span>' + (x.isPinned ? "Desafixar mídia" : "Fixar mídia") + '</span>';
     $("[data-edit-mentions]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
-    $("[data-manage-access]").hidden = !(isAdmin || (x.source === "community" && x.owner_id === user.id));
+    $("[data-manage-access]").hidden = false;
     $("[data-viewer-toggle-private]").innerHTML = icon("lock") + '<span>' + (x.isPrivate ? "Remover da pasta privada" : "Mover para pasta privada") + '</span>';
     viewer.hidden = false;
     document.body.classList.add("gallery-viewer-open");
@@ -458,19 +461,20 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     const image = $("[data-viewer-media] img");
     if (!image) return;
     const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
-    image.style.transform = "translate3d(" + (viewerPanX + Number(adjustment.positionX || 0) * 2) + "px," + (viewerPanY + Number(adjustment.positionY || 0) * 2) + "px,0) scale(" + Number(viewerZoom || 1) + ") rotate(" + Number(adjustment.rotation || 0) + "deg)";
+    image.style.transform = "translate3d(" + (viewerPanX + Number(adjustment.positionX || 0) * 2) + "px," + (viewerPanY + Number(adjustment.positionY || 0) * 2) + "px,0) scale(" + Number((viewerZoom || 1) * (adjustment.zoom || 1)) + ") rotate(" + Number(adjustment.rotation || 0) + "deg)";
     image.style.transformOrigin = "center center";
+    image.style.filter = adjustment.filter || "none";
     image.dataset.zoom = String(viewerZoom || 1);
   };
   const draftPhotoAdjustment = patch => {
     const x = getItem(activeKey);
-    if (!x || !isAdmin || mediaType(x) !== "image") return;
+    if (!x || mediaType(x) !== "image") return;
     x.adjustment = {...(x.adjustment || {rotation:0,positionX:0,positionY:0}), ...patch};
     applyPhotoAdjustment(x);
   };
   const savePhotoAdjustment = async () => {
     const x = getItem(activeKey);
-    if (!x || !isAdmin || mediaType(x) !== "image") return;
+    if (!x || mediaType(x) !== "image") return;
     const adjustment = x.adjustment || {rotation:0,positionX:0,positionY:0};
     const button = $("[data-save-photo-adjust]");
     button.disabled = true;
@@ -478,7 +482,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     try {
       const {error} = await client.rpc("set_gallery_media_adjustment", {
         p_source:x.source, p_media_id:x.id, p_rotation:adjustment.rotation,
-        p_position_x:adjustment.positionX, p_position_y:adjustment.positionY
+        p_position_x:adjustment.positionX, p_position_y:adjustment.positionY, p_zoom:adjustment.zoom || 1, p_filter:adjustment.filter || "none"
       });
       if (error) throw error;
       x.savedAdjustment = {...adjustment};
@@ -487,7 +491,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       draw();
     } catch (error) {
       console.error("Gallery photo adjustment failed", error);
-      say("Não foi possível publicar. Confirme a conexão e a permissão administrativa.", $("[data-photo-adjust-status]"));
+      say("Não foi possível publicar. Confirme sua conexão e o acesso à mídia.", $("[data-photo-adjust-status]"));
     } finally { button.disabled = false; }
   };
   const closeViewer = () => {
@@ -581,13 +585,14 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       if (file.size <= 0) { say("O arquivo " + file.name + " está vazio ou inválido.", $("[data-upload-status]")); return; }
       if (file.size > maxBytes) { say("O arquivo " + file.name + " excede o limite de 25 MB por mídia.", $("[data-upload-status]")); return; }
     }
-    const exclusive = Boolean(fd.get("exclusive"));
-    const viewerIds = [...selectedRecipients];
+    const exclusive = fd.get("privacy") !== "members";
+    const viewerIds = fd.get("privacy") === "self" ? [user.id] : [...selectedRecipients];
     if (exclusive && !viewerIds.length) { say("Selecione ao menos uma pessoa para a mídia exclusiva.", $("[data-upload-status]")); return; }
     if (exclusive && new Set([...viewerIds,user.id]).size > 100) { say("Selecione no máximo 99 destinatários exclusivos, além de você.", $("[data-upload-status]")); return; }
     let mentionIds = fd.get("mention_all") ? people.map(p=>p.id) : chosen("[data-mention-users]");
     if (exclusive) mentionIds = mentionIds.filter(id=>viewerIds.includes(id)||id===user.id);
     const description = String(fd.get("description") || "").trim();
+    if (description.length > 1000) { say("Use até 1.000 caracteres.", $("[data-upload-status]")); return; }
     uploadBusy = true;
     const button = $("[data-publish]"); button.disabled = true;
     $("[data-upload-progress]").hidden = false;
@@ -725,6 +730,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   const deleteMedia = async key => {
     if (!isAdmin) { say("Somente a administração pode excluir mídias."); return; }
     const x = getItem(key); if (!x) return;
+    if (!window.confirm("Excluir permanentemente esta mídia? Esta ação não pode ser desfeita.")) return;
     const bucket = x.source === "archive" ? "looply-media" : "looply-gallery";
     const { error: storageError } = await client.storage.from(bucket).remove([x.storage_path]);
     if (storageError) { say("Não foi possível remover o arquivo do armazenamento."); return; }
@@ -747,15 +753,20 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   ["[data-user-search]","[data-recipient-search]","[data-filter-user-search]","[data-access-search]"].forEach(sel=>$(sel).addEventListener("input",syncUserLists));
   ["[data-mention-users]","[data-recipient-users]","[data-filter-users]","[data-comment-recipients]","[data-tag-users]","[data-access-users]"].forEach(sel=>$(sel).addEventListener("change",e=>{const input=e.target.closest('input[type="checkbox"]');if(!input)return;const set=sel==="[data-mention-users]"?selectedPeople:sel==="[data-recipient-users]"?selectedRecipients:sel==="[data-filter-users]"?filterPeople:sel==="[data-tag-users]"?selectedTagPeople:sel==="[data-access-users]"?selectedAccessRecipients:null;if(set){if(input.checked)set.add(input.value);else set.delete(input.value);}}));
   $("[data-title-filter]").addEventListener("change",e=>{kind=e.target.value;if(kind!=="album")activeAlbumId=null;draw();});
+  $("[data-upload-privacy]").addEventListener("change", e => {
+    $("[data-exclusive]").checked = e.target.value !== "members";
+    $("[data-exclusive-panel]").hidden = e.target.value !== "exclusive";
+    syncUserLists();
+  });
   $("[data-search]").addEventListener("input",draw);
   $("[data-toggle-filters]").addEventListener("click",()=>{const panel=$("[data-filter-panel]");panel.hidden=!panel.hidden;panel.classList.toggle("is-open",!panel.hidden);$("[data-toggle-filters]").setAttribute("aria-expanded",String(!panel.hidden));if(!panel.hidden)panel.querySelector("select,button")?.focus();});
   $("[data-toggle-page-menu]").addEventListener("click",()=>{const menu=$("[data-page-menu]");menu.hidden=!menu.hidden;$("[data-toggle-page-menu]").setAttribute("aria-expanded",String(!menu.hidden));});
   $$("[data-page-menu] button").forEach(button=>button.addEventListener("click",()=>{$("[data-page-menu]").hidden=true;$("[data-toggle-page-menu]").setAttribute("aria-expanded","false");}));
   $("[data-action-details]").addEventListener("click",()=>{const details=$("[data-viewer-details]");details.hidden=!details.hidden;$("[data-action-details]").setAttribute("aria-expanded",String(!details.hidden));});
   $("[data-viewer-like]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const button=$("[data-viewer-like]");const table=x.source==="archive"?"archive_media_likes":"community_gallery_media_likes";button.disabled=true;try{if(x.likedByMe){const {error}=await client.from(table).delete().eq("media_id",x.id).eq("user_id",user.id);if(error)throw error;x.likedByMe=false;x.likeCount=Math.max(0,(x.likeCount||0)-1);}else{const {error}=await client.from(table).insert({media_id:x.id,user_id:user.id});if(error)throw error;x.likedByMe=true;x.likeCount=(x.likeCount||0)+1;}button.innerHTML=icon(x.likedByMe?"heartFilled":"heart")+"<span>"+(x.likedByMe?"Curtido":"Curtir")+"</span>";button.setAttribute("aria-label",x.likedByMe?"Remover curtida da foto":"Curtir foto");button.setAttribute("aria-pressed",String(Boolean(x.likedByMe)));draw();}catch(error){console.error(error);say("Não foi possível atualizar a curtida.");}finally{button.disabled=false;}});
-  const togglePinned = async key => { const x=getItem(key); if(!x||!isAdmin)return; const next=!x.isPinned; try { const {error}=await client.rpc("set_gallery_media_pinned",{p_source:x.source,p_media_id:x.id,p_pinned:next}); if(error)throw error; x.isPinned=next; draw(); if(activeKey===key)$("[data-viewer-admin-pin]").innerHTML=icon("starFilled")+'<span>'+(next?"Desafixar mídia":"Fixar mídia")+'</span>'; say(next?"Mídia fixada.":"Mídia desafixada."); } catch(error){console.error(error);say("Não foi possível alterar a fixação desta mídia.");} };
+  const togglePinned = async key => { const x=getItem(key); if(!x)return; if(!isAdmin){say("Somente o ADM pode fixar mídias.");return;} const next=!x.isPinned; try { const {error}=await client.rpc("set_gallery_media_pinned",{p_source:x.source,p_media_id:x.id,p_pinned:next}); if(error)throw error; x.isPinned=next; draw(); if(activeKey===key)$("[data-viewer-admin-pin]").innerHTML=icon("starFilled")+'<span>'+(next?"Desafixar mídia":"Fixar mídia")+'</span>'; say(next?"Mídia fixada.":"Mídia desafixada."); } catch(error){console.error(error);say("Não foi possível alterar a fixação desta mídia.");} };
   $("[data-viewer-admin-pin]").addEventListener("click",()=>{if(activeKey)void togglePinned(activeKey);});
-  $("[data-share-media]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const shareData={title:"Looply — Galeria",text:x.description||"Veja esta mídia no Looply",url:location.href};try{if(navigator.share)await navigator.share(shareData);else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareData.url);say("Link da página copiado.");}else say("O compartilhamento não está disponível neste navegador.");}catch(error){if(error?.name!=="AbortError")say("Não foi possível compartilhar neste dispositivo.");}});
+  $("[data-share-media]").addEventListener("click",async()=>{const x=getItem(activeKey);if(!x)return;const shareData={title:"Looply — Galeria",text:x.description||"Veja esta mídia no Looply",url:new URL("galeria.html?media="+encodeURIComponent(mediaKey(x)),location.href).href};try{if(navigator.share)await navigator.share(shareData);else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareData.url);say("Link da mídia copiado.");}else say("O compartilhamento não está disponível neste navegador.");}catch(error){if(error?.name!=="AbortError")say("Não foi possível compartilhar neste dispositivo.");}});
   $("[data-toggle-menu]").addEventListener("click",()=>{const sheet=$("[data-action-sheet]");if(sheet.hidden)revealSheet(sheet);else hideSheet(sheet);$("[data-toggle-menu]").setAttribute("aria-expanded",String(!sheet.hidden));});
   $("[data-close-action-sheet]").addEventListener("click",()=>hideSheet($("[data-action-sheet]")));
   $("[data-action-sheet]").addEventListener("click",e=>{if(e.target===$("[data-action-sheet]"))hideSheet($("[data-action-sheet]"));});
@@ -772,9 +783,11 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-close-viewer]").addEventListener("click",closeViewer);
   $("[data-open-photo-adjust]").addEventListener("click",()=>{
     const x=getItem(activeKey);
-    if(!isAdmin||!x||mediaType(x)!=="image")return;
+    if(!x||mediaType(x)!=="image")return;
     hideSheet($("[data-action-sheet]"));
     $("[data-photo-adjust-panel]").hidden=false;
+    $("[data-edit-zoom]").value=String(x.adjustment?.zoom||1);
+    $("[data-edit-filter]").value=x.adjustment?.filter||"none";
     $("[data-position-x]").value=String(x.adjustment?.positionX||0);
     $("[data-position-y]").value=String(x.adjustment?.positionY||0);
     $("[data-photo-adjust-status]").textContent="Gire e reposicione a foto; salve para publicar a correção para todos.";
@@ -785,7 +798,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-rotate-right]").addEventListener("click",()=>{const x=getItem(activeKey);if(x)draftPhotoAdjustment({rotation:((x.adjustment?.rotation||0)+90)%360});});
   $("[data-position-x]").addEventListener("input",e=>draftPhotoAdjustment({positionX:Number(e.currentTarget.value)}));
   $("[data-position-y]").addEventListener("input",e=>draftPhotoAdjustment({positionY:Number(e.currentTarget.value)}));
-  $("[data-reset-photo-adjust]").addEventListener("click",()=>draftPhotoAdjustment({rotation:0,positionX:0,positionY:0}));
+  $("[data-edit-zoom]").addEventListener("input",e=>draftPhotoAdjustment({zoom:Number(e.target.value)}));
+  $("[data-edit-filter]").addEventListener("change",e=>draftPhotoAdjustment({filter:e.target.value}));
+  $("[data-reset-photo-adjust]").addEventListener("click",()=>draftPhotoAdjustment({rotation:0,positionX:0,positionY:0,zoom:1,filter:"none"}));
   $$("[data-cancel-photo-adjust]").forEach(button=>button.addEventListener("click",()=>{const x=getItem(activeKey);if(x){x.adjustment={...(x.savedAdjustment||{rotation:0,positionX:0,positionY:0})};applyPhotoAdjustment(x);}$("[data-photo-adjust-panel]").hidden=true;}));
   $("[data-save-photo-adjust]").addEventListener("click",savePhotoAdjustment);
   $("[data-viewer-toggle-private]").addEventListener("click",()=>{if(activeKey)togglePrivate(activeKey);});
@@ -794,7 +809,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-manage-access]").addEventListener("click", async () => {
     const x = getItem(activeKey);
     if (!x) return;
-    const canManage = isAdmin || (x.source === "community" && x.owner_id === user.id);
+    const canManage = isAdmin;
     if (!canManage) {
       say("Você não pode administrar o acesso desta mídia.");
       return;
@@ -913,5 +928,5 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   viewerMedia.addEventListener("pointerup",endPointer);
   viewerMedia.addEventListener("pointercancel",endPointer);
   viewerMedia.addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const rect=viewerMedia.getBoundingClientRect();setZoom(viewerZoom+(e.deltaY<0?0.15:-0.15),e.clientX-rect.left-rect.width/2,e.clientY-rect.top-rect.height/2);},{passive:false});
-  try { await load(true); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
+  try { await load(true); const linked = new URL(location.href).searchParams.get("media"); if (linked && getItem(linked)) await openViewer(linked); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
 } });

@@ -41,5 +41,5 @@ test("story and gallery media-only forms remain optional for text", async () => 
   assert.doesNotMatch(studio, /name="body"[^>]*required/);
   assert.match(studio, /sourceKind === "none"/);
   assert.match(studio, /if \(sourceKind === "text"\)/);
-  assert.match(gallery, /Descrição \S*<textarea name="description" maxlength="10000" placeholder="Adicione uma descrição \(opcional\)"/);
+  assert.match(gallery, /Descrição \S*<textarea name="description" maxlength="1000" placeholder="Adicione um texto, até 1.000 caracteres"/);
 });

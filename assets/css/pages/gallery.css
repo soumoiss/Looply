@@ -1707,3 +1707,46 @@ body.gallery-viewer-open{overflow:hidden}
     padding-inline: 10px;
   }
 }
+
+/* Reference experience, scoped to Gallery; the shared site header is untouched. */
+body.page-gallery{background:linear-gradient(155deg,#f5f3ff,#ede9fe 65%,#f8f2ff);background-attachment:fixed}
+.page-gallery .gallery-shell{max-width:760px;padding:4px 16px 100px;color:#2d2226}
+.page-gallery .gallery-hero{display:block;margin:0 0 16px;padding:16px;background:#ffffffb3;border:1px solid #ede0ff;border-radius:24px;box-shadow:0 2px 4px #30204103}
+.page-gallery .gallery-eyebrow{display:block;color:#d97706;font-size:11px;font-weight:800;letter-spacing:.08em}
+.page-gallery .gallery-title{font-size:24px;font-weight:800;letter-spacing:-.04em;margin:2px 0 0}
+.page-gallery .gallery-main-controls{border:0;padding:0;margin-bottom:12px}
+.page-gallery .gallery-primary-tabs{gap:10px}
+.page-gallery .gallery-action-row{grid-template-columns:1fr 1fr;position:relative;gap:10px}
+.page-gallery .gallery-action-row .gallery-page-more-wrap{position:absolute;right:0;top:-65px;width:36px}
+.page-gallery .gallery-page-more-toggle{background:#fff9;border:1px solid #ede0ff;border-radius:50%;min-height:34px!important;padding:5px!important}
+.page-gallery .gallery-primary{background:linear-gradient(100deg,#ea580c,#d97706);border:0;color:white;border-radius:16px;box-shadow:0 4px 8px #d9770625}
+.page-gallery .gallery-primary-tabs .gallery-add-action{border-radius:16px}
+.page-gallery .gallery-filter-toggle{background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:16px}
+.page-gallery .gallery-category-row{display:flex;overflow:auto;gap:8px;scrollbar-width:none;padding:3px 0}
+.page-gallery .gallery-category-row .gallery-tab{width:auto;flex:none;min-width:max-content;padding:8px 14px;min-height:36px;border:1px solid #ede0ff;border-radius:16px;background:#ffffffcc;color:#4b4250;font-size:12px}
+.page-gallery .gallery-category-row .gallery-tab.active{background:#7c3aed;color:white;border-color:#7c3aed}
+.page-gallery .gallery-toolbar{margin:10px 0}
+.page-gallery .gallery-search-wrap{max-width:none;background:#fffffff2;border:1px solid #ede0ff;border-radius:16px}
+.page-gallery .gallery-search{max-width:none;font-size:12px;padding:13px 0}
+.page-gallery .gallery-album-toolbar{border:1px solid #ede0ff;border-radius:16px;background:#ffffffcc;padding:12px;margin:10px 0}
+.page-gallery .gallery-album-toolbar label{width:100%;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:800}
+.page-gallery .gallery-album-toolbar select{background:white;border:1px solid #e5e7eb;border-radius:12px;padding:8px;max-width:70%}
+.page-gallery .gallery-count{margin:16px 0;color:#786970;font-size:12px}
+.page-gallery .gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.page-gallery .gallery-card{border:1px solid white;border-radius:20px;box-shadow:0 2px 4px #30204106}
+.page-gallery .gallery-media{aspect-ratio:1;width:100%;padding:0;border:0}
+.page-gallery .gallery-grid:not(.list) .gallery-card:not(.gallery-album-card) .gallery-card-body{display:none}
+.page-gallery .gallery-viewer-media{overflow:hidden;border-radius:24px}
+.page-gallery .gallery-viewer-media img{border-radius:24px;box-shadow:0 20px 60px #0006}
+.page-gallery .gallery-viewer-bottom .gallery-viewer-action{background:#ffffff20;border:1px solid #ffffff25;border-radius:999px!important;backdrop-filter:blur(12px);width:56px;min-height:56px}
+.page-gallery .gallery-viewer-action[aria-pressed=true]{color:#fb7185;animation:gallery-heart .3s ease}
+.page-gallery .gallery-dialog{background:#fffbf7;border-radius:28px}
+.page-gallery .gallery-upload-dialog .gallery-dialog-actions .gallery-primary{flex:1;min-height:48px;border-radius:999px}
+.page-gallery .gallery-action-sheet{background:#fffbf7;border-radius:28px 28px 0 0}
+.page-gallery .gallery-action-list button{border-radius:14px;min-height:48px}
+.page-gallery .gallery-action-list button:hover{background:#f3e8ff}
+.page-gallery .gallery-filter-sheet{background:#fffbf7}
+.page-gallery [hidden]{display:none!important}
+@keyframes gallery-heart{50%{transform:scale(1.2)}}
+@media(min-width:640px){.page-gallery .gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.page-gallery *{animation:none!important;transition:none!important}}
