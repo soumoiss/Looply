@@ -1,5 +1,5 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
-import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js";
+import { bindProfileEvents, profileAreaMarkup, showProfileInContainer } from "../../src/profiles.js?v=playlist-admin-permission-20261028";
 
 await mountAppPage({ page: "profile", render: async ({ root, client, profile, isAdmin }) => {
   const targetId = new URLSearchParams(window.location.search).get("usuario");
