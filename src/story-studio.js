@@ -596,6 +596,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if (recorder?.state === "recording") recorder.stop();
   };
   const beginRecording = () => {
+    if(photoPending || timerPending || recorder?.state==="recording")return;
     if (settings.grid) throw new Error("Layout é uma sequência de quatro fotos. Desative o layout para gravar vídeos.");
     if (!stream || !video.videoWidth) throw new Error("Câmera ainda não está pronta.");
     const mime = videoFormat();
@@ -626,16 +627,18 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     captureStream = canvas.captureStream(24);
     stream.getAudioTracks().forEach(track => captureStream.addTrack(track));
     recorder = new MediaRecorder(captureStream, { mimeType: mime });
-    chunks = [];
-    recorder.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+    const recordingRecorder=recorder;
+    const recordingChunks=[];
+    recorder.ondataavailable = e => { if (e.data?.size) recordingChunks.push(e.data); };
     const recordingTicket=cameraRequestId;
     recorder.onstop = async () => {
+      if(recordingTicket!==cameraRequestId||recorder!==recordingRecorder)return;
       handsfreeRecording = false;
       $("[data-studio-handsfree]")?.setAttribute("aria-pressed","false");
       cancelAnimationFrame(frames);
       captureStream?.getTracks().forEach(track => { if (!stream?.getTracks().includes(track)) track.stop(); });
       stopRecordingTimer();
-      let output = new Blob(chunks, { type: recorder.mimeType || mime });
+      let output = new Blob(recordingChunks, { type: recordingRecorder.mimeType || mime });
       recorder = null;
       if (output.size && active && mode === "camera" && recordingTicket===cameraRequestId) {
         if (isBoomerang && savedFrames.length >= 3) {
