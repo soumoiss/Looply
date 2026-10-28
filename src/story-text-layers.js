@@ -41,7 +41,14 @@ export async function storyTextEnsureFonts(fontIds,fonts=typeof document!=="unde
   if(!fonts?.load)return false;
   const faces=[...new Set(fontIds)].map(id=>storyTextFont(id));
   const results=await Promise.allSettled(faces.map(def=>fonts.load(`${def.weight} 32px "${def.face}"`)));
-  return results.every(result=>result.status==="fulfilled"&&result.value.length>0);
+  // System, Georgia and monospace are genuinely distinct local fallbacks.
+  // Handwritten and Impacto require their named web font: do not silently
+  // display the same generic sans-serif under several labels.
+  const safeLocalFallbacks=new Set(["modern","serif","mono"]);
+  return results.every((result,index)=>
+    (result.status==="fulfilled"&&result.value.length>0) ||
+    safeLocalFallbacks.has(Object.keys(STORY_TEXT_FONTS).find(key=>STORY_TEXT_FONTS[key]===faces[index]))
+  );
 }
 const splitGraphemes=text=>{
   if(typeof Intl!=="undefined"&&typeof Intl.Segmenter==="function")
