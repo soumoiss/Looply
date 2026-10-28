@@ -511,7 +511,7 @@ async function loadThread(client, conversationId, before = null) {
   const [messageResult, participantResult, conversationResult] = await Promise.all([
     messageQuery.order("created_at", { ascending: false }).limit(100),
     client.from("conversation_participants").select("user_id,last_read_at,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path)").eq("conversation_id", conversationId),
-    client.from("conversations").select("id,kind,subject").eq("id", conversationId).maybeSingle()
+    client.from("conversations").select("id,kind,subject,created_by").eq("id", conversationId).maybeSingle()
   ]);
   if (messageResult.error) throw messageResult.error;
   if (participantResult.error) throw participantResult.error;
@@ -684,7 +684,9 @@ function scrollInitialThreadToLatest(thread) {
   });
   thread.querySelectorAll("img, video").forEach((media) => {
     const eventName = media instanceof HTMLVideoElement ? "loadedmetadata" : "load";
-    media.addEventListener(eventName, scrollToLatest, { once: true });
+    media.addEventListener(eventName, () => {
+      if (thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140) scrollToLatest();
+    }, { once: true });
   });
 }
 
