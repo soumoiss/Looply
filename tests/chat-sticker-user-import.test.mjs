@@ -56,7 +56,7 @@ test("direct import persists verified metadata, deduplicates and signs images fo
 });
 
 test("Neon data adapter permits only metadata, not arbitrary asset URLs",async()=>{
- const read=await createNeonRestQuery("sticker_catalog",{dataApiUrl:"https://example.invalid",getAccessToken:async()=>null})
+ const read=await createNeonRestQuery("sticker_catalog",{dataApiUrl:"https://example.invalid",getAccessToken:async()=>"test-token"})
    .insert({owner_id:"uid",asset_path:"https://other.example/unsafe.webp"}).select("id");
  assert.equal(read.error?.message,"neon_unpermitted_fields");
 });
