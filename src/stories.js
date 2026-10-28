@@ -1189,6 +1189,23 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const touchSurface = viewer.querySelector("[data-story-touch-surface]");
   let pointerStart = null;
   const replyForm = viewer.querySelector("[data-story-reply]");
+  const viewport = window.visualViewport;
+  const syncStoryKeyboard = () => {
+    const focused = viewer.open && viewer.contains(document.activeElement) &&
+      document.activeElement?.matches("input,textarea");
+    const obscured = focused && viewport
+      ? Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop)) : 0;
+    viewer.style.setProperty("--story-keyboard-inset", Math.round(obscured) + "px");
+  };
+  viewport?.addEventListener("resize", syncStoryKeyboard);
+  viewport?.addEventListener("scroll", syncStoryKeyboard);
+  viewer.addEventListener("focusin", syncStoryKeyboard);
+  viewer.addEventListener("focusout", () => requestAnimationFrame(syncStoryKeyboard));
+  root.__looplyStoryKeyboardCleanup = () => {
+    viewport?.removeEventListener("resize", syncStoryKeyboard);
+    viewport?.removeEventListener("scroll", syncStoryKeyboard);
+    viewer.style.removeProperty("--story-keyboard-inset");
+  };
   replyForm.addEventListener("input", event => {
     if (event.target.matches('input[name="reply"]') && currentStory()) {
       state.replyDrafts.set(currentStory().id, event.target.value);
@@ -1241,6 +1258,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     ++state.slideVersion;
     ++state.insightsToken;
     state.paused = false;
+    viewer.style.removeProperty("--story-keyboard-inset");
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
       audio.pause(); audio.removeAttribute("src"); audio.remove();
     });
@@ -1350,6 +1368,8 @@ export function disposeStoriesRealtime(client, root) {
     root.__looplyStoryExpiryTimer = null;
     root.__looplyStoryStop?.();
     delete root.__looplyStoryStop;
+    root.__looplyStoryKeyboardCleanup?.();
+    delete root.__looplyStoryKeyboardCleanup;
     root.__looplyStudioStop?.();
     delete root.__looplyStudioStop;
     root.__looplyStoryClose?.();
