@@ -9,7 +9,7 @@ test("profile images are cropped to a real 512x512 square before upload", async 
   assert.match(source, /data-crop-x/);
   assert.match(source, /data-crop-y/);
   assert.match(source, /canvas\.width=512;canvas\.height=512/);
-  assert.match(source, /validatedBitmap\.width === 512 && validatedBitmap\.height === 512/);
+  assert.match(source, /validatedBitmap\.width===512&&validatedBitmap\.height===512/);
   assert.match(avatar, /data\?\.path !== newPath/);
 });
 
