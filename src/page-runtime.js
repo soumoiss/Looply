@@ -240,23 +240,37 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   // unsaved profile form fields. BroadcastChannel covers other open Looply tabs.
   const avatarBus=typeof BroadcastChannel==="function"?new BroadcastChannel("looply-avatar-v1"):null;
   const applyAvatarChange=detail=>{
-    if(!detail?.profileId || !/^https:\/\//i.test(detail.avatarUrl||""))return;
+    if(!detail?.profileId || (detail.avatarUrl && !/^https:\/\//i.test(detail.avatarUrl)))return;
     if(detail.profileId===user.id){
-      profile.avatar_path=detail.avatar_path||profile.avatar_path;
+      if(Object.hasOwn(detail,"avatar_path"))profile.avatar_path=detail.avatar_path;
       profile.avatarUrl=detail.avatarUrl;
       const old=header.querySelector(".looply-user-avatar, .looply-user-initial");
       if(old){
-        const img=document.createElement("img");
-        img.className="looply-user-avatar";img.alt="";img.referrerPolicy="no-referrer";
-        img.src=detail.avatarUrl;old.replaceWith(img);
+        if(detail.avatarUrl){
+          const img=document.createElement("img");
+          img.className="looply-user-avatar";img.alt="";img.referrerPolicy="no-referrer";
+          img.src=detail.avatarUrl;old.replaceWith(img);
+        }else{
+          const fallback=document.createElement("span");
+          fallback.className="looply-user-initial";fallback.setAttribute("aria-hidden","true");
+          fallback.textContent=(profile.display_name||profile.username||"?").slice(0,1).toLocaleUpperCase("pt-BR");
+          old.replaceWith(fallback);
+        }
       }
     }
     document.querySelectorAll("[data-profile-avatar-id]").forEach(old=>{
       if(old.dataset.profileAvatarId!==detail.profileId)return;
-      const img=document.createElement("img");
-      img.className=old.className;img.alt="";img.loading="lazy";
-      img.referrerPolicy="no-referrer";img.dataset.profileAvatarId=detail.profileId;
-      img.src=detail.avatarUrl;old.replaceWith(img);
+      if(detail.avatarUrl){
+        const img=document.createElement("img");
+        img.className=old.className;img.alt="";img.loading="lazy";
+        img.referrerPolicy="no-referrer";img.dataset.profileAvatarId=detail.profileId;
+        img.src=detail.avatarUrl;old.replaceWith(img);
+      }else{
+        const fallback=document.createElement("span");
+        fallback.className=old.className;fallback.dataset.profileAvatarId=detail.profileId;
+        fallback.setAttribute("aria-hidden","true");fallback.textContent="?";
+        old.replaceWith(fallback);
+      }
     });
   };
   const onLocalAvatar=e=>{applyAvatarChange(e.detail);avatarBus?.postMessage(e.detail);};
