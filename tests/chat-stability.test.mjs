@@ -180,7 +180,7 @@ test("voice recorder pause and resume exclude paused time and expose accessible 
 
 test("chat avatars fall back only after an image fails to load", async () => {
   const source = await read("src/chat.js");
-  assert.match(source, /root\.addEventListener\("error", \(event\) =>/);
+  assert.match(source, /root\.addEventListener\("error", async \(event\) =>/);
   assert.match(source, /chat-conversation-avatar, \.chat-person-avatar/);
   assert.match(source, /image\.replaceWith\(fallback\)/);
 });
