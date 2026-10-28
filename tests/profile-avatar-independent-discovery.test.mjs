@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {saveNeonAvatarOnly} from "../src/neon-avatar-profile.js";
+import {saveNeonAvatarOnly,removeNeonAvatarOnly} from "../src/neon-avatar-profile.js";
 import {avatarFileType,prepareAvatarSource,MAX_AVATAR_SOURCE_BYTES} from "../src/avatar-image-processing.js";
 
 const id="96d65731-c815-4686-ab08-efeec005d38c";
@@ -59,6 +59,17 @@ test("server rejecting avatar CAS does not change other profile columns",async()
  await assert.rejects(saveNeonAvatarOnly({...f.args,avatarFile:image}),/profile_permission_denied/);
  assert.equal(f.profile.avatar_path,oldPath);
  assert.deepEqual([...f.objects],[oldPath]);
+});
+test("remove photo uses same separate Neon CAS and does not submit any profile settings",async()=>{
+ const f=fixture();
+ const result=await removeNeonAvatarOnly(f.args);
+ assert.equal(result.avatarPath,null);
+ assert.equal(f.profile.avatar_path,null);
+ assert.deepEqual([...f.objects],[]);
+ assert.deepEqual(f.history,["GET","AVATAR_RPC","GET","REMOVE"]);
+ assert.equal(f.profile.display_name,"Nome anterior");
+ assert.equal(f.profile.bio,"Bio anterior");
+ assert.equal(f.profile.profile_visibility,"private");
 });
 test("photo can be added when previous avatar was null and rollback returns to null",async()=>{
  const f=fixture({initialPath:null,badSign:true});
