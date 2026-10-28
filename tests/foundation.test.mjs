@@ -202,7 +202,8 @@ test("conversations have their own route and real microphone recording flow", as
   assert.match(chat, /data-chat-open/);
   assert.match(css, /page-conversation/);
   assert.match(chat, /data-chat-conversation-search/);
-  assert.match(chat, /data-chat-filter="unread"/);
+  assert.match(chat, /data-chat-filter="all"/);
+  assert.doesNotMatch(chat, /data-chat-filter="unread"/);
   assert.match(chat, /data-chat-copy/);
   assert.match(chat, /data-chat-audio-rate/);
   assert.match(chat, /chat-date-separator/);
