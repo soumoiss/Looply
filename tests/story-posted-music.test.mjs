@@ -8,8 +8,8 @@ const viewer=file("src/stories.js");
 const picker=file("src/story-music-picker.js");
 
 test("Catalog music selection stays in app and never opens the device picker automatically",()=>{
- assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
- assert.match(studio,/Este serviço não autoriza incorporar essa música ao Story/);
+ assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius" && !officialStorySongEmbed\(music\)\)/);
+ assert.match(studio,/Esta faixa não tem player oficial disponível para o Story/);
  assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog" && track\.provider!=="audius"/);
  assert.match(picker,/onSelect\(track\)/);
  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
