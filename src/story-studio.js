@@ -686,31 +686,121 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     thumb.textContent = normalized.type.startsWith("image/") ? "▣" : "▶";
     showEditor(normalized, normalized.type.startsWith("video/") ? "video" : "image");
   };
+  const selectLayer = el => {
+    selectedLayer = el?.isConnected ? el : null;
+    overlayRoot.querySelectorAll("[data-studio-overlay]").forEach(item=>{
+      item.classList.toggle("is-selected", item===selectedLayer);
+      item.setAttribute("aria-selected",String(item===selectedLayer));
+    });
+    $("[data-studio-edit-selected]").hidden = !selectedLayer;
+  };
+  const layerValues=el=>({
+    text:el.dataset.text??el.textContent,
+    x:Number(el.dataset.x),y:Number(el.dataset.y),
+    size:Number(el.dataset.size),
+    font:el.dataset.fontId||STORY_TEXT_DEFAULT_FONT,
+    color:el.dataset.color
+  });
+  const renderLayer=el=>{
+    if(!el?.isConnected || !measureContext)return;
+    const size=currentCanvasSize();
+    const values=layerValues(el);
+    const layout=storyTextLayerLayout(measureContext,values,size.width,size.height);
+    const rect=overlayRoot.getBoundingClientRect();
+    el.textContent=layout.lines.join("\n");
+    el.style.left=(values.x*100)+"%";
+    el.style.top=(values.y*100)+"%";
+    el.style.fontSize=(layout.px * ((rect.width||390)/size.width))+"px";
+    el.style.fontWeight=layout.font.weight;
+    el.style.fontFamily=layout.font.family;
+    el.style.color=values.color||"#ffffff";
+    el.style.lineHeight="1.14";
+    el.style.whiteSpace="pre";
+  };
+  const rerenderLayers=()=>overlayRoot.querySelectorAll("[data-studio-overlay]").forEach(renderLayer);
+  if(typeof ResizeObserver==="function"){
+    const observer=new ResizeObserver(rerenderLayers);
+    observer.observe(overlayRoot);
+    dialog.addEventListener("close",()=>rerenderLayers());
+  }
   const addLayer = (text, sticker = false) => {
     const el = document.createElement("div");
-    el.dataset.studioOverlay = "true"; el.dataset.x = "0.5"; el.dataset.y = "0.44";
-    el.dataset.size = sticker ? "48" : "34"; el.dataset.color = "#ffffff";
-    el.dataset.font = "700 "; el.dataset.family = "system-ui";
-    el.className = "studio-overlay";
-    el.textContent = cleanName(text);
-    el.tabIndex = 0; el.setAttribute("role", "button");
-    el.setAttribute("aria-label", "Editar ou arrastar elemento");
+    el.dataset.studioOverlay="true";
+    el.dataset.x="0.5";el.dataset.y="0.44";
+    el.dataset.size=sticker?"48":"34";el.dataset.color="#ffffff";
+    el.dataset.fontId=STORY_TEXT_DEFAULT_FONT;
+    el.dataset.text=cleanName(text);
+    el.className="studio-overlay";
+    el.tabIndex=0;el.setAttribute("role","button");
+    el.setAttribute("aria-label","Selecionar, arrastar ou redimensionar texto");
     overlayRoot.append(el);
-    let start = null;
-    el.addEventListener("pointerdown", e => {
-      start = { x: e.clientX, y: e.clientY, left: +el.dataset.x, top: +el.dataset.y };
-      el.setPointerCapture(e.pointerId);
+    renderLayer(el);
+    selectLayer(el);
+    const pointers=new Map();
+    let drag=null,pinchGesture=null,wasGesture=false,lastTap=0;
+    const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+    el.addEventListener("pointerdown",event=>{
+      if(mode!=="edit" && mode!=="text")return;
+      event.preventDefault();event.stopPropagation();
+      selectLayer(el);
+      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      try{el.setPointerCapture(event.pointerId);}catch{}
+      if(pointers.size===1){
+        wasGesture=false;
+        drag={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,
+          x:Number(el.dataset.x),y:Number(el.dataset.y),moved:false};
+        pinchGesture=null;
+      }else if(pointers.size===2){
+        const points=[...pointers.values()];
+        pinchGesture={distance:Math.max(1,distance(points)),size:Number(el.dataset.size)};
+        drag=null;wasGesture=true;
+      }
     });
-    el.addEventListener("pointermove", e => {
-      if (!start) return;
-      const rect = overlayRoot.getBoundingClientRect();
-      el.dataset.x = String(Math.max(.10, Math.min(.90, start.left + (e.clientX - start.x) / rect.width)));
-      el.dataset.y = String(Math.max(.08, Math.min(.90, start.top + (e.clientY - start.y) / rect.height)));
-      el.style.left = (+el.dataset.x * 100) + "%";
-      el.style.top = (+el.dataset.y * 100) + "%";
+    el.addEventListener("pointermove",event=>{
+      if(!pointers.has(event.pointerId))return;
+      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      if(pointers.size>=2 && pinchGesture){
+        const size=storyTextPinchSize(pinchGesture.size,pinchGesture.distance,
+          distance([...pointers.values()].slice(0,2)));
+        el.dataset.size=String(size);
+        renderLayer(el);wasGesture=true;
+      }else if(pointers.size===1 && drag && drag.pointerId===event.pointerId && !wasGesture){
+        const rect=overlayRoot.getBoundingClientRect();
+        if(rect.width<=0||rect.height<=0)return;
+        const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;
+        if(Math.hypot(dx,dy)>5)drag.moved=true;
+        if(!drag.moved)return;
+        const point=storyTextClampPosition(drag.x+dx/rect.width,drag.y+dy/rect.height);
+        el.dataset.x=String(point.x);el.dataset.y=String(point.y);
+        renderLayer(el);
+      }
+      event.preventDefault();
     });
-    el.addEventListener("pointerup", () => { start = null; });
-    el.addEventListener("click", () => openLayerEditor(el));
+    const endPointer=event=>{
+      if(!pointers.has(event.pointerId))return;
+      const wasTap=!wasGesture && drag && !drag.moved && pointers.size===1;
+      pointers.delete(event.pointerId);
+      if(pointers.size<2)pinchGesture=null;
+      if(!pointers.size){
+        drag=null;wasGesture=false;
+        if(wasTap){
+          const now=performance.now();
+          if(lastTap && now-lastTap<340){lastTap=0;openLayerEditor(el);}
+          else lastTap=now;
+        }
+      }
+    };
+    el.addEventListener("pointerup",endPointer);
+    el.addEventListener("pointercancel",endPointer);
+    // Pointerup handles taps deliberately: dragging must never reopen the keyboard.
+    el.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();});
+    el.addEventListener("keydown",event=>{
+      if(event.key==="Enter"||event.key===" "){
+        event.preventDefault();selectLayer(el);openLayerEditor(el);
+      }else if(event.key==="Delete"||event.key==="Backspace"){
+        event.preventDefault();el.remove();selectLayer(null);
+      }
+    });
     return el;
   };
   const modal = (title, html) => {
