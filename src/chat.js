@@ -186,8 +186,8 @@ function conversationAvatar(conversation, userId) {
   const profile = (conversation.participants || []).find((row) => row.user_id !== userId)?.profile;
   const initial = (profile?.display_name || profile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
   return profile?.avatarUrl
-    ? `<img class="chat-conversation-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-    : `<span class="chat-conversation-avatar" aria-hidden="true">${escapeHtml(initial)}</span>`;
+    ? `<img class="chat-conversation-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+    : `<span class="chat-conversation-avatar" data-profile-avatar-id="${escapeHtml(profile?.id || "")}" aria-hidden="true">${escapeHtml(initial)}</span>`;
 }
 
 function conversationPreview(conversation, userId) {
@@ -226,7 +226,7 @@ export function chatMarkup(data, userId) {
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
-    ${profile.avatarUrl ? `<img class="chat-person-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}
+    ${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}
     <span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span>
     <button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button>
   </article>`).join("");
@@ -238,8 +238,8 @@ export function chatMarkup(data, userId) {
     const name = profile.display_name || profile.username;
     const initial = String(name || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
     const avatar = profile.avatarUrl
-      ? `<img class="chat-group-option-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-      : `<span class="chat-group-option-avatar" aria-hidden="true">${escapeHtml(initial)}</span>`;
+      ? `<img class="chat-group-option-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="chat-group-option-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" aria-hidden="true">${escapeHtml(initial)}</span>`;
     return `<label class="chat-group-option">${avatar}<span><strong>${escapeHtml(name)}</strong><small>@${escapeHtml(profile.username)}</small></span><input type="checkbox" name="memberIds" value="${escapeHtml(profile.id)}" aria-label="Adicionar ${escapeHtml(name)} ao grupo"></label>`;
   }).join("");
   const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
