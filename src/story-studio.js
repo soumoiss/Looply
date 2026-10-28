@@ -1,8 +1,8 @@
 import { StoryFaceLens } from "./story-ar.js";
 import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest } from "./story-ar-catalog.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
-import { encodeStorySong } from "./story-music-catalog.js?v=story-music-unified-20261028";
-import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-unified-20261028";
+import { encodeStorySong, officialStorySongEmbed } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-official-widget-20261028";
 import { attachStoryMusic } from "./story-audio-mixer.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
@@ -1157,8 +1157,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Preparando sua mídia…");
       // Never publish only catalog metadata: this used to produce silent
       // Apple/Deezer Stories because their previews cannot be synchronized.
-      if(music?.kind==="catalog" && music.provider!=="audius")
-        throw new Error("Este serviço não autoriza incorporar essa música ao Story. Para publicar com som, escolha uma trilha original, Audius ou um áudio próprio autorizado.");
+      if(music?.kind==="catalog" && music.provider!=="audius" && !officialStorySongEmbed(music))
+        throw new Error("Esta faixa não tem player oficial disponível para o Story. Escolha outra música ou um áudio autorizado.");
       if(music?.kind==="catalog" && music.provider==="audius" && !music.id)
         throw new Error("A faixa selecionada não possui áudio disponível para o Story.");
       const media = await exportFinal(armedAudioContext);
