@@ -161,7 +161,6 @@ export function storySongSearchLinks(query) {
   const encoded=encodeURIComponent(q);
   return [
     {name:"Apple Music",url:"https://music.apple.com/br/search?term="+encoded},
-    {name:"Spotify",url:"https://open.spotify.com/search/"+encoded},
     {name:"YouTube Music",url:"https://music.youtube.com/search?q="+encoded},
     {name:"SoundCloud",url:"https://soundcloud.com/search/sounds?q="+encoded},
     {name:"TIDAL",url:"https://tidal.com/search?q="+encoded}
