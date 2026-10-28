@@ -530,9 +530,7 @@ function feedMarkup(posts, error, userId, isAdmin = false) {
 }
 
 export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false) {
-  const eligiblePeople = (people || []).filter((person) =>
-    person.id !== userId && person.profile_visibility !== "private"
-  );
+  const eligiblePeople = (people || []).filter(person => person.id !== userId);
   const recipients = eligiblePeople.map((person) =>
     `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
   ).join("");
