@@ -533,13 +533,14 @@ export function bindAdminEvents(root, client) {
       const announcements = data?.announcements || [];
       await Promise.all(announcements.map(async item => {
         if(!/^announcements\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp|gif|mp4|webm)$/i.test(item.media_url||""))return;
+        item.media_kind=/\.(?:mp4|webm)$/i.test(item.media_url)?"video":"image";
         const {data:signed,error:signError}=await client.storage.from("looply-announcements").createSignedUrl(item.media_url,1800);
         item.media_url=signError?null:signed?.signedUrl||null;
       }));
       if (results) {
         results.innerHTML = announcements.length ? announcements.map((item) => {
           const readers = (item.readers || []).map((reader) => `<li><strong>@${escapeHtml(reader.username || reader.display_name || "usuário")}</strong><span>${reader.read_at ? `Lido em ${escapeHtml(dateTime(reader.read_at))}` : "Ainda não leu"}</span></li>`).join("");
-          return `<article class="admin-broadcast-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}</strong><span>${item.is_active ? "Ativo" : "Desativado"}</span></div><p class="admin-broadcast-body">${escapeHtml(item.body)}</p>${item.media_url ? `<a class="admin-broadcast-media-link" href="${escapeHtml(item.media_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(item.media_url)}" alt="Mídia do comunicado" loading="lazy"></a>` : ""}<p class="admin-broadcast-meta">Publicado em ${escapeHtml(dateTime(item.created_at))}${item.expires_at ? ` · Expira em ${escapeHtml(dateTime(item.expires_at))}` : ""}</p><p class="admin-broadcast-meta">Leituras: ${Number(item.read_count || 0)} de ${Number(item.recipient_count || 0)} contas</p><details><summary>Ver estado de leitura por conta</summary><ul class="admin-broadcast-readers">${readers}</ul></details>${item.is_active ? `<button class="text-button" type="button" data-broadcast-deactivate="${escapeHtml(item.id)}">Desativar comunicado</button>` : ""}</article>`;
+          return `<article class="admin-broadcast-record"><div class="admin-record-top"><strong>${escapeHtml(item.title)}</strong><span>${item.is_active ? "Ativo" : "Desativado"}</span></div><p class="admin-broadcast-body">${escapeHtml(item.body)}</p>${item.media_url ? (item.media_kind === "video" ? `<video class="admin-broadcast-media-preview-content" src="${escapeHtml(item.media_url)}" controls preload="metadata"></video>` : `<a class="admin-broadcast-media-link" href="${escapeHtml(item.media_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(item.media_url)}" alt="Mídia do comunicado" loading="lazy"></a>`) : ""}<p class="admin-broadcast-meta">Publicado em ${escapeHtml(dateTime(item.created_at))}${item.expires_at ? ` · Expira em ${escapeHtml(dateTime(item.expires_at))}` : ""}</p><p class="admin-broadcast-meta">Leituras: ${Number(item.read_count || 0)} de ${Number(item.recipient_count || 0)} contas</p><details><summary>Ver estado de leitura por conta</summary><ul class="admin-broadcast-readers">${readers}</ul></details>${item.is_active ? `<button class="text-button" type="button" data-broadcast-deactivate="${escapeHtml(item.id)}">Desativar comunicado</button>` : ""}</article>`;
         }).join("") : '<p class="admin-empty">Nenhum comunicado foi publicado.</p>';
       }
       if (showStatus && form) setStatus(form, `Histórico atualizado · ${announcements.length} comunicado(s).`);
@@ -976,7 +977,7 @@ export function bindAdminEvents(root, client) {
           const cleanup=await client.storage.from("looply-secret-messages").remove([uploadedSecretPath]);
           if(cleanup.error) console.warn("Secret media cleanup not confirmed", cleanup.error);
         }
-        if (status) { status.textContent = error.message === "secret_media_storage_not_configured" ? "A mídia do recado VIP ainda não está disponível no armazenamento Neon. Remova a foto para enviar o texto." : error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : "Não foi possível enviar o recado. Verifique sua conexão e a autorização administrativa no Neon."; status.dataset.kind = "error"; }
+        if (status) { status.textContent = error.message === "secret_media_storage_not_configured" ? "A mídia do recado VIP ainda não está disponível no armazenamento Neon. Remova a foto para enviar o texto." : error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : error.message === "purpose" ? "Informe uma justificativa administrativa de 20 a 500 caracteres." : "Não foi possível enviar o recado. Verifique sua conexão e a autorização administrativa no Neon."; status.dataset.kind = "error"; }
       } finally { if (submitButton) submitButton.disabled = false; }
       return;
     }
@@ -1089,6 +1090,8 @@ export function bindAdminEvents(root, client) {
       event.preventDefault();
       const submitButton = broadcastForm.querySelector('button[type="submit"]');
       if (submitButton) submitButton.disabled = true;
+      let uploadedBroadcastPath=null;
+      let broadcastRecorded=false;
       try {
         const values = new FormData(broadcastForm);
         const title = String(values.get("title") || "").trim();
@@ -1109,6 +1112,7 @@ export function bindAdminEvents(root, client) {
             .upload(path,selectedBroadcastMedia,{contentType:selectedBroadcastMedia.type});
           if(uploadError) throw new Error("media_upload_failed: "+uploadError.message);
           mediaUrl=path;
+          uploadedBroadcastPath=path;
         }
         const { data, error } = await invokeAdmin({
           action: "broadcast_create", resourceType: "announcements", title, body, mediaUrl,
@@ -1116,16 +1120,21 @@ export function bindAdminEvents(root, client) {
         });
         if (error) throw error;
         if (!data?.announcement?.id) throw new Error("announcement unavailable");
+        broadcastRecorded=true;
+        if(!await loadBroadcasts(broadcastForm, false)) throw Error("announcement_history_not_confirmed");
         broadcastForm.elements.title.value = "";
         broadcastForm.elements.body.value = "";
         broadcastForm.elements.expiresAt.value = "";
         if (mediaInput) mediaInput.value = "";
         selectedBroadcastMedia = null;
         if (mediaPreview) { mediaPreview.replaceChildren(); mediaPreview.hidden = true; }
-        await loadBroadcasts(broadcastForm, false);
-        setStatus(broadcastForm, "Comunicado publicado. O histórico de leitura foi atualizado.");
+        setStatus(broadcastForm, "Comunicado registrado no Neon; histórico atualizado.");
       } catch (error) {
         console.error("Looply global announcement creation failed", error);
+        if(uploadedBroadcastPath && !broadcastRecorded) {
+          const cleanup=await client.storage.from("looply-announcements").remove([uploadedBroadcastPath]);
+          if(cleanup.error) console.warn("Broadcast upload cleanup not confirmed",cleanup.error);
+        }
         const message = /broadcast_media_storage_not_configured/.test(String(error?.message || "")) ? "A publicação de mídia ainda não está autorizada no armazenamento Neon. Remova o anexo para publicar o comunicado em texto." : /purpose/.test(String(error?.message || ""))
           ? "Informe o motivo administrativo (20–500 caracteres)."
           : /expiry/.test(String(error?.message || ""))
