@@ -284,7 +284,7 @@ async function adminCreateUser(body) {
     // Neon Auth Better Auth admin API performs the password hashing and never
     // signs into the new account in place of the current administrator.
     const nativeAdmin=neon.auth?.admin;
-    const alternateAuth=createClient({auth:{url:config.auth}});
+    const alternateAuth=createClient({auth:{url:config.auth},dataApi:{url:config.data}});
     const adminApi=typeof nativeAdmin?.createUser==="function"?nativeAdmin:alternateAuth.auth?.admin;
     if(typeof adminApi?.createUser!=="function")
       throw Error("neon_auth_admin_create_user_unavailable");
