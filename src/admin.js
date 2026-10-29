@@ -150,10 +150,19 @@ function mediaMarkup(media) {
     : `<figure><img src="${url}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${label}</figcaption></figure>`;
 }
 
+// Only offer irreversible actions implemented by the installed Neon RPC.
+// Unsupported categories retain the reversible moderation control.
+export const ADMIN_DELETE_TYPES = new Set([
+  "post", "comment", "story", "community_letter",
+  "community_gallery_media", "archive_media_comment", "music_page_comment"
+]);
 function moderationFormMarkup(contentType, contentId, hidden) {
+  const deleteButton = ADMIN_DELETE_TYPES.has(contentType)
+    ? `<button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}">Excluir definitivamente</button>`
+    : "";
   return `<form class="admin-comment-form" data-moderate-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}" data-hidden="${hidden ? "true" : "false"}">
     <button class="text-button" type="submit">${hidden ? "Restaurar conteúdo" : "Ocultar conteúdo"}</button>
-    <button class="text-button admin-danger-action" type="button" data-delete-content data-content-type="${escapeHtml(contentType)}" data-content-id="${escapeHtml(contentId)}">Excluir definitivamente</button>
+    ${deleteButton}
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
 }
 
