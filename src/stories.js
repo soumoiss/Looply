@@ -344,10 +344,11 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   const soundStatus = (kind = "hidden") => {
     if (!soundToggle) return;
     soundToggle.hidden = kind === "hidden";
-    soundToggle.disabled = kind === "unavailable";
+    // A temporary CDN/network error must not permanently disable retry.
+    soundToggle.disabled = false;
     soundToggle.dataset.kind = kind;
     const label = soundToggle.querySelector("span");
-    const text = kind === "unavailable" ? "Música indisponível" : kind === "retry" ? "Tentar música" : "Ativar som";
+    const text = kind === "unavailable" ? "Tentar música" : kind === "retry" ? "Tentar música" : "Ativar som";
     if (label) label.textContent = text;
     soundToggle.setAttribute("aria-label", text);
   };
