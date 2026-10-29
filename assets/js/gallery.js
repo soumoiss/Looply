@@ -861,8 +861,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   $("[data-toggle-menu]").addEventListener("click",()=>{const sheet=$("[data-action-sheet]");if(sheet.hidden)revealSheet(sheet);else hideSheet(sheet);$("[data-toggle-menu]").setAttribute("aria-expanded",String(!sheet.hidden));});
   $("[data-close-action-sheet]").addEventListener("click",()=>hideSheet($("[data-action-sheet]")));
   $("[data-action-sheet]").addEventListener("click",e=>{if(e.target===$("[data-action-sheet]"))hideSheet($("[data-action-sheet]"));});
-  $("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));void openComments(key);}));
-  $("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
+  $$("[data-open-comments]").forEach(button=>button.addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));void openComments(key);}));
+  $$("[data-kind]").forEach(b=>b.addEventListener("click",()=>{kind=b.dataset.kind;activeAlbumId=null;draw();}));
   $$("[data-view]").forEach(b=>b.addEventListener("click",()=>{view=b.dataset.view;$$("[data-view]").forEach(v=>{v.classList.toggle("active",v===b);v.setAttribute("aria-pressed",String(v===b));});draw();}));
   $$("[data-main]").forEach(b=>b.addEventListener("click",()=>{main=b.dataset.main;activeAlbumId=null;shuffled=false;draw();}));
   $("[data-shuffle]").addEventListener("click",()=>{shuffled=!shuffled;$("[data-shuffle]").classList.toggle("active",shuffled);draw();});
@@ -972,7 +972,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       say("Não foi possível confirmar todas as menções. Reabra para atualizar os dados.",$("[data-tag-status]"));
     }finally{button.disabled=false;}
   });
-  $("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}));
+  $$("[data-close-comments]").forEach(b=>b.addEventListener("click",()=>{++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}));
   $("[data-comments-modal]").addEventListener("click",e=>{if(e.target===$("[data-comments-modal]")){++commentRequest;commentKey=null;hideSheet($("[data-comments-modal]"));}});
   $("[data-comment-form]").addEventListener("submit",publishComment);
   $("[data-comment-form] [name=audience]").addEventListener("change",e=>{$("[data-comment-recipients]").hidden=e.target.value!=="selected";syncUserLists();});
@@ -1016,7 +1016,7 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     $("[data-album-picker-modal]").hidden=false;
     select.focus();
   };
-  $("[data-close-album-picker]").forEach(button=>button.addEventListener("click",()=>{albumPickerKey=null;$("[data-album-picker-modal]").hidden=true;}));
+  $$("[data-close-album-picker]").forEach(button=>button.addEventListener("click",()=>{albumPickerKey=null;$("[data-album-picker-modal]").hidden=true;}));
   $("[data-viewer-album-add]").addEventListener("click",()=>{const key=activeKey;hideSheet($("[data-action-sheet]"));showAlbumPicker(key);});
   $("[data-album-picker-form]").addEventListener("submit",async event=>{
     event.preventDefault();
