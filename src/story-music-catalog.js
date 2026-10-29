@@ -134,6 +134,42 @@ export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
       album:x.collectionName,durationSec:Math.round(Number(x.trackTimeMillis||0)/1000),isrc:x.isrc
     })).filter(Boolean).slice(0,20);
 }
+// Only usable tracks belong in the Story publishing picker. Search Audius
+// directly instead of waiting for the multi-provider discovery Worker to
+// finish Apple/Deezer requests whose previews cannot be used as soundtracks.
+export async function searchPlayableStorySongs(value,{fetcher=fetch,signal}={}) {
+  const q=clean(value,70);
+  if(q.length<2)return {items:[],providers:[]};
+  const url="https://api.audius.co/v1/tracks/search?query="+encodeURIComponent(q)+
+    "&limit=18&sort_method=relevant&app_name=Looply";
+  const parse=rows=>rows.map(track=>normalizeStorySong({
+    provider:"audius", id:String(track.id||""), title:track.title,
+    artist:track.user?.name||track.artist,
+    url:track.permalink?.startsWith("https://")?track.permalink:
+      "https://audius.co/"+String(track.permalink||"").replace(/^\\/+/, ""),
+    artwork:track.artwork?._150x150||track.artwork?._480x480||"",
+    album:track.album_name||"",durationSec:track.duration||0,isrc:track.isrc||""
+  })).filter(Boolean);
+  try{
+    const response=await fetcher(url,{signal,cache:"no-store"});
+    if(!response.ok)throw Error("Audius search HTTP "+response.status);
+    const payload=await response.json();
+    if(!Array.isArray(payload?.data))throw Error("Audius search invalid response");
+    const playable=payload.data.filter(track=>track.is_streamable!==false
+      && track.is_delete!==true && track.is_unlisted!==true
+      && track.access?.stream!==false && track.is_premium!==true);
+    const items=dedupeStorySongRecordings(parse(playable));
+    return {items,providers:[{provider:"audius",available:true,items}]};
+  }catch(error){
+    if(signal?.aborted)throw error;
+    // A broken direct API can fall back to the existing Worker. No Apple,
+    // Deezer or Spotify metadata is exposed as publishable audio.
+    const fallback=await searchStorySongs(q,{fetcher,signal});
+    const items=fallback.items.filter(track=>track.provider==="audius" && audiusStoryStreamUrl(track));
+    return {items,providers:[{provider:"audius",available:items.length>0,items}]};
+  }
+}
+
 export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
   const q=clean(value,70);
   if (q.length<2) return {providers:[],items:[]};
