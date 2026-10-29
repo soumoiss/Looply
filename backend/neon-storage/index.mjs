@@ -244,7 +244,11 @@ export default { async fetch(request) {
     return json({ path }, 200, headers);
   }
   if (url.pathname.endsWith("/storage/remove") && request.method === "POST") {
-    const owned=await canUploadObject(request.headers.get("authorization"),profileId,bucket,path);
+    const object=inspectObject(bucket,path);
+    // Legacy archive deletions use the existing audited gallery authorization;
+    // never allow direct S3 deletion solely because the caller has an ADM role.
+    const owned=object?.type==="archive" ? false
+      : await canUploadObject(request.headers.get("authorization"),profileId,bucket,path);
     if (!owned && !(await canAdminDeleteGalleryObject(request.headers.get("authorization"),bucket,path))) return json({ error: "forbidden" }, 403, headers);
     const signed = await signedRequest({ method: "DELETE", bucket, path }), response = await fetch(signed.url, { method: "DELETE", headers: signed.headers });
     if (!response.ok) { console.error("S3 object removal failed", response.status); return json({ error: "storage_remove_failed" }, 502, headers); }
