@@ -9,7 +9,7 @@ test("SW serves previously visited static pages immediately and revalidates in b
   const worker = await readFile(resolve(root,"sw.js"),"utf8");
   assert.match(worker,/const CACHE = "looply-shell-v8"/);
   assert.match(worker,/Promise\.allSettled\(SHELL\.map/);
-  assert.match(worker,/const cached = await cache\.match\(event\.request\)/);
+  assert.ok(worker.includes("const cached = await cache.match(event.request, { ignoreSearch: true })"));
   assert.match(worker,/if \(cached\) \{/);
   assert.match(worker,/event\.waitUntil\(fetch\(event\.request\)/);
   assert.match(worker,/return cached;/);
