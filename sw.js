@@ -39,7 +39,9 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   if (!cacheable(event.request)) return;
   event.respondWith(caches.open(CACHE).then(async cache => {
-    const cached = await cache.match(event.request, { ignoreSearch: true });
+    // Versioned JS/CSS imports must never reuse a different build's bytes.
+    // The former ignoreSearch:true mixed code from different deployments.
+    const cached = await cache.match(event.request, { ignoreSearch: false });
     // Fast page transitions/offline fallback while the browser validates the
     // static file in the background. Never cache signed cross-origin media.
     if (cached) {
