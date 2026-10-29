@@ -25,6 +25,7 @@ AS $function$
 DECLARE
   v_actor uuid;
   v_table text;
+  v_doc_expression text := 'to_jsonb(t)';
   v_order text := 'created_at';
   v_result jsonb;
   v_request_id uuid := gen_random_uuid();
@@ -60,6 +61,63 @@ BEGIN
     WHEN 'audit' THEN v_table:='looply_admin_audit_events';
     ELSE RAISE EXCEPTION 'unsupported_admin_resource' USING ERRCODE='22023';
   END CASE;
+  CASE p_resource
+    WHEN 'posts' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.author_id),
+ ''media'',(SELECT coalesce(jsonb_agg(to_jsonb(m)), ''[]''::jsonb) FROM public.post_media m WHERE m.post_id=t.id),
+ ''comments'',(SELECT coalesce(jsonb_agg(to_jsonb(cm) || jsonb_build_object(
+  ''author'',(SELECT to_jsonb(cp) FROM public.profiles cp WHERE cp.id=cm.author_id),
+  ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''comment'' AND mod.content_id=cm.id)
+  )),''[]''::jsonb) FROM public.comments cm WHERE cm.post_id=t.id),
+ ''moderated'', EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''post'' AND mod.content_id=t.id))';
+    WHEN 'stories' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.author_id),
+ ''media'',(SELECT coalesce(jsonb_agg(to_jsonb(m)),''[]''::jsonb) FROM public.story_media m WHERE m.story_id=t.id),
+ ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''story'' AND mod.content_id=t.id))';
+    WHEN 'community_gallery_media' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''owner'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.owner_id),
+ ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''community_gallery_media'' AND mod.content_id=t.id))';
+    WHEN 'music_dedications' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''sender'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.sender_id),
+ ''recipient'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.recipient_id),
+ ''comments'',(SELECT coalesce(jsonb_agg(to_jsonb(cm) || jsonb_build_object(
+   ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=cm.author_id)
+ )),''[]''::jsonb) FROM public.music_comments cm WHERE cm.dedication_id=t.id))';
+    WHEN 'music_library' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''owner'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.owner_id))';
+    WHEN 'youtube_track_comments' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.author_id),
+ ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''music_page_comment'' AND mod.content_id=t.id))';
+    WHEN 'post_media' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''post'',(SELECT to_jsonb(p) FROM public.posts p WHERE p.id=t.post_id))';
+    WHEN 'archive_media' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''recipients'',(SELECT coalesce(jsonb_agg(jsonb_build_object(''profile'',to_jsonb(p))),''[]''::jsonb)
+    FROM public.archive_media_recipients r JOIN public.profiles p ON p.id=r.user_id WHERE r.media_id=t.id),
+ ''comments'',(SELECT coalesce(jsonb_agg(to_jsonb(c) || jsonb_build_object(
+    ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=c.author_id))),''[]''::jsonb)
+    FROM public.archive_media_comments c WHERE c.media_id=t.id),
+ ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''archive_media'' AND mod.content_id=t.id))';
+    WHEN 'archive_media_comments' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.author_id),
+ ''media'',(SELECT to_jsonb(m) FROM public.archive_media m WHERE m.id=t.media_id),
+ ''moderated'',EXISTS(SELECT 1 FROM public.looply_content_moderation mod WHERE mod.content_type=''archive_media_comment'' AND mod.content_id=t.id))';
+    WHEN 'archived_cards' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''recipient'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.recipient_id))';
+    WHEN 'community_letters' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''sender'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.sender_id),
+ ''recipient'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.recipient_id))';
+    WHEN 'letters' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''sender'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.sender_id),
+ ''recipient'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.recipient_id),
+ ''initial_message'',(SELECT to_jsonb(m) FROM public.chat_messages m WHERE m.id=t.initial_message_id))';
+    WHEN 'conversations' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''participants'',(SELECT coalesce(jsonb_agg(to_jsonb(r) || jsonb_build_object(
+ ''profile'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=r.user_id))),''[]''::jsonb)
+ FROM public.conversation_participants r WHERE r.conversation_id=t.id))';
+    WHEN 'chat_messages' THEN v_doc_expression := 'to_jsonb(t) || jsonb_build_object(
+ ''author'',(SELECT to_jsonb(p) FROM public.profiles p WHERE p.id=t.sender_id),
+ ''media'',(SELECT coalesce(jsonb_agg(to_jsonb(m)),''[]''::jsonb) FROM public.chat_media m WHERE m.message_id=t.id))';
+  END CASE;
   IF p_resource = 'audit' THEN
     EXECUTE 'SELECT coalesce(jsonb_agg(result.doc),''[]''::jsonb) FROM
       (SELECT to_jsonb(a) AS doc FROM public.looply_admin_audit_events a
@@ -68,9 +126,9 @@ BEGIN
   ELSE
     EXECUTE format(
       'SELECT coalesce(jsonb_agg(result.doc),''[]''::jsonb) FROM
-       (SELECT to_jsonb(t) AS doc FROM public.%I t
+       (SELECT %s AS doc FROM public.%I t
         WHERE ($1::uuid IS NULL OR t.id = $1::uuid)
-        ORDER BY t.%I DESC LIMIT 100 OFFSET $2) result',v_table,v_order
+        ORDER BY t.%I DESC LIMIT 100 OFFSET $2) result',v_doc_expression,v_table,v_order
     ) INTO v_result USING p_id,p_offset;
   END IF;
   INSERT INTO public.looply_admin_audit_events
@@ -505,6 +563,28 @@ BEGIN
   RETURN jsonb_build_object('username',v_username,'userId',v_legacy,'created',true);
 END $function$;
 
+CREATE OR REPLACE FUNCTION public.v12_admin_storage_read_allowed(p_bucket text, p_path text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+ SELECT auth.uid() IS NOT NULL AND public.v3_self_is_admin() AND p_path IS NOT NULL AND (
+  (p_bucket='looply-media' AND (
+    EXISTS(SELECT 1 FROM public.post_media WHERE storage_path=p_path) OR
+    EXISTS(SELECT 1 FROM public.story_media WHERE storage_path=p_path) OR
+    EXISTS(SELECT 1 FROM public.comment_media WHERE storage_path=p_path) OR
+    EXISTS(SELECT 1 FROM public.archive_media WHERE storage_path=p_path)
+  )) OR
+  (p_bucket='looply-gallery' AND EXISTS(
+    SELECT 1 FROM public.community_gallery_media WHERE storage_path=p_path
+  )) OR
+  (p_bucket='looply-chat' AND EXISTS(
+    SELECT 1 FROM public.chat_media WHERE storage_path=p_path
+  ))
+ );
+$function$;
+
 -- Current Neon client requires these authenticated, row-restricted reads.
 DO $policies$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='app_settings' AND policyname='looply_v12_settings_read') THEN
@@ -543,3 +623,6 @@ GRANT EXECUTE ON FUNCTION public.v12_admin_finish_signup(uuid,text,text,text,tex
 -- Helper procedures can only be called by the trusted owner executing the audited action RPC.
 REVOKE ALL ON FUNCTION public.v12_admin_import_card(jsonb) FROM PUBLIC,authenticated;
 REVOKE ALL ON FUNCTION public.v12_admin_register_archive_media(jsonb) FROM PUBLIC,authenticated;
+
+REVOKE ALL ON FUNCTION public.v12_admin_storage_read_allowed(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.v12_admin_storage_read_allowed(text,text) TO authenticated;
