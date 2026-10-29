@@ -24,7 +24,7 @@ export async function invokeAdminAction(client, body = {}) {
   if (!client) throw new Error("admin_client_unavailable");
   // Every protected operation is authorized server-side against the authenticated
   // user's administrator membership. No separate temporary ADM unlock is needed.
-  const { purpose: _ignoredPurpose, adminSessionToken: _ignoredToken, ...action } = body || {};
+  const { adminSessionToken: _ignoredToken, ...action } = body || {};
   return client.functions.invoke("looply-admin", { body: action });
 }
 
@@ -369,7 +369,7 @@ export function bindAdminEvents(root, client) {
         form.dataset.userId = user.id;
         const fields = [
           ["displayName", "Nome de exibição", user.display_name || "", 80],
-          ["bio", "Biografia", user.bio || "", 500],
+          ["bio", "Biografia", user.bio || "", 280],
           ["playlistUrl", "URL da playlist do YouTube", user.playlist_url || "", 260]
         ];
         for (const [name, labelText, value, max] of fields) {
