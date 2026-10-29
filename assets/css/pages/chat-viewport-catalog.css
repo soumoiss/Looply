@@ -167,3 +167,76 @@
   padding:8px 10px;border:1px solid #ddd6fe;border-radius:10px;color:#5b21b6;
   text-decoration:none;
 }
+
+
+/* Visual-only chat media: show the actual photo/sticker, never a purple
+   message bubble. Captions remain readable; message actions still work. */
+.page-chat .chat-message.is-visual-only,
+.page-chat .chat-message-row.is-mine .chat-message.is-visual-only,
+.page-chat .chat-thread.is-chat-v2-dark .chat-message.is-visual-only {
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  color:#334155!important;
+  max-width:min(90%,480px);
+}
+.page-chat .chat-message.is-visual-only .chat-message-meta {
+  color:#64748b!important;
+  margin:0 0 5px!important;
+}
+.page-chat .chat-message.is-visual-only .chat-delivery,
+.page-chat .chat-message.is-visual-only .chat-message-actions-inline,
+.page-chat .chat-message.is-visual-only .chat-message-actions-inline button {
+  color:#64748b!important;
+}
+.page-chat .chat-message.is-visual-only .chat-message-actions-inline { margin-top:4px; }
+.page-chat .chat-message.is-visual-only > p:not(.visually-hidden) {
+  color:#334155!important;
+  padding:5px 0 0;
+}
+.page-chat .chat-message.is-visual-only .chat-message-media {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  gap:5px;
+  max-width:100%;
+  background:transparent!important;
+}
+.page-chat .chat-message.is-visual-only .chat-image-link,
+.page-chat .chat-message.is-visual-only .chat-sticker-link {
+  display:inline-flex;
+  align-items:center;
+  max-width:100%;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:hidden;
+}
+.page-chat .chat-message.is-visual-only .chat-message-media img,
+.page-chat .chat-message.is-visual-only img.chat-catalog-message {
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:min(280px,75vw);
+  max-height:320px;
+  object-fit:contain;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.page-chat .chat-message.is-visual-only img.chat-sticker,
+.page-chat .chat-message.is-visual-only img.chat-catalog-message {
+  max-width:min(180px,55vw);
+  max-height:180px;
+  border-radius:0;
+}
+/* The main Looply branding stays visible in the conversation list, but is
+   removed from the open thread. Keep the contact/group heading and composer. */
+.page-chat:not(.page-conversation):has(.chat-area.is-conversation-open) > .container-page > .page-header,
+.page-chat:not(.page-conversation):has(.chat-area.is-conversation-open) .page-title-panel {
+  display:none!important;
+}
