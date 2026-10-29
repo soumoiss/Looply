@@ -49,6 +49,7 @@ export function adminMarkup(profile = {}) {
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
     <div class="field"><label for="adminUsersPurpose">Justificativa para consultar e administrar usuários</label><textarea id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" rows="2" required placeholder="Descreva a finalidade do acesso administrativo (mínimo 20 caracteres)."></textarea></div>
+    <p class="form-status" data-users-feedback role="status" aria-live="polite"></p>
     <div class="admin-results" data-users-results aria-live="polite"><p>Carregando contas cadastradas no Neon…</p></div>
     </section>
     <section class="admin-broadcast-panel admin-settings-panel" aria-labelledby="appSettingsTitle" data-app-settings-panel>
@@ -369,8 +370,9 @@ export function bindAdminEvents(root, client) {
   }
   async function loadUsers() {
     const results = root.querySelector("[data-users-results]");
-    const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
-    if (!results) return;
+    const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim()
+      || "Listagem de contas na abertura do painel administrativo";
+    if (!results) return null;
     results.textContent = "Carregando contas…";
     try {
       const { data, error } = await invokeAdmin({ action: "users_list", resourceType: "profiles", purpose });
@@ -379,7 +381,7 @@ export function bindAdminEvents(root, client) {
       const users = data?.users || [];
       if (!users.length) {
         results.textContent = "Nenhuma conta encontrada.";
-        return;
+        return [];
       }
       for (const user of users) {
         const card = document.createElement("article");
@@ -396,7 +398,7 @@ export function bindAdminEvents(root, client) {
         email.textContent = user.email || "E-mail indisponível";
         const lastSignIn = document.createElement("p");
         lastSignIn.className = "admin-description";
-        lastSignIn.textContent = user.lastSignInAt ? "Último acesso: " + dateTime(user.lastSignInAt) : "Ainda não há acesso registrado.";
+        lastSignIn.textContent = user.lastSignInAt ? "Último acesso: " + dateTime(user.lastSignInAt) : "Último acesso não informado pelo Neon Auth.";
         const form = document.createElement("form");
         form.className = "admin-broadcast-form";
         form.dataset.userProfileForm = "";
@@ -444,9 +446,17 @@ export function bindAdminEvents(root, client) {
         card.append(heading, email, lastSignIn, form, actions);
         results.append(card);
       }
+      return users;
     } catch (error) {
       results.textContent = "Falha ao carregar contas: " + String(error?.message || "erro desconhecido") + ". Verifique sua sessão administrativa.";
+      return null;
     }
+  }
+
+  function validatedUserPurpose() {
+    const purpose=String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+    if(purpose.length<20 || purpose.length>500) throw Error("Informe uma justificativa administrativa de 20 a 500 caracteres.");
+    return purpose;
   }
 
   async function invokeAdmin(body) {
@@ -735,16 +745,22 @@ export function bindAdminEvents(root, client) {
     }
     const accessAction = event.target.closest("[data-user-access-action]");
     if (accessAction && client) {
-      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
       accessAction.disabled = true;
       try {
+        const purpose = validatedUserPurpose();
         const action = accessAction.dataset.userAccessAction === "suspend" ? "user_set_suspended" : "user_restore_access";
         const { data, error } = await invokeAdmin({ action, resourceType: "profiles", userId: accessAction.dataset.userId, purpose });
-        if (error) throw error;
-        await loadUsers();
+        const expectedSuspended = action === "user_set_suspended";
+        if (error || data?.updated !== true || data?.suspended !== expectedSuspended)
+          throw error || Error("Alteração de acesso não confirmada pelo Neon.");
+        const refreshed = await loadUsers();
+        const account = refreshed?.find(row => row.id === accessAction.dataset.userId);
+        if (!account || account.suspended !== expectedSuspended) throw Error("Alteração de acesso não persistiu.");
+        const feedback = root.querySelector("[data-users-feedback]");
+        if (feedback) { feedback.textContent = expectedSuspended ? "Acesso suspenso e conferido." : "Acesso restaurado e conferido."; feedback.dataset.kind="success"; }
       } catch (error) {
-        const results = root.querySelector("[data-users-results]");
-        if (results) results.textContent = "Não foi possível alterar o acesso. Verifique a justificativa e a autorização.";
+        const feedback = root.querySelector("[data-users-feedback]");
+        if (feedback) { feedback.textContent = String(error?.message || "Não foi possível alterar o acesso."); feedback.dataset.kind="error"; }
       } finally { accessAction.disabled = false; }
       return;
     }
@@ -982,6 +998,8 @@ export function bindAdminEvents(root, client) {
         setStatus(createForm, password !== confirmPassword ? "As senhas não coincidem." : "Confira o username, o e-mail, o nome, a senha e a URL da playlist.", "error");
         return;
       }
+      try { validatedUserPurpose(); }
+      catch(error) { setStatus(createForm, error.message, "error"); return; }
       const button = createForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       setStatus(createForm, "Criando a conta e o perfil…", "info");
@@ -990,7 +1008,10 @@ export function bindAdminEvents(root, client) {
           action: "user_create_with_password", resourceType: "profiles",
           username, email, displayName, password, playlistUrl, purpose
         });
-        if (error) throw error;
+        if (error || data?.created !== true) throw error || Error("Cadastro não confirmado no Neon.");
+        const refreshed=await loadUsers();
+        if (!refreshed?.some(row => row.username === username && row.id === data?.id))
+          throw Error("Conta criada, mas o vínculo do perfil ainda não foi confirmado. Não repita o cadastro.");
         createForm.reset();
         for (const status of createForm.querySelectorAll("[data-availability]")) {
           status.textContent = "";
@@ -1017,21 +1038,27 @@ export function bindAdminEvents(root, client) {
     const userProfileForm = event.target.closest("form[data-user-profile-form]");
     if (userProfileForm && client) {
       event.preventDefault();
-      const purpose = String(root.querySelector("[data-users-purpose]")?.value || "").trim();
+      let purpose;
+      try {purpose=validatedUserPurpose();}
+      catch(error) {setStatus(userProfileForm,error.message,"error");return;}
       const values = new FormData(userProfileForm);
       const button = userProfileForm.querySelector('button[type="submit"]');
       if (button) button.disabled = true;
       try {
-        const { error } = await invokeAdmin({
+        const displayName = String(values.get("displayName") || "").trim();
+        const bio = String(values.get("bio") || "").trim();
+        const playlistUrl = String(values.get("playlistUrl") || "").trim();
+        const { data, error } = await invokeAdmin({
           action: "user_update_profile", resourceType: "profiles", userId: userProfileForm.dataset.userId,
-          displayName: String(values.get("displayName") || "").trim(),
-          bio: String(values.get("bio") || "").trim(),
-          playlistUrl: String(values.get("playlistUrl") || "").trim(),
-          profileVisibility: "members", purpose
+          displayName, bio, playlistUrl, purpose
         });
-        if (error) throw error;
-        setStatus(userProfileForm, "Perfil atualizado.", "success");
-        await loadUsers();
+        if (error || data?.updated !== true) throw error || Error("Edição de perfil não confirmada.");
+        const refreshed = await loadUsers();
+        const saved=refreshed?.find(row=>row.id===userProfileForm.dataset.userId);
+        if(!saved || saved.display_name!==displayName || (saved.bio||"")!==bio || (saved.playlist_url||"")!==playlistUrl)
+          throw Error("Edição não persistiu como esperado.");
+        const feedback=root.querySelector("[data-users-feedback]");
+        if(feedback) {feedback.textContent="Perfil atualizado e confirmado no Neon.";feedback.dataset.kind="success";}
       } catch {
         setStatus(userProfileForm, "Não foi possível salvar o perfil.", "error");
       } finally { if (button) button.disabled = false; }
