@@ -1,26 +1,15 @@
-# Looply para Android
+# Looply Android
 
-Este módulo abre o Looply publicado no GitHub Pages dentro de uma WebView Android. O APK usa `https://soumoiss.github.io/Looply/` como origem remota, portanto novas publicações no site ficam disponíveis no aplicativo sem recompilar o APK. As páginas continuam usando o cliente Supabase público já existente; nenhuma chave administrativa é adicionada ao APK.
+A interface web é copiada para os assets do APK por `scripts/build.mjs` e carregada de `https://appassets.androidplatform.net/` com `WebViewAssetLoader`. O início do aplicativo não depende da disponibilidade do GitHub Pages. Os dados e arquivos ainda dependem dos endpoints HTTPS usados pelo cliente web; alterações no código da interface exigem novo APK, enquanto dados enviados ao backend são sincronizados sem recompilar.
 
-## Build local
+## Compilação
 
-Use JDK 17 ou superior, Android SDK com API 36 e Build Tools 36.0.0, além de Node.js 22 ou superior:
+Use JDK 17, Android SDK API 36, Build Tools 36.0.0 e Node.js 22. Na raiz do projeto, execute `npm run build`; em `android`, execute `./gradlew assembleDebug`. O workflow `.github/workflows/android-apk.yml` publica o APK debug instalável como artefato de Actions. Ele tem assinatura debug; não é uma distribuição release com chave persistente.
 
-```powershell
-cd android
-gradlew.bat assembleDebug
-```
+## Estado das integrações
 
-Se Node.js não estiver no PATH, informe o executável:
+O cliente web usa Neon Auth, Neon Data API e funções de armazenamento. Algumas páginas e módulos legados ainda mantêm referências ao Supabase no código. Migração integral e verificação de dados existentes exigem trabalho adicional; um pacote compilado não prova que todos os fluxos estão operacionais.
 
-```powershell
-gradlew.bat -Plooply.nodeExecutable="C:\caminho\para\node.exe" assembleDebug
-```
+O serviço FCM Android está declarado, mas não há `google-services.json` nem registro autenticado de token no backend. Sem configuração de projeto Firebase e envio server-side, notificações push não funcionam. O app não solicita permissão de notificações até essa integração estar pronta. Chamadas WebRTC exigem sinalização e credenciais TURN reais para funcionar em redes restritivas; chamadas em segundo plano/tela bloqueada exigem implementação nativa adicional. Nenhuma dessas funções deve ser anunciada como testada em dois aparelhos só porque o APK compilou.
 
-O APK de desenvolvimento sai em `app/build/outputs/apk/debug/app-debug.apk`. A assinatura debug é adequada para instalação e avaliação; não representa uma chave de release nem pode atualizar um app instalado com outra chave.
-
-## Dependências do serviço
-
-Login, perfis, publicações, stories, comentários, chat e mídias usam o projeto Supabase configurado no site. A lista de playlists de música usa `/api/youtube-playlist`, uma função do Vercel que precisa de acesso público ao endpoint e da variável secreta já mantida no servidor.
-
-No momento da adaptação, os deploys Vercel acessíveis ao repositório redirecionavam para a tela de autenticação do Vercel. O APK não contém bypass do Vercel. Por isso, o restante do site é empacotado localmente; o endpoint da playlist continua sujeito à proteção do deploy e precisa ser disponibilizado publicamente para funcionar dentro do APK. Nenhuma configuração do Vercel nem banco de produção foi alterada.
+Links `https://soumoiss.github.io/Looply/...` são encaminhados para a interface empacotada quando chegam ao app. A verificação automática de App Links depende de publicar `/.well-known/assetlinks.json` no domínio e da impressão digital da chave de assinatura de produção. A câmera, microfone e seleção de arquivos seguem permissões do Android quando requisitados pela página local.

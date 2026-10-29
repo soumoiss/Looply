@@ -79,7 +79,7 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (wasOffline) {
                     wasOffline = false
-                    loadLooply()
+                    errorPanel.visibility = View.GONE
                 }
             }
         }
@@ -88,10 +88,7 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (!hasInternet()) {
                     wasOffline = true
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet para sincronizar o Looply com suas conversas, publicações e mídias."
-                    )
+                    Toast.makeText(this@MainActivity, "Sem internet; a sincronização aguarda conexão.", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -108,7 +105,6 @@ class MainActivity : Activity() {
 
         createLayout()
         configureWebView()
-        requestNotificationPermissionIfNeeded()
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback = OnBackInvokedCallback { handleBack() }
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
@@ -118,15 +114,7 @@ class MainActivity : Activity() {
         }
 
         val restored = savedInstanceState?.let { webView.restoreState(it) != null } ?: false
-        if (!restored) {
-            if (hasInternet()) loadLooply() else {
-                wasOffline = true
-                showError(
-                    "Sem conexão com a internet",
-                    "O Looply precisa de internet para conectar sua conta e sincronizar suas mídias."
-                )
-            }
-        }
+        if (!restored) loadLooply()
         handleNotificationRoute(intent)
     }
 
@@ -136,9 +124,12 @@ class MainActivity : Activity() {
     }
 
     private fun handleNotificationRoute(intent: Intent) {
+        intent.data?.let { uri ->
+            localUrl(uri)?.let { url -> webView.post { webView.loadUrl(url) }; return }
+        }
         val route = intent.getStringExtra("looply_route") ?: return
         if (!route.matches(Regex("(?:conversa|notificacoes|home)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
-        webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
+        webView.post { webView.loadUrl("$LOCAL_START_URL$route") }
     }
 
     override fun onStart() {
@@ -164,7 +155,7 @@ class MainActivity : Activity() {
             webView.onResume()
             if (wasOffline && hasInternet()) {
                 wasOffline = false
-                loadLooply()
+                errorPanel.visibility = View.GONE
             }
         }
     }
@@ -519,7 +510,7 @@ class MainActivity : Activity() {
         popup.tag = true
         val uri = Uri.parse(rawUrl)
         if (isTrustedWebOrigin(uri)) {
-            webView.loadUrl(rawUrl)
+            webView.loadUrl(localUrl(uri) ?: rawUrl)
         } else {
             launchExternal(uri)
         }
@@ -531,6 +522,7 @@ class MainActivity : Activity() {
     }
 
     private fun routeTopLevelUrl(uri: Uri): Boolean {
+        localUrl(uri)?.let { webView.loadUrl(it); return true }
         if (isTrustedWebOrigin(uri)) return false
         if (uri.scheme.equals("https", ignoreCase = true) ||
             uri.scheme.equals("mailto", ignoreCase = true) ||
@@ -544,7 +536,17 @@ class MainActivity : Activity() {
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
         if (!uri.scheme.equals("https", ignoreCase = true)) return false
         val host = uri.host?.lowercase() ?: return false
-        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST || host == SUPABASE_HOST
+        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST
+    }
+
+    private fun localUrl(uri: Uri): String? {
+        if (uri.scheme != "https" || uri.host?.lowercase() != GITHUB_PAGES_HOST) return null
+        val prefix = "/Looply/"
+        if (!uri.encodedPath.orEmpty().startsWith(prefix)) return null
+        val relative = uri.encodedPath.orEmpty().removePrefix(prefix)
+        if (relative.split('/').any { it == "." || it == ".." }) return null
+        return LOCAL_START_URL + relative + (uri.encodedQuery?.let { "?$it" } ?: "") +
+            (uri.encodedFragment?.let { "#$it" } ?: "")
     }
 
     private fun launchExternal(uri: Uri) {
@@ -557,7 +559,7 @@ class MainActivity : Activity() {
 
     private fun authorizeWebMedia(request: PermissionRequest) {
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != GITHUB_PAGES_HOST
+            request.origin.host?.lowercase() != APP_ASSET_HOST
         ) {
             request.deny()
             return
@@ -679,7 +681,7 @@ class MainActivity : Activity() {
     private fun loadLooply() {
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        webView.loadUrl(REMOTE_START_URL)
+        webView.loadUrl(LOCAL_START_URL + "index.html")
     }
 
     private fun showError(title: String, message: String) {
@@ -766,8 +768,7 @@ class MainActivity : Activity() {
     companion object {
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
-        private const val SUPABASE_HOST = "qixocgetiwlrsbadpbvh.supabase.co"
-        private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
+        private const val LOCAL_START_URL = "https://appassets.androidplatform.net/"
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702
         private const val REQUEST_DOWNLOAD_STORAGE = 703
