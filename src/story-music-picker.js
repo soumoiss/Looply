@@ -1,6 +1,7 @@
-import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchPlayableStorySongs } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchPlayableStorySongs, searchAppleMusicPublic } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
+import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
 
 // Apple/Deezer: official PREVIEWS only. Audius: linked public stream after
 // publication. User-owned or user-checked CC audio: encoded into the file.
@@ -11,7 +12,8 @@ export function storyMusicCanPublish(track) {
     track?.kind==="openverse";
 }
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false,
-  searchCatalog=searchPlayableStorySongs,searchLicensed=searchLicensedStorySongs}) {
+  searchCatalog=searchPlayableStorySongs,searchLicensed=searchLicensedStorySongs,
+  searchApple=searchAppleMusicPublic}) {
   modal("Escolher música",
     '<div class="studio-music-picker">' +
     '<label class="studio-music-search-label"><input type="search" data-studio-music-query placeholder="Música, artista ou versão…" autocomplete="off" aria-label="Pesquisar músicas"></label>' +
@@ -217,7 +219,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         (remaining?" · buscando mais…":failed?" · algumas fontes indisponíveis":"");
       draw();
       if(!remaining && items.length)searchCache.set(cacheKey,{items,until:Date.now()+120000});
-      if(!remaining && !items.length)found.textContent="Nenhuma música com áudio disponível. Experimente outro nome ou seu arquivo.";
+      if(!remaining && !items.length)found.textContent="Nenhuma gravação autorizada disponível para Story nesta busca.";
     };
     // Stream results independently: don't hold back usable Audius songs while
     // a Creative Commons index is slow or temporarily unavailable.
@@ -229,10 +231,32 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       if(closed||ticket!==seq||current.signal.aborted)return;
       remaining--;failed++;update([]);
     });
-    void Promise.allSettled([
-      settle(searchCatalog(term,{signal:current.signal}),res=>res?.items||[]),
-      settle(searchLicensed(term,{signal:current.signal}),res=>Array.isArray(res)?res:[])
-    ]);
+    const catalogTask=settle(searchCatalog(term,{signal:current.signal}),res=>res?.items||[]);
+    const licensedTask=settle(searchLicensed(term,{signal:current.signal}),res=>Array.isArray(res)?res:[]);
+    // If the direct playable catalogue finds nothing, let Apple's public
+    // song/artist metadata correct a mistyped query. Apple previews themselves
+    // are never displayed as usable Story tracks, nor streamed as soundtrack.
+    void catalogTask.then(async()=>{
+      if(closed||ticket!==seq||current.signal.aborted||items.length)return;
+      remaining++;
+      update([]);
+      try {
+        const appleResults=await searchApple(term,{signal:current.signal});
+        if(closed||ticket!==seq||current.signal.aborted||items.length)return;
+        const correction=suggestStoryQueryFromApple(term,appleResults);
+        if(!correction)return;
+        found.textContent="Procurando gravações disponíveis de "+correction+"…";
+        const match=await searchCatalog(correction,{signal:current.signal});
+        if(closed||ticket!==seq||current.signal.aborted)return;
+        update(match?.items||[]);
+      } catch(error) {
+        if(!current.signal.aborted)failed++;
+      } finally {
+        remaining--;
+        update([]);
+      }
+    });
+    void licensedTask;
   };
   query.addEventListener("input",()=>{
     if(timer)clearTimeout(timer);
