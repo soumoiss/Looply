@@ -22,7 +22,7 @@ test("new themes and fonts are applied from the profile and the service worker r
   assert.match(worker, /looply-shell-v8/);
   assert.match(worker, /caches\.delete/);
   assert.doesNotMatch(worker, /cache: "no-cache"/);
-  assert.match(worker, /return network;/);
+  assert.match(worker, /return cached;/);
 });
 
 test("ADM can provision a normal account without a manual password and delete feed or story content", async () => {
