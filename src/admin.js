@@ -256,6 +256,38 @@ function itemMarkup(resourceType, item) {
   return `<article class="admin-record"><pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre></article>`;
 }
 
+async function signAdminMediaRows(client,resourceType,rows) {
+  const requests=[];
+  const seen=new Set();
+  const collect=row=>{
+    if(!row || typeof row!=="object")return;
+    const path=String(row.storage_path||"");
+    const bucket=resourceType==="community_gallery_media"
+      || /^gallery\//.test(path)?"looply-gallery"
+      : /^conversations\//.test(path)?"looply-chat"
+      : /^(?:posts|stories|comments|legacy-archive)\//.test(path)?"looply-media":null;
+    if(bucket && !seen.has(bucket+":"+path)){
+      seen.add(bucket+":"+path);
+      requests.push({row,bucket,path});
+    }
+    for(const key of ["media","comments"]) {
+      if(Array.isArray(row[key]))row[key].forEach(collect);
+    }
+  };
+  rows.forEach(collect);
+  const tasks=requests.slice(0,200);
+  let cursor=0;
+  await Promise.all(Array.from({length:Math.min(6,tasks.length)},async()=>{
+    while(cursor<tasks.length) {
+      const item=tasks[cursor++];
+      try{
+        const {data,error}=await client.storage.from(item.bucket).createSignedUrl(item.path,900);
+        if(!error && /^https:\/\//.test(data?.signedUrl||""))item.row.signed_url=data.signedUrl;
+      }catch(error){console.warn("ADM media signing failed",error);}
+    }
+  }));
+}
+
 function renderResults(container, resourceType, data) {
   const rows = Array.isArray(data) ? data : data == null ? [] : [data];
   if (!rows.length) {
@@ -1123,6 +1155,7 @@ export function bindAdminEvents(root, client) {
       if (!Number.isInteger(offset) || offset < 0 || offset > 10000) throw new Error("offset");
       const { data, error } = await invokeAdmin({ resourceType, resourceId: resourceType === "audit" ? null : resourceId, offset, purpose });
       if (error) throw error;
+      await signAdminMediaRows(client,resourceType,data?.data||[]);
       renderResults(root.querySelector("[data-admin-results]"), resourceType, data?.data);
       const previousPage = form.querySelector('[data-admin-page="previous"]');
       const nextPage = form.querySelector('[data-admin-page="next"]');
