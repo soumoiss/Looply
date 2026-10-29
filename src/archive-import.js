@@ -18,7 +18,7 @@ function escapeHtml(value) {
 export function archiveImportMarkup() {
   return `<section class="archive-import panel" aria-labelledby="archiveImportTitle">
     <div class="admin-heading"><div><span class="section-kicker">Migração privada</span><h2 id="archiveImportTitle">Importar cartas e mídias antigas</h2></div></div>
-    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o Supabase privado; textos MSG associados às mídias também serão preservados. Cada item é processado separadamente; uma falha individual não interrompe o restante.</p>
+    <p class="admin-description">Selecione a pasta extraída completa do Loooply-main. As cartas e mídias serão enviadas para o armazenamento privado do Neon; textos MSG associados às mídias também serão preservados. Cada item é processado separadamente; uma falha individual não interrompe o restante.</p>
     <form data-archive-import-form>
       <div class="field"><label for="archiveSourceFolder">Pasta Loooply-main</label><input id="archiveSourceFolder" type="file" webkitdirectory directory multiple required><small class="field-hint">Selecione a pasta que contém midia-index.json (na raiz ou em data/), midia/ e as cartas .txt.</small></div>
       <div class="field"><label for="archiveImportPurpose">Motivo desta importação</label><textarea id="archiveImportPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva o motivo da importação para a auditoria."></textarea></div>
@@ -165,36 +165,6 @@ export async function processSequentially(items, processItem, onProgress = () =>
   return { succeeded, failed: failures.length, failures };
 }
 
-async function uploadResumable(client, path, file, contentType, onProgress) {
-  const { data, error } = await client.auth.getSession();
-  const token = data?.session?.access_token;
-  if (error || !token) throw new Error("A sessão administrativa expirou.");
-  const configuredUrl = window.LOOPLY_CONFIG?.supabaseUrl;
-  if (!configuredUrl) throw new Error("A configuração do Supabase não foi encontrada.");
-  const publishableKey = window.LOOPLY_CONFIG?.publishableKey;
-  if (!publishableKey) throw new Error("A chave pública do Supabase não está configurada.");
-  const projectUrl = new URL(configuredUrl);
-  const endpoint = projectUrl.hostname.endsWith(".supabase.co")
-    ? `${projectUrl.protocol}//${projectUrl.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co")}/storage/v1/upload/resumable`
-    : new URL("/storage/v1/upload/resumable", projectUrl).toString();
-  const tus = await import("https://esm.sh/tus-js-client@4.3.1");
-  const uploadFile = file.type === contentType ? file : new File([file], file.name, { type: contentType });
-  await new Promise((resolve, reject) => {
-    const upload = new tus.Upload(uploadFile, {
-      endpoint,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      headers: { authorization: `Bearer ${token}`, apikey: publishableKey },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      chunkSize: 6 * 1024 * 1024,
-      metadata: { bucketName: "looply-media", objectName: path, contentType, cacheControl: "3600" },
-      onError: reject,
-      onProgress: (uploaded, total) => onProgress(Math.floor((uploaded / total) * 100)),
-      onSuccess: resolve
-    });
-    upload.start();
-  });
-}
 
 export function canReuseArchiveObjectAfterUploadFailure(uploadError, verification, expectedBytes) {
   const expectedSize = Number(expectedBytes);
@@ -207,18 +177,23 @@ export function canReuseArchiveObjectAfterUploadFailure(uploadError, verificatio
   );
 }
 
-async function uploadArchiveFile(client, path, file, contentType, onProgress) {
-  if (file.size <= 6 * 1024 * 1024) {
-    const { error } = await client.storage.from("looply-media").upload(path, file, {
-      cacheControl: "3600",
-      contentType,
-      upsert: false
-    });
-    if (error) throw error;
+async function uploadArchiveFile(client,path,file,contentType,onProgress) {
+  const source=file.type===contentType?file:new File([file],file.name,{type:contentType});
+  const storage=client.storage.from("looply-media");
+  const existing=await storage.verify(path);
+  if(existing.error) throw Error("Não foi possível verificar o arquivo anterior: "+existing.error.message);
+  if(existing.data?.exists) {
+    if(Number(existing.data.byteSize)!==source.size)throw Error("Arquivo existente possui tamanho diferente. Verifique a mídia antes de prosseguir.");
     onProgress(100);
     return;
   }
-  await uploadResumable(client, path, file, contentType, onProgress);
+  const uploaded=await storage.upload(path,source,{contentType});
+  if(uploaded.error)throw Error(uploaded.error.message||"Envio ao Neon não confirmado.");
+  const verification=await storage.verify(path);
+  if(verification.error || verification.data?.exists!==true || Number(verification.data.byteSize)!==source.size) {
+    throw Error("O armazenamento Neon não confirmou o tamanho do objeto.");
+  }
+  onProgress(100);
 }
 
 function classifyFailure(error) {
@@ -340,19 +315,9 @@ export function bindArchiveImport(root, client) {
           throw new Error("arquivo ausente na pasta selecionada; ignorado.");
         }
         status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (0%)`;
-        try {
-          await uploadArchiveFile(client, item.storage_path, file, item.mime_type, (percentage) => {
-            status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (${percentage}%)`;
-          });
-        } catch (uploadError) {
-          const { data: verification, error: verificationError } = await client.functions.invoke("looply-admin", {
-            body: { action: "verify_archive_media_upload", resourceType: "archive_media", purpose, media: item }
-          });
-          if (verificationError || !canReuseArchiveObjectAfterUploadFailure(uploadError, verification, item.byte_size)) {
-            const detail = await functionFailureMessage(verificationError, verification, "O Storage não confirmou o arquivo.");
-            throw new Error(`Upload não confirmado (${classifyFailure(uploadError)}). ${detail}`);
-          }
-        }
+        await uploadArchiveFile(client, item.storage_path, file, item.mime_type, (percentage) => {
+          status.textContent = `Enviando mídia ${position + 1} de ${media.length}: ${item.file_name} (${percentage}%)`;
+        });
         const { data, error } = await client.functions.invoke("looply-admin", {
           body: { action: "register_archive_media", resourceType: "archive_media", purpose, media: item }
         });
