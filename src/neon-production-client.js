@@ -317,6 +317,21 @@ async function adminFunctionInvoke(options = {}) {
   const body = options?.body || {};
   const action = typeof body.action === "string" ? body.action : body.resourceType === "status" ? "status" : "read";
   if (action === "user_create_with_password") return adminCreateUser(body);
+  if (action === "verify_archive_media_upload") {
+    const path=String(body?.storagePath || body?.path || body?.media?.storage_path || "");
+    if (!/^legacy-archive\/midia\/(?:[A-Za-z0-9_.-]+|(?:misol|yara)\/[A-Za-z0-9_.-]+)$/.test(path)
+      || path.split("/").some(part => part === "." || part === ".."))
+      return {data:null,error:{message:"invalid_archive_storage_path",status:400}};
+    const access=await adminFunctionInvoke({body:{action:"status"}});
+    if(access.error || access.data?.isAdmin!==true)
+      return {data:null,error:access.error||{message:"admin_forbidden",status:403}};
+    const result=await storageBucket("looply-media").verify(path);
+    if(result.error)return result;
+    if(typeof result.data?.exists!=="boolean" ||
+       (result.data.exists && (!Number.isSafeInteger(Number(result.data.byteSize)) || Number(result.data.byteSize)<1)))
+      return {data:null,error:{message:"storage_verify_invalid_response"}};
+    return {data:{exists:result.data.exists,byteSize:result.data.byteSize??null},error:null};
+  }
   try {
     const session = await activeSession();
     if (!session?.access_token) return { data:null, error:{message:"neon_session_required",status:401} };
