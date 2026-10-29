@@ -254,9 +254,65 @@ async function chatFunctionInvoke(name,options) {
  * Authorization and row-level access are always checked by PostgreSQL itself.
  * No Supabase Edge Function, service key or client-side elevated role.
  */
+
+function secureAdminInitialPassword() {
+  const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const bytes=new Uint8Array(26);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map(byte=>alphabet[byte%alphabet.length]).join("");
+}
+async function adminCreateUser(body) {
+  const username=String(body?.username||"").trim().toLowerCase();
+  const email=String(body?.email||"").trim().toLowerCase();
+  const displayName=String(body?.displayName||"").trim();
+  const password=body?.password||secureAdminInitialPassword();
+  const temporaryPassword=body?.password?"":password;
+  if(!/^[a-z0-9_]{3,30}$/.test(username)
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    || !displayName || displayName.length>80
+    || password.length<8 || password.length>72) {
+    return {data:null,error:{message:"admin_invalid_user_details"}};
+  }
+  const authorized=await adminFunctionInvoke({body:{action:"status"}});
+  if(authorized.error||authorized.data?.isAdmin!==true)
+    return {data:null,error:authorized.error||{message:"admin_forbidden"}};
+  try {
+    // Neon Auth Better Auth admin API performs the password hashing and never
+    // signs into the new account in place of the current administrator.
+    const nativeAdmin=neon.auth?.admin;
+    const alternateAuth=createClient({auth:{url:config.auth}});
+    const adminApi=typeof nativeAdmin?.createUser==="function"?nativeAdmin:alternateAuth.auth?.admin;
+    if(typeof adminApi?.createUser!=="function")
+      throw Error("neon_auth_admin_create_user_unavailable");
+    const created=await adminApi.createUser({
+      email,password,name:displayName,role:"user"
+    });
+    if(created.error) throw Error(created.error.message||"neon_auth_create_user_failed");
+    const neonUserId=created.data?.user?.id||created.data?.id;
+    if(!/^[0-9a-f-]{36}$/i.test(String(neonUserId||"")))
+      throw Error("neon_auth_user_id_not_confirmed");
+    const session=await activeSession();
+    if(!session?.access_token)throw Error("neon_session_required");
+    const linked=await fetch(config.data+"/rpc/v12_admin_finish_signup",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({
+        p_neon_user_id:neonUserId,p_username:username,p_email:email,
+        p_display_name:displayName,p_playlist_url:body.playlistUrl||null
+      })
+    });
+    const linkedData=await linked.json().catch(()=>null);
+    if(!linked.ok||linkedData?.created!==true)
+      throw Error("neon_auth_created_profile_link_failed: "+String(linkedData?.message||linked.status));
+    return {data:{...linkedData,temporaryPassword},error:null};
+  }catch(error){
+    return {data:null,error:{message:String(error?.message||"neon_admin_create_user_unavailable")}};
+  }
+}
 async function adminFunctionInvoke(options = {}) {
   const body = options?.body || {};
   const action = typeof body.action === "string" ? body.action : "read";
+  if (action === "user_create_with_password") return adminCreateUser(body);
   try {
     const session = await activeSession();
     if (!session?.access_token) return { data:null, error:{message:"neon_session_required",status:401} };
