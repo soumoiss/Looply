@@ -146,7 +146,7 @@ export async function searchPlayableStorySongs(value,{fetcher=fetch,signal}={}) 
     provider:"audius", id:String(track.id||""), title:track.title,
     artist:track.user?.name||track.artist,
     url:track.permalink?.startsWith("https://")?track.permalink:
-      "https://audius.co/"+String(track.permalink||"").replace(/^\\/+/, ""),
+      "https://audius.co/"+String(track.permalink||"").split("/").filter(Boolean).join("/"),
     artwork:track.artwork?._150x150||track.artwork?._480x480||"",
     album:track.album_name||"",durationSec:track.duration||0,isrc:track.isrc||""
   })).filter(Boolean);
