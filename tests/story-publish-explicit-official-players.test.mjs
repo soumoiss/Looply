@@ -61,10 +61,10 @@ test("provider music stays user-initiated inside the Story without a modal or hi
  const viewer=read("src/stories.js");
  const css=read("assets/css/pages/stories-instagram.css");
  assert.doesNotMatch(viewer,/data-story-official-audio|data-story-official-toggle|data-story-official-panel/);
- assert.match(viewer,/officialStorySongEmbed\\(catalogSong.song\\)/);
+ assert.ok(viewer.includes("officialStorySongEmbed(catalogSong.song)"));
  assert.match(viewer,/data-story-provider-dock/);
  assert.match(viewer,/data-story-provider-content/);
- assert.match(viewer,/openOfficialProvider\\(\\)/);
+ assert.ok(viewer.includes("openOfficialProvider()"));
  assert.match(viewer,/player.allow="autoplay; encrypted-media"/);
  assert.doesNotMatch(viewer,/story-official-music-iframe|story-start-audio|data-story-sound-unlock/);
  assert.doesNotMatch(css,/story-official-audio/);
