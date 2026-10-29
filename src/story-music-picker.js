@@ -221,7 +221,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     };
     // Stream results independently: don't hold back usable Audius songs while
     // a Creative Commons index is slow or temporarily unavailable.
-    const settle=promise,extract=>Promise.resolve(promise).then(data=>{
+    const settle=(promise,extract)=>Promise.resolve(promise).then(data=>{
       if(closed||ticket!==seq)return;
       remaining--;
       update(extract(data));
