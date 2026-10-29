@@ -41,6 +41,10 @@ export function stickerCatalogMarkup() {
       <button type="button" data-chat-catalog-tab="all" aria-pressed="true">Figurinhas</button>
       <button type="button" data-chat-catalog-tab="favorites" aria-pressed="false">Favoritas</button>
     </div>
+    <label class="visually-hidden" for="chatStickerCatalogPack">Pacote de figurinhas</label>
+    <select id="chatStickerCatalogPack" data-chat-catalog-pack aria-label="Pacote de figurinhas">
+      <option value="">Todos os pacotes</option><option value="cc0">Pacote CC0</option>
+    </select>
     <label class="visually-hidden" for="chatStickerCatalogSearch">Buscar figurinha</label>
     <input id="chatStickerCatalogSearch" type="search" maxlength="60" placeholder="Buscar figurinha" data-chat-catalog-search>
     <div class="chat-catalog-grid" data-chat-catalog-grid aria-label="Escolher figurinha"></div>
@@ -55,7 +59,7 @@ const setStatus = (picker, text) => {
 const stateFor = picker => {
   let state = states.get(picker);
   if (!state) {
-    state = { tab:"all", offset:0, query:"", pending:false, request:0,
+    state = { tab:"all", pack:"", offset:0, query:"", pending:false, request:0,
       favoriteIds:new Set(), rendered:new Map(), timer:null, sending:false, importing:false };
     states.set(picker,state);
   }
@@ -105,72 +109,103 @@ async function fetchFavoriteIds(client, userId) {
   }
   return ids;
 }
+async function loadPackOptions(picker,client) {
+  const select=picker.querySelector("[data-chat-catalog-pack]");
+  if (!select) return;
+  try {
+    const {data,error}=await client.from("sticker_catalog")
+      .select("slug,source_name").neq("slug","amostra-coracao").range(0,999);
+    if(error) throw error;
+    if(!picker.isConnected) return;
+    const current=stateFor(picker).pack;
+    const sources=[...new Set((data||[]).map(row=>row.source_name).filter(name=>
+      typeof name==="string" && name.trim().length && name.trim().length<=80))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    select.replaceChildren();
+    const addOption=(value,label)=>{const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);};
+    addOption("","Todos os pacotes");
+    addOption("cc0","Pacote CC0");
+    sources.forEach(source=>addOption(source,source));
+    if ([...select.options].some(option=>option.value===current)) select.value=current;
+    else {select.value="";stateFor(picker).pack="";}
+  } catch(error) {
+    console.warn("Looply sticker pack metadata unavailable",error);
+  }
+}
 async function loadPage(picker, client, userId, reset = false) {
-  const state = stateFor(picker);
-  if (state.pending) {
-    // Supersede an older search/tab request; run the latest query afterwards.
+  const state=stateFor(picker);
+  if(state.pending) {
     ++state.request;
-    state.queued = reset || Boolean(state.queued);
+    state.queued=reset || Boolean(state.queued);
     return;
   }
-  state.pending = true;
-  const sequence = ++state.request;
-  const offset = reset ? 0 : state.offset;
-  const more = picker.querySelector("[data-chat-catalog-more]");
-  more.hidden = true;
+  state.pending=true;
+  const sequence=++state.request;
+  const offset=reset?0:state.offset;
+  const more=picker.querySelector("[data-chat-catalog-more]");
+  more.hidden=true;
   setStatus(picker,"Carregando figurinhas…");
-  // The initial public library is deliberately local: it is available without
-  // a third-party account or a fragile remote image URL.
-  const localRows = (state.tab === "favorites"
-    ? CC0_STICKERS.filter(item => state.favoriteIds.has(item.id))
-    : CC0_STICKERS
-  ).filter(item => !state.query || item.title.toLocaleLowerCase("pt-BR").includes(state.query.toLocaleLowerCase("pt-BR")));
-  if (reset) state.rendered.clear();
-  renderItems(picker, localRows, !reset);
-  state.offset = localRows.length;
-  state.pending = false;
-  if (localRows.length) setStatus(picker,"Pacote CC0 do Looply. Toque para enviar ou na estrela para favoritar.");
-  return;
+  if (reset) {
+    state.rendered.clear();
+    // CC0 stickers are genuine bundled media. Preserve old messages and
+    // favorites; never show the legacy SVG example from the database.
+    const localRows=(state.pack==="" || state.pack==="cc0")
+      ? CC0_STICKERS.filter(item=>(state.tab!=="favorites" || state.favoriteIds.has(item.id))
+          && (!state.query || item.title.toLocaleLowerCase("pt-BR").includes(state.query.toLocaleLowerCase("pt-BR"))))
+      : [];
+    renderItems(picker,localRows,false);
+  }
   try {
-    let rows = [];
-    let fetchedCount = 0;
-    if (state.tab === "favorites") {
-      // Favorites are paginated at the database, not in the browser.
-      const {data,error} = await client.from("sticker_favorites").select("sticker_id")
+    if(state.pack==="cc0") {
+      state.offset=0;
+      if(picker.querySelector("[data-chat-catalog-grid]").children.length)
+        setStatus(picker,"Toque para enviar ou na estrela para favoritar.");
+      return;
+    }
+    let rows=[];
+    let fetchedCount=0;
+    if(state.tab==="favorites") {
+      const {data,error}=await client.from("sticker_favorites").select("sticker_id")
         .eq("user_id",userId).order("created_at",{ascending:false}).range(offset,offset+PAGE_SIZE-1);
-      if (error) throw error;
-      const ids = (data || []).map(row => row.sticker_id);
-      fetchedCount = ids.length;
-      if (ids.length) {
-        const catalog = await client.from("sticker_catalog")
-          .select("id,slug,title,asset_path,storage_path").in("id",ids).limit(PAGE_SIZE);
-        if (catalog.error) throw catalog.error;
-        const indexed = new Map((catalog.data || []).map(row=>[row.id,row]));
-        rows = ids.map(id=>indexed.get(id)).filter(Boolean);
+      if(error) throw error;
+      const ids=(data||[]).map(item=>item.sticker_id);
+      fetchedCount=ids.length;
+      if(ids.length) {
+        const found=await client.from("sticker_catalog")
+          .select("id,slug,title,asset_path,storage_path,source_name").in("id",ids).limit(PAGE_SIZE);
+        if(found.error) throw found.error;
+        const indexed=new Map((found.data||[]).map(row=>[row.id,row]));
+        rows=ids.map(id=>indexed.get(id)).filter(row=>row && row.slug!=="amostra-coracao"
+          && (!state.pack || row.source_name===state.pack)
+          && (!state.query || row.title.toLocaleLowerCase("pt-BR").includes(state.query.toLocaleLowerCase("pt-BR"))));
       }
     } else {
-      let query = client.from("sticker_catalog").select("id,slug,title,asset_path,storage_path").order("slug");
-      if (state.query) query = query.ilike("title","%"+state.query+"%");
-      const result = await query.range(offset,offset+PAGE_SIZE-1);
-      if (result.error) throw result.error;
-      rows = result.data || [];
-      fetchedCount = rows.length;
+      let query=client.from("sticker_catalog")
+        .select("id,slug,title,asset_path,storage_path,source_name")
+        .neq("slug","amostra-coracao").order("slug");
+      if(state.pack) query=query.eq("source_name",state.pack);
+      if(state.query) query=query.ilike("title","%"+state.query+"%");
+      const result=await query.range(offset,offset+PAGE_SIZE-1);
+      if(result.error) throw result.error;
+      rows=result.data||[];
+      fetchedCount=rows.length;
     }
-    const signedRows = await prepareImages(client,rows);
-    if (sequence !== state.request || !picker.isConnected) return;
-    if (reset) state.rendered.clear();
-    renderItems(picker,signedRows,!reset);
-    state.offset = offset + fetchedCount;
-    more.hidden = fetchedCount < PAGE_SIZE;
-    if (rows.length) setStatus(picker, "Toque na imagem para enviar ou na estrela para favoritar.");
-  } catch (error) {
-    console.warn("Looply sticker catalog unavailable.", error);
+    const ready=await prepareImages(client,rows);
+    if(sequence!==state.request || !picker.isConnected) return;
+    renderItems(picker,ready,true);
+    state.offset=offset+fetchedCount;
+    more.hidden=fetchedCount<PAGE_SIZE;
+    if(picker.querySelector("[data-chat-catalog-grid]").children.length)
+      setStatus(picker,"Toque na imagem para enviar ou na estrela para favoritar.");
+    else
+      setStatus(picker,state.tab==="favorites" ? "Nenhuma figurinha favorita neste pacote." : "Nenhuma figurinha disponível neste pacote.");
+  } catch(error) {
+    console.warn("Looply sticker catalog unavailable.",error);
     setStatus(picker,"Não foi possível carregar o catálogo. Tente novamente.");
   } finally {
-    state.pending = false;
-    if (state.queued && picker.isConnected) {
-      const queuedReset = state.queued;
-      state.queued = false;
+    state.pending=false;
+    if(state.queued && picker.isConnected) {
+      const queuedReset=state.queued;
+      state.queued=false;
       void loadPage(picker,client,userId,queuedReset);
     }
   }
@@ -266,7 +301,14 @@ export function bindStickerCatalog(root, client, getUserId) {
       const state = stateFor(picker);
       const saved = JSON.parse(localStorage.getItem(`looply:cc0-sticker-favorites:${userId}`) || "[]");
       state.favoriteIds = new Set(Array.isArray(saved) ? saved.filter(id => /^cc0:[a-z0-9-]+$/.test(id)) : []);
-      if (picker.isConnected) void loadPage(picker,client,userId,true);
+      if (picker.isConnected) {
+        void loadPackOptions(picker,client);
+        try {
+          const remoteFavorites=await fetchFavoriteIds(client,userId);
+          remoteFavorites.forEach(id=>state.favoriteIds.add(id));
+        } catch(error) {console.warn("Sticker favorites unavailable",error);}
+        if (picker.isConnected) void loadPage(picker,client,userId,true);
+      }
       return;
     }
     const picker = event.target.closest("[data-chat-sticker-picker]");
@@ -367,6 +409,16 @@ export function bindStickerCatalog(root, client, getUserId) {
     } finally { state.sending = false; send.disabled = false; }
   });
   root.addEventListener("change",async event=>{
+    const pack=event.target.closest("[data-chat-catalog-pack]");
+    if(pack) {
+      const picker=pack.closest("[data-chat-sticker-picker]");
+      if(!picker) return;
+      const state=stateFor(picker);
+      state.pack=pack.value;
+      state.offset=0;
+      void loadPage(picker,client,getUserId?.(),true);
+      return;
+    }
     const input=event.target.closest("[data-chat-sticker-import-files]");
     if (!input) return;
     const picker=input.closest("[data-chat-sticker-picker]");
