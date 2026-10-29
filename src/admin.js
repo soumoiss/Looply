@@ -347,7 +347,7 @@ export function bindAdminEvents(root, client) {
       }
     } catch (error) {
       console.error("Secret VIP history unavailable", error);
-      history.textContent = "Não foi possível carregar o histórico. Confira sua conexão e suas permissões no Neon.";
+      history.textContent = "Histórico indisponível: " + String(error?.message || "erro desconhecido");
     }
   }
 
@@ -443,12 +443,22 @@ export function bindAdminEvents(root, client) {
         results.append(card);
       }
     } catch (error) {
-      results.textContent = /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou. Desbloqueie novamente." : "Não foi possível carregar as contas. Verifique a justificativa e tente novamente.";
+      results.textContent = "Falha ao carregar contas: " + String(error?.message || "erro desconhecido") + ". Verifique sua sessão administrativa.";
     }
   }
 
   async function invokeAdmin(body) {
-    return invokeAdminAction(client, body);
+    const response = await invokeAdminAction(client, body);
+    if (response?.error) {
+      console.error("Looply ADM operation rejected", {
+        action: body?.action || "read",
+        resourceType: body?.resourceType,
+        code: response.error.code,
+        status: response.error.status,
+        message: response.error.message
+      });
+    }
+    return response;
   }
 
   let availabilityTimer = null;
@@ -575,7 +585,7 @@ export function bindAdminEvents(root, client) {
         setSettingsStatus("Configurações salvas com sucesso.");
       } catch (error) {
         console.error("Looply app settings save failed", error);
-        setSettingsStatus("Não foi possível salvar. Verifique a sessão ADM e tente novamente.", "error");
+        setSettingsStatus("Falha ao salvar: " + String(error?.message || "erro desconhecido"), "error");
       } finally { if (button) button.disabled = false; }
     };
     const loadSettings = async () => {
@@ -1169,7 +1179,7 @@ export function bindAdminEvents(root, client) {
         ? "Informe um motivo com pelo menos 20 caracteres."
         : /offset/.test(String(error?.message || ""))
           ? "Informe uma posição válida entre 0 e 10.000."
-          : "A consulta não foi concluída. A associação administrativa ou o serviço não está disponível.";
+          : "Consulta não concluída: " + String(error?.message || "erro desconhecido");
       if (status) {
         status.textContent = message;
         status.dataset.kind = "error";
