@@ -89,6 +89,7 @@ export function adminMarkup(profile = {}) {
         <div class="field"><label for="secretTitle">Título do recado (opcional)</label><input id="secretTitle" name="title" maxlength="160" placeholder="Psiu... Olha só isso!"></div>
         <div class="field"><label for="secretContent">Conteúdo do recado</label><textarea id="secretContent" name="content" rows="4" maxlength="5000" required placeholder="Escreva seu recado especial…"></textarea></div>
         <div class="field"><label for="secretMedia">Foto ou imagem opcional</label><input id="secretMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>Imagem de até 10 MB. A mídia fica em armazenamento privado e só o destinatário e o ADM podem acessá-la.</small><div class="secret-media-preview" data-secret-media-preview hidden></div></div>
+        <div class="field"><label for="secretPurpose">Justificativa administrativa</label><textarea id="secretPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva a finalidade do recado (mínimo 20 caracteres)."></textarea></div>
         <button class="primary-button compact-button" type="submit">Enviar Recado Secreto ✨</button><span class="form-status" data-secret-status role="status" aria-live="polite"></span>
       </form>
       <div class="admin-broadcast-results" data-secret-history aria-live="polite"><p>Carregando histórico de recados…</p></div>
@@ -326,10 +327,11 @@ export function bindAdminEvents(root, client) {
     history.textContent = "Carregando histórico…";
     try {
       const { data: response, error } = await invokeAdmin({action:"secret_list",resourceType:"secret_messages"});
-      const data = response?.messages || [];
       if (error) throw error;
+      if (!Array.isArray(response?.messages)) throw Error("secret_history_invalid_response");
+      const data = response.messages;
       history.replaceChildren();
-      if (!data?.length) { history.textContent = "Ainda não há recados enviados."; return; }
+      if (!data.length) { history.textContent = "Ainda não há recados enviados."; return []; }
       for (const item of data) {
         const card = document.createElement("article"); card.className = "admin-record";
         const top = document.createElement("div"); top.className = "admin-record-top";
@@ -348,9 +350,11 @@ export function bindAdminEvents(root, client) {
         }
         history.append(card);
       }
+      return data;
     } catch (error) {
       console.error("Secret VIP history unavailable", error);
       history.textContent = "Histórico indisponível: " + String(error?.message || "erro desconhecido");
+      return null;
     }
   }
 
@@ -798,9 +802,12 @@ export function bindAdminEvents(root, client) {
     if (cancelSecret && client) {
       cancelSecret.disabled = true;
       try {
-        const { error } = await invokeAdmin({action:"secret_cancel",resourceType:"secret_messages",secretId:cancelSecret.dataset.secretDelete});
-        if (error) throw error;
-        await loadSecretHistory();
+        const purpose=String(secretForm?.elements.purpose?.value||"").trim();
+        if (purpose.length<20 || purpose.length>500) throw Error("Informe uma justificativa de 20 a 500 caracteres.");
+        const { data, error } = await invokeAdmin({action:"secret_cancel",resourceType:"secret_messages",secretId:cancelSecret.dataset.secretDelete,purpose});
+        if (error || data?.cancelled!==true) throw error || Error("cancel_unconfirmed");
+        const history=await loadSecretHistory();
+        if(!history || history.some(item=>item.id===cancelSecret.dataset.secretDelete))throw Error("cancel_persistence_unconfirmed");
       } catch (error) { console.error("Secret message delete failed", error); const status=root.querySelector("[data-secret-status]"); if(status){status.textContent="Não foi possível apagar o recado.";status.dataset.kind="error";} }
       finally { cancelSecret.disabled = false; }
       return;
@@ -930,11 +937,15 @@ export function bindAdminEvents(root, client) {
       const submitButton = secretMessageForm.querySelector('button[type="submit"]');
       if (submitButton) submitButton.disabled = true;
       const status = secretMessageForm.querySelector("[data-secret-status]");
+      let uploadedSecretPath = null;
+      let secretRecorded = false;
       try {
         const values = new FormData(secretMessageForm);
         const recipientId = String(values.get("recipient_id") || "");
         const title = String(values.get("title") || "").trim();
         const content = String(values.get("content") || "").trim();
+        const purpose = String(values.get("purpose") || "").trim();
+        if (purpose.length < 20 || purpose.length > 500) throw Error("purpose");
         if (!recipientId || !content || content.length > 5000 || title.length > 160) throw new Error("validation");
         let mediaUrl = null;
         if (selectedSecretMedia) {
@@ -948,15 +959,23 @@ export function bindAdminEvents(root, client) {
             .upload(path,selectedSecretMedia,{contentType:selectedSecretMedia.type});
           if(uploadError) throw new Error("media_upload_failed: "+uploadError.message);
           mediaUrl=path;
+          uploadedSecretPath=path;
         }
-        const { error } = await invokeAdmin({action:"secret_create",resourceType:"secret_messages",recipientId,title,content,mediaPath:mediaUrl});
-        if (error) throw error;
+        const { data, error } = await invokeAdmin({action:"secret_create",resourceType:"secret_messages",recipientId,title,content,mediaPath:mediaUrl,purpose});
+        if (error || data?.created !== true || !data.id) throw error || Error("secret_creation_unconfirmed");
+        secretRecorded = true;
+        const history=await loadSecretHistory();
+        if (!history?.some(item => item.id === data.id)) throw Error("secret_history_not_confirmed");
+        const recipientLabel=secretRecipient?.selectedOptions?.[0]?.textContent || "o usuário";
         secretMessageForm.reset(); selectedSecretMedia = null;
         if (secretPreview) { secretPreview.replaceChildren(); secretPreview.hidden = true; }
-        if (status) { status.textContent = "Recado secreto guardado para " + (secretRecipient.selectedOptions[0]?.textContent || "o usuário") + "!"; status.dataset.kind = "success"; }
-        await loadSecretHistory();
+        if (status) { status.textContent = "Recado secreto salvo e confirmado para " + recipientLabel + "."; status.dataset.kind = "success"; }
       } catch (error) {
         console.error("Secret VIP message send failed", error);
+        if(uploadedSecretPath && !secretRecorded) {
+          const cleanup=await client.storage.from("looply-secret-messages").remove([uploadedSecretPath]);
+          if(cleanup.error) console.warn("Secret media cleanup not confirmed", cleanup.error);
+        }
         if (status) { status.textContent = error.message === "secret_media_storage_not_configured" ? "A mídia do recado VIP ainda não está disponível no armazenamento Neon. Remova a foto para enviar o texto." : error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : "Não foi possível enviar o recado. Verifique sua conexão e a autorização administrativa no Neon."; status.dataset.kind = "error"; }
       } finally { if (submitButton) submitButton.disabled = false; }
       return;
