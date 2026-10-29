@@ -1,18 +1,33 @@
-// Persistent, paginated sticker catalog. Only first-party reviewed assets can
-// enter this collection. External imports are intentionally not scraped here.
+// Persistent sticker catalog. Bundled entries are license-reviewed CC0 assets
+// committed with Looply, so they do not depend on an external sticker site.
 const PAGE_SIZE = 36;
 const safeAsset = value => /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(String(value || ""));
 const safeUpload = value => /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(String(value || ""));
+const safeBundledAsset = value => /^assets\/stickers\/cc0\/[a-z0-9-]{3,80}\.webp$/.test(String(value || ""));
+
+export const CC0_STICKERS = [
+  ["cat-scared", "Gato assustado", "cat-scared.webp", "lalahsghost / myEmotes · CC0 1.0"],
+  ["gato-branco", "Gato branco", "gato-branco.webp", "anlh / myEmotes · CC0 1.0"],
+  ["gato-derp", "Gato derp", "gato-derp.webp", "lalahsghost / myEmotes · CC0 1.0"],
+  ["blobcatpoly", "Gatinhos com coração", "blobcatpoly.webp", "angiepawing / myEmotes · CC0 1.0"]
+].map(([slug,title,file,source_name]) => ({
+  id:`cc0:${slug}`,slug,title,source_name,asset_path:`assets/stickers/cc0/${file}`,bundled:true
+}));
+
+export function cc0StickerFromMessage(body) {
+  const match = /^\[\[looply-sticker:([a-z0-9-]{3,80})\]\]$/.exec(String(body || ""));
+  return match ? CC0_STICKERS.find(sticker => sticker.slug === match[1]) || null : null;
+}
 async function prepareImages(client,rows) {
   return Promise.all(rows.map(async row => {
-    if (safeAsset(row.asset_path)) return row;
+    if (safeAsset(row.asset_path) || safeBundledAsset(row.asset_path)) return row;
     if (!safeUpload(row.storage_path)) return {...row,imageUrl:null};
     const result = await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
     return {...row,imageUrl:result.error ? null : result.data?.signedUrl||null};
   }));
 }
 function stickerSrc(row) {
-  if (safeAsset(row.asset_path)) return new URL(row.asset_path,document.baseURI).href;
+  if (safeAsset(row.asset_path) || safeBundledAsset(row.asset_path)) return new URL(row.asset_path,document.baseURI).href;
   return safeUpload(row.storage_path) ? row.imageUrl||null : null;
 }
 
@@ -23,22 +38,13 @@ const esc = text => String(text ?? "").replace(/[&<>"']/g, ch =>
 export function stickerCatalogMarkup() {
   return `<div class="chat-catalog" data-chat-catalog>
     <div class="chat-catalog-tabs" role="group" aria-label="Coleção de figurinhas">
-      <button type="button" data-chat-catalog-tab="all" aria-pressed="true">Todas</button>
+      <button type="button" data-chat-catalog-tab="all" aria-pressed="true">Figurinhas</button>
       <button type="button" data-chat-catalog-tab="favorites" aria-pressed="false">Favoritas</button>
     </div>
     <label class="visually-hidden" for="chatStickerCatalogSearch">Buscar figurinha</label>
     <input id="chatStickerCatalogSearch" type="search" maxlength="60" placeholder="Buscar figurinha" data-chat-catalog-search>
     <div class="chat-catalog-grid" data-chat-catalog-grid aria-label="Escolher figurinha"></div>
     <button type="button" class="text-button" data-chat-catalog-more hidden>Carregar mais</button>
-    <div class="chat-catalog-import">
-      <label class="chat-catalog-import-rights"><input type="checkbox" data-chat-sticker-import-rights> Tenho direito de compartilhar estas imagens</label>
-      <label class="chat-catalog-import-button">Importar figurinhas <input type="file" data-chat-sticker-import-files accept="image/png,image/jpeg,image/webp" multiple></label>
-    </div>
-    <details class="chat-catalog-external"><summary>Fontes de figurinhas</summary>
-      <a href="https://lovecell.com.br/busca" rel="noopener noreferrer" target="_blank">Lovecell</a>
-      <a href="https://sticker.ly/s/E1XLQJ" rel="noopener noreferrer" target="_blank">Sticker.ly · E1XLQJ</a>
-      <a href="https://www.zapfigurinhas.com/" rel="noopener noreferrer" target="_blank">Zap Figurinhas</a>
-    </details>
     <p class="chat-catalog-status" data-chat-catalog-status role="status" aria-live="polite"></p>
   </div>`;
 }
@@ -113,6 +119,18 @@ async function loadPage(picker, client, userId, reset = false) {
   const more = picker.querySelector("[data-chat-catalog-more]");
   more.hidden = true;
   setStatus(picker,"Carregando figurinhas…");
+  // The initial public library is deliberately local: it is available without
+  // a third-party account or a fragile remote image URL.
+  const localRows = (state.tab === "favorites"
+    ? CC0_STICKERS.filter(item => state.favoriteIds.has(item.id))
+    : CC0_STICKERS
+  ).filter(item => !state.query || item.title.toLocaleLowerCase("pt-BR").includes(state.query.toLocaleLowerCase("pt-BR")));
+  if (reset) state.rendered.clear();
+  renderItems(picker, localRows, !reset);
+  state.offset = localRows.length;
+  state.pending = false;
+  if (localRows.length) setStatus(picker,"Pacote CC0 do Looply. Toque para enviar ou na estrela para favoritar.");
+  return;
   try {
     let rows = [];
     let fetchedCount = 0;
@@ -246,13 +264,9 @@ export function bindStickerCatalog(root, client, getUserId) {
       const userId = getUserId?.();
       if (!picker || !userId) return;
       const state = stateFor(picker);
-      try {
-        state.favoriteIds = await fetchFavoriteIds(client,userId);
-        if (picker.isConnected) void loadPage(picker,client,userId,true);
-      } catch (error) {
-        setStatus(picker,"Não foi possível carregar as favoritas.");
-        void loadPage(picker,client,userId,true);
-      }
+      const saved = JSON.parse(localStorage.getItem(`looply:cc0-sticker-favorites:${userId}`) || "[]");
+      state.favoriteIds = new Set(Array.isArray(saved) ? saved.filter(id => /^cc0:[a-z0-9-]+$/.test(id)) : []);
+      if (picker.isConnected) void loadPage(picker,client,userId,true);
       return;
     }
     const picker = event.target.closest("[data-chat-sticker-picker]");
@@ -283,6 +297,14 @@ export function bindStickerCatalog(root, client, getUserId) {
       const wasFavorite = state.favoriteIds.has(id);
       favorite.disabled = true;
       try {
+        if (id.startsWith("cc0:")) {
+          if (wasFavorite) state.favoriteIds.delete(id); else state.favoriteIds.add(id);
+          localStorage.setItem(`looply:cc0-sticker-favorites:${userId}`, JSON.stringify([...state.favoriteIds]));
+          favorite.setAttribute("aria-pressed",String(!wasFavorite));
+          favorite.textContent = wasFavorite ? "☆" : "★";
+          if (state.tab === "favorites" && wasFavorite) void loadPage(picker,client,userId,true);
+          return;
+        }
         const result = wasFavorite
           ? await client.from("sticker_favorites").delete().eq("user_id",userId).eq("sticker_id",id).select("sticker_id").maybeSingle()
           : await client.from("sticker_favorites").insert({user_id:userId,sticker_id:id}).select("sticker_id").maybeSingle();
@@ -308,6 +330,16 @@ export function bindStickerCatalog(root, client, getUserId) {
     send.disabled = true;
     let newMessageId = null;
     try {
+      if (sticker.bundled) {
+        const {data:message,error} = await client.from("chat_messages")
+          .insert({conversation_id:conversationId,sender_id:userId,body:`[[looply-sticker:${sticker.slug}]]`})
+          .select("id").single();
+        if (error || !message?.id) throw error || Error("sticker_not_confirmed");
+        picker.close();
+        root.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+        root.dispatchEvent(new CustomEvent("looply:open-conversation",{detail:{conversationId}}));
+        return;
+      }
       const {data:message,error} = await client.from("chat_messages")
         .insert({conversation_id:conversationId,sender_id:userId,body:"Figurinha"})
         .select("id").single();

@@ -4,13 +4,15 @@ import {readFile} from "node:fs/promises";
 import {createNeonRestQuery} from "../src/neon-rest-bridge.js";
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
-test("three provided sticker sources are accessible as navigation, not copied as remote images",async()=>{
- const code=await read("src/chat-sticker-catalog.js");
- for(const url of ["https://lovecell.com.br/busca","https://sticker.ly/s/E1XLQJ","https://www.zapfigurinhas.com/"])
-   assert.ok(code.includes(url));
- assert.match(code,/data-chat-sticker-import-files/);
- assert.match(code,/data-chat-sticker-import-rights/);
- assert.doesNotMatch(code,/fetch\("https:\/\/sticker\.ly/);
+test("reviewed CC0 sticker pack is bundled, with no external source links or remote image fetching",async()=>{
+ const [code,chat]=await Promise.all([read("src/chat-sticker-catalog.js"),read("src/chat.js")]);
+ assert.match(code,/export const CC0_STICKERS/);
+ assert.match(code,/assets\/stickers\/cc0\//);
+ assert.match(code,/CC0 1\.0/);
+ assert.doesNotMatch(code,/https:\/\/(?:sticker\.ly|lovecell\.com\.br|zapfigurinhas\.com)/);
+ assert.doesNotMatch(code,/chat-catalog-import/);
+ assert.match(code,/\[\[looply-sticker:/);
+ assert.match(chat,/cc0StickerFromMessage/);
 });
 
 test("sticker import is processed locally to WebP with format, size and pixel limits",async()=>{

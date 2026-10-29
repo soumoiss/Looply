@@ -2,7 +2,7 @@ import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
-import { stickerCatalogMarkup, bindStickerCatalog } from "./chat-sticker-catalog.js?v=user-sticker-import-20261028";
+import { stickerCatalogMarkup, bindStickerCatalog, cc0StickerFromMessage } from "./chat-sticker-catalog.js?v=cc0-stickers-20261029";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
@@ -617,13 +617,16 @@ function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, p
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
-    const stickerSource = /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker?.asset_path||"")
+    const bundledSticker = cc0StickerFromMessage(message.body);
+    const stickerSource = bundledSticker?.asset_path
+      ? bundledSticker.asset_path
+      : /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(message.sticker?.asset_path||"")
       ? message.sticker.asset_path
       : /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(message.sticker?.storage_path||"")
         && /^https:\/\//.test(message.sticker?.imageUrl||"")
           ? message.sticker.imageUrl : "";
     const sticker = stickerSource
-      ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(message.sticker.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+      ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(bundledSticker?.title || message.sticker?.title || "Looply")}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
       : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
