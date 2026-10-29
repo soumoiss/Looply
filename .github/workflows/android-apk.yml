@@ -56,8 +56,8 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.soumoiss.looply'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='302'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.2'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='303'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.3'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
@@ -65,7 +65,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.2-debug-apk
+          name: Looply-3.0.3-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

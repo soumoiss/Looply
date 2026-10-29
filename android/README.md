@@ -1,6 +1,6 @@
 # Looply Android
 
-A interface web é copiada para os assets do APK por `scripts/build.mjs` e carregada de `https://appassets.androidplatform.net/` com `WebViewAssetLoader`. O início do aplicativo não depende da disponibilidade do GitHub Pages. Os dados e arquivos ainda dependem dos endpoints HTTPS usados pelo cliente web; alterações no código da interface exigem novo APK, enquanto dados enviados ao backend são sincronizados sem recompilar.
+A interface web é copiada para os assets do APK por `scripts/build.mjs` e carregada de `https://soumoiss.github.io/Looply/` com `WebViewAssetLoader` interceptando somente esse caminho. Assim, o código vem do APK e mantém a origem HTTPS já autorizada no Neon Auth e na Data API. O início do aplicativo não depende da disponibilidade do GitHub Pages. Os dados e arquivos ainda dependem dos endpoints HTTPS usados pelo cliente web; alterações no código da interface exigem novo APK, enquanto dados enviados ao backend são sincronizados sem recompilar.
 
 ## Compilação
 
