@@ -80,6 +80,89 @@ BEGIN
   RETURN jsonb_build_object('data',v_result,'requestId',v_request_id);
 END $function$;
 
+CREATE OR REPLACE FUNCTION public.v12_admin_import_card(p_payload jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+  v_card jsonb := p_payload->'cards'->0;
+  v_recipient uuid;
+  v_file text;
+  v_existing uuid;
+  v_created uuid;
+  v_text text;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.v3_self_is_admin() THEN
+    RAISE EXCEPTION 'admin_forbidden' USING ERRCODE='42501';
+  END IF;
+  IF jsonb_typeof(p_payload->'cards') <> 'array' OR jsonb_array_length(p_payload->'cards') <> 1 THEN
+    RAISE EXCEPTION 'invalid_card_batch' USING ERRCODE='22023';
+  END IF;
+  v_recipient := (v_card->>'recipient_id')::uuid;
+  v_file := coalesce(v_card->>'original_file','');
+  IF v_file !~* '^(misol|patati|yara)carta(privada)?[0-9]+[.]txt$' THEN
+    RAISE EXCEPTION 'invalid_archive_filename' USING ERRCODE='22023';
+  END IF;
+  SELECT id INTO v_existing FROM public.archived_cards WHERE recipient_id=v_recipient AND original_file=v_file;
+  IF v_existing IS NOT NULL THEN
+    RETURN jsonb_build_object('importedCount',0,'alreadyExistingCount',1);
+  END IF;
+  IF coalesce((v_card->>'is_protected')::boolean,false) THEN
+    RAISE EXCEPTION 'new_protected_archive_requires_encrypted_storage' USING ERRCODE='22023';
+  END IF;
+  v_text:=coalesce(v_card->>'body','');
+  IF length(v_text) < 1 OR length(v_text)>100000 THEN
+    RAISE EXCEPTION 'invalid_archived_body' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.archived_cards(recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date)
+  VALUES(v_recipient,v_file,(v_card->>'card_number')::integer,
+    coalesce((v_card->>'is_private')::boolean,false),
+    false,nullif(v_card->>'password_hint',''),v_text,
+    nullif(v_card->>'sent_date','')::date)
+  ON CONFLICT(recipient_id,original_file) DO NOTHING
+  RETURNING id INTO v_created;
+  RETURN jsonb_build_object('importedCount',CASE WHEN v_created IS NULL THEN 0 ELSE 1 END,
+    'alreadyExistingCount',CASE WHEN v_created IS NULL THEN 1 ELSE 0 END);
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.v12_admin_register_archive_media(p_payload jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+ v_media jsonb := p_payload->'media';
+ v_source text := coalesce(v_media->>'source_path','');
+ v_path text := coalesce(v_media->>'storage_path','');
+ v_size bigint := coalesce((v_media->>'byte_size')::bigint,0);
+ v_id uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.v3_self_is_admin() THEN
+  RAISE EXCEPTION 'admin_forbidden' USING ERRCODE='42501';
+ END IF;
+ IF v_source !~* '^midia/([^/]+|misol/[^/]+|yara/[^/]+)$'
+  OR v_path <> 'legacy-archive/' || v_source
+  OR v_size<1 OR v_size>209715200
+  OR length(coalesce(v_media->>'file_name','')) NOT BETWEEN 1 AND 255
+ THEN RAISE EXCEPTION 'invalid_archive_media_details' USING ERRCODE='22023'; END IF;
+ INSERT INTO public.archive_media
+  (source_path,file_name,storage_path,kind,mime_type,byte_size,visibility,source_date,description)
+ VALUES(v_source,v_media->>'file_name',v_path,v_media->>'kind',
+  v_media->>'mime_type',v_size,coalesce(v_media->>'visibility','members'),
+  nullif(v_media->>'source_date','')::timestamptz,
+  coalesce(v_media->>'description',''))
+ ON CONFLICT(source_path) DO NOTHING
+ RETURNING id INTO v_id;
+ IF v_id IS NULL THEN
+  SELECT id INTO v_id FROM public.archive_media WHERE source_path=v_source AND storage_path=v_path AND byte_size=v_size;
+ END IF;
+ IF v_id IS NULL THEN RAISE EXCEPTION 'archive_media_conflict' USING ERRCODE='22023'; END IF;
+ RETURN jsonb_build_object('mediaId',v_id);
+END $function$;
+
 CREATE OR REPLACE FUNCTION public.v12_admin_action(p_action text, p_payload jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -341,6 +424,27 @@ BEGIN
       GET DIAGNOSTICS match_count=ROW_COUNT;
       IF match_count<>1 THEN RAISE EXCEPTION 'content_not_found' USING ERRCODE='22023'; END IF;
       result:=jsonb_build_object('deleted',true);
+    WHEN 'noop_internal_test' THEN
+      result := '{}'::jsonb;
+    WHEN 'import_archived_cards' THEN
+      patch:=payload->'cards'->0;
+      title_text:=coalesce(patch->>'original_file','');
+      target_id:=(patch->>'recipient_id')::uuid;
+      SELECT id INTO record_id FROM public.archived_cards
+       WHERE recipient_id=target_id AND original_file=title_text;
+      IF record_id IS NOT NULL THEN
+        result:=jsonb_build_object('importedCount',0,'alreadyExistingCount',1);
+      ELSE
+        RAISE EXCEPTION 'archive_import_requires_confirmed_safe_fallback' USING ERRCODE='22023';
+      END IF;
+    WHEN 'import_archived_cards' THEN
+      result := jsonb_build_object('importedCount',0);
+    WHEN 'import_archived_cards' THEN
+      result := public.v12_admin_import_card(payload);
+    WHEN 'register_archive_media' THEN
+      result := public.v12_admin_register_archive_media(payload);
+    WHEN 'verify_archive_media_upload' THEN
+      result := jsonb_build_object('exists',false);
     ELSE
       RAISE EXCEPTION 'unsupported_admin_action: %',a USING ERRCODE='22023';
   END CASE;
@@ -435,3 +539,7 @@ REVOKE ALL ON FUNCTION public.v12_admin_action(text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.v12_admin_action(text,jsonb) TO authenticated;
 REVOKE ALL ON FUNCTION public.v12_admin_finish_signup(uuid,text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.v12_admin_finish_signup(uuid,text,text,text,text) TO authenticated;
+
+-- Helper procedures can only be called by the trusted owner executing the audited action RPC.
+REVOKE ALL ON FUNCTION public.v12_admin_import_card(jsonb) FROM PUBLIC,authenticated;
+REVOKE ALL ON FUNCTION public.v12_admin_register_archive_media(jsonb) FROM PUBLIC,authenticated;
