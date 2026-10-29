@@ -248,6 +248,39 @@ async function chatFunctionInvoke(name,options) {
     return {data:{conversationId:value},error:null};
   }catch{return {data:null,error:{message:"neon_chat_creation_unavailable"}};}
 }
+
+/**
+ * Restore the administrative interface with authenticated Neon Data API RPCs.
+ * Authorization and row-level access are always checked by PostgreSQL itself.
+ * No Supabase Edge Function, service key or client-side elevated role.
+ */
+async function adminFunctionInvoke(options = {}) {
+  const body = options?.body || {};
+  const action = typeof body.action === "string" ? body.action : "read";
+  try {
+    const session = await activeSession();
+    if (!session?.access_token) return { data:null, error:{message:"neon_session_required",status:401} };
+    const isRead = action === "read";
+    const endpoint = isRead ? "v12_admin_read" : "v12_admin_action";
+    const args = isRead
+      ? {p_resource:body.resourceType,p_id:body.resourceId||null,p_offset:Number(body.offset||0),p_purpose:String(body.purpose||"")}
+      : {p_action:action,p_payload:body};
+    const response = await fetch(config.data + "/rpc/" + endpoint, {
+      method:"POST", cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify(args)
+    });
+    const payload = await response.json().catch(()=>null);
+    if (!response.ok) return {data:null,error:{
+      message:String(payload?.message||"neon_admin_operation_failed"),
+      code:String(payload?.code||""),status:response.status
+    }};
+    return {data:payload,error:null};
+  } catch(error) {
+    return {data:null,error:{message:String(error?.message||"neon_admin_unavailable")}};
+  }
+}
+
 const realtimeBridge=createNeonRealtimeBridge({
   endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
   getSession:activeSession,
@@ -267,7 +300,7 @@ export const looplyClient = Object.freeze({
   }),
   from: table => createReadQuery(table),
   rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
-  functions: Object.freeze({ invoke: chatFunctionInvoke }),
+  functions: Object.freeze({ invoke: (name,options) => name === "looply-admin" ? adminFunctionInvoke(options) : chatFunctionInvoke(name,options) }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,
   removeChannel: realtimeBridge.removeChannel,
