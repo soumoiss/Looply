@@ -192,7 +192,7 @@ export async function saveNeonProfile({
             dataApiUrl, token, profileId, fetchImpl,
             previousPath: newPath, nextPath: oldPath,
             replacingAvatar: true,
-            fields: Object.fromEntries(EDITABLE.map(key => [key, committed[key]]))
+            fields: Object.fromEntries(EDITABLE.map(key => [key, current[key]]))
           });
         } catch {
           // Do not remove an object that may now be referenced by the profile.

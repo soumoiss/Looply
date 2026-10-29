@@ -765,3 +765,8 @@ body.secret-vip-open { overflow:hidden; }
 @keyframes secretVipDrop { to { opacity:0; transform:translateY(8px) scale(.99); } }
 @keyframes secretVipHeart { 50% { transform:scale(1.12) rotate(-5deg); } }
 @media (prefers-reduced-motion:reduce) { .secret-vip-overlay,.secret-vip-modal,.secret-vip-seal { animation:none!important; } }
+/* Identity links keep the host component's visual style. */
+a.chat-thread-identity,.comment-meta>a { color:inherit; text-decoration:none; }
+[data-profile-link],[data-profile-open],.looply-user-avatar,.looply-user-initial { cursor:pointer; }
+.chat-message-meta>a { color:inherit; text-decoration:none; }
+.chat-person>span>a { color:inherit; text-decoration:none; }

@@ -47,3 +47,5 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
   .looply-account > span { display: none; }
   .looply-account .theme-picker { display: none; }
 }
+/* Keep native account actions accessible beside the profile avatar on mobile. */
+.looply-account > .account-menu-caret { display:inline-flex; align-items:center; justify-content:center; width:24px; min-height:36px; }

@@ -27,18 +27,12 @@ test("Home displays real user greeting and profile settings link", async () => {
   assert.match(file,/href="perfil\.html">Meu perfil/);
   assert.match(file,/bindHomeProfilePreview/);
 });
-test("profile preview reads real scoped Neon records and post count", async () => {
-  const file = await read("src/home-profile-preview.js");
-  assert.match(file,/client\.from\("profiles"\)/);
-  assert.match(file,/client\.from\("posts"\)\.select\("id", \{ count:"exact", head:true \}\)\.eq\("author_id", profileId\)/);
-  assert.match(file,/Posts visíveis/);
-  assert.doesNotMatch(file,/>2\.4k<|>340<|>128</);
-});
-test("missing follows table does not display imaginary counts", async () => {
-  const file = await read("src/home-profile-preview.js");
-  assert.match(file,/data-hybrid-follower-count/);
-  assert.match(file,/textContent = "—"/);
-  assert.match(file,/Seguir · em breve/);
+test("Home opens the shared live profile instead of a placeholder preview", async () => {
+  const [home,api,sql]=await Promise.all([read("src/home-profile-preview.js"),read("src/profile-api.js"),read("migration/20261029_profile_social.sql")]);
+  assert.match(home,/perfil\.html\?usuario=/);
+  assert.match(api,/v11_profile_overview/);
+  assert.match(sql,/CREATE TABLE IF NOT EXISTS public\.follows/);
+  assert.doesNotMatch(home,/em breve|imaginary|fictitious/);
 });
 test("posts expose real author's preview rather than fixed demo profile", () => {
   const html = socialMarkup({people:[],posts:[post]}, "visitor");

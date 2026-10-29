@@ -1,3 +1,4 @@
+import { bindProfileNavigation } from "./profile-navigation.js";
 import { icon } from "./icons.js";
 import { looplyClient as supabase, selfProfile } from "./neon-production-client.js?v=fast-ring-20261027";
 import { applyProfilePreferences } from "./theme.js";
@@ -227,6 +228,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
+  const stopProfileNavigation = bindProfileNavigation({root,header,user});
   document.querySelectorAll(".page-navigation a").forEach((link) => {
     if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
   });
@@ -343,6 +345,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
     stopAdminModeSync();
+    stopProfileNavigation();
     if (maintenanceChannel) supabase.removeChannel(maintenanceChannel);
   }, { once: true });
 }

@@ -89,6 +89,13 @@ test("signed URL failure restores old avatar and cleans new object",async()=>{
   assert.deepEqual(f.history,["GET","UPLOAD","POST","SIGN","POST","REMOVE"]);
 });
 
+test("a failed combined save restores the previous name and bio with the avatar",async()=>{
+  const f=fixture({signFailure:true});
+  const oldName=f.row.display_name,oldBio=f.row.bio;
+  await assert.rejects(saveNeonProfile({...f.args,updates:{display_name:"Changed",bio:"Changed"},avatarFile:{type:"image/jpeg",size:128}}));
+  assert.equal(f.row.display_name,oldName);assert.equal(f.row.bio,oldBio);assert.equal(f.row.avatar_path,OLD);
+});
+
 test("rejected Neon RLS PATCH never destroys old image",async()=>{
   const f=fixture({denied:true});
   await assert.rejects(saveNeonProfile({...f.args,updates:{},avatarFile:{type:"image/jpeg",size:128}}),e=>e.status===403);

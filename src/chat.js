@@ -273,7 +273,7 @@ export function chatMarkup(data, userId) {
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
     ${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}
-    <span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span>
+    <span><a href="perfil.html?usuario=${encodeURIComponent(profile.id)}"><strong data-profile-name-id="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></a></span>
     <button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button>
   </article>`).join("");
   const searchMessage = data.profilesError
@@ -646,14 +646,14 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
     const avatar = !isMine && authorProfile ? (authorProfile.avatarUrl
       ? `<img class="chat-message-avatar" data-profile-avatar-id="${escapeHtml(authorProfile.id)}" src="${escapeHtml(authorProfile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
-      : `<span class="chat-message-avatar" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
+      : `<span class="chat-message-avatar" data-profile-avatar-id="${escapeHtml(authorProfile.id)}" aria-hidden="true">${escapeHtml(avatarLabel)}</span>`) : "";
     const readCount = isGroup ? participants.filter((participant) => participant.user_id !== userId && participant.last_read_at && new Date(participant.last_read_at) >= new Date(message.created_at)).length : 0;
     const readTotal = Math.max(0, participants.length - 1);
     const groupReadText = readCount === readTotal && readTotal ? "Lida por todos" : readCount ? `Lida por ${readCount} de ${readTotal}` : "Enviada";
     const deliveryLabel = isGroup ? groupReadText : message.read_at ? "Lida" : message.delivered_at ? "Entregue" : "Enviada";
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
-    <div class="chat-message-meta"><strong>${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong><time>${escapeHtml(formatDate(message.created_at))}</time></div>
+    <div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time>${escapeHtml(formatDate(message.created_at))}</time></div>
     ${replyContext}${storyContext}${sticker}<p data-chat-message-body${hideVisualPlaceholder ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
     <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button>${message.media?.length ? "" : `<button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>`}` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
@@ -695,7 +695,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     ? `<img class="chat-thread-avatar" data-profile-avatar-id="${escapeHtml(peer?.id || "")}" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
-  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(name)}</strong><small>Conversa em tempo real</small></div></header>`;
+  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<a class="chat-thread-identity" href="perfil.html?usuario=${encodeURIComponent(peer?.id || "")}"><strong data-profile-name-id="${escapeHtml(peer?.id || "")}">${escapeHtml(name)}</strong><small>Conversa em tempo real</small></a></header>`;
 }
 
 async function signThreadAvatar(client, participants) {
@@ -1473,7 +1473,7 @@ export function bindChatEvents(root, client, getUserId) {
           if (signed) avatarProfiles.forEach((profile, index) => { profile.avatarUrl = signed[index]?.signedUrl || ""; });
         }
         const container = root.querySelector("[data-chat-people]");
-        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><strong>${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
+        if (container) container.innerHTML = profiles.map((profile) => `<article class="chat-person">${profile.avatarUrl ? `<img class="chat-person-avatar" data-profile-avatar-id="${escapeHtml(profile.id)}" src="${escapeHtml(profile.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="chat-person-avatar" aria-hidden="true">${escapeHtml((profile.display_name || profile.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`}<span><a href="perfil.html?usuario=${encodeURIComponent(profile.id)}"><strong data-profile-name-id="${escapeHtml(profile.id)}">${escapeHtml(profile.display_name || profile.username)}</strong><small>@${escapeHtml(profile.username)}</small></a></span><button class="text-button" type="button" data-chat-start="${escapeHtml(profile.id)}">Conversar</button></article>`).join("") || `<p class="chat-empty">Nenhum perfil visível correspondeu à busca.</p>`;
         setStatus(form, `${profiles.length} perfil(is) encontrado(s).`);
       } else if (form.matches("[data-letter-send]")) {
         const subject = String(values.get("subject") || "").trim();
