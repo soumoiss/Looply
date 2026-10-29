@@ -31,7 +31,8 @@ test("ADM write actions stay direct except permanent letter deletions, which req
   assert.match(gallery, /window\.confirm\("Excluir permanentemente esta mídia/);
   assert.match(admin, /if \(!window\.confirm\("Excluir esta carta permanentemente\?/);
   assert.match(admin, /if \(!window\.confirm\("Excluir permanentemente esta carta importada/);
-  assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
+  assert.match(admin, /validatedUserPurpose/);
+  assert.doesNotMatch(admin, /looplyAdminSessionToken|admin_session_revoke|showSessionState/);
   assert.match(edge, /function adminAuditPurpose|const adminAuditPurpose/);
   assert.match(edge, /recordAccess\(/);
 });
