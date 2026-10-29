@@ -101,7 +101,11 @@ export function classifyFeedImages(root) {
       if (!figure) return;
       const [naturalWidth, naturalHeight] = feedMediaDimensions(figure);
       if (naturalWidth > 0 && naturalHeight > 0) figure.dataset.aspect = `${naturalWidth} / ${naturalHeight}`;
-      const height = feedMediaDisplayHeight(carousel.clientWidth, naturalWidth, naturalHeight, maximumHeight());
+      const mediaHeight = feedMediaDisplayHeight(carousel.clientWidth, naturalWidth, naturalHeight, maximumHeight());
+      // A caption lives below the image; include its real height instead of
+      // cropping it when the active slide is wider/shorter than the previous.
+      const captionHeight = figure.querySelector("figcaption")?.getBoundingClientRect().height || 0;
+      const height = mediaHeight + captionHeight;
       if (height && Math.abs(carousel.getBoundingClientRect().height - height) > 1) carousel.style.height = height + "px";
       carousel.dataset.mediaReady = naturalWidth > 0 && naturalHeight > 0 ? "true" : "false";
       [...carousel.children].forEach((slide, index) => {
