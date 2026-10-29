@@ -183,3 +183,36 @@
   min-width:100%!important;
   scroll-snap-align:start;
 }
+
+
+/* Intrinsic feed geometry. The media never stretches to fill a fixed-height
+   carousel: wide photos span the slide; tall ones scale down proportionally
+   within the responsive viewport height without being cropped or distorted. */
+.page-home .ig-post .post-media {
+  width:100%;
+  display:flex!important;
+  align-items:center;
+  justify-content:center;
+  overflow:visible!important;
+}
+.page-home .ig-post .post-media > img,
+.page-home .ig-post .post-media > video,
+.page-home .ig-post [data-feed-carousel] .post-media > img,
+.page-home .ig-post [data-feed-carousel] .post-media > video {
+  display:block!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:min(75dvh,730px)!important;
+  object-fit:contain!important;
+  aspect-ratio:auto!important;
+  flex:none;
+}
+.page-home .ig-post [data-feed-carousel] {
+  align-items:flex-start!important;
+  min-height:0!important;
+  transition:height .16s ease-out;
+}
+@media (prefers-reduced-motion:reduce) {
+  .page-home .ig-post [data-feed-carousel] {transition:none}
+}
