@@ -1320,9 +1320,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     ++state.insightsToken;
     state.paused = false;
     viewer.style.removeProperty("--story-keyboard-inset");
-    viewer.querySelector("[data-story-provider-content]")?.replaceChildren();
-    const providerDock=viewer.querySelector("[data-story-provider-dock]");
-    if(providerDock)providerDock.hidden=true;
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
       stopStoryMediaPlayback(audio, { owner: viewer }); audio.removeAttribute("src"); audio.remove();
     });
