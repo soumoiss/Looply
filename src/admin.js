@@ -1010,7 +1010,7 @@ export function bindAdminEvents(root, client) {
         });
         if (error || data?.created !== true) throw error || Error("Cadastro não confirmado no Neon.");
         const refreshed=await loadUsers();
-        if (!refreshed?.some(row => row.username === username && row.id === data?.id))
+        if (!refreshed?.some(row => row.username === username && row.id === data?.userId))
           throw Error("Conta criada, mas o vínculo do perfil ainda não foi confirmado. Não repita o cadastro.");
         createForm.reset();
         for (const status of createForm.querySelectorAll("[data-availability]")) {
