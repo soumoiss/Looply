@@ -34,7 +34,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   let stats,person,tab='fotos',generation=0,loading=false,hasMore=false,items=[],saving=false,pendingAvatar=null,previewUrl='',avatarGeneration=0;
   let listKind='followers',listRows=[],listOffset=0,listMore=false,listLoading=false,listGeneration=0,searchTimer;
   const pendingFollows=new Set();
-  let viewer,refreshTimer;
+  let viewer,refreshTimer,statsRevision=0;
   const bus=typeof BroadcastChannel==='function'?new BroadcastChannel('looply-profile-social'):null;
   root.innerHTML=`<section class="pr-page"><div class="pr-card pr-skeleton" style="height:220px"></div>${skeleton()}</section>`;
   try {
@@ -53,13 +53,15 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
       <button class="pr-button pr-share" type="button" data-pr-share aria-label="Compartilhar perfil" title="Compartilhar perfil">${icon('share')}<span>Compartilhar</span></button></div>`;
   }
   async function refreshStats() {
+    if(saving||pendingFollows.size)return;
+    const revision=statsRevision;
     const next=await profileRpc(client,'v11_profile_overview',{p_profile_id:targetId});
-    if (next?.profile) {stats=next;person={...person,...next.profile};drawCard();}
+    if (next?.profile && revision===statsRevision && !saving && !pendingFollows.size) {stats=next;person={...person,...next.profile};drawCard();}
   }
   const announceFollow=detail=>{window.dispatchEvent(new CustomEvent('looply:follow-updated',{detail}));bus?.postMessage(detail);};
   async function follow(id, next, button) {
     if(id===user.id||pendingFollows.size)return;
-    pendingFollows.add(id);button.disabled=true;
+    pendingFollows.add(id);++statsRevision;button.disabled=true;
     const before={...stats};const row=listRows.find(p=>p.id===id),wasRow=row?.isFollowing;
     if(id===targetId){stats=optimisticFollow(stats,next);drawCard();}
     if(row)row.isFollowing=next;
@@ -71,6 +73,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
       if(id===targetId)stats={...stats,...result};
       if(mine)stats.following=result.actorFollowing;
       if(row)row.isFollowing=result.isFollowing;
+      if(mine&&listKind==='following'&&!next){listRows=listRows.filter(p=>p.id!==id);listOffset=Math.max(0,listOffset-1);}
       announceFollow({...result,actorId:user.id});
       status(next?'Você está seguindo esta pessoa.':'Você deixou de seguir esta pessoa.');
     }catch(error){if(id===targetId||mine)stats=before;if(row)row.isFollowing=wasRow;status(profileError(error));}
@@ -155,7 +158,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   if(mine){
     const form=$('[data-pr-edit-form]');
     form.elements.avatar.addEventListener('change',async()=>{
-      clearPending();const request=avatarGeneration,file=form.elements.avatar.files?.[0];if(!file){$('[data-pr-preview]').innerHTML=avatar(person);return;}
+      clearPending();const request=avatarGeneration,file=form.elements.avatar.files?.[0];if(!file){form.querySelector('[type=submit]').disabled=false;$('[data-pr-preview]').innerHTML=avatar(person);return;}
       const submit=form.querySelector('[type=submit]');submit.disabled=true;$('[data-pr-save-status]').textContent='Preparando foto…';
       try{const ready=await prepareProfileAvatar(file);if(request!==avatarGeneration)return;pendingAvatar=ready;previewUrl=URL.createObjectURL(ready);$('[data-pr-preview]').innerHTML=`<img src="${esc(previewUrl)}" alt="Prévia da nova foto">`;$('[data-pr-save-status]').textContent='Foto selecionada. Toque em Salvar alterações para publicar.';}
       catch(error){if(request!==avatarGeneration)return;form.elements.avatar.value='';$('[data-pr-preview]').innerHTML=avatar(person);$('[data-pr-save-status]').textContent=profileError(error);}
@@ -172,7 +175,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
         const saved=await saveNeonProfile({profileId:user.id,session:session.data.session,dataApiUrl:client.dataApiUrl,storage:client.storage,updates,avatarFile:pendingAvatar});
         let avatarUrl=person.avatarUrl;
         if(pendingAvatar){const signed=await client.storage.from('looply-avatars').createSignedUrl(saved.avatarPath,1800);if(signed.error||!signed.data?.signedUrl)throw Error('Avatar URL unavailable');avatarUrl=signed.data.signedUrl;}
-        person={...person,...saved.profile,avatarUrl};Object.assign(actor,person);stats.profile=person;drawCard();
+        ++statsRevision;person={...person,...saved.profile,avatarUrl};Object.assign(actor,person);stats.profile=person;drawCard();
         const detail={profileId:user.id,display_name:person.display_name,bio:person.bio,avatar_path:person.avatar_path,avatarUrl};
         window.dispatchEvent(new CustomEvent('looply:profile-updated',{detail}));window.dispatchEvent(new CustomEvent('looply:avatar-updated',{detail}));
         bus?.postMessage({type:'profile',...detail});saving=false;closeDialog($('[data-pr-edit]'));status('Perfil atualizado.');
@@ -184,7 +187,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   drawCard();void loadContent();
   const onSocial=event=>{const detail=event.detail;if(pendingFollows.size)return;if(detail.actorId===targetId||detail.targetId===targetId)void refreshStats().catch(()=>{});};
   window.addEventListener('looply:follow-updated',onSocial);
-  if(bus)bus.onmessage=event=>{if(event.data?.type==='profile'){if(event.data.profileId===person.id){person={...person,...event.data};drawCard();}}else onSocial({detail:event.data||{}});};
+  if(bus)bus.onmessage=event=>{if(event.data?.type==='profile'){if(event.data.profileId===person.id){++statsRevision;person={...person,...event.data};drawCard();}}else onSocial({detail:event.data||{}});};
   refreshTimer=setInterval(()=>{if(document.hidden||pendingFollows.size)return;void refreshStats().catch(()=>{});if($('[data-pr-connections]').open&&!listLoading)void loadPeople();},15000);
   window.addEventListener('pagehide',()=>{clearPending();clearTimeout(searchTimer);clearInterval(refreshTimer);++generation;++listGeneration;window.removeEventListener('looply:follow-updated',onSocial);bus?.close();viewer.destroy();},{once:true});
   if(mine&&new URLSearchParams(location.search).get('foto')==='obrigatoria')$('[data-pr-open-edit]').click();
