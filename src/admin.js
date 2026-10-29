@@ -48,7 +48,8 @@ export function adminMarkup(profile = {}) {
         <p class="admin-description">A conta será criada como usuário comum, com e-mail confirmado para permitir login imediato. O processo não altera a sessão do ADM.</p>
         <button class="primary-button compact-button" type="submit">Cadastrar usuário</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
-    <div class="admin-results" data-users-results aria-live="polite"><p>O Modo ADM será ativado automaticamente para administradores autorizados.</p></div>
+    <div class="field"><label for="adminUsersPurpose">Justificativa para consultar e administrar usuários</label><textarea id="adminUsersPurpose" data-users-purpose minlength="20" maxlength="500" rows="2" required placeholder="Descreva a finalidade do acesso administrativo (mínimo 20 caracteres)."></textarea></div>
+    <div class="admin-results" data-users-results aria-live="polite"><p>Carregando contas cadastradas no Neon…</p></div>
     </section>
     <section class="admin-broadcast-panel admin-settings-panel" aria-labelledby="appSettingsTitle" data-app-settings-panel>
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Configurações globais</span><h3 id="appSettingsTitle">Controles do aplicativo</h3></div></div>
@@ -73,6 +74,7 @@ export function adminMarkup(profile = {}) {
         <div class="field"><label for="broadcastBody">Mensagem</label><textarea id="broadcastBody" name="body" maxlength="4000" rows="4" required placeholder="Escreva a mensagem que todos os membros devem receber."></textarea></div>
         <div class="field"><label for="broadcastMedia">Mídia opcional (imagem ou vídeo)</label><input id="broadcastMedia" name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"><small>Até 20 MB. A prévia aparece antes da publicação.</small><div data-broadcast-media-preview class="admin-broadcast-media-preview" hidden></div></div>
         <div class="field"><label for="broadcastExpiresAt">Expira em (opcional)</label><input id="broadcastExpiresAt" name="expiresAt" type="datetime-local"><small>Sem data de expiração, o aviso permanece ativo até ser desativado.</small></div>
+        <div class="field"><label for="broadcastPurpose">Justificativa administrativa</label><textarea id="broadcastPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Informe por que o comunicado será enviado (mínimo 20 caracteres)."></textarea></div>
         <div class="admin-broadcast-actions"><button class="primary-button compact-button" type="submit">Publicar comunicado</button><button class="text-button" type="button" data-broadcast-refresh>Consultar leituras</button></div>
         <span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
@@ -530,7 +532,8 @@ export function bindAdminEvents(root, client) {
       return true;
     } catch (error) {
       console.error("Looply global announcement history failed", error);
-      if (showStatus && form) setStatus(form, "Não foi possível carregar o histórico. Confira o acesso administrativo e tente novamente.", "error");
+      if (results) results.textContent = "Histórico indisponível: " + String(error?.message || "erro de consulta");
+      if (form) setStatus(form, "Não foi possível carregar o histórico.", "error");
       return false;
     } finally {
       if (refreshButton) refreshButton.disabled = false;
@@ -567,26 +570,33 @@ export function bindAdminEvents(root, client) {
     const modeInput = settingsForm.elements.maintenance_mode;
     const modeLabel = settingsForm.querySelector("[data-maintenance-label]");
     const setSettingsStatus = (message, kind = "success") => { if (status) { status.textContent = message; status.dataset.kind = kind; } };
+    let settingsSaving = false;
     const updateSettings = async (patch, button) => {
-      if (button) button.disabled = true;
+      if (settingsSaving) return;
+      settingsSaving = true;
+      const saveButtons = [...settingsForm.querySelectorAll("[data-maintenance-save], [data-music-save], [data-welcome-save]")];
+      saveButtons.forEach(item => {item.disabled = true;});
       setSettingsStatus("Salvando configurações…", "info");
       try {
         const { data, error } = await invokeAdmin({ action: "app_settings_update", resourceType: "settings", settings: patch });
         if (error) throw error;
         const saved = data?.settings;
-        if (saved) {
-          modeInput.checked = saved.maintenance_mode === true;
-          settingsForm.elements.maintenance_message.value = saved.maintenance_message || "Sistema em atualização rápida por Peixinho";
-          settingsForm.elements.music_of_the_day_title.value = saved.music_of_the_day_title || "";
-          settingsForm.elements.music_of_the_day_url.value = saved.music_of_the_day_url || "";
-          settingsForm.elements.welcome_banner_text.value = saved.welcome_banner_text || "";
+        if (!saved || !Object.keys(patch).every(key => saved[key] === patch[key])) throw Error("settings_write_unconfirmed");
+        const confirmed = await client.from("app_settings")
+          .select("maintenance_mode,maintenance_message,music_of_the_day_title,music_of_the_day_url,welcome_banner_text")
+          .eq("id", 1).maybeSingle();
+        if (confirmed.error || !confirmed.data || !Object.keys(patch).every(key => confirmed.data[key] === patch[key]))
+          throw Error("settings_persistence_unconfirmed");
+        for (const key of Object.keys(patch)) {
+          if (key === "maintenance_mode") modeInput.checked = confirmed.data[key] === true;
+          else if (settingsForm.elements[key]) settingsForm.elements[key].value = confirmed.data[key] || "";
         }
         if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado" : "Desativado";
-        setSettingsStatus("Configurações salvas com sucesso.");
+        setSettingsStatus("Configuração confirmada no Neon.");
       } catch (error) {
         console.error("Looply app settings save failed", error);
         setSettingsStatus("Falha ao salvar: " + String(error?.message || "erro desconhecido"), "error");
-      } finally { if (button) button.disabled = false; }
+      } finally { settingsSaving = false; saveButtons.forEach(item => {item.disabled = false;}); }
     };
     const loadSettings = async () => {
       try {
@@ -602,8 +612,8 @@ export function bindAdminEvents(root, client) {
       } catch (error) { console.warn("Looply app settings could not load", error); setSettingsStatus("Não foi possível carregar as configurações.", "error"); }
     };
     modeInput.addEventListener("change", () => {
-      if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado" : "Desativado";
-      updateSettings({ maintenance_mode: modeInput.checked, maintenance_message: settingsForm.elements.maintenance_message.value.trim() || "Sistema em atualização rápida por Peixinho" }, settingsForm.querySelector("[data-maintenance-save]"));
+      if (modeLabel) modeLabel.textContent = modeInput.checked ? "Ativado (não salvo)" : "Desativado (não salvo)";
+      setSettingsStatus("Alteração pendente. Toque em Salvar modo de manutenção.", "info");
     });
     settingsForm.querySelector("[data-maintenance-save]")?.addEventListener("click", (event) => updateSettings({ maintenance_mode: modeInput.checked, maintenance_message: settingsForm.elements.maintenance_message.value.trim() || "Sistema em atualização rápida por Peixinho" }, event.currentTarget));
     settingsForm.querySelector("[data-music-save]")?.addEventListener("click", (event) => {
@@ -738,21 +748,6 @@ export function bindAdminEvents(root, client) {
       } finally { accessAction.disabled = false; }
       return;
     }
-    const exitSession = event.target.closest("[data-admin-session-exit]");
-    if (exitSession && client) {
-      exitSession.disabled = true;
-      const token = sessionStorage.getItem("looplyAdminSessionToken") || "";
-      try {
-        await client.functions.invoke("looply-admin", { body: { action: "admin_session_revoke", token } });
-      } catch (error) {
-        console.error("Looply admin session revoke failed", error);
-      } finally {
-        sessionStorage.removeItem("looplyAdminSessionToken");
-        showSessionState("locked", "Sessão ADM encerrada nesta aba.");
-        exitSession.disabled = false;
-      }
-      return;
-    }
     const refreshBroadcasts = event.target.closest("[data-broadcast-refresh]");
     const broadcastForm = root.querySelector("form[data-admin-broadcast]");
     if (refreshBroadcasts && client) {
@@ -763,11 +758,17 @@ export function bindAdminEvents(root, client) {
     const deactivateBroadcast = event.target.closest("[data-broadcast-deactivate]");
     if (deactivateBroadcast && client) {
       event.preventDefault();
+      const purpose = String(broadcastForm?.elements.purpose?.value || "").trim();
+      if (purpose.length < 20 || purpose.length > 500) {
+        if (broadcastForm) setStatus(broadcastForm, "Informe justificativa de 20 a 500 caracteres antes de desativar.", "error");
+        broadcastForm?.elements.purpose?.focus();
+        return;
+      }
       deactivateBroadcast.disabled = true;
       try {
-        const { error } = await invokeAdmin({ action: "broadcast_deactivate", resourceType: "announcements", announcementId: deactivateBroadcast.dataset.broadcastDeactivate, purpose });
-        if (error) throw error;
-        await loadBroadcasts(broadcastForm, false);
+        const { data, error } = await invokeAdmin({ action: "broadcast_deactivate", resourceType: "announcements", announcementId: deactivateBroadcast.dataset.broadcastDeactivate, purpose });
+        if (error || data?.deactivated !== true) throw error || Error("deactivation_unconfirmed");
+        if (!await loadBroadcasts(broadcastForm, false)) throw Error("history_refresh_failed");
         if (broadcastForm) setStatus(broadcastForm, "Comunicado desativado. Novas janelas não serão exibidas.");
       } catch (error) {
         console.error("Looply global announcement deactivation failed", error);
@@ -797,7 +798,7 @@ export function bindAdminEvents(root, client) {
       });
       if (error) throw error;
       if (!data?.conversationId) throw new Error(data?.errorCode || "conversation unavailable");
-      root.dispatchEvent(new CustomEvent("looply:open-conversation", { detail: { conversationId: data.conversationId } }));
+      window.location.assign("chat.html?conversation=" + encodeURIComponent(data.conversationId));
     } catch (error) {
       console.error("Looply admin conversation start failed", error);
       const status = button.parentElement?.querySelector("[data-status]");
@@ -1188,6 +1189,7 @@ export function bindAdminEvents(root, client) {
       if (button) button.disabled = false;
     }
   });
+  void loadUsers();
 }
 
 
