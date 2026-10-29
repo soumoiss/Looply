@@ -113,6 +113,14 @@ async function canAdminDeleteGalleryObject(token,bucket,path) {
   });
   return response.ok && (await response.json().catch(()=>false))===true;
 }
+async function canAdminSignObject(token,bucket,path) {
+  if(!["looply-media","looply-gallery","looply-chat"].includes(bucket))return false;
+  const response=await fetch(process.env.NEON_DATA_API_URL+"/rpc/v12_admin_storage_read_allowed",{
+    method:"POST",headers:{authorization:token,"content-type":"application/json"},
+    body:JSON.stringify({p_bucket:bucket,p_path:path}),cache:"no-store"
+  });
+  return response.ok && (await response.json().catch(()=>false))===true;
+}
 async function canSignObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
@@ -255,9 +263,9 @@ export default { async fetch(request) {
     return json({ path }, 200, headers);
   }
   if (url.pathname.endsWith("/storage/sign") && request.method === "POST") {
-    if (!(await canSignObject(request.headers.get("authorization"),profileId,bucket,path))) {
-      return json({ error: "object_not_visible" }, 403, headers);
-    }
+    const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
+      || await canAdminSignObject(request.headers.get("authorization"),bucket,path);
+    if (!permitted) return json({ error: "object_not_visible" }, 403, headers);
     const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
     return json({ signedUrl: signed.url }, 200, headers);
   }
