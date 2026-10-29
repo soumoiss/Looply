@@ -2,35 +2,28 @@ from pathlib import Path
 from PIL import Image
 
 ANDROID_DIR = Path(__file__).resolve().parents[1]
-SOURCE = ANDROID_DIR / "icon-source" / "Looply-original.png"
+SOURCE = ANDROID_DIR / "icon-source" / "Looply-official.jpg"
 RES = ANDROID_DIR / "app" / "src" / "main" / "res"
 
 
-def remove_black_backdrop(image: Image.Image) -> Image.Image:
-    rgba = image.convert("RGBA")
-    pixels = rgba.load()
-    for y in range(rgba.height):
-        for x in range(rgba.width):
-            red, green, blue, _ = pixels[x, y]
-            brightness = max(red, green, blue)
-            alpha = 0 if brightness <= 12 else 255 if brightness >= 30 else round(
-                (brightness - 12) * 255 / 18
-            )
-            pixels[x, y] = (red, green, blue, alpha)
-    return rgba
+def official_art(image: Image.Image) -> Image.Image:
+    rgb = image.convert("RGB")
+    # Crop the whitespace around the supplied square logo, retaining its white interior.
+    width, height = rgb.size
+    return rgb.crop((width // 6, height // 6, width * 5 // 6, height * 5 // 6)).convert("RGBA")
 
 
 def centered_art(image: Image.Image, size: int, scale: float) -> Image.Image:
     dimension = round(size * scale)
     artwork = image.resize((dimension, dimension), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
     canvas.alpha_composite(artwork, ((size - dimension) // 2, (size - dimension) // 2))
     return canvas
 
 
 def main() -> None:
-    image = remove_black_backdrop(Image.open(SOURCE))
-    adaptive = centered_art(image, 432, 0.72)
+    image = official_art(Image.open(SOURCE))
+    adaptive = centered_art(image, 432, 0.60)
     (RES / "drawable").mkdir(parents=True, exist_ok=True)
     adaptive.save(RES / "drawable" / "ic_launcher_foreground.png", optimize=True)
 
@@ -46,7 +39,7 @@ def main() -> None:
     for density, size in densities:
         directory = RES / f"mipmap-{density}"
         directory.mkdir(parents=True, exist_ok=True)
-        icon = centered_art(image, size, 0.94)
+        icon = centered_art(image, size, 0.76)
         icon.save(directory / "ic_launcher.png", optimize=True)
         icon.save(directory / "ic_launcher_round.png", optimize=True)
 

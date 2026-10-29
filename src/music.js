@@ -541,6 +541,7 @@ export function bindMusicEvents(root, client, getUserId) {
     songs.forEach((song, index) => {
       const card = document.createElement("article");
       card.className = "music-catalog-result";
+      card.dataset.musicSongCard = String(index);
       const artworkUrl = safeMusicArtwork(song.artwork);
       if (artworkUrl) {
         const artwork = document.createElement("img");
@@ -590,6 +591,8 @@ export function bindMusicEvents(root, client, getUserId) {
     const list = root.querySelector("[data-music-search-results]");
     catalogSongs = [];
     selectedCatalogIndex = -1;
+    const confirm = root.querySelector("[data-music-picker-confirm]");
+    if (confirm) confirm.disabled = true;
     const term = String(query || "").trim();
     renderCatalogResults(catalogSongs);
     const normalized = term.toLocaleLowerCase("pt-BR");
@@ -686,16 +689,17 @@ export function bindMusicEvents(root, client, getUserId) {
       root.querySelectorAll("[data-music-direction-panel]").forEach((panel) => { panel.hidden = panel.dataset.musicDirectionPanel !== selected; });
       return;
     }
-    const songSelect = event.target.closest("[data-music-song-select]");
+    const songSelect = event.target.closest("[data-music-song-select], [data-music-song-preview], [data-music-song-card]");
     if (songSelect) {
-      selectedCatalogIndex = Number(songSelect.dataset.musicSongSelect);
+      selectedCatalogIndex = Number(songSelect.dataset.musicSongSelect ?? songSelect.dataset.musicSongPreview ?? songSelect.dataset.musicSongCard);
       root.querySelectorAll("[data-music-song-select]").forEach((button) => {
-        button.setAttribute("aria-pressed", String(button === songSelect));
-        button.textContent = button === songSelect ? "Selecionada" : "Selecionar";
+        const selected = Number(button.dataset.musicSongSelect) === selectedCatalogIndex;
+        button.setAttribute("aria-pressed", String(selected));
+        button.textContent = selected ? "Selecionada" : "Selecionar";
       });
       const confirm = root.querySelector("[data-music-picker-confirm]");
       if (confirm) confirm.disabled = !catalogSongs[selectedCatalogIndex];
-      return;
+      if (!event.target.closest("[data-music-song-preview]")) return;
     }
     const songPreview = event.target.closest("[data-music-song-preview]");
     if (songPreview) {
