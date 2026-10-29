@@ -28,9 +28,9 @@ test("selected ratios produce actual encoder dimensions, not the previous square
  for(const [ratio,[w,h]]of Object.entries(ratios)){
   assert.deepEqual(storyCanvasSize(ratio),{width:w,height:h});
   const c=cameraMediaConstraints("environment",ratio);
-  assert.equal(c.video.width.ideal,w);
-  assert.equal(c.video.height.ideal,h);
-  assert.equal(c.video.aspectRatio.ideal,w/h);
+  assert.equal(c.video.facingMode.ideal,"environment");
+  assert.equal(c.audio,true);
+  assert.equal(c.video.aspectRatio,undefined);
  }
  assert.match(source,/c.width = w; c.height = h/);
  assert.doesNotMatch(source,/c.width = Math.min\(1080, w\); c.height = Math.min\(1920, h\)/);
@@ -41,10 +41,10 @@ test("preview cover geometry and live draw use the same cropping rectangle",asyn
   read("src/story-studio.js"),read("assets/css/pages/story-reels-viewport-fix.css"),read("src/stories.js")
  ]);
  assert.match(source,/studio-camera-framing studio-camera-only/);
- assert.match(source,/const crop=cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
+ assert.match(source,/const fitted=containRect\(crop.width,crop.height,canvas.width,canvas.height\)/);
  assert.match(source,/ctx.drawImage\(layer,crop.x\*scaleX,crop.y\*scaleY,crop.width\*scaleX,crop.height\*scaleY,/);
  assert.match(source,/if\(settings.facing==="user"\)/);
- assert.match(css,/\.studio-camera-framing \.studio-camera[^{]*\{[^}]*object-fit:cover!important/);
+ assert.match(css,/\.studio-camera-framing \.studio-camera[^{]*\{[^}]*object-fit:contain!important/);
  assert.match(css,/aspect-ratio:var\(--studio-camera-ratio,0.5625\)/);
  assert.match(source,/verifyStoryImagePixels\(normalized,expected\)/);
  assert.match(source,/verifyStoryVideoPixels\(normalized,expected\)/);

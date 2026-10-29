@@ -68,12 +68,8 @@ export async function setRearCameraTorch(track, on) {
   return {requested:on,confirmed:reported===on};
 }
 export function cameraMediaConstraints(facing, ratio="9:16") {
-  const size=storyCanvasSize(ratio);
   return {video:{
-    facingMode:{ideal:facing},
-    width:{ideal:size.width},height:{ideal:size.height},
-    aspectRatio:{ideal:size.width/size.height},
-    resizeMode:{ideal:"none"}
+    facingMode:{ideal:facing}
   },audio:true};
 }
 const FORMATS = Object.freeze({
@@ -386,11 +382,13 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const drawLiveFrame = (ctx, canvas) => {
     const sourceW=video.videoWidth,sourceH=video.videoHeight;
     if(!sourceW||!sourceH)throw Error("A câmera ainda não está pronta.");
-    // The frame inside .studio-camera-framing uses object-fit:cover.
-    // Draw exactly the same centered source rectangle into output pixels.
-    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,
-      zoomMode==="digital"?settings.zoom:1);
-    if(!crop)throw Error("Não foi possível preparar o enquadramento.");
+    // Preserve the complete sensor view; only a deliberate pinch may crop it.
+    const crop=zoomMode==="digital" && settings.zoom>1
+      ? cameraCaptureCrop(sourceW,sourceH,sourceW,sourceH,settings.zoom)
+      : {x:0,y:0,width:sourceW,height:sourceH};
+    const fitted=containRect(crop.width,crop.height,canvas.width,canvas.height);
+    if(!fitted)throw Error("Não foi possível preparar o enquadramento.");
+    ctx.fillStyle="#0c0b0e";ctx.fillRect(0,0,canvas.width,canvas.height);
     const drawLayer=layer=>{
       const layerW=layer.videoWidth||layer.width||sourceW;
       const layerH=layer.videoHeight||layer.height||sourceH;
@@ -400,7 +398,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         ctx.translate(canvas.width,0);ctx.scale(-1,1);
       }
       ctx.drawImage(layer,crop.x*scaleX,crop.y*scaleY,crop.width*scaleX,crop.height*scaleY,
-        0,0,canvas.width,canvas.height);
+        fitted.x,fitted.y,fitted.width,fitted.height);
       ctx.restore();
     };
     drawLayer(video);
@@ -438,13 +436,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     try{acquired=await navigator.mediaDevices.getUserMedia(constraints);}
     catch{
       if(ticket!==cameraRequestId||!active)return;
-      try{acquired=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:facing},aspectRatio:{ideal:storyCanvasSize(settings.ratio).width/storyCanvasSize(settings.ratio).height}},
-        audio:false
-      });}
+      try{acquired=await navigator.mediaDevices.getUserMedia({video:true,audio:true});}
       catch{
         if(ticket!==cameraRequestId||!active)return;
         acquired=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
+        status("Microfone indisponível. Fotos funcionam, mas permita o microfone para gravar Stories com som.",true);
       }
     }
     if(ticket!==cameraRequestId||!active){
@@ -633,7 +629,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if(photoPending || timerPending || recorder?.state==="recording")return;
     if (settings.grid) throw new Error("Layout é uma sequência de quatro fotos. Desative o layout para gravar vídeos.");
     if (!stream || !video.videoWidth) throw new Error("Câmera ainda não está pronta.");
-    const mime = videoFormat();
+    if(!stream.getAudioTracks().some(track=>track.readyState==="live" && track.enabled))
+      throw Error("O microfone não foi autorizado. Permita o microfone nas configurações do Android para gravar Story com som.");
+    const mime = videoFormat(true);
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
     const canvas = document.createElement("canvas");
     const recordingSize = currentCanvasSize();
@@ -660,6 +658,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     loop();
     captureStream = canvas.captureStream(24);
     stream.getAudioTracks().forEach(track => captureStream.addTrack(track));
+    if(!captureStream.getAudioTracks().some(track=>track.readyState==="live"))
+      throw Error("O gravador não recebeu áudio do microfone.");
     recorder = new MediaRecorder(captureStream, { mimeType: mime });
     const recordingRecorder=recorder;
     const recordingChunks=[];

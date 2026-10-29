@@ -23,7 +23,7 @@ def centered_art(image: Image.Image, size: int, scale: float) -> Image.Image:
 
 def main() -> None:
     image = official_art(Image.open(SOURCE))
-    adaptive = centered_art(image, 432, 0.72)
+    adaptive = centered_art(image, 432, 0.60)
     (RES / "drawable").mkdir(parents=True, exist_ok=True)
     adaptive.save(RES / "drawable" / "ic_launcher_foreground.png", optimize=True)
 
@@ -39,7 +39,7 @@ def main() -> None:
     for density, size in densities:
         directory = RES / f"mipmap-{density}"
         directory.mkdir(parents=True, exist_ok=True)
-        icon = centered_art(image, size, 0.94)
+        icon = centered_art(image, size, 0.76)
         icon.save(directory / "ic_launcher.png", optimize=True)
         icon.save(directory / "ic_launcher_round.png", optimize=True)
 
