@@ -57,20 +57,19 @@ test("Apple and Deezer widgets remain valid previews but cannot publish a metada
  assert.equal(officialStorySongEmbed({...apple,url:"https://music.apple.com.evil.com/song/123"}),null);
  assert.equal(officialStorySongEmbed({...deezer,url:"http://www.deezer.com/track/777"}),null);
 });
-test("provider music stays user-initiated inside the Story without a modal or hidden iframe",()=>{
+test("published Story contains only the music label and real in-viewer audio, never a provider modal",()=>{
  const viewer=read("src/stories.js");
  const css=read("assets/css/pages/stories-instagram.css");
+ assert.doesNotMatch(viewer,/data-story-provider-dock|data-story-provider-content/);
+ assert.doesNotMatch(viewer,/openOfficialProvider|story-official-music-iframe|story-start-audio|data-story-sound-unlock/);
  assert.doesNotMatch(viewer,/data-story-official-audio|data-story-official-toggle|data-story-official-panel/);
- assert.ok(viewer.includes("officialStorySongEmbed(catalogSong.song)"));
- assert.match(viewer,/data-story-provider-dock/);
- assert.match(viewer,/data-story-provider-content/);
- assert.ok(viewer.includes("openOfficialProvider()"));
- assert.match(viewer,/player.allow="autoplay; encrypted-media"/);
- assert.doesNotMatch(viewer,/story-official-music-iframe|story-start-audio|data-story-sound-unlock/);
  assert.doesNotMatch(css,/story-official-audio/);
+ assert.match(viewer,/songLabel\.setAttribute\("role","note"\)/);
  assert.match(viewer,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
  assert.match(viewer,/playStoryAudio\(music\)/);
  assert.match(viewer,/startStoryMediaPlayback\(video\)/);
  const picker=read("src/story-music-picker.js");
  assert.doesNotMatch(picker,/open\.spotify\.com|spotify:\/\//);
+ assert.match(picker,/searchPlayableStorySongs/);
 });
+
