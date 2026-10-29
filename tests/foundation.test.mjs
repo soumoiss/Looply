@@ -548,9 +548,11 @@ test("archive import processes each item sequentially and continues after an ite
   ]);
 });
 
-test("archive uploads use resumable chunks and isolate each card and media request", async () => {
+test("archive uploads use verified Neon objects and isolate each card and media request", async () => {
   const importer = await read("src/archive-import.js");
-  assert.match(importer, /chunkSize:\s*6\s*\*\s*1024\s*\*\s*1024/);
+  assert.match(importer, /storage\.verify\(path\)/);
+  assert.match(importer, /storage\.upload\(path,source/);
+  assert.doesNotMatch(importer, /supabaseUrl|publishableKey|tus-js-client/);
   assert.match(importer, /processSequentially\(cards,[\s\S]*?cards:\s*\[card\]/);
   assert.match(importer, /processSequentially\(media,[\s\S]*?register_archive_media/);
   assert.match(importer, /falha individual não interrompe o restante/);
@@ -578,16 +580,22 @@ test("an archive upload conflict is recoverable only when Storage confirms the e
   assert.equal(canReuseArchiveObjectAfterUploadFailure(null, { exists: true, byteSize: 4096 }, 4096), false);
 });
 
-test("all resumable uploads include the publishable key and archive retries use the server-side Storage check", async () => {
-  const [archive, social, chat, admin] = await Promise.all([
-    read("src/archive-import.js"), read("src/social.js"), read("src/chat.js"),
-    read("supabase/functions/looply-admin/index.ts")
+test("archive upload verifies private Neon object size and persists only confirmed objects", async () => {
+  const [archive, social, chat, bridge, storage] = await Promise.all([
+    read("src/archive-import.js"),read("src/social.js"),read("src/chat.js"),
+    read("src/neon-production-client.js"),read("backend/neon-storage/index.mjs")
   ]);
-  assert.match(archive, /apikey: publishableKey/);
-  for (const source of [social, chat]) {assert.doesNotMatch(source, /apikey: publishableKey|tus-js-client/);assert.match(source,/client\.auth\.getSession\(\)/);}
-  assert.match(archive, /client\.functions\.invoke\("looply-admin", \{[\s\S]*?verify_archive_media_upload/);
-  assert.match(admin, /payload\.action === "verify_archive_media_upload"/);
-  assert.match(admin, /service\.storage\.from\("looply-media"\)\.list\(folder/);
+  assert.match(archive,/storage\.verify\(path\)/);
+  assert.match(archive,/verification\.data\?\.exists!==true/);
+  assert.match(archive,/register_archive_media/);
+  assert.match(bridge,/storageRequest\("verify",bucket,path\)/);
+  assert.match(storage,/\/storage\/verify/);
+  assert.match(storage,/isAuthenticatedAdmin/);
+  assert.doesNotMatch(archive,/supabaseUrl|publishableKey|tus-js-client/);
+  for(const source of [social,chat]) {
+    assert.doesNotMatch(source,/apikey: publishableKey|tus-js-client/);
+    assert.match(source,/client\.auth\.getSession\(\)/);
+  }
 });
 
 
