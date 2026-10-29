@@ -304,6 +304,10 @@ export function bindAdminEvents(root, client) {
         const title = document.createElement("h4"); title.textContent = item.title || "Recado secreto";
         const body = document.createElement("p"); body.className = "admin-record-body"; body.textContent = item.content;
         card.append(top, title, body);
+        if (item.media_url) {
+          const {data:signed}=await client.storage.from("looply-secret-messages").createSignedUrl(item.media_url,900);
+          if(signed?.signedUrl){const image=document.createElement("img");image.alt="Imagem do recado secreto";image.src=signed.signedUrl;image.loading="lazy";image.style.maxWidth="min(240px,100%)";card.append(image);}
+        }
         if (!item.is_read) {
           const remove = document.createElement("button"); remove.type = "button"; remove.className = "text-button admin-danger-action"; remove.dataset.secretDelete = item.id; remove.textContent = "Cancelar recado não lido"; card.append(remove);
         }
@@ -469,6 +473,11 @@ export function bindAdminEvents(root, client) {
       const { data, error } = await invokeAdmin({ action: "broadcast_list", resourceType: "announcements", purpose });
       if (error) throw error;
       const announcements = data?.announcements || [];
+      await Promise.all(announcements.map(async item => {
+        if(!/^announcements\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp|gif|mp4|webm)$/i.test(item.media_url||""))return;
+        const {data:signed,error:signError}=await client.storage.from("looply-announcements").createSignedUrl(item.media_url,1800);
+        item.media_url=signError?null:signed?.signedUrl||null;
+      }));
       if (results) {
         results.innerHTML = announcements.length ? announcements.map((item) => {
           const readers = (item.readers || []).map((reader) => `<li><strong>@${escapeHtml(reader.username || reader.display_name || "usuário")}</strong><span>${reader.read_at ? `Lido em ${escapeHtml(dateTime(reader.read_at))}` : "Ainda não leu"}</span></li>`).join("");
@@ -871,8 +880,15 @@ export function bindAdminEvents(root, client) {
         let mediaUrl = null;
         if (selectedSecretMedia) {
           if (!selectedSecretMedia.type.startsWith("image/") || selectedSecretMedia.size > 10 * 1024 * 1024) throw new Error("media");
-          throw new Error("secret_media_storage_not_configured");
-          // The current Neon storage Worker does not yet authorize this bucket.
+          const {data:authData,error:authError}=await client.auth.getUser();
+          if(authError || !authData?.user?.id) throw new Error("auth");
+          const ext = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif"}[selectedSecretMedia.type];
+          if(!ext) throw new Error("media");
+          const path = `secret-messages/${authData.user.id}/${crypto.randomUUID()}.${ext}`;
+          const {error:uploadError}=await client.storage.from("looply-secret-messages")
+            .upload(path,selectedSecretMedia,{contentType:selectedSecretMedia.type});
+          if(uploadError) throw new Error("media_upload_failed: "+uploadError.message);
+          mediaUrl=path;
         }
         const { error } = await invokeAdmin({action:"secret_create",resourceType:"secret_messages",recipientId,title,content,mediaPath:mediaUrl});
         if (error) throw error;
@@ -995,14 +1011,15 @@ export function bindAdminEvents(root, client) {
         if (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now())) throw new Error("expiry");
         let mediaUrl = null;
         if (selectedBroadcastMedia) {
-          throw new Error("broadcast_media_storage_not_configured");
           const { data: authData, error: authError } = await client.auth.getUser();
           if (authError || !authData?.user?.id) throw new Error("media_auth");
-          const safeName = selectedBroadcastMedia.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "media";
-          const path = `${authData.user.id}/${crypto.randomUUID()}-${safeName}`;
-          const { error: uploadError } = await client.storage.from("looply-announcements").upload(path, selectedBroadcastMedia, { upsert: false, contentType: selectedBroadcastMedia.type });
-          if (uploadError) throw uploadError;
-          mediaUrl = client.storage.from("looply-announcements").getPublicUrl(path).data.publicUrl;
+          const ext={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","video/mp4":"mp4","video/webm":"webm"}[selectedBroadcastMedia.type];
+          if(!ext) throw new Error("invalid_media");
+          const path = `announcements/${authData.user.id}/${crypto.randomUUID()}.${ext}`;
+          const {error:uploadError}=await client.storage.from("looply-announcements")
+            .upload(path,selectedBroadcastMedia,{contentType:selectedBroadcastMedia.type});
+          if(uploadError) throw new Error("media_upload_failed: "+uploadError.message);
+          mediaUrl=path;
         }
         const { data, error } = await invokeAdmin({
           action: "broadcast_create", resourceType: "announcements", title, body, mediaUrl,
