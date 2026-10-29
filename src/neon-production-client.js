@@ -87,6 +87,10 @@ function storageBucket(bucket) {
       const error = values.find(value => value.error)?.error || null;
       return { data: values.map(value => value.data), error };
     },
+    verify: async path => {
+      if (bucket !== "looply-media" || !path.startsWith("legacy-archive/midia/")) return blocked();
+      return storageRequest("verify",bucket,path);
+    },
     remove: async paths => {
       for (const path of paths) { const result = await storageRequest("remove", bucket, path); if (result.error) return result; }
       return { data: paths.map(name => ({ name })), error: null };
