@@ -1,7 +1,7 @@
 // Zero-dependency S3 client. Neon Functions inject the storage credentials.
 const allowedOrigin = "https://soumoiss.github.io";
 const encoder = new TextEncoder();
-const maxBytes = bucket => bucket === "looply-announcements" ? 20 * 1024 * 1024 : bucket === "looply-secret-messages" ? 10 * 1024 * 1024 : bucket === "looply-stickers"
+const maxBytes = bucket => bucket === "looply-media" ? 200 * 1024 * 1024 : bucket === "looply-announcements" ? 20 * 1024 * 1024 : bucket === "looply-secret-messages" ? 10 * 1024 * 1024 : bucket === "looply-stickers"
   ? 1024 * 1024
   : bucket === "looply-avatars"
   ? 10 * 1024 * 1024
@@ -43,6 +43,7 @@ function inspectObject(bucket, path) {
   const letter = /^([0-9a-f-]{36})\/([0-9a-f-]{36})-([A-Za-z0-9._-]{1,120})$/.exec(path);
   const announcement = /^announcements\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|gif|mp4|webm)$/i.exec(path);
   const secret = /^secret-messages\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|gif)$/i.exec(path);
+  const archive = /^legacy-archive\/midia\/(?:[^/]+|(?:misol|yara)\/[^/]+)$/i.exec(path);
   if (bucket === "looply-avatars" && avatar) return { type:"avatar", owner:avatar[1] };
   if (bucket === "looply-stickers" && sticker) return { type:"sticker", owner:sticker[1] };
   if (bucket === "looply-gallery" && gallery) return { type:"gallery",owner:gallery[1] };
@@ -52,6 +53,7 @@ function inspectObject(bucket, path) {
   if (bucket === "looply-letters" && letter) return { type:"letter",record:letter[1] };
   if (bucket === "looply-announcements" && announcement) return { type:"announcement",owner:announcement[1] };
   if (bucket === "looply-secret-messages" && secret) return { type:"secret",owner:secret[1] };
+  if (bucket === "looply-media" && archive) return { type:"archive" };
   return null;
 }
 function allowedFile(bucket,path,mime,size,profileId) {
@@ -62,6 +64,8 @@ function allowedFile(bucket,path,mime,size,profileId) {
   if (object.type==="sticker") return mime==="image/webp";
   if (object.type==="announcement") return /^(image\/(jpeg|png|webp|gif)|video\/(mp4|webm))$/.test(mime);
   if (object.type==="secret") return /^image\/(jpeg|png|webp|gif)$/.test(mime);
+  if (object.type==="archive") return size<=200*1024*1024 &&
+    /^(image\/(jpeg|png|webp|heic)|video\/(mp4|webm)|audio\/mpeg)$/.test(mime);
   if (object.type==="gallery") return galleryMime.test(mime);
   if (object.type==="letter") return chatMime.test(mime);
   if (object.type==="chat") return chatMime.test(mime);
@@ -82,6 +86,7 @@ async function canUploadObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
   if(object.owner)return object.owner===profileId;
+  if(object.type==="archive")return isAuthenticatedAdmin(token);
   const mapping={
     posts:["posts", {id:"eq."+object.record,author_id:"eq."+profileId}],
     stories:["stories",{id:"eq."+object.record,author_id:"eq."+profileId}],
@@ -93,6 +98,13 @@ async function canUploadObject(token,profileId,bucket,path) {
   return Boolean(query && (await rowsFor(token,query[0],query[1])).length);
 }
 // The database validates ADM membership and an exact registered gallery path.
+async function isAuthenticatedAdmin(token) {
+  const response=await fetch(process.env.NEON_DATA_API_URL+"/rpc/v3_self_is_admin",{
+    method:"POST",headers:{authorization:token,"content-type":"application/json"},
+    body:"{}",cache:"no-store"
+  });
+  return response.ok && (await response.json().catch(()=>false))===true;
+}
 async function canAdminDeleteGalleryObject(token,bucket,path) {
   if (!["looply-gallery","looply-media"].includes(bucket)) return false;
   const response=await fetch(process.env.NEON_DATA_API_URL+"/rpc/v7_gallery_storage_delete_allowed",{
@@ -106,7 +118,7 @@ async function canSignObject(token,profileId,bucket,path) {
   if(!object)return false;
   const tableByType={avatar:"profiles",sticker:"sticker_catalog",gallery:"community_gallery_media",posts:"post_media",
     stories:"story_media",comments:"comment_media",chat:"chat_media",letter:"community_letters",
-    announcement:"global_announcements",secret:"secret_messages"};
+    announcement:"global_announcements",secret:"secret_messages",archive:"archive_media"};
   const table=tableByType[object.type];
   if(!table)return false;
   if(object.type==="letter") {
@@ -117,7 +129,8 @@ async function canSignObject(token,profileId,bucket,path) {
     });
     return reply.ok && (await reply.json().catch(()=>[])).length>0;
   }
-  const params=object.type==="announcement" || object.type==="secret"?{media_url:"eq."+path}:
+  const params=object.type==="archive"?{storage_path:"eq."+path}:
+    object.type==="announcement" || object.type==="secret"?{media_url:"eq."+path}:
     object.type==="sticker"?{storage_path:"eq."+path}:
     object.type==="avatar"?{avatar_path:"eq."+path}:
     object.type==="gallery"?{storage_path:"eq."+path,publication_state:"eq.published"}:
@@ -203,6 +216,17 @@ export default { async fetch(request) {
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
   if (!safeObjectPath(path) || !["looply-avatars", "looply-stickers", "looply-gallery", "looply-media", "looply-chat", "looply-letters", "looply-announcements", "looply-secret-messages"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
+  if (url.pathname.endsWith("/storage/verify") && request.method === "POST") {
+    if(!inspectObject(bucket,path) || inspectObject(bucket,path).type!=="archive"
+      || !(await isAuthenticatedAdmin(request.headers.get("authorization"))))
+      return json({error:"admin_forbidden"},403,headers);
+    const signed=await signedRequest({method:"HEAD",bucket,path});
+    const reply=await fetch(signed.url,{method:"HEAD",headers:signed.headers});
+    if(reply.status===404)return json({exists:false,byteSize:0},200,headers);
+    if(!reply.ok)return json({error:"storage_verification_failed"},502,headers);
+    const byteSize=Number(reply.headers.get("content-length")||0);
+    return json({exists:true,byteSize},200,headers);
+  }
   if (url.pathname.endsWith("/storage/upload-url") && request.method === "POST") {
     const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     const size = Number(request.headers.get("x-looply-size") || 0);
