@@ -367,33 +367,23 @@ test("personal music libraries are owner-only and administrative reads are audit
   assert.match(edge, /owner:profiles!music_library_owner_id_fkey/);
 });
 
-test("admin reads use a verified Edge Function and a service-role-only audit bridge", async () => {
-  const names = await readdir(resolve(projectRoot, "supabase/migrations"));
-  const bridgeName = names.find((name) => name.endsWith("_admin_audit_bridge.sql"));
-  const denyName = names.find((name) => name.endsWith("_deny_direct_admin_audit_access.sql"));
-  assert.ok(bridgeName);
-  assert.ok(denyName);
-  const [sql, denySql, edge, admin, config] = await Promise.all([
-    read("supabase/migrations/" + bridgeName),
-    read("supabase/migrations/" + denyName),
-    read("supabase/functions/looply-admin/index.ts"),
+test("Neon administrative reads require server-side authorization and audit, not legacy Supabase",async()=>{
+  const [adapter,admin,migration] = await Promise.all([
+    read("src/neon-production-client.js"),
     read("src/admin.js"),
-    read("supabase/config.toml")
+    read("migrations/20261029_01_admin_action_archive_routing.sql")
   ]);
-  assert.match(sql, /private\.admin_audit[\s\S]*?enable row level security/i);
-  assert.match(denySql, /admin_audit_deny_direct_access[\s\S]*?using \(false\)[\s\S]*?with check \(false\)/i);
-  assert.match(sql, /is_looply_admin[\s\S]*?grant execute[\s\S]*?to service_role/i);
-  assert.match(sql, /record_looply_admin_access[\s\S]*?grant execute[\s\S]*?to service_role/i);
-  assert.match(edge, /auth\.getUser\(\)/);
-  assert.match(edge, /record_looply_admin_access/);
-  assert.match(edge, /createSignedUrls/);
-  assert.match(config, /\[functions\.looply-admin\][\s\S]*?verify_jwt = true/i);
-  assert.match(admin, /functions\.invoke\("looply-admin"/);
-  assert.doesNotMatch(admin, /purpose\.length\s*<\s*20/);
-  assert.doesNotMatch(admin, /Justificativa administrativa \(obrigatória\)/i);
-  assert.match(edge, /adminAuditPurpose\(action, resourceType\)/);
-  assert.doesNotMatch(edge, /sb_secret_[A-Za-z0-9_-]{10,}|service_role["']\s*:\s*["'][A-Za-z0-9_-]{20,}/i);
+  assert.match(adapter,/v12_admin_read/);
+  assert.match(adapter,/v12_admin_action/);
+  assert.match(adapter,/neon_session_required/);
+  assert.match(admin,/functions\.invoke\("looply-admin"/);
+  assert.match(admin,/validatedUserPurpose\(\)/);
+  assert.match(admin,/data-admin-read/);
+  assert.match(migration,/v3_self_is_admin\(\)/);
+  assert.match(migration,/looply_admin_audit_events/);
+  assert.doesNotMatch(admin,/looplyAdminSessionToken|admin_session_revoke/);
 });
+
 
 test("chat, letters, notifications, and attachments are private to conversation participants", async () => {
   const names = await readdir(resolve(projectRoot, "supabase/migrations"));
