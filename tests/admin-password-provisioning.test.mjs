@@ -4,24 +4,22 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const root = resolve(import.meta.dirname, "..");
-const read = (path) => readFile(resolve(root, path), "utf8");
+const read = path => readFile(resolve(root,path),"utf8");
 
-test("ADM provisions a confirmed common user through the server-only Auth admin API", async () => {
-  const [migration, edge, ui] = await Promise.all([
-    read("supabase/migrations/20261020090000_admin_password_provisioning.sql"),
-    read("supabase/functions/looply-admin/index.ts"),
-    read("src/admin.js")
+test("Neon Auth user creation checks admin permission, links profile and never relies on legacy session tokens",async()=>{
+  const [ui,adapter,migration] = await Promise.all([
+    read("src/admin.js"),
+    read("src/neon-production-client.js"),
+    read("migrations/20261029_01_admin_action_archive_routing.sql")
   ]);
-
-  assert.match(migration, /looply_admin_provisioned/);
-  assert.match(migration, /raw_app_meta_data/);
-  assert.match(migration, /insert into public\.profiles/i);
-  assert.match(edge, /auth\.admin\.createUser\(\{/);
-  assert.match(edge, /email_confirm:\s*true/);
-  assert.match(edge, /app_metadata:\s*\{[^}]*looply_admin_provisioned/);
-  assert.match(edge, /user_metadata:\s*\{ username, display_name: displayName \}/);
-  assert.match(ui, /data-user-create/);
-  assert.match(ui, /name="password"/);
-  assert.match(ui, /sessionStorage\.getItem\("looplyAdminSessionToken"\)/);
-  assert.doesNotMatch(ui, /auth\.signUp\(/);
+  assert.match(ui,/data-user-create/);
+  assert.match(ui,/name="password"/);
+  assert.match(ui,/user_create_with_password/);
+  assert.match(ui,/validatedUserPurpose/);
+  assert.doesNotMatch(ui,/looplyAdminSessionToken|admin_session_revoke|showSessionState/);
+  assert.match(adapter,/adminFunctionInvoke\(\{body:\{action:"status"\}\}\)/);
+  assert.match(adapter,/adminApi\.createUser\(/);
+  assert.match(adapter,/v12_admin_finish_signup/);
+  assert.match(adapter,/created\.data\?\.user\?\.id/);
+  assert.match(migration,/v12_admin_action/);
 });
