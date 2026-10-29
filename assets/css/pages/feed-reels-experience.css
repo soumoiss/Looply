@@ -148,3 +148,40 @@
 .page-home .post-owner-menu summary:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
 .page-home .post-owner-menu-actions { position:absolute; right:0; top:calc(100% + 2px); min-width:150px; z-index:6; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 28px #0003; padding:4px; }
 .page-home .post-owner-menu-actions button { width:100%; text-align:left; white-space:nowrap; padding-inline:10px; }
+
+
+/* Native media proportions — never coerce a 16:9 or portrait original to 1:1/4:5.
+   Each carousel frame sizes to its own intrinsic media dimensions. */
+.page-home .ig-post .post-media,
+.page-home .ig-post .post-media[data-aspect],
+.page-home .ig-post [data-feed-carousel] .post-media {
+  aspect-ratio:auto!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:hidden;
+  background:transparent;
+}
+.page-home .ig-post .post-media > img,
+.page-home .ig-post .post-media > video,
+.page-home .ig-post [data-feed-carousel] .post-media > img,
+.page-home .ig-post [data-feed-carousel] .post-media > video {
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  background:transparent;
+  border-radius:0;
+}
+.page-home .ig-post [data-feed-carousel] {
+  align-items:flex-start!important;
+  scroll-snap-type:x mandatory;
+}
+.page-home .ig-post [data-feed-carousel] .post-media {
+  flex:0 0 100%!important;
+  min-width:100%!important;
+  scroll-snap-align:start;
+}
