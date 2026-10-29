@@ -18,7 +18,8 @@ test("Secret VIP messages are recipient-scoped and mark-read is column-restricte
   assert.match(admin, /data-secret-message-form/);
   assert.match(admin, /data-secret-history/);
   assert.match(admin, /data-secret-delete/);
-  assert.match(admin, /from\("secret_messages"\)\.insert/);
+  assert.match(admin, /action:"secret_create"/);
+  assert.match(admin, /action:"secret_cancel"/);
 
   const modal = await readFile(resolve(root, "src/secret-messages.js"), "utf8");
   assert.match(modal, /eq\("recipient_id", userId\)\.eq\("is_read", false\)/);
@@ -39,8 +40,11 @@ test("Secret VIP administration has one form and one private-storage send flow",
   }
 
   assert.doesNotMatch(admin, /secret_message_create|secret_message_delete|community-media|loadSecretMessages/);
-  assert.match(admin, /storage\.from\("looply-secret-messages"\)\.upload/);
-  assert.match(admin, /from\("secret_messages"\)\.insert/);
-  assert.match(admin, /from\("secret_messages"\)\.delete\(\)[\s\S]*?\.eq\("is_read", false\)/);
+  assert.match(admin, /storage\.from\("looply-secret-messages"\)[\s\S]*?\.upload/);
+  assert.match(admin, /action:"secret_create"/);
+  assert.match(admin, /action:"secret_cancel"/);
+  const client = await readFile(resolve(root, "src/neon-production-client.js"), "utf8");
+  assert.match(client, /v12_admin_action/);
+  assert.match(client, /name === "looply-admin"/);
 });
 
