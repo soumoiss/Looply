@@ -3,6 +3,7 @@ import { cachedSignedUrls } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
 import { validatePublicationInput } from "./publication-validation.js";
+import { releaseMediaPlayback, requestMediaPlayback } from "./media-playback-coordinator.js";
 
 const externalHosts = new Set([
   "instagram.com", "www.instagram.com", "m.instagram.com", "l.instagram.com",
@@ -69,13 +70,48 @@ export function externalPlayerMessage(provider, action) {
   return null;
 }
 
-function classifyFeedImages(root) {
+export function feedMediaDisplayHeight(containerWidth, naturalWidth, naturalHeight, maximumHeight) {
+  const width = Number(containerWidth);
+  const sourceWidth = Number(naturalWidth);
+  const sourceHeight = Number(naturalHeight);
+  const limit = Number(maximumHeight);
+  if (!(width > 0)) return 0;
+  const proportional = sourceWidth > 0 && sourceHeight > 0
+    ? width * sourceHeight / sourceWidth
+    : width * 3 / 4;
+  return Math.max(1, Math.round(limit > 0 ? Math.min(proportional, limit) : proportional));
+}
+
+function feedMediaDimensions(figure) {
+  const media = figure?.querySelector("img,video");
+  if (media instanceof HTMLImageElement) return [media.naturalWidth, media.naturalHeight];
+  if (media instanceof HTMLVideoElement) return [media.videoWidth, media.videoHeight];
+  return [0, 0];
+}
+
+export function classifyFeedImages(root) {
   root.querySelectorAll("[data-feed-carousel]").forEach(carousel => {
     if (carousel.dataset.carouselBound === "true") return;
     carousel.dataset.carouselBound = "true";
     let ticking = false;
+    let activeIndex = 0;
+    const maximumHeight = () => Math.min(window.innerHeight * .75, 730);
+    const resizeActiveSlide = () => {
+      const figure = carousel.children[activeIndex];
+      if (!figure) return;
+      const [naturalWidth, naturalHeight] = feedMediaDimensions(figure);
+      if (naturalWidth > 0 && naturalHeight > 0) figure.dataset.aspect = `${naturalWidth} / ${naturalHeight}`;
+      const height = feedMediaDisplayHeight(carousel.clientWidth, naturalWidth, naturalHeight, maximumHeight());
+      if (height && Math.abs(carousel.getBoundingClientRect().height - height) > 1) carousel.style.height = height + "px";
+      carousel.dataset.mediaReady = naturalWidth > 0 && naturalHeight > 0 ? "true" : "false";
+      [...carousel.children].forEach((slide, index) => {
+        slide.dataset.carouselActive = index === activeIndex ? "true" : "false";
+        slide.setAttribute("aria-hidden", index === activeIndex ? "false" : "true");
+      });
+    };
     const updateIndex = () => {
       const index = Math.min(carousel.children.length - 1, Math.max(0, Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth))));
+      activeIndex = index;
       const card = carousel.closest("[data-post-card]");
       card?.querySelectorAll("[data-carousel-dot]").forEach(dot => dot.classList.toggle("is-active", Number(dot.dataset.carouselDot) === index));
       const count = card?.querySelector("[data-carousel-position]");
@@ -84,44 +120,31 @@ function classifyFeedImages(root) {
       const next = card?.querySelector('[data-carousel-step="1"]');
       if (previous) previous.disabled = index === 0;
       if (next) next.disabled = index === carousel.children.length - 1;
+      resizeActiveSlide();
     };
-    // Fit the carousel to the CURRENT slide, not the tallest image in the set.
-    // Without this, a 16:9 image shares the height of a portrait slide and
-    // leaves a large empty panel below it.
-    const fitCurrentSlide = () => {
-      const slides = [...carousel.children];
-      const index = Math.min(slides.length - 1, Math.max(0,
-        Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth))));
-      const slide = slides[index];
-      if (!slide) return;
-      const media = slide.querySelector("img, video");
-      if (media?.tagName === "IMG" && !media.complete) return;
-      const h = slide.getBoundingClientRect().height;
-      if (h > 0) carousel.style.height = Math.ceil(h) + "px";
-    };
-    const refresh = () => { updateIndex(); fitCurrentSlide(); };
     carousel.addEventListener("scroll", () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        refresh();
+        updateIndex();
       });
     }, { passive: true });
-    carousel.querySelectorAll("img").forEach(img => img.addEventListener("load", refresh));
-    carousel.querySelectorAll("video").forEach(video => video.addEventListener("loadedmetadata", refresh));
-    if (typeof ResizeObserver !== "undefined") {
-      const resizeObserver = new ResizeObserver(refresh);
-      carousel.querySelectorAll(".post-media").forEach(slide => resizeObserver.observe(slide));
-    }
-    refresh();
+    const observer = typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => resizeActiveSlide()) : null;
+    observer?.observe(carousel);
+    carousel.querySelectorAll("img").forEach(image => image.addEventListener("load", resizeActiveSlide));
+    carousel.querySelectorAll("video").forEach(video => video.addEventListener("loadedmetadata", resizeActiveSlide));
+    updateIndex();
   });
   root.querySelectorAll(".ig-post .post-media img").forEach(image => {
     const apply = () => {
       if (!image.naturalWidth || !image.naturalHeight) return;
-      const ratio = image.naturalWidth / image.naturalHeight;
       const figure = image.closest(".post-media");
-      if (figure) figure.dataset.aspect = ratio > 1.55 ? "wide" : ratio >= 0.94 && ratio <= 1.06 ? "square" : "portrait";
+      if (figure) {
+        figure.dataset.naturalWidth = String(image.naturalWidth);
+        figure.dataset.naturalHeight = String(image.naturalHeight);
+      }
     };
     if (image.complete) apply();
     else image.addEventListener("load", apply, { once: true });
@@ -142,7 +165,7 @@ function bindFeedVideoAutoplay(root) {
   };
   const pause = (item) => {
     if (!item) return;
-    if (item.matches("video")) item.pause();
+    if (item.matches("video")) { item.pause(); releaseMediaPlayback(item, item); }
     else sendFrameCommand(item.querySelector("iframe"), item.dataset.videoProvider, "pause");
   };
   const play = async (item) => {
@@ -150,9 +173,11 @@ function bindFeedVideoAutoplay(root) {
     pause(active);
     active = item;
     if (item.matches("video")) {
+      if (!requestMediaPlayback("feed", item, item)) { active = null; return; }
       item.muted = true;
       item.playsInline = true;
-      try { await item.play(); } catch { /* Autoplay can be blocked; native controls remain available. */ }
+      try { await item.play(); }
+      catch { releaseMediaPlayback(item, item); active = null; /* Native controls remain available. */ }
       return;
     }
     const frame = item.querySelector("iframe");

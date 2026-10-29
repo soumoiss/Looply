@@ -87,7 +87,7 @@ test("both entrypoints mount actual real-time WebRTC call setup",async()=>{
   for(const file of ["assets/js/chat.js","assets/js/conversation.js"]) {
     const source=await read(file);
     assert.match(source,/setupChatCalls\(root, client, user\.id\)/);
-    assert.match(source,/chat-calls\.js\?v=chat-mobile-webrtc-20261027/);
+    assert.match(source,/chat-calls\.js\?v=feed-media-audio-20261029/);
     assert.match(source,/(chat-mobile-20261027|avatar-sync-20261028)/);
   }
 });

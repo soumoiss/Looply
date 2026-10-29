@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { setCallPlaybackActive } from "./media-playback-coordinator.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
   if (!root || root.dataset.chatCalls === "true") return;
@@ -54,6 +55,7 @@ export function setupChatCalls(root, client, userId) {
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
   const releaseMedia = () => {
+    setCallPlaybackActive(false);
     clearOfferRetry();
     clearConnectionTimer();
     if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); pc = null; }
@@ -214,6 +216,7 @@ export function setupChatCalls(root, client, userId) {
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
+      setCallPlaybackActive(true);
       createPeerConnection();
       callView("Chamando…");
       const offer = await pc.createOffer();
@@ -250,6 +253,7 @@ export function setupChatCalls(root, client, userId) {
     callPeerName = incomingOffer.senderName || peerName();
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callMode === "video" });
+      setCallPlaybackActive(true);
       createPeerConnection();
       await pc.setRemoteDescription(incomingOffer.description);
       await addPendingCandidates();

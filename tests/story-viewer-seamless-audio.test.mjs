@@ -57,11 +57,12 @@ test("published viewer has no music box, popup, or fake audio activation control
  assert.doesNotMatch(src,/story-official-music-iframe/);
  assert.doesNotMatch(css,/story-official-audio/);
  assert.match(src,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
- assert.match(src,/startStoryMediaPlayback\(music\)/);
+ assert.match(src,/playStoryAudio\(music\)/);
  assert.match(src,/startStoryMediaPlayback\(video\)/);
  assert.match(src,/touchSurface\.addEventListener\("pointerdown"/);
  assert.match(src,/backgroundAudio\?\.dataset\.playback==="gesture-required"/);
- assert.match(src,/retryAudio\)void startStoryMediaPlayback\(backgroundAudio\)/);
+ assert.match(src,/retryAudio\)void playStoryAudio\(backgroundAudio\)/);
+ assert.match(src,/data-story-sound-toggle/);
  assert.match(src,/video\.addEventListener\("pause"/);
  assert.match(src,/viewer\.addEventListener\("close"/);
 });

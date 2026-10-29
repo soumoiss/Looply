@@ -41,13 +41,13 @@ test("live studio does not call publish from form submit or friends-selection co
  assert.match(source,/isExplicitStoryPublishGesture\(event\)/);
  assert.match(source,/data-studio-publish-friends/);
 });
-test("Apple and Deezer official widgets survive persisted Story caption without copying protected preview audio",()=>{
+test("Apple and Deezer widgets remain valid previews but cannot publish a metadata-only silent Story",()=>{
  const apple={kind:"catalog",provider:"apple",title:"Exemplo",artist:"Artista",url:"https://music.apple.com/br/album/album/123?i=456",id:"456"};
  const deezer={kind:"catalog",provider:"deezer",title:"Exemplo",artist:"Artista",url:"https://www.deezer.com/br/track/777",id:"777"};
  assert.deepEqual(officialStorySongEmbed(apple),{kind:"embed",provider:"apple",src:"https://embed.music.apple.com/br/album/album/123?i=456"});
  assert.deepEqual(officialStorySongEmbed(deezer),{kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/777"});
- assert.equal(storyMusicCanPublish(apple),true);
- assert.equal(storyMusicCanPublish(deezer),true);
+ assert.equal(storyMusicCanPublish(apple),false);
+ assert.equal(storyMusicCanPublish(deezer),false);
  for(const song of [apple,deezer]){
   const after=decodeStorySong(encodeStorySong("Texto no Story",song));
   assert.equal(after.text,"Texto no Story");
@@ -69,7 +69,7 @@ test("provider music stays user-initiated inside the Story without a modal or hi
  assert.doesNotMatch(viewer,/story-official-music-iframe|story-start-audio|data-story-sound-unlock/);
  assert.doesNotMatch(css,/story-official-audio/);
  assert.match(viewer,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
- assert.match(viewer,/startStoryMediaPlayback\(music\)/);
+ assert.match(viewer,/playStoryAudio\(music\)/);
  assert.match(viewer,/startStoryMediaPlayback\(video\)/);
  const picker=read("src/story-music-picker.js");
  assert.doesNotMatch(picker,/open\.spotify\.com|spotify:\/\//);

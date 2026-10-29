@@ -8,7 +8,6 @@ import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 export function storyMusicCanPublish(track) {
   return track?.kind==="file" ||
     (track?.kind==="catalog" && track.provider==="audius" && Boolean(track.id)) ||
-    (track?.kind==="catalog" && Boolean(officialStorySongEmbed(track))) ||
     track?.kind==="openverse";
 }
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false,
@@ -29,8 +28,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const fileInput=body.querySelector("[data-studio-audio-file]");
   let items=[],seq=0,timer=null,controller=null,importController=null,importBusy=false;
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
-  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius" &&
-    !officialStorySongEmbed(track);
+  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
   const addText=(parent,tag,value,className)=>{
     const el=document.createElement(tag);el.textContent=String(value??"");
     if(className)el.className=className;
@@ -73,8 +71,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     if(!storyMusicCanPublish(track)){found.textContent="Este resultado não possui áudio utilizável.";return;}
     stopPreview();
     onSelect(track);
-    if(track.kind==="catalog" && track.provider!=="audius")
-      onStatus?.("O Story incluirá o player oficial: quem assistir poderá tocar para ouvir.",false);
   };
   const makeAudio=src=>{
     const el=document.createElement("audio");audio=el;

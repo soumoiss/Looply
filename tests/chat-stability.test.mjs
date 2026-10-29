@@ -164,7 +164,7 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
   const [chatPage, conversationPage, chatEntry, conversationEntry, serviceWorker] = await Promise.all([
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
-  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /(notification-bus-20261022|avatar-sync-20261028)/);
+  for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /(notification-bus-20261022|avatar-sync-20261028|feed-media-audio-20261029)/);
   assert.match(serviceWorker, /looply-shell-v8/);
 });
 

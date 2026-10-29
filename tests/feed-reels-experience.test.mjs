@@ -110,8 +110,12 @@ test("Looply homepage loads the new styles without replacing the existing app", 
 });
 test("images use loaded intrinsic dimensions and no fixed crop for every image", async () => {
   const source = await read("src/social.js");
-  assert.match(source,/image\.naturalWidth \/ image\.naturalHeight/);
-  assert.match(source,/figure\.dataset\.aspect/);
+  const css = await read("assets/css/pages/feed-reels-experience.css");
+  assert.match(source,/feedMediaDisplayHeight\(carousel\.clientWidth, naturalWidth, naturalHeight/);
+  assert.match(source,/media\.videoWidth, media\.videoHeight/);
+  assert.match(source,/carousel\.style\.height = height \+ "px"/);
+  assert.match(css,/object-fit:contain/);
+  assert.doesNotMatch(css,/\.ig-post \.post-media \{ aspect-ratio:4\/5/);
 });
 test("the picker previews local media without uploading prematurely", async () => {
   const source = await read("src/social.js");

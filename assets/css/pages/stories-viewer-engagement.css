@@ -176,7 +176,6 @@
   bottom:calc(82px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
 }
 
-
 /* Official providers cannot be treated as an invisible downloadable sound
    track. Their legitimate in-view players appear only when the song is tapped.
    This is NOT an interstitial popup or an extra player for uploaded audio. */
@@ -224,3 +223,12 @@
   border-radius:9px;
   background:#fff;
 }
+.story-viewer-dialog .story-sound-toggle:not([hidden]) {
+  display:inline-flex;align-items:center;gap:5px;min-height:34px;max-width:145px;padding:6px 9px;
+  border:1px solid #ffffff5c;border-radius:999px;background:#09070bbd;color:#fff;
+  font:700 10px/1.1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(9px);
+}
+.story-viewer-dialog .story-sound-toggle span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story-viewer-dialog .story-sound-toggle:disabled {opacity:.78;cursor:default}
+.story-viewer-dialog .story-sound-toggle[data-kind="unavailable"] {border-color:#ffffff2e;color:#ffffffc7}
+@media(max-width:390px){.story-viewer-dialog .story-sound-toggle:not([hidden]){max-width:112px}.story-viewer-dialog .story-sound-toggle span{max-width:72px}}

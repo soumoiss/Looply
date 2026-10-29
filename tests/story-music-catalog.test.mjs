@@ -72,7 +72,7 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.doesNotMatch(studio,/addLayer\("♪ " \+ track\.title/);
   assert.doesNotMatch(viewer,/story-viewer-song-credit|credit\.href = catalogSong/);
   assert.match(viewer,/audiusStoryStreamUrl\(catalogSong\.song\)/);
-  assert.match(viewer,/if \(audio && !audio\.paused\) audio\.pause\(\)/);
+  assert.match(viewer,/if \(audio && !audio\.paused\) stopStoryMediaPlayback\(audio/);
   assert.match(viewer,/music\.autoplay = !waitsForVideo/);
   assert.match(picker,/▶ Ouvir/);
   assert.match(picker,/Selecionar para o Story/);

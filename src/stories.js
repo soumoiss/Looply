@@ -1,5 +1,5 @@
 import { audiusStoryStreamUrl, decodeStorySong, officialStorySongEmbed } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
-import { startStoryMediaPlayback } from "./story-viewer-playback.js";
+import { startStoryMediaPlayback, stopStoryMediaPlayback } from "./story-viewer-playback.js?v=feed-media-audio-20261029";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
@@ -250,6 +250,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<span data-story-viewer-avatar></span><span class="story-viewer-person"><span class="story-viewer-identity"><strong data-story-viewer-name></strong><time data-story-viewer-time></time></span><small class="story-song-label" data-story-viewer-music-label hidden></small></span>' +
           '<span class="story-close-friends-indicator" data-story-close-friends hidden title="Story para amigos próximos" aria-label="Somente amigos próximos">★</span>' +
         '</div><div class="story-viewer-header-controls">' +
+          '<button class="story-sound-toggle" type="button" data-story-sound-toggle aria-label="Ativar música do story" hidden>🔊 <span>Ativar som</span></button>' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
           '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></div></header>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
@@ -343,6 +344,25 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     replyPending: new Set(), replyDrafts: new Map(), slideVersion: 0, insightsToken: 0,
     ignoreTapUntil: 0, paused: false
   };
+  const soundToggle = viewer.querySelector("[data-story-sound-toggle]");
+  const soundStatus = (kind = "hidden") => {
+    if (!soundToggle) return;
+    soundToggle.hidden = kind === "hidden";
+    soundToggle.disabled = kind === "unavailable";
+    soundToggle.dataset.kind = kind;
+    const label = soundToggle.querySelector("span");
+    const text = kind === "unavailable" ? "Música indisponível" : kind === "retry" ? "Tentar música" : "Ativar som";
+    if (label) label.textContent = text;
+    soundToggle.setAttribute("aria-label", text);
+  };
+  const playStoryAudio = async audio => {
+    if (!audio || state.paused) return false;
+    const played = await startStoryMediaPlayback(audio, { owner: viewer, onBlocked: error => {
+      soundStatus(error?.name === "NotAllowedError" ? "blocked" : "retry");
+    }});
+    if (played) soundStatus("hidden");
+    return played;
+  };
   const showStatus = (message, isError = false) => {
     if (!status) return;
     status.textContent = message;
@@ -392,13 +412,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const progress = viewer.querySelector(".story-progress-item.is-current i");
     if (state.paused) {
       clearTimer();
-      if (video && !video.paused) video.pause();
-      if (audio && !audio.paused) audio.pause();
+      if (video && !video.paused) stopStoryMediaPlayback(video, { owner: viewer });
+      if (audio && !audio.paused) stopStoryMediaPlayback(audio, { owner: viewer });
       if (progress) progress.style.animationPlayState = "paused";
     } else {
       if (progress) progress.style.animationPlayState = "running";
       if (video && video.paused) void startStoryMediaPlayback(video);
-      if (audio && audio.paused) void startStoryMediaPlayback(audio);
+      if (audio && audio.paused) void playStoryAudio(audio);
 
       resumeStoryTimer();
     }
@@ -446,7 +466,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const version = ++state.slideVersion;
     ++state.insightsToken;
     const previousAudio = viewer.querySelector("#story-audio");
-    if (previousAudio) { previousAudio.pause(); previousAudio.currentTime = 0; }
+    if (previousAudio) { stopStoryMediaPlayback(previousAudio, { owner: viewer }); previousAudio.currentTime = 0; }
+    soundStatus("hidden");
     if (!state.active) return;
     const stories = activeStoriesFor(state.active);
     state.active.stories = stories;
@@ -522,7 +543,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(oldMusic=>{
-      if(oldMusic instanceof HTMLMediaElement)oldMusic.pause();
+      if(oldMusic instanceof HTMLMediaElement)stopStoryMediaPlayback(oldMusic, { owner: viewer });
       oldMusic.remove();
     });
     // The track title/link stays in the Story metadata, not as an on-screen
@@ -541,14 +562,15 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.src = audiusStream;
       music.setAttribute("aria-label", "Música de fundo do Story");
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      music.addEventListener("playing",()=>{music.dataset.playback="playing";});
+      music.addEventListener("playing",()=>{music.dataset.playback="playing";soundStatus("hidden");});
       music.addEventListener("error",()=>{
         music.dataset.playback="unavailable";
+        soundStatus(navigator.onLine === false ? "retry" : "unavailable");
         if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
       });
       // Start within the Story-open gesture when possible. A video and its
       // soundtrack are both started while the user activation is still valid.
-      void startStoryMediaPlayback(music);
+      void playStoryAudio(music);
     }
     // A Story can carry both legacy text metadata and the newer Audius marker.
     // Only one external soundtrack must play on a slide.
@@ -561,14 +583,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       music.autoplay = !waitsForVideo;
       music.loop = true;
       music.src = storyText.music.previewUrl;
-      music.addEventListener("error", () => { music.dataset.playback = "unavailable"; }, { once: true });
+      music.addEventListener("playing",()=>soundStatus("hidden"));
+      music.addEventListener("error", () => {
+        music.dataset.playback = "unavailable";
+        soundStatus(navigator.onLine === false ? "retry" : "unavailable");
+      }, { once: true });
       viewer.querySelector("[data-story-touch-surface]").append(music);
-      void startStoryMediaPlayback(music);
+      void playStoryAudio(music);
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const slideAudio = viewer.querySelector("#story-audio");
     mediaHost.querySelectorAll("video").forEach((video) => {
-      video.pause();
+      stopStoryMediaPlayback(video, { owner: viewer });
       video.removeAttribute("src");
       video.load();
     });
@@ -600,7 +626,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
             // Start the soundtrack only after the video really starts, including
             // after a browser requires a tap to permit video playback.
             try { songAudio.currentTime = video.currentTime || 0; } catch { /* Live streams may not seek. */ }
-            void startStoryMediaPlayback(songAudio);
+            void playStoryAudio(songAudio);
           }
           clearTimer();
           if (Number.isFinite(video.duration) && video.duration > 0) {
@@ -616,7 +642,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
           if (!video.isConnected || mediaHost.querySelector("video") !== video) return;
           clearTimer();
           const songAudio = slideAudio;
-          if (songAudio && !songAudio.paused) songAudio.pause();
+          if (songAudio && !songAudio.paused) stopStoryMediaPlayback(songAudio, { owner: viewer });
         });
         video.addEventListener("ended", () => {
           // A delayed event from an older slide must never advance the active Story.
@@ -1158,6 +1184,18 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       setStoryPaused(!state.paused);
       return;
     }
+    if (event.target.closest("[data-story-sound-toggle]")) {
+      const audio = viewer.querySelector("#story-audio");
+      if (!audio) return;
+      soundToggle.disabled = true;
+      if (audio.dataset.playback === "unavailable") {
+        audio.load();
+        audio.dataset.playback = "retrying";
+      }
+      const played = await playStoryAudio(audio);
+      if (!played && audio.dataset.playback !== "gesture-required") soundStatus("retry");
+      return;
+    }
     if (event.target.closest("[data-story-like]")) {
       const story = currentStory();
       const button = viewer.querySelector("[data-story-like]");
@@ -1292,7 +1330,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const retryVideo=currentVideo?.dataset.playback==="gesture-required";
       if(retryAudio||retryVideo){
         state.ignoreTapUntil=Date.now()+450;
-        if(retryAudio)void startStoryMediaPlayback(backgroundAudio);
+        if(retryAudio)void playStoryAudio(backgroundAudio);
         if(retryVideo)void startStoryMediaPlayback(currentVideo);
       }
     }
@@ -1325,11 +1363,30 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const providerDock=viewer.querySelector("[data-story-provider-dock]");
     if(providerDock)providerDock.hidden=true;
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
-      audio.pause(); audio.removeAttribute("src"); audio.remove();
+      stopStoryMediaPlayback(audio, { owner: viewer }); audio.removeAttribute("src"); audio.remove();
     });
     viewer.querySelectorAll("[data-story-viewer-media] video").forEach(video => {
-      video.pause(); video.removeAttribute("src"); video.load();
+      stopStoryMediaPlayback(video, { owner: viewer }); video.removeAttribute("src"); video.load();
     });
+    soundStatus("hidden");
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!viewer.open) return;
+    const audio = viewer.querySelector("#story-audio");
+    const video = viewer.querySelector("[data-story-viewer-media] video");
+    if (document.hidden) {
+      if (audio && !audio.paused) stopStoryMediaPlayback(audio, { owner: viewer });
+      if (video && !video.paused) stopStoryMediaPlayback(video, { owner: viewer });
+    } else if (!state.paused) {
+      if (video?.paused) void startStoryMediaPlayback(video, { owner: viewer });
+      if (audio?.paused) void playStoryAudio(audio);
+    }
+  });
+  window.addEventListener("online", () => {
+    const audio = viewer.open && !state.paused ? viewer.querySelector("#story-audio") : null;
+    if (!audio || !["unavailable", "retrying"].includes(audio.dataset.playback)) return;
+    audio.load();
+    void playStoryAudio(audio);
   });
   root.addEventListener("submit", async (event) => {
     const replyForm = event.target.closest("form[data-story-reply]");
