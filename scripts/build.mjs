@@ -83,6 +83,6 @@ for (const filename of assetFiles.filter(value => /\.(?:html|js)$/i.test(value))
 
 // A unique cache name makes the new service worker evict the previous shell.
 const swPath = path.join(outputDirectory, "sw.js");
-const sw = (await readFile(swPath, "utf8")).replace('looply-shell-v7', `looply-pages-${buildId}`);
+const sw = (await readFile(swPath, "utf8")).replace(/looply-shell-v\\d+/, `looply-pages-${buildId}`);
 await writeFile(swPath, sw, "utf8");
 console.log(`Original Looply page controllers retained; local assets use build ${buildId}.`);
