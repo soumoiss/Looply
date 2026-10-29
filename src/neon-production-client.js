@@ -315,7 +315,7 @@ async function adminCreateUser(body) {
 }
 async function adminFunctionInvoke(options = {}) {
   const body = options?.body || {};
-  const action = typeof body.action === "string" ? body.action : "read";
+  const action = typeof body.action === "string" ? body.action : body.resourceType === "status" ? "status" : "read";
   if (action === "user_create_with_password") return adminCreateUser(body);
   try {
     const session = await activeSession();
