@@ -57,11 +57,15 @@ test("Apple and Deezer official widgets survive persisted Story caption without 
  assert.equal(officialStorySongEmbed({...apple,url:"https://music.apple.com.evil.com/song/123"}),null);
  assert.equal(officialStorySongEmbed({...deezer,url:"http://www.deezer.com/track/777"}),null);
 });
-test("published Stories contain no floating listen button, provider modal or hidden official iframe",()=>{
+test("provider music stays user-initiated inside the Story without a modal or hidden iframe",()=>{
  const viewer=read("src/stories.js");
  const css=read("assets/css/pages/stories-instagram.css");
  assert.doesNotMatch(viewer,/data-story-official-audio|data-story-official-toggle|data-story-official-panel/);
- assert.doesNotMatch(viewer,/officialStorySongEmbed\(catalogSong.song\)/);
+ assert.match(viewer,/officialStorySongEmbed\\(catalogSong.song\\)/);
+ assert.match(viewer,/data-story-provider-dock/);
+ assert.match(viewer,/data-story-provider-content/);
+ assert.match(viewer,/openOfficialProvider\\(\\)/);
+ assert.match(viewer,/player.allow="autoplay; encrypted-media"/);
  assert.doesNotMatch(viewer,/story-official-music-iframe|story-start-audio|data-story-sound-unlock/);
  assert.doesNotMatch(css,/story-official-audio/);
  assert.match(viewer,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
