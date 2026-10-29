@@ -1,4 +1,4 @@
-import { audiusStoryStreamUrl, decodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { audiusStoryStreamUrl, decodeStorySong, officialStorySongEmbed } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { startStoryMediaPlayback } from "./story-viewer-playback.js";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
@@ -258,6 +258,10 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<div class="story-viewer-media" data-story-viewer-media></div>' +
           '<button class="story-tap-zone story-tap-zone-next" type="button" data-story-next aria-label="Próximo story"></button>' +
         '</div>' +
+        '<section class="story-music-provider-dock" data-story-provider-dock hidden aria-label="Ouvir música no player oficial">' +
+          '<button type="button" data-story-provider-close aria-label="Fechar player musical">×</button>' +
+          '<div data-story-provider-content></div>' +
+        '</section>' +
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
           '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
@@ -502,6 +506,19 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const soundName = catalogSong.song?.title ? [catalogSong.song.title,catalogSong.song.artist].filter(Boolean).join(" · ") : credit ? credit[1]+" · "+credit[2].trim() : "";
     songLabel.textContent = soundName ? "♫ "+soundName : "";
     songLabel.hidden = !soundName;
+    const officialProvider = officialStorySongEmbed(catalogSong.song);
+    const providerDock = viewer.querySelector("[data-story-provider-dock]");
+    const providerContent = viewer.querySelector("[data-story-provider-content]");
+    if (providerDock) providerDock.hidden = true;
+    if (providerContent) providerContent.replaceChildren();
+    songLabel.dataset.providerSrc = officialProvider?.src || "";
+    songLabel.dataset.providerName = officialProvider?.provider || "";
+    songLabel.setAttribute("role",officialProvider?"button":"note");
+    songLabel.tabIndex = officialProvider ? 0 : -1;
+    songLabel.title = officialProvider
+      ? "Toque aqui para ouvir no player oficial da plataforma."
+      : soundName;
+    if(officialProvider) songLabel.textContent += " · Ouvir";
     caption.style.fontFamily = !media && storyText.styled ? storyText.fontFamily : "";
     caption.style.fontSize = !media && storyText.styled ? `${storyText.size}pt` : "";
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(oldMusic=>{
@@ -924,7 +941,42 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } finally { button.disabled = false; }
   };
+  const openOfficialProvider = () => {
+    if(!viewer.open)return;
+    const songLabel=viewer.querySelector("[data-story-viewer-music-label]");
+    const src=songLabel?.dataset.providerSrc;
+    const provider=songLabel?.dataset.providerName;
+    if(!src || !["apple","deezer"].includes(provider))return;
+    const dock=viewer.querySelector("[data-story-provider-dock]");
+    const content=viewer.querySelector("[data-story-provider-content]");
+    if(!dock || !content)return;
+    content.replaceChildren();
+    const player=document.createElement("iframe");
+    player.src=src;
+    player.title=provider==="apple"?"Player oficial Apple Music":"Player oficial Deezer";
+    player.allow="autoplay; encrypted-media";
+    player.referrerPolicy="strict-origin-when-cross-origin";
+    player.loading="eager";
+    content.append(player);
+    dock.hidden=false;
+  };
+  root.addEventListener("keydown",event=>{
+    if(event.target.matches("[data-story-viewer-music-label]") && ["Enter"," "].includes(event.key)){
+      event.preventDefault();openOfficialProvider();
+    }
+  });
   root.addEventListener("click", async (event) => {
+    if(event.target.closest("[data-story-provider-close]")){
+      const dock=viewer.querySelector("[data-story-provider-dock]");
+      const content=viewer.querySelector("[data-story-provider-content]");
+      if(dock)dock.hidden=true;
+      content?.replaceChildren();
+      return;
+    }
+    if(event.target.closest("[data-story-viewer-music-label]")){
+      openOfficialProvider();
+      return;
+    }
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");
       await refresh();
@@ -1269,6 +1321,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     ++state.insightsToken;
     state.paused = false;
     viewer.style.removeProperty("--story-keyboard-inset");
+    viewer.querySelector("[data-story-provider-content]")?.replaceChildren();
+    const providerDock=viewer.querySelector("[data-story-provider-dock]");
+    if(providerDock)providerDock.hidden=true;
     viewer.querySelectorAll("[data-story-viewer-music]").forEach(audio => {
       audio.pause(); audio.removeAttribute("src"); audio.remove();
     });
