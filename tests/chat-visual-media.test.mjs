@@ -21,11 +21,11 @@ test("photos and stickers render without text bubble while ordinary messages ret
 
   html = threadMarkup([{...photo, body:"Legenda da foto"}], "u1");
   assert.match(html, /chat-message is-mine is-visual-only/);
-  assert.match(html, /data-chat-message-body>Legenda da foto<\\/p>/);
+  assert.ok(html.includes('data-chat-message-body>Legenda da foto</p>'));
 
   html = threadMarkup([{...base, media:[], body:"Oi!"}], "u1");
   assert.doesNotMatch(html, /is-visual-only/);
-  assert.match(html, /data-chat-message-body>Oi!<\\/p>/);
+  assert.ok(html.includes('data-chat-message-body>Oi!</p>'));
 
   html = threadMarkup([{...base, media:[{mime_type:"video/mp4",file_name:"video.mp4"}]}], "u1");
   assert.doesNotMatch(html, /is-visual-only/);
@@ -40,10 +40,10 @@ test("CSS removes purple media surfaces and global header only in open threads",
     read("chat.html"),
     read("conversa.html")
   ]);
-  assert.match(css, /\\.chat-message\\.is-visual-only/);
+  assert.ok(css.includes(".chat-message.is-visual-only"));
   assert.match(css, /background:transparent!important/);
-  assert.match(css, /:has\\(\\.chat-area\\.is-conversation-open\\) > \\.container-page > \\.page-header/);
-  assert.match(css, /\\.chat-message\\.is-visual-only \\.chat-image-link/);
-  assert.match(chat,/chat-viewport-catalog\\.css/);
-  assert.match(conversation,/chat-viewport-catalog\\.css/);
+  assert.ok(css.includes(":has(.chat-area.is-conversation-open) > .container-page > .page-header"));
+  assert.ok(css.includes(".chat-message.is-visual-only .chat-image-link"));
+  assert.ok(chat.includes("chat-viewport-catalog.css"));
+  assert.ok(conversation.includes("chat-viewport-catalog.css"));
 });
