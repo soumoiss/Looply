@@ -40,7 +40,7 @@ export function adminMarkup(profile = {}) {
       <form class="admin-broadcast-form" data-user-create>
         <h4>Cadastrar novo usuário</h4>
         <div class="field"><label for="adminCreateUsername">Username</label><input id="adminCreateUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva" aria-describedby="adminCreateUsernameStatus"><small>Digite sem @; serão aceitos 3–30 caracteres: letras, números e sublinhado. O sistema salva em minúsculas.</small><small id="adminCreateUsernameStatus" data-availability="username" class="form-status" role="status" aria-live="polite"></small></div>
-        <div class="field"><label for="adminCreateEmail">E-mail</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" required placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
+        <div class="field"><label for="adminCreateEmail">E-mail (opcional, usado internamente se não informado)</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
         <div class="field"><label for="adminCreateDisplayName">Nome completo / de exibição</label><input id="adminCreateDisplayName" name="displayName" type="text" maxlength="80" autocomplete="off" required></div>
         <div class="field"><label for="adminCreatePlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="adminCreatePlaylistUrl" name="playlistUrl" type="url" maxlength="260" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=..."><small>A playlist personalizada substitui a lista padrão deste perfil.</small></div>
         <div class="field"><label for="adminCreatePassword">Senha inicial <span class="field-hint">(opcional)</span></label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password"><small>Se ficar vazia, o sistema gera uma senha temporária segura e mostra-a uma única vez.</small></div>
@@ -52,7 +52,7 @@ export function adminMarkup(profile = {}) {
     </section>
     <section class="admin-broadcast-panel admin-settings-panel" aria-labelledby="appSettingsTitle" data-app-settings-panel>
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Configurações globais</span><h3 id="appSettingsTitle">Controles do aplicativo</h3></div></div>
-      <p class="admin-description">As alterações são salvas no Supabase e aplicadas aos usuários ao abrir as páginas. O ADM permanece com acesso durante a manutenção.</p>
+      <p class="admin-description">As alterações são gravadas no Neon e aplicadas aos usuários ao abrir as páginas. O ADM permanece com acesso durante a manutenção.</p>
       <form class="admin-broadcast-form" data-app-settings-form>
         <div class="field admin-maintenance-toggle"><label for="maintenanceMode">Modo de manutenção</label><label class="looply-switch"><input id="maintenanceMode" name="maintenance_mode" type="checkbox"><span class="looply-switch-track" aria-hidden="true"></span><span class="looply-switch-label" data-maintenance-label>Desativado</span></label></div>
         <div class="field"><label for="maintenanceMessage">Mensagem de manutenção</label><textarea id="maintenanceMessage" name="maintenance_message" rows="2" maxlength="500">Sistema em atualização rápida por Peixinho</textarea></div>
@@ -113,6 +113,7 @@ export function adminMarkup(profile = {}) {
         <div class="field" data-admin-id-field><label for="adminResourceId">UUID específico (opcional)</label><input id="adminResourceId" name="resourceId" type="text" maxlength="36" placeholder="Deixe vazio para consultar a lista recente"></div>
         <div class="field" data-admin-offset-field hidden><label for="adminOffset">Posição da lista</label><input id="adminOffset" name="offset" type="number" min="0" max="10000" step="100" value="0"><small>Cartas, mídias e auditoria são exibidas em grupos de 100.</small><div class="admin-broadcast-actions"><button class="text-button" type="button" data-admin-page="previous" disabled>Anterior</button><button class="text-button" type="button" data-admin-page="next">Próximas 100</button></div></div>
       </div>
+      <div class="field"><label for="adminReadPurpose">Motivo da consulta administrativa</label><textarea id="adminReadPurpose" name="purpose" minlength="20" maxlength="500" rows="2" required placeholder="Descreva por que precisa consultar esses dados privados (mínimo 20 caracteres)."></textarea></div>
       <button class="primary-button compact-button" type="submit">Registrar e consultar ${icon("search")}</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
@@ -289,9 +290,8 @@ export function bindAdminEvents(root, client) {
     if (!history) return;
     history.textContent = "Carregando histórico…";
     try {
-      const { data, error } = await client.from("secret_messages")
-        .select("id,created_at,title,content,is_read,read_at,recipient:profiles!secret_messages_recipient_id_fkey(username,display_name)")
-        .order("created_at", { ascending: false }).limit(100);
+      const { data: response, error } = await invokeAdmin({action:"secret_list",resourceType:"secret_messages"});
+      const data = response?.messages || [];
       if (error) throw error;
       history.replaceChildren();
       if (!data?.length) { history.textContent = "Ainda não há recados enviados."; return; }
@@ -311,7 +311,7 @@ export function bindAdminEvents(root, client) {
       }
     } catch (error) {
       console.error("Secret VIP history unavailable", error);
-      history.textContent = "Não foi possível carregar o histórico. Confira a migração e as permissões no Supabase.";
+      history.textContent = "Não foi possível carregar o histórico. Confira sua conexão e suas permissões no Neon.";
     }
   }
 
@@ -730,8 +730,7 @@ export function bindAdminEvents(root, client) {
     if (cancelSecret && client) {
       cancelSecret.disabled = true;
       try {
-        const { error } = await client.from("secret_messages").delete()
-          .eq("id", cancelSecret.dataset.secretDelete).eq("is_read", false);
+        const { error } = await invokeAdmin({action:"secret_cancel",resourceType:"secret_messages",secretId:cancelSecret.dataset.secretDelete});
         if (error) throw error;
         await loadSecretHistory();
       } catch (error) { console.error("Secret message delete failed", error); const status=root.querySelector("[data-secret-status]"); if(status){status.textContent="Não foi possível apagar o recado.";status.dataset.kind="error";} }
@@ -872,16 +871,10 @@ export function bindAdminEvents(root, client) {
         let mediaUrl = null;
         if (selectedSecretMedia) {
           if (!selectedSecretMedia.type.startsWith("image/") || selectedSecretMedia.size > 10 * 1024 * 1024) throw new Error("media");
-          const { data: authData, error: authError } = await client.auth.getUser();
-          if (authError || !authData?.user?.id) throw new Error("auth");
-          const path = `${recipientId}/${crypto.randomUUID()}-${selectedSecretMedia.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || "image"}`;
-          const { data: upload, error: uploadError } = await client.storage.from("looply-secret-messages").upload(path, selectedSecretMedia, { upsert: false, contentType: selectedSecretMedia.type });
-          if (uploadError) throw uploadError;
-          mediaUrl = upload.path;
+          throw new Error("secret_media_storage_not_configured");
+          // The current Neon storage Worker does not yet authorize this bucket.
         }
-        const { data: authData, error: authError } = await client.auth.getUser();
-        if (authError || !authData?.user?.id) throw new Error("auth");
-        const { error } = await client.from("secret_messages").insert({ sender_id: authData.user.id, recipient_id: recipientId, title: title || null, content, media_url: mediaUrl });
+        const { error } = await invokeAdmin({action:"secret_create",resourceType:"secret_messages",recipientId,title,content,mediaPath:mediaUrl});
         if (error) throw error;
         secretMessageForm.reset(); selectedSecretMedia = null;
         if (secretPreview) { secretPreview.replaceChildren(); secretPreview.hidden = true; }
@@ -889,7 +882,7 @@ export function bindAdminEvents(root, client) {
         await loadSecretHistory();
       } catch (error) {
         console.error("Secret VIP message send failed", error);
-        if (status) { status.textContent = error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : "Não foi possível enviar. Verifique a migration e as permissões do Supabase."; status.dataset.kind = "error"; }
+        if (status) { status.textContent = error.message === "secret_media_storage_not_configured" ? "A mídia do recado VIP ainda não está disponível no armazenamento Neon. Remova a foto para enviar o texto." : error.message === "media" ? "Escolha uma imagem válida de até 10 MB." : error.message === "validation" ? "Escolha o destinatário e informe o conteúdo do recado." : "Não foi possível enviar o recado. Verifique sua conexão e a autorização administrativa no Neon."; status.dataset.kind = "error"; }
       } finally { if (submitButton) submitButton.disabled = false; }
       return;
     }
@@ -898,7 +891,7 @@ export function bindAdminEvents(root, client) {
     if (secretDelete && client) {
       secretDelete.disabled = true;
       try {
-        const { error } = await client.from("secret_messages").delete().eq("id", secretDelete.dataset.secretDelete).eq("is_read", false);
+        const { error } = await invokeAdmin({action:"secret_cancel",resourceType:"secret_messages",secretId:secretDelete.dataset.secretDelete});
         if (error) throw error;
         await loadSecretHistory();
       } catch (error) {
@@ -917,7 +910,7 @@ export function bindAdminEvents(root, client) {
       event.preventDefault();
       const values = new FormData(createForm);
       const username = String(values.get("username") || "").trim().replace(/^@/, "").toLowerCase();
-      const email = String(values.get("email") || "").trim().toLowerCase();
+      const email = (String(values.get("email") || "").trim().toLowerCase() || `${username}@loooply.app`);
       const displayName = String(values.get("displayName") || "").trim();
       const password = String(values.get("password") || "");
       const confirmPassword = String(values.get("confirmPassword") || "");
@@ -1002,6 +995,7 @@ export function bindAdminEvents(root, client) {
         if (expiresAt && (!Number.isFinite(expiresAt.valueOf()) || expiresAt.valueOf() <= Date.now())) throw new Error("expiry");
         let mediaUrl = null;
         if (selectedBroadcastMedia) {
+          throw new Error("broadcast_media_storage_not_configured");
           const { data: authData, error: authError } = await client.auth.getUser();
           if (authError || !authData?.user?.id) throw new Error("media_auth");
           const safeName = selectedBroadcastMedia.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "media";
@@ -1026,7 +1020,7 @@ export function bindAdminEvents(root, client) {
         setStatus(broadcastForm, "Comunicado publicado. O histórico de leitura foi atualizado.");
       } catch (error) {
         console.error("Looply global announcement creation failed", error);
-        const message = /purpose/.test(String(error?.message || ""))
+        const message = /broadcast_media_storage_not_configured/.test(String(error?.message || "")) ? "A publicação de mídia ainda não está autorizada no armazenamento Neon. Remova o anexo para publicar o comunicado em texto." : /purpose/.test(String(error?.message || ""))
           ? "Informe o motivo administrativo (20–500 caracteres)."
           : /expiry/.test(String(error?.message || ""))
             ? "A data de expiração precisa estar no futuro."
