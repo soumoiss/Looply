@@ -175,3 +175,52 @@
 .story-viewer-dialog .story-viewer-caption:not(:empty) {
   bottom:calc(82px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
 }
+
+
+/* Official providers cannot be treated as an invisible downloadable sound
+   track. Their legitimate in-view players appear only when the song is tapped.
+   This is NOT an interstitial popup or an extra player for uploaded audio. */
+.story-viewer-dialog .story-song-label[role="button"] {
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  touch-action:manipulation;
+}
+.story-viewer-dialog .story-song-label[role="button"]:focus-visible {
+  outline:2px solid #fff;
+  outline-offset:3px;
+}
+.story-viewer-dialog .story-music-provider-dock[hidden] {display:none!important}
+.story-viewer-dialog .story-music-provider-dock {
+  position:absolute;
+  z-index:15;
+  left:12px;
+  right:12px;
+  bottom:calc(82px + env(safe-area-inset-bottom));
+  max-width:420px;
+  margin-inline:auto;
+  padding:8px;
+  border-radius:14px;
+  background:#15121bf0;
+  box-shadow:0 8px 32px #0008;
+  pointer-events:auto;
+}
+.story-viewer-dialog .story-music-provider-dock [data-story-provider-close] {
+  display:block;
+  margin:0 0 5px auto;
+  width:32px;
+  height:32px;
+  border:0;
+  border-radius:50%;
+  color:#fff;
+  background:#ffffff33;
+  font-size:22px;
+}
+.story-viewer-dialog .story-music-provider-dock iframe {
+  display:block;
+  width:100%;
+  height:170px;
+  border:0;
+  border-radius:9px;
+  background:#fff;
+}
