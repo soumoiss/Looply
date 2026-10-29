@@ -1,7 +1,7 @@
 // Zero-dependency S3 client. Neon Functions inject the storage credentials.
 const allowedOrigin = "https://soumoiss.github.io";
 const encoder = new TextEncoder();
-const maxBytes = bucket => bucket === "looply-stickers"
+const maxBytes = bucket => bucket === "looply-announcements" ? 20 * 1024 * 1024 : bucket === "looply-secret-messages" ? 10 * 1024 * 1024 : bucket === "looply-stickers"
   ? 1024 * 1024
   : bucket === "looply-avatars"
   ? 10 * 1024 * 1024
@@ -41,6 +41,8 @@ function inspectObject(bucket, path) {
   const chat = /^conversations\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm|mp3|ogg|pdf|txt|csv|doc|docx|rtf)$/i.exec(path);
   const sticker = /^stickers\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.]webp$/i.exec(path);
   const letter = /^([0-9a-f-]{36})\/([0-9a-f-]{36})-([A-Za-z0-9._-]{1,120})$/.exec(path);
+  const announcement = /^announcements\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|gif|mp4|webm)$/i.exec(path);
+  const secret = /^secret-messages\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|gif)$/i.exec(path);
   if (bucket === "looply-avatars" && avatar) return { type:"avatar", owner:avatar[1] };
   if (bucket === "looply-stickers" && sticker) return { type:"sticker", owner:sticker[1] };
   if (bucket === "looply-gallery" && gallery) return { type:"gallery",owner:gallery[1] };
@@ -48,6 +50,8 @@ function inspectObject(bucket, path) {
   if (bucket === "looply-media" && comment) return { type:"comments",record:comment[2],post:comment[1] };
   if (bucket === "looply-chat" && chat) return { type:"chat",conversation:chat[1],record:chat[2] };
   if (bucket === "looply-letters" && letter) return { type:"letter",record:letter[1] };
+  if (bucket === "looply-announcements" && announcement) return { type:"announcement",owner:announcement[1] };
+  if (bucket === "looply-secret-messages" && secret) return { type:"secret",owner:secret[1] };
   return null;
 }
 function allowedFile(bucket,path,mime,size,profileId) {
@@ -56,6 +60,8 @@ function allowedFile(bucket,path,mime,size,profileId) {
   if (object.owner && object.owner!==profileId) return false;
   if (object.type==="avatar") return ["image/jpeg","image/png","image/webp"].includes(mime);
   if (object.type==="sticker") return mime==="image/webp";
+  if (object.type==="announcement") return /^(image\/(jpeg|png|webp|gif)|video\/(mp4|webm))$/.test(mime);
+  if (object.type==="secret") return /^image\/(jpeg|png|webp|gif)$/.test(mime);
   if (object.type==="gallery") return galleryMime.test(mime);
   if (object.type==="letter") return chatMime.test(mime);
   if (object.type==="chat") return chatMime.test(mime);
@@ -99,7 +105,8 @@ async function canSignObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
   const tableByType={avatar:"profiles",sticker:"sticker_catalog",gallery:"community_gallery_media",posts:"post_media",
-    stories:"story_media",comments:"comment_media",chat:"chat_media",letter:"community_letters"};
+    stories:"story_media",comments:"comment_media",chat:"chat_media",letter:"community_letters",
+    announcement:"global_announcements",secret:"secret_messages"};
   const table=tableByType[object.type];
   if(!table)return false;
   if(object.type==="letter") {
@@ -110,7 +117,8 @@ async function canSignObject(token,profileId,bucket,path) {
     });
     return reply.ok && (await reply.json().catch(()=>[])).length>0;
   }
-  const params=object.type==="sticker"?{storage_path:"eq."+path}:
+  const params=object.type==="announcement" || object.type==="secret"?{media_url:"eq."+path}:
+    object.type==="sticker"?{storage_path:"eq."+path}:
     object.type==="avatar"?{avatar_path:"eq."+path}:
     object.type==="gallery"?{storage_path:"eq."+path,publication_state:"eq.published"}:
     {storage_path:"eq."+path};
@@ -193,7 +201,7 @@ export default { async fetch(request) {
   if (new URL(request.url).pathname.endsWith("/youtube/playlist") && request.method === "GET") return youtubePlaylist(request,headers);
   if (new URL(request.url).pathname.endsWith("/spotify/search") && request.method === "GET") return spotifySearch(request,headers);
   const bucket = request.headers.get("x-looply-bucket") || "", path = request.headers.get("x-looply-path") || "";
-  if (!safeObjectPath(path) || !["looply-avatars", "looply-stickers", "looply-gallery", "looply-media", "looply-chat", "looply-letters"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
+  if (!safeObjectPath(path) || !["looply-avatars", "looply-stickers", "looply-gallery", "looply-media", "looply-chat", "looply-letters", "looply-announcements", "looply-secret-messages"].includes(bucket)) return json({ error: "invalid_object" }, 400, headers);
   const url = new URL(request.url);
   if (url.pathname.endsWith("/storage/upload-url") && request.method === "POST") {
     const mime = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
