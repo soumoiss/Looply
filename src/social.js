@@ -85,15 +85,36 @@ function classifyFeedImages(root) {
       if (previous) previous.disabled = index === 0;
       if (next) next.disabled = index === carousel.children.length - 1;
     };
+    // Fit the carousel to the CURRENT slide, not the tallest image in the set.
+    // Without this, a 16:9 image shares the height of a portrait slide and
+    // leaves a large empty panel below it.
+    const fitCurrentSlide = () => {
+      const slides = [...carousel.children];
+      const index = Math.min(slides.length - 1, Math.max(0,
+        Math.round(carousel.scrollLeft / Math.max(1, carousel.clientWidth))));
+      const slide = slides[index];
+      if (!slide) return;
+      const media = slide.querySelector("img, video");
+      if (media?.tagName === "IMG" && !media.complete) return;
+      const h = slide.getBoundingClientRect().height;
+      if (h > 0) carousel.style.height = Math.ceil(h) + "px";
+    };
+    const refresh = () => { updateIndex(); fitCurrentSlide(); };
     carousel.addEventListener("scroll", () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        updateIndex();
+        refresh();
       });
     }, { passive: true });
-    updateIndex();
+    carousel.querySelectorAll("img").forEach(img => img.addEventListener("load", refresh));
+    carousel.querySelectorAll("video").forEach(video => video.addEventListener("loadedmetadata", refresh));
+    if (typeof ResizeObserver !== "undefined") {
+      const resizeObserver = new ResizeObserver(refresh);
+      carousel.querySelectorAll(".post-media").forEach(slide => resizeObserver.observe(slide));
+    }
+    refresh();
   });
   root.querySelectorAll(".ig-post .post-media img").forEach(image => {
     const apply = () => {
