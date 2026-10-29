@@ -17,6 +17,7 @@ for (const file of ["index.html", "login.html", "login-teste.html", "login-neon.
   await cp(path.join(projectRoot, file), path.join(outputDirectory, file));
 }
 
+await cp(path.join(projectRoot, "admin-importar-figurinhas.html"), path.join(outputDirectory, "admin-importar-figurinhas.html"));
 await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config.js"));
 await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
