@@ -43,8 +43,14 @@ self.addEventListener("fetch", event => {
     // Fast page transitions/offline fallback while the browser validates the
     // static file in the background. Never cache signed cross-origin media.
     if (cached) {
-      event.waitUntil(fetch(event.request).then(response => store(cache, event.request, response))
-        .catch(() => null));
+      // Shell assets are tied to a content-hashed worker build. Re-fetching
+      // every module on every route would consume slow mobile bandwidth.
+      // Only HTML documents need opportunistic background revalidation.
+      const url = new URL(event.request.url);
+      if (event.request.mode === "navigate" || url.pathname.endsWith(".html")) {
+        event.waitUntil(fetch(event.request).then(response => store(cache, event.request, response))
+          .catch(() => null));
+      }
       return cached;
     }
     return fetch(event.request).then(response => store(cache, event.request, response))
