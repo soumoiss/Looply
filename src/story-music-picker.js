@@ -129,6 +129,14 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     player.hidden=false;
     const token=previewToken;
     addText(player,"strong",track.title+" · "+(track.artist||"Áudio próprio"),"studio-music-preview-title");
+    if(track.kind==="catalog" && (track.provider==="apple" || track.provider==="deezer") && track.url){
+      // Promotional store previews require an adjacent direct attribution
+      // to the provider. This link stays in the picker, never in the viewer.
+      const providerLink=addText(player,"a","Ver no "+PROVIDER_NAMES[track.provider],"studio-music-preview-source");
+      providerLink.href=track.url;
+      providerLink.target="_blank";
+      providerLink.rel="noopener noreferrer";
+    }
     if(track.kind==="openverse"){
       const link=addText(player,"a","Licença e origem","studio-music-preview-source");
       link.href=track.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";
@@ -149,7 +157,10 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     }
     const actions=addText(player,"div","","studio-music-preview-actions");
     if(storyMusicCanPublish(track)){
-      const choose=addText(actions,"button",officialStorySongEmbed(track)?"Usar player no Story":"Selecionar para o Story","studio-catalog-select");
+      const choose=addText(actions,"button",
+        track?.provider==="audius"?"Vincular streaming ao Story":
+        officialStorySongEmbed(track)?"Usar player no Story":"Selecionar para o Story",
+        "studio-catalog-select");
       choose.type="button";choose.onclick=()=>void chooseForStory(track);
     }else{
       const reason=addText(actions,"span","Prévia apenas · sem áudio para publicação","studio-music-preview-limited");
@@ -187,7 +198,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       listen.type="button";listen.setAttribute("aria-label","Ouvir prévia de "+track.title);
       listen.onclick=()=>preview(track);
       if(storyMusicCanPublish(track)){
-        const choose=addText(buttons,"button",officialStorySongEmbed(track)?"Usar player":"Selecionar","studio-catalog-select");
+        const choose=addText(buttons,"button",
+          track?.provider==="audius"?"Usar streaming":"Selecionar",
+          "studio-catalog-select");
         choose.type="button";choose.setAttribute("aria-label","Selecionar "+track.title);
         choose.onclick=()=>void chooseForStory(track);
       }else{
