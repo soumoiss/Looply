@@ -692,10 +692,11 @@ class MainActivity : Activity() {
                     // Android can permanently deny capture permission after the
                     // user blocks it. Show a native settings action only then:
                     // JavaScript cannot grant an Android runtime permission.
-                    if (grantResults.any { it != PackageManager.PERMISSION_GRANTED } &&
-                        permissions.any {
-                            (it == Manifest.permission.RECORD_AUDIO || it == Manifest.permission.CAMERA) &&
-                            !shouldShowRequestPermissionRationale(it)
+                    if (permissions.withIndex().any { (index, permission) ->
+                            grantResults.getOrNull(index) != PackageManager.PERMISSION_GRANTED &&
+                            (permission == Manifest.permission.RECORD_AUDIO ||
+                                permission == Manifest.permission.CAMERA) &&
+                            !shouldShowRequestPermissionRationale(permission)
                         }
                     ) {
                         AlertDialog.Builder(this)
