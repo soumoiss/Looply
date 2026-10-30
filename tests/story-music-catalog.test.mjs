@@ -76,7 +76,8 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(viewer,/music\.autoplay = !waitsForVideo/);
   assert.match(picker,/▶ Ouvir/);
   assert.match(picker,/Selecionar para o Story/);
-  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+  assert.match(picker,/fileInput\.click\(\)/);
+  assert.match(picker,/Vincular meu áudio autorizado/);
   assert.match(picker,/stopPreview/);
 });
 
