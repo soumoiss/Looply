@@ -893,7 +893,7 @@ export function bindAdminEvents(root, client) {
       const body = archivedCardForm.dataset.protected === "true" ? submittedBody : submittedBody.trim();
       const password = String(new FormData(archivedCardForm).get("password") || "");
       const protectedCard = archivedCardForm.dataset.protected === "true" || Boolean(password);
-      if (!body || body.length > 100000 || (archivedCardForm.dataset.protected === "true" && !password)
+      if (!body.trim() || body.length > 100000 || (archivedCardForm.dataset.protected === "true" && !password)
           || (password && (password.length > 256 || /\s/.test(password)))) {
         setStatus(archivedCardForm, "Informe um texto válido e, para carta protegida, uma nova senha sem espaços.", "error");
         return;
