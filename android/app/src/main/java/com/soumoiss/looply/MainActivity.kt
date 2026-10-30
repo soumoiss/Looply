@@ -138,7 +138,7 @@ class MainActivity : Activity() {
 
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
-        if (!route.matches(Regex("(?:conversa|notificacoes|home)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
+        if (!route.matches(Regex("(?:conversa|notificacoes|home|chat|cartas|musicas)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
         webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
 
