@@ -56,6 +56,7 @@ test("Android FCM route and token persist after background rotation",async()=>{
   assert.match(service,/putString\("last_fcm_token", token\)/);
   assert.match(main,/preferences\.getString\("last_fcm_token"/);
   assert.match(main,/Regex\("""\(\?:conversa\\\.html\\\?id=\$id/);
-  assert.match(bridge,/if\(!session\?\.access_token\)\{retry=true;return;\}/);
+  assert.match(bridge,/if\(!session\?\.access_token \|\| !session\.user\?\.id\)\{retry=true;return;\}/);
+  assert.match(bridge,/key=deviceId\+":"\+token\+":"\+session\.user\.id/);
   assert.match(worker,/\["call","message","voice"\]/);
 });
