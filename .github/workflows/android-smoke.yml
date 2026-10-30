@@ -35,6 +35,10 @@ jobs:
         run: |
           npm run build
           (cd android && ./gradlew --no-daemon assembleDebug)
+      - name: Install emulator native runtime libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libpulse0 libasound2t64 libnss3 libx11-6
       - name: Install and open activities in an actual Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
