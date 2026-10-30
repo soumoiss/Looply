@@ -22,7 +22,7 @@ test("camera preview and encoded canvas are contain, not cover, at zoom 1", () =
   const framed=css.slice(css.indexOf("/* Story camera shows"));
   assert.match(framed,/\.studio-camera-framing \.studio-camera[^\{]*\{[^}]*object-fit:contain!important/);
   assert.doesNotMatch(framed,/\.studio-camera-framing \.studio-camera[^\{]*\{[^}]*object-fit:cover!important/);
-  assert.match(src,/const fit=containRect\(crop.width,crop.height,canvas.width,canvas.height\)/);
+  assert.match(src,/const baseFit=containRect\(crop.width,crop.height,canvas.width,canvas.height\)/);
   assert.match(src,/fit.x,fit.y,fit.width,fit.height/);
   assert.doesNotMatch(src,/video:\{facingMode:\{ideal:facing\},aspectRatio:/);
 });
