@@ -56,3 +56,12 @@ test("Neon notifications have bounded foreground refresh without PostgreSQL chan
   assert.match(runtime, /window\.removeEventListener\("focus", pollNotifications\)/);
   assert.match(runtime, /document\.removeEventListener\("visibilitychange", pollNotifications\)/);
 });
+
+
+test("notification refresh preserves scroll and controls when records are unchanged", async () => {
+  const notifications = await read("../assets/js/notifications.js");
+  assert.match(notifications, /lastNotificationSignature/);
+  assert.match(notifications, /nextSignature === lastNotificationSignature/);
+  assert.match(notifications, /root\.querySelector\("\[data-notification-list\]"\)/);
+  assert.match(notifications, /lastNotificationSignature = nextSignature/);
+});
