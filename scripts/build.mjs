@@ -13,7 +13,7 @@ if (!outputRelative || outputRelative.startsWith("..") || path.isAbsolute(output
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 
-for (const file of ["index.html", "login.html", "login-teste.html", "login-neon.html", "realtime-neon.html", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html", "admin-importar-figurinhas.html", "galeria.html", "styles.css"]) {
+for (const file of ["share.html", "index.html", "login.html", "login-teste.html", "login-neon.html", "realtime-neon.html", "home.html", "musicas.html", "chat.html", "conversa.html", "cartas.html", "notificacoes.html", "usuarios.html", "configuracoes.html", "perfil.html", "admin.html", "admin-importar-figurinhas.html", "galeria.html", "styles.css"]) {
   await cp(path.join(projectRoot, file), path.join(outputDirectory, file));
 }
 
