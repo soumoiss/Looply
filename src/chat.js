@@ -350,6 +350,18 @@ function selectedFiles(formData) {
   return files;
 }
 
+export function appendRecordedAudio(form, formData) {
+  // The native WebView might reject DataTransfer/input.files even though
+  // MediaRecorder produced a valid File. Sending must not silently omit it.
+  const file = form?._looplyRecordedFile;
+  if (!(file instanceof File) || file.size <= 0) return false;
+  const alreadyIncluded = formData.getAll("files").some((existing) =>
+    existing instanceof File && existing.name === file.name &&
+    existing.size === file.size && existing.lastModified === file.lastModified);
+  if (!alreadyIncluded) formData.append("files", file, file.name);
+  return !alreadyIncluded;
+}
+
 function formatRecordingTime(milliseconds) {
   const total = Math.floor(milliseconds / 1000);
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
@@ -1457,13 +1469,7 @@ export function bindChatEvents(root, client, getUserId) {
     if (button) button.disabled = true;
     try {
       const values = new FormData(form);
-      if (form.matches("[data-chat-send]") && form._looplyRecordedFile &&
-          !values.getAll("files").some((file) => file instanceof File &&
-            file.name === form._looplyRecordedFile.name &&
-            file.size === form._looplyRecordedFile.size &&
-            file.lastModified === form._looplyRecordedFile.lastModified)) {
-        values.append("files", form._looplyRecordedFile, form._looplyRecordedFile.name);
-      }
+      if (form.matches("[data-chat-send]")) appendRecordedAudio(form, values);
       if (form.matches("[data-chat-edit-message]")) {
         const body = String(values.get("body") || "").trim();
         if (!body) throw new Error("empty message");
