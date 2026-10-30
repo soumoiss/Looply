@@ -29,6 +29,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const player=body.querySelector("[data-studio-music-preview]");
   const fileInput=body.querySelector("[data-studio-audio-file]");
   let items=[],seq=0,timer=null,controller=null,importController=null,importBusy=false;
+  let catalogAwaitingUserAudio=null;
   const validatedStreams=new Set(), searchCache=new Map();
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
   const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
@@ -77,7 +78,12 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const chooseForStory=async track=>{
     if(closed||importBusy)return;
     if(needsOwnAudio(track)){
-      found.textContent="Esta faixa oferece apenas prévia. Escolha uma música com áudio utilizável ou adicione seu arquivo.";
+      // A search result is metadata, not a license or an audio file. For
+      // Apple/Deezer catalog choices the author may supply a recording that
+      // they are permitted to synchronize with their Story.
+      catalogAwaitingUserAudio=track;
+      found.textContent="Selecione um áudio que você tenha autorização para usar com esta música. A prévia da plataforma não será copiada.";
+      fileInput.click();
       return;
     }
     if(track.kind==="openverse"){
@@ -163,7 +169,10 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         "studio-catalog-select");
       choose.type="button";choose.onclick=()=>void chooseForStory(track);
     }else{
-      const reason=addText(actions,"span","Prévia apenas · sem áudio para publicação","studio-music-preview-limited");
+      const chooseOwn=addText(actions,"button","Vincular meu áudio autorizado","studio-catalog-select");
+      chooseOwn.type="button";
+      chooseOwn.onclick=()=>void chooseForStory(track);
+      const reason=addText(actions,"span","Prévia do catálogo não pode ser incorporada","studio-music-preview-limited");
       reason.setAttribute("role","status");
     }
     const stop=addText(actions,"button","Parar prévia","studio-music-stop");
@@ -204,7 +213,11 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         choose.type="button";choose.setAttribute("aria-label","Selecionar "+track.title);
         choose.onclick=()=>void chooseForStory(track);
       }else{
-        addText(buttons,"span","Prévia apenas","studio-music-preview-limited");
+        const linkAudio=addText(buttons,"button","Vincular meu áudio autorizado","studio-catalog-select");
+        linkAudio.type="button";
+        linkAudio.setAttribute("aria-label","Vincular áudio autorizado a "+track.title);
+        linkAudio.onclick=()=>void chooseForStory(track);
+        addText(buttons,"small","Prévia do catálogo não pode ser publicada","studio-music-preview-limited");
       }
       listing.append(article);
     }
@@ -277,11 +290,22 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   });
   fileInput.addEventListener("change",event=>{
     const file=event.target.files?.[0];
-    if(!file)return;
+    if(!file){catalogAwaitingUserAudio=null;return;}
     if(!file.type.startsWith("audio/")||file.size<=0||file.size>15*1024*1024){
-      onStatus?.("Escolha um áudio válido de até 15 MB.",true);fileInput.value="";return;
+      onStatus?.("Escolha um áudio válido de até 15 MB.",true);
+      catalogAwaitingUserAudio=null;fileInput.value="";return;
     }
-    preview({kind:"file",title:file.name.slice(0,120),artist:"Áudio próprio",file});
+    const catalog=catalogAwaitingUserAudio;
+    catalogAwaitingUserAudio=null;
+    if(catalog && !window.confirm("Você confirma que possui autorização para sincronizar este arquivo de áudio com o Story e compartilhá-lo com outros usuários?")){
+      fileInput.value="";return;
+    }
+    preview(catalog
+      ? {kind:"file",title:catalog.title,artist:catalog.artist,file,
+          catalogProvider:catalog.provider,catalogUrl:catalog.url,
+          licenseVerifiedByUser:true}
+      : {kind:"file",title:file.name.slice(0,120),artist:"Áudio próprio",file});
+    fileInput.value="";
   });
   draw();query.focus?.();return cleanup;
 }
