@@ -69,6 +69,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Verify release variant compiles before signing
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease
+
       - name: Check persistent release signing secrets
         id: release_ready
         env:
