@@ -52,6 +52,13 @@ if (typeof window !== "undefined") {
       } finally { androidRegistrationPending = ""; }
     })();
   });
+  // The page can finish loading before its ES modules install listeners.
+  // Replay the native token once so a valid restored session is not missed.
+  if (window.__looplyNativeFcmToken) {
+    window.dispatchEvent(new CustomEvent("looply:android-fcm-token",{
+      detail:window.__looplyNativeFcmToken
+    }));
+  }
 }
 export async function unregisterAndroidFcmDevice() {
   if (!androidDeviceId) return false;
