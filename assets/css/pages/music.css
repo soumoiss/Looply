@@ -68,7 +68,14 @@
 .music-admin-playlists-heading h2{margin:4px 0 6px;font-size:clamp(19px,3vw,25px)}
 .music-admin-playlists-heading p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
 .music-admin-playlist-player{overflow:hidden;border-radius:14px;background:#17131b}
-.music-admin-playlist-player iframe{display:block;width:100%;aspect-ratio:16/9;min-height:240px;border:0}
+.music-admin-playlist-player{width:100%;min-width:0;max-width:100%;background:transparent}
+.music-admin-player-toggle{width:100%;min-height:42px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.music-admin-playlist-player iframe{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:16/9;min-height:0;margin-top:10px;border:0;border-radius:12px;background:#17131b}
+.music-admin-playlists,.music-admin-playlists > *,.music-admin-playlists .field{min-width:0;max-width:100%;box-sizing:border-box}
+.music-admin-playlists select,.music-admin-playlists input,.music-admin-playlists textarea{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.music-admin-owner-avatar{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
+.music-admin-owner-avatar span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){.music-admin-playlists{gap:10px;margin-inline:0}.music-admin-playlist-player iframe{min-height:0}}
 .music-admin-comment-form{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
 .music-admin-comment-form textarea{width:100%;min-height:86px;resize:vertical}
 .music-admin-comment-form [role=status]{color:var(--muted);font-size:12px}
