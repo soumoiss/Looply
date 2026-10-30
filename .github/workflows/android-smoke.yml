@@ -7,6 +7,7 @@ on:
       - fix/looply-auth-push-calls-stickers-20261030
       - fix/looply-stage2-media-calls-responsive-20261030
       - fix/looply-stage4-share-layout-icon-recovery-20261030
+      - fix/looply-stage5-story-audio-camera-20261030
     paths:
       - "android/**"
       - "src/**"
@@ -84,10 +85,10 @@ jobs:
             adb shell screencap -p /sdcard/looply-reel-share.png
             adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png
                         adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime.log
-            if grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime.log; then
-              echo "Fatal Android crash detected"
-              exit 1
-            fi
+            # android-emulator-runner executes every script line separately
+            # through /usr/bin/sh, so shell if/fi blocks span separate invocations.
+            # A negative grep returns 0 when no fatal app exception is present.
+            ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime.log
             echo "Package installed and both activities launched without AndroidRuntime fatal logs"
       - name: Upload emulator screenshots and logs
         if: always()
