@@ -699,8 +699,8 @@ class MainActivity : Activity() {
                 }
             val payload = JSONObject().put("deviceId", deviceId).put("token", token)
             webView.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('looply:android-fcm-token',{detail:" +
-                    payload.toString() + "}));", null
+                "window.__looplyNativeFcmToken=" + payload.toString() +
+                    ";window.dispatchEvent(new CustomEvent('looply:android-fcm-token',{detail:window.__looplyNativeFcmToken}));", null
             )
         }
     }
