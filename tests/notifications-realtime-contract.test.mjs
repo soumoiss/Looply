@@ -45,3 +45,14 @@ test("the app runtime is the sole Realtime source for notification tables", asyn
   assert.doesNotMatch(chat, /table: "chat_notifications"/);
   assert.match(chat, /stopNotificationChanges\?\.\(\)/);
 });
+
+
+test("Neon notifications have bounded foreground refresh without PostgreSQL change feeds", async () => {
+  const runtime = await read("../src/page-runtime.js");
+  assert.match(runtime, /const notificationPollTimer = window\.setInterval\(pollNotifications, 6000\)/);
+  assert.match(runtime, /if \(document\.visibilityState === "hidden"\) return/);
+  assert.match(runtime, /notificationBus\.emit\(\{ type: "notification-changed", source: "neon-poll" \}\)/);
+  assert.match(runtime, /window\.clearInterval\(notificationPollTimer\)/);
+  assert.match(runtime, /window\.removeEventListener\("focus", pollNotifications\)/);
+  assert.match(runtime, /document\.removeEventListener\("visibilitychange", pollNotifications\)/);
+});
