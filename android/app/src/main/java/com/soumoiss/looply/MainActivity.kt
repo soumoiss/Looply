@@ -148,7 +148,7 @@ class MainActivity : Activity() {
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
         val id = "[a-fA-F0-9-]{36}"
-        val allowed = Regex("""(?:conversa\\.html\\?id=$id|chat\\.html|cartas\\.html(?:\\?letterId=$id)?|musicas\\.html(?:#dedication-$id)?|home\\.html(?:\\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\\.html)""")
+        val allowed = Regex("""(?:conversa\.html\?id=$id|chat\.html|cartas\.html(?:\?letterId=$id)?|musicas\.html(?:#dedication-$id)?|home\.html(?:\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\.html)""")
         if (!route.matches(allowed)) return
         webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
@@ -754,10 +754,15 @@ class MainActivity : Activity() {
     // Neon verifies the authenticated user's identity before accepting registration.
     private fun syncFirebaseTokenToWeb(url: String?) {
         if (!url.orEmpty().startsWith(REMOTE_START_URL)) return
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            if (token.isBlank() || isFinishing || isDestroyed) return@addOnSuccessListener
-            if (!webView.url.orEmpty().startsWith(REMOTE_START_URL)) return@addOnSuccessListener
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (isFinishing || isDestroyed || !::webView.isInitialized) return@addOnCompleteListener
+            if (!webView.url.orEmpty().startsWith(REMOTE_START_URL)) return@addOnCompleteListener
             val preferences = getSharedPreferences("looply_android_device", Context.MODE_PRIVATE)
+            val token = (if (task.isSuccessful) task.result else null)
+                ?.takeIf { it.length in 25..4096 }
+                ?: preferences.getString("last_fcm_token", null)?.takeIf { it.length in 25..4096 }
+                ?: return@addOnCompleteListener
+            preferences.edit().putString("last_fcm_token", token).apply()
             val deviceId = preferences.getString("device_id", null)
                 ?: UUID.randomUUID().toString().also {
                     preferences.edit().putString("device_id", it).apply()

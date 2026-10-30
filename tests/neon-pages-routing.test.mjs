@@ -27,7 +27,9 @@ test("Neon modules use an authenticated shared client and retain the six migrate
  const rest=await readFile(path.join(dist,"src/neon-rest-bridge.js"),"utf8");
  const login=await readFile(path.join(dist,"src/neon-production-login.js"),"utf8");
  const pages=await readFile(path.join(dist,"src/neon-production-pages.js"),"utf8");
- for(const name of ["peixinho","patati","misol","yara","gaberinjela","eukeiliane"])assert.ok(client.includes(name),name);
+  const aliases=await readFile(path.join(dist,"src/neon-login-identity.js"),"utf8");
+  for(const name of ["peixinho","patati","misol","yara","gaberinjela","eukeiliane"])assert.ok(aliases.includes(name),name);
+  assert.match(client,/neon-login-identity\.js/);
  assert.match(login,/signInWithPassword/);
  const runtime=await readFile(path.join(dist,"src/page-runtime.js"),"utf8");
  assert.match(runtime,/selfProfile/);

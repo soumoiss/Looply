@@ -213,10 +213,16 @@ export function setupChatCalls(root, client, userId) {
     if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
     callMode = mode; callPeerName = peerName(); isCaller = true;
     try {
+      // Request capture while still handling the user's direct click, before
+      // any slow signaling handshake (important on Android WebView/mobile).
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
+      if (!localStream.getAudioTracks().length ||
+          (mode === "video" && !localStream.getVideoTracks().length)) {
+        throw new DOMException("Required capture device is missing","NotFoundError");
+      }
+      setCallPlaybackActive(true);
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
-      setCallPlaybackActive(true);
       createPeerConnection();
       callView("Chamando…");
       const offer = await pc.createOffer();

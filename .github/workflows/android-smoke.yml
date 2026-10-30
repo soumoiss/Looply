@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/looply-android-fcm-302
+      - fix/looply-auth-push-calls-stickers-20261030
     paths:
       - "android/**"
       - "src/**"
