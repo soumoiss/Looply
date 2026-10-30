@@ -148,7 +148,7 @@ class MainActivity : Activity() {
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
         val id = "[a-fA-F0-9-]{36}"
-        val allowed = Regex("""(?:conversa\\.html\\?id=$id|chat\\.html|cartas\\.html(?:\\?letterId=$id)?|musicas\\.html(?:#dedication-$id)?|home\\.html(?:\\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\\.html)""")
+        val allowed = Regex("""(?:conversa\.html\?id=$id|chat\.html|cartas\.html(?:\?letterId=$id)?|musicas\.html(?:#dedication-$id)?|home\.html(?:\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\.html)""")
         if (!route.matches(allowed)) return
         webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
