@@ -913,7 +913,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     // The keyboard only opens on explicit edit, never on selection or drag.
     textarea.focus({preventScroll:true});
   };
-  // The song is metadata (and an authorized stream for Audius), never a
+  // The song is catalog metadata, never a
   // visible draggable sticker or a commercial audio file mixed into video.
   const removeCatalogCredit = () => overlayRoot.querySelectorAll("[data-studio-music-credit]").forEach(el => el.remove());
   const selectStoryMusic = track => {
@@ -1190,10 +1190,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Preparando sua mídia…");
       // Never publish only catalog metadata: this used to produce silent
       // Apple/Deezer Stories because their previews cannot be synchronized.
-      if(music?.kind==="catalog" && music.provider!=="audius")
-        throw new Error("Esta faixa oferece apenas prévia oficial e não pode virar um Story silencioso. Escolha Audius ou um áudio autorizado.");
-      if(music?.kind==="catalog" && music.provider==="audius" && !music.id)
-        throw new Error("A faixa selecionada não possui áudio disponível para o Story.");
+      if(music?.kind==="catalog")
+        throw new Error("A prévia do catálogo não pode ser incorporada ao Story. Escolha um áudio próprio ou autorizado.");
       const media = await exportFinal(armedAudioContext);
       const normalized = normalizePublicationMedia(media);
       if (!normalized || !FORMATS[normalized.type] || normalized.size > 100 * 1024 * 1024) {
