@@ -260,6 +260,7 @@ class MainActivity : Activity() {
         }
         val retryButton = Button(this).apply {
             text = "Recarregar"
+            contentDescription = "Recarregar Looply"
             isAllCaps = false
             setOnClickListener { reloadCurrentPage() }
         }
@@ -292,23 +293,10 @@ class MainActivity : Activity() {
             }
         )
 
-        // Native recovery control remains responsive even when page JavaScript hangs.
-        val reloadControl = TextView(this).apply {
-            text = "↻"
-            contentDescription = "Recarregar Looply"
-            textSize = 26f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(93, 28, 165))
-            background = GradientDrawable().apply {
-                setColor(Color.argb(235, 255, 255, 255))
-                cornerRadius = dp(22).toFloat()
-            }
-            setOnClickListener { reloadCurrentPage() }
-        }
-        root.addView(reloadControl, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply {
-            rightMargin = dp(10)
-            topMargin = dp(8)
-        })
+        // Never put a floating native button over the web header: it hid the
+        // actual Looply settings/menu control on narrow Samsung screens.
+        // Native recovery is available in errorPanel, independently of JS;
+        // the watchdog below reveals the panel when a load stalls.
 
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -379,6 +367,11 @@ class MainActivity : Activity() {
                 progressBar.progress = 0
                 progressBar.visibility = View.VISIBLE
                 errorPanel.visibility = View.GONE
+                // Reject an outstanding capture permission request when its
+                // originating page is replaced, instead of authorizing a new page.
+                pendingWebPermission?.deny()
+                pendingWebPermission = null
+                pendingWebResources = emptyArray()
                 // A completed HTML response does not mean the SPA initialized:
                 // index.html may stay on the splash indefinitely after a JS/auth failure.
                 mainHandler.postDelayed({
@@ -432,6 +425,9 @@ class MainActivity : Activity() {
             ): Boolean {
                 // A crashed renderer cannot be reused. Replace the WebView in place.
                 ++navigationSequence
+                pendingWebPermission?.deny()
+                pendingWebPermission = null
+                pendingWebResources = emptyArray()
                 (view.parent as? ViewGroup)?.removeView(view)
                 view.destroy()
                 webView = WebView(this@MainActivity).apply {
@@ -864,6 +860,7 @@ class MainActivity : Activity() {
         pendingDownload = null
         pendingWebPermission?.deny()
         pendingWebPermission = null
+        pendingWebResources = emptyArray()
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
             backInvokedCallback = null
