@@ -43,6 +43,8 @@ const WRITABLE = Object.freeze({
   archive_media_likes: ["media_id","user_id"],
   conversation_participants: ["conversation_id","user_id","last_read_at"],
   conversation_favorites: ["conversation_id","user_id"],
+  // Client-side nickname updates use a per-user, per-conversation RLS table.
+  conversation_nicknames: ["user_id","conversation_id","nickname","updated_at"],
   conversations: ["kind","created_by","subject","direct_key"],
   letter_event_notifications: ["read_at","notified_at"],
   notifications: ["read_at"],
