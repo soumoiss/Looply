@@ -113,6 +113,17 @@ jobs:
             node scripts/check-android-instrumentation.mjs
             adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime-after-tests.log
             ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime-after-tests.log
+      - name: Preserve Android instrumentation test reports
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p smoke-results/instrumentation
+          for dir in android/app/build/outputs/androidTest-results/connected android/app/build/reports/androidTests/connected; do
+            if [ -d "$dir" ]; then
+              name=$(echo "$dir" | sed 's#android/app/build/##; s#/#-#g')
+              cp -a "$dir" "smoke-results/instrumentation/$name"
+            fi
+          done
       - name: Upload emulator screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
