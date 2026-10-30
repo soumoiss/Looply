@@ -189,8 +189,8 @@ export function setupChatEnhancements(root, client, userId) {
   };
   const updateNickname = (id, name) => {
     const link = [...root.querySelectorAll("[data-chat-open]")].find((item) => item.dataset.chatOpen === id);
-    if (link && name) link.querySelector(".chat-conversation-copy strong").textContent = name;
-    if (link && !name) link.querySelector(".chat-conversation-copy strong").textContent = link.dataset.originalName || link.querySelector(".chat-conversation-copy strong").textContent;
+    const label = link?.querySelector(".chat-conversation-copy strong");
+    if (label) label.textContent = name || label.dataset.originalName || label.textContent;
     const heading = root.querySelector(".chat-thread-heading strong");
     if (heading && id === selectedConversation() && name) heading.textContent = name;
   };
