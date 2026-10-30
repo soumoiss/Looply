@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=private-letter-20261029";
+import { mountAppPage } from "../../src/page-runtime.js?v=private-letter-fixed-20261029";
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=private-letter-20261029";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 import { signProfileAvatars } from "../../src/profiles.js";
