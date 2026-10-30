@@ -7,7 +7,7 @@ import {
 } from "../src/story-studio.js";
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
-test("square and landscape camera frames are center cropped, never stretched or padded",()=>{
+test("sensor pixels remain uncropped unless the user deliberately pinches",()=>{
  const size=storyCanvasSize("9:16");
  assert.deepEqual(size,{width:1080,height:1920});
  assert.deepEqual(cameraCoverCrop(1080,1080,1080,1920),{x:236.25,y:0,width:607.5,height:1080});
@@ -18,7 +18,8 @@ test("square and landscape camera frames are center cropped, never stretched or 
   assert.ok(crop.x>=0&&crop.y>=0);
   assert.ok(crop.x+crop.width<=w+1e-6);
   assert.ok(crop.y+crop.height<=h+1e-6);
-  assert.ok(Math.abs(crop.width/crop.height-9/16)<1e-10);
+  assert.equal(crop.width,w);
+  assert.equal(crop.height,h);
  }
  assert.equal(cameraCaptureCrop(0,1080,1080,1920),null);
 });
@@ -28,15 +29,15 @@ test("selected ratios produce actual encoder dimensions, not the previous square
  for(const [ratio,[w,h]]of Object.entries(ratios)){
   assert.deepEqual(storyCanvasSize(ratio),{width:w,height:h});
   const c=cameraMediaConstraints("environment",ratio);
-  assert.equal(c.video.width.ideal,w);
-  assert.equal(c.video.height.ideal,h);
-  assert.equal(c.video.aspectRatio.ideal,w/h);
+  assert.equal(c.video.width.ideal,1280);
+  assert.equal(c.video.height.ideal,960);
+  assert.equal(c.video.aspectRatio,undefined);
  }
  assert.match(source,/c.width = w; c.height = h/);
  assert.doesNotMatch(source,/c.width = Math.min\(1080, w\); c.height = Math.min\(1920, h\)/);
  assert.match(source,/await startCamera\(settings.facing\)/);
 });
-test("preview cover geometry and live draw use the same cropping rectangle",async()=>{
+test("preview and captured pixels both preserve full camera frame with letterboxing",async()=>{
  const [source,css,markup]=await Promise.all([
   read("src/story-studio.js"),read("assets/css/pages/story-reels-viewport-fix.css"),read("src/stories.js")
  ]);
@@ -44,18 +45,18 @@ test("preview cover geometry and live draw use the same cropping rectangle",asyn
  assert.match(source,/const crop=cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
  assert.match(source,/ctx.drawImage\(layer,crop.x\*scaleX,crop.y\*scaleY,crop.width\*scaleX,crop.height\*scaleY,/);
  assert.match(source,/if\(settings.facing==="user"\)/);
- assert.match(css,/\.studio-camera-framing \.studio-camera[^{]*\{[^}]*object-fit:cover!important/);
+ assert.match(css,/\.studio-camera-framing \.studio-camera[^{]*\{[^}]*object-fit:contain!important/);
  assert.match(css,/aspect-ratio:var\(--studio-camera-ratio,0.5625\)/);
  assert.match(source,/verifyStoryImagePixels\(normalized,expected\)/);
  assert.match(source,/verifyStoryVideoPixels\(normalized,expected\)/);
  assert.match(markup,/data-story-media-backdrop/);
 });
 test("pinch is the only extra digital zoom; video modes request actual sensor aspect",()=>{
- assert.deepEqual(cameraCaptureCrop(1080,1080,1080,1920),cameraCoverCrop(1080,1080,1080,1920));
+ assert.deepEqual(cameraCaptureCrop(1080,1080,1080,1920),{x:0,y:0,width:1080,height:1080});
  const pinched=cameraCaptureCrop(1080,1080,1080,1920,1.5);
- assert.equal(pinched.width,405);
+ assert.equal(pinched.width,720);
  assert.equal(pinched.height,720);
- assert.equal(pinched.x,337.5);
+ assert.equal(pinched.x,180);
  assert.equal(pinched.y,180);
  assert.equal(cameraMediaConstraints("user").video.facingMode.ideal,"user");
  assert.equal(cameraMediaConstraints("environment").video.facingMode.ideal,"environment");
