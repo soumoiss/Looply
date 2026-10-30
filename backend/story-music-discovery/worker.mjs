@@ -1,7 +1,7 @@
 // Unified public music catalog metadata for the Stories editor.
 // Public promo preview URLs are passed transiently to the native browser player;
 // files are never downloaded, transcoded, saved, or embedded in a Story.
-// Apple iTunes Search, Deezer and Audius are read-only discovery sources.
+// Apple iTunes Search and Deezer are read-only discovery sources.
 const ALLOWED_ORIGIN = "https://soumoiss.github.io";
 const JSON_HEADERS = { "content-type":"application/json; charset=utf-8", "cache-control":"no-store" };
 const filterText = (value,max=160) => String(value ?? "").replace(/[\u0000-\u001f<>]/g,"").trim().slice(0,max);
@@ -28,14 +28,6 @@ const normalize = {
     isrc:filterText(x.isrc||"",16),
     artwork:safeUrl(x.album?.cover_medium,["dzcdn.net"]),url:safeUrl(x.link,["deezer.com"]),
     previewUrl:safeUrl(x.preview,["dzcdn.net"])
-  })),
-  audius: data => (Array.isArray(data?.data) ? data.data : []).map(x=>({
-    provider:"audius",id:filterText(x.id,80),title:filterText(x.title),
-    artist:filterText(x.user?.name),album:filterText(x.album_title||"",140),
-    durationSec:Number(x.duration)>0?Number(x.duration):0,
-    isrc:filterText(x.isrc||"",16),
-    artwork:safeUrl(x.artwork?.["150x150"],["audius.co","audiuscdn.com","audius-cdn.com"]),
-    url:safeUrl(x.permalink && (x.permalink.startsWith("https://") ? x.permalink : "https://audius.co"+x.permalink),["audius.co"])
   }))
 };
 async function queryCatalog(name,url) {
@@ -66,11 +58,10 @@ export default {
     const q=filterText(path.searchParams.get("q"),72);
     if (q.length<2 || q.length>72) return respond({error:"Digite pelo menos dois caracteres."},400);
     const e=encodeURIComponent(q);
-    const [apple,deezer,audius]=await Promise.all([
+    const [apple,deezer]=await Promise.all([
       queryCatalog("apple","https://itunes.apple.com/search?media=music&entity=song&country=br&limit=20&term="+e),
-      queryCatalog("deezer","https://api.deezer.com/search?q="+e+"&limit=20"),
-      queryCatalog("audius","https://api.audius.co/v1/tracks/search?query="+e+"&limit=20")
+      queryCatalog("deezer","https://api.deezer.com/search?q="+e+"&limit=20")
     ]);
-    return respond({query:q,providers:[apple,deezer,audius]});
+    return respond({query:q,providers:[apple,deezer]});
   }
 };
