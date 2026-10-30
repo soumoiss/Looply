@@ -378,19 +378,22 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     button.disabled = true;
     status.textContent = "Alterando a senha com segurança...";
     try {
+      if (!edit.unlocked || !form.elements.body.value.trim()) throw Error("Desbloqueie o texto completo antes de mudar a senha.");
       const { data, error } = await client.rpc("v13_admin_change_archived_card_password", {
-        p_card_id: edit.raw.id, p_current_password: currentPassword, p_new_password: newPassword,
-        p_new_body: edit.unlocked ? form.elements.body.value : null
+        p_card_id: edit.raw.id, p_new_password: newPassword, p_new_body: form.elements.body.value
       });
       if (error) throw error;
       if (!data?.updated) throw new Error(data?.error || "password_change_unavailable");
       form.elements.archive_current_password.value = "";
       form.elements.archive_new_password.value = "";
       form.elements.archive_confirm_password.value = "";
-      status.textContent = "Conteúdo e senha da carta original salvos. Use a nova senha para desbloqueá-la.";
+      const verify = await client.rpc("v13_unlock_archived_card", { p_card_id: edit.raw.id, p_password: newPassword });
+      if (verify.error || verify.data?.body !== form.elements.body.value) throw Error("A nova senha não passou na verificação.");
+      await loadCurrent();
+      closeEdit();
+      notify("Senha e conteúdo da carta original salvos e verificados.");
     } catch (error) {
-      status.textContent = /incorrect_current_password/i.test(String(error?.message || ""))
-        ? "A senha atual está incorreta." : "Não foi possível alterar a senha da carta.";
+      status.textContent = asError(error) || "Não foi possível alterar a senha da carta.";
     } finally { button.disabled = false; }
   });
   $("#editarCartaLida").addEventListener("click", async e => {
@@ -536,12 +539,31 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     save.disabled=true;
     form.dataset.saving="true";
     try {
-      const persisted = await saveFullLetterEdit(client,{
-        kind: editor.kind, letter: editor.raw, userId:user.id, isAdmin,
-        subject:form.elements.subject.value, body:form.elements.body.value,
-        password:form.elements.password.value, newPassword:form.elements.new_password.value,
-        isPrivate:form.elements.is_private.checked, passwordHint:form.elements.password_hint.value
-      });
+      let persisted;
+      if (editor.kind === "archive" && editor.raw.is_protected) {
+        // Protected originals are saved through the authenticated RPC; never
+        // overwrite their public empty body or change the password silently.
+        if (!isAdmin || !editor.unlocked) throw Error("Desbloqueie a carta original antes de salvar.");
+        const currentPassword = String(form.elements.archive_current_password.value || "");
+        const text = form.elements.body.value;
+        if (!currentPassword || !text.trim() || text.length > 100000) throw Error("Informe a senha atual e o conteúdo completo.");
+        const { data, error } = await client.rpc("v13_admin_change_archived_card_password", {
+          p_card_id: editor.raw.id, p_new_password: currentPassword, p_new_body: text
+        });
+        if (error || !data?.updated) throw error || Error(data?.error || "Não foi possível salvar a carta original.");
+        const verify = await client.rpc("v13_unlock_archived_card", {
+          p_card_id: editor.raw.id, p_password: currentPassword
+        });
+        if (verify.error || verify.data?.body !== text) throw Error("O conteúdo salvo não passou na verificação de leitura.");
+        persisted = await fetchFullLetterForEdit(client,"archive",editor.raw.id,user.id,isAdmin);
+      } else {
+        persisted = await saveFullLetterEdit(client,{
+          kind: editor.kind, letter: editor.raw, userId:user.id, isAdmin,
+          subject:form.elements.subject.value, body:form.elements.body.value,
+          password:form.elements.password.value, newPassword:form.elements.new_password.value,
+          isPrivate:form.elements.is_private.checked
+        });
+      }
       if (generation !== editLoadGeneration || state.editor !== editor) return;
       editor.raw = persisted;
       const synced = await loadCurrent();
