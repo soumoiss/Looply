@@ -104,7 +104,7 @@ export async function deliverNotifications(env){
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
     if(item.resource_id)data.resourceId=String(item.resource_id);
     const message={token:item.fcm_token,data,
-      android:{priority:kind==="call"?"HIGH":"NORMAL",ttl:kind==="call"?"120s":"86400s"}};
+      android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",ttl:kind==="call"?"120s":"86400s"}};
     let ok=false;
     try{
       const response=await fetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
