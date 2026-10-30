@@ -35,7 +35,7 @@ test("user management UI exposes one password-based creation form plus profile e
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
   assert.match(ui, /data-user-create/);
   assert.doesNotMatch(ui, /name="email"/);
-  assert.match(ui, /username@loooply/);
+  assert.match(ui, /const email = \`\$\{username\}@loooply\.app\`/);
   assert.match(ui, /name="password"/);
   assert.match(ui, /Cadastrar novo usuário/);
   assert.match(ui, /data-user-profile-form/);
