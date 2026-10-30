@@ -139,54 +139,10 @@ jobs:
         if: steps.release_ready.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.3-signed-release
+          name: Looply-3.0.4-signed-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
 
-  publish-preview-apk:
-    name: Publish verified 3.0.3 preview APK to GitHub Releases
-    needs: build-debug-apk
-    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/looply-android-runtime-20261030'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: android-v3.0.3-runtime-preview-20261030
-    steps:
-      - name: Retrieve the freshly built APK from this exact workflow
-        uses: actions/download-artifact@v6
-        with:
-          name: Looply-3.0.4-debug-apk
-          path: public-apk
-      - name: Create verified preview release
-        run: |
-          set -euo pipefail
-          test -s public-apk/app-debug.apk
-          mv public-apk/app-debug.apk public-apk/Looply-Android-3.0.3-PREVIEW.apk
-          (cd public-apk && sha256sum Looply-Android-3.0.3-PREVIEW.apk > SHA256SUMS.txt)
-          (cd public-apk && zip -q Looply-Android-3.0.3-PREVIEW.zip Looply-Android-3.0.3-PREVIEW.apk)
-          cat > public-apk/RELEASE_NOTES.md <<'NOTES'
-          Looply Android 3.0.3 — versão de testes, assinada com a chave Debug.
-          Contém recuperação nativa de carregamento, geração do ícone oficial branco,
-          ajustes de busca musical multiprovedor e playlist administrativa.
-          Esta publicação NÃO comprova chamadas entre dois dispositivos, FCM e
-          gravação de áudio em aparelho físico; NÃO é a Release definitiva.
-          NOTES
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" public-apk/Looply-Android-3.0.3-PREVIEW.apk public-apk/Looply-Android-3.0.3-PREVIEW.zip public-apk/SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$TAG" public-apk/Looply-Android-3.0.3-PREVIEW.apk public-apk/Looply-Android-3.0.3-PREVIEW.zip public-apk/SHA256SUMS.txt --prerelease --target "$GITHUB_SHA" --title "Looply Android 3.0.3 — prévia de correções" --notes-file public-apk/RELEASE_NOTES.md --repo "$GITHUB_REPOSITORY"
-          fi
-      - name: Re-download APK anonymously and compare its SHA-256
-        run: |
-          set -euo pipefail
-          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Looply-Android-3.0.3-PREVIEW.apk"
-          curl -fL --retry 3 --connect-timeout 20 --max-time 180 "$URL" --output public-apk/verification.apk
-          EXPECTED="$(awk '{print $1}' public-apk/SHA256SUMS.txt)"
-          printf '%s  %s\n' "$EXPECTED" public-apk/verification.apk | sha256sum -c -
-          echo "PUBLIC_DOWNLOAD_VERIFIED=$URL"
