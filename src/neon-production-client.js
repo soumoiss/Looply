@@ -19,46 +19,54 @@ export async function activeSession(){const s=await neon.auth.getSession();if(s.
 
 let androidDeviceId = null;
 let androidRegistrationPending = "";
-// The native layer emits this event only inside the HTTPS Looply app origin.
-// The token is ephemeral per-device data, never hardcoded in the public bundle.
+let androidRegistrationConfirmed = "";
+let androidRetryTimer = null;
+// FCM registration must also survive a WebView splash/login race: the native
+// token may arrive before Neon Auth has restored the user's session.
 if (typeof window !== "undefined") {
-  window.addEventListener("looply:android-fcm-token", event => {
-    const {deviceId,token} = event.detail || {};
-    if (typeof token !== "string" || token.length < 25 || token.length > 4096 ||
-      !/^[A-Za-z0-9._:~\\-]+$/.test(token) ||
-      typeof deviceId !== "string" || !/^[0-9a-f-]{36}$/i.test(deviceId)) return;
-    androidDeviceId = deviceId;
-    const key = deviceId + ":" + token;
-    if (androidRegistrationPending === key) return;
-    androidRegistrationPending = key;
-    void (async () => {
+  const registerFcm = (payload, attempt=0) => {
+    const {deviceId,token}=payload||{};
+    if(typeof token!=="string" || token.length<25 || token.length>4096 ||
+       !/^[A-Za-z0-9._:~\\-]+$/.test(token) ||
+       typeof deviceId!=="string" || !/^[0-9a-f-]{36}$/i.test(deviceId))return;
+    androidDeviceId=deviceId;
+    const key=deviceId+":"+token;
+    if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
+    androidRegistrationPending=key;
+    void (async()=>{
+      let retry=false;
       try {
-        const session = await activeSession();
-        if (!session?.access_token) return;
-        const response = await fetch(config.data + "/rpc/v16_register_android_fcm_token", {
-          method: "POST", cache: "no-store",
-          headers: {
-            authorization: "Bearer " + session.access_token,
-            accept: "application/json", "content-type": "application/json"
-          },
-          body: JSON.stringify({p_device_id:deviceId,p_fcm_token:token})
+        const session=await activeSession();
+        if(!session?.access_token){retry=true;return;}
+        const response=await fetch(config.data+"/rpc/v16_register_android_fcm_token",{
+          method:"POST",cache:"no-store",
+          headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+          body:JSON.stringify({p_device_id:deviceId,p_fcm_token:token})
         });
-        const registered = await response.json().catch(() => false);
-        if (!response.ok || registered !== true) {
-          throw Error("android_fcm_registration_failed");
+        const ok=await response.json().catch(()=>false);
+        if(!response.ok||ok!==true){retry=true;throw Error("registration_http_"+response.status);}
+        androidRegistrationConfirmed=key;
+      }catch(error){
+        retry=true;
+        console.warn("Looply FCM registration unavailable",String(error?.message||"network").slice(0,100));
+      }finally {
+        androidRegistrationPending="";
+        if(retry && attempt<6 && !androidRetryTimer){
+          androidRetryTimer=window.setTimeout(()=>{
+            androidRetryTimer=null;
+            registerFcm(payload,attempt+1);
+          },Math.min(12000,600*(2**attempt)));
         }
-      } catch(error) {
-        console.warn("Looply Android push registration unavailable",error?.message);
-      } finally { androidRegistrationPending = ""; }
+      }
     })();
+  };
+  window.addEventListener("looply:android-fcm-token",event=>registerFcm(event.detail));
+  if(window.__looplyNativeFcmToken)registerFcm(window.__looplyNativeFcmToken);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible" && window.__looplyNativeFcmToken &&
+       !androidRegistrationConfirmed && !androidRetryTimer)
+      registerFcm(window.__looplyNativeFcmToken);
   });
-  // The page can finish loading before its ES modules install listeners.
-  // Replay the native token once so a valid restored session is not missed.
-  if (window.__looplyNativeFcmToken) {
-    window.dispatchEvent(new CustomEvent("looply:android-fcm-token",{
-      detail:window.__looplyNativeFcmToken
-    }));
-  }
 }
 export async function unregisterAndroidFcmDevice() {
   if (!androidDeviceId) return false;
