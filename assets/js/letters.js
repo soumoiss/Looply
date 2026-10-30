@@ -142,7 +142,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#cartasList").innerHTML = rows.length ? rows.map((c, i) =>
       '<article class="carta-item">' +
       '<button type="button" class="carta-open" data-letter-kind="'+c.kind+'" data-letter-id="'+h(c.id)+'" aria-label="Ler '+h(c.title)+'"><span class="num">'+String(c.num || i + 1).padStart(2,"0")+'</span><span class="info"><span class="carta-kicker">CARTA '+String(c.num || i + 1).padStart(2,"0")+'</span><span class="titulo">'+h(c.title)+'</span><span class="date">'+h(day(c.date))+'</span><span class="sender">'+(c.kind === "archive" ? "Enviada por " : "")+h(c.author)+'</span></span><span class="check '+(c.read?'checked':'')+'" aria-label="'+(c.read?"Lida":"Não lida")+'">'+(c.read ? "✓" : "✉")+'</span></button>' +
-      ((c.kind==="community" && (isAdmin || c.raw.sender_id===user.id)) || (isAdmin && c.kind==="archive") ? '<button class="carta-admin-edit" type="button" data-edit-kind="'+c.kind+'" data-edit-id="'+h(c.id)+'">'+(isAdmin && c.raw.sender_id!==user.id ? "Editar · ADM" : "Editar")+'</button>' : "") +
+      ((c.kind==="community" && c.raw.sender_id===user.id) || (isAdmin && c.kind==="archive") ? '<button class="carta-admin-edit" type="button" data-edit-kind="'+c.kind+'" data-edit-id="'+h(c.id)+'">'+"Editar"+'</button>' : "") +
       '</article>').join("") : '<p class="cartas-empty">Nenhuma carta encontrada para os filtros selecionados.</p>';
     if (isAdmin) $("#adminCartasCount").textContent = "Cartas arquivadas: "+archives.length+" · correspondências: "+total;
   };
@@ -194,6 +194,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     try {
       const full = await fetchFullLetterForEdit(client, kind, id, user.id, isAdmin);
       const needsPassword = kind === "community" && full.is_protected;
+       if (kind === "community" && full.sender_id !== user.id) throw Error("Somente o remetente pode editar esta carta.");
       const canChangeArchivePassword = isAdmin && kind === "archive" && full.is_protected;
       // A letter already unlocked in the reader can open in edit mode with
       // its full decrypted text. Never preload a stale list snapshot.
@@ -214,12 +215,16 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       else form.elements.body.removeAttribute("maxlength");
       form.elements.body.disabled = !state.editor.unlocked;
       form.elements.is_private.checked = Boolean(full.is_private);
-      form.elements.password_hint.value = full.password_hint || "";
+      form.elements.password_hint.value = "";
+       $("#adminHintStatus").textContent = "";
+       for (const id of ["adminHintSection","communityPasswordChange","adminArchivePasswordChange","adminOriginalRecovery"]) $("#"+id).open = false;
       $("#adminSubjectField").hidden = kind === "archive";
-      $("#adminPrivateField").hidden = kind !== "archive";
-      $("#adminHintField").hidden = kind !== "archive";
+      $("#adminPrivateField").hidden = true;
+      $("#adminHintSection").hidden = !full.is_protected;
       $("#adminPasswordField").hidden = !needsPassword;
-      $("#adminNewPasswordField").hidden = !needsPassword;
+      $("#communityPasswordChange").hidden = !needsPassword;
+       $("#archiveCurrentPasswordField").hidden = !canChangeArchivePassword;
+       $("#adminContentField").hidden = full.is_protected && !state.editor.unlocked;
       $("#desbloquearEdicaoCarta").hidden = !(needsPassword || canChangeArchivePassword) || state.editor.unlocked;
       $("#adminArchivePasswordChange").hidden = !canChangeArchivePassword;
       const canRecover = isAdmin && kind === "archive" && full.id === MISOL_ORIGINAL_RECOVERY_CARD_ID;
@@ -232,8 +237,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       $("#archiveRecoveryAcknowledgement").checked = false;
       $("#archiveRecoveryStatus").textContent = "";
       $("#salvarAdminCarta").disabled = !state.editor.unlocked;
-      $("#salvarAdminCarta").hidden = canChangeArchivePassword;
-      $("#adminDeleteCarta").hidden = !isAdmin || full.id === MISOL_ORIGINAL_RECOVERY_CARD_ID;
+      $("#salvarAdminCarta").hidden = false;
+      $("#adminDeleteCarta").hidden = !isAdmin || full.id === MISOL_ORIGINAL_RECOVERY_CARD_ID || kind === "community";
       $("#adminEditTitle").textContent = "Editar carta";
       $("#adminEditStatus").textContent = needsPassword && !state.editor.unlocked
         ? "Digite a senha atual e carregue o texto antes de editar."
@@ -270,7 +275,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       form.elements.body.value = value;
       edit.unlocked = true;
       form.elements.body.disabled = false;
-      $("#salvarAdminCarta").disabled = edit.kind === "archive";
+      $("#adminContentField").hidden = false;
+       $("#salvarAdminCarta").disabled = false;
       button.hidden = true;
       status.textContent = "";
       form.elements.body.focus();
@@ -389,7 +395,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   });
   $("#editarCartaLida").addEventListener("click", async e => {
     const letter = state.reading;
-    if (!letter || !(isAdmin || letter.sender_id === user.id)) return;
+    if (!letter || letter.sender_id !== user.id) return;
     const readPassword = letter.is_protected && $("#desbloquearNova").hidden ? $("#senhaLeituraNova").value : "";
     const opened = await openLetterEditor("community", letter.id, e.currentTarget, readPassword);
     if (opened) close("modalLeituraNova");
@@ -446,7 +452,12 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       return;
     }
     const letter=state.letters.find(c=>c.id===button.dataset.letterId);if(!letter)return;
-    state.reading=letter;$("#editarCartaLida").hidden = !(isAdmin || letter.sender_id === user.id);
+    state.reading=letter;
+     const senderControls = letter.sender_id === user.id;
+     $("#editarCartaLida").hidden = !senderControls;
+     $("#mostrarDicaNova").hidden = !(senderControls && letter.is_protected);
+     $("#mostrarDicaNova").setAttribute("aria-expanded","false");
+     $("#formDicaNova").hidden = true; $("#formDicaNova").reset(); $("#novaDicaStatus").textContent = "";
     $("#readCartaTitulo").textContent=letter.subject;
     $("#readCartaAutor").textContent="De "+fullName(letter.sender_id)+" · Para "+fullName(letter.recipient_id);
     $("#readCartaData").textContent=day(letter.created_at);
@@ -463,7 +474,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   $("#adminEditForm").addEventListener("submit",async e=>{
     e.preventDefault();
     const editor = state.editor;
-    if (!editor || (!isAdmin && (editor.kind !== "community" || editor.raw.sender_id !== user.id))) return;
+    if (!editor || (editor.kind === "community" ? editor.raw.sender_id !== user.id : !isAdmin)) return;
     if (editor.raw.is_protected && !editor.unlocked) {
       $("#adminEditStatus").textContent = "Carregue o texto completo com a senha antes de salvar.";
       return;
