@@ -117,9 +117,9 @@ test("camera photo and recording output preserve the sensor inside portrait 9:16
 
 
 test("Final 9:16 portrait capture and licensed audio export meet requested contracts",()=>{
-  assert.match(studio,/width:\{ideal:size.width\}/);
-  assert.match(studio,/height:\{ideal:size.height\}/);
-  assert.match(studio,/aspectRatio:\{ideal:size.width\/size.height\}/);
+  assert.match(studio,/width:\{ideal:1280\}/);
+  assert.match(studio,/height:\{ideal:960\}/);
+  assert.match(studio,/resizeMode:\{ideal:"none"\}/);
   assert.match(studio,/withMusic \? 7000 : 15000/);
   assert.match(studio,/source\.start\(\)/);
   assert.match(studio,/recorded\.start\(250\)/);
