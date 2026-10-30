@@ -12,7 +12,13 @@ export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.comp
 const storageFunction=neonFunctionsBase;
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
 export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",misol:"misol@loooply.app",yara:"yara@loooply.app",peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"});
-export function emailOf(value){const v=String(value||"").trim().toLowerCase();return accounts[v]||(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)?v:null)}
+// Public username aliases contain no personal email addresses.
+export function emailOf(value){
+  const v=String(value||"").trim().toLowerCase().replace(/^@/,"");
+  if(accounts[v])return accounts[v];
+  if(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v))return v;
+  return /^[a-z0-9_]{3,30}$/.test(v)?v+"@loooply.app":null;
+}
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export async function selfProfile(session = null){const current=session || await activeSession();const linked=await fetchLinkedNeonProfile({session:current,dataApiUrl:config.data});const full=await readOwnNeonProfile({profileId:linked.id,session:current,dataApiUrl:config.data});return {...linked,...full}}
 export async function activeSession(){const s=await neon.auth.getSession();if(s.error)throw Error("Não foi possível verificar a sessão no Neon.");return s.data?.session||null}
@@ -325,7 +331,9 @@ function secureAdminInitialPassword() {
 }
 async function adminCreateUser(body) {
   const username=String(body?.username||"").trim().toLowerCase();
-  const email=String(body?.email||"").trim().toLowerCase();
+  // All newly created accounts use a stable, nonpersonal login alias.
+  // This makes username + password work regardless of the admin's form values.
+  const email=/^[a-z0-9_]{3,30}$/.test(username)?username+"@loooply.app":"";
   const displayName=String(body?.displayName||"").trim();
   const password=body?.password||secureAdminInitialPassword();
   const temporaryPassword=body?.password?"":password;
