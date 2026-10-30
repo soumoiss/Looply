@@ -11,8 +11,12 @@ import com.google.firebase.messaging.RemoteMessage
 
 class LooplyMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
-        // Send this token to a secret-backed backend endpoint after the authenticated
-        // Looply session is available; never persist it in the public web bundle.
+        // FCM may rotate tokens while the app is closed. Keep the latest token
+        // only in app-private storage; MainActivity registers it after Neon login.
+        if (token.length in 25..4096) {
+            getSharedPreferences("looply_android_device", MODE_PRIVATE).edit()
+                .putString("last_fcm_token", token).apply()
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -46,7 +50,7 @@ class LooplyMessagingService : FirebaseMessagingService() {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(channelId, if (kind == "call") "Chamadas Looply" else "Atividade Looply", if (kind == "call") NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT))
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(data["title"] ?: "Looply")
             .setContentText(data["body"] ?: if (kind == "call") "Chamada recebida" else "Nova atividade")
             .setContentIntent(pending).setAutoCancel(true).setPriority(if (kind == "call") NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).build()
