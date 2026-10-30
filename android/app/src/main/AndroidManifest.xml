@@ -24,6 +24,17 @@
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
         <activity
+            android:name=".ShareReceiverActivity"
+            android:theme="@style/LooplyShareTheme"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize"
             android:exported="true"
