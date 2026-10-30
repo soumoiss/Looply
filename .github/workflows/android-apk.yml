@@ -107,6 +107,33 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon assembleRelease
 
+      # Never publish an unsigned APK as a release. The protected local
+      # signing workflow downloads this build input and never uploads a key.
+      # Only the integration branch exports signing inputs for inspection.
+      - name: Archive unsigned Release build input for protected offline signing
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.4-release-unsigned-input
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 3
+      - name: Collect official Android SDK verification tools
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        run: |
+          mkdir -p signing-tools
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" signing-tools/apksigner.jar
+          cp "$ANDROID_HOME/build-tools/36.0.0/zipalign" signing-tools/zipalign
+          chmod 755 signing-tools/zipalign
+      - name: Archive official signing tools for offline verifier
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.4-android-signing-tools
+          path: signing-tools/
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Check persistent release signing secrets
         id: release_ready
         env:
