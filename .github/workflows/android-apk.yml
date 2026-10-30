@@ -7,6 +7,7 @@ on:
       - codex/android-3.0.1
       - codex/looply-android-fcm-302
       - fix/looply-android-runtime-20261030
+      - fix/looply-auth-push-calls-stickers-20261030
     paths:
       - "android/**"
       - "tests/**"
@@ -79,8 +80,8 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='303'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.3'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='304'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.4'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
@@ -92,7 +93,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.3-debug-apk
+          name: Looply-3.0.4-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -160,7 +161,7 @@ jobs:
       - name: Retrieve the freshly built APK from this exact workflow
         uses: actions/download-artifact@v6
         with:
-          name: Looply-3.0.3-debug-apk
+          name: Looply-3.0.4-debug-apk
           path: public-apk
       - name: Create verified preview release
         run: |
