@@ -44,16 +44,24 @@ function notificationMarkup(item) {
 }
 
 let renderSequence = 0;
+let lastNotificationSignature = "";
 async function render(root, client) {
   const sequence = ++renderSequence;
   try {
     const items = await loadNotifications(client);
     if (sequence !== renderSequence || !root.isConnected) return;
+    // Polling is necessary because Neon does not publish postgres_changes here.
+    // Keep the current DOM (including touch focus and scroll) when nothing changed.
+    const nextSignature = JSON.stringify(items.map(({ id, source, read_at, kind, preview, created_at }) =>
+      [id, source, read_at, kind, preview, created_at]));
+    if (nextSignature === lastNotificationSignature && root.querySelector("[data-notification-list]")) return;
+    lastNotificationSignature = nextSignature;
     root.innerHTML = `<section class="panel notifications-panel"><div class="notifications-toolbar"><span>${items.filter((item) => !item.read_at).length} não lidas</span><button type="button" class="text-button" data-notifications-read-all ${items.some((item) => !item.read_at) ? "" : "disabled"}>Marcar todas como lidas</button></div>
       <div class="notification-list" data-notification-list>${items.length ? items.map(notificationMarkup).join("") : `<p class="notification-empty">Nenhuma notificação</p>`}</div><p class="notification-status" data-notification-status role="status" aria-live="polite"></p></section>`;
   } catch (error) {
     if (sequence !== renderSequence || !root.isConnected) return;
     console.error("Looply notification load failed", error);
+    lastNotificationSignature = "";
     root.innerHTML = `<section class="panel notifications-panel"><p class="notification-empty" role="alert">Não foi possível carregar as notificações. Atualize a página e tente novamente.</p></section>`;
   }
 }
