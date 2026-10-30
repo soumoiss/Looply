@@ -27,6 +27,7 @@ jobs:
           node --check src/profiles.js
           node --check src/neon-rest-bridge.js
           node --check backend/neon-storage/index.mjs
+          node --check backend/cloudflare/android-push-worker.mjs
           node --check src/social.js
           node --check src/stories.js
           node --check src/music.js
