@@ -43,7 +43,7 @@ test("Story player unblocks sound without auto-pausing it on same tap, and pause
  assert.doesNotMatch(viewer,/data-story-sound-unlock/);
  assert.doesNotMatch(viewer,/data-story-official-toggle/);
  assert.match(viewer,/startStoryMediaPlayback\(video\)/);
- assert.match(viewer,/playStoryAudio\(music\)/);
+ assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
  assert.match(viewer,/resumeStoryTimer\(\);/);
 });
 
