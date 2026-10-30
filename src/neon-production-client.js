@@ -30,14 +30,17 @@ if (typeof window !== "undefined") {
        !/^[A-Za-z0-9._:~-]+$/.test(token) ||
        typeof deviceId!=="string" || !/^[0-9a-f-]{36}$/i.test(deviceId))return;
     androidDeviceId=deviceId;
-    const key=deviceId+":"+token;
-    if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
-    androidRegistrationPending=key;
+    // The same phone can be used by different accounts. A token-only cache
+    // leaves the device attached to the previous user after account switching.
     void (async()=>{
       let retry=false;
+      let key="";
       try {
         const session=await activeSession();
-        if(!session?.access_token){retry=true;return;}
+        if(!session?.access_token || !session.user?.id){retry=true;return;}
+        key=deviceId+":"+token+":"+session.user.id;
+        if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
+        androidRegistrationPending=key;
         const response=await fetch(config.data+"/rpc/v16_register_android_fcm_token",{
           method:"POST",cache:"no-store",
           headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
@@ -50,7 +53,7 @@ if (typeof window !== "undefined") {
         retry=true;
         console.warn("Looply FCM registration unavailable",String(error?.message||"network").slice(0,100));
       }finally {
-        androidRegistrationPending="";
+        if(key && androidRegistrationPending===key) androidRegistrationPending="";
         if(retry && attempt<6 && !androidRetryTimer){
           androidRetryTimer=window.setTimeout(()=>{
             androidRetryTimer=null;
@@ -78,7 +81,13 @@ export async function unregisterAndroidFcmDevice() {
     body:JSON.stringify({p_device_id:androidDeviceId})
   });
   const removed = response.ok && (await response.json().catch(()=>false)) === true;
-  if(removed)androidDeviceId = null;
+  if(removed) {
+    androidDeviceId = null;
+    androidRegistrationConfirmed = "";
+    androidRegistrationPending = "";
+    if(androidRetryTimer) window.clearTimeout(androidRetryTimer);
+    androidRetryTimer = null;
+  }
   return removed;
 }
 
@@ -460,7 +469,13 @@ export const looplyClient = Object.freeze({
   auth: Object.freeze({
     getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
     getUser: async () => { try { const session = await legacyPageSession(); return { data: { user: session?.user || null }, error: null }; } catch (error) { return { data: { user: null }, error }; } },
-    signOut: () => { principalCache.clear(); return neon.auth.signOut(); },
+    signOut: async () => {
+      // Defensive logout: no device token should stay linked to the old
+      // account even when a page forgets to explicitly unregister it.
+      await unregisterAndroidFcmDevice().catch(() => false);
+      principalCache.clear();
+      return neon.auth.signOut();
+    },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
