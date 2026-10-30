@@ -62,7 +62,7 @@ test("Publishing does not synthesize fake audio from Apple, Deezer or Spotify me
   assert.match(picker,/Vincular meu áudio autorizado/);
   assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
   assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
-  assert.match(viewer,/storyText\.music\?\.provider==="itunes"/);
+  assert.match(viewer,/storyText\.music\?\.provider\s*===\s*"itunes"/);
   assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
   assert.doesNotMatch(viewer,/story-viewer-music-hidden/);
 });
