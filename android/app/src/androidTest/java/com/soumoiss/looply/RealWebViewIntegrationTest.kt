@@ -92,6 +92,10 @@ class RealWebViewIntegrationTest {
                 Thread.sleep(300)
             }
             assertTrue("Local WebView origin is not secure",ready)
+            // The host CI audio injector observes this diagnostic marker and
+            // starts gRPC PCM transfer only after the real WebView is loaded.
+            android.util.Log.i("LooplyMicCapture", "LOOPLY_CAPTURE_READY")
+            Thread.sleep(1800)
             eval(scenario, """
                 (() => {
                   window.__looplyCaptureProof = {state:'pending'};
