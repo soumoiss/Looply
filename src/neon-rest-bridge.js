@@ -105,7 +105,21 @@ export function createNeonRestQuery(table, {dataApiUrl,getAccessToken,fetchImpl=
       const isWrite=state.mode!=="select";
       if(isWrite&&state.mode!=="delete")safePayload(table,state.payload);
       if(isWrite&&state.mode==="delete"&&!WRITABLE[table])return errorResult("neon_feature_write_api_not_migrated");
-      if(["update","delete"].includes(state.mode)&&!state.filters.some(([op,col])=>op==="eq"&&plainIdentifier.test(col)))return errorResult("neon_update_requires_owner_filter");
+      // Mark-all only touches RLS-scoped notification rows, with one permitted
+      // column and the explicit unread-only predicate. Never generalize this
+      // exception to posts, messages or administrator data.
+      const scopedUnreadUpdate = state.mode === "update"
+        && ["notifications","chat_notifications"].includes(table)
+        && state.filters.length === 1
+        && state.filters[0][0] === "is"
+        && state.filters[0][1] === "read_at"
+        && state.filters[0][2] === null
+        && Object.keys(state.payload || {}).length === 1
+        && typeof state.payload?.read_at === "string"
+        && Number.isFinite(Date.parse(state.payload.read_at));
+      if(["update","delete"].includes(state.mode)
+        && !state.filters.some(([op,col])=>op==="eq"&&plainIdentifier.test(col))
+        && !scopedUnreadUpdate) return errorResult("neon_update_requires_owner_filter");
       const url=new URL(String(dataApiUrl).replace(/\/$/,"")+"/"+table);
       url.searchParams.set("select",state.columns);
       for(const [op,column,value] of state.filters){
