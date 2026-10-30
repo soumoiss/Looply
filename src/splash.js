@@ -1,5 +1,5 @@
 import "./theme.js";
-import { isSupabaseConfigured, supabase } from "./supabase.js";
+import { activeSession } from "./neon-production-client.js";
 import { captureIncomingSharedLink } from "./shared-link.js";
 
 // Capture share-sheet parameters before the splash redirects to login or home.
@@ -13,15 +13,13 @@ let splashAudio = null;
 const delay = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
 
 async function resolveSession() {
-  if (!isSupabaseConfigured || !supabase) return null;
   try {
-    const response = await Promise.race([
-      supabase.auth.getSession(),
-      delay(SESSION_CHECK_LIMIT_MS).then(() => ({ data: { session: null }, timedOut: true }))
+    return await Promise.race([
+      activeSession(),
+      delay(SESSION_CHECK_LIMIT_MS).then(() => null)
     ]);
-    return response?.data?.session || null;
   } catch (error) {
-    console.error("Looply initial session check failed", error);
+    console.warn("Looply Neon initial session check unavailable", error?.message || "offline");
     return null;
   }
 }
