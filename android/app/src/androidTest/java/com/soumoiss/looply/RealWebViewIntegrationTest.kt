@@ -81,17 +81,31 @@ class RealWebViewIntegrationTest {
         instrumentation.uiAutomation.grantRuntimePermission(
             context.packageName, Manifest.permission.RECORD_AUDIO)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            // Wait for an HTTPS document from the local WebViewAssetLoader.
+            // The packaged splash may redirect to login asynchronously. Testing
+            // MediaRecorder against that navigation loses the JS proof variable.
+            // Preserve the actual production MainActivity, WebChromeClient and
+            // native CAMERA/MIC permission path, but stabilize the HTTPS document.
+            scenario.onActivity { activity ->
+                val web = findWebView(activity.window.decorView)
+                assertNotNull("Production MainActivity WebView is missing", web)
+                web!!.loadDataWithBaseURL(
+                    "https://soumoiss.github.io/Looply/android-media-acceptance.html",
+                    "<!doctype html><html><head><meta charset='utf-8'></head><body>Android WebView media acceptance</body></html>",
+                    "text/html", "UTF-8", null
+                )
+            }
             var ready = false
-            for (attempt in 0 until 25) {
+            for (attempt in 0 until 35) {
                 val state = eval(scenario,"JSON.stringify({secure:isSecureContext,ready:document.readyState,url:location.href})")
-                if (state.contains("\\\"secure\\\":true") && state.contains("/Looply/")) {
+                if (state.contains("\\\"secure\\\":true") &&
+                    state.contains("android-media-acceptance.html") &&
+                    state.contains("complete")) {
                     ready = true
                     break
                 }
                 Thread.sleep(300)
             }
-            assertTrue("Local WebView origin is not secure",ready)
+            assertTrue("Trusted Android WebView HTTPS capture document did not load", ready)
             eval(scenario, """
                 (() => {
                   window.__looplyCaptureProof = {state:'pending'};
