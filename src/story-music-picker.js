@@ -3,12 +3,10 @@ import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-lic
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
 
-// Apple/Deezer: official PREVIEWS only. Audius: linked public stream after
-// publication. User-owned or user-checked CC audio: encoded into the file.
+// Apple/Deezer/Spotify: catalog previews only; own or licensed audio is the publishable soundtrack.
 // No Spotify app link, hidden application launch or fake synthetic tracks.
 export function storyMusicCanPublish(track) {
   return track?.kind==="file" ||
-    (track?.kind==="catalog" && track.provider==="audius" && Boolean(track.id)) ||
     track?.kind==="openverse";
 }
 async function searchSpotifyAuthenticated(term,{signal}={}) {
@@ -42,7 +40,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   let catalogAwaitingUserAudio=null;
   const validatedStreams=new Set(), searchCache=new Map();
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
-  const needsOwnAudio=track=>track.kind==="catalog" && track.provider!=="audius";
+  const needsOwnAudio=track=>track.kind==="catalog";
   const addText=(parent,tag,value,className)=>{
     const el=document.createElement(tag);el.textContent=String(value??"");
     if(className)el.className=className;
@@ -59,31 +57,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     closed=true;seq++;if(timer)clearTimeout(timer);
     controller?.abort();importController?.abort();
     stopPreview();
-  };
-  const checkAudiusStream=async track=>{
-    if(track.provider!=="audius")return true;
-    const url=officialSongPreview(track)?.src;
-    if(!url)throw Error("Não foi encontrado fluxo de áudio nesta música.");
-    if(validatedStreams.has(url))return true;
-    const probe=document.createElement("audio");
-    probe.preload="metadata";probe.muted=true;
-    // The browser validates an actual playable media source; no downloaded
-    // commercial preview is ever used as a substitute.
-    await new Promise((resolve,reject)=>{
-      let settled=false;
-      const done=error=>{
-        if(settled)return;settled=true;
-        clearTimeout(timerId);probe.pause();probe.removeAttribute("src");probe.load();
-        error?reject(error):resolve();
-      };
-      const timerId=setTimeout(()=>done(Error("O streaming demorou demais para carregar. Escolha outra música.")),6500);
-      probe.addEventListener("canplay",()=>done(null),{once:true});
-      probe.addEventListener("loadeddata",()=>done(null),{once:true});
-      probe.addEventListener("error",()=>done(Error("O arquivo de áudio não está disponível no Audius.")),{once:true});
-      probe.src=url;probe.load();
-    });
-    validatedStreams.add(url);
-    return true;
   };
   const chooseForStory=async track=>{
     if(closed||importBusy)return;
@@ -113,14 +86,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       return;
     }
     if(!storyMusicCanPublish(track)){found.textContent="Este resultado não possui áudio utilizável.";return;}
-    if(track.provider==="audius"){
-      importBusy=true;
-      found.textContent="Conferindo o áudio desta música…";
-      try { await checkAudiusStream(track); }
-      catch(error){if(!closed)found.textContent=error.message||"Não foi possível confirmar o som.";return;}
-      finally {importBusy=false;}
-      if(closed)return;
-    }
     stopPreview();
     onSelect(track);
   };
@@ -174,7 +139,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     const actions=addText(player,"div","","studio-music-preview-actions");
     if(storyMusicCanPublish(track)){
       const choose=addText(actions,"button",
-        track?.provider==="audius"?"Vincular streaming ao Story":
         officialStorySongEmbed(track)?"Usar player no Story":"Selecionar para o Story",
         "studio-catalog-select");
       choose.type="button";choose.onclick=()=>void chooseForStory(track);
@@ -218,7 +182,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       listen.onclick=()=>preview(track);
       if(storyMusicCanPublish(track)){
         const choose=addText(buttons,"button",
-          track?.provider==="audius"?"Usar streaming":"Selecionar",
+          "Selecionar",
           "studio-catalog-select");
         choose.type="button";choose.setAttribute("aria-label","Selecionar "+track.title);
         choose.onclick=()=>void chooseForStory(track);
@@ -243,7 +207,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       found.textContent=items.length+" resultados · "+items.filter(storyMusicCanPublish).length+" com opção de uso no Story";
       draw();return;
     }
-    found.textContent="Consultando Apple Music, Deezer, Audius, Spotify e faixas licenciadas…";draw();
+    found.textContent="Consultando Apple Music, Deezer, Spotify e faixas licenciadas…";draw();
     const current=new AbortController();controller=current;
     let remaining=3,failed=0;
     const received=[];
@@ -257,8 +221,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       if(!remaining && items.length)searchCache.set(cacheKey,{items,until:Date.now()+120000});
       if(!remaining && !items.length)found.textContent="Nenhuma música encontrada. Tente outro título ou artista.";
     };
-    // Stream results independently: don't hold back usable Audius songs while
-    // a Creative Commons index is slow or temporarily unavailable.
+    // Stream licensed and catalog results independently.
     const settle=(promise,extract)=>Promise.resolve(promise).then(data=>{
       if(closed||ticket!==seq)return;
       remaining--;
@@ -270,7 +233,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     const catalogTask=settle(searchCatalog(term,{signal:current.signal}),res=>res?.items||[]);
     const licensedTask=settle(searchLicensed(term,{signal:current.signal}),res=>Array.isArray(res)?res:[]);
     // Spotify is optional: if the Neon proxy lacks private developer
-    // credentials, Apple/Deezer/Audius and user-owned music keep responding.
+    // credentials, Apple/Deezer and user-owned music keep responding.
     const spotifyTask=settle(searchSpotify(term,{signal:current.signal}),res=>Array.isArray(res)?res:[]);
     // If the direct playable catalogue finds nothing, let Apple's public
     // song/artist metadata correct a mistyped query. Apple previews themselves
