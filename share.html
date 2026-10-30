@@ -11,8 +11,8 @@ textarea{height:68px;resize:vertical}footer{display:flex;gap:10px;margin-top:17p
 button{font:inherit;border:0;border-radius:12px;padding:12px;cursor:pointer}
 #cancel{flex:1;background:#e8e0ef;color:#20112f}#publish{flex:2;background:#5b16a3;color:white;font-weight:700}
 #publish:disabled{opacity:.55}#status{font-size:13px;min-height:1.5em;margin-top:11px}
-#media{display:none;width:100%;max-height:45vh;object-fit:contain;background:#130f17;border-radius:12px}
-#media[src]{display:block}#linkSection[hidden]{display:none}
+#imagePreview,#videoPreview{width:100%;max-height:40vh;object-fit:contain;background:#130f17;border-radius:12px}
+[hidden]{display:none!important}#linkSection[hidden]{display:none}
 </style></head><body>
 <h1>Publicar no Looply</h1>
 <p>Confira o link ou a mídia compartilhada. Nada será publicado sem tocar em Publicar.</p>
@@ -107,8 +107,8 @@ $("form").addEventListener("submit",async event=>{
   // Never claim publication success for an incomplete upload. Cleanup stays
   // owner-scoped and cannot remove another user's content.
   if(postId){
-   if(storagePath)await looplyClient.storage.from("looply-media").remove([storagePath]).catch(()=>{});
-   await looplyClient.from("posts").delete().eq("id",postId).catch(()=>{});
+   if(storagePath){try{await looplyClient.storage.from("looply-media").remove([storagePath]);}catch{}}
+   try{await looplyClient.from("posts").delete().eq("id",postId);}catch{}
   }
   $("status").textContent=error?.message||"Não foi possível publicar.";
   button.disabled=false;
