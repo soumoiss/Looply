@@ -34,6 +34,10 @@ async function neonQuery(env,query,params=[]){
   const conn=String(env.NEON_PUSH_DATABASE_URL||"");
   const url=new URL(conn);
   if(!["postgresql:","postgres:"].includes(url.protocol)||!url.hostname.endsWith(".neon.tech"))throw Error("neon_secret_unavailable");
+  // Refuse any previously configured Neon role with administrative powers.
+  // Never accept the older, privileged looply_push_dispatcher role.
+  if(decodeURIComponent(url.username)!=="looply_push_relay_limited")
+    throw Error("neon_push_role_not_limited");
   const host=url.hostname.replace(/-pooler(?=\.)/,"");
   const response=await fetch("https://"+host+"/sql",{
     method:"POST",headers:{"content-type":"application/json","Neon-Connection-String":conn},
@@ -133,9 +137,10 @@ export async function deliverNotifications(env,{
   return {eligible:rows.length,sent,failed};
 }
 export default {
-  async fetch(request){
+  async fetch(request,env){
     if(request.method==="GET"&&new URL(request.url).pathname==="/health")
-      return Response.json({service:"looply-android-fcm",configured:"server-only"});
+      return Response.json({service:"looply-android-fcm",
+        ready:Boolean(env.FCM_SERVICE_ACCOUNT_JSON && env.NEON_PUSH_DATABASE_URL && env.FCM_PROJECT_ID)});
     return Response.json({error:"not_found"},{status:404});
   },
   async scheduled(_controller,env,ctx){
