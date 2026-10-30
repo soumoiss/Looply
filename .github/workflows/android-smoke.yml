@@ -23,8 +23,12 @@ permissions:
 
 jobs:
   emulator:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [30, 35]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,11 +60,11 @@ jobs:
       - name: Install and open activities in an actual Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect -camera-back emulated -camera-front emulated
           # ADB settings service crashed on the last software-emulated runner:
           # do not make launcher testing depend on disabling animations.
           disable-animations: false
@@ -71,6 +75,12 @@ jobs:
             adb shell am start -n com.looply.app/com.soumoiss.looply.MainActivity
             sleep 9
             adb shell pidof com.looply.app > smoke-results/launcher-pid.txt
+            # Actual Android runtime permission state, not just Manifest strings.
+            adb shell pm grant com.looply.app android.permission.CAMERA
+            adb shell pm grant com.looply.app android.permission.RECORD_AUDIO
+            adb shell dumpsys package com.looply.app > smoke-results/package-permissions.txt
+            grep -F 'android.permission.CAMERA: granted=true' smoke-results/package-permissions.txt
+            grep -F 'android.permission.RECORD_AUDIO: granted=true' smoke-results/package-permissions.txt
             adb shell screencap -p /sdcard/looply-launch.png
             adb pull /sdcard/looply-launch.png smoke-results/launcher.png
             adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "https://www.instagram.com/reel/C8Example/" -n com.looply.app/com.soumoiss.looply.ShareReceiverActivity
@@ -86,7 +96,7 @@ jobs:
             grep -F 'ShareReceiverActivity' smoke-results/reel-video-intent-activity.txt
             adb shell screencap -p /sdcard/looply-reel-share.png
             adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png
-                        adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime.log
+            adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime.log
             # android-emulator-runner executes every script line separately
             # through /usr/bin/sh, so shell if/fi blocks span separate invocations.
             # A negative grep returns 0 when no fatal app exception is present.
@@ -96,6 +106,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Looply-android-emulator-smoke
+          name: Looply-android-emulator-smoke-api${{ matrix.api-level }}
           path: smoke-results/
           retention-days: 7
