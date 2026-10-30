@@ -16,7 +16,7 @@ export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"ga
 export function emailOf(value){
   const v=String(value||"").trim().toLowerCase().replace(/^@/,"");
   if(accounts[v])return accounts[v];
-  if(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v))return v;
+  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))return v;
   return /^[a-z0-9_]{3,30}$/.test(v)?v+"@loooply.app":null;
 }
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
