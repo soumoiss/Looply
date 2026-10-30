@@ -12,7 +12,8 @@ test("Catalog music selection stays in app and never opens the device picker aut
  assert.match(studio,/não pode virar um Story silencioso/);
  assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog" && track\.provider!=="audius"/);
  assert.match(picker,/onSelect\(track\)/);
- assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+ assert.match(picker,/fileInput\.click\(\)/);
+  assert.match(picker,/catalogAwaitingUserAudio=track/);
  assert.match(picker,/data-studio-audio-file/);
  assert.match(picker,/Áudio próprio/);
  assert.match(studio,/music\.kind === "file"/);
