@@ -40,6 +40,9 @@ import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
 import androidx.webkit.WebViewAssetLoader
+import com.google.firebase.messaging.FirebaseMessaging
+import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : Activity() {
     private data class PendingDownload(
@@ -163,6 +166,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (::webView.isInitialized) {
             webView.onResume()
+            syncFirebaseTokenToWeb(webView.url)
             if (wasOffline && hasInternet()) {
                 wasOffline = false
                 loadLooply()
@@ -355,6 +359,7 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String?) {
                 progressBar.progress = 100
                 progressBar.visibility = View.GONE
+                syncFirebaseTokenToWeb(url)
             }
 
             override fun onReceivedError(
@@ -674,6 +679,27 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Download iniciado.", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
             Toast.makeText(this, "Não foi possível iniciar o download.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Never send the Firebase service-account credentials to the client.
+    // Only the per-device public push destination is passed to our own trusted page;
+    // Neon verifies the authenticated user's identity before accepting registration.
+    private fun syncFirebaseTokenToWeb(url: String?) {
+        if (!url.orEmpty().startsWith(REMOTE_START_URL)) return
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            if (token.isBlank() || isFinishing || isDestroyed) return@addOnSuccessListener
+            if (!webView.url.orEmpty().startsWith(REMOTE_START_URL)) return@addOnSuccessListener
+            val preferences = getSharedPreferences("looply_android_device", Context.MODE_PRIVATE)
+            val deviceId = preferences.getString("device_id", null)
+                ?: UUID.randomUUID().toString().also {
+                    preferences.edit().putString("device_id", it).apply()
+                }
+            val payload = JSONObject().put("deviceId", deviceId).put("token", token)
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('looply:android-fcm-token',{detail:" +
+                    payload.toString() + "}));", null
+            )
         }
     }
 
