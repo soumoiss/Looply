@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application") version "9.4.1"
+    id("com.google.gms.google-services") version "4.5.0"
 }
 
 val repositoryRoot = rootProject.projectDir.parentFile
@@ -31,11 +32,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.soumoiss.looply"
+        applicationId = "com.looply.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 301
-        versionName = "3.0.1"
+        versionCode = 302
+        versionName = "3.0.2"
     }
 
     buildFeatures {
@@ -54,7 +55,8 @@ android {
 dependencies {
     implementation("androidx.webkit:webkit:1.15.0")
     implementation("androidx.core:core-ktx:1.16.0")
-    implementation("com.google.firebase:firebase-messaging:24.1.0")
+    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 tasks.named("preBuild").configure {
