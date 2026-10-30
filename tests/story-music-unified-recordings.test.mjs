@@ -125,6 +125,7 @@ test("unified picker exposes only Todas and does not try a device Spotify redire
  assert.match(picker,/stopPreview\(\)/);
  assert.match(picker,/iframe\.src="about:blank"/);
  assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
- assert.match(viewer,/if \(!audiusStream && storyText\.music\?\.previewUrl\)/);
+ assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
+  assert.match(viewer,/storyText\.music\?\.provider==="itunes"/);
  assert.match(css,/\.studio-music-preview-limited/);
 });
