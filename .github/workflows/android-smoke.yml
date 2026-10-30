@@ -102,6 +102,11 @@ jobs:
             # A negative grep returns 0 when no fatal app exception is present.
             ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime.log
             echo "Package installed and both activities launched without AndroidRuntime fatal logs"
+            # Instrumentation actually opens the packaged WebView, performs
+            # native CAMERA/RECORD_AUDIO requests and records WebM bytes.
+            (cd android && ./gradlew --no-daemon connectedDebugAndroidTest)
+            adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime-after-tests.log
+            ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime-after-tests.log
       - name: Upload emulator screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
