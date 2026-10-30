@@ -17,7 +17,8 @@ test("the initial route is a seven-second themed splash with an accessible anima
   assert.doesNotMatch(page, /Preparando seu espaço|conectando memórias/);
   assert.match(css, /\.splash-footer span\s*\{[^}]*font-family:\s*["']Cabin Sketch/);
   assert.match(script, /const SPLASH_DURATION_MS = 7000/);
-  assert.match(script, /supabase\.auth\.getSession\(\)/);
+  assert.match(script, /activeSession\(\)/);
+  assert.doesNotMatch(script, /\.\/supabase\.js|supabase\.auth/);
   assert.match(script, /Promise\.all\(/);
   assert.match(script, /window\.location\.replace\(destination\)/);
   assert.match(script, /AudioContext|webkitAudioContext/);
@@ -27,13 +28,14 @@ test("the initial route is a seven-second themed splash with an accessible anima
   assert.match(css, /prefers-reduced-motion/);
 });
 
-test("Supabase Auth explicitly persists the session in browser storage and refreshes tokens", async () => {
-  const source = await read("src/supabase.js");
-  assert.match(source, /autoRefreshToken:\s*true/);
-  assert.match(source, /persistSession:\s*true/);
-  assert.match(source, /storage:\s*window\.localStorage/);
-  assert.match(source, /storageKey:\s*["']looply-auth["']/);
-  assert.doesNotMatch(source, /signOut\(\)/);
+test("public entrypoints use Neon Auth without exposing the retired Supabase project", async () => {
+  const [client, config, loginEntry] = await Promise.all([
+    read("src/neon-production-client.js"), read("config.js"), read("assets/js/login.js")
+  ]);
+  assert.match(client, /neon=createClient/);
+  assert.match(client, /async function activeSession\(/);
+  assert.match(loginEntry, /neon-production-login\.js/);
+  assert.doesNotMatch(config, /supabaseUrl|publishableKey|supabase\.co/);
 });
 
 test("login and splash share the persisted global theme tokens", async () => {
