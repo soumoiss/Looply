@@ -6,7 +6,7 @@ const response=await fetch(endpoint,{headers:{"Origin":"https://soumoiss.github.
 assert.equal(response.status,200,"Music discovery worker must be reachable: "+response.status);
 assert.equal(response.headers.get("access-control-allow-origin"),"https://soumoiss.github.io");
 const body=await response.json();
-assert.deepEqual(body.providers.map(x=>x.provider),["apple","deezer","audius"]);
+assert.deepEqual(body.providers.map(x=>x.provider),["apple","deezer"]);
 assert.ok(body.providers.some(x=>x.available),"At least one public music catalog should respond.");
 for(const item of body.providers.flatMap(p=>p.items||[])){
   assert.ok(item.title && item.artist && item.url, "Incomplete catalog item");
