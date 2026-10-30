@@ -56,6 +56,9 @@ FROM (
  SELECT 'letter',n.id,'letter',n.letter_id,NULL::uuid,t.id,t.fcm_token,n.created_at
  FROM public.letter_event_notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
  WHERE n.event_type='new_received'
+ UNION ALL
+ SELECT 'story',n.id,'story',n.story_id,NULL::uuid,t.id,t.fcm_token,n.created_at
+ FROM public.android_fcm_story_events n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
 ) events
 WHERE created_at > now()-interval '15 minutes'
 AND NOT EXISTS (
@@ -80,6 +83,7 @@ function kindFor(row){
   const kind=String(row.kind||"activity");
   if(row.source==="chat")return kind==="call"?"call":kind==="voice"?"voice":"message";
   if(row.source==="letter")return "letter";
+  if(row.source==="story")return "story";
   if(kind==="story_mention")return "mention";
   if(kind==="story_like")return "story";
   if(kind==="music_dedication")return "dedication";
