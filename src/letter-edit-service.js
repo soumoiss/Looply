@@ -3,8 +3,8 @@
 import { openProtectedLetter, sealLetter } from "./letters-community.js";
 
 export const COMMUNITY_LETTER_LIMIT = 5000;
-const communityColumns = "id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext";
-const archiveColumns = "id,recipient_id,original_file,is_private,is_protected,body,password_hint";
+const communityColumns = "id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,password_hints";
+const archiveColumns = "id,recipient_id,original_file,is_private,is_protected,body,password_hint,password_hints";
 
 export async function fetchFullLetterForEdit(client, kind, id, userId, isAdmin = false) {
   if (!id || !userId || !["community", "archive"].includes(kind)) throw Error("Carta inválida.");
@@ -13,10 +13,10 @@ export async function fetchFullLetterForEdit(client, kind, id, userId, isAdmin =
     .select(kind === "archive" ? archiveColumns : communityColumns).eq("id", id);
   // A sender may edit their own correspondence; receiving a letter does not
   // grant edit permission. Neon RLS independently enforces this on the server.
-  if (kind === "community" && !isAdmin) query = query.eq("sender_id", userId);
+  if (kind === "community") query = query.eq("sender_id", userId);
   const { data, error } = await query.single();
   if (error || !data || data.id !== id) throw Error("Não foi possível carregar a carta completa com sua permissão atual.");
-  if (kind === "community" && !isAdmin && data.sender_id !== userId) throw Error("Edição não autorizada.");
+  if (kind === "community" && data.sender_id !== userId) throw Error("Edição não autorizada.");
   if (!data.is_protected && typeof data.body !== "string") throw Error("O texto completo não está disponível. Nenhuma alteração foi feita.");
   return data;
 }
@@ -32,7 +32,7 @@ export async function unlockFullLetterForEdit(letter, password) {
 export async function saveFullLetterEdit(client, { kind, letter, userId, isAdmin = false, subject, body, password = "", newPassword = "", isPrivate, passwordHint } = {}) {
   if (!letter?.id || !userId || !["community", "archive"].includes(kind)) throw Error("Carta inválida.");
   if (kind === "archive" && !isAdmin) throw Error("Edição não autorizada.");
-  if (kind === "community" && !isAdmin && letter.sender_id !== userId) throw Error("Somente o remetente pode editar esta carta.");
+  if (kind === "community" && letter.sender_id !== userId) throw Error("Somente o remetente pode editar esta carta.");
   const text = String(body ?? "");
   if (!text.trim()) throw Error("A carta precisa conter texto.");
   if (kind === "community" && text.length > COMMUNITY_LETTER_LIMIT) throw Error("O limite desta carta é de 5.000 caracteres.");
@@ -60,7 +60,7 @@ export async function saveFullLetterEdit(client, { kind, letter, userId, isAdmin
   }
 
   let mutation = client.from(table).update(changes).eq("id", letter.id);
-  if (kind === "community" && !isAdmin) mutation = mutation.eq("sender_id", userId);
+  if (kind === "community") mutation = mutation.eq("sender_id", userId);
   const { data, error } = await mutation.select(kind === "archive"
     ? "id,body,is_private,password_hint"
     : "id,subject,body,is_protected,password_salt,password_iv,password_ciphertext").single();
