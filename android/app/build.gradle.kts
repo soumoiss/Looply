@@ -43,6 +43,27 @@ android {
         buildConfig = true
     }
 
+    // Signing uses persistent GitHub Actions secrets; never generate ephemeral release keys.
+    val keyPath = System.getenv("LOOPLY_ANDROID_KEYSTORE_FILE")
+    val keyStorePassword = System.getenv("LOOPLY_ANDROID_KEYSTORE_PASSWORD")
+    val keyAlias = System.getenv("LOOPLY_ANDROID_KEY_ALIAS")
+    val keyPassword = System.getenv("LOOPLY_ANDROID_KEY_PASSWORD")
+    if (listOf(keyPath, keyStorePassword, keyAlias, keyPassword).all { !it.isNullOrBlank() }) {
+        signingConfigs {
+            create("looplyProduction") {
+                storeFile = file(keyPath!!)
+                storePassword = keyStorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("looplyProduction")
+            }
+        }
+    }
+
     sourceSets.getByName("main").assets.srcDir(webOutputDirectory)
 
     packaging {
