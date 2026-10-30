@@ -9,6 +9,7 @@ on:
       - fix/looply-stage4-share-layout-icon-recovery-20261030
       - fix/looply-stage5-story-audio-camera-20261030
       - fix/looply-stage6-audit-release-20261030
+      - integrate/looply-android-six-stages-20261030
     paths:
       - "android/**"
       - "src/**"
