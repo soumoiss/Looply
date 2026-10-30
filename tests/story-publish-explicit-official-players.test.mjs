@@ -66,7 +66,7 @@ test("published Story contains only the music label and real in-viewer audio, ne
  assert.doesNotMatch(css,/story-official-audio/);
  assert.match(viewer,/songLabel\.setAttribute\("role","note"\)/);
  assert.match(viewer,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
- assert.match(viewer,/playStoryAudio\(music\)/);
+ assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
  assert.match(viewer,/startStoryMediaPlayback\(video\)/);
  const picker=read("src/story-music-picker.js");
  assert.doesNotMatch(picker,/open\.spotify\.com|spotify:\/\//);

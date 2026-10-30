@@ -57,14 +57,14 @@ test("Publishing does not synthesize fake audio from Apple, Deezer or Spotify me
   const viewer=await read("src/stories.js");
   for(const provider of ["apple","deezer","spotify"])
     assert.equal(storyMusicCanPublish({kind:"catalog",provider,id:"123"}),false);
-  assert.equal(storyMusicCanPublish({kind:"catalog",provider:"audius",id:"A1"}),true);
+  assert.equal(storyMusicCanPublish({kind:"catalog",provider:"audius",id:"A1"}),false);
   assert.equal(storyMusicCanPublish({kind:"file",file:{size:1}}),true);
   assert.match(picker,/Vincular meu áudio autorizado/);
-  assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
+  assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
   assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
-  assert.match(viewer,/storyText\.music\?\.provider==="itunes"/);
-  assert.match(viewer,/const audiusStream = audiusStoryStreamUrl\(catalogSong\.song\)/);
-  assert.match(viewer,/story-viewer-music-hidden/);
+  assert.match(viewer,/storyText\.music\?\.provider\s*===\s*"itunes"/);
+  assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
+  assert.doesNotMatch(viewer,/story-viewer-music-hidden/);
 });
 test("Only tracks with stated, verifiable compatible licenses can be offered for imported soundtrack",()=>{
   const metadata={id:"valid-one",title:"Original",creator:"Author",url:"https://archive.org/file.mp3",

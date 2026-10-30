@@ -41,7 +41,7 @@ test("Story-open tap starts audio synchronously; pointerdown on stage provides n
   assert.match(pointer,/void playStoryAudio\(sound\)/);
   assert.match(pointer,/void startStoryMediaPlayback\(video,\{owner:viewer\}\)/);
   const renderer=viewer.slice(viewer.indexOf("const renderSlide ="),viewer.indexOf("const sharePanel ="));
-  assert.match(renderer,/void playStoryAudio\(music\)/);
+  assert.doesNotMatch(renderer,/audiusStoryStreamUrl/);
   assert.match(renderer,/void startStoryMediaPlayback\(video\)/);
   assert.doesNotMatch(renderer,/window\.open\(/);
   assert.doesNotMatch(renderer,/story\.music\.previewUrl/);

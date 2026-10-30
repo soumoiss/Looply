@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,searchAppleMusicPublic,officialSongPreview,audiusStoryStreamUrl,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
+import {encodeStorySong,decodeStorySong,normalizeStorySong,searchStorySongs,storySongSearchLinks,searchAppleMusicPublic,officialSongPreview,STORY_MUSIC_ENDPOINT} from "../src/story-music-catalog.js";
 import worker from "../backend/story-music-discovery/worker.mjs";
 
 const fixture = {provider:"apple",title:"Música Legal",artist:"Artista",url:"https://music.apple.com/br/album/musica/123",artwork:""};
@@ -16,7 +16,7 @@ test("Story song marker is reversible, escaped and rejects forged links",()=>{
   assert.equal(normalizeStorySong({...fixture,provider:"spotify"}),null);
   assert.equal(decodeStorySong("[[looply-music-v4|apple|x|y|https%3A%2F%2Fevil.test]]teste").song,null);
 });
-test("Server-side discovery integrates Apple, Deezer and Audius without streaming audio",async()=>{
+test("Server-side discovery uses Apple and Deezer without removed providers",async()=>{
   const previous=globalThis.fetch;
   const accessed=[];
   globalThis.fetch=async(url)=>{
@@ -27,9 +27,6 @@ test("Server-side discovery integrates Apple, Deezer and Audius without streamin
     if(url.startsWith("https://api.deezer.com/"))return new Response(JSON.stringify({data:[{
       id:456,title:"Hello",artist:{name:"Adele"},album:{cover_medium:"https://cdn-images.dzcdn.net/1"},link:"https://www.deezer.com/track/456",preview:"https://illegal-preview"
     }]}),{status:200});
-    if(url.startsWith("https://api.audius.co/"))return new Response(JSON.stringify({data:[{
-      id:"id789",title:"Hello",user:{name:"Adele"},permalink:"/adele/hello"
-    }]}),{status:200});
     return new Response("",{status:404});
   };
   try {
@@ -37,11 +34,11 @@ test("Server-side discovery integrates Apple, Deezer and Audius without streamin
     assert.equal(response.status,200);
     assert.equal(response.headers.get("access-control-allow-origin"),"https://soumoiss.github.io");
     const body=await response.json();
-    assert.equal(body.providers.length,3);
-    assert.deepEqual(body.providers.map(p=>p.provider),["apple","deezer","audius"]);
-    assert.equal(body.providers.reduce((n,p)=>n+p.items.length,0),3);
+    assert.equal(body.providers.length,2);
+    assert.deepEqual(body.providers.map(p=>p.provider),["apple","deezer"]);
+    assert.equal(body.providers.reduce((n,p)=>n+p.items.length,0),2);
     assert.ok(!JSON.stringify(body).includes("illegal-preview"),"previews must not be returned");
-    assert.equal(accessed.length,3);
+    assert.equal(accessed.length,2);
   } finally {globalThis.fetch=previous;}
 });
 test("Resilient catalog search: one unavailable provider does not lose other results",async()=>{
@@ -52,7 +49,7 @@ test("Resilient catalog search: one unavailable provider does not lose other res
       {provider:"audius",available:true,items:[{...fixture,provider:"audius",url:"https://audius.co/adele/hello"}]}
     ]}),{status:200})
   });
-  assert.equal(response.items.length,2);
+  assert.equal(response.items.length,1);
   assert.equal(response.providers[1].available,false);
   assert.match(STORY_MUSIC_ENDPOINT,/workers\.dev\/search$/);
 });
@@ -71,9 +68,9 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.match(viewer,/decodeStorySong\(story\.body/);
   assert.doesNotMatch(studio,/addLayer\("♪ " \+ track\.title/);
   assert.doesNotMatch(viewer,/story-viewer-song-credit|credit\.href = catalogSong/);
-  assert.match(viewer,/audiusStoryStreamUrl\(catalogSong\.song\)/);
+  assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
   assert.match(viewer,/if \(audio && !audio\.paused\) stopStoryMediaPlayback\(audio/);
-  assert.match(viewer,/music\.autoplay = !waitsForVideo/);
+  assert.doesNotMatch(viewer,/api\.audius\.co/);
   assert.match(picker,/▶ Ouvir/);
   assert.match(picker,/Selecionar para o Story/);
   assert.match(picker,/fileInput\.click\(\)/);
@@ -110,14 +107,12 @@ test("Licensed audition uses official Apple and Deezer players, not stolen previ
   assert.deepEqual(deezer,{kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/456"});
   assert.equal(officialSongPreview({provider:"deezer",title:"Hit",artist:"Band",url:"https://evil.invalid/br/track/456"}),null);
 });
-test("Audius stream metadata survives publication and controls invisible background playback",()=>{
-  const track={provider:"audius",title:"Som",artist:"Banda",id:"AbC123",url:"https://audius.co/banda/som"};
-  assert.match(audiusStoryStreamUrl(track),/\/tracks\/AbC123\/stream\?app_name=Looply$/);
-  const value=encodeStorySong("Minha legenda",track);
-  assert.match(value,/^\[\[looply-music-v5\|/);
-  assert.equal(decodeStorySong(value).song.id,"AbC123");
-  assert.equal(decodeStorySong(value).text,"Minha legenda");
-  assert.equal(audiusStoryStreamUrl({...track,id:"../../passwd"}),"");
+test("Removed provider cannot be selected and old markers retain their captions",()=>{
+  const old={provider:"audius",title:"Som",artist:"Banda",id:"AbC123",url:"https://audius.co/banda/som"};
+  assert.equal(normalizeStorySong(old),null);
+  const legacy="[[looply-music-v5|audius|Som|Banda|https%3A%2F%2Faudius.co%2Fbanda%2Fsom|AbC123]]Minha legenda";
+  assert.equal(decodeStorySong(legacy).text,"Minha legenda");
+  assert.equal(decodeStorySong(legacy).song,null);
   assert.equal(decodeStorySong(encodeStorySong("",fixture)).song.provider,"apple");
 });
 
@@ -149,8 +144,8 @@ test("Android music cards have separate grid action row, readable text, and visi
   assert.match(picker,/el\.addEventListener\("error"/);
   assert.match(picker,/const listen=addText\(buttons,"button","▶ Ouvir prévia"/);
   assert.match(picker,/const choose=addText\(buttons,"button",/);
-  assert.match(picker,/track\?\.provider==="audius"\?"Usar streaming"/);
-  assert.match(picker,/track\?\.provider==="audius"\?"Vincular streaming ao Story"/);
+  assert.doesNotMatch(picker,/Usar streaming/);
+  assert.doesNotMatch(picker,/Vincular streaming ao Story/);
   assert.match(picker,/providerLink\.href=track\.url/);
   assert.match(picker,/stopPreview/);
 });

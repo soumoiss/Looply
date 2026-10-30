@@ -165,7 +165,7 @@ export function setupChatEnhancements(root, client, userId) {
       const id = item.dataset.chatOpen;
       const label = item.querySelector(".chat-conversation-copy strong");
       if (label && !label.dataset.originalName) label.dataset.originalName = label.textContent;
-      if (label && nicknames[id]) label.textContent = nicknames[id];
+      if (label && nicknames[id] && label.textContent !== nicknames[id]) label.textContent = nicknames[id];
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
@@ -185,14 +185,14 @@ export function setupChatEnhancements(root, client, userId) {
     settingsScope = conversationOnly ? selectedConversation() : "*";
     const id = settingsScope;
     const colors = COLORS.map((color) => `<button type="button" class="chat-v2-swatch ${(wallpapers[id] || "") === color.value ? "is-selected" : ""}" data-v2-color="${esc(color.value)}"><span style="background:${color.value || "var(--surface)"}"></span>${esc(color.name)}</button>`).join("");
-    openModal(`<span class="chat-v2-kicker">Personalização</span><h2 id="chatV2ModalTitle">${conversationOnly ? "Esta conversa" : "Suas conversas"}</h2><div class="chat-v2-setting-group"><strong>Papel de parede</strong><div class="chat-v2-swatches">${colors}</div><label class="chat-v2-upload">Usar uma imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-v2-wallpaper-file></label></div>${conversationOnly && !isGroup() ? '<div class="chat-v2-setting-group"><label for="chatV2Nickname">Apelido local do contato</label><input id="chatV2Nickname" maxlength="60" value="' + esc(nicknames[id] || "") + '" placeholder="Nome que só você verá"><button type="button" class="chat-v2-button is-primary" data-v2-save-nickname>Salvar apelido</button></div>' : ""}<p class="chat-v2-help">As preferências ficam neste dispositivo e não alteram o perfil da outra pessoa.</p>`);
+    openModal(`<span class="chat-v2-kicker">Personalização</span><h2 id="chatV2ModalTitle">${conversationOnly ? "Esta conversa" : "Suas conversas"}</h2><div class="chat-v2-setting-group"><strong>Papel de parede</strong><div class="chat-v2-swatches">${colors}</div><label class="chat-v2-upload">Usar uma imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-v2-wallpaper-file></label></div>${conversationOnly && !isGroup() ? '<div class="chat-v2-setting-group"><label for="chatV2Nickname">Apelido do contato</label><input id="chatV2Nickname" maxlength="60" value="' + esc(nicknames[id] || "") + '" placeholder="Nome que só você verá"><button type="button" class="chat-v2-button is-primary" data-v2-save-nickname>Salvar apelido</button></div>' : ""}<p class="chat-v2-help">O apelido é privado da sua conta e sincronizado pelo Neon. O papel de parede permanece neste dispositivo.</p>`);
   };
   const updateNickname = (id, name) => {
     const link = [...root.querySelectorAll("[data-chat-open]")].find((item) => item.dataset.chatOpen === id);
-    if (link && name) link.querySelector(".chat-conversation-copy strong").textContent = name;
-    if (link && !name) link.querySelector(".chat-conversation-copy strong").textContent = link.dataset.originalName || link.querySelector(".chat-conversation-copy strong").textContent;
+    const label = link?.querySelector(".chat-conversation-copy strong");
+    if (label) { const text = name || label.dataset.originalName || label.textContent; if (label.textContent !== text) label.textContent = text; }
     const heading = root.querySelector(".chat-thread-heading strong");
-    if (heading && id === selectedConversation() && name) heading.textContent = name;
+    if (heading && id === selectedConversation()) { if (!heading.dataset.v2OriginalName) heading.dataset.v2OriginalName = heading.textContent; const text = name || heading.dataset.v2OriginalName; if (heading.textContent !== text) heading.textContent = text; }
   };
   const applyFilters = () => {
     const activeFilter = "all";
@@ -286,9 +286,30 @@ export function setupChatEnhancements(root, client, userId) {
       await sendGame("state", { state: gameState }); renderGame(); return;
     }
     if (target.matches("[data-v2-save-nickname]")) {
-      const id = selectedConversation(); const name = root.querySelector("#chatV2Nickname")?.value.trim() || "";
+      const id = selectedConversation(); const name = (root.querySelector("#chatV2Nickname")?.value || "").trim();
+      if (!/^[a-f0-9-]{36}$/i.test(id) || !client || !userId) { toast("Abra uma conversa válida e entre na sua conta."); return; }
+      const previous = nicknames[id] || "";
+      target.disabled = true;
+      // Optimistic UI never masquerades as a successful database write.
       if (name) nicknames[id] = name; else delete nicknames[id];
-      write(nicknameKey, nicknames); updateNickname(id, name); toast(name ? "Apelido salvo neste dispositivo." : "Apelido removido."); return;
+      updateNickname(id, name);
+      try {
+        const result = name
+          ? await client.from("conversation_nicknames").upsert(
+            { user_id: userId, conversation_id: id, nickname: name, updated_at: new Date().toISOString() },
+            { onConflict: "user_id,conversation_id" })
+          : await client.from("conversation_nicknames").delete().eq("user_id", userId).eq("conversation_id", id);
+        if (result?.error) throw result.error;
+        write(nicknameKey, nicknames);
+        closeModal();
+        toast(name ? "Apelido salvo na sua conta." : "Apelido removido da sua conta.");
+      } catch (error) {
+        if (previous) nicknames[id] = previous; else delete nicknames[id];
+        updateNickname(id, previous);
+        console.warn("Looply nickname save failed", error?.message || "unavailable");
+        toast("Não foi possível salvar o apelido no banco. Tente novamente.");
+      } finally { target.disabled = false; }
+      return;
     }
     if (target.matches("[data-v2-color]")) {
       const id = settingsScope; const color = target.dataset.v2Color || "";
@@ -331,4 +352,30 @@ export function setupChatEnhancements(root, client, userId) {
   window.addEventListener("pagehide", () => { observer.disconnect(); closeChannel(); }, { once: true });
   renderTools();
   applyFilters();
+  // Reconcile previously local nicknames with the authenticated, RLS-protected
+  // Neon table so a nickname remains available across the user's devices.
+  void (async () => {
+    if (!client || !userId) return;
+    try {
+      const result = await client.from("conversation_nicknames")
+        .select("conversation_id,nickname").eq("user_id", userId).limit(200);
+      if (result?.error) throw result.error;
+      const stored = Array.isArray(result?.data) ? result.data : [];
+      const fromServer = new Map(stored.map(row => [row.conversation_id, row.nickname]));
+      for (const [id, name] of Object.entries(nicknames)) {
+        if (!/^[a-f0-9-]{36}$/i.test(id) || !name || fromServer.has(id)) continue;
+        const migrated = await client.from("conversation_nicknames").upsert(
+          { user_id: userId, conversation_id: id, nickname: name },
+          { onConflict: "user_id,conversation_id" });
+        if (!migrated?.error) fromServer.set(id, name);
+      }
+      for (const id of Object.keys(nicknames)) delete nicknames[id];
+      for (const [id, name] of fromServer) nicknames[id] = name;
+      write(nicknameKey, nicknames);
+      for (const [id, name] of fromServer) updateNickname(id, name);
+      renderTools();
+    } catch (error) {
+      console.warn("Looply private nicknames unavailable", error?.message || "unavailable");
+    }
+  })();
 }

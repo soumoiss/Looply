@@ -57,7 +57,7 @@ test("published viewer has no music box, popup, or fake audio activation control
  assert.doesNotMatch(src,/story-official-music-iframe/);
  assert.doesNotMatch(css,/story-official-audio/);
  assert.match(src,/openStoryDialog\(viewer\);\s*renderSlide\(\);/);
- assert.match(src,/playStoryAudio\(music\)/);
+ assert.doesNotMatch(src,/audiusStoryStreamUrl/);
  assert.match(src,/startStoryMediaPlayback\(video\)/);
  assert.match(src,/touchSurface\.addEventListener\("pointerdown"/);
  assert.match(src,/backgroundAudio\?\.dataset\.playback==="gesture-required"/);
