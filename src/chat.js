@@ -358,13 +358,21 @@ function formatRecordingTime(milliseconds) {
 function setRecordingFile(form, file, remove = false) {
   const input = form.querySelector('input[name="files"]');
   if (!input) return;
-  const transfer = new DataTransfer();
-  for (const existing of input.files) {
-    const isRecorded = existing.name === file?.name && existing.lastModified === file?.lastModified && existing.size === file?.size;
-    if (!isRecorded) transfer.items.add(existing);
+  // Some Android System WebView versions do not permit setting input.files.
+  // Keep the recording on the form and inject it into FormData at submit time
+  // as a safe fallback instead of silently sending a text-only message.
+  if (typeof DataTransfer !== "function") return;
+  try {
+    const transfer = new DataTransfer();
+    for (const existing of input.files) {
+      const isRecorded = existing.name === file?.name && existing.lastModified === file?.lastModified && existing.size === file?.size;
+      if (!isRecorded) transfer.items.add(existing);
+    }
+    if (file && !remove) transfer.items.add(file);
+    input.files = transfer.files;
+  } catch (error) {
+    console.warn("Looply WebView file picker does not support programmatic audio attachment", error?.name || "unsupported");
   }
-  if (file && !remove) transfer.items.add(file);
-  input.files = transfer.files;
 }
 
 function cancelVoiceRecording(form) {
@@ -417,6 +425,10 @@ async function startVoiceRecording(form) {
   let stream = null;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!form.isConnected) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
     const supportedTypes = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
     const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported?.(type));
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
@@ -1257,7 +1269,7 @@ export function bindChatEvents(root, client, getUserId) {
     if (recordStopButton) {
       const form = recordStopButton.closest("[data-chat-send]");
       const state = voiceRecordings.get(form);
-      if (state?.recorder.state === "recording") state.recorder.stop();
+      if (state && ["recording", "paused"].includes(state.recorder.state)) state.recorder.stop();
       return;
     }
     if (recordPauseButton) {
@@ -1445,6 +1457,13 @@ export function bindChatEvents(root, client, getUserId) {
     if (button) button.disabled = true;
     try {
       const values = new FormData(form);
+      if (form.matches("[data-chat-send]") && form._looplyRecordedFile &&
+          !values.getAll("files").some((file) => file instanceof File &&
+            file.name === form._looplyRecordedFile.name &&
+            file.size === form._looplyRecordedFile.size &&
+            file.lastModified === form._looplyRecordedFile.lastModified)) {
+        values.append("files", form._looplyRecordedFile, form._looplyRecordedFile.name);
+      }
       if (form.matches("[data-chat-edit-message]")) {
         const body = String(values.get("body") || "").trim();
         if (!body) throw new Error("empty message");
