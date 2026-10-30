@@ -1,10 +1,6 @@
-// Valores públicos do Supabase. Configure a URL e a publishable key deste projeto.
-// Nunca coloque chaves secretas neste arquivo.
+// Configuração pública do Looply. Auth, dados e mídia operam via Neon e Cloudflare.
+// Nunca publique credenciais privadas nesta configuração.
 window.LOOPLY_CONFIG = Object.freeze({
-  supabaseUrl: "https://qixocgetiwlrsbadpbvh.supabase.co",
-  publishableKey: "sb_publishable_GEUz-cJM1qXuaR7KbM2EBA_vk1hGxdT",
-  // Add TURN credentials from your TURN provider to improve calls on restrictive networks.
-  // Example: { urls: "turns:turn.example.com:5349", username: "short-lived-user", credential: "short-lived-password" }
+  // ICE opcional para WebRTC. Credenciais TURN não devem ser embutidas no JS.
   rtcIceServers: []
 });
-
