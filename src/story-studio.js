@@ -388,11 +388,18 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if(!sourceW||!sourceH)throw Error("A câmera ainda não está pronta.");
     // Show the WHOLE sensor image by default. Match CSS object-fit:contain
     // and keep the same letterboxed layout in the final recording.
-    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,
-      zoomMode==="digital"?settings.zoom:1);
+    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,1);
     if(!crop)throw Error("Não foi possível preparar o enquadramento.");
-    const fit=containRect(crop.width,crop.height,canvas.width,canvas.height);
-    if(!fit)throw Error("Não foi possível enquadrar a câmera.");
+    const baseFit=containRect(crop.width,crop.height,canvas.width,canvas.height);
+    if(!baseFit)throw Error("Não foi possível enquadrar a câmera.");
+    // Match CSS transform:scale() of a contained video, even after an
+    // explicit pinch. Hardware sensor zoom has already changed source pixels.
+    const factor=zoomMode==="digital"?Math.max(1,settings.zoom):1;
+    const fit={
+      x:canvas.width/2+(baseFit.x-canvas.width/2)*factor,
+      y:canvas.height/2+(baseFit.y-canvas.height/2)*factor,
+      width:baseFit.width*factor,height:baseFit.height*factor
+    };
     ctx.fillStyle="#08070b";
     ctx.fillRect(0,0,canvas.width,canvas.height);
     const drawLayer=layer=>{
