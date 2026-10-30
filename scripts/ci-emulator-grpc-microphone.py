@@ -10,6 +10,7 @@ import getpass
 import math
 import os
 import struct
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -74,7 +75,28 @@ def pcm_audio():
         yield packet
 
 
+def wait_for_real_capture():
+    # Do not inject during Android boot or while installing the APK: emulator
+    # 37 has a native audio-injection startup race. Wait for instrumentation.
+    deadline = time.monotonic() + 150
+    while time.monotonic() < deadline:
+        try:
+            result = subprocess.run(
+                ["adb", "logcat", "-d", "-s", "LooplyMicCapture:I"],
+                capture_output=True, text=True, timeout=8, check=False,
+            )
+            if "LOOPLY_CAPTURE_READY" in result.stdout:
+                return True
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        time.sleep(0.6)
+    return False
+
+
 def main():
+    if not wait_for_real_capture():
+        print("Looply: the real WebView microphone test did not signal readiness", flush=True)
+        return 1
     token = None
     for attempt in range(30):
         token = discover_token()
