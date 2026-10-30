@@ -212,11 +212,9 @@ function itemMarkup(resourceType, item) {
       <p>Enviada por Peixinho · ADM</p>${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}
       <button class="text-button" type="button" data-edit-archived-card>${item.is_protected ? "Substituir carta protegida" : "Editar carta"}</button>
       <form class="admin-community-letter-edit" data-edit-archived-card-form data-card-id="${escapeHtml(item.id)}" data-recipient-id="${escapeHtml(item.recipient_id)}" data-original-file="${escapeHtml(item.original_file)}" data-card-number="${escapeHtml(item.card_number)}" data-private="${item.is_private ? "true" : "false"}" data-protected="${item.is_protected ? "true" : "false"}" hidden>
-        ${item.is_protected ? `<p class="admin-record-hint">A senha antiga não pode ser recuperada. Ao salvar, defina uma nova senha para o conteúdo substituto.</p>` : ""}
+        ${item.is_protected ? `<p class="admin-record-hint">O arquivo original não foi localizado e o conteúdo cifrado atual não pôde ser aberto. Cole o texto original recuperado. O texto e a senha serão salvos juntos na mesma carta.</p><label>Senha atual para carregar o conteúdo salvo<input name="current_password" type="password" maxlength="256" autocomplete="current-password"></label><button class="text-button" type="button" data-load-archived-card-content>Carregar conteúdo completo</button>` : ""}
         <label>Texto da carta<textarea name="body" maxlength="100000" required>${item.is_protected ? "" : escapeHtml(item.body)}</textarea></label>
-        <label>Data da carta<input name="sent_date" type="date" value="${escapeHtml(item.sent_date || "")}"></label>
-        <label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label>
-        <label>Nova senha ${item.is_protected ? "(obrigatória)" : "(opcional)"}<input name="password" type="password" maxlength="256" autocomplete="new-password" ${item.is_protected ? "required" : ""}></label>
+        ${item.is_protected ? `<label>Nova senha<input name="password" type="password" maxlength="256" autocomplete="new-password" required></label>` : `<label>Data da carta<input name="sent_date" type="date" value="${escapeHtml(item.sent_date || "")}"></label><label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label><label>Nova senha (opcional)<input name="password" type="password" maxlength="256" autocomplete="new-password"></label>`}
         <button class="text-button" type="submit">Salvar carta</button><button class="text-button" type="button" data-cancel-archived-card-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form><button class="text-button admin-danger-action" type="button" data-delete-archived-card="${escapeHtml(item.id)}">Excluir carta importada permanentemente</button><small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
@@ -706,6 +704,29 @@ export function bindAdminEvents(root, client) {
       }
       return;
     }
+    const loadArchivedContent = event.target.closest("[data-load-archived-card-content]");
+    if (loadArchivedContent) {
+      const form = loadArchivedContent.closest("[data-edit-archived-card-form]");
+      const currentPassword = String(new FormData(form).get("current_password") || "");
+      if (!form || !currentPassword) { if (form) setStatus(form, "Digite a senha atual para carregar o texto completo.", "error"); return; }
+      loadArchivedContent.disabled = true;
+      try {
+        const { data, error } = await client.rpc("v13_unlock_archived_card", {
+          p_card_id: form.dataset.cardId, p_password: currentPassword
+        });
+        if (error) throw error;
+        if (data?.error === "incorrect_password") throw new Error("incorrect_password");
+        if (data?.error === "protected_archive_not_restored") throw new Error("protected_archive_not_restored");
+        if (typeof data?.body !== "string") throw new Error("archive_content_unavailable");
+        form.elements.body.value = data.body;
+        form.elements.current_password.value = "";
+        setStatus(form, "Texto completo carregado. Defina a senha que será salva com este texto.", "info");
+      } catch (error) {
+        const message = String(error?.message || "");
+        setStatus(form, /incorrect_password/.test(message) ? "Senha incorreta." : /protected_archive_not_restored/.test(message) ? "O texto protegido não foi restaurado. Cole o original manualmente para prosseguir." : /fetch|network|connection|conexão/i.test(message) ? "Erro de conexão ao carregar o texto." : "Não foi possível carregar o texto protegido.", "error");
+      } finally { loadArchivedContent.disabled = false; }
+      return;
+    }
     const editArchivedCard = event.target.closest("[data-edit-archived-card]");
     if (editArchivedCard) {
       const form = editArchivedCard.parentElement?.querySelector("[data-edit-archived-card-form]");
@@ -868,7 +889,8 @@ export function bindAdminEvents(root, client) {
     if (archivedCardForm) {
       event.preventDefault();
       const button = archivedCardForm.querySelector('button[type="submit"]');
-      const body = String(new FormData(archivedCardForm).get("body") || "").replace(/\r/g, "").trim();
+      const submittedBody = String(new FormData(archivedCardForm).get("body") || "").replace(/\r\n?/g, "\n");
+      const body = archivedCardForm.dataset.protected === "true" ? submittedBody : submittedBody.trim();
       const password = String(new FormData(archivedCardForm).get("password") || "");
       const protectedCard = archivedCardForm.dataset.protected === "true" || Boolean(password);
       if (!body || body.length > 100000 || (archivedCardForm.dataset.protected === "true" && !password)
@@ -888,22 +910,31 @@ export function bindAdminEvents(root, client) {
         sent_date: String(new FormData(archivedCardForm).get("sent_date") || "")
       };
       try {
-        if (protectedCard) Object.assign(payloadCard, await hashArchivePassword(password));
         if (button) button.disabled = true;
-        setStatus(archivedCardForm, "Salvando carta e registrando auditoria…", "info");
-        const { data, error } = await invokeAdmin({
-          action: "update_archived_card", resourceType: "archived_cards",
-          cardId: archivedCardForm.dataset.cardId, card: payloadCard
-        });
+        setStatus(archivedCardForm, "Salvando texto e senha juntos…", "info");
+        let data, error;
+        if (archivedCardForm.dataset.protected === "true") {
+          const response = await client.rpc("v13_admin_change_archived_card_password", {
+            p_card_id: archivedCardForm.dataset.cardId, p_new_password: password, p_new_body: body
+          });
+          data = response.data; error = response.error;
+        } else {
+          if (password) Object.assign(payloadCard, await hashArchivePassword(password));
+          ({ data, error } = await invokeAdmin({
+            action: "update_archived_card", resourceType: "archived_cards",
+            cardId: archivedCardForm.dataset.cardId, card: payloadCard
+          }));
+        }
         if (error) throw error;
-        if (data?.updated !== true) throw new Error("update_not_confirmed");
-        setStatus(archivedCardForm, "Carta atualizada e auditoria registrada.");
+        if (data?.updated !== true) throw new Error(data?.error || "update_not_confirmed");
+        setStatus(archivedCardForm, "Carta restaurada com sucesso. Texto e senha foram salvos na carta original existente.");
         archivedCardForm.hidden = true;
         archivedCardForm.parentElement?.querySelector("[data-edit-archived-card]")?.removeAttribute("hidden");
         const readForm = root.querySelector("[data-admin-read]");
         if (readForm) readForm.requestSubmit();
       } catch (error) {
-        setStatus(archivedCardForm, /admin_session/.test(String(error?.message || "")) ? "A sessão ADM expirou." : "Não foi possível atualizar a carta. Confira a autorização e os dados.", "error");
+        const message = String(error?.message || "");
+        setStatus(archivedCardForm, /incorrect_password/.test(message) ? "Senha incorreta." : /protected_archive_not_restored/.test(message) ? "O conteúdo protegido ainda não foi restaurado. Cole o texto original para continuar." : /fetch|network|connection|conexão/i.test(message) ? "Erro de conexão. O texto e a senha não foram alterados." : /admin_session|sessão/i.test(message) ? "A sessão ADM expirou." : "Não foi possível salvar texto e senha. Nenhuma alteração foi confirmada.", "error");
       } finally { if (button) button.disabled = false; }
       return;
     }
