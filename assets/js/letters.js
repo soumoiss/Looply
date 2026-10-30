@@ -45,7 +45,7 @@ function visual() {
     '<section class="cartas-admin" id="cartasAdmin" hidden><div class="admin-title"><span>ADMINISTRAÇÃO</span><h2>Gerenciar cartas de usuários</h2></div><label>Consultar coleção de <select id="adminUserFilter"></select></label><div id="adminCartasCount" role="status"></div></section></section>' +
     '<dialog class="modal-carta" id="modalEscrever" aria-labelledby="modalEscreverTitle"><div class="modal-header"><button type="button" id="fecharModal" aria-label="Fechar editor">✕</button><strong id="modalEscreverTitle">Escrever carta</strong><button type="submit" form="cartaComposeForm" id="enviarCarta" class="btn-enviar">Enviar</button></div><form id="cartaComposeForm" class="modal-body"><label>Título da carta<input id="tituloCarta" name="subject" placeholder="Ex.: Estou feliz! De Moisés" maxlength="80" required /></label><div class="destinatario-picker" id="destPicker"><label>Destinatário<input type="search" id="buscarDestinatario" placeholder="Pesquisar pessoa..." autocomplete="off" /></label><div id="listaUsuarios" role="group" aria-label="Escolher destinatário"></div></div><label>Mensagem<textarea id="textoCarta" name="body" placeholder="Escreva sua carta..." maxlength="5000" required></textarea></label><div class="privada-section"><label><input type="checkbox" id="isPrivada" /> Carta privada com senha</label><div id="privadaFields" hidden><label>Senha<input id="senhaCarta" type="password" minlength="8" maxlength="256" autocomplete="new-password" /></label><label>Dica (opcional)<input id="dicaCarta" maxlength="240" placeholder="Dica para a senha" /></label></div></div><p id="enviarStatus" role="alert"></p></form></dialog>' +
     '<dialog class="modal-carta modal-read" id="modalLeituraNova" aria-labelledby="readCartaTitulo"><div class="modal-header"><button type="button" id="fecharLeituraNova">✕</button><strong>Leitura da carta</strong><span aria-hidden="true">✉</span></div><div class="modal-body"><h2 id="readCartaTitulo"></h2><p id="readCartaAutor"></p><p id="readCartaData"></p><div id="readCartaDicas"></div><form id="desbloquearNova" hidden><label>Senha da carta<input id="senhaLeituraNova" type="password" required /></label><button class="btn-enviar" type="submit">Desbloquear</button></form><div id="readCartaTexto" class="carta-texto"></div><button id="editarCartaLida" class="btn-enviar" type="button" hidden>Editar carta</button><p id="readCartaStatus" role="status"></p></div></dialog>' +
-    '<dialog class="modal-carta" id="editorAdminCarta" aria-labelledby="adminEditTitle"><div class="modal-header"><button type="button" id="fecharAdminCarta">✕</button><strong id="adminEditTitle">Editar carta</strong><button id="salvarAdminCarta" type="submit" form="adminEditForm" class="btn-enviar">Salvar</button></div><form class="modal-body" id="adminEditForm"><label id="adminSubjectField">Título<input name="subject" maxlength="120" /></label><label>Conteúdo completo<textarea name="body" rows="14" spellcheck="true"></textarea></label><label id="adminPrivateField"><input type="checkbox" name="is_private" /> Carta privada</label><label id="adminHintField">Dica de senha<input name="password_hint" maxlength="240" /></label><label id="adminPasswordField" hidden>Senha atual da carta protegida<input type="password" name="password" autocomplete="current-password" /></label><label id="adminNewPasswordField" hidden>Nova senha (opcional)<input type="password" name="new_password" minlength="8" /></label><button type="button" id="desbloquearEdicaoCarta" class="btn-enviar" hidden>Carregar texto com a senha</button><section id="adminArchivePasswordChange" hidden><p>Para preservar a carta original, informe a senha atual e a nova senha. A senha antiga não pode ser recuperada se tiver sido perdida.</p><label>Senha atual da carta original<input type="password" name="archive_current_password" maxlength="256" autocomplete="current-password" /></label><label>Nova senha da carta original<input type="password" name="archive_new_password" minlength="7" maxlength="256" autocomplete="new-password" /></label><label>Confirmar nova senha<input type="password" name="archive_confirm_password" minlength="7" maxlength="256" autocomplete="new-password" /></label><button type="button" id="alterarSenhaCartaOriginal" class="btn-enviar">Alterar senha da carta original</button></section>' + adminOriginalRecoveryMarkup + '<p id="adminEditStatus" role="status" aria-live="polite"></p><button id="adminDeleteCarta" class="danger" type="button">Excluir carta permanentemente</button></form></dialog>' +
+    '<dialog class="modal-carta" id="editorAdminCarta" aria-labelledby="adminEditTitle"><div class="modal-header"><button type="button" id="fecharAdminCarta">✕</button><strong id="adminEditTitle">Editar carta</strong><button id="salvarAdminCarta" type="submit" form="adminEditForm" class="btn-enviar">Salvar</button></div><form class="modal-body" id="adminEditForm"><label id="adminSubjectField">Título<input name="subject" maxlength="120" /></label><label>Conteúdo completo<textarea name="body" rows="14" spellcheck="true"></textarea></label><label id="adminPrivateField"><input type="checkbox" name="is_private" /> Carta privada</label><label id="adminHintField">Dica de senha<input name="password_hint" maxlength="240" /></label><label id="adminPasswordField" hidden>Senha atual da carta protegida<input type="password" name="password" autocomplete="current-password" /></label><label id="adminNewPasswordField" hidden>Nova senha (opcional)<input type="password" name="new_password" minlength="8" /></label><button type="button" id="desbloquearEdicaoCarta" class="btn-enviar" hidden>Carregar texto com a senha</button><section id="adminArchivePasswordChange" hidden><p>Para preservar a carta original, informe a senha atual e a nova senha. A senha antiga não pode ser recuperada se tiver sido perdida.</p><label>Senha atual da carta original<input type="password" name="archive_current_password" maxlength="256" autocomplete="current-password" /></label><label>Nova senha da carta original<input type="password" name="archive_new_password" minlength="8" maxlength="256" autocomplete="new-password" /></label><label>Confirmar nova senha<input type="password" name="archive_confirm_password" minlength="8" maxlength="256" autocomplete="new-password" /></label><button type="button" id="alterarSenhaCartaOriginal" class="btn-enviar">Alterar senha da carta original</button></section>' + adminOriginalRecoveryMarkup + '<p id="adminEditStatus" role="status" aria-live="polite"></p><button id="adminDeleteCarta" class="danger" type="button">Excluir carta permanentemente</button></form></dialog>' +
     '<div id="cartasToast" role="status" aria-live="polite" class="cartas-toast" hidden></div>';
 }
 await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdmin }) => {
@@ -202,7 +202,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       $("#archiveRecoveryStatus").textContent = "";
       $("#salvarAdminCarta").disabled = !state.editor.unlocked;
       $("#salvarAdminCarta").hidden = canChangeArchivePassword;
-      $("#adminDeleteCarta").hidden = !isAdmin;
+      $("#adminDeleteCarta").hidden = !isAdmin || full.id === MISOL_ORIGINAL_RECOVERY_CARD_ID;
       $("#adminEditTitle").textContent = "Editar carta";
       $("#adminEditStatus").textContent = needsPassword && !state.editor.unlocked
         ? "Digite a senha atual e carregue o texto antes de editar."
@@ -337,8 +337,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     const currentPassword = String(form.elements.archive_current_password.value || "");
     const newPassword = String(form.elements.archive_new_password.value || "");
     const confirmation = String(form.elements.archive_confirm_password.value || "");
-    if (!currentPassword || newPassword.length < 7 || newPassword.length > 256) {
-      status.textContent = "Informe a senha atual e uma nova senha entre 7 e 256 caracteres.";
+    if (!currentPassword || newPassword.length < 8 || newPassword.length > 256) {
+      status.textContent = "Informe a senha atual e uma nova senha entre 8 e 256 caracteres.";
       return;
     }
     if (newPassword !== confirmation) { status.textContent = "A confirmação da nova senha não confere."; return; }
@@ -482,7 +482,28 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   });
   $("#cartasStatus").textContent = [archiveResult,communityResult].every(x=>x.status==="fulfilled")?"": "Alguns dados não puderam ser carregados. Tente atualizar a página.";
   updateList();
-  if (isAdmin) void loadCurrent();
+  const requestedRecoveryId = new URLSearchParams(location.search).get("recoverCardId");
+  if (isAdmin && requestedRecoveryId === MISOL_ORIGINAL_RECOVERY_CARD_ID) {
+    const target = state.cards.find(c => c.id === requestedRecoveryId);
+    if (target) {
+      state.adminUser = target.recipient_id;
+      $("#adminUserFilter").value = target.recipient_id;
+      state.filter = "originais";
+      state.sub = "todas";
+      state.date = "";
+      root.querySelectorAll("[data-filter]").forEach(button => {
+        const active = button.dataset.filter === "originais";
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      void loadCurrent().then(ok => {
+        if (ok) void openLetterEditor("archive", requestedRecoveryId, null);
+      });
+    } else {
+      void loadCurrent();
+      notify("Carta original não encontrada na coleção do ADM.", true);
+    }
+  } else if (isAdmin) void loadCurrent();
   const requestedLetterId=new URLSearchParams(location.search).get("letterId");
   const requestedCardId=new URLSearchParams(location.search).get("cardId");
   if(requestedCardId)requestAnimationFrame(()=>$("#cartasList [data-letter-id='"+CSS.escape(requestedCardId)+"']")?.click());
