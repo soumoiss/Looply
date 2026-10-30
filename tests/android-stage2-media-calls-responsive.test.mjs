@@ -27,7 +27,7 @@ test("WebView media permission honors Android runtime and rejects untrusted orig
   assert.match(activity, /request\.deny\(\)/);
   assert.match(activity, /onPermissionRequestCanceled/);
   assert.match(activity, /pendingWebResources = emptyArray\(\)/);
-  assert.match(activity, /shouldShowRequestPermissionRationale\(it\)/);
+  assert.match(activity, /shouldShowRequestPermissionRationale\(permission\)/);
   assert.match(activity, /Settings\.ACTION_APPLICATION_DETAILS_SETTINGS/);
   assert.match(activity, /Abrir configurações/);
 });
