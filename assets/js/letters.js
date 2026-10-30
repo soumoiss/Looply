@@ -1,8 +1,8 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=private-letter-fixed-20261029";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=private-letter-20261029";
+import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=author-only-hints-20261030";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 import { signProfileAvatars } from "../../src/profiles.js";
-import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js";
+import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?v=sender-editor-20261030";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const day = (value) => value && !Number.isNaN(new Date(value).valueOf()) ? new Date(value).toLocaleDateString("pt-BR") : "Sem data";
