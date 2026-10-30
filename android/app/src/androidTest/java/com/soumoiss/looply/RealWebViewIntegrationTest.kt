@@ -81,18 +81,14 @@ class RealWebViewIntegrationTest {
         instrumentation.uiAutomation.grantRuntimePermission(
             context.packageName, Manifest.permission.RECORD_AUDIO)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            // The packaged splash may redirect to login asynchronously. Testing
-            // MediaRecorder against that navigation loses the JS proof variable.
-            // Preserve the actual production MainActivity, WebChromeClient and
-            // native CAMERA/MIC permission path, but stabilize the HTTPS document.
+            // Keep the actual production MainActivity, WebChromeClient and
+            // native CAMERA/MIC permission path. The fixture is a physical
+            // packaged asset served by WebViewAssetLoader on the trusted HTTPS
+            // origin; it has no auth redirect or background navigation.
             scenario.onActivity { activity ->
                 val web = findWebView(activity.window.decorView)
                 assertNotNull("Production MainActivity WebView is missing", web)
-                web!!.loadDataWithBaseURL(
-                    "https://soumoiss.github.io/Looply/android-media-acceptance.html",
-                    "<!doctype html><html><head><meta charset='utf-8'></head><body>Android WebView media acceptance</body></html>",
-                    "text/html", "UTF-8", null
-                )
+                web!!.loadUrl("https://soumoiss.github.io/Looply/assets/test/android-media-acceptance.html")
             }
             var ready = false
             for (attempt in 0 until 35) {
