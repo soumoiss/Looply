@@ -11,6 +11,7 @@ on:
       - fix/looply-stage5-story-audio-camera-20261030
       - fix/looply-stage6-audit-release-20261030
       - fix/looply-final-audit-20261030
+      - fix/android-emulator-grpc-microphone-20261030
       - integrate/looply-android-six-stages-20261030
     paths:
       - "android/**"
@@ -43,6 +44,8 @@ jobs:
       - uses: android-actions/setup-android@v4
       - name: Prepare Android SDK
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Install emulator gRPC client
+        run: python3 -m pip install --quiet grpcio
       - name: Build APK with bundled pages
         run: |
           npm run build
@@ -88,14 +91,15 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect -camera-back emulated -camera-front emulated -allow-host-audio
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect -camera-back emulated -camera-front emulated -grpc 8554 -grpc-use-token
           # ADB settings service crashed on the last software-emulated runner:
           # do not make launcher testing depend on disabling animations.
           disable-animations: false
           script: |
             set -e
             mkdir -p smoke-results
-            adb emu avd hostmicon
+            adb emu avd hostmicoff
+            python3 scripts/ci-emulator-grpc-microphone.py > smoke-results/grpc-mic.log 2>&1 & echo $! > smoke-results/grpc-mic.pid
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.looply.app/com.soumoiss.looply.MainActivity
             sleep 9
@@ -135,6 +139,7 @@ jobs:
             adb uninstall com.looply.app.test || true
             adb uninstall com.looply.app || true
             (cd android && ./gradlew --no-daemon connectedDebugAndroidTest)
+            cat smoke-results/grpc-mic.log
             node scripts/check-android-instrumentation.mjs
             adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime-after-tests.log
             ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime-after-tests.log
