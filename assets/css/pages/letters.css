@@ -358,3 +358,15 @@
 .page-letters #editorAdminCarta button:disabled { opacity:.55; cursor:not-allowed; }
 .page-letters #editorAdminCarta button:focus-visible, .page-letters #editorAdminCarta textarea:focus-visible { outline:3px solid #20b99a; outline-offset:3px; }
 .page-letters #editarCartaLida { min-height:44px; align-self:flex-start; }
+
+/* Scoped one-record administrative recovery; visible only to the authenticated ADM. */
+.page-letters #adminOriginalRecovery { display:grid; gap:14px; padding:16px; border:2px solid #171717; border-radius:16px; background:#f4efff; }
+.page-letters #adminOriginalRecovery h3 { margin:0; font:900 18px/1.3 inherit; }
+.page-letters #adminOriginalRecovery p { margin:0; line-height:1.5; font-size:13px; }
+.page-letters #adminOriginalRecovery label { min-width:0; overflow-wrap:anywhere; }
+.page-letters #archiveRecoveryPasswordFields { display:grid; gap:12px; }
+.page-letters #archiveRecoveryMode { box-sizing:border-box; width:100%; min-height:44px; border:2px solid #171717; border-radius:10px; background:white; color:#171717; font:inherit; padding:10px; }
+.page-letters #adminOriginalRecovery #archiveRecoveryText { min-height:min(50dvh,440px); font-size:15px; }
+.page-letters #adminOriginalRecovery #archiveRecoverySave { width:100%; min-height:48px; }
+.page-letters #archiveRecoveryStatus:not(:empty) { padding:9px 10px; border-radius:10px; background:white; border:1px solid #ccc1e9; }
+.page-letters #adminOriginalRecovery[hidden], .page-letters #archiveRecoveryPasswordFields[hidden] { display:none!important; }
