@@ -22,7 +22,7 @@ await cp(path.join(projectRoot, "admin-importar-figurinhas.html"), path.join(out
 // Supabase project. The archived config.js stays in source only for history;
 // never ship the former endpoint/publishable key in the deployed site or APK.
 await writeFile(path.join(outputDirectory, "config.js"),
-  "window.LOOPLY_CONFIG = Object.freeze({ rtcIceServers: [] });\\n", "utf8");
+  "window.LOOPLY_CONFIG = Object.freeze({ rtcIceServers: [] });\n", "utf8");
 await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
 // GitHub Pages needs physical route entrypoints to support /car and /mu.
