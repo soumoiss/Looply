@@ -1,6 +1,6 @@
 import { bindProfileNavigation } from "./profile-navigation.js";
 import { icon } from "./icons.js";
-import { looplyClient as supabase, selfProfile } from "./neon-production-client.js?v=private-letter-20261029";
+import { looplyClient as supabase, selfProfile } from "./neon-production-client.js?v=private-letter-fixed-20261029";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=fast-ring-20261027";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
