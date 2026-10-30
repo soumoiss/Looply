@@ -8,9 +8,9 @@ const viewer=file("src/stories.js");
 const picker=file("src/story-music-picker.js");
 
 test("Catalog music selection stays in app and never opens the device picker automatically",()=>{
- assert.match(studio,/if\(music\?\.kind==="catalog" && music\.provider!=="audius"\)/);
- assert.match(studio,/não pode virar um Story silencioso/);
- assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog" && track\.provider!=="audius"/);
+ assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
+ assert.match(studio,/não pode ser incorporada ao Story/);
+ assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog"/);
  assert.match(picker,/onSelect\(track\)/);
  assert.match(picker,/fileInput\.click\(\)/);
   assert.match(picker,/catalogAwaitingUserAudio=track/);
@@ -32,7 +32,7 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
 });
 
 test("Story player unblocks sound without auto-pausing it on same tap, and pauses with entire Story",()=>{
- assert.match(viewer,/music\.autoplay = !waitsForVideo/);
+ assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
  assert.match(viewer,/video\.addEventListener\("playing", \(\) => \{/);
  assert.match(viewer,/playStoryAudio\(songAudio\)/);
  assert.match(viewer,/video\.muted = false/);
