@@ -4,12 +4,12 @@ import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 // may be sampled, downloaded or baked into a published Story.
 export const STORY_MUSIC_ENDPOINT = "https://looply-story-music-search.s0upoetamoiss.workers.dev/search";
 export const PROVIDER_NAMES = Object.freeze({
-  apple: "Apple Music", deezer: "Deezer", audius: "Audius"
+  apple: "Apple Music", deezer: "Deezer", audius: "Audius", spotify: "Spotify"
 });
 const PROVIDER_HOSTS = Object.freeze({
   apple:["apple.com","itunes.com"],
   deezer:["deezer.com"],
-  audius:["audius.co"]
+  audius:["audius.co"], spotify:["spotify.com"]
 });
 function officialUrl(value, provider) {
   try {
@@ -70,6 +70,9 @@ export function officialStorySongEmbed(track) {
     const match=u.pathname.match(/^\/(?:[a-z]{2}\/)?track\/(\d+)/i);
     if(match)return {provider:"deezer",kind:"embed",src:"https://widget.deezer.com/widget/dark/track/"+match[1]};
   }
+  if(song.provider==="spotify" && u.hostname==="open.spotify.com" &&
+    /^\/track\/[A-Za-z0-9]{22}$/.test(u.pathname))
+    return {provider:"spotify",kind:"embed",src:"https://open.spotify.com/embed"+u.pathname};
   return null;
 }
 /** A provider-owned preview is never mixed into the exported video. */
@@ -86,6 +89,10 @@ export function officialSongPreview(track) {
   if(song.provider==="deezer"){
     const match=u.pathname.match(/^\/(?:[a-z]{2}\/)?track\/(\d+)/i);
     if(match) return {kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/"+match[1]};
+  }
+  if(song.provider==="spotify"){
+    const widget=officialStorySongEmbed(song);
+    if(widget)return widget; // Preview in picker only, not exported to Story
   }
   if(song.provider==="audius"){
     const src=audiusStoryStreamUrl(song);
@@ -117,6 +124,32 @@ export function decodeStorySong(value) {
     return song ? {text:raw.slice(end+2),song} : {text:raw,song:null};
   } catch { return {text:raw,song:null}; }
 }
+// Search ONLY for Spotify title/artist metadata via the existing
+// authenticated Neon function. No Spotify preview/audio is downloaded or
+// synchronized into user-generated videos.
+export async function searchSpotifyStoryMetadata(value,{
+  fetcher=fetch,signal,accessToken="",endpoint=""
+}={}) {
+  const q=clean(value,70);
+  if(q.length<2 || !accessToken || !endpoint)return [];
+  let base;
+  try {
+    base=new URL(endpoint);
+    if(base.protocol!=="https:" || !base.hostname.endsWith(".neon.tech"))return [];
+  }catch{return [];}
+  const response=await fetcher(base.origin+"/spotify/search?q="+encodeURIComponent(q),{
+    headers:{authorization:"Bearer "+accessToken},signal,cache:"no-store"
+  });
+  if(!response.ok)throw Error("Spotify metadata: HTTP "+response.status);
+  const data=await response.json();
+  return (Array.isArray(data.items)?data.items:[]).map(item=>{
+    const id=String(item.id||"");
+    if(!/^[A-Za-z0-9]{22}$/.test(id))return null;
+    return normalizeStorySong({provider:"spotify",id,title:item.name,artist:item.artist,
+      url:"https://open.spotify.com/track/"+id,artwork:item.image||"",previewUrl:""});
+  }).filter(Boolean).slice(0,10);
+}
+
 export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
   const q=clean(value,70);
   if(q.length<2) return [];
