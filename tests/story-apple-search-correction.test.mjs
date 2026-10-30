@@ -20,13 +20,15 @@ test("Apple searches cannot turn preview-only music into a licensed Story soundt
  assert.equal(suggestStoryQueryFromApple("outra música",[song]),"");
  assert.equal(suggestStoryQueryFromApple("envolver",[{...song,provider:"spotify"}]),"");
 });
-test("picker uses Apple public catalog only for typo correction after an empty playable search",()=>{
+test("picker uses Apple for typo correction and keeps multiple sources in initial results",()=>{
  const src=readFileSync(new URL("../src/story-music-picker.js",import.meta.url),"utf8");
  assert.match(src,/searchApple=searchAppleMusicPublic/);
  assert.match(src,/catalogTask\.then\(async/);
  assert.match(src,/suggestStoryQueryFromApple\(term,appleResults\)/);
  assert.match(src,/if\(closed\|\|ticket!==seq\|\|current\.signal\.aborted\|\|items\.length\)return/);
  assert.match(src,/update\(match\?\.items\|\|\[\]\)/);
- assert.match(src,/received\.push\(\.\.\.tracks\.filter\(storyMusicCanPublish\)\)/);
+ assert.match(src,/received\.push\(\.\.\.tracks\)/);
+ assert.match(src,/searchCatalog=searchStorySongs/);
+ assert.match(src,/items\.filter\(storyMusicCanPublish\)/);
  assert.doesNotMatch(src,/items\s*=\s*appleResults/);
 });

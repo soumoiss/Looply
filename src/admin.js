@@ -40,7 +40,7 @@ export function adminMarkup(profile = {}) {
       <form class="admin-broadcast-form" data-user-create>
         <h4>Cadastrar novo usuário</h4>
         <div class="field"><label for="adminCreateUsername">Username</label><input id="adminCreateUsername" name="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]{3,30}" autocomplete="off" required placeholder="Ex.: maria_silva" aria-describedby="adminCreateUsernameStatus"><small>Digite sem @; serão aceitos 3–30 caracteres: letras, números e sublinhado. O sistema salva em minúsculas.</small><small id="adminCreateUsernameStatus" data-availability="username" class="form-status" role="status" aria-live="polite"></small></div>
-        <div class="field"><label for="adminCreateEmail">E-mail (opcional, usado internamente se não informado)</label><input id="adminCreateEmail" name="email" type="email" maxlength="254" autocomplete="off" placeholder="pessoa@exemplo.com" aria-describedby="adminCreateEmailStatus"><small id="adminCreateEmailStatus" data-availability="email" class="form-status" role="status" aria-live="polite"></small></div>
+        <p class="admin-description">O login utiliza apenas @usuário e senha. A identidade técnica é criada automaticamente, sem exigir e-mail pessoal.</p>
         <div class="field"><label for="adminCreateDisplayName">Nome completo / de exibição</label><input id="adminCreateDisplayName" name="displayName" type="text" maxlength="80" autocomplete="off" required></div>
         <div class="field"><label for="adminCreatePlaylistUrl">URL da playlist do YouTube <span class="field-hint">(opcional)</span></label><input id="adminCreatePlaylistUrl" name="playlistUrl" type="url" maxlength="260" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=..."><small>A playlist personalizada substitui a lista padrão deste perfil.</small></div>
         <div class="field"><label for="adminCreatePassword">Senha inicial <span class="field-hint">(opcional)</span></label><input id="adminCreatePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password"><small>Se ficar vazia, o sistema gera uma senha temporária segura e mostra-a uma única vez.</small></div>
@@ -1045,7 +1045,7 @@ export function bindAdminEvents(root, client) {
       event.preventDefault();
       const values = new FormData(createForm);
       const username = String(values.get("username") || "").trim().replace(/^@/, "").toLowerCase();
-      const email = (String(values.get("email") || "").trim().toLowerCase() || `${username}@loooply.app`);
+      const email = `${username}@loooply.app`;
       const displayName = String(values.get("displayName") || "").trim();
       const password = String(values.get("password") || "");
       const confirmPassword = String(values.get("confirmPassword") || "");

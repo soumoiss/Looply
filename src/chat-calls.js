@@ -16,6 +16,10 @@ export function setupChatCalls(root, client, userId) {
   let pendingCandidates = [];
   let isCaller = false;
   let closing = false;
+  // Lock each asynchronous media-permission flow so rapid taps never
+  // overwrite an active stream or create two peer connections.
+  let startingCall = false;
+  let answeringCall = false;
   let offerRetryTimer = null;
   let connectionTimer = null;
   const clearOfferRetry = () => { if (offerRetryTimer) clearInterval(offerRetryTimer); offerRetryTimer = null; };
@@ -68,6 +72,8 @@ export function setupChatCalls(root, client, userId) {
     pendingCandidates = [];
     incomingOffer = null;
     isCaller = false;
+    startingCall = false;
+    answeringCall = false;
   };
   const endCall = async (notify = true, message = "Chamada encerrada.") => {
     if (closing) return;
@@ -208,15 +214,23 @@ export function setupChatCalls(root, client, userId) {
     }
   };
   const startCall = async (mode) => {
+    if (startingCall || answeringCall || pc || localStream) return;
     if (!activeConversation() || isGroup()) { toast("Chamadas estão disponíveis apenas em conversas individuais."); return; }
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { toast("Chamadas exigem HTTPS e suporte a microfone/câmera."); return; }
     if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
+    startingCall = true;
     callMode = mode; callPeerName = peerName(); isCaller = true;
     try {
+      // Request capture while still handling the user's direct click, before
+      // any slow signaling handshake (important on Android WebView/mobile).
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
+      if (!localStream.getAudioTracks().length ||
+          (mode === "video" && !localStream.getVideoTracks().length)) {
+        throw new DOMException("Required capture device is missing","NotFoundError");
+      }
+      setCallPlaybackActive(true);
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
-      setCallPlaybackActive(true);
       createPeerConnection();
       callView("Chamando…");
       const offer = await pc.createOffer();
@@ -244,15 +258,35 @@ export function setupChatCalls(root, client, userId) {
       }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
-      await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
+      const reasons = {
+        NotAllowedError: "Permissão de microfone ou câmera negada. Autorize o Looply nas configurações do Android.",
+        NotFoundError: "Não foi encontrado microfone ou câmera disponível para esta chamada.",
+        NotReadableError: "O microfone ou a câmera está ocupado por outro aplicativo.",
+        NotSupportedError: "Este dispositivo não suporta o formato de mídia solicitado.",
+        SecurityError: "A página não tem permissão para acessar mídia em uma origem insegura."
+      };
+      const signalingFailure = ["signaling", "offer", "Realtime", "channel"]
+        .some(term => String(error?.message || "").includes(term));
+      const detail = reasons[error?.name] ||
+        (error?.message === "call_auth_required" ? "Sua sessão expirou. Entre novamente no Looply para iniciar a chamada." :
+        (signalingFailure
+          ? "O canal de chamadas não conseguiu conectar ao serviço de sinalização."
+          : "Falha técnica ao iniciar a chamada. Verifique sua conexão e tente novamente."));
+      await endCall(false, detail);
+    } finally {
+      startingCall = false;
     }
   };
   const acceptCall = async () => {
-    if (!incomingOffer) return;
+    if (!incomingOffer || answeringCall || pc) return;
+    answeringCall = true;
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
     callPeerName = incomingOffer.senderName || peerName();
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callMode === "video" });
+      if (!localStream.getAudioTracks().length || (callMode === "video" && !localStream.getVideoTracks().length)) {
+        throw new DOMException("Required capture device is missing", "NotFoundError");
+      }
       setCallPlaybackActive(true);
       createPeerConnection();
       await pc.setRemoteDescription(incomingOffer.description);
@@ -276,6 +310,8 @@ export function setupChatCalls(root, client, userId) {
       // so the caller never receives a false "A chamada foi recusada" notification.
       await send("failed", { reason: error?.name || "CallSetupError" });
       await endCall(false, "Não foi possível atender a chamada. Confira a conexão, as permissões e os dispositivos.");
+    } finally {
+      answeringCall = false;
     }
   };
   const restorePendingIncomingCall = (conversationId) => {
@@ -311,7 +347,11 @@ export function setupChatCalls(root, client, userId) {
     if (channel) await client.removeChannel(channel);
     channel = null; channelReady = null; channelConversationId = id;
     const session = await client.auth.getSession();
-    if (session.data?.session?.access_token) await client.realtime.setAuth(session.data.session.access_token);
+    if (session.error || !session.data?.session?.access_token) {
+      channelConversationId = "";
+      throw new Error("call_auth_required");
+    }
+    await client.realtime.setAuth(session.data.session.access_token);
     const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false } } });
     channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {

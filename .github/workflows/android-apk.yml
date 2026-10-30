@@ -5,8 +5,17 @@ on:
     branches:
       - main
       - codex/android-3.0.1
+      - codex/looply-android-fcm-302
+      - fix/looply-android-runtime-20261030
+      - fix/looply-auth-push-calls-stickers-20261030
+      - fix/looply-stage2-media-calls-responsive-20261030
+      - fix/looply-stage4-share-layout-icon-recovery-20261030
+      - fix/looply-stage5-story-audio-camera-20261030
+      - fix/looply-stage6-audit-release-20261030
+      - integrate/looply-android-six-stages-20261030
     paths:
       - "android/**"
+      - "tests/**"
       - "assets/**"
       - "src/**"
       - "*.html"
@@ -15,6 +24,10 @@ on:
       - "scripts/build.mjs"
       - ".github/workflows/android-apk.yml"
   workflow_dispatch:
+
+concurrency:
+  group: looply-android-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -43,6 +56,27 @@ jobs:
           packages: platform-tools
       - name: Install Android API 36 and Build Tools 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify Firebase client matches Android applicationId
+        run: |
+          node -e 'const j=require("./android/app/google-services.json");if(j.project_info.project_id!=="looplyv3"||!j.client.some(x=>x.client_info.android_client_info.package_name==="com.looply.app"))process.exit(1);'
+      - name: Set up Python for exact launcher mark
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Rebuild the official white launcher icon from the uploaded mark
+        run: |
+          python -m pip install pillow
+          python android/tools/prepare_icon.py
+          python - <<'PY'
+          from PIL import Image
+          for name in ('android/app/src/main/res/drawable/ic_launcher_foreground.png',
+                       'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png'):
+              image = Image.open(name).convert('RGB')
+              assert all(c >= 248 for c in image.getpixel((0, 0))), name + ': expected white background'
+              assert any(min(image.getpixel((x, y))) < 160 for x in range(image.width // 4, image.width * 3 // 4, max(1,image.width//16)) for y in range(image.height // 4, image.height * 3 // 4, max(1,image.height//16))), name + ': logo ink missing'
+          PY
+      - name: Run all web regression and security tests before packaging
+        run: npm test
       - name: Build debug APK
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace assembleDebug
@@ -50,17 +84,97 @@ jobs:
         run: |
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
-          printf '%s\n' "$BADGING" | grep -Fq "name='com.soumoiss.looply'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='301'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.1'"
+          printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='304'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.4'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify packaged offline sharing entrypoint
+        run: |
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/share.html'
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/src/neon-production-client.js'
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.1-debug-apk
+          name: Looply-3.0.4-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Verify release variant compiles before signing
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease
+
+      # Never publish an unsigned APK as a release. The protected local
+      # signing workflow downloads this build input and never uploads a key.
+      # Only the integration branch exports signing inputs for inspection.
+      - name: Archive unsigned Release build input for protected offline signing
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.4-release-unsigned-input
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 3
+      - name: Collect official Android SDK verification tools
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        run: |
+          mkdir -p signing-tools
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" signing-tools/apksigner.jar
+          cp "$ANDROID_HOME/build-tools/36.0.0/zipalign" signing-tools/zipalign
+          chmod 755 signing-tools/zipalign
+      - name: Archive official signing tools for offline verifier
+        if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.4-android-signing-tools
+          path: signing-tools/
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Check persistent release signing secrets
+        id: release_ready
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Signed release requires four persistent signing secrets. Debug build is not a production release."
+          fi
+      - name: Build and verify signed Release APK and AAB
+        if: steps.release_ready.outputs.enabled == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          LOOPLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          LOOPLY_ANDROID_KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          LOOPLY_ANDROID_KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/looply-signing"
+          export LOOPLY_ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/looply-signing/release.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$LOOPLY_ANDROID_KEYSTORE_FILE"
+          (cd android && ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease)
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/release/app-release.apk | head -n 5
+          sha256sum android/app/build/outputs/apk/release/app-release.apk
+          stat -c 'Size: %s bytes' android/app/build/outputs/apk/release/app-release.apk
+          rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
+      - name: Upload signed APK and AAB
+        if: steps.release_ready.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.4-signed-release
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+

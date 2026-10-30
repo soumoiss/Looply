@@ -12,7 +12,8 @@ test("Catalog music selection stays in app and never opens the device picker aut
  assert.match(studio,/não pode virar um Story silencioso/);
  assert.match(picker,/const needsOwnAudio=track=>track\.kind==="catalog" && track\.provider!=="audius"/);
  assert.match(picker,/onSelect\(track\)/);
- assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+ assert.match(picker,/fileInput\.click\(\)/);
+  assert.match(picker,/catalogAwaitingUserAudio=track/);
  assert.match(picker,/data-studio-audio-file/);
  assert.match(picker,/Áudio próprio/);
  assert.match(studio,/music\.kind === "file"/);
@@ -24,7 +25,7 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
  assert.match(studio,/const media = await exportFinal\(armedAudioContext\)/);
  assert.match(studio,/audioCtx = armedAudioContext \|\| new AudioEngine\(\)/);
  assert.match(studio,/withAudio\?audioFirst:videoFirst/);
- assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer\)/);
+ assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer, \{/);
  assert.match(studio,/framesStream\.addTrack\(t\)/);
  assert.match(studio,/audioCtx\.state !== "running"/);
  assert.match(studio,/if\s*\(source\) source\.start\(\)/);
@@ -51,7 +52,7 @@ test("Catalog limitations are clear to members without exposing provider diagnos
  assert.match(studio,/Não foi possível concluir essa ação/);
  assert.match(studio,/onStatus: status, isAdmin/);
  assert.match(viewer,/bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
- assert.match(picker,/Esta faixa oferece apenas prévia/);
+ assert.match(picker,/Selecione um áudio que você tenha autorização para usar/);
  assert.doesNotMatch(picker,/Prévia promocional/);
  assert.match(picker,/some? fontes indisponíveis|algumas fontes indisponíveis/);
  assert.doesNotMatch(picker,/data-studio-provider="spotify"/);

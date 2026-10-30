@@ -123,7 +123,7 @@ test("Final 9:16 portrait capture and licensed audio export meet requested contr
   assert.match(studio,/withMusic \? 7000 : 15000/);
   assert.match(studio,/source\.start\(\)/);
   assert.match(studio,/recorded\.start\(250\)/);
-  assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer\)/);
+  assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer, \{/);
   assert.match(studio,/recorded\?\.state === "recording"/);
   assert.match(studio,/container\.dataset\.sheet = title === "Escolher música" \? "music"/);
   assert.match(styles,/Studio 9:16 final pass/);

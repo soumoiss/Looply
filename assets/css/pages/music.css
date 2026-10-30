@@ -68,11 +68,42 @@
 .music-admin-playlists-heading h2{margin:4px 0 6px;font-size:clamp(19px,3vw,25px)}
 .music-admin-playlists-heading p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
 .music-admin-playlist-player{overflow:hidden;border-radius:14px;background:#17131b}
-.music-admin-playlist-player iframe{display:block;width:100%;aspect-ratio:16/9;min-height:240px;border:0}
+.music-admin-playlist-player{width:100%;min-width:0;max-width:100%;background:transparent}
+.music-admin-player-toggle{width:100%;min-height:42px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.music-admin-playlist-player iframe{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:16/9;min-height:0;margin-top:10px;border:0;border-radius:12px;background:#17131b}
+.music-admin-playlists,.music-admin-playlists > *,.music-admin-playlists .field{min-width:0;max-width:100%;box-sizing:border-box}
+.music-admin-playlists select,.music-admin-playlists input,.music-admin-playlists textarea{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.music-admin-owner-avatar{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
+.music-admin-owner-avatar span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){.music-admin-playlists{gap:10px;margin-inline:0}.music-admin-playlist-player iframe{min-height:0}}
 .music-admin-comment-form{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
 .music-admin-comment-form textarea{width:100%;min-height:86px;resize:vertical}
 .music-admin-comment-form [role=status]{color:var(--muted);font-size:12px}
-@media(max-width:600px){.music-admin-playlists{padding:13px}.music-admin-playlist-player iframe{min-height:200px}}
+/* Compact, fluid inspector at 320–428px and landscape; never stretch a
+   YouTube preview to desktop dimensions or force a 200px minimum at 320px. */
+.music-admin-playlists{
+  width:100%; min-width:0; max-width:100%; overflow-wrap:anywhere;
+}
+.music-admin-player-toggle{
+  display:block; overflow-wrap:anywhere; white-space:normal;
+  line-height:1.4; word-break:break-word;
+}
+.music-admin-playlist-player iframe{aspect-ratio:16/9; min-height:0; max-height:none;}
+.music-admin-comment-form,.music-admin-owner-avatar,.music-admin-playlists-heading{
+  min-width:0; max-width:100%;
+}
+.music-admin-playlists [data-admin-music-status]{overflow-wrap:anywhere;}
+@media(max-width:600px){
+  .music-admin-playlists{padding:13px;gap:10px}
+  .music-admin-playlist-player iframe{min-height:0;aspect-ratio:16/9}
+}
+@media(max-width:360px){
+  .music-admin-playlists{padding:10px;gap:8px}
+  .music-admin-player-toggle{padding:9px 11px;font-size:14px}
+}
+@media (orientation:landscape) and (max-height:550px){
+  .music-admin-playlist-player iframe{max-width:min(100%,520px);margin-inline:auto}
+}
 
 .youtube-track-comments-hint{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
 .youtube-track-comment-item{overflow-wrap:anywhere}

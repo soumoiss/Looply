@@ -2,6 +2,7 @@ package com.soumoiss.looply
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Message
+import android.provider.Settings
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +32,7 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.FileChooserParams
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -40,6 +45,9 @@ import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
 import androidx.webkit.WebViewAssetLoader
+import com.google.firebase.messaging.FirebaseMessaging
+import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : Activity() {
     private data class PendingDownload(
@@ -60,6 +68,9 @@ class MainActivity : Activity() {
     private var pendingDownload: PendingDownload? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var pendingWebResources: Array<String> = emptyArray()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var navigationSequence = 0
+    private var reloadLocked = false
     private var networkCallbackRegistered = false
     private var wasOffline = false
     private var backInvokedCallback: OnBackInvokedCallback? = null
@@ -70,7 +81,8 @@ class MainActivity : Activity() {
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
-            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
+            .setDomain(GITHUB_PAGES_HOST)
+            .addPathHandler("/Looply/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
     }
 
@@ -137,7 +149,9 @@ class MainActivity : Activity() {
 
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
-        if (!route.matches(Regex("(?:conversa|notificacoes|home)\\.html(?:\\?id=[A-Za-z0-9_-]+)?"))) return
+        val id = "[a-fA-F0-9-]{36}"
+        val allowed = Regex("""(?:conversa\.html\?id=$id|chat\.html|cartas\.html(?:\?letterId=$id)?|musicas\.html(?:#dedication-$id)?|home\.html(?:\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\.html)""")
+        if (!route.matches(allowed)) return
         webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
 
@@ -162,6 +176,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (::webView.isInitialized) {
             webView.onResume()
+            syncFirebaseTokenToWeb(webView.url)
             if (wasOffline && hasInternet()) {
                 wasOffline = false
                 loadLooply()
@@ -246,19 +261,16 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(20))
         }
         val retryButton = Button(this).apply {
-            text = "Tentar novamente"
+            text = "Recarregar"
+            contentDescription = "Recarregar Looply"
             isAllCaps = false
-            setOnClickListener {
-                if (hasInternet()) {
-                    wasOffline = false
-                    loadLooply()
-                } else {
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet e tente novamente."
-                    )
-                }
-            }
+            setOnClickListener { reloadCurrentPage() }
+        }
+        val homeButton = Button(this).apply {
+            text = "Voltar ao início"
+            isAllCaps = false
+            setOnClickListener { if (hasInternet()) loadLooply() else
+                showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.") }
         }
         errorPanel.addView(errorTitle)
         errorPanel.addView(errorMessage)
@@ -269,6 +281,8 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
+        errorPanel.addView(homeButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(
             errorPanel,
             FrameLayout.LayoutParams(
@@ -280,6 +294,11 @@ class MainActivity : Activity() {
                 rightMargin = dp(24)
             }
         )
+
+        // Never put a floating native button over the web header: it hid the
+        // actual Looply settings/menu control on narrow Samsung screens.
+        // Native recovery is available in errorPanel, independently of JS;
+        // the watchdog below reveals the panel when a load stalls.
 
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -346,14 +365,32 @@ class MainActivity : Activity() {
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                val sequence = ++navigationSequence
                 progressBar.progress = 0
                 progressBar.visibility = View.VISIBLE
                 errorPanel.visibility = View.GONE
+                // Reject an outstanding capture permission request when its
+                // originating page is replaced, instead of authorizing a new page.
+                pendingWebPermission?.deny()
+                pendingWebPermission = null
+                pendingWebResources = emptyArray()
+                // A completed HTML response does not mean the SPA initialized:
+                // index.html may stay on the splash indefinitely after a JS/auth failure.
+                mainHandler.postDelayed({
+                    if (isFinishing || isDestroyed || sequence != navigationSequence) return@postDelayed
+                    val current = webView.url.orEmpty().substringBefore("?").substringBefore("#")
+                    if (progressBar.visibility == View.VISIBLE || current.endsWith("/index.html")) {
+                        webView.stopLoading()
+                        showError("O Looply demorou para abrir",
+                            "A inicialização não foi concluída. Recarregue ou volte ao início.")
+                    }
+                }, 20000L)
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
                 progressBar.progress = 100
                 progressBar.visibility = View.GONE
+                syncFirebaseTokenToWeb(url)
             }
 
             override fun onReceivedError(
@@ -383,6 +420,28 @@ class MainActivity : Activity() {
                         "Não foi possível carregar esta página. Tente novamente."
                     )
                 }
+            }
+
+            override fun onRenderProcessGone(
+                view: WebView, detail: RenderProcessGoneDetail
+            ): Boolean {
+                // A crashed renderer cannot be reused. Replace the WebView in place.
+                ++navigationSequence
+                pendingWebPermission?.deny()
+                pendingWebPermission = null
+                pendingWebResources = emptyArray()
+                (view.parent as? ViewGroup)?.removeView(view)
+                view.destroy()
+                webView = WebView(this@MainActivity).apply {
+                    setBackgroundColor(Color.rgb(22, 15, 32))
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                }
+                root.addView(webView, 0)
+                configureWebView()
+                showError("O Looply precisou reiniciar",
+                    "O componente de navegação foi encerrado pelo Android. Toque em Recarregar.")
+                return true
             }
 
             override fun onReceivedSslError(
@@ -478,6 +537,13 @@ class MainActivity : Activity() {
                 authorizeWebMedia(request)
             }
 
+            override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                if (pendingWebPermission === request) {
+                    pendingWebPermission = null
+                    pendingWebResources = emptyArray()
+                }
+            }
+
             override fun onCreateWindow(
                 view: WebView,
                 isDialog: Boolean,
@@ -544,7 +610,7 @@ class MainActivity : Activity() {
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
         if (!uri.scheme.equals("https", ignoreCase = true)) return false
         val host = uri.host?.lowercase() ?: return false
-        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST || host == SUPABASE_HOST
+        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST
     }
 
     private fun launchExternal(uri: Uri) {
@@ -557,7 +623,9 @@ class MainActivity : Activity() {
 
     private fun authorizeWebMedia(request: PermissionRequest) {
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != GITHUB_PAGES_HOST
+            request.origin.host?.lowercase() != GITHUB_PAGES_HOST ||
+            request.origin.port !in listOf(-1, 443) ||
+            !webView.url.orEmpty().startsWith(REMOTE_START_URL)
         ) {
             request.deny()
             return
@@ -614,10 +682,33 @@ class MainActivity : Activity() {
                 val request = pendingWebPermission
                 pendingWebPermission = null
                 if (request == null) return
-                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED } &&
+                    webView.url.orEmpty().startsWith(REMOTE_START_URL) &&
+                    pendingWebResources.isNotEmpty()
+                ) {
                     request.grant(pendingWebResources)
                 } else {
                     request.deny()
+                    // Android can permanently deny capture permission after the
+                    // user blocks it. Show a native settings action only then:
+                    // JavaScript cannot grant an Android runtime permission.
+                    if (permissions.withIndex().any { (index, permission) ->
+                            grantResults.getOrNull(index) != PackageManager.PERMISSION_GRANTED &&
+                            (permission == Manifest.permission.RECORD_AUDIO ||
+                                permission == Manifest.permission.CAMERA) &&
+                            !shouldShowRequestPermissionRationale(permission)
+                        }
+                    ) {
+                        AlertDialog.Builder(this)
+                            .setTitle("Permissão necessária")
+                            .setMessage("Ative Microfone ou Câmera nas configurações do Android para usar as chamadas e gravações do Looply.")
+                            .setNegativeButton("Agora não", null)
+                            .setPositiveButton("Abrir configurações") { _, _ ->
+                                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:$packageName")))
+                            }
+                            .show()
+                    }
                 }
                 pendingWebResources = emptyArray()
             }
@@ -676,10 +767,50 @@ class MainActivity : Activity() {
         }
     }
 
+    // Never send the Firebase service-account credentials to the client.
+    // Only the per-device public push destination is passed to our own trusted page;
+    // Neon verifies the authenticated user's identity before accepting registration.
+    private fun syncFirebaseTokenToWeb(url: String?) {
+        if (!url.orEmpty().startsWith(REMOTE_START_URL)) return
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (isFinishing || isDestroyed || !::webView.isInitialized) return@addOnCompleteListener
+            if (!webView.url.orEmpty().startsWith(REMOTE_START_URL)) return@addOnCompleteListener
+            val preferences = getSharedPreferences("looply_android_device", Context.MODE_PRIVATE)
+            val token = (if (task.isSuccessful) task.result else null)
+                ?.takeIf { it.length in 25..4096 }
+                ?: preferences.getString("last_fcm_token", null)?.takeIf { it.length in 25..4096 }
+                ?: return@addOnCompleteListener
+            preferences.edit().putString("last_fcm_token", token).apply()
+            val deviceId = preferences.getString("device_id", null)
+                ?: UUID.randomUUID().toString().also {
+                    preferences.edit().putString("device_id", it).apply()
+                }
+            val payload = JSONObject().put("deviceId", deviceId).put("token", token)
+            webView.evaluateJavascript(
+                "window.__looplyNativeFcmToken=" + payload.toString() +
+                    ";window.dispatchEvent(new CustomEvent('looply:android-fcm-token',{detail:window.__looplyNativeFcmToken}));", null
+            )
+        }
+    }
+
+    private fun reloadCurrentPage() {
+        if (reloadLocked) return
+        reloadLocked = true
+        mainHandler.postDelayed({ reloadLocked = false }, 1500L)
+        if (!hasInternet()) {
+            showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.")
+            return
+        }
+        errorPanel.visibility = View.GONE
+        progressBar.visibility = View.VISIBLE
+        webView.stopLoading()
+        if (webView.url.isNullOrBlank()) loadLooply() else webView.reload()
+    }
+
     private fun loadLooply() {
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        webView.loadUrl(REMOTE_START_URL)
+        webView.loadUrl(REMOTE_START_URL + "index.html")
     }
 
     private fun showError(title: String, message: String) {
@@ -743,12 +874,15 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        ++navigationSequence
+        mainHandler.removeCallbacksAndMessages(null)
         unregisterNetworkCallback()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
         pendingDownload = null
         pendingWebPermission?.deny()
         pendingWebPermission = null
+        pendingWebResources = emptyArray()
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback?.let(onBackInvokedDispatcher::unregisterOnBackInvokedCallback)
             backInvokedCallback = null
@@ -766,7 +900,6 @@ class MainActivity : Activity() {
     companion object {
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
-        private const val SUPABASE_HOST = "qixocgetiwlrsbadpbvh.supabase.co"
         private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702

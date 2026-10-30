@@ -1,4 +1,6 @@
 import { createNeonRestQuery } from "./neon-rest-bridge.js";
+import { accounts, emailOf } from "./neon-login-identity.js";
+export { accounts, emailOf };
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
 import { isExplicitAdminResult } from "./neon-admin-result.js";
 import { fetchLinkedNeonProfile } from "./neon-identity.js";
@@ -11,11 +13,83 @@ export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
 const storageFunction=neonFunctionsBase;
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
-export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",misol:"misol@loooply.app",yara:"yara@loooply.app",peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"});
-export function emailOf(value){const v=String(value||"").trim().toLowerCase();return accounts[v]||(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)?v:null)}
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export async function selfProfile(session = null){const current=session || await activeSession();const linked=await fetchLinkedNeonProfile({session:current,dataApiUrl:config.data});const full=await readOwnNeonProfile({profileId:linked.id,session:current,dataApiUrl:config.data});return {...linked,...full}}
 export async function activeSession(){const s=await neon.auth.getSession();if(s.error)throw Error("Não foi possível verificar a sessão no Neon.");return s.data?.session||null}
+
+let androidDeviceId = null;
+let androidRegistrationPending = "";
+let androidRegistrationConfirmed = "";
+let androidRetryTimer = null;
+// FCM registration must also survive a WebView splash/login race: the native
+// token may arrive before Neon Auth has restored the user's session.
+if (typeof window !== "undefined") {
+  const registerFcm = (payload, attempt=0) => {
+    const {deviceId,token}=payload||{};
+    if(typeof token!=="string" || token.length<25 || token.length>4096 ||
+       !/^[A-Za-z0-9._:~-]+$/.test(token) ||
+       typeof deviceId!=="string" || !/^[0-9a-f-]{36}$/i.test(deviceId))return;
+    androidDeviceId=deviceId;
+    // The same phone can be used by different accounts. A token-only cache
+    // leaves the device attached to the previous user after account switching.
+    void (async()=>{
+      let retry=false;
+      let key="";
+      try {
+        const session=await activeSession();
+        if(!session?.access_token || !session.user?.id){retry=true;return;}
+        key=deviceId+":"+token+":"+session.user.id;
+        if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
+        androidRegistrationPending=key;
+        const response=await fetch(config.data+"/rpc/v16_register_android_fcm_token",{
+          method:"POST",cache:"no-store",
+          headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+          body:JSON.stringify({p_device_id:deviceId,p_fcm_token:token})
+        });
+        const ok=await response.json().catch(()=>false);
+        if(!response.ok||ok!==true){retry=true;throw Error("registration_http_"+response.status);}
+        androidRegistrationConfirmed=key;
+      }catch(error){
+        retry=true;
+        console.warn("Looply FCM registration unavailable",String(error?.message||"network").slice(0,100));
+      }finally {
+        if(key && androidRegistrationPending===key) androidRegistrationPending="";
+        if(retry && attempt<6 && !androidRetryTimer){
+          androidRetryTimer=window.setTimeout(()=>{
+            androidRetryTimer=null;
+            registerFcm(payload,attempt+1);
+          },Math.min(12000,600*(2**attempt)));
+        }
+      }
+    })();
+  };
+  window.addEventListener("looply:android-fcm-token",event=>registerFcm(event.detail));
+  if(window.__looplyNativeFcmToken)registerFcm(window.__looplyNativeFcmToken);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible" && window.__looplyNativeFcmToken &&
+       !androidRegistrationConfirmed && !androidRetryTimer)
+      registerFcm(window.__looplyNativeFcmToken);
+  });
+}
+export async function unregisterAndroidFcmDevice() {
+  if (!androidDeviceId) return false;
+  const session = await activeSession();
+  if (!session?.access_token) return false;
+  const response = await fetch(config.data + "/rpc/v16_unregister_android_fcm_token", {
+    method: "POST",cache:"no-store",
+    headers:{authorization:"Bearer " + session.access_token,accept:"application/json","content-type":"application/json"},
+    body:JSON.stringify({p_device_id:androidDeviceId})
+  });
+  const removed = response.ok && (await response.json().catch(()=>false)) === true;
+  if(removed) {
+    androidDeviceId = null;
+    androidRegistrationConfirmed = "";
+    androidRegistrationPending = "";
+    if(androidRetryTimer) window.clearTimeout(androidRetryTimer);
+    androidRetryTimer = null;
+  }
+  return removed;
+}
 
 // Supabase-shaped, read-only bridge used only by the recovered legacy page
 // controllers while each feature is ported. Writes, RPCs, storage and realtime
@@ -268,7 +342,9 @@ function secureAdminInitialPassword() {
 }
 async function adminCreateUser(body) {
   const username=String(body?.username||"").trim().toLowerCase();
-  const email=String(body?.email||"").trim().toLowerCase();
+  // All newly created accounts use a stable, nonpersonal login alias.
+  // This makes username + password work regardless of the admin's form values.
+  const email=/^[a-z0-9_]{3,30}$/.test(username)?username+"@loooply.app":"";
   const displayName=String(body?.displayName||"").trim();
   const password=body?.password||secureAdminInitialPassword();
   const temporaryPassword=body?.password?"":password;
@@ -282,6 +358,20 @@ async function adminCreateUser(body) {
   if(authorized.error||authorized.data?.isAdmin!==true)
     return {data:null,error:authorized.error||{message:"admin_forbidden"}};
   try {
+    // Avoid orphaned Better Auth identities when this username is already
+    // allocated in the legacy profile table. The RPC repeats validation to
+    // guard concurrency; this preflight catches the common admin form error.
+    const sessionBeforeCreate=await activeSession();
+    if(!sessionBeforeCreate?.access_token)throw Error("neon_session_required");
+    const existing=await fetch(config.data+"/profiles?"+new URLSearchParams({
+      select:"id",username:"eq."+username,limit:"1"
+    }),{method:"GET",cache:"no-store",headers:{
+      authorization:"Bearer "+sessionBeforeCreate.access_token,accept:"application/json"
+    }});
+    if(!existing.ok)throw Error("admin_username_preflight_unavailable");
+    const existingProfiles=await existing.json();
+    if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
+    if(existingProfiles.length)throw Error("username_already_exists");
     // Neon Auth Better Auth admin API performs the password hashing and never
     // signs into the new account in place of the current administrator.
     const nativeAdmin=neon.auth?.admin;
@@ -393,7 +483,13 @@ export const looplyClient = Object.freeze({
   auth: Object.freeze({
     getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
     getUser: async () => { try { const session = await legacyPageSession(); return { data: { user: session?.user || null }, error: null }; } catch (error) { return { data: { user: null }, error }; } },
-    signOut: () => { principalCache.clear(); return neon.auth.signOut(); },
+    signOut: async () => {
+      // Defensive logout: no device token should stay linked to the old
+      // account even when a page forgets to explicitly unregister it.
+      await unregisterAndroidFcmDevice().catch(() => false);
+      principalCache.clear();
+      return neon.auth.signOut();
+    },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),

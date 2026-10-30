@@ -1,0 +1,33 @@
+name: Looply two-peer real WebRTC transport
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integrate/looply-android-six-stages-20261030
+    paths:
+      - "tests/ci-webrtc-two-browser-peers.mjs"
+      - ".github/workflows/ci-webrtc-two-peers.yml"
+permissions:
+  contents: read
+jobs:
+  two-browser-peers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium with fake physical camera and microphone
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Verify actual two-way SDP ICE audio and video RTP
+        run: node tests/ci-webrtc-two-browser-peers.mjs
+      - name: Upload real RTP transport stats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Looply-two-peer-webrtc-audio-video-rtp
+          path: smoke-results/webrtc/
+          retention-days: 14
