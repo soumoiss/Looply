@@ -16,7 +16,8 @@ test("chat renders explicit conversation metadata and applies shared data filter
   assert.match(enhancements, /item\.hidden = !matches/);
   assert.match(enhancements, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
   assert.doesNotMatch(enhancements, /applyWallpaper\(\);\s*applyFilters\(\);\s*\};\s*const renderSettings/);
-  assert.match(enhancements.replace(/\r\n/g, "\n"), /  renderTools\(\);\n  applyFilters\(\);\n\}/);
+  assert.match(enhancements.replace(/\r\n/g, "\n"), /  renderTools\(\);\n  applyFilters\(\);/);
+  assert.match(enhancements, /void \(async \(\) => \{/);
   assert.match(chat, /matchesConversationFilter\(/);
   assert.match(chat, /data-chat-kind=/);
   assert.match(chat, /data-chat-unread-count=/);
