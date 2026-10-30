@@ -18,8 +18,15 @@ class LooplyMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
         val kind = data["kind"] ?: "activity"
+        val conversationId = data["conversationId"]?.takeIf {
+            it.length in 1..100 && it.matches(Regex("[A-Za-z0-9_-]+"))
+        }
         val route = when (kind) {
-            "call" -> "conversa.html?id=" + (data["conversationId"] ?: "")
+            "call", "message", "voice", "chat" ->
+                conversationId?.let { "conversa.html?id=$it" } ?: "chat.html"
+            "letter", "carta" -> "cartas.html"
+            "music", "dedication", "dedicatoria" -> "musicas.html"
+            "story", "mention", "post", "reel", "like", "comment" -> "home.html"
             else -> "notificacoes.html"
         }
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -36,6 +43,6 @@ class LooplyMessagingService : FirebaseMessagingService() {
             .setContentTitle(data["title"] ?: "Looply")
             .setContentText(data["body"] ?: if (kind == "call") "Chamada recebida" else "Nova atividade")
             .setContentIntent(pending).setAutoCancel(true).setPriority(if (kind == "call") NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).build()
-        manager.notify(route.hashCode(), notification)
+        manager.notify((message.messageId ?: (System.currentTimeMillis().toString() + route)).hashCode(), notification)
     }
 }
