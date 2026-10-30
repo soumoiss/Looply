@@ -1,6 +1,7 @@
 // Looply FCM delivery worker. Cloudflare scheduled trigger: "*/1 * * * *"
-// Read-only scoped Neon role; never ship NEON_PUSH_DATABASE_URL or Firebase
-// service-account JSON to an APK or public web bundle.
+// Least-privilege Neon dispatcher role (queue reads + delivery claim/update).
+// Never ship NEON_PUSH_DATABASE_URL or Firebase service-account JSON to
+// an APK or public web bundle.
 const encoder = new TextEncoder();
 let cachedOauth = null;
 const b64url = data => {
@@ -33,6 +34,10 @@ async function neonQuery(env,query,params=[]){
   const conn=String(env.NEON_PUSH_DATABASE_URL||"");
   const url=new URL(conn);
   if(!["postgresql:","postgres:"].includes(url.protocol)||!url.hostname.endsWith(".neon.tech"))throw Error("neon_secret_unavailable");
+  // Refuse any previously configured Neon role with administrative powers.
+  // Never accept the older, privileged looply_push_dispatcher role.
+  if(decodeURIComponent(url.username)!=="looply_push_relay_limited")
+    throw Error("neon_push_role_not_limited");
   const host=url.hostname.replace(/-pooler(?=\.)/,"");
   const response=await fetch("https://"+host+"/sql",{
     method:"POST",headers:{"content-type":"application/json","Neon-Connection-String":conn},
@@ -50,7 +55,12 @@ FROM (
         t.id AS token_id,t.fcm_token,n.created_at
  FROM public.notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
  UNION ALL
- SELECT 'chat',n.id,n.kind,n.message_id,n.conversation_id,t.id,t.fcm_token,n.created_at
+ SELECT 'chat',n.id,
+        CASE WHEN EXISTS (
+          SELECT 1 FROM public.chat_media cm
+          WHERE cm.message_id=n.message_id AND cm.mime_type LIKE 'audio/%'
+        ) THEN 'voice' ELSE n.kind END,
+        n.message_id,n.conversation_id,t.id,t.fcm_token,n.created_at
  FROM public.chat_notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.user_id
  UNION ALL
  SELECT 'letter',n.id,'letter',n.letter_id,NULL::uuid,t.id,t.fcm_token,n.created_at
@@ -90,24 +100,30 @@ function kindFor(row){
   if(["comment","reply","post","post_like","like","reel","story","mention","call"].includes(kind))return kind==="post_like"?"like":kind;
   return "activity";
 }
-export async function deliverNotifications(env){
-  const rows=await neonQuery(env,pendingSql);
+// Inject transports only from unit tests; production uses the actual Neon
+// HTTP SQL API and Google OAuth/FCM endpoints.
+export async function deliverNotifications(env,{
+  query=neonQuery, accessTokenProvider=googleAccessToken, sendFetch=fetch
+}={}){
+  const rows=await query(env,pendingSql);
   if(!rows.length)return {eligible:0,sent:0,failed:0};
-  const accessToken=await googleAccessToken(env);
+  const accessToken=await accessTokenProvider(env);
   let sent=0,failed=0;
   for(const item of rows){
     const values=[String(item.source),String(item.event_id),String(item.token_id)];
-    const claim=await neonQuery(env,claimSql,values);
+    const claim=await query(env,claimSql,values);
     if(!claim.length)continue;
     const kind=kindFor(item);
     const data={kind};
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
     if(item.resource_id)data.resourceId=String(item.resource_id);
+    data.title="Looply";
+    data.body=kind==="call"?"Chamada recebida":kind==="voice"?"Nova mensagem de voz":kind==="message"?"Nova mensagem":kind==="letter"?"Nova carta":"Nova atividade";
     const message={token:item.fcm_token,data,
       android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",ttl:kind==="call"?"120s":"86400s"}};
     let ok=false;
     try{
-      const response=await fetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
+      const response=await sendFetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
         method:"POST",headers:{authorization:"Bearer "+accessToken,"content-type":"application/json"},
         body:JSON.stringify({message})
       });
@@ -115,15 +131,16 @@ export async function deliverNotifications(env){
       // Tokens are opaque. Do not log the response body or a token.
       if(!ok)console.warn("Looply FCM delivery rejected",response.status);
     }catch{console.warn("Looply FCM network unavailable");}
-    await neonQuery(env,doneSql,[...values,ok?"sent":"failed"]);
+    await query(env,doneSql,[...values,ok?"sent":"failed"]);
     if(ok)sent++;else failed++;
   }
   return {eligible:rows.length,sent,failed};
 }
 export default {
-  async fetch(request){
+  async fetch(request,env){
     if(request.method==="GET"&&new URL(request.url).pathname==="/health")
-      return Response.json({service:"looply-android-fcm",configured:"server-only"});
+      return Response.json({service:"looply-android-fcm",
+        ready:Boolean(env.FCM_SERVICE_ACCOUNT_JSON && env.NEON_PUSH_DATABASE_URL && env.FCM_PROJECT_ID)});
     return Response.json({error:"not_found"},{status:404});
   },
   async scheduled(_controller,env,ctx){

@@ -30,14 +30,17 @@ if (typeof window !== "undefined") {
        !/^[A-Za-z0-9._:~-]+$/.test(token) ||
        typeof deviceId!=="string" || !/^[0-9a-f-]{36}$/i.test(deviceId))return;
     androidDeviceId=deviceId;
-    const key=deviceId+":"+token;
-    if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
-    androidRegistrationPending=key;
+    // The same phone can be used by different accounts. A token-only cache
+    // leaves the device attached to the previous user after account switching.
     void (async()=>{
       let retry=false;
+      let key="";
       try {
         const session=await activeSession();
-        if(!session?.access_token){retry=true;return;}
+        if(!session?.access_token || !session.user?.id){retry=true;return;}
+        key=deviceId+":"+token+":"+session.user.id;
+        if(key===androidRegistrationConfirmed || key===androidRegistrationPending)return;
+        androidRegistrationPending=key;
         const response=await fetch(config.data+"/rpc/v16_register_android_fcm_token",{
           method:"POST",cache:"no-store",
           headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
@@ -50,7 +53,7 @@ if (typeof window !== "undefined") {
         retry=true;
         console.warn("Looply FCM registration unavailable",String(error?.message||"network").slice(0,100));
       }finally {
-        androidRegistrationPending="";
+        if(key && androidRegistrationPending===key) androidRegistrationPending="";
         if(retry && attempt<6 && !androidRetryTimer){
           androidRetryTimer=window.setTimeout(()=>{
             androidRetryTimer=null;
@@ -78,7 +81,13 @@ export async function unregisterAndroidFcmDevice() {
     body:JSON.stringify({p_device_id:androidDeviceId})
   });
   const removed = response.ok && (await response.json().catch(()=>false)) === true;
-  if(removed)androidDeviceId = null;
+  if(removed) {
+    androidDeviceId = null;
+    androidRegistrationConfirmed = "";
+    androidRegistrationPending = "";
+    if(androidRetryTimer) window.clearTimeout(androidRetryTimer);
+    androidRetryTimer = null;
+  }
   return removed;
 }
 
@@ -349,6 +358,20 @@ async function adminCreateUser(body) {
   if(authorized.error||authorized.data?.isAdmin!==true)
     return {data:null,error:authorized.error||{message:"admin_forbidden"}};
   try {
+    // Avoid orphaned Better Auth identities when this username is already
+    // allocated in the legacy profile table. The RPC repeats validation to
+    // guard concurrency; this preflight catches the common admin form error.
+    const sessionBeforeCreate=await activeSession();
+    if(!sessionBeforeCreate?.access_token)throw Error("neon_session_required");
+    const existing=await fetch(config.data+"/profiles?"+new URLSearchParams({
+      select:"id",username:"eq."+username,limit:"1"
+    }),{method:"GET",cache:"no-store",headers:{
+      authorization:"Bearer "+sessionBeforeCreate.access_token,accept:"application/json"
+    }});
+    if(!existing.ok)throw Error("admin_username_preflight_unavailable");
+    const existingProfiles=await existing.json();
+    if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
+    if(existingProfiles.length)throw Error("username_already_exists");
     // Neon Auth Better Auth admin API performs the password hashing and never
     // signs into the new account in place of the current administrator.
     const nativeAdmin=neon.auth?.admin;
@@ -460,7 +483,13 @@ export const looplyClient = Object.freeze({
   auth: Object.freeze({
     getSession: async () => { try { const session = await legacyPageSession(); return { data: { session }, error: null }; } catch (error) { return { data: { session: null }, error }; } },
     getUser: async () => { try { const session = await legacyPageSession(); return { data: { user: session?.user || null }, error: null }; } catch (error) { return { data: { user: null }, error }; } },
-    signOut: () => { principalCache.clear(); return neon.auth.signOut(); },
+    signOut: async () => {
+      // Defensive logout: no device token should stay linked to the old
+      // account even when a page forgets to explicitly unregister it.
+      await unregisterAndroidFcmDevice().catch(() => false);
+      principalCache.clear();
+      return neon.auth.signOut();
+    },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
