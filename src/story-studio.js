@@ -45,14 +45,13 @@ export function cameraCoverCrop(sourceWidth, sourceHeight, targetWidth, targetHe
   const height = sourceWidth / targetRatio;
   return { x:0, y:(sourceHeight-height)/2, width:sourceWidth, height };
 }
-// A single source rectangle drives the on-screen cover preview and actual encoded
-// frames. No stretching or initial digital zoom; pinch zoom is opt-in only.
+// Never force a 9:16 crop on a 4:3 camera. Pinch zoom is the *only*
+// user-directed source crop, and the encoder will letterbox the result.
 export function cameraCaptureCrop(sourceWidth, sourceHeight, targetWidth, targetHeight, zoom=1) {
-  const cover=cameraCoverCrop(sourceWidth,sourceHeight,targetWidth,targetHeight);
-  if(!cover)return null;
+  if(!containRect(sourceWidth,sourceHeight,targetWidth,targetHeight))return null;
   const factor=Math.max(1,Number.isFinite(zoom)?zoom:1);
-  const width=cover.width/factor,height=cover.height/factor;
-  return {x:cover.x+(cover.width-width)/2,y:cover.y+(cover.height-height)/2,width,height};
+  const width=sourceWidth/factor,height=sourceHeight/factor;
+  return {x:(sourceWidth-width)/2,y:(sourceHeight-height)/2,width,height};
 }
 // Real physical illumination: continuously enabled torch, not a screen flare.
 export async function setRearCameraTorch(track, on) {
@@ -68,11 +67,12 @@ export async function setRearCameraTorch(track, on) {
   return {requested:on,confirmed:reported===on};
 }
 export function cameraMediaConstraints(facing, ratio="9:16") {
-  const size=storyCanvasSize(ratio);
+  // Output aspect ratio applies to the story CANVAS, not the camera sensor.
+  // Do not request portrait 9:16 from a 4:3 sensor: browser crop-and-scale
+  // may hide most of a face before our preview even receives a frame.
   return {video:{
     facingMode:{ideal:facing},
-    width:{ideal:size.width},height:{ideal:size.height},
-    aspectRatio:{ideal:size.width/size.height},
+    width:{ideal:1280},height:{ideal:960},
     resizeMode:{ideal:"none"}
   },audio:true};
 }
@@ -386,11 +386,22 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
   const drawLiveFrame = (ctx, canvas) => {
     const sourceW=video.videoWidth,sourceH=video.videoHeight;
     if(!sourceW||!sourceH)throw Error("A câmera ainda não está pronta.");
-    // The frame inside .studio-camera-framing uses object-fit:cover.
-    // Draw exactly the same centered source rectangle into output pixels.
-    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,
-      zoomMode==="digital"?settings.zoom:1);
+    // Show the WHOLE sensor image by default. Match CSS object-fit:contain
+    // and keep the same letterboxed layout in the final recording.
+    const crop=cameraCaptureCrop(sourceW,sourceH,canvas.width,canvas.height,1);
     if(!crop)throw Error("Não foi possível preparar o enquadramento.");
+    const baseFit=containRect(crop.width,crop.height,canvas.width,canvas.height);
+    if(!baseFit)throw Error("Não foi possível enquadrar a câmera.");
+    // Match CSS transform:scale() of a contained video, even after an
+    // explicit pinch. Hardware sensor zoom has already changed source pixels.
+    const factor=zoomMode==="digital"?Math.max(1,settings.zoom):1;
+    const fit={
+      x:canvas.width/2+(baseFit.x-canvas.width/2)*factor,
+      y:canvas.height/2+(baseFit.y-canvas.height/2)*factor,
+      width:baseFit.width*factor,height:baseFit.height*factor
+    };
+    ctx.fillStyle="#08070b";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
     const drawLayer=layer=>{
       const layerW=layer.videoWidth||layer.width||sourceW;
       const layerH=layer.videoHeight||layer.height||sourceH;
@@ -400,7 +411,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
         ctx.translate(canvas.width,0);ctx.scale(-1,1);
       }
       ctx.drawImage(layer,crop.x*scaleX,crop.y*scaleY,crop.width*scaleX,crop.height*scaleY,
-        0,0,canvas.width,canvas.height);
+        fit.x,fit.y,fit.width,fit.height);
       ctx.restore();
     };
     drawLayer(video);
@@ -439,7 +450,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     catch{
       if(ticket!==cameraRequestId||!active)return;
       try{acquired=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:facing},aspectRatio:{ideal:storyCanvasSize(settings.ratio).width/storyCanvasSize(settings.ratio).height}},
+        video:{facingMode:{ideal:facing},resizeMode:{ideal:"none"}},
         audio:false
       });}
       catch{
@@ -460,7 +471,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const capabilities = track?.getCapabilities?.();
     const hardwareZoom = capabilities?.zoom;
     if (hardwareZoom && Number.isFinite(hardwareZoom.min) && Number.isFinite(hardwareZoom.max)) {
-      zoomBase = Math.max(.1, hardwareZoom.min);
+      zoomBase = Math.max(hardwareZoom.min, Math.min(1, hardwareZoom.max));
       try {
         await track.applyConstraints({ advanced: [{ zoom: zoomBase }] });
         if (stream && track.readyState === "live") {
@@ -633,6 +644,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     if(photoPending || timerPending || recorder?.state==="recording")return;
     if (settings.grid) throw new Error("Layout é uma sequência de quatro fotos. Desative o layout para gravar vídeos.");
     if (!stream || !video.videoWidth) throw new Error("Câmera ainda não está pronta.");
+    // A video recording must never silently succeed without a microphone.
+    const audioTracks=stream.getAudioTracks().filter(track=>track.readyState==="live" && track.enabled);
+    if(!audioTracks.length) throw new Error("Microfone indisponível. Autorize o áudio para gravar vídeo com som.");
     const mime = videoFormat();
     if (!mime) throw new Error("Gravação de vídeo não suportada neste navegador.");
     const canvas = document.createElement("canvas");
