@@ -465,9 +465,17 @@ async function startVoiceRecording(form) {
   } catch (error) {
     stream?.getTracks().forEach((track) => track.stop());
     console.error("Looply microphone access failed", error);
-    setStatus(form, error?.name === "NotAllowedError"
-      ? "Permita o uso do microfone para gravar áudio."
-      : "Microfone indisponível. Verifique as permissões do navegador.", "error");
+    const microphoneErrors = {
+      NotAllowedError: "O acesso ao microfone foi negado. Ative a permissão Microfone nas configurações do Looply.",
+      PermissionDeniedError: "O acesso ao microfone foi negado. Ative a permissão Microfone nas configurações do Looply.",
+      NotFoundError: "Nenhum microfone disponível foi encontrado neste aparelho.",
+      NotReadableError: "O microfone está ocupado ou indisponível. Feche outros aplicativos que estejam gravando.",
+      AbortError: "A captura de áudio foi interrompida. Tente gravar novamente.",
+      NotSupportedError: "O formato de gravação não é compatível com este Android.",
+      SecurityError: "A origem da página não está autorizada a acessar o microfone."
+    };
+    setStatus(form, microphoneErrors[error?.name] ||
+      "Não foi possível iniciar a gravação. Confira o microfone e tente novamente.", "error");
   } finally {
     startButton.disabled = false;
   }
