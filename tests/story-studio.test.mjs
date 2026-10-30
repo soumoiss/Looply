@@ -75,7 +75,7 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
   assert.match(studio, /cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
-  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:cover!important/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:contain!important/);
   assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
   assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
