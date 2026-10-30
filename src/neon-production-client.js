@@ -1,4 +1,6 @@
 import { createNeonRestQuery } from "./neon-rest-bridge.js";
+import { accounts, emailOf } from "./neon-login-identity.js";
+export { accounts, emailOf };
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
 import { isExplicitAdminResult } from "./neon-admin-result.js";
 import { fetchLinkedNeonProfile } from "./neon-identity.js";
@@ -11,14 +13,6 @@ export const NEON_DATA_API_URL = config.data;
 export const neonFunctionsBase="https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
 const storageFunction=neonFunctionsBase;
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
-export const accounts=Object.freeze({patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",misol:"misol@loooply.app",yara:"yara@loooply.app",peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"});
-// Public username aliases contain no personal email addresses.
-export function emailOf(value){
-  const v=String(value||"").trim().toLowerCase().replace(/^@/,"");
-  if(accounts[v])return accounts[v];
-  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))return v;
-  return /^[a-z0-9_]{3,30}$/.test(v)?v+"@loooply.app":null;
-}
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export async function selfProfile(session = null){const current=session || await activeSession();const linked=await fetchLinkedNeonProfile({session:current,dataApiUrl:config.data});const full=await readOwnNeonProfile({profileId:linked.id,session:current,dataApiUrl:config.data});return {...linked,...full}}
 export async function activeSession(){const s=await neon.auth.getSession();if(s.error)throw Error("Não foi possível verificar a sessão no Neon.");return s.data?.session||null}
