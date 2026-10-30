@@ -1,4 +1,4 @@
-import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
@@ -11,9 +11,19 @@ export function storyMusicCanPublish(track) {
     (track?.kind==="catalog" && track.provider==="audius" && Boolean(track.id)) ||
     track?.kind==="openverse";
 }
+async function searchSpotifyAuthenticated(term,{signal}={}) {
+  // The preexisting authenticated Neon Function proxies Spotify catalog
+  // metadata server-side. No Spotify secret or media bytes enter the browser.
+  const {activeSession,neonFunctionsBase}=await import("./neon-production-client.js");
+  const session=await activeSession();
+  return searchSpotifyStoryMetadata(term,{
+    signal,endpoint:neonFunctionsBase,accessToken:session?.access_token||""
+  });
+}
+
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false,
   searchCatalog=searchStorySongs,searchLicensed=searchLicensedStorySongs,
-  searchApple=searchAppleMusicPublic}) {
+  searchApple=searchAppleMusicPublic,searchSpotify=searchSpotifyAuthenticated}) {
   modal("Escolher música",
     '<div class="studio-music-picker">' +
     '<label class="studio-music-search-label"><input type="search" data-studio-music-query placeholder="Música, artista ou versão…" autocomplete="off" aria-label="Pesquisar músicas"></label>' +
@@ -135,7 +145,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     player.hidden=false;
     const token=previewToken;
     addText(player,"strong",track.title+" · "+(track.artist||"Áudio próprio"),"studio-music-preview-title");
-    if(track.kind==="catalog" && (track.provider==="apple" || track.provider==="deezer") && track.url){
+    if(track.kind==="catalog" && ["apple","deezer","spotify"].includes(track.provider) && track.url){
       // Promotional store previews require an adjacent direct attribution
       // to the provider. This link stays in the picker, never in the viewer.
       const providerLink=addText(player,"a","Ver no "+PROVIDER_NAMES[track.provider],"studio-music-preview-source");
@@ -233,9 +243,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       found.textContent=items.length+" resultados · "+items.filter(storyMusicCanPublish).length+" com opção de uso no Story";
       draw();return;
     }
-    found.textContent="Consultando Apple Music, Deezer, Audius e faixas licenciadas…";draw();
+    found.textContent="Consultando Apple Music, Deezer, Audius, Spotify e faixas licenciadas…";draw();
     const current=new AbortController();controller=current;
-    let remaining=2,failed=0;
+    let remaining=3,failed=0;
     const received=[];
     const update=tracks=>{
       if(closed||ticket!==seq||current.signal.aborted||!listing.isConnected)return;
@@ -259,6 +269,9 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     });
     const catalogTask=settle(searchCatalog(term,{signal:current.signal}),res=>res?.items||[]);
     const licensedTask=settle(searchLicensed(term,{signal:current.signal}),res=>Array.isArray(res)?res:[]);
+    // Spotify is optional: if the Neon proxy lacks private developer
+    // credentials, Apple/Deezer/Audius and user-owned music keep responding.
+    const spotifyTask=settle(searchSpotify(term,{signal:current.signal}),res=>Array.isArray(res)?res:[]);
     // If the direct playable catalogue finds nothing, let Apple's public
     // song/artist metadata correct a mistyped query. Apple previews themselves
     // are never displayed as usable Story tracks, nor streamed as soundtrack.
@@ -283,6 +296,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       }
     });
     void licensedTask;
+    void spotifyTask;
   };
   query.addEventListener("input",()=>{
     if(timer)clearTimeout(timer);
