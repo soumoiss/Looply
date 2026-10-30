@@ -1,0 +1,84 @@
+name: Deploy Looply Android FCM (manual and protected)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify web and FCM unit tests
+        run: npm test
+      - name: Check server-only secrets and least-privileged Neon role
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+          NEON_PUSH_DATABASE_URL: ${{ secrets.NEON_PUSH_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN FCM_SERVICE_ACCOUNT_JSON NEON_PUSH_DATABASE_URL; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Required server-side GitHub secret is not configured: $key"
+              exit 1
+            fi
+          done
+          node - <<'NODE'
+          const uri = new URL(process.env.NEON_PUSH_DATABASE_URL);
+          if (!['postgres:', 'postgresql:'].includes(uri.protocol) ||
+              !uri.hostname.endsWith('.neon.tech') ||
+              decodeURIComponent(uri.username) !== 'looply_push_relay_limited') {
+            console.error('::error::Only the SQL-created limited Neon dispatch role is permitted.');
+            process.exit(1);
+          }
+          const account = JSON.parse(process.env.FCM_SERVICE_ACCOUNT_JSON);
+          if (!account.client_email || !account.private_key || account.project_id !== 'looplyv3') {
+            console.error('::error::FCM service account does not match the Android project.');
+            process.exit(1);
+          }
+          NODE
+      - name: Deploy FCM Worker code and scheduled trigger
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy --config backend/cloudflare/wrangler.android-push.toml
+      - name: Install the private Neon dispatch connection
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          NEON_PUSH_DATABASE_URL: ${{ secrets.NEON_PUSH_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEON_PUSH_DATABASE_URL" |
+            npx --yes wrangler@4 secret put NEON_PUSH_DATABASE_URL --config backend/cloudflare/wrangler.android-push.toml
+      - name: Install Firebase service-account secret
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$FCM_SERVICE_ACCOUNT_JSON" |
+            npx --yes wrangler@4 secret put FCM_SERVICE_ACCOUNT_JSON --config backend/cloudflare/wrangler.android-push.toml
+      - name: Verify public health endpoint shows configured bindings (not delivery)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 3             https://looply-android-push.s0upoetamoiss.workers.dev/health |
+            node -e '
+              let input="";
+              process.stdin.on("data", c=>input+=c);
+              process.stdin.on("end",()=>{
+                const json=JSON.parse(input);
+                if(json.service!=="looply-android-fcm" || json.ready!==true)process.exit(1);
+                console.log("FCM Worker binding check passed; push delivery requires separate recipient test.");
+              });'
