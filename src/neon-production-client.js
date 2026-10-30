@@ -358,6 +358,20 @@ async function adminCreateUser(body) {
   if(authorized.error||authorized.data?.isAdmin!==true)
     return {data:null,error:authorized.error||{message:"admin_forbidden"}};
   try {
+    // Avoid orphaned Better Auth identities when this username is already
+    // allocated in the legacy profile table. The RPC repeats validation to
+    // guard concurrency; this preflight catches the common admin form error.
+    const sessionBeforeCreate=await activeSession();
+    if(!sessionBeforeCreate?.access_token)throw Error("neon_session_required");
+    const existing=await fetch(config.data+"/profiles?"+new URLSearchParams({
+      select:"id",username:"eq."+username,limit:"1"
+    }),{method:"GET",cache:"no-store",headers:{
+      authorization:"Bearer "+sessionBeforeCreate.access_token,accept:"application/json"
+    }});
+    if(!existing.ok)throw Error("admin_username_preflight_unavailable");
+    const existingProfiles=await existing.json();
+    if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
+    if(existingProfiles.length)throw Error("username_already_exists");
     // Neon Auth Better Auth admin API performs the password hashing and never
     // signs into the new account in place of the current administrator.
     const nativeAdmin=neon.auth?.admin;
