@@ -2,6 +2,7 @@ package com.soumoiss.looply
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Message
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -687,6 +689,25 @@ class MainActivity : Activity() {
                     request.grant(pendingWebResources)
                 } else {
                     request.deny()
+                    // Android can permanently deny capture permission after the
+                    // user blocks it. Show a native settings action only then:
+                    // JavaScript cannot grant an Android runtime permission.
+                    if (grantResults.any { it != PackageManager.PERMISSION_GRANTED } &&
+                        permissions.any {
+                            (it == Manifest.permission.RECORD_AUDIO || it == Manifest.permission.CAMERA) &&
+                            !shouldShowRequestPermissionRationale(it)
+                        }
+                    ) {
+                        AlertDialog.Builder(this)
+                            .setTitle("Permissão necessária")
+                            .setMessage("Ative Microfone ou Câmera nas configurações do Android para usar as chamadas e gravações do Looply.")
+                            .setNegativeButton("Agora não", null)
+                            .setPositiveButton("Abrir configurações") { _, _ ->
+                                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:$packageName")))
+                            }
+                            .show()
+                    }
                 }
                 pendingWebResources = emptyArray()
             }
