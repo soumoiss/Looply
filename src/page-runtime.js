@@ -314,6 +314,18 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     })
     .subscribe();
 
+  // The Neon signaling bridge intentionally does not support postgres_changes.
+  // Keep the notification list and badge fresh without relying on a no-op feed.
+  // Suppress background polling and trigger a refresh on tab resume.
+  const pollNotifications = () => {
+    if (document.visibilityState === "hidden") return;
+    void refreshUnreadBadge(header, supabase);
+    if (page === "notifications") notificationBus.emit({ type: "notification-changed", source: "neon-poll" });
+  };
+  const notificationPollTimer = window.setInterval(pollNotifications, 6000);
+  window.addEventListener("focus", pollNotifications);
+  document.addEventListener("visibilitychange", pollNotifications);
+
   maintenanceChannel = supabase.channel("looply-app-settings-runtime")
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: settings }) => {
       if (!isAdmin && settings?.maintenance_mode === true) {
@@ -342,6 +354,9 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     window.removeEventListener("looply:avatar-updated",onLocalAvatar);
     avatarBus?.close();
     clearTimeout(badgeTimer);
+    window.clearInterval(notificationPollTimer);
+    window.removeEventListener("focus", pollNotifications);
+    document.removeEventListener("visibilitychange", pollNotifications);
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
