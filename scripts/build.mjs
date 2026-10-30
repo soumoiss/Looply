@@ -18,7 +18,11 @@ for (const file of ["share.html", "index.html", "login.html", "login-teste.html"
 }
 
 await cp(path.join(projectRoot, "admin-importar-figurinhas.html"), path.join(outputDirectory, "admin-importar-figurinhas.html"));
-await cp(path.join(projectRoot, "config.js"), path.join(outputDirectory, "config.js"));
+// Production uses Neon Auth / Neon Data API and Cloudflare, not the legacy
+// Supabase project. The archived config.js stays in source only for history;
+// never ship the former endpoint/publishable key in the deployed site or APK.
+await writeFile(path.join(outputDirectory, "config.js"),
+  "window.LOOPLY_CONFIG = Object.freeze({ rtcIceServers: [] });\n", "utf8");
 await cp(path.join(projectRoot, "sw.js"), path.join(outputDirectory, "sw.js"));
 
 // GitHub Pages needs physical route entrypoints to support /car and /mu.
