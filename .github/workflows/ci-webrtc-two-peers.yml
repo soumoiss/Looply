@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integrate/looply-android-six-stages-20261030
+      - main
     paths:
       - "tests/ci-webrtc-two-browser-peers.mjs"
       - ".github/workflows/ci-webrtc-two-peers.yml"
