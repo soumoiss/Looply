@@ -1,0 +1,12 @@
+# FCM dispatch is only deployed manually after the two private secrets
+# and a SQL-created restricted Neon role have been configured.
+name = "looply-android-push"
+main = "./android-push-worker.mjs"
+compatibility_date = "2026-10-30"
+workers_dev = true
+
+[vars]
+FCM_PROJECT_ID = "looplyv3"
+
+[triggers]
+crons = ["*/1 * * * *"]
