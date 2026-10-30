@@ -952,6 +952,23 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } finally { button.disabled = false; }
   };
+  // If Android/WebView consumed the opening gesture before the remote
+  // media became ready, a tap anywhere on the Story media stage retries
+  // playback immediately. No provider modal, redirect or right-side player.
+  // Ignore navigation zones: their click handler will render and play the next
+  // Story using the same gesture.
+  viewer.addEventListener("pointerdown", event => {
+    if(!viewer.open || state.paused ||
+      !event.target.closest("[data-story-touch-surface]") ||
+      event.target.closest("[data-story-prev], [data-story-next]"))return;
+    const video=viewer.querySelector("[data-story-viewer-media] video");
+    if(video?.paused && video.dataset.playback==="gesture-required")
+      void startStoryMediaPlayback(video,{owner:viewer});
+    const sound=viewer.querySelector("#story-audio");
+    if(sound?.paused && sound.dataset.playback==="gesture-required")
+      void playStoryAudio(sound);
+  },{passive:true});
+
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");
