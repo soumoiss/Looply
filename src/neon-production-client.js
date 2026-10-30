@@ -316,6 +316,28 @@ async function adminCreateUser(body) {
 async function adminFunctionInvoke(options = {}) {
   const body = options?.body || {};
   const action = typeof body.action === "string" ? body.action : body.resourceType === "status" ? "status" : "read";
+  // Original password-protected archives are recipient-scoped, not admin-only.
+  // Neon validates the verified legacy identity link and the current password.
+  if (action === "unlock_archived_card") {
+    try {
+      const session = await activeSession();
+      if (!session?.access_token) return {data:null,error:{message:"neon_session_required",status:401}};
+      const response = await fetch(config.data + "/rpc/v13_unlock_archived_card", {
+        method:"POST",cache:"no-store",
+        headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+        body:JSON.stringify({p_card_id:String(body.cardId||""),p_password:String(body.password||"")})
+      });
+      const result = await response.json().catch(()=>null);
+      if (!response.ok) return {data:null,error:{
+        message:String(result?.message||"protected_archive_unlock_unavailable"),
+        code:String(result?.code||""),status:response.status
+      }};
+      if (!result || typeof result!=="object") return {data:null,error:{message:"protected_archive_invalid_response"}};
+      return {data:result,error:null};
+    } catch (error) {
+      return {data:null,error:{message:String(error?.message||"protected_archive_unlock_unavailable")}};
+    }
+  }
   if (action === "user_create_with_password") return adminCreateUser(body);
   if (action === "verify_archive_media_upload") {
     const path=String(body?.storagePath || body?.path || body?.media?.storage_path || "");
