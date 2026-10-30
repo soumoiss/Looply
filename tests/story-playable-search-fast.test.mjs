@@ -57,7 +57,8 @@ test("published viewer cannot display a provider modal and music picker returns 
   ]);
   assert.doesNotMatch(viewer,/data-story-provider-dock|data-story-provider-content|openOfficialProvider/);
   assert.match(viewer,/songLabel\.setAttribute\("role","note"\)/);
-  assert.match(picker,/searchPlayableStorySongs/);
+  assert.match(picker,/searchCatalog=searchStorySongs/);
+  assert.match(picker,/Prévia apenas/);
   assert.match(picker,/const catalogTask=settle\(/);
   assert.match(picker,/const licensedTask=settle\(/);
   assert.match(picker,/catalogTask\.then\(async/);
