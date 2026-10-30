@@ -29,6 +29,7 @@ on:
   push:
     branches:
       - 'feat/stories-studio-neon-20261026'
+      - main
 
 permissions:
   contents: read
