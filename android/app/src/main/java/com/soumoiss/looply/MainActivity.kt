@@ -70,7 +70,8 @@ class MainActivity : Activity() {
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
-            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
+            .setDomain(GITHUB_PAGES_HOST)
+            .addPathHandler("/Looply/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
     }
 
@@ -544,7 +545,7 @@ class MainActivity : Activity() {
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
         if (!uri.scheme.equals("https", ignoreCase = true)) return false
         val host = uri.host?.lowercase() ?: return false
-        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST || host == SUPABASE_HOST
+        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST
     }
 
     private fun launchExternal(uri: Uri) {
@@ -679,7 +680,7 @@ class MainActivity : Activity() {
     private fun loadLooply() {
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        webView.loadUrl(REMOTE_START_URL)
+        webView.loadUrl(REMOTE_START_URL + "index.html")
     }
 
     private fun showError(title: String, message: String) {
@@ -766,7 +767,6 @@ class MainActivity : Activity() {
     companion object {
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
-        private const val SUPABASE_HOST = "qixocgetiwlrsbadpbvh.supabase.co"
         private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
         private const val REQUEST_FILE_CHOOSER = 701
         private const val REQUEST_WEB_MEDIA = 702
