@@ -129,10 +129,8 @@
 .page-home .looply-reels-scroll .looply-embed-swipe-lane.is-left { left:0; }
 .page-home .looply-reels-scroll .looply-embed-swipe-lane.is-right { right:0; }
 
-/* 28 Oct: camera preview occupies the actual selected capture rectangle.
-   Unlike a square contain preview, every pixel inside this window matches
-   the cameraCoverCrop() rectangle encoded into a 9:16 image or video.
-   Extra-tall phone chrome remains outside the image, not in the file. */
+/* Story camera shows the complete native sensor frame without artificial 9:16 zoom.
+   The encoded canvas uses the same contain geometry, letterboxing as needed. */
 :is(.page-home,.page-chat) .story-studio .studio-stage[data-mode="camera"] {
   background:radial-gradient(ellipse at center,#26212c 0%,#100e16 76%,#08070b 100%);
 }
@@ -147,11 +145,11 @@
 :is(.page-home,.page-chat) .story-studio .studio-stage[data-mode="camera"] .studio-camera-framing .studio-camera {
   position:absolute;inset:0;display:block;
   width:100%;height:100%;min-width:0;min-height:0;max-width:none;max-height:none;
-  object-fit:cover!important;object-position:50% 50%;background:transparent;
+  object-fit:contain!important;object-position:50% 50%;background:transparent;
 }
 :is(.page-home,.page-chat) .story-studio .studio-stage[data-mode="camera"] .studio-camera-framing .studio-lens {
   position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover!important;object-position:50% 50%;pointer-events:none;
+  object-fit:contain!important;object-position:50% 50%;pointer-events:none;
 }
 :is(.page-home,.page-chat) .story-studio .studio-stage[data-mode="camera"] .studio-aspect-frame {
   width:min(100%,calc(100dvh * var(--studio-camera-ratio,0.5625)));
