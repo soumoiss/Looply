@@ -1,32 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { searchPlayableStorySongs, audiusStoryStreamUrl } from "../src/story-music-catalog.js";
+import { searchPlayableStorySongs } from "../src/story-music-catalog.js";
 import { startStoryMediaPlayback, stopStoryMediaPlayback } from "../src/story-viewer-playback.js";
 
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
-const entry=(id,options={})=>({
-  id,title:"Música disponível",permalink:"/artista/musica",user:{name:"Artista"},
-  duration:205,artwork:{_150x150:"https://cdn.audius.co/example.webp"},...options
-});
-
-test("fast Story search only returns streamable Audius tracks, not Apple/Deezer preview-only metadata",async()=>{
-  let requests=[];
-  const results=await searchPlayableStorySongs("música",{
+test("fast Story discovery uses only supported metadata providers",async()=>{
+  const requests=[];
+  const result=await searchPlayableStorySongs("música",{
     fetcher:async url=>{
       requests.push(url);
-      return Response.json({data:[entry("A123"),entry("X12",{is_streamable:false}),
-        entry("P444",{is_premium:true}),entry("K80",{access:{stream:false}})]});
+      return Response.json({providers:[
+        {provider:"apple",available:true,items:[{provider:"apple",id:"123",title:"Música",artist:"Artista",url:"https://music.apple.com/br/album/musica/123"}]},
+        {provider:"audius",available:true,items:[{provider:"audius",id:"X9",title:"Retirado",artist:"Teste",url:"https://audius.co/a/b"}]}
+      ]});
     }
   });
   assert.equal(requests.length,1);
-  assert.ok(requests[0].startsWith("https://api.audius.co/v1/tracks/search?query="));
-  assert.equal(results.items.length,1);
-  assert.equal(results.items[0].id,"A123");
-  assert.equal(results.items[0].provider,"audius");
-  assert.equal(results.providers.length,1);
-  assert.match(audiusStoryStreamUrl(results.items[0]),/\/tracks\/A123\/stream/);
-  assert.doesNotMatch(JSON.stringify(results),/"provider":"apple"|"provider":"deezer"/);
+  assert.ok(requests[0].includes("looply-story-music-search"));
+  assert.deepEqual(result.items.map(x=>x.provider),["apple"]);
+  assert.deepEqual(result.providers.map(x=>x.provider),["apple"]);
 });
 
 test("short search does not make a network request",async()=>{
@@ -64,7 +57,7 @@ test("published viewer cannot display a provider modal and music picker returns 
   assert.match(picker,/catalogTask\.then\(async/);
   assert.match(picker,/received\.push/);
   assert.match(picker,/searchCache\.set/);
-  assert.match(picker,/checkAudiusStream\(track\)/);
+  assert.doesNotMatch(picker,/checkAudiusStream/);
   assert.match(css,/max-height:min\(75dvh,730px\)!important/);
   assert.match(css,/width:auto!important/);
   assert.match(sw,/ignoreSearch: false/);
