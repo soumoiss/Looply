@@ -52,7 +52,7 @@ test("Catalog limitations are clear to members without exposing provider diagnos
  assert.match(studio,/Não foi possível concluir essa ação/);
  assert.match(studio,/onStatus: status, isAdmin/);
  assert.match(viewer,/bindStoryStudio\(root, client, userId, refresh, isAdmin\)/);
- assert.match(picker,/Esta faixa oferece apenas prévia/);
+ assert.match(picker,/Selecione um áudio que você tenha autorização para usar/);
  assert.doesNotMatch(picker,/Prévia promocional/);
  assert.match(picker,/some? fontes indisponíveis|algumas fontes indisponíveis/);
  assert.doesNotMatch(picker,/data-studio-provider="spotify"/);
