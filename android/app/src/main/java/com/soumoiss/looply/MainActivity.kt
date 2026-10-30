@@ -259,19 +259,15 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(20))
         }
         val retryButton = Button(this).apply {
-            text = "Tentar novamente"
+            text = "Recarregar"
             isAllCaps = false
-            setOnClickListener {
-                if (hasInternet()) {
-                    wasOffline = false
-                    loadLooply()
-                } else {
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet e tente novamente."
-                    )
-                }
-            }
+            setOnClickListener { reloadCurrentPage() }
+        }
+        val homeButton = Button(this).apply {
+            text = "Voltar ao início"
+            isAllCaps = false
+            setOnClickListener { if (hasInternet()) loadLooply() else
+                showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.") }
         }
         errorPanel.addView(errorTitle)
         errorPanel.addView(errorMessage)
@@ -282,6 +278,8 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
+        errorPanel.addView(homeButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(
             errorPanel,
             FrameLayout.LayoutParams(
