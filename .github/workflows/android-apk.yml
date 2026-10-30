@@ -68,3 +68,47 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Check persistent release signing secrets
+        id: release_ready
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Signed release requires four persistent signing secrets. Debug build is not a production release."
+          fi
+      - name: Build and verify signed Release APK and AAB
+        if: steps.release_ready.outputs.enabled == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          LOOPLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          LOOPLY_ANDROID_KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          LOOPLY_ANDROID_KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/looply-signing"
+          export LOOPLY_ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/looply-signing/release.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$LOOPLY_ANDROID_KEYSTORE_FILE"
+          (cd android && ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease)
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/release/app-release.apk | head -n 5
+          sha256sum android/app/build/outputs/apk/release/app-release.apk
+          stat -c 'Size: %s bytes' android/app/build/outputs/apk/release/app-release.apk
+          rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
+      - name: Upload signed APK and AAB
+        if: steps.release_ready.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: Looply-3.0.2-signed-release
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
