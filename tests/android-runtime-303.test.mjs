@@ -7,7 +7,7 @@ test("Music discovery includes all available catalogs, not only Audius", async (
   const picker = await get("src/story-music-picker.js");
   assert.match(picker, /searchCatalog=searchStorySongs/);
   assert.match(picker, /received\.push\(\.\.\.tracks\)/);
-  assert.match(picker, /tracks?\.filter\(storyMusicCanPublish\)/);
+  assert.match(picker, /items\.filter\(storyMusicCanPublish\)/);
   assert.match(picker, /Prévia apenas/);
   assert.match(picker, /searchLicensed\(term/);
 });
