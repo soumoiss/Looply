@@ -24,6 +24,20 @@ button{font:inherit;border:0;border-radius:12px;padding:12px;cursor:pointer}
 <footer><button id="cancel" type="button">Cancelar</button><button id="publish" type="submit">Publicar</button></footer>
 <div id="status" role="status" aria-live="polite"></div>
 </form>
+<script>
+// This control must remain usable when a remote ES module cannot be fetched.
+// Initial UI and "Cancelar" never depend on Neon Auth or an external CDN.
+document.getElementById("cancel").addEventListener("click", () => {
+  window.LooplyShare?.complete();
+});
+window.addEventListener("error", event => {
+  if (event.target && event.target.tagName === "SCRIPT") {
+    const status = document.getElementById("status");
+    if (status && !status.textContent)
+      status.textContent = "Não foi possível iniciar o compartilhamento. Verifique a conexão.";
+  }
+}, true);
+</script>
 <script type="module">
 import {activeSession, NEON_DATA_API_URL, looplyClient} from "./src/neon-production-client.js";
 const $=id=>document.getElementById(id);
@@ -39,7 +53,7 @@ try{const u=new URL(extracted);if(u.protocol==="https:"&&allowed.has(u.hostname.
 $("link").value=link||"";
 $("linkSection").hidden=!link;
 $("caption").value=(link?raw.replace(extracted,""):raw).trim().slice(0,2200);
-$("cancel").onclick=()=>window.LooplyShare?.complete();
+// Cancel is wired in the independent inline script above.
 if(isMedia){
  const preview=mime.startsWith("video/")?$("videoPreview"):$("imagePreview");
  preview.hidden=false;
