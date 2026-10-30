@@ -34,7 +34,7 @@ test("Video capture with a denied mic is clearly blocked, never uploaded as if i
   assert.match(studio,/sourceFromCamera/);
   assert.match(studio,/verifyStoryVideoPixels\(normalized,expected\)/);
 });
-test("Soundtrack can be attenuated beneath recorded speech, without altering the original sound track",()=>{
+test("Soundtrack can be attenuated beneath recorded speech, without altering the original sound track",async()=>{
   const ev=[];
   const gain={gain:{value:0},connect(out){ev.push(["gainTo",out]);}};
   const source={connect(out){ev.push(["sourceTo",out]);},loop:false};
