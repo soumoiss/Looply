@@ -6,6 +6,7 @@ on:
       - main
       - codex/android-3.0.1
       - codex/looply-android-fcm-302
+      - fix/looply-android-runtime-20261030
     paths:
       - "android/**"
       - "assets/**"
@@ -47,6 +48,24 @@ jobs:
       - name: Verify Firebase client matches Android applicationId
         run: |
           node -e 'const j=require("./android/app/google-services.json");if(j.project_info.project_id!=="looplyv3"||!j.client.some(x=>x.client_info.android_client_info.package_name==="com.looply.app"))process.exit(1);'
+      - name: Set up Python for exact launcher mark
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Rebuild the official white launcher icon from the uploaded mark
+        run: |
+          python -m pip install pillow
+          python android/tools/prepare_icon.py
+          python - <<'PY'
+          from PIL import Image
+          for name in ('android/app/src/main/res/drawable/ic_launcher_foreground.png',
+                       'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png'):
+              image = Image.open(name).convert('RGB')
+              assert all(c >= 248 for c in image.getpixel((0, 0))), name + ': expected white background'
+              assert any(c < 180 for c in image.getpixel((image.width // 2, image.height // 2))), name + ': no logo ink in center'
+          PY
+      - name: Run all web regression and security tests before packaging
+        run: npm test
       - name: Build debug APK
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace assembleDebug
@@ -55,16 +74,20 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='302'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.2'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='303'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.3'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify packaged offline sharing entrypoint
+        run: |
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/share.html'
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/src/neon-production-client.js'
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.2-debug-apk
+          name: Looply-3.0.3-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -110,7 +133,7 @@ jobs:
         if: steps.release_ready.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.2-signed-release
+          name: Looply-3.0.3-signed-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
