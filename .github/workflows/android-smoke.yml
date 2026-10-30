@@ -104,7 +104,13 @@ jobs:
             echo "Package installed and both activities launched without AndroidRuntime fatal logs"
             # Instrumentation actually opens the packaged WebView, performs
             # native CAMERA/RECORD_AUDIO requests and records WebM bytes.
+            # The earlier smoke APK may have a different debug signer than
+            # Gradle's instrumentation build. ADB refuses an in-place upgrade.
+            # Clear ONLY disposable emulator packages, never user production data.
+            adb uninstall com.looply.app.test || true
+            adb uninstall com.looply.app || true
             (cd android && ./gradlew --no-daemon connectedDebugAndroidTest)
+            node scripts/check-android-instrumentation.mjs
             adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime-after-tests.log
             ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime-after-tests.log
       - name: Upload emulator screenshots and logs
