@@ -101,6 +101,9 @@
   .music-admin-playlists{padding:10px;gap:8px}
   .music-admin-player-toggle{padding:9px 11px;font-size:14px}
 }
+@media (orientation:landscape) and (max-height:550px){
+  .music-admin-playlist-player iframe{max-width:min(100%,520px);margin-inline:auto}
+}
 
 .youtube-track-comments-hint{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
 .youtube-track-comment-item{overflow-wrap:anywhere}
