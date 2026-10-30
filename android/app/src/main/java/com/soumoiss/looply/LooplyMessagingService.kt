@@ -18,15 +18,22 @@ class LooplyMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
         val kind = data["kind"] ?: "activity"
-        val conversationId = data["conversationId"]?.takeIf {
-            it.length in 1..100 && it.matches(Regex("[A-Za-z0-9_-]+"))
-        }
+        // Route only validated record identifiers to pages that already accept them.
+        val identifier = Regex("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
+        fun id(name: String): String? = data[name]?.takeIf { identifier.matches(it) }
+        val conversationId = id("conversationId")
+        val resourceId = id("resourceId")
         val route = when (kind) {
             "call", "message", "voice", "chat" ->
                 conversationId?.let { "conversa.html?id=$it" } ?: "chat.html"
-            "letter", "carta" -> "cartas.html"
-            "music", "dedication", "dedicatoria" -> "musicas.html"
-            "story", "mention", "post", "reel", "like", "comment" -> "home.html"
+            "letter", "carta" ->
+                (id("letterId") ?: resourceId)?.let { "cartas.html?letterId=$it" } ?: "cartas.html"
+            "music", "dedication", "dedicatoria" ->
+                (id("dedicationId") ?: resourceId)?.let { "musicas.html#dedication-$it" } ?: "musicas.html"
+            "story", "mention" ->
+                (id("storyId") ?: resourceId)?.let { "home.html?storyId=$it#stories" } ?: "home.html#stories"
+            "post", "reel", "like", "comment" ->
+                resourceId?.let { "home.html#post-$it" } ?: "home.html"
             else -> "notificacoes.html"
         }
         val intent = Intent(this, MainActivity::class.java).apply {
