@@ -61,10 +61,10 @@ class RealWebViewIntegrationTest {
     @Test fun bundledWebViewActuallyLoadsARealPage() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             var last = ""
-            repeat(20) {
+            for (attempt in 0 until 20) {
                 last = eval(scenario,
                     "JSON.stringify({url:location.href,ready:document.readyState,body:document.body?.textContent?.length||0})")
-                if (last.contains("Looply") || last.contains("/Looply/")) return@repeat
+                if (last.contains("/Looply/")) break
                 Thread.sleep(350)
             }
             assertFalse("WebView was not created", last.contains("missing-webview"))
@@ -83,11 +83,11 @@ class RealWebViewIntegrationTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             // Wait for an HTTPS document from the local WebViewAssetLoader.
             var ready = false
-            repeat(25) {
+            for (attempt in 0 until 25) {
                 val state = eval(scenario,"JSON.stringify({secure:isSecureContext,ready:document.readyState,url:location.href})")
                 if (state.contains("\\\"secure\\\":true") && state.contains("/Looply/")) {
                     ready = true
-                    return@repeat
+                    break
                 }
                 Thread.sleep(300)
             }
@@ -136,13 +136,13 @@ class RealWebViewIntegrationTest {
                 })()
             """.trimIndent())
             var proof = ""
-            repeat(28) {
+            for (attempt in 0 until 28) {
                 Thread.sleep(500)
                 proof=eval(scenario,"JSON.stringify(window.__looplyCaptureProof)")
                 if(proof.contains("\\\"state\\\":\\\"ok\\\"")
                     ||proof.contains("\\\"state\\\":\\\"error\\\"")
                     ||proof.contains("\\\"state\\\":\\\"empty\\\""))
-                    return@repeat
+                    break
             }
             assertTrue("WebView audio+video MediaRecorder failed: $proof",
                 proof.contains("\\\"state\\\":\\\"ok\\\""))
