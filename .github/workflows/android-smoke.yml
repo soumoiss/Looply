@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - codex/looply-android-fcm-302
       - fix/looply-auth-push-calls-stickers-20261030
       - fix/looply-stage2-media-calls-responsive-20261030
@@ -48,7 +49,22 @@ jobs:
       - name: Install emulator native runtime libraries
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libpulse0 libasound2t64 libnss3 libx11-6 libxcb-cursor0
+          sudo apt-get install -y libpulse0 pulseaudio pulseaudio-utils libasound2t64 libnss3 libx11-6 libxcb-cursor0
+      - name: Start virtual host audio input for Android microphone
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An actual capture source is needed: CI VMs have no physical microphone.
+          pulseaudio --start --exit-idle-time=-1
+          for i in $(seq 1 15); do
+            if pactl info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          pactl info
+          pactl load-module module-null-sink sink_name=looply_ci_audio sink_properties=device.description=LooplyVirtualAudio
+          pactl set-default-source looply_ci_audio.monitor
+          pactl get-default-source
+          pactl list short sources
       - name: Enable KVM acceleration when the runner exposes /dev/kvm
         run: |
           if [ -e /dev/kvm ]; then
@@ -64,13 +80,14 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect -camera-back emulated -camera-front emulated
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect -camera-back emulated -camera-front emulated -allow-host-audio
           # ADB settings service crashed on the last software-emulated runner:
           # do not make launcher testing depend on disabling animations.
           disable-animations: false
           script: |
             set -e
             mkdir -p smoke-results
+            adb emu avd hostmicon
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.looply.app/com.soumoiss.looply.MainActivity
             sleep 9
