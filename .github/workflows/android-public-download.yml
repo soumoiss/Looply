@@ -1,0 +1,77 @@
+name: Publish public Android APK download
+
+on:
+  push:
+    branches:
+      - codex/looply-android-fcm-302
+    paths:
+      - .github/workflows/android-public-download.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-v3.0.2-debug-download-20261030
+      EXPECTED_SHA256: 119e95f20bfa820a56c66a0eb4e9b77b51adc4c3a85e2627abaf4e5a2c62e3f5
+    steps:
+      - name: Download already compiled APK from verified GitHub Actions run
+        run: |
+          set -euo pipefail
+          mkdir -p public-apk
+          gh run download 41088844673 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Looply-3.0.2-debug-apk \
+            --dir public-apk
+          test -s public-apk/app-debug.apk
+          printf '%s  %s\n' "$EXPECTED_SHA256" public-apk/app-debug.apk | sha256sum -c -
+          mv public-apk/app-debug.apk public-apk/Looply-Android-3.0.2-DEBUG.apk
+          (cd public-apk && zip -9 Looply-Android-3.0.2-DEBUG.zip Looply-Android-3.0.2-DEBUG.apk)
+          (cd public-apk && sha256sum Looply-Android-3.0.2-DEBUG.apk > SHA256SUMS.txt)
+      - name: Publish durable public download on GitHub Releases
+        run: |
+          set -euo pipefail
+          cat > public-apk/RELEASE_NOTES.md <<'NOTES'
+          Looply Android 3.0.2 (APK DEBUG de testes).
+
+          Esta publicação fornece um endereço de download público e permanente,
+          independente da Biblioteca de arquivos do ChatGPT.
+
+          O APK foi gerado pelo GitHub Actions e a assinatura de depuração foi verificada.
+          NÃO é a edição Release definitiva e nem comprova todas as funcionalidades do app.
+          FCM, chamadas e testes físicos ainda não estão completamente validados.
+          NOTES
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              public-apk/Looply-Android-3.0.2-DEBUG.apk \
+              public-apk/Looply-Android-3.0.2-DEBUG.zip \
+              public-apk/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" \
+              public-apk/Looply-Android-3.0.2-DEBUG.apk \
+              public-apk/Looply-Android-3.0.2-DEBUG.zip \
+              public-apk/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title 'Looply Android 3.0.2 - APK de testes (download publico)' \
+              --notes-file public-apk/RELEASE_NOTES.md
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            --jq '{html_url,assets:[.assets[]|{name,size,state,browser_download_url,digest}]}'
+      - name: Verify the public APK actually downloads without credentials
+        run: |
+          set -euo pipefail
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Looply-Android-3.0.2-DEBUG.apk"
+          curl -fL --retry 3 --connect-timeout 15 --max-time 120 \
+            -H 'Accept: application/octet-stream' \
+            "$URL" -o public-apk/verification.apk
+          printf '%s  %s\n' "$EXPECTED_SHA256" public-apk/verification.apk | sha256sum -c -
+          echo "PUBLIC_DOWNLOAD_VERIFIED=$URL"
