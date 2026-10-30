@@ -1,0 +1,123 @@
+name: Publish verified Looply Android Release
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "New tag (android-v3.0.4-final-YYYYMMDD)"
+        type: string
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: looply-android-final-release
+  cancel-in-progress: false
+jobs:
+  signed-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject publishing a draft branch as the production APK
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::The signed release must be started from the reviewed, merged main branch."
+            exit 1
+          fi
+          if ! [[ "$RELEASE_TAG" =~ ^android-v3[.]0[.]4-final-[0-9]{8}$ ]]; then
+            echo "::error::Release tag must match android-v3.0.4-final-YYYYMMDD."
+            exit 1
+          fi
+          if git rev-parse "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::This release tag already exists."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify persistent signing credentials are present
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ secrets.LOOPLY_ANDROID_EXPECTED_SIGNER_SHA256 }}
+        run: |
+          set -euo pipefail
+          for value in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD EXPECTED_CERT_SHA256; do
+            if [ -z "${!value}" ]; then
+              echo "::error::Missing required persistent signing secret: $value"
+              exit 1
+            fi
+          done
+      - name: Run complete existing automated regression suite
+        run: |
+          npm run build
+          npm test
+      - name: Recreate white official launcher icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 android/tools/prepare_icon.py
+      - name: Build signed Release with the original approved keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          LOOPLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          LOOPLY_ANDROID_KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          LOOPLY_ANDROID_KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/looply-signing"
+          export LOOPLY_ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/looply-signing/release.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$LOOPLY_ANDROID_KEYSTORE_FILE"
+          (cd android && ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease)
+          rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
+      - name: Verify package, persistence of signer, and offline share asset
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.LOOPLY_ANDROID_EXPECTED_SIGNER_SHA256 }}
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$tools/apksigner" verify --verbose "$apk"
+          actual=$("$tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$actual" && test "$actual" = "$expected"
+          "$tools/aapt" dump badging "$apk" | grep -Fq "name='com.looply.app'"
+          "$tools/aapt" dump badging "$apk" | grep -Fq "versionCode='304'"
+          "$tools/aapt" dump badging "$apk" | grep -Fq "versionName='3.0.4'"
+          unzip -Z1 "$apk" | grep -Fxq 'assets/share.html'
+          jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
+      - name: Produce the APK, ZIP, checksums and bounded test statement
+        run: |
+          set -euo pipefail
+          mkdir -p final-artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk final-artifacts/Looply-Android-3.0.4-RELEASE.apk
+          (cd final-artifacts && zip -q Looply-Android-3.0.4-RELEASE.zip Looply-Android-3.0.4-RELEASE.apk)
+          (cd final-artifacts && sha256sum Looply-Android-3.0.4-RELEASE.apk Looply-Android-3.0.4-RELEASE.zip > SHA256SUMS.txt)
+          printf '%s\n' 'Built from the reviewed main commit and signed with the approved persistent key.'             'Automated web tests and Android build/signature checks passed.'             'Two-device communication, FCM receiving with screen locked, and commercial music synchronisation are NOT implied by these checks.'             > final-artifacts/TEST-RESULTS.txt
+      - name: Publish a new public GitHub Release only with all gates passing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" final-artifacts/*             --title "Looply Android 3.0.4 — versão assinada"             --notes-file final-artifacts/TEST-RESULTS.txt             --target "$GITHUB_SHA"
+      - name: Redownload the released APK without authentication and verify SHA-256
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/soumoiss/Looply/releases/download/$RELEASE_TAG/Looply-Android-3.0.4-RELEASE.apk"
+          curl --fail --location --retry 4 --retry-delay 3 "$url" --output "$RUNNER_TEMP/public-release.apk"
+          cmp "$RUNNER_TEMP/public-release.apk" final-artifacts/Looply-Android-3.0.4-RELEASE.apk
+          echo "Public release APK downloaded and compared byte-for-byte."
