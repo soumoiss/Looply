@@ -79,7 +79,31 @@
 .music-admin-comment-form{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
 .music-admin-comment-form textarea{width:100%;min-height:86px;resize:vertical}
 .music-admin-comment-form [role=status]{color:var(--muted);font-size:12px}
-@media(max-width:600px){.music-admin-playlists{padding:13px}.music-admin-playlist-player iframe{min-height:200px}}
+/* Compact, fluid inspector at 320–428px and landscape; never stretch a
+   YouTube preview to desktop dimensions or force a 200px minimum at 320px. */
+.music-admin-playlists{
+  width:100%; min-width:0; max-width:100%; overflow-wrap:anywhere;
+}
+.music-admin-player-toggle{
+  display:block; overflow-wrap:anywhere; white-space:normal;
+  line-height:1.4; word-break:break-word;
+}
+.music-admin-playlist-player iframe{aspect-ratio:16/9; min-height:0; max-height:none;}
+.music-admin-comment-form,.music-admin-owner-avatar,.music-admin-playlists-heading{
+  min-width:0; max-width:100%;
+}
+.music-admin-playlists [data-admin-music-status]{overflow-wrap:anywhere;}
+@media(max-width:600px){
+  .music-admin-playlists{padding:13px;gap:10px}
+  .music-admin-playlist-player iframe{min-height:0;aspect-ratio:16/9}
+}
+@media(max-width:360px){
+  .music-admin-playlists{padding:10px;gap:8px}
+  .music-admin-player-toggle{padding:9px 11px;font-size:14px}
+}
+@media (orientation:landscape) and (max-height:550px){
+  .music-admin-playlist-player iframe{max-width:min(100%,520px);margin-inline:auto}
+}
 
 .youtube-track-comments-hint{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
 .youtube-track-comment-item{overflow-wrap:anywhere}

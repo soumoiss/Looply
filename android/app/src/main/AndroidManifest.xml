@@ -37,6 +37,8 @@
                 <data android:mimeType="image/webp" />
                 <data android:mimeType="video/mp4" />
                 <data android:mimeType="video/webm" />
+                <!-- Some Instagram versions share Reel URLs using the generic video type. -->
+                <data android:mimeType="video/*" />
             </intent-filter>
         </activity>
         <activity

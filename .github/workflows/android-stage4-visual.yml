@@ -1,0 +1,37 @@
+name: Looply stage 4 mobile playlist layout
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/looply-stage4-share-layout-icon-recovery-20261030
+    paths:
+      - "assets/css/pages/music.css"
+      - "tests/stage4-admin-playlist-visual.mjs"
+      - ".github/workflows/android-stage4-visual.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  responsive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium for a real render
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Render production CSS in mobile viewport test fixture
+        run: node tests/stage4-admin-playlist-visual.mjs
+      - name: Upload viewport screenshots and measured layout
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Looply-stage4-admin-layout-screenshots
+          path: smoke-results/stage4-layout/
+          retention-days: 14
+          if-no-files-found: warn

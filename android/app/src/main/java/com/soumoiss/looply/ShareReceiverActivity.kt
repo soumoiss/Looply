@@ -46,13 +46,33 @@ class ShareReceiverActivity : Activity() {
         }
     } catch (_: Exception) { null }
 
+    private fun hasSupportedExternalLink(value: String): Boolean {
+        val allowed = setOf("instagram.com", "www.instagram.com",
+            "m.instagram.com", "l.instagram.com", "tiktok.com",
+            "www.tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
+            "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be")
+        val urls = Regex("https://[^\\s<>\\\"']+", RegexOption.IGNORE_CASE)
+        return urls.findAll(value).any { match ->
+            try {
+                val parsed = Uri.parse(match.value.trimEnd(')', ',', '.', ';', '!', '?'))
+                parsed.scheme.equals("https", true) &&
+                    parsed.host?.lowercase() in allowed
+            } catch (_: Exception) { false }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent?.action != Intent.ACTION_SEND) { finish(); return }
 
-        val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)?.take(2500).orEmpty()
+        // Some versions of Instagram send a Reel URL as CharSequence while
+        // declaring video/* instead of text/plain. Treat a URL as a link, never
+        // as an MP4 unless Android actually grants a content:// stream.
+        val sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)
+            ?.toString()?.take(2500).orEmpty()
         @Suppress("DEPRECATION")
         val content = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            ?: intent.clipData?.getItemAt(0)?.uri
         if (content != null && content.scheme == "content") {
             val detected = try { contentResolver.getType(content) } catch (_: Exception) { null }
             val allowed = setOf("image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm")
@@ -71,7 +91,10 @@ class ShareReceiverActivity : Activity() {
                 sharedMime = mime
             }
         }
-        if (sharedUri == null && (intent.type != "text/plain" || sharedText.isBlank())) {
+        // A valid social URL is accepted regardless of the MIME hint. This
+        // prevents link-only Reels from being discarded by Android Sharesheet.
+        // Arbitrary non-URL text on video/* does not grant an upload.
+        if (sharedUri == null && !hasSupportedExternalLink(sharedText)) {
             finish()
             return
         }
@@ -97,6 +120,20 @@ class ShareReceiverActivity : Activity() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
                 assets.shouldInterceptRequest(request.url)
 
+            override fun onReceivedError(
+                view: WebView, request: WebResourceRequest,
+                error: android.webkit.WebResourceError
+            ) {
+                if (request.isForMainFrame) showLocalShareError(view)
+            }
+            override fun onReceivedHttpError(
+                view: WebView, request: WebResourceRequest,
+                response: WebResourceResponse
+            ) {
+                if (request.isForMainFrame && response.statusCode >= 400)
+                    showLocalShareError(view)
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 return request.isForMainFrame && (
                     request.url.scheme != "https" ||
@@ -112,6 +149,21 @@ class ShareReceiverActivity : Activity() {
         val query = "?text=" + Uri.encode(sharedText) +
             (sharedMime?.let { "&mime=" + Uri.encode(it) } ?: "")
         web.loadUrl("https://soumoiss.github.io/Looply/share.html" + query)
+    }
+
+    private fun showLocalShareError(view: WebView) {
+        // Never silently redirect this isolated sharing Activity to GitHub's
+        // generic 404. Keep an escape hatch when local resources are missing.
+        val html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+            "<body style='font:16px system-ui;background:#f5f0fa;padding:24px'>" +
+            "<h2>Não foi possível abrir o compartilhamento</h2>" +
+            "<p>O formulário local está indisponível. Volte e tente novamente.</p>" +
+            "<button onclick='LooplyShare.complete()'>Fechar</button></body>"
+        view.post {
+            if (!isFinishing && shareView === view)
+                view.loadDataWithBaseURL("https://soumoiss.github.io/Looply/",
+                    html, "text/html", "UTF-8", null)
+        }
     }
 
     override fun onDestroy() {

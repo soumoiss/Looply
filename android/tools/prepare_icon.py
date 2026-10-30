@@ -12,10 +12,16 @@ RES = ANDROID_DIR / "app" / "src" / "main" / "res"
 
 
 def resize_on_white(image: Image.Image, size: int) -> Image.Image:
-    # The supplied square itself contains whitespace: the purple mark stays
-    # within the Android adaptive-mask safe zone even at 1x image scale.
+    # Android adaptive masks vary by launcher. The owner's white square is
+    # preserved verbatim (no crop or recoloring) but has an extra white margin
+    # so the circular ring and the final 'y' stay clear of circular masks.
     canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
-    canvas.alpha_composite(image.resize((size, size), Image.Resampling.LANCZOS))
+    scaled_size = round(size * 0.86)
+    offset = (size - scaled_size) // 2
+    canvas.alpha_composite(
+        image.resize((scaled_size, scaled_size), Image.Resampling.LANCZOS),
+        (offset, offset),
+    )
     return canvas
 
 
@@ -24,6 +30,17 @@ def main() -> None:
     if image.width != image.height or image.width < 192:
         raise ValueError("Official icon must be square and at least 192 pixels.")
     adaptive = resize_on_white(image, 432)
+    # Detect logo ink, not white background, to catch a source that accidentally
+    # clips the brand before Android applies its own launcher mask.
+    rgb = adaptive.convert("RGB")
+    ink = [(x, y) for y in range(432) for x in range(432)
+           if min(rgb.getpixel((x, y))) < 150]
+    if not ink:
+        raise ValueError("Official Looply logo ink is missing.")
+    # Safe circular mask radius (in pixels) intentionally leaves room for
+    # platform-specific launchers and ensures the wordmark stays complete.
+    if max((x - 215.5) ** 2 + (y - 215.5) ** 2 for x, y in ink) > (432 * .34) ** 2:
+        raise ValueError("Official Looply logo is outside the adaptive safe zone.")
     (RES / "drawable").mkdir(parents=True, exist_ok=True)
     adaptive.save(RES / "drawable" / "ic_launcher_foreground.png", optimize=True)
 
