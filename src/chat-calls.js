@@ -251,11 +251,12 @@ export function setupChatCalls(root, client, userId) {
         NotSupportedError: "Este dispositivo não suporta o formato de mídia solicitado.",
         SecurityError: "A página não tem permissão para acessar mídia em uma origem insegura."
       };
+      const signalingFailure = ["signaling", "offer", "Realtime", "channel"]
+        .some(term => String(error?.message || "").includes(term));
       const detail = reasons[error?.name] ||
-        (String(error?.message||"").includes("signaling") || String(error?.message||"").includes("offer") ||
-          String(error?.message||"").includes("Realtime") || String(error?.message||"").includes("channel"))
+        (signalingFailure
           ? "O canal de chamadas não conseguiu conectar ao serviço de sinalização."
-          : "Falha técnica ao iniciar a chamada. Verifique sua conexão e tente novamente.";
+          : "Falha técnica ao iniciar a chamada. Verifique sua conexão e tente novamente.");
       await endCall(false, detail);
     }
   };
