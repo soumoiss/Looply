@@ -395,6 +395,10 @@ export function bindArchivedCards(root, client, userId, { cards, reads, readsUna
           return;
         }
         if (invokeError) throw invokeError;
+        if (data?.error === "protected_archive_not_restored") {
+          if (error) error.textContent = "O conteúdo desta carta original ainda não foi restaurado no servidor. A senha não foi alterada.";
+          return;
+        }
         if (data?.error === "incorrect_password") {
           if (error) error.textContent = "Senha incorreta.";
           if (password) password.value = "";
