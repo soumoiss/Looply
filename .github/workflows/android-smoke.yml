@@ -10,6 +10,7 @@ on:
       - fix/looply-stage4-share-layout-icon-recovery-20261030
       - fix/looply-stage5-story-audio-camera-20261030
       - fix/looply-stage6-audit-release-20261030
+      - fix/looply-final-audit-20261030
       - integrate/looply-android-six-stages-20261030
     paths:
       - "android/**"
@@ -62,9 +63,16 @@ jobs:
           done
           pactl info
           pactl load-module module-null-sink sink_name=looply_ci_audio sink_properties=device.description=LooplyVirtualAudio
-          pactl set-default-source looply_ci_audio.monitor
+          pactl load-module module-remap-source master=looply_ci_audio.monitor source_name=looply_ci_microphone source_properties=device.description=LooplyCIMicrophone
+          pactl load-module module-sine sink=looply_ci_audio frequency=440
+          pactl set-default-source looply_ci_microphone
           pactl get-default-source
           pactl list short sources
+          # Persist the PulseAudio endpoint for the next workflow step/emulator process.
+          echo "QEMU_AUDIO_DRV=pa" >> "$GITHUB_ENV"
+          server=$(pactl info | sed -n 's/^Server String: //p' | head -1)
+          test -n "$server"
+          echo "PULSE_SERVER=$server" >> "$GITHUB_ENV"
       - name: Enable KVM acceleration when the runner exposes /dev/kvm
         run: |
           if [ -e /dev/kvm ]; then
