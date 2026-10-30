@@ -54,6 +54,6 @@ test("Only actually encoded user audio or permitted streaming is represented as 
   assert.match(studio,/source = attachStoryMusic\(/);
   assert.match(studio,/if \(!output\.size\) throw new Error\("A exportação gerou um vídeo vazio/);
   assert.match(playback,/media\.play\(\)/);
-  assert.match(playback,/media\.dataset\.playback="gesture-required"/);
+  assert.match(playback,/media\.dataset\.playback=error\?\.name==="NotAllowedError"\?"gesture-required":"unavailable"/);
   assert.match(playback,/nextAttempt\(media\)/);
 });
