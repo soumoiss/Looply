@@ -99,7 +99,6 @@ jobs:
             set -e
             mkdir -p smoke-results
             adb emu avd hostmicoff
-            python3 scripts/ci-emulator-grpc-microphone.py > smoke-results/grpc-mic.log 2>&1 & echo $! > smoke-results/grpc-mic.pid
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.looply.app/com.soumoiss.looply.MainActivity
             sleep 9
@@ -138,6 +137,7 @@ jobs:
             # Clear ONLY disposable emulator packages, never user production data.
             adb uninstall com.looply.app.test || true
             adb uninstall com.looply.app || true
+            python3 scripts/ci-emulator-grpc-microphone.py > smoke-results/grpc-mic.log 2>&1 & echo $! > smoke-results/grpc-mic.pid
             (cd android && ./gradlew --no-daemon connectedDebugAndroidTest)
             cat smoke-results/grpc-mic.log
             node scripts/check-android-instrumentation.mjs
