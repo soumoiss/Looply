@@ -4,12 +4,12 @@ import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 // may be sampled, downloaded or baked into a published Story.
 export const STORY_MUSIC_ENDPOINT = "https://looply-story-music-search.s0upoetamoiss.workers.dev/search";
 export const PROVIDER_NAMES = Object.freeze({
-  apple: "Apple Music", deezer: "Deezer", audius: "Audius", spotify: "Spotify"
+  apple: "Apple Music", deezer: "Deezer", spotify: "Spotify"
 });
 const PROVIDER_HOSTS = Object.freeze({
   apple:["apple.com","itunes.com"],
   deezer:["deezer.com"],
-  audius:["audius.co"], spotify:["spotify.com"]
+  spotify:["spotify.com"]
 });
 function officialUrl(value, provider) {
   try {
@@ -51,11 +51,6 @@ export function normalizeStorySong(track) {
 }
 const markerStart="[[looply-music-v4|";
 const markerV5="[[looply-music-v5|";
-export function audiusStoryStreamUrl(song) {
-  return song?.provider==="audius" && /^[A-Za-z0-9_-]{1,100}$/.test(String(song.id||""))
-    ? "https://api.audius.co/v1/tracks/"+encodeURIComponent(song.id)+"/stream?app_name=Looply"
-    : "";
-}
 /** Authorized provider-owned widgets are played in the published Story after
  * the viewer taps Play. They are never captured or mixed into its media file.
  * Deezer previews are normally limited; Apple full playback may require sign-in.
@@ -94,19 +89,14 @@ export function officialSongPreview(track) {
     const widget=officialStorySongEmbed(song);
     if(widget)return widget; // Preview in picker only, not exported to Story
   }
-  if(song.provider==="audius"){
-    const src=audiusStoryStreamUrl(song);
-    if(src) return {kind:"audio",provider:"audius",src};
-  }
   return null;
 }
 export function encodeStorySong(text,track) {
   const song=normalizeStorySong(track);
   const description=String(text||"").trim();
   if (!song) return description.slice(0,700);
-  const isAudius=song.provider==="audius" && Boolean(song.id);
-  const marker=(isAudius?markerV5:markerStart)+
-    [song.provider,song.title,song.artist,song.url,...(isAudius?[song.id]:[])].map(encodeURIComponent).join("|")+"]]";
+  const marker=markerStart+
+    [song.provider,song.title,song.artist,song.url].map(encodeURIComponent).join("|")+"]]";
   if (marker.length>=700) throw new Error("Os dados desta música são longos demais. Escolha outra.");
   return marker+description.slice(0,700-marker.length);
 }
@@ -120,6 +110,8 @@ export function decodeStorySong(value) {
   if (chunks.length!==(prefix===markerV5?5:4)) return {text:raw,song:null};
   try {
     const [provider,title,artist,url,id]=chunks.map(decodeURIComponent);
+    // Decode old markers for text recovery but disable the removed provider.
+    if(provider==="audius")return {text:raw.slice(end+2),song:null};
     const song=normalizeStorySong({provider,title,artist,url,id});
     return song ? {text:raw.slice(end+2),song} : {text:raw,song:null};
   } catch { return {text:raw,song:null}; }
@@ -167,40 +159,9 @@ export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
       album:x.collectionName,durationSec:Math.round(Number(x.trackTimeMillis||0)/1000),isrc:x.isrc
     })).filter(Boolean).slice(0,20);
 }
-// Only usable tracks belong in the Story publishing picker. Search Audius
-// directly instead of waiting for the multi-provider discovery Worker to
-// finish Apple/Deezer requests whose previews cannot be used as soundtracks.
-export async function searchPlayableStorySongs(value,{fetcher=fetch,signal}={}) {
-  const q=clean(value,70);
-  if(q.length<2)return {items:[],providers:[]};
-  const url="https://api.audius.co/v1/tracks/search?query="+encodeURIComponent(q)+
-    "&limit=18&sort_method=relevant&app_name=Looply";
-  const parse=rows=>rows.map(track=>normalizeStorySong({
-    provider:"audius", id:String(track.id||""), title:track.title,
-    artist:track.user?.name||track.artist,
-    url:track.permalink?.startsWith("https://")?track.permalink:
-      "https://audius.co/"+String(track.permalink||"").split("/").filter(Boolean).join("/"),
-    artwork:track.artwork?._150x150||track.artwork?._480x480||"",
-    album:track.album_name||"",durationSec:track.duration||0,isrc:track.isrc||""
-  })).filter(Boolean);
-  try{
-    const response=await fetcher(url,{signal,cache:"no-store"});
-    if(!response.ok)throw Error("Audius search HTTP "+response.status);
-    const payload=await response.json();
-    if(!Array.isArray(payload?.data))throw Error("Audius search invalid response");
-    const playable=payload.data.filter(track=>track.is_streamable!==false
-      && track.is_delete!==true && track.is_unlisted!==true
-      && track.access?.stream!==false && track.is_premium!==true);
-    const items=dedupeStorySongRecordings(parse(playable));
-    return {items,providers:[{provider:"audius",available:true,items}]};
-  }catch(error){
-    if(signal?.aborted)throw error;
-    // A broken direct API can fall back to the existing Worker. No Apple,
-    // Deezer or Spotify metadata is exposed as publishable audio.
-    const fallback=await searchStorySongs(q,{fetcher,signal});
-    const items=fallback.items.filter(track=>track.provider==="audius" && audiusStoryStreamUrl(track));
-    return {items,providers:[{provider:"audius",available:items.length>0,items}]};
-  }
+// Legacy entry point: discovery returns metadata, never soundtrack rights.
+export async function searchPlayableStorySongs(value,options={}){
+  return searchStorySongs(value,options);
 }
 
 export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
@@ -219,8 +180,7 @@ export async function searchStorySongs(value,{fetcher=fetch,signal}={}) {
     const apple=await searchAppleMusicPublic(q,{fetcher,signal}).catch(()=>[]);
     if(!apple.length)throw new Error("A busca musical está temporariamente indisponível.");
     data={providers:[{provider:"apple",available:true,items:apple},
-      {provider:"deezer",available:false,items:[]},
-      {provider:"audius",available:false,items:[]}]};
+      {provider:"deezer",available:false,items:[]}]};
   }
   // Apple may return 429 to a shared serverless egress IP while answering the
   // end user's browser normally. Restore the catalog from Apple directly.
