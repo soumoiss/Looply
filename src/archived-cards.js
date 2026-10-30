@@ -386,10 +386,10 @@ export function bindArchivedCards(root, client, userId, { cards, reads, readsUna
       try {
         const suppliedPassword = String(password?.value || "");
         if (!card || suppliedPassword.length < 1 || suppliedPassword.length > 256) throw new Error("password");
-        const { data, error: invokeError } = await client.functions.invoke("looply-admin", {
-          body: { action: "unlock_archived_card", cardId: card.id, password: suppliedPassword }
+        const { data, error: invokeError } = await client.rpc("v13_unlock_archived_card", {
+          p_card_id: card.id, p_password: suppliedPassword
         });
-        if (data?.error === "too_many_unlock_attempts" || invokeError?.context?.status === 429) {
+        if (data?.error === "too_many_unlock_attempts" || invokeError?.status === 429) {
           if (error) error.textContent = "Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.";
           if (password) password.value = "";
           return;
