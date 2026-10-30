@@ -4,7 +4,10 @@
 export const accounts=Object.freeze({
   patati:"patati@loooply.app",gaberinjela:"gaberinjela@loooply.app",
   misol:"misol@loooply.app",yara:"yara@loooply.app",
-  peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app"
+  peixinho:"peixinho@loooply.app",eukeiliane:"keilageo@loooply.app",
+  // Confirmed existing technical Neon Auth login; the profile username differs
+  // from the auth alias. Preserve the user and password, do not create duplicates.
+  angel0v:"angeloeng@loooply.app"
 });
 export function emailOf(value){
   const identity=String(value??"").trim().toLowerCase().replace(/^@/,"");
