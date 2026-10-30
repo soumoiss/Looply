@@ -8,6 +8,7 @@ on:
       - codex/looply-android-fcm-302
       - fix/looply-android-runtime-20261030
       - fix/looply-auth-push-calls-stickers-20261030
+      - fix/looply-stage2-media-calls-responsive-20261030
     paths:
       - "android/**"
       - "tests/**"
