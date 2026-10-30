@@ -1,56 +1,51 @@
+"""Generate adaptive and legacy Android launcher resources from the owner's mark.
+
+The original mark is embedded at android/icon-source/Looply-official.webp.
+Keep its white background and entire lettering; never remove the dark pixels.
+"""
 from pathlib import Path
 from PIL import Image
 
 ANDROID_DIR = Path(__file__).resolve().parents[1]
-SOURCE = ANDROID_DIR / "icon-source" / "Looply-original.png"
+SOURCE = ANDROID_DIR / "icon-source" / "Looply-official.webp"
 RES = ANDROID_DIR / "app" / "src" / "main" / "res"
 
 
-def remove_black_backdrop(image: Image.Image) -> Image.Image:
-    rgba = image.convert("RGBA")
-    pixels = rgba.load()
-    for y in range(rgba.height):
-        for x in range(rgba.width):
-            red, green, blue, _ = pixels[x, y]
-            brightness = max(red, green, blue)
-            alpha = 0 if brightness <= 12 else 255 if brightness >= 30 else round(
-                (brightness - 12) * 255 / 18
-            )
-            pixels[x, y] = (red, green, blue, alpha)
-    return rgba
-
-
-def centered_art(image: Image.Image, size: int, scale: float) -> Image.Image:
-    dimension = round(size * scale)
-    artwork = image.resize((dimension, dimension), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    canvas.alpha_composite(artwork, ((size - dimension) // 2, (size - dimension) // 2))
+def resize_on_white(image: Image.Image, size: int) -> Image.Image:
+    # The supplied square itself contains whitespace: the purple mark stays
+    # within the Android adaptive-mask safe zone even at 1x image scale.
+    canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+    canvas.alpha_composite(image.resize((size, size), Image.Resampling.LANCZOS))
     return canvas
 
 
 def main() -> None:
-    image = remove_black_backdrop(Image.open(SOURCE))
-    adaptive = centered_art(image, 432, 0.72)
+    image = Image.open(SOURCE).convert("RGBA")
+    if image.width != image.height or image.width < 192:
+        raise ValueError("Official icon must be square and at least 192 pixels.")
+    adaptive = resize_on_white(image, 432)
     (RES / "drawable").mkdir(parents=True, exist_ok=True)
     adaptive.save(RES / "drawable" / "ic_launcher_foreground.png", optimize=True)
 
-    monochrome = adaptive.copy()
-    mono_pixels = monochrome.load()
-    for y in range(monochrome.height):
-        for x in range(monochrome.width):
-            _, _, _, alpha = mono_pixels[x, y]
-            mono_pixels[x, y] = (255, 255, 255, alpha)
+    # Android 13 themed icon uses only the ink silhouette, not the white page.
+    monochrome = Image.new("RGBA", adaptive.size, (255, 255, 255, 0))
+    src, dst = adaptive.load(), monochrome.load()
+    for y in range(adaptive.height):
+        for x in range(adaptive.width):
+            r, g, b, _ = src[x, y]
+            ink = 255 - min(r, g, b)
+            alpha = max(0, min(255, round(ink * 255 / 125)))
+            dst[x, y] = (255, 255, 255, alpha)
     monochrome.save(RES / "drawable" / "ic_launcher_monochrome.png", optimize=True)
 
     densities = (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192))
     for density, size in densities:
         directory = RES / f"mipmap-{density}"
         directory.mkdir(parents=True, exist_ok=True)
-        icon = centered_art(image, size, 0.94)
+        icon = resize_on_white(image, size)
         icon.save(directory / "ic_launcher.png", optimize=True)
         icon.save(directory / "ic_launcher_round.png", optimize=True)
 
 
 if __name__ == "__main__":
     main()
-
