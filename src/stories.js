@@ -1,4 +1,4 @@
-import { audiusStoryStreamUrl, decodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { decodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { startStoryMediaPlayback, stopStoryMediaPlayback } from "./story-viewer-playback.js?v=feed-media-audio-20261029";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
@@ -538,44 +538,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if(oldMusic instanceof HTMLMediaElement)stopStoryMediaPlayback(oldMusic, { owner: viewer });
       oldMusic.remove();
     });
-    // The track title/link stays in the Story metadata, not as an on-screen
-    // label. Audius permits third-party streaming through its public API.
-    // Apple/Deezer promo snippets are ONLY auditioned in their official
-    // players inside the editor, never attached as an unlicensed soundtrack.
-    const audiusStream = audiusStoryStreamUrl(catalogSong.song);
-    if (audiusStream) {
-      const music = document.createElement("audio");
-      music.id = "story-audio";
-      music.dataset.storyViewerMusic = "";
-      music.className = "story-viewer-music-hidden";
-      music.autoplay = !waitsForVideo;
-      music.preload = "auto";
-      music.loop = true;
-      music.src = audiusStream;
-      music.setAttribute("aria-label", "Música de fundo do Story");
-      viewer.querySelector("[data-story-touch-surface]").append(music);
-      music.addEventListener("playing",()=>{
-        if(state.slideVersion !== version || viewer.querySelector("#story-audio") !== music)return;
-        music.dataset.playback="playing";soundStatus("hidden");
-      });
-      music.addEventListener("error",()=>{
-        if(state.slideVersion !== version || viewer.querySelector("#story-audio") !== music)return;
-        music.dataset.playback="unavailable";
-        soundStatus(navigator.onLine === false ? "retry" : "unavailable");
-        if(isAdmin)showStatus("ADM: erro ao carregar streaming do Audius: "+(music.error?.code||"sem código"),true);
-      });
-      // Start within the Story-open gesture when possible. A video and its
-      // soundtrack are both started while the user activation is still valid.
-      void playStoryAudio(music);
-    }
-    // Legacy [[looply-story-v3]] iTunes URLs only grant promotional
-    // audition within a store context; they are not a reusable soundtrack
-    // license. Do not silently stream this preview behind public Stories.
-    // Stories that encoded owned/CC music contain the soundtrack in the
-    // media file itself, and Audius linked playback is handled above.
-    if(!audiusStream && storyText.music?.provider==="itunes"){
-      soundStatus("hidden");
-    }
+    // Catalog metadata is not an audio license. Only sound already mixed
+    // into an authorized uploaded Story video is played. No provider iframes,
+    // silent hidden streams or unsupported autoplay workarounds are added.
+    if (storyText.music?.provider === "itunes") soundStatus("hidden");
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const slideAudio = viewer.querySelector("#story-audio");
     mediaHost.querySelectorAll("video").forEach((video) => {
