@@ -54,12 +54,21 @@ class ShareReceiverActivity : Activity() {
         @Suppress("DEPRECATION")
         val content = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
         if (content != null && content.scheme == "content") {
-            val type = try { contentResolver.getType(content) } catch (_: Exception) { null }
+            val detected = try { contentResolver.getType(content) } catch (_: Exception) { null }
             val allowed = setOf("image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm")
+            // Some Android providers omit MIME or OpenableColumns.SIZE. Use only
+            // an explicit allowlisted Intent MIME and a bounded descriptor length.
+            val mime = detected?.takeIf { it in allowed }
+                ?: intent.type?.lowercase()?.takeIf { it in allowed }
             val bytes = mediaLength(content)
-            if (type in allowed && bytes != null && bytes in 1..(100L * 1024L * 1024L)) {
+                ?: try {
+                    contentResolver.openAssetFileDescriptor(content, "r")?.use { descriptor ->
+                        descriptor.length.takeIf { it >= 0L }
+                    }
+                } catch (_: Exception) { null }
+            if (mime in allowed && bytes != null && bytes in 1..(100L * 1024L * 1024L)) {
                 sharedUri = content
-                sharedMime = type
+                sharedMime = mime
             }
         }
         if (sharedUri == null && (intent.type != "text/plain" || sharedText.isBlank())) {

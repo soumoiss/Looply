@@ -1,4 +1,4 @@
-import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchPlayableStorySongs, searchAppleMusicPublic } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
@@ -12,7 +12,7 @@ export function storyMusicCanPublish(track) {
     track?.kind==="openverse";
 }
 export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdmin=false,
-  searchCatalog=searchPlayableStorySongs,searchLicensed=searchLicensedStorySongs,
+  searchCatalog=searchStorySongs,searchLicensed=searchLicensedStorySongs,
   searchApple=searchAppleMusicPublic}) {
   modal("Escolher música",
     '<div class="studio-music-picker">' +
@@ -204,22 +204,22 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     const cached=searchCache.get(cacheKey);
     if(cached && cached.until>Date.now()){
       items=cached.items;
-      found.textContent=items.length+" músicas disponíveis para Story";
+      found.textContent=items.length+" resultados · "+items.filter(storyMusicCanPublish).length+" com opção de uso no Story";
       draw();return;
     }
-    found.textContent="Buscando músicas disponíveis…";draw();
+    found.textContent="Consultando Apple Music, Deezer, Audius e faixas licenciadas…";draw();
     const current=new AbortController();controller=current;
     let remaining=2,failed=0;
     const received=[];
     const update=tracks=>{
       if(closed||ticket!==seq||current.signal.aborted||!listing.isConnected)return;
-      received.push(...tracks.filter(storyMusicCanPublish));
+      received.push(...tracks);
       items=dedupeStorySongRecordings(received);
-      found.textContent=items.length+" músicas disponíveis para Story"+
+      found.textContent=items.length+" resultados · "+items.filter(storyMusicCanPublish).length+" utilizáveis no Story"+
         (remaining?" · buscando mais…":failed?" · algumas fontes indisponíveis":"");
       draw();
       if(!remaining && items.length)searchCache.set(cacheKey,{items,until:Date.now()+120000});
-      if(!remaining && !items.length)found.textContent="Nenhuma gravação autorizada disponível para Story nesta busca.";
+      if(!remaining && !items.length)found.textContent="Nenhuma música encontrada. Tente outro título ou artista.";
     };
     // Stream results independently: don't hold back usable Audius songs while
     // a Creative Commons index is slow or temporarily unavailable.

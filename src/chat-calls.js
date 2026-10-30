@@ -244,7 +244,20 @@ export function setupChatCalls(root, client, userId) {
       }, 1800);
     } catch (error) {
       console.error("Looply call start failed", error);
-      await endCall(false, error?.name === "NotAllowedError" ? "Permita o microfone e a câmera para iniciar a chamada." : "Não foi possível iniciar a chamada. Confira a conexão e as permissões.");
+      const reasons = {
+        NotAllowedError: "Permissão de microfone ou câmera negada. Autorize o Looply nas configurações do Android.",
+        NotFoundError: "Não foi encontrado microfone ou câmera disponível para esta chamada.",
+        NotReadableError: "O microfone ou a câmera está ocupado por outro aplicativo.",
+        NotSupportedError: "Este dispositivo não suporta o formato de mídia solicitado.",
+        SecurityError: "A página não tem permissão para acessar mídia em uma origem insegura."
+      };
+      const signalingFailure = ["signaling", "offer", "Realtime", "channel"]
+        .some(term => String(error?.message || "").includes(term));
+      const detail = reasons[error?.name] ||
+        (signalingFailure
+          ? "O canal de chamadas não conseguiu conectar ao serviço de sinalização."
+          : "Falha técnica ao iniciar a chamada. Verifique sua conexão e tente novamente.");
+      await endCall(false, detail);
     }
   };
   const acceptCall = async () => {

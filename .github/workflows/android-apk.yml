@@ -6,8 +6,10 @@ on:
       - main
       - codex/android-3.0.1
       - codex/looply-android-fcm-302
+      - fix/looply-android-runtime-20261030
     paths:
       - "android/**"
+      - "tests/**"
       - "assets/**"
       - "src/**"
       - "*.html"
@@ -16,6 +18,10 @@ on:
       - "scripts/build.mjs"
       - ".github/workflows/android-apk.yml"
   workflow_dispatch:
+
+concurrency:
+  group: looply-android-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -47,6 +53,24 @@ jobs:
       - name: Verify Firebase client matches Android applicationId
         run: |
           node -e 'const j=require("./android/app/google-services.json");if(j.project_info.project_id!=="looplyv3"||!j.client.some(x=>x.client_info.android_client_info.package_name==="com.looply.app"))process.exit(1);'
+      - name: Set up Python for exact launcher mark
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Rebuild the official white launcher icon from the uploaded mark
+        run: |
+          python -m pip install pillow
+          python android/tools/prepare_icon.py
+          python - <<'PY'
+          from PIL import Image
+          for name in ('android/app/src/main/res/drawable/ic_launcher_foreground.png',
+                       'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png'):
+              image = Image.open(name).convert('RGB')
+              assert all(c >= 248 for c in image.getpixel((0, 0))), name + ': expected white background'
+              assert any(min(image.getpixel((x, y))) < 160 for x in range(image.width // 4, image.width * 3 // 4, max(1,image.width//16)) for y in range(image.height // 4, image.height * 3 // 4, max(1,image.height//16))), name + ': logo ink missing'
+          PY
+      - name: Run all web regression and security tests before packaging
+        run: npm test
       - name: Build debug APK
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace assembleDebug
@@ -55,16 +79,20 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='302'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.2'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='303'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.3'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify packaged offline sharing entrypoint
+        run: |
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/share.html'
+          unzip -Z1 android/app/build/outputs/apk/debug/app-debug.apk | grep -Fx 'assets/src/neon-production-client.js'
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.2-debug-apk
+          name: Looply-3.0.3-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -110,9 +138,54 @@ jobs:
         if: steps.release_ready.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.2-signed-release
+          name: Looply-3.0.3-signed-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
+
+  publish-preview-apk:
+    name: Publish verified 3.0.3 preview APK to GitHub Releases
+    needs: build-debug-apk
+    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/looply-android-runtime-20261030'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-v3.0.3-runtime-preview-20261030
+    steps:
+      - name: Retrieve the freshly built APK from this exact workflow
+        uses: actions/download-artifact@v6
+        with:
+          name: Looply-3.0.3-debug-apk
+          path: public-apk
+      - name: Create verified preview release
+        run: |
+          set -euo pipefail
+          test -s public-apk/app-debug.apk
+          mv public-apk/app-debug.apk public-apk/Looply-Android-3.0.3-PREVIEW.apk
+          (cd public-apk && sha256sum Looply-Android-3.0.3-PREVIEW.apk > SHA256SUMS.txt)
+          (cd public-apk && zip -q Looply-Android-3.0.3-PREVIEW.zip Looply-Android-3.0.3-PREVIEW.apk)
+          cat > public-apk/RELEASE_NOTES.md <<'NOTES'
+          Looply Android 3.0.3 — versão de testes, assinada com a chave Debug.
+          Contém recuperação nativa de carregamento, geração do ícone oficial branco,
+          ajustes de busca musical multiprovedor e playlist administrativa.
+          Esta publicação NÃO comprova chamadas entre dois dispositivos, FCM e
+          gravação de áudio em aparelho físico; NÃO é a Release definitiva.
+          NOTES
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" public-apk/Looply-Android-3.0.3-PREVIEW.apk public-apk/Looply-Android-3.0.3-PREVIEW.zip public-apk/SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" public-apk/Looply-Android-3.0.3-PREVIEW.apk public-apk/Looply-Android-3.0.3-PREVIEW.zip public-apk/SHA256SUMS.txt --prerelease --target "$GITHUB_SHA" --title "Looply Android 3.0.3 — prévia de correções" --notes-file public-apk/RELEASE_NOTES.md --repo "$GITHUB_REPOSITORY"
+          fi
+      - name: Re-download APK anonymously and compare its SHA-256
+        run: |
+          set -euo pipefail
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Looply-Android-3.0.3-PREVIEW.apk"
+          curl -fL --retry 3 --connect-timeout 20 --max-time 180 "$URL" --output public-apk/verification.apk
+          EXPECTED="$(awk '{print $1}' public-apk/SHA256SUMS.txt)"
+          printf '%s  %s\n' "$EXPECTED" public-apk/verification.apk | sha256sum -c -
+          echo "PUBLIC_DOWNLOAD_VERIFIED=$URL"

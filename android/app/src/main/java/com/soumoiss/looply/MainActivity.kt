@@ -17,6 +17,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Message
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +30,7 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.FileChooserParams
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -63,6 +66,9 @@ class MainActivity : Activity() {
     private var pendingDownload: PendingDownload? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var pendingWebResources: Array<String> = emptyArray()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var navigationSequence = 0
+    private var reloadLocked = false
     private var networkCallbackRegistered = false
     private var wasOffline = false
     private var backInvokedCallback: OnBackInvokedCallback? = null
@@ -253,19 +259,15 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, dp(20))
         }
         val retryButton = Button(this).apply {
-            text = "Tentar novamente"
+            text = "Recarregar"
             isAllCaps = false
-            setOnClickListener {
-                if (hasInternet()) {
-                    wasOffline = false
-                    loadLooply()
-                } else {
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet e tente novamente."
-                    )
-                }
-            }
+            setOnClickListener { reloadCurrentPage() }
+        }
+        val homeButton = Button(this).apply {
+            text = "Voltar ao início"
+            isAllCaps = false
+            setOnClickListener { if (hasInternet()) loadLooply() else
+                showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.") }
         }
         errorPanel.addView(errorTitle)
         errorPanel.addView(errorMessage)
@@ -276,6 +278,8 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
+        errorPanel.addView(homeButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(
             errorPanel,
             FrameLayout.LayoutParams(
@@ -287,6 +291,24 @@ class MainActivity : Activity() {
                 rightMargin = dp(24)
             }
         )
+
+        // Native recovery control remains responsive even when page JavaScript hangs.
+        val reloadControl = TextView(this).apply {
+            text = "↻"
+            contentDescription = "Recarregar Looply"
+            textSize = 26f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(93, 28, 165))
+            background = GradientDrawable().apply {
+                setColor(Color.argb(235, 255, 255, 255))
+                cornerRadius = dp(22).toFloat()
+            }
+            setOnClickListener { reloadCurrentPage() }
+        }
+        root.addView(reloadControl, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply {
+            rightMargin = dp(10)
+            topMargin = dp(8)
+        })
 
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -353,9 +375,21 @@ class MainActivity : Activity() {
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                val sequence = ++navigationSequence
                 progressBar.progress = 0
                 progressBar.visibility = View.VISIBLE
                 errorPanel.visibility = View.GONE
+                // A completed HTML response does not mean the SPA initialized:
+                // index.html may stay on the splash indefinitely after a JS/auth failure.
+                mainHandler.postDelayed({
+                    if (isFinishing || isDestroyed || sequence != navigationSequence) return@postDelayed
+                    val current = webView.url.orEmpty().substringBefore("?").substringBefore("#")
+                    if (progressBar.visibility == View.VISIBLE || current.endsWith("/index.html")) {
+                        webView.stopLoading()
+                        showError("O Looply demorou para abrir",
+                            "A inicialização não foi concluída. Recarregue ou volte ao início.")
+                    }
+                }, 20000L)
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
@@ -391,6 +425,25 @@ class MainActivity : Activity() {
                         "Não foi possível carregar esta página. Tente novamente."
                     )
                 }
+            }
+
+            override fun onRenderProcessGone(
+                view: WebView, detail: RenderProcessGoneDetail
+            ): Boolean {
+                // A crashed renderer cannot be reused. Replace the WebView in place.
+                ++navigationSequence
+                (view.parent as? ViewGroup)?.removeView(view)
+                view.destroy()
+                webView = WebView(this@MainActivity).apply {
+                    setBackgroundColor(Color.rgb(22, 15, 32))
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                }
+                root.addView(webView, 0)
+                configureWebView()
+                showError("O Looply precisou reiniciar",
+                    "O componente de navegação foi encerrado pelo Android. Toque em Recarregar.")
+                return true
             }
 
             override fun onReceivedSslError(
@@ -486,6 +539,13 @@ class MainActivity : Activity() {
                 authorizeWebMedia(request)
             }
 
+            override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                if (pendingWebPermission === request) {
+                    pendingWebPermission = null
+                    pendingWebResources = emptyArray()
+                }
+            }
+
             override fun onCreateWindow(
                 view: WebView,
                 isDialog: Boolean,
@@ -565,7 +625,9 @@ class MainActivity : Activity() {
 
     private fun authorizeWebMedia(request: PermissionRequest) {
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != GITHUB_PAGES_HOST
+            request.origin.host?.lowercase() != GITHUB_PAGES_HOST ||
+            request.origin.port !in listOf(-1, 443) ||
+            !webView.url.orEmpty().startsWith(REMOTE_START_URL)
         ) {
             request.deny()
             return
@@ -622,7 +684,10 @@ class MainActivity : Activity() {
                 val request = pendingWebPermission
                 pendingWebPermission = null
                 if (request == null) return
-                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED } &&
+                    webView.url.orEmpty().startsWith(REMOTE_START_URL) &&
+                    pendingWebResources.isNotEmpty()
+                ) {
                     request.grant(pendingWebResources)
                 } else {
                     request.deny()
@@ -705,6 +770,20 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun reloadCurrentPage() {
+        if (reloadLocked) return
+        reloadLocked = true
+        mainHandler.postDelayed({ reloadLocked = false }, 1500L)
+        if (!hasInternet()) {
+            showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.")
+            return
+        }
+        errorPanel.visibility = View.GONE
+        progressBar.visibility = View.VISIBLE
+        webView.stopLoading()
+        if (webView.url.isNullOrBlank()) loadLooply() else webView.reload()
+    }
+
     private fun loadLooply() {
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
@@ -772,6 +851,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        ++navigationSequence
+        mainHandler.removeCallbacksAndMessages(null)
         unregisterNetworkCallback()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
