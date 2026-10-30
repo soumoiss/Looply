@@ -370,3 +370,51 @@
 .page-letters #adminOriginalRecovery #archiveRecoverySave { width:100%; min-height:48px; }
 .page-letters #archiveRecoveryStatus:not(:empty) { padding:9px 10px; border-radius:10px; background:white; border:1px solid #ccc1e9; }
 .page-letters #adminOriginalRecovery[hidden], .page-letters #archiveRecoveryPasswordFields[hidden] { display:none!important; }
+
+
+/* Leitura e edição compactas: uma ação por vez, sem formulários empilhados. */
+.page-letters .letter-reader-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.page-letters .letter-reader-actions .btn-enviar,
+.page-letters .letter-reader-actions .letter-aux-button { min-height:44px; }
+.page-letters .letter-aux-button { background:#fff; color:#171717; border:1.5px solid #171717; border-radius:999px; padding:9px 14px; font:700 14px/1.3 inherit; cursor:pointer; }
+.page-letters .letter-read-hints:not(:empty) { padding:10px 12px; border-radius:12px; background:#f0ebe2; color:#645c52; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.page-letters .letter-hint-compact { display:grid; gap:10px; padding:12px; background:#f8f5ed; border:1px solid #ddd5c7; border-radius:14px; }
+.page-letters .letter-hint-compact .btn-enviar { justify-self:start; }
+.page-letters .letter-hint-compact p { margin:0; font-size:13px; }
+.page-letters #editorAdminCarta .modal-header { padding:10px 14px; }
+.page-letters #editorAdminCarta .letter-edit-body { gap:12px; padding:14px; background:#faf8f2; }
+.page-letters #editorAdminCarta textarea[name="body"] { min-height:clamp(200px,36dvh,380px); max-height:55dvh; background:#fff; }
+.page-letters #editorAdminCarta .letter-edit-unlock { display:grid; gap:9px; padding:12px; border:1px solid #dfd8ca; border-radius:14px; background:#fff; }
+.page-letters #editorAdminCarta .letter-edit-unlock .btn-enviar { justify-self:start; }
+.page-letters #editorAdminCarta .letter-edit-details,
+.page-letters #editorAdminCarta #adminOriginalRecovery { order:initial; display:block; padding:0; border:1px solid #d6d0c4; border-radius:14px; background:#fff; overflow:hidden; }
+.page-letters #editorAdminCarta .letter-edit-details summary,
+.page-letters #editorAdminCarta #adminOriginalRecovery summary { cursor:pointer; padding:14px 16px; min-height:46px; font-weight:800; font-size:14px; display:list-item; list-style-position:inside; }
+.page-letters #editorAdminCarta .letter-edit-details[open] summary,
+.page-letters #editorAdminCarta #adminOriginalRecovery[open] summary { border-bottom:1px solid #e3ddd4; background:#f2faf6; }
+.page-letters #editorAdminCarta .letter-edit-details > label,
+.page-letters #editorAdminCarta .letter-edit-details > p,
+.page-letters #editorAdminCarta .letter-edit-details > button { margin:12px 14px; }
+.page-letters #editorAdminCarta .letter-edit-details > button { max-width:calc(100% - 28px); }
+.page-letters #editorAdminCarta #adminOriginalRecovery .letter-recovery-fields { display:grid; gap:12px; padding:14px; }
+.page-letters #editorAdminCarta #adminOriginalRecovery .letter-recovery-fields h3 { font-size:15px; }
+.page-letters #editorAdminCarta #adminOriginalRecovery .letter-recovery-fields p { line-height:1.4; }
+.page-letters #editorAdminCarta #adminOriginalRecovery #archiveRecoveryText { min-height:clamp(170px,32dvh,300px); }
+.page-letters #editorAdminCarta #adminOriginalRecovery:not([open]) .letter-recovery-fields { display:none!important; }
+.page-letters #editorAdminCarta .letter-edit-details:not([open]) > :not(summary) { display:none!important; }
+.page-letters #editorAdminCarta details[hidden],
+.page-letters #editorAdminCarta #adminOriginalRecovery[hidden],
+.page-letters #letterEditUnlock[hidden] { display:none!important; }
+.page-letters #editorAdminCarta #adminEditStatus:not(:empty),
+.page-letters #editorAdminCarta #adminHintStatus:not(:empty) { padding:9px 11px; border-radius:10px; background:#eef8f4; font-size:13px; }
+.page-letters #editorAdminCarta #adminDeleteCarta { margin-top:6px; }
+.page-letters .archive-hint-details { margin:8px 0 14px; border:1px solid #d6d0c4; border-radius:12px; background:#fff; }
+.page-letters .archive-hint-details > summary { padding:10px 12px; cursor:pointer; font-weight:800; }
+.page-letters .archive-hint-details > form { padding:10px 12px; display:grid; gap:10px; }
+.page-letters .archive-hint-details:not([open]) > form { display:none!important; }
+@media(max-width:420px) {
+  .page-letters #editorAdminCarta .modal-body { padding:12px; gap:10px; }
+  .page-letters .modal-read #readCartaTitulo { font-size:clamp(23px,7vw,28px); }
+  .page-letters .letter-reader-actions { gap:8px; }
+  .page-letters .letter-reader-actions > button { flex:1 1 auto; }
+}
