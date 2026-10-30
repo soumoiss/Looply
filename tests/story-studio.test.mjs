@@ -75,7 +75,7 @@ test("Front mirror, real torch, screen flash and pinch zoom use supported camera
   assert.match(studio, /stage\.addEventListener\("touchstart"/);
   assert.match(studio, /stage\.addEventListener\("touchmove"/);
   assert.match(studio, /cameraCaptureCrop\(sourceW,sourceH,canvas.width,canvas.height/);
-  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:cover!important/);
+  assert.match(read("assets/css/pages/story-reels-viewport-fix.css"), /object-fit:contain!important/);
   assert.match(styles, /\.studio-camera[^{}]*\{[^{}]*object-fit:contain/);
   assert.match(styles, /data-screen-flash=firing/);
   assert.match(styles, /height:100dvh/);
@@ -117,9 +117,9 @@ test("camera photo and recording output preserve the sensor inside portrait 9:16
 
 
 test("Final 9:16 portrait capture and licensed audio export meet requested contracts",()=>{
-  assert.match(studio,/width:\{ideal:size.width\}/);
-  assert.match(studio,/height:\{ideal:size.height\}/);
-  assert.match(studio,/aspectRatio:\{ideal:size.width\/size.height\}/);
+  assert.match(studio,/width:\{ideal:1280\}/);
+  assert.match(studio,/height:\{ideal:960\}/);
+  assert.match(studio,/resizeMode:\{ideal:"none"\}/);
   assert.match(studio,/withMusic \? 7000 : 15000/);
   assert.match(studio,/source\.start\(\)/);
   assert.match(studio,/recorded\.start\(250\)/);
