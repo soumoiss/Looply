@@ -1,0 +1,39 @@
+name: Looply stage 5 real recorded soundtrack
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/looply-stage5-story-audio-camera-20261030
+    paths:
+      - "src/story-audio-mixer.js"
+      - "src/story-studio.js"
+      - "src/stories.js"
+      - "tests/stage5-real-recorded-soundtrack.mjs"
+      - ".github/workflows/android-stage5-audio.yml"
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium and ffprobe
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Record synthetic originally authored mixed audio to actual video
+        run: node tests/stage5-real-recorded-soundtrack.mjs
+      - name: Upload encoded media and ffprobe proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Looply-stage5-owned-audio-evidence
+          path: smoke-results/stage5-audio/
+          retention-days: 14
+          if-no-files-found: warn

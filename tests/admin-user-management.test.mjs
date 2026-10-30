@@ -34,7 +34,8 @@ test("user creation is invitation-only, accepts new usernames, and never grants 
 test("user management UI exposes one password-based creation form plus profile edits", async () => {
   const ui = await readFile(resolve(root, "src/admin.js"), "utf8");
   assert.match(ui, /data-user-create/);
-  assert.match(ui, /name="email"/);
+  assert.doesNotMatch(ui, /name="email"/);
+  assert.match(ui, /const email = \`\$\{username\}@loooply\.app\`/);
   assert.match(ui, /name="password"/);
   assert.match(ui, /Cadastrar novo usuário/);
   assert.match(ui, /data-user-profile-form/);

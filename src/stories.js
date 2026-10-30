@@ -568,25 +568,13 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       // soundtrack are both started while the user activation is still valid.
       void playStoryAudio(music);
     }
-    // A Story can carry both legacy text metadata and the newer Audius marker.
-    // Only one external soundtrack must play on a slide.
-    if (!audiusStream && storyText.music?.previewUrl) {
-      const music = document.createElement("audio");
-      music.id = "story-audio";
-      music.dataset.storyViewerMusic = "";
-      music.className = "story-viewer-music-hidden";
-      music.preload = "auto";
-      music.autoplay = !waitsForVideo;
-      music.loop = true;
-      music.src = storyText.music.previewUrl;
-      music.addEventListener("playing",()=>{if(state.slideVersion===version && viewer.querySelector("#story-audio")===music)soundStatus("hidden");});
-      music.addEventListener("error", () => {
-        if(state.slideVersion!==version || viewer.querySelector("#story-audio")!==music)return;
-        music.dataset.playback = "unavailable";
-        soundStatus(navigator.onLine === false ? "retry" : "unavailable");
-      }, { once: true });
-      viewer.querySelector("[data-story-touch-surface]").append(music);
-      void playStoryAudio(music);
+    // Legacy [[looply-story-v3]] iTunes URLs only grant promotional
+    // audition within a store context; they are not a reusable soundtrack
+    // license. Do not silently stream this preview behind public Stories.
+    // Stories that encoded owned/CC music contain the soundtrack in the
+    // media file itself, and Audius linked playback is handled above.
+    if(!audiusStream && storyText.music?.provider==="itunes"){
+      soundStatus("hidden");
     }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const slideAudio = viewer.querySelector("#story-audio");
@@ -964,6 +952,23 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } finally { button.disabled = false; }
   };
+  // If Android/WebView consumed the opening gesture before the remote
+  // media became ready, a tap anywhere on the Story media stage retries
+  // playback immediately. No provider modal, redirect or right-side player.
+  // Ignore navigation zones: their click handler will render and play the next
+  // Story using the same gesture.
+  viewer.addEventListener("pointerdown", event => {
+    if(!viewer.open || state.paused ||
+      !event.target.closest("[data-story-touch-surface]") ||
+      event.target.closest("[data-story-prev], [data-story-next]"))return;
+    const video=viewer.querySelector("[data-story-viewer-media] video");
+    if(video?.paused && video.dataset.playback==="gesture-required")
+      void startStoryMediaPlayback(video,{owner:viewer});
+    const sound=viewer.querySelector("#story-audio");
+    if(sound?.paused && sound.dataset.playback==="gesture-required")
+      void playStoryAudio(sound);
+  },{passive:true});
+
   root.addEventListener("click", async (event) => {
     if (event.target.closest("[data-story-refresh]")) {
       showStatus("Atualizando stories…");

@@ -53,11 +53,34 @@ export async function mountMusicAdminPlaylistPanel(root,client){
     track.replaceChildren(new Option("Carregando faixas…",""));
     if(!u){status.textContent="Selecione um usuário.";return;}
     if(!playlist){status.textContent="Este usuário não configurou uma playlist válida.";return;}
-    const iframe=document.createElement("iframe");
-    iframe.title="Playlist de "+(u.display_name||u.username);
-    iframe.src="https://www.youtube-nocookie.com/embed/videoseries?list="+encodeURIComponent(playlist)+"&listType=playlist&playsinline=1";
-    iframe.allow="autoplay; encrypted-media; picture-in-picture; web-share";
-    iframe.allowFullscreen=true;iframe.referrerPolicy="strict-origin-when-cross-origin";player.append(iframe);
+    // Loading a full YouTube iframe for every owner change wastes space and memory
+    // on narrow screens. The preview is requested only when the admin needs it.
+    const toggle=document.createElement("button");
+    toggle.type="button";
+    toggle.className="music-admin-player-toggle";
+    toggle.textContent="▶ Reproduzir playlist de "+(u.display_name||u.username);
+    toggle.setAttribute("aria-expanded","false");
+    player.append(toggle);
+    toggle.addEventListener("click",()=>{
+      if(request!==sequence)return;
+      const current=player.querySelector("iframe");
+      if(current){
+        current.remove();
+        toggle.textContent="▶ Reproduzir playlist";
+        toggle.setAttribute("aria-expanded","false");
+        return;
+      }
+      const iframe=document.createElement("iframe");
+      iframe.title="Playlist de "+(u.display_name||u.username);
+      iframe.src="https://www.youtube-nocookie.com/embed/videoseries?list="+encodeURIComponent(playlist)+"&playsinline=1";
+      iframe.allow="autoplay; encrypted-media; picture-in-picture; web-share";
+      iframe.allowFullscreen=true;
+      iframe.referrerPolicy="strict-origin-when-cross-origin";
+      iframe.loading="lazy";
+      player.append(iframe);
+      toggle.textContent="Fechar player";
+      toggle.setAttribute("aria-expanded","true");
+    });
     try{
       const {data:session,error:sessionError}=await client.auth.getSession();
       if(sessionError||!session?.session?.access_token)throw Error("Sessão necessária.");

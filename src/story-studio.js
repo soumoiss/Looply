@@ -76,6 +76,16 @@ export function cameraMediaConstraints(facing, ratio="9:16") {
     resizeMode:{ideal:"none"}
   },audio:true};
 }
+// Relax unsupported video sensor constraints WITHOUT dropping microphone audio.
+// The last camera-only attempt allows photos when Android denies microphone,
+// but never pretends that such a stream can record videos with sound.
+export function storyCameraCaptureAttempts(facing,ratio="9:16") {
+  return [
+    cameraMediaConstraints(facing,ratio),
+    {video:{facingMode:{ideal:facing}},audio:true},
+    {video:{facingMode:{ideal:facing}},audio:false}
+  ];
+}
 const FORMATS = Object.freeze({
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
   "video/mp4": "mp4", "video/webm": "webm"
@@ -444,20 +454,17 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     const ticket=cameraRequestId;
     // Ask for the selected output ratio, but do not assert a sensor mode
     // exists. Actual track/video dimensions are measured after negotiation.
-    const constraints=cameraMediaConstraints(facing,settings.ratio);
-    let acquired=null;
-    try{acquired=await navigator.mediaDevices.getUserMedia(constraints);}
-    catch{
-      if(ticket!==cameraRequestId||!active)return;
-      try{acquired=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:facing},resizeMode:{ideal:"none"}},
-        audio:false
-      });}
-      catch{
+    let acquired=null, lastCaptureError=null;
+    for(const constraints of storyCameraCaptureAttempts(facing,settings.ratio)){
+      try{
+        acquired=await navigator.mediaDevices.getUserMedia(constraints);
+        break;
+      }catch(error){
+        lastCaptureError=error;
         if(ticket!==cameraRequestId||!active)return;
-        acquired=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
       }
     }
+    if(!acquired)throw lastCaptureError||Error("A câmera está indisponível.");
     if(ticket!==cameraRequestId||!active){
       acquired?.getTracks().forEach(track=>track.stop());
       return;
@@ -496,8 +503,11 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
     console.info("Looply camera negotiated frame",{
       requested:settings.ratio,trackWidth:trackSettings.width,trackHeight:trackSettings.height,
       videoWidth:video.videoWidth,videoHeight:video.videoHeight,
-      mirror:settings.facing==="user"
+      mirror:settings.facing==="user",hasMicrophone:stream.getAudioTracks().some(t=>t.readyState==="live")
     });
+    if(!stream.getAudioTracks().some(t=>t.readyState==="live")){
+      status("Câmera pronta para fotos. Para gravar vídeo com voz, autorize o microfone nas configurações do Android.",true);
+    }
     face = new StoryFaceLens(video, lens, () => settings.facing);
     face.start();
     if(settings.face!=="none"){
@@ -1068,7 +1078,12 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           const buffer = music.kind === "builtin"
             ? makeSynthBuffer(audioCtx, music)
             : await audioCtx.decodeAudioData(await music.file.arrayBuffer());
-          source = attachStoryMusic(audioCtx, destination, buffer);
+          // Preserve speech from a recorded Story; music plays behind the
+          // original audio rather than masking it with a second full-volume
+          // soundtrack. Own/CC source remains baked into the exported media.
+          source = attachStoryMusic(audioCtx, destination, buffer, {
+            volume:videoMedia ? 0.35 : 0.85
+          });
         }
         destination.stream.getAudioTracks().forEach(t => framesStream.addTrack(t));
         await audioCtx.resume();

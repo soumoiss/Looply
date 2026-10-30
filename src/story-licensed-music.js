@@ -70,7 +70,15 @@ export function licensedStoryAttribution(song) {
     ' | Áudio sincronizado ao Story.';
 }
 export function captionWithLicensedMusic(caption,song,maxLength=700) {
-  const credit=licensedStoryAttribution(song);
+  // The author can select an official catalog title and then attach a
+  // separate recording they are legally allowed to use. Store accurate title
+  // and attribution with the exported audio, never the commercial preview.
+  const catalogCredit = song?.kind==="file" && song.licenseVerifiedByUser===true &&
+    ["apple","deezer"].includes(song.catalogProvider) && song.catalogUrl
+      ? '🎵 "'+clean(song.title,100)+'" — '+clean(song.artist,90)+
+        ' (áudio fornecido pelo autor do Story; catálogo: '+song.catalogProvider+').'
+      : "";
+  const credit=licensedStoryAttribution(song)||catalogCredit;
   if(!credit) return String(caption||"").trim().slice(0,maxLength);
   if(credit.length>maxLength)throw new Error("Créditos musicais excedem o tamanho permitido.");
   const text=String(caption||"").trim().slice(0,maxLength-credit.length-2);

@@ -1,0 +1,100 @@
+name: Android emulator launch and share smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/looply-android-fcm-302
+      - fix/looply-auth-push-calls-stickers-20261030
+      - fix/looply-stage2-media-calls-responsive-20261030
+      - fix/looply-stage4-share-layout-icon-recovery-20261030
+      - fix/looply-stage5-story-audio-camera-20261030
+      - fix/looply-stage6-audit-release-20261030
+    paths:
+      - "android/**"
+      - "src/**"
+      - "assets/**"
+      - "*.html"
+      - "scripts/build.mjs"
+      - ".github/workflows/android-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+      - name: Prepare Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Build APK with bundled pages
+        run: |
+          npm run build
+          (cd android && ./gradlew --no-daemon assembleDebug)
+      - name: Install emulator native runtime libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libpulse0 libasound2t64 libnss3 libx11-6 libxcb-cursor0
+      - name: Enable KVM acceleration when the runner exposes /dev/kvm
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            test -r /dev/kvm && test -w /dev/kvm
+          else
+            echo "::notice::KVM unavailable: emulator will use software acceleration (not an APK failure)."
+          fi
+      - name: Install and open activities in an actual Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          # ADB settings service crashed on the last software-emulated runner:
+          # do not make launcher testing depend on disabling animations.
+          disable-animations: false
+          script: |
+            set -e
+            mkdir -p smoke-results
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.looply.app/com.soumoiss.looply.MainActivity
+            sleep 9
+            adb shell pidof com.looply.app > smoke-results/launcher-pid.txt
+            adb shell screencap -p /sdcard/looply-launch.png
+            adb pull /sdcard/looply-launch.png smoke-results/launcher.png
+            adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "https://www.instagram.com/reel/C8Example/" -n com.looply.app/com.soumoiss.looply.ShareReceiverActivity
+            sleep 6
+            adb shell pidof com.looply.app > smoke-results/share-pid.txt
+            adb shell screencap -p /sdcard/looply-share.png
+            adb pull /sdcard/looply-share.png smoke-results/share.png
+            # Instagram may deliver only EXTRA_TEXT while identifying a Reel
+            # with video/mp4. This used to finish ShareReceiverActivity.
+            adb shell am start -a android.intent.action.SEND -t video/mp4 --es android.intent.extra.TEXT "https://www.instagram.com/reel/C8Example/" -n com.looply.app/com.soumoiss.looply.ShareReceiverActivity
+            sleep 4
+            adb shell dumpsys activity activities > smoke-results/reel-video-intent-activity.txt
+            grep -F 'ShareReceiverActivity' smoke-results/reel-video-intent-activity.txt
+            adb shell screencap -p /sdcard/looply-reel-share.png
+            adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png
+                        adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime.log
+            # android-emulator-runner executes every script line separately
+            # through /usr/bin/sh, so shell if/fi blocks span separate invocations.
+            # A negative grep returns 0 when no fatal app exception is present.
+            ! grep -E "FATAL EXCEPTION|Process: com.looply.app" smoke-results/android-runtime.log
+            echo "Package installed and both activities launched without AndroidRuntime fatal logs"
+      - name: Upload emulator screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Looply-android-emulator-smoke
+          path: smoke-results/
+          retention-days: 7

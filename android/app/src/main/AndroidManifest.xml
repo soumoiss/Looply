@@ -24,6 +24,24 @@
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
         <activity
+            android:name=".ShareReceiverActivity"
+            android:theme="@style/LooplyShareTheme"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/jpeg" />
+                <data android:mimeType="image/png" />
+                <data android:mimeType="image/webp" />
+                <data android:mimeType="video/mp4" />
+                <data android:mimeType="video/webm" />
+                <!-- Some Instagram versions share Reel URLs using the generic video type. -->
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".MainActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize"
             android:exported="true"
