@@ -35,6 +35,35 @@ const cardTitle = (card) => {
   return line ? line.slice(0, 100) : "Carta sem título";
 };
 const asError = (error) => typeof error?.message === "string" ? error.message : "Não foi possível concluir. Verifique sua conexão e tente novamente.";
+function archivedRecoveryError(error) {
+  const message = String(error?.message || error?.error || "");
+  const code = String(error?.code || "").toUpperCase();
+  const status = Number(error?.status || 0);
+  const combined = [message, code].join(" ");
+  if (/admin_forbidden|42501|permission denied/i.test(combined) || status === 403)
+    return "Sua sessão não tem permissão administrativa para restaurar esta carta. Entre novamente com o ADM.";
+  if (/authentication_required|neon_session_required|PGRST301|jwt/i.test(combined) || status === 401)
+    return "Sua sessão expirou. Copie o texto para um lugar seguro antes de entrar novamente.";
+  if (/PGRST202|42883|could not find the function|function .*does not exist/i.test(combined))
+    return "A função de restauração não está disponível no Neon (PGRST202/42883). É necessário verificar a instalação da RPC v14 e atualizar o cache de esquema.";
+  if (/card_unavailable|recovery_scope_restricted/i.test(combined))
+    return "O Neon não reconheceu o registro original autorizado (ID ou nome do arquivo). Nenhuma carta nova foi criada.";
+  if (/original_record_missing/i.test(combined))
+    return "O registro da carta existe, mas o material antigo necessário à recuperação não foi encontrado. Nenhum texto foi substituído.";
+  if (/invalid_recovery_input|invalid_recovery_password|unexpected_password/i.test(combined))
+    return "Revise o conteúdo, a confirmação e a opção de senha antes de salvar.";
+  if (/42P01|undefined_table/i.test(combined))
+    return "A estrutura de recuperação ainda não está completa no Neon (42P01).";
+  if (/23514|check_violation/i.test(combined))
+    return "O banco recusou a gravação por uma regra de integridade da carta (23514).";
+  if (/network|conexão|fetch|unavailable|timeout|Failed to fetch/i.test(combined))
+    return "Erro de conexão com o Neon. O texto continua no editor. Confira a rede e tente novamente.";
+  if (/recovery_verification_failed|recovery_not_confirmed|cipher_verification_failed|content_verification_failed/i.test(combined))
+    return "O servidor não confirmou a integridade do texto restaurado. A carta permanece no editor.";
+  const diagnostic = code || (status ? "HTTP " + status : "");
+  return "A restauração foi recusada pelo servidor" + (diagnostic ? " (código " + diagnostic + ")" : "") +
+    ". O texto permanece no editor; copie-o antes de sair.";
+}
 
 function visual() {
   return '<section class="cartas-page">' +
@@ -280,6 +309,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     }
     button.disabled = true;
     status.textContent = "Salvando e verificando a carta no Neon...";
+    let serverConfirmed = false;
     try {
       const { data, error } = await client.rpc("v14_admin_recover_archived_card", {
         p_card_id: edit.raw.id, p_new_body: fullText, p_use_password: usePassword,
@@ -288,8 +318,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       if (error) throw error;
       if (data?.updated !== true || data?.verified !== true ||
           data?.is_protected !== usePassword) {
-        throw Error(data?.error || "recovery_not_confirmed");
+        throw Object.assign(new Error(data?.error || "recovery_not_confirmed"), { code: data?.error || "" });
       }
+      serverConfirmed = true;
       // Independent authenticated read-back, including a real decrypt for protected cards.
       const persisted = await fetchFullLetterForEdit(client, "archive", edit.raw.id, user.id, isAdmin);
       if (persisted.is_protected !== usePassword) throw Error("recovery_verification_failed");
@@ -317,16 +348,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
         : "Carta original restaurada com sucesso, sem senha e com acesso privado.");
     } catch (error) {
       if (generation !== editLoadGeneration || state.editor !== edit) return;
-      const message = String(error?.message || "");
-      status.textContent = /admin_forbidden|42501|403/i.test(message)
-        ? "Somente o ADM autorizado pode restaurar esta carta."
-        : /network|conexão|fetch|unavailable|timeout/i.test(message)
-          ? "Erro de conexão. Confira a rede e tente novamente."
-          : /recovery_verification_failed|recovery_not_confirmed/i.test(message)
-            ? "Não foi possível confirmar a restauração no servidor."
-            : /invalid_recovery_input|invalid_recovery_password|unexpected_password/i.test(message)
-              ? "Revise o texto e a opção de senha antes de salvar."
-              : "Não foi possível restaurar a carta. O texto permanece no editor.";
+      status.textContent = serverConfirmed
+        ? "O Neon confirmou a gravação, mas a leitura independente falhou. Não salve novamente antes de conferir a carta. O texto foi mantido no editor."
+        : archivedRecoveryError(error);
     } finally {
       if (generation === editLoadGeneration && state.editor === edit) button.disabled = false;
     }
