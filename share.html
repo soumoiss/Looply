@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compartilhar no Looply</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,sans-serif}*{box-sizing:border-box}
+body{background:#f5f0fa;color:#20112f;margin:0;padding:22px;border-radius:22px}
+h1{font-size:20px;margin:0 0 9px}p{font-size:13px;line-height:1.55;color:#625470}
+label{font-size:13px;font-weight:700;display:block;margin:16px 0 6px}
+input,textarea{font:inherit;font-size:14px;width:100%;border:1px solid #d6c9e3;border-radius:11px;background:white;padding:11px;color:#20112f}
+textarea{height:68px;resize:vertical}
+footer{display:flex;gap:10px;margin-top:17px}
+button{font:inherit;border:0;border-radius:12px;padding:12px;cursor:pointer}
+#cancel{flex:1;background:#e8e0ef;color:#20112f}
+#publish{flex:2;background:#5b16a3;color:#fff;font-weight:700}
+#publish:disabled{opacity:.55}
+#status{font-size:13px;min-height:1.5em;margin-top:11px}
+</style></head>
+<body>
+<h1>Publicar no Looply</h1>
+<p>Compartilhamento recebido do Android. O conteúdo original permanece no aplicativo de origem; o Looply salva o link autorizado.</p>
+<form id="form">
+<label for="link">Link recebido</label><input id="link" type="url" readonly>
+<label for="caption">Legenda (opcional)</label><textarea id="caption" maxlength="2200" placeholder="Escreva alguma coisa..."></textarea>
+<footer><button id="cancel" type="button">Cancelar</button><button id="publish" type="submit">Publicar</button></footer>
+<div id="status" role="status" aria-live="polite"></div>
+</form>
+<script type="module">
+import {activeSession,NEON_DATA_API_URL} from "./src/neon-production-client.js";
+const $ = (id)=>document.getElementById(id);
+const allowed = new Set(["instagram.com","www.instagram.com","m.instagram.com","l.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","vt.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"]);
+const raw = new URLSearchParams(location.search).get("text") || "";
+const extracted = raw.match(/https:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;!?]+$/,"") || "";
+let link = null;
+try{
+  const u = new URL(extracted);
+  if(u.protocol === "https:" && allowed.has(u.hostname.toLowerCase()) && extracted.length <= 2048)link = u.href;
+}catch{}
+$("link").value = link || "";
+$("caption").value = raw.replace(extracted,"").trim().slice(0,2200);
+$("cancel").onclick = ()=>window.LooplyShare?.complete();
+if(!link){$("status").textContent = "Este compartilhamento não contém um link compatível do Instagram, TikTok ou YouTube."; $("publish").disabled = true;}
+$("form").addEventListener("submit",async(e)=>{
+  e.preventDefault();
+  if(!link)return;
+  const button=$("publish");button.disabled=true;$("status").textContent="Confirmando sua conta...";
+  try{
+    const session=await activeSession();
+    if(!session?.access_token)throw Error("Entre na sua conta do Looply antes de compartilhar.");
+    $("status").textContent="Salvando a publicação...";
+    const response=await fetch(NEON_DATA_API_URL+"/rpc/v5_create_post",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_body:$("caption").value.trim(),p_visibility:"public",p_external_url:link})
+    });
+    const id=await response.json().catch(()=>null);
+    if(!response.ok||typeof id!=="string"||!/^[0-9a-f-]{36}$/i.test(id))throw Error("Não foi possível salvar a publicação. Verifique a conexão e suas permissões.");
+    $("status").textContent="Publicado com sucesso!";
+    window.LooplyShare?.complete();
+  }catch(err){$("status").textContent=err?.message||"Falha ao publicar.";button.disabled=false;}
+});
+</script>
+</body></html>
