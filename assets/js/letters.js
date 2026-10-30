@@ -400,6 +400,58 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     const opened = await openLetterEditor("community", letter.id, e.currentTarget, readPassword);
     if (opened) close("modalLeituraNova");
   });
+
+  const appendHintToLetter = async (kind, letter, value) => {
+    const hint = String(value || "").trim();
+    if (!hint || hint.length > 240) throw Error("Digite uma dica de até 240 caracteres.");
+    if (!letter?.is_protected || (kind === "archive" ? !isAdmin : letter.sender_id !== user.id))
+      throw Error("Somente o remetente pode adicionar dicas.");
+    const previous = Array.isArray(letter.password_hints) && letter.password_hints.length
+      ? letter.password_hints : letter.password_hint ? [letter.password_hint] : [];
+    const hints = [...previous, hint];
+    let query = client.from(kind === "archive" ? "archived_cards" : "community_letters")
+      .update({ password_hint: hint, password_hints: hints }).eq("id", letter.id);
+    if (kind === "community") query = query.eq("sender_id", user.id);
+    const { data, error } = await query.select("id,password_hint,password_hints").single();
+    if (error || data?.id !== letter.id || !Array.isArray(data.password_hints) ||
+        data.password_hints.length !== hints.length || data.password_hints.at(-1) !== hint)
+      throw error || Error("O servidor não confirmou a nova dica.");
+    letter.password_hint = data.password_hint;
+    letter.password_hints = data.password_hints;
+    return data.password_hints.map((entry, i) => "Dica " + (i + 1) + ": " + entry).join(" · ");
+  };
+  $("#mostrarDicaNova").addEventListener("click", () => {
+    const visible = $("#formDicaNova").hidden;
+    $("#formDicaNova").hidden = !visible;
+    $("#mostrarDicaNova").setAttribute("aria-expanded", String(visible));
+    if (visible) $("#formDicaNova").elements.password_hint.focus();
+  });
+  $("#formDicaNova").addEventListener("submit", async event => {
+    event.preventDefault();
+    const letter = state.reading, form = event.currentTarget;
+    const status = $("#novaDicaStatus"), button = form.querySelector('[type="submit"]');
+    if (!letter || letter.sender_id !== user.id || !letter.is_protected) return;
+    button.disabled = true;
+    try {
+      $("#readCartaDicas").textContent = await appendHintToLetter("community", letter, form.elements.password_hint.value);
+      form.reset();
+      status.textContent = "Dica adicionada.";
+    } catch (error) { status.textContent = asError(error); }
+    finally { button.disabled = false; }
+  });
+  $("#addEditorHint").addEventListener("click", async () => {
+    const edit = state.editor, form = $("#adminEditForm"), button = $("#addEditorHint");
+    const status = $("#adminHintStatus");
+    if (!edit) return;
+    button.disabled = true;
+    try {
+      await appendHintToLetter(edit.kind, edit.raw, form.elements.password_hint.value);
+      form.elements.password_hint.value = "";
+      status.textContent = "Dica adicionada ao histórico.";
+      await loadCurrent();
+    } catch (error) { status.textContent = asError(error); }
+    finally { button.disabled = false; }
+  });
   $("#buscarDestinatario").addEventListener("input", e => renderRecipients(e.target.value));
   $("#listaUsuarios").addEventListener("click",e=>{ const b=e.target.closest("[data-recipient]"); if(!b)return;state.selectedRecipient=b.dataset.recipient;renderRecipients($("#buscarDestinatario").value);});
   $("#isPrivada").addEventListener("change", e=> {$("#privadaFields").hidden=!e.target.checked;$("#senhaCarta").required=e.target.checked;});
