@@ -27,7 +27,7 @@ if (typeof window !== "undefined") {
   const registerFcm = (payload, attempt=0) => {
     const {deviceId,token}=payload||{};
     if(typeof token!=="string" || token.length<25 || token.length>4096 ||
-       !/^[A-Za-z0-9._:~\\-]+$/.test(token) ||
+       !/^[A-Za-z0-9._:~-]+$/.test(token) ||
        typeof deviceId!=="string" || !/^[0-9a-f-]{36}$/i.test(deviceId))return;
     androidDeviceId=deviceId;
     const key=deviceId+":"+token;
