@@ -74,7 +74,7 @@ export function captionWithLicensedMusic(caption,song,maxLength=700) {
   // separate recording they are legally allowed to use. Store accurate title
   // and attribution with the exported audio, never the commercial preview.
   const catalogCredit = song?.kind==="file" && song.licenseVerifiedByUser===true &&
-    ["apple","deezer"].includes(song.catalogProvider) && song.catalogUrl
+    ["apple","deezer","spotify"].includes(song.catalogProvider) && song.catalogUrl
       ? '🎵 "'+clean(song.title,100)+'" — '+clean(song.artist,90)+
         ' (áudio fornecido pelo autor do Story; catálogo: '+song.catalogProvider+').'
       : "";
