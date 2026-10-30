@@ -82,12 +82,12 @@ jobs:
             grep -F 'android.permission.CAMERA: granted=true' smoke-results/package-permissions.txt
             grep -F 'android.permission.RECORD_AUDIO: granted=true' smoke-results/package-permissions.txt
             adb shell screencap -p /sdcard/looply-launch.png
-            adb pull /sdcard/looply-launch.png smoke-results/launcher.png
+            adb pull /sdcard/looply-launch.png smoke-results/launcher.png || adb pull /sdcard/looply-launch.png smoke-results/launcher.png || echo "::warning::Emulator GPU screenshot not ready; APK and activity tests continue"
             adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "https://www.instagram.com/reel/C8Example/" -n com.looply.app/com.soumoiss.looply.ShareReceiverActivity
             sleep 6
             adb shell pidof com.looply.app > smoke-results/share-pid.txt
             adb shell screencap -p /sdcard/looply-share.png
-            adb pull /sdcard/looply-share.png smoke-results/share.png
+            adb pull /sdcard/looply-share.png smoke-results/share.png || adb pull /sdcard/looply-share.png smoke-results/share.png || echo "::warning::Emulator GPU screenshot not ready; APK and activity tests continue"
             # Instagram may deliver only EXTRA_TEXT while identifying a Reel
             # with video/mp4. This used to finish ShareReceiverActivity.
             adb shell am start -a android.intent.action.SEND -t video/mp4 --es android.intent.extra.TEXT "https://www.instagram.com/reel/C8Example/" -n com.looply.app/com.soumoiss.looply.ShareReceiverActivity
@@ -95,7 +95,7 @@ jobs:
             adb shell dumpsys activity activities > smoke-results/reel-video-intent-activity.txt
             grep -F 'ShareReceiverActivity' smoke-results/reel-video-intent-activity.txt
             adb shell screencap -p /sdcard/looply-reel-share.png
-            adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png
+            adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png || adb pull /sdcard/looply-reel-share.png smoke-results/reel-video-share.png || echo "::warning::Emulator GPU screenshot not ready; APK and activity tests continue"
             adb shell logcat -d -s AndroidRuntime:E > smoke-results/android-runtime.log
             # android-emulator-runner executes every script line separately
             # through /usr/bin/sh, so shell if/fi blocks span separate invocations.
