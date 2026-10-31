@@ -118,7 +118,10 @@ export async function dispatchScheduledLetters(env,{query=neonQuery}={}){
 const pendingSql = `
 SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.conversation_id,events.token_id,events.fcm_token,
-       events.actor_name,events.call_mode
+       events.actor_name,events.call_mode,
+       CASE WHEN events.source='chat'
+         THEN public.v27_fcm_safe_chat_preview(events.event_id,events.token_id)
+         ELSE NULL END AS message_preview
 FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
 AND (events.source<>'incoming-call' OR created_at>now()-interval '30 seconds')
@@ -129,6 +132,10 @@ AND NOT EXISTS (
 )
 ORDER BY created_at ASC LIMIT 80
 `;
+const directChatSql=pendingSql
+  .replace("WHERE created_at > now()-interval '2 hours'",
+    "WHERE created_at > now()-interval '90 seconds' AND events.source='chat' "+
+    "AND events.resource_id=$1::uuid");
 const directCallSql=pendingSql
   .replace("WHERE created_at > now()-interval '2 hours'",
     "WHERE created_at > now()-interval '35 seconds' AND events.source='incoming-call' "+
@@ -238,8 +245,12 @@ export async function deliverNotifications(env,{
       actionBySource[String(item.source)]||genericByKind[String(item.kind)]||"Interagiu com você";
     data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
     if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
+    // Only previews belonging to the verified recipient token can be returned
+    // by v27_fcm_safe_chat_preview. No text is taken from client payload.
+    const preview=kind==="message" && item.source==="chat"
+      ? String(item.message_preview||"").replace(/\s+/g," ").trim().slice(0,120):"";
     data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):
-      item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action;
+      preview|| (item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action);
     // For stories, replies and comments we keep only a short generic
     // action and no private excerpt, password or attachment in FCM.
     const message={token:item.fcm_token,data,
@@ -316,8 +327,51 @@ export async function dispatchImmediateCall(env,{
   return Response.json({accepted:result.sent,failed:result.failed},{headers:cors});
 }
 
+// Chat message push does not wait for the one-minute cron. JWT identity,
+// message age, sender and notification creation are all checked in Neon.
+export async function dispatchImmediateChat(env,{
+  request,authFetch=fetch,deliver=deliverNotifications
+}={}){
+  const cors={"access-control-allow-origin":CALL_ORIGIN,
+    "access-control-allow-methods":"POST,OPTIONS",
+    "access-control-allow-headers":"authorization,content-type",
+    "cache-control":"no-store","vary":"Origin"};
+  if(request.headers.get("origin")!==CALL_ORIGIN)
+    return Response.json({error:"forbidden_origin"},{status:403});
+  if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
+  if(request.method!=="POST")
+    return Response.json({error:"method_not_allowed"},{status:405,headers:cors});
+  const bearer=request.headers.get("authorization")||"";
+  if(!/^Bearer [A-Za-z0-9_.-]{32,8192}$/.test(bearer))
+    return Response.json({error:"login_required"},{status:401,headers:cors});
+  const requestBody=await request.json().catch(()=>null);
+  const messageId=requestBody?.messageId;
+  if(!UUID.test(messageId||""))
+    return Response.json({error:"invalid_message"},{status:400,headers:cors});
+  let response;
+  try{
+    response=await authFetch(PUSH_NEON_API+"/rpc/v27_fcm_authorize_chat_message",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:bearer,"content-type":"application/json",accept:"application/json"},
+      body:JSON.stringify({p_message_id:messageId}),signal:AbortSignal.timeout(2500)
+    });
+  }catch{return Response.json({error:"validation_unavailable"},{status:503,headers:cors});}
+  if(!response.ok)return Response.json({error:"unauthorized"},{status:403,headers:cors});
+  const verified=await response.json().catch(()=>null);
+  if(verified!==messageId)return Response.json({error:"message_not_available"},{status:409,headers:cors});
+  try{
+    const result=await deliver(env,{pendingQuerySql:directChatSql,pendingQueryParams:[messageId]});
+    return Response.json({accepted:result.sent,failed:result.failed},{headers:cors});
+  }catch(error){
+    console.warn("Looply immediate chat push unavailable",error?.name||"network");
+    return Response.json({error:"push_unavailable"},{status:503,headers:cors});
+  }
+}
+
 export default {
   async fetch(request,env){
+    if(new URL(request.url).pathname==="/chat-notify")
+      return dispatchImmediateChat(env,{request});
     if(new URL(request.url).pathname==="/call-ring")
       return dispatchImmediateCall(env,{request});
 
