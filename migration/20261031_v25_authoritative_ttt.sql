@@ -126,7 +126,7 @@ BEGIN
     WHERE conversation_id=p_conversation_id AND status='invited'
       AND created_at<now()-interval '30 minutes';
   INSERT INTO public.looply_ttt_games(conversation_id,x_player,o_player,invited_by,turn_player)
-    VALUES(p_conversation_id,actor,peer,actor,actor)
+    VALUES(p_conversation_id,actor,peer,actor,CASE WHEN random()<0.5 THEN actor ELSE peer END)
     ON CONFLICT DO NOTHING RETURNING id INTO current_id;
   IF current_id IS NULL THEN
     SELECT id INTO current_id FROM public.looply_ttt_games
