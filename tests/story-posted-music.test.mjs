@@ -8,7 +8,7 @@ const viewer=file("src/stories.js");
 const picker=file("src/story-music-picker.js");
 
 test("Catalog music selection stays in app and never opens the device picker automatically",()=>{
- assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
+ assert.match(studio,/if\(music\?\.kind==="catalog" && !appleStoryTrackId\(music\)\)/);
  assert.match(studio,/não pode ser incorporada ao Story/);
  assert.doesNotMatch(picker,/const needsOwnAudio=track=>track\.kind==="catalog"/);
  assert.match(picker,/onSelect\(withStoryMusicStart\(track,startSeconds\)\)/);

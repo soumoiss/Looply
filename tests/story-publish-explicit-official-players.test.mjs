@@ -46,7 +46,7 @@ test("Apple and Deezer widgets remain valid previews but cannot publish a metada
  const deezer={kind:"catalog",provider:"deezer",title:"Exemplo",artist:"Artista",url:"https://www.deezer.com/br/track/777",id:"777"};
  assert.deepEqual(officialStorySongEmbed(apple),{kind:"embed",provider:"apple",src:"https://embed.music.apple.com/br/album/album/123?i=456"});
  assert.deepEqual(officialStorySongEmbed(deezer),{kind:"embed",provider:"deezer",src:"https://widget.deezer.com/widget/dark/track/777"});
- assert.equal(storyMusicCanPublish(apple),false);
+ assert.equal(storyMusicCanPublish(apple),true);
  assert.equal(storyMusicCanPublish(deezer),false);
  for(const song of [apple,deezer]){
   const after=decodeStorySong(encodeStorySong("Texto no Story",song));

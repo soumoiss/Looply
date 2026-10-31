@@ -1,4 +1,4 @@
-import { decodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { decodeStorySong, appleStoryTrackId, resolveAppleStoryPreview } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { startStoryMediaPlayback, stopStoryMediaPlayback } from "./story-viewer-playback.js?v=feed-media-audio-20261029";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
@@ -538,10 +538,66 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if(oldMusic instanceof HTMLMediaElement)stopStoryMediaPlayback(oldMusic, { owner: viewer });
       oldMusic.remove();
     });
-    // Catalog metadata is not an audio license. Only sound already mixed
-    // into an authorized uploaded Story video is played. No provider iframes,
-    // silent hidden streams or unsupported autoplay workarounds are added.
-    if (storyText.music?.provider === "itunes") soundStatus("hidden");
+    // Restore the October 26 behavior: a separate, invisible <audio>
+    // accompanies an Apple song reference, with no iframe, modal, widget,
+    // new visual control or change to the original photo/video dimensions.
+    // Apple provides only a short-lived sample URL; look it up at viewing
+    // time using the stable track ID, never persist CDN URLs in the story.
+    const oldApplePreview=storyText.music?.provider==="itunes"
+      ? storyText.music.previewUrl : "";
+    const appleSong=catalogSong.song?.provider==="apple" &&
+      appleStoryTrackId(catalogSong.song) ? catalogSong.song : null;
+    if(oldApplePreview || appleSong){
+      const music=document.createElement("audio");
+      music.id="story-audio";
+      music.dataset.storyViewerMusic="";
+      music.className="story-viewer-music-hidden";
+      music.controls=false;
+      music.autoplay=!waitsForVideo;
+      music.preload="auto";
+      music.loop=true;
+      music.setAttribute("aria-label","Música do Story");
+      viewer.querySelector("[data-story-touch-surface]").append(music);
+      const current=()=>viewer.open && state.slideVersion===version && music.isConnected
+        && viewer.querySelector("#story-audio")===music;
+      const begin=()=>{
+        if(!current() || state.paused)return;
+        const video=viewer.querySelector("[data-story-viewer-media] video");
+        if(video?.paused)return; // The video 'playing' event starts its soundtrack.
+        if(video && Number.isFinite(video.currentTime)){
+          try{music.currentTime=video.currentTime;}catch{}
+        }
+        void playStoryAudio(music);
+      };
+      music.addEventListener("error",()=>{
+        if(!current())return;
+        music.dataset.playback="unavailable";
+        soundStatus("retry");
+      });
+      if(oldApplePreview){
+        music.src=oldApplePreview;
+        // Read media state only after the previous slide is removed.
+        queueMicrotask(begin);
+      }else{
+        // The pending element remains on the current slide only. A late
+        // response must not restart audio after advancing or closing Stories.
+        void resolveAppleStoryPreview(appleSong).then(src=>{
+          if(!current())return;
+          if(!src){
+            music.dataset.playback="unavailable";
+            soundStatus("retry");
+            return;
+          }
+          music.src=src;
+          begin();
+        }).catch(()=>{
+          if(current()){
+            music.dataset.playback="unavailable";
+            soundStatus("retry");
+          }
+        });
+      }
+    }
     const mediaHost = viewer.querySelector("[data-story-viewer-media]");
     const slideAudio = viewer.querySelector("#story-audio");
     mediaHost.querySelectorAll("video").forEach((video) => {

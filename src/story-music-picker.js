@@ -1,14 +1,16 @@
-import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata, appleStoryTrackId } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
 import { storyMusicStartSeconds, withStoryMusicStart } from "./story-music-clip.js";
 import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
 
-// Apple/Deezer/Spotify: catalog previews only; own or licensed audio is the publishable soundtrack.
+// Apple catalog selections may use the historical remote soundtrack in the
+// published viewer; only owned/licensed audio is mixed into uploaded media.
 // No Spotify app link, hidden application launch or fake synthetic tracks.
 export function storyMusicCanPublish(track) {
   return track?.kind==="file" ||
-    track?.kind==="openverse";
+    track?.kind==="openverse" ||
+    (track?.kind==="catalog" && track.provider==="apple" && Boolean(appleStoryTrackId(track)));
 }
 async function searchSpotifyAuthenticated(term,{signal}={}) {
   // The preexisting authenticated Neon Function proxies Spotify catalog
@@ -60,7 +62,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const chooseForStory=async track=>{
     if(closed||importBusy)return;
     const startSeconds = previewedTrack === track ? previewStartSeconds : 0;
-    if(track.kind==="catalog"){
+    if(track.kind==="catalog" && !appleStoryTrackId(track)){
       found.textContent="Esta prévia é apenas para ouvir no seletor. Escolha uma gravação com licença adequada para publicar.";
       return;
     }
@@ -105,9 +107,11 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
       if(el!==audio||closed)return;
       if(el.currentSrc && el.readyState>=2)validatedStreams.add(el.currentSrc);
       toggle.textContent="⏸ Pausar trecho";
-      found.textContent=storyMusicCanPublish(previewedTrack)
-        ?"Trecho tocando. Ajuste o início e selecione para usar no Story."
-        :"Prévia oficial tocando. Esta faixa não pode ser incorporada ao Story.";
+      found.textContent=previewedTrack?.kind==="catalog" && appleStoryTrackId(previewedTrack)
+        ?"Prévia tocando. Selecione para vincular o áudio da Apple ao Story."
+        : storyMusicCanPublish(previewedTrack)
+          ?"Trecho tocando. Ajuste o início e selecione para usar no Story."
+          :"Prévia oficial tocando. Esta faixa não pode ser incorporada ao Story.";
     });
     el.addEventListener("pause",()=>{if(el===audio)toggle.textContent="▶ Ouvir trecho";});
     el.addEventListener("error",()=>{if(el===audio && !closed)found.textContent="Não foi possível reproduzir o áudio.";});
@@ -151,7 +155,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     }
     // Pick the exact second of a licensed recording in the same panel.
     // The recorded video then starts at this position, not at second zero.
-    if(storyMusicCanPublish(track) && audio){
+    if((track.kind==="file" || track.kind==="openverse") && audio){
       const trackAudio=audio;
       const clipLabel=addText(player,"label","Início do trecho: 0:00","studio-music-clip-label");
       const clipRange=document.createElement("input");

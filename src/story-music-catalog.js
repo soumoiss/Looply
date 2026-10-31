@@ -51,6 +51,7 @@ export function normalizeStorySong(track) {
 }
 const markerStart="[[looply-music-v4|";
 const markerV5="[[looply-music-v5|";
+const markerV6="[[looply-music-v6|"; // Apple track IDs, no transient media URLs in stories
 /** Authorized provider-owned widgets are played in the published Story after
  * the viewer taps Play. They are never captured or mixed into its media file.
  * Deezer previews are normally limited; Apple full playback may require sign-in.
@@ -95,19 +96,20 @@ export function encodeStorySong(text,track) {
   const song=normalizeStorySong(track);
   const description=String(text||"").trim();
   if (!song) return description.slice(0,700);
-  const marker=markerStart+
-    [song.provider,song.title,song.artist,song.url].map(encodeURIComponent).join("|")+"]]";
+  const appleId=song.provider==="apple" && /^\d{1,18}$/.test(song.id);
+  const marker=(appleId?markerV6:markerStart)+
+    [song.provider,song.title,song.artist,song.url,...(appleId?[song.id]:[])].map(encodeURIComponent).join("|")+"]]";
   if (marker.length>=700) throw new Error("Os dados desta música são longos demais. Escolha outra.");
   return marker+description.slice(0,700-marker.length);
 }
 export function decodeStorySong(value) {
   const raw=String(value||"");
-  const prefix=raw.startsWith(markerV5)?markerV5:raw.startsWith(markerStart)?markerStart:null;
+  const prefix=raw.startsWith(markerV6)?markerV6:raw.startsWith(markerV5)?markerV5:raw.startsWith(markerStart)?markerStart:null;
   if(!prefix)return {text:raw,song:null};
   const end=raw.indexOf("]]",prefix.length);
   if (end<0 || end>1300) return {text:raw,song:null};
   const chunks=raw.slice(prefix.length,end).split("|");
-  if (chunks.length!==(prefix===markerV5?5:4)) return {text:raw,song:null};
+  if (chunks.length!==([markerV5,markerV6].includes(prefix)?5:4)) return {text:raw,song:null};
   try {
     const [provider,title,artist,url,id]=chunks.map(decodeURIComponent);
     // Decode old markers for text recovery but disable the removed provider.
@@ -140,6 +142,40 @@ export async function searchSpotifyStoryMetadata(value,{
     return normalizeStorySong({provider:"spotify",id,title:item.name,artist:item.artist,
       url:"https://open.spotify.com/track/"+id,artwork:item.image||"",previewUrl:""});
   }).filter(Boolean).slice(0,10);
+}
+
+
+// Fetch the official Apple preview afresh when a Story is viewed: Apple's
+// promotional CDN URLs are transient. Persist only a stable, validated track
+// ID (v6), never the preview URL or its CDN token in public Story metadata.
+// This restores the historical separate-audio viewer, not media-file mixing.
+export function appleStoryTrackId(value) {
+  const song=normalizeStorySong(value);
+  if(!song || song.provider!=="apple")return "";
+  if(/^\d{1,18}$/.test(song.id))return song.id;
+  try{
+    const u=new URL(song.url);
+    const queryId=u.searchParams.get("i");
+    if(queryId && /^\d{1,18}$/.test(queryId))return queryId;
+    if(u.pathname.includes("/song/")){
+      const match=u.pathname.match(/\/(\d{1,18})$/);
+      if(match)return match[1];
+    }
+  }catch{}
+  return "";
+}
+
+export async function resolveAppleStoryPreview(song,{fetcher=fetch,signal}={}) {
+  const id=appleStoryTrackId(song);
+  if(!id)return "";
+  const url="https://itunes.apple.com/lookup?id="+encodeURIComponent(id)+"&country=br&entity=song";
+  const response=await fetcher(url,{signal,cache:"no-store"});
+  if(!response.ok) return "";
+  const data=await response.json();
+  const matched=(Array.isArray(data?.results)?data.results:[])
+    .find(record=>record?.kind==="song" && String(record.trackId)===id);
+  if(!matched || !officialUrl(matched.trackViewUrl,"apple"))return "";
+  return officialPreviewUrl(matched.previewUrl,"apple");
 }
 
 export async function searchAppleMusicPublic(value,{fetcher=fetch,signal}={}) {
