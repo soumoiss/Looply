@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { createCallIceGate } from "./call-ice-gate.js";
+import { createCallRingtone } from "./call-ringtone.js";
 import { setCallPlaybackActive } from "./media-playback-coordinator.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
@@ -60,7 +61,9 @@ export function setupChatCalls(root, client, userId) {
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
   const iceGate = createCallIceGate(candidate => send("ice", { candidate }));
+  const ringtone = createCallRingtone();
   const releaseMedia = () => {
+    ringtone.stop();
     iceGate.reset();
     setCallPlaybackActive(false);
     clearOfferRetry();
@@ -286,6 +289,7 @@ export function setupChatCalls(root, client, userId) {
   const acceptCall = async () => {
     if (!incomingOffer || answeringCall || pc) return;
     answeringCall = true;
+    ringtone.stop();
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
     callPeerName = incomingOffer.senderName || peerName();
     try {
@@ -381,6 +385,7 @@ export function setupChatCalls(root, client, userId) {
     callMode = payload.mode;
     callPeerName = payload.senderName || peerName();
     showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+    void ringtone.start();
     return true;
   };
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
@@ -430,7 +435,16 @@ export function setupChatCalls(root, client, userId) {
   };
   root.addEventListener("looply:incoming-call", event => {
     const payload = event.detail?.payload;
-    if (event.detail?.conversationId !== activeConversation() || !receiveOffer(payload)) return;
+    if (event.detail?.conversationId !== activeConversation() || !payload) return;
+    if (payload.type !== "offer") {
+      // A caller may hang up before the conversation room has subscribed.
+      if (incomingOffer?.senderId !== payload.senderId ||
+          !["hangup", "decline", "failed"].includes(payload.type)) return;
+      event.preventDefault();
+      void endCall(false, "A outra pessoa encerrou a chamada.");
+      return;
+    }
+    if (!receiveOffer(payload)) return;
     // Tell the global listener that this conversation owns the incoming UI.
     // It must not simultaneously show a second ringing overlay on Android.
     event.preventDefault();
@@ -530,6 +544,7 @@ export function setupChatCalls(root, client, userId) {
     if (event.target.matches("[data-call-modal]")) endCall(true);
   });
   window.addEventListener("pagehide", () => {
+    ringtone.stop();
     observer.disconnect();
     if (pc || localStream) endCall(false, "");
     if (channel) client.removeChannel(channel);
