@@ -1,5 +1,6 @@
 import { bindProfileNavigation } from "./profile-navigation.js";
 import { icon } from "./icons.js";
+import { primaryNavigationMarkup } from "./primary-navigation.js";
 import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?v=admin-notices-20261031";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-handoff-20261030";
@@ -8,29 +9,6 @@ import { startAdminPresenceTracking } from "./admin-presence.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 import { bindAdminModeSync } from "./admin-mode.js";
-
-const navigation = [
-  ["home", "Início", "home.html"],
-  ["letters", "Cartas", "cartas.html"],
-  ["music", "Músicas", "musicas.html"],
-  ["gallery", "Galeria", "galeria.html"],
-  ["chat", "Chat", "chat.html"],
-  ["notifications", "Notificações", "notificacoes.html"]
-];
-const navigationShortLabels = { chat: "Chat", letters: "Cartas", notifications: "Avisos", music: "Músicas", gallery: "Galeria", home: "Início" };
-const navigationIcons = {
-  home: icon("home"),
-  music: icon("music"),
-  gallery: icon("camera"),
-  chat: icon("chat"),
-  profile: icon("user"),
-  letters: icon("mail"),
-  notifications: icon("bell"),
-  users: icon("users"),
-  settings: icon("settings"),
-  admin: icon("shield"),
-  back: icon("back")
-};
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -70,15 +48,14 @@ function headerMarkup(page, profile, admin, unreadCount) {
   const avatar = profile.avatarUrl
     ? `<img class="looply-user-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="looply-user-initial" aria-hidden="true">${escapeHtml(name.slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`;
-  const activePage = page === "conversation" ? "chat" : page;
-  const links = navigation.map(([key, label, href]) => `<a class="header-action" href="${href}" aria-label="${label}"${key === activePage ? ' aria-current="page"' : ""}><span class="page-navigation-icon" aria-hidden="true">${navigationIcons[key]}</span><span class="page-navigation-label" data-short-label="${navigationShortLabels[key] || label}">${label}</span>${key === "notifications" && unreadCount ? `<span class="navigation-badge" aria-label="${unreadCount} não lidas">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}</a>`).join("");
+
   const profileCurrent = page === "profile" ? " aria-current=\"page\"" : "";
   const settingsCurrent = page === "settings" ? " aria-current=\"page\"" : "";
   const usersCurrent = page === "users" ? " aria-current=\"page\"" : "";
   const adminCurrent = page === "admin" ? " aria-current=\"page\"" : "";
   const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">${icon("user")}Meu perfil</a><a class="account-menu-link"${usersCurrent} href="usuarios.html">${icon("users")}Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">${icon("settings")}Configurações</a>${admin ? `<button class="account-menu-link admin-mode-toggle" type="button" data-admin-mode-toggle aria-pressed="false">Ativar ADM</button><a class="account-menu-link"${adminCurrent} href="admin.html">${icon("shield")}Administração</a>` : ""}`;
-  return `${page === "home" ? "" : `<a class="header-action header-back-button" href="home.html" data-page-back aria-label="Voltar para o início" title="Voltar para o início"><span aria-hidden="true">${navigationIcons.back}</span><span class="back-label">Início</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
-    <nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav>
+  return `${page === "home" ? "" : `<a class="header-action header-back-button" href="home.html" data-page-back aria-label="Voltar para o início" title="Voltar para o início"><span aria-hidden="true">${icon("back")}</span><span class="back-label">Início</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
+    ${primaryNavigationMarkup(page, unreadCount)}
     <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">${icon("menu")}</span></summary>
       <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Sair</button></div></details>`;
 }
@@ -236,9 +213,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
   const stopProfileNavigation = bindProfileNavigation({root,header,user});
-  document.querySelectorAll(".page-navigation a").forEach((link) => {
-    if (link.getAttribute("aria-current") === "page") link.setAttribute("aria-current", "page");
-  });
   header.querySelector("[data-sign-out]").addEventListener("click", async (event) => {
     event.currentTarget.disabled = true;
     await unregisterAndroidFcmDevice().catch(() => false);
