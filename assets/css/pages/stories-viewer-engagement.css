@@ -299,3 +299,30 @@
     bottom:calc(env(safe-area-inset-bottom) + 62px + var(--story-keyboard-inset,0px))!important;
   }
 }
+
+/* Unseen stories use a red ring; fully viewed groups use neutral gray.
+   Explicit specificity wins over older Home/Chat lilac and gradient rules. */
+:is(.page-home,.page-chat) .story-avatar-button.is-story-unseen .story-avatar-frame {
+  border:3px solid transparent!important;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,
+    linear-gradient(145deg,#ff4c4c,#d41443 55%,#f23c48) border-box!important;
+}
+:is(.page-home,.page-chat) .story-avatar-button.is-story-seen .story-avatar-frame {
+  border:3px solid transparent!important;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,
+    linear-gradient(#9c9ca5,#9c9ca5) border-box!important;
+}
+.story-viewer-dialog .story-viewer-header-controls [data-story-close] {
+  display:grid!important;place-items:center!important;
+  position:relative!important;
+  visibility:visible!important;opacity:1!important;
+  flex:0 0 42px!important;width:42px!important;height:42px!important;
+  border:1px solid #ffffff9c!important;border-radius:50%!important;
+  background:#09090dd6!important;color:white!important;
+  font-size:26px!important;font-weight:600!important;
+  z-index:99!important;pointer-events:auto!important;
+}
+.story-viewer-dialog .story-viewer-header-controls {
+  position:relative!important;z-index:50!important;pointer-events:auto!important;
+}
+.story-viewer-dialog .story-viewer-header {z-index:45!important;pointer-events:auto!important;}
