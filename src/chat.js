@@ -842,7 +842,7 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     if (!keepThread || !conversationId || conversationId !== conversationAtStart ||
         !data.conversations.some((row) => row.id === conversationId)) {
       root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
-      return;
+      return true;
     }
 
     const { messages, participants, conversation } = await loadThread(client, conversationId);
@@ -854,12 +854,19 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
     updateThreadMarkup(root.querySelector("[data-chat-thread]"), markup, conversationId);
     root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
+    return true;
   } catch (error) {
     console.error("Looply conversation refresh failed", error);
     const status = root.querySelector("[data-chat-live]");
     if (status) status.textContent = "Sem atualização; tentando novamente";
     // Keep the current conversation and draft intact if a refresh fails.
+    return false;
   }
+}
+
+/** Refresh authenticated conversation summaries without remounting chat controllers. */
+export async function refreshChatInPlace(root, client, userId) {
+  return (await refreshChat(root, client, userId, {keepThread:Boolean(activeConversationId)})) === true;
 }
 
 function scheduleRefresh(root, client, userId) {
