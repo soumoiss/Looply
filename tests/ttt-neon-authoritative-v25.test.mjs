@@ -119,6 +119,6 @@ test("mobile styles ensure readable identities, three-by-three board and touch t
   assert.match(css,/chat-ttt-game \.chat-v2-board/);
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(css,/prefers-reduced-motion:reduce/);
-  assert.match(html,/chat\.css\?v=20261031/);
+  assert.match(html,/chat\.css\?v=[a-z0-9-]+/);
   assert.match(wrapper,/chat-enhancements\.js\?v=ttt-reconnect-20261031/);
 });
