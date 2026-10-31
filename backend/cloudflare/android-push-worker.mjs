@@ -109,32 +109,12 @@ async function neonQuery(env,query,params=[]){
   return payload.rows;
 }
 const pendingSql = `
-SELECT source,event_id,kind,resource_id,conversation_id,token_id,fcm_token
-FROM (
- SELECT 'activity' AS source,n.id AS event_id,n.kind,n.resource_id,NULL::uuid AS conversation_id,
-        t.id AS token_id,t.fcm_token,n.created_at
- FROM public.notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
- UNION ALL
- SELECT 'chat',n.id,
-        CASE WHEN EXISTS (
-          SELECT 1 FROM public.chat_media cm
-          WHERE cm.message_id=n.message_id AND cm.mime_type LIKE 'audio/%'
-        ) THEN 'voice' ELSE n.kind END,
-        n.message_id,n.conversation_id,t.id,t.fcm_token,n.created_at
- FROM public.chat_notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.user_id
- UNION ALL
- SELECT 'letter',n.id,'letter',n.letter_id,NULL::uuid,t.id,t.fcm_token,n.created_at
- FROM public.letter_event_notifications n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
- WHERE n.event_type='new_received'
- UNION ALL
- SELECT 'story',n.id,'story',n.story_id,NULL::uuid,t.id,t.fcm_token,n.created_at
- FROM public.android_fcm_story_events n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
- UNION ALL
- SELECT e.source,e.event_id,e.kind,e.resource_id,e.conversation_id,
-        e.token_id,e.fcm_token,e.created_at
- FROM public.v20_android_fcm_activity_candidates() e
-) events
+SELECT events.source,events.event_id,events.kind,events.resource_id,
+       events.conversation_id,events.token_id,events.fcm_token,
+       events.actor_name,events.call_mode
+FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
+AND (events.source<>'incoming-call' OR created_at>now()-interval '30 seconds')
 AND NOT EXISTS (
   SELECT 1 FROM public.android_fcm_deliveries d
   WHERE d.source=events.source AND d.event_id=events.event_id AND d.token_id=events.token_id
@@ -142,6 +122,11 @@ AND NOT EXISTS (
 )
 ORDER BY created_at ASC LIMIT 80
 `;
+const directCallSql=pendingSql
+  .replace("WHERE created_at > now()-interval '2 hours'",
+    "WHERE created_at > now()-interval '35 seconds' AND events.source='incoming-call' "+
+    "AND events.conversation_id=$1::uuid "+
+    "AND events.event_id=md5('cs:'||$2::text)::uuid");
 const claimSql=`
 INSERT INTO public.android_fcm_deliveries(source,event_id,token_id,status)
 VALUES ($1,$2::uuid,$3::uuid,'pending')
@@ -173,9 +158,10 @@ function kindFor(row){
 // Inject transports only from unit tests; production uses the actual Neon
 // HTTP SQL API and Google OAuth/FCM endpoints.
 export async function deliverNotifications(env,{
-  query=neonQuery, accessTokenProvider=googleAccessToken, sendFetch=fetch
+  query=neonQuery, accessTokenProvider=googleAccessToken, sendFetch=fetch,
+  pendingQuerySql=pendingSql,pendingQueryParams=[]
 }={}){
-  const rows=await query(env,pendingSql);
+  const rows=await query(env,pendingQuerySql,pendingQueryParams);
   if(!rows.length)return {eligible:0,sent:0,failed:0};
   const accessToken=await accessTokenProvider(env);
   let sent=0,failed=0;
@@ -187,21 +173,31 @@ export async function deliverNotifications(env,{
     const data={kind};
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
     if(item.resource_id)data.resourceId=String(item.resource_id);
-    data.title="Looply";
-    data.body=kind==="call"?"Chamada recebida":kind==="voice"?"Nova mensagem de voz":
-      kind==="message"?"Nova mensagem":kind==="letter"?"Nova carta":
-      kind==="post"?(item.source==="post-mention"?"Você foi mencionado numa publicação":"Nova publicação no feed"):
-      kind==="comment"?"Novo comentário em uma publicação":
-      kind==="gallery"?(item.source==="gallery-mention"||item.source==="gallery-tag"?"Você foi marcado na galeria":
-        item.source==="gallery-comment"?"Novo comentário na galeria":
-        item.source==="gallery-like"?"Curtiram sua foto na galeria":"Nova mídia na galeria"):
-      kind==="mention"?"Você foi mencionado em um Story":
-      kind==="dedication"?(item.source.includes("comment")?"Comentaram uma música":"Você recebeu uma música"):
-      kind==="story"?"Nova atividade nos Stories":
-      kind==="like"?"Curtiram sua publicação":"Nova atividade";
+    // Names are sourced from Neon after recipient visibility checks. Never
+    // trust senderName from the client signaling payload.
+    const actor=String(item.actor_name||"").trim().slice(0,64) || "Alguém";
+    const callMode=item.call_mode==="video"?"video":"audio";
+    const suffix=kind==="call"
+      ? " está ligando por "+(callMode==="video"?"vídeo":"voz")
+      : "";
+    data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
+    if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
+    data.body=kind==="call"?actor+suffix:kind==="voice"?"Enviou uma mensagem de voz":
+      kind==="message"?"Enviou uma mensagem":kind==="letter"?"Enviou uma carta":
+      kind==="post"?(item.source==="post-mention"?"Mencionou você numa publicação":"Publicou no feed"):
+      kind==="comment"?"Comentou uma publicação":
+      kind==="gallery"?(item.source==="gallery-mention"||item.source==="gallery-tag"||item.source==="archive-gallery-mention"?"Marcou você na galeria":
+        item.source==="gallery-comment"||item.source==="archive-gallery-comment"?"Comentou na galeria":
+        item.source==="gallery-like"?"Curtiu sua foto na galeria":"Publicou na galeria"):
+      kind==="mention"?"Mencionou você em um Story":
+      kind==="dedication"?(item.source.includes("comment")?"Comentou uma música":"Dedicou uma música a você"):
+      kind==="story"?(item.source==="story-like"?"Curtiu seu Story":"Publicou um Story"):
+      kind==="like"?"Curtiu sua publicação":"Interagiu com você";
+    // For stories, replies and comments we keep only a short generic
+    // action and no private excerpt, password or attachment in FCM.
     const message={token:item.fcm_token,data,
       android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",
-        ttl:kind==="call"?"120s":"86400s"}};
+        ttl:kind==="call"?"30s":"86400s"}};
     let ok=false;
     try{
       const response=await sendFetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
@@ -223,8 +219,60 @@ export async function deliverNotifications(env,{
   }
   return {eligible:rows.length,sent,failed};
 }
+
+const PUSH_NEON_API="https://ep-fancy-smoke-b7d6t1s6.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1";
+const CALL_ORIGIN="https://soumoiss.github.io";
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function dispatchImmediateCall(env,{
+  request, authFetch=fetch, deliver=deliverNotifications
+}={}){
+  const origin=request.headers.get("origin");
+  const cors={"access-control-allow-origin":CALL_ORIGIN,
+    "access-control-allow-methods":"POST,OPTIONS",
+    "access-control-allow-headers":"authorization,content-type",
+    "cache-control":"no-store","vary":"Origin"};
+  if(origin!==CALL_ORIGIN) return Response.json({error:"forbidden_origin"},{status:403});
+  if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
+  if(request.method!=="POST")return Response.json({error:"method_not_allowed"},{status:405,headers:cors});
+  const bearer=request.headers.get("authorization")||"";
+  if(!/^Bearer [A-Za-z0-9_.-]{32,8192}$/.test(bearer))
+    return Response.json({error:"login_required"},{status:401,headers:cors});
+  let body;
+  try{body=await request.json();}catch{return Response.json({error:"invalid_body"},{status:400,headers:cors});}
+  const conversation=body?.conversationId;
+  if(!UUID.test(conversation||""))
+    return Response.json({error:"invalid_conversation"},{status:400,headers:cors});
+  // A bearer is never decoded or trusted locally; the Neon authenticated RPC
+  // checks auth.uid, direct membership, offer age, mode and hangup/answer state.
+  let validation;
+  try{
+    validation=await authFetch(PUSH_NEON_API+"/rpc/v22_fcm_authorize_call_ring",{
+      method:"POST",headers:{authorization:bearer,"content-type":"application/json",
+        accept:"application/json"},body:JSON.stringify({p_conversation_id:conversation}),
+      signal:AbortSignal.timeout(2500)
+    });
+  }catch{return Response.json({error:"validation_unavailable"},{status:503,headers:cors});}
+  if(!validation.ok)return Response.json({error:"call_not_authorized"},{status:403,headers:cors});
+  const offerId=await validation.json().catch(()=>null);
+  if(!Number.isSafeInteger(offerId)||offerId<1)
+    return Response.json({error:"call_not_available"},{status:409,headers:cors});
+  let result;
+  try{
+    result=await deliver(env,{pendingQuerySql:directCallSql,
+      pendingQueryParams:[conversation,String(offerId)]});
+  }catch(error){
+    console.warn("Looply immediate FCM dispatch failed",String(error?.message||"unavailable").slice(0,75));
+    return Response.json({error:"push_unavailable"},{status:503,headers:cors});
+  }
+  return Response.json({accepted:result.sent,failed:result.failed},{headers:cors});
+}
+
 export default {
   async fetch(request,env){
+    if(new URL(request.url).pathname==="/call-ring")
+      return dispatchImmediateCall(env,{request});
+
     if(request.method==="GET"&&new URL(request.url).pathname==="/health") {
       let ready=false,status="missing_configuration";
       const codes=new Set(["fcm_service_account_invalid_json",

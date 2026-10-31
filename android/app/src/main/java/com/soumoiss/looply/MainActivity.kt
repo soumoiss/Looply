@@ -150,8 +150,17 @@ class MainActivity : Activity() {
     private fun handleNotificationRoute(intent: Intent) {
         val route = intent.getStringExtra("looply_route") ?: return
         val id = "[a-fA-F0-9-]{36}"
-        val allowed = Regex("""(?:conversa\.html\?id=$id|chat\.html|cartas\.html(?:\?letterId=$id)?|musicas\.html(?:#dedication-$id)?|home\.html(?:\?storyId=$id#stories|#stories|#post-$id)?|notificacoes\.html)""")
+        val allowed = Regex("""(?:conversa\.html\?id=$id(?:&nativeCallAction=(?:accept|decline))?|chat\.html|cartas\.html(?:\?letterId=$id)?|musicas\.html(?:#dedication-$id)?|home\.html(?:\?storyId=$id#stories|#stories|#post-$id)?|galeria\.html|notificacoes\.html)""")
         if (!route.matches(allowed)) return
+        if (route.contains("&nativeCallAction=")) {
+            val callId = route.substringAfter("conversa.html?id=").substringBefore("&")
+            val prefs = getSharedPreferences("looply_android_device", MODE_PRIVATE)
+            val age = System.currentTimeMillis() - prefs.getLong("pending_incoming_call_at",0)
+            if (prefs.getString("pending_incoming_call",null) != callId || age !in 0..45000L) return
+            prefs.edit().remove("pending_incoming_call").remove("pending_incoming_call_at").apply()
+            (getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                .cancel(callId.hashCode())
+        }
         webView.post { webView.loadUrl("$REMOTE_START_URL$route") }
     }
 
