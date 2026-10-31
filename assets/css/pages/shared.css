@@ -5,6 +5,11 @@
 .looply-page .page-navigation [aria-current="page"] { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 32%, var(--line)); background: var(--surface-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent); }
 .page-navigation-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: 0 0 20px; color: inherit; }
 .page-navigation-icon .looply-icon { display: block; width: 20px; height: 20px; margin: 0; color: inherit; }
+/* Override legacy app.css @media(max-width:390px) .header-action span {display:none},
+   which otherwise hides BOTH the SVG and label on narrow Android screens. */
+.looply-page .page-navigation .header-action .page-navigation-icon { display: inline-flex; }
+.looply-page .page-navigation .header-action .page-navigation-label { display: block; }
+
 .looply-page .page-navigation .header-action { -webkit-tap-highlight-color: transparent; }
 .looply-page .page-navigation .header-action:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
