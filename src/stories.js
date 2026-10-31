@@ -576,7 +576,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       });
       if(oldApplePreview){
         music.src=oldApplePreview;
-        begin();
+        // Read media state only after the previous slide is removed.
+        queueMicrotask(begin);
       }else{
         // The pending element remains on the current slide only. A late
         // response must not restart audio after advancing or closing Stories.
