@@ -23,7 +23,7 @@ jobs:
         run: npm test
       - name: Check server-only secrets and least-privileged Neon role
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '9d6b2a220ea26d8c7546a6190727cef5' }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
           NEON_PUSH_DATABASE_URL: ${{ secrets.NEON_PUSH_DATABASE_URL }}
@@ -60,12 +60,12 @@ jobs:
           NODE
       - name: Deploy FCM Worker code and scheduled trigger
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '9d6b2a220ea26d8c7546a6190727cef5' }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx --yes wrangler@4 deploy --config backend/cloudflare/wrangler.android-push.toml
       - name: Install the private Neon dispatch connection
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '9d6b2a220ea26d8c7546a6190727cef5' }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEON_PUSH_DATABASE_URL: ${{ secrets.NEON_PUSH_DATABASE_URL }}
         shell: bash
@@ -75,7 +75,7 @@ jobs:
             npx --yes wrangler@4 secret put NEON_PUSH_DATABASE_URL --config backend/cloudflare/wrangler.android-push.toml
       - name: Install Firebase service-account secret
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '9d6b2a220ea26d8c7546a6190727cef5' }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
         shell: bash
