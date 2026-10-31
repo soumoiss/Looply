@@ -1,7 +1,7 @@
 import { bindProfileNavigation } from "./profile-navigation.js";
 import { icon } from "./icons.js";
 import { primaryNavigationMarkup } from "./primary-navigation.js";
-import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?v=scheduled-letters-fix-20261031";
+import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?v=scheduled-received-20261031";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-handoff-20261030";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
