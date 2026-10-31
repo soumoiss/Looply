@@ -22,9 +22,14 @@ export function decodeFcmPrivateKey(pem, decode = atob) {
     .replace(/[\s\uFEFF]/g, "");
   if (body.length < 100) throw Error("fcm_private_key_too_short");
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) throw Error("fcm_private_key_non_base64_characters");
-  if (body.length % 4 === 1) throw Error("fcm_private_key_bad_length");
+  // The transport sometimes adds inappropriate trailing padding. Normalize
+  // padding, but do not accept a malformed RSA key: importKey still validates
+  // the complete DER structure before any OAuth request can be made.
+  const unpadded = body.replace(/=+$/, "");
+  if (unpadded.length % 4 === 1) throw Error("fcm_private_key_bad_length");
+  const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, "=");
   try {
-    return Uint8Array.from(decode(body), character => character.charCodeAt(0));
+    return Uint8Array.from(decode(padded), character => character.charCodeAt(0));
   } catch {
     throw Error("fcm_private_key_invalid_base64");
   }
@@ -177,9 +182,21 @@ export async function deliverNotifications(env,{
 }
 export default {
   async fetch(request,env){
-    if(request.method==="GET"&&new URL(request.url).pathname==="/health")
-      return Response.json({service:"looply-android-fcm",
-        ready:Boolean(env.FCM_SERVICE_ACCOUNT_JSON && env.NEON_PUSH_DATABASE_URL && env.FCM_PROJECT_ID)});
+    if(request.method==="GET"&&new URL(request.url).pathname==="/health") {
+      let ready=false;
+      // Bindings existing does NOT mean FCM is ready. Validate the private
+      // credential in-place without returning any details, bytes or tokens.
+      try {
+        if (env.FCM_SERVICE_ACCOUNT_JSON && env.NEON_PUSH_DATABASE_URL && env.FCM_PROJECT_ID) {
+          const account=parseFcmServiceAccount(env.FCM_SERVICE_ACCOUNT_JSON,env.FCM_PROJECT_ID);
+          const keyBytes=decodeFcmPrivateKey(account.private_key);
+          await crypto.subtle.importKey("pkcs8",keyBytes,
+            {name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+          ready=true;
+        }
+      } catch { ready=false; }
+      return Response.json({service:"looply-android-fcm",ready}, {headers:{"cache-control":"no-store"}});
+    }
     return Response.json({error:"not_found"},{status:404});
   },
   async scheduled(_controller,env,ctx){
