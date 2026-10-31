@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.looply_ttt_games (
   conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   x_player uuid NOT NULL REFERENCES public.profiles(id),
   o_player uuid NOT NULL REFERENCES public.profiles(id),
+  invited_by uuid NOT NULL REFERENCES public.profiles(id),
   turn_player uuid REFERENCES public.profiles(id),
   board text[] NOT NULL DEFAULT array_fill(''::text,ARRAY[9]),
   status text NOT NULL DEFAULT 'invited' CHECK (status IN ('invited','active','finished','declined')),
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.looply_ttt_games (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CHECK (x_player <> o_player),
+  CHECK (invited_by IN (x_player,o_player)),
   CHECK (turn_player IS NULL OR turn_player IN (x_player,o_player)),
   CHECK (winner_id IS NULL OR winner_id IN (x_player,o_player)),
   CHECK (array_length(board,1)=9)
@@ -78,7 +80,7 @@ BEGIN
     'gameId',g.id,'conversationId',g.conversation_id,
     'status',g.status,'board',to_jsonb(g.board),'turn',g.turn_player,
     'winnerId',g.winner_id,'isDraw',g.is_draw,
-    'round',g.round,'updatedAt',g.updated_at,
+    'round',g.round,'updatedAt',g.updated_at,'invitedBy',g.invited_by,
     'xPlayer',g.x_player,'oPlayer',g.o_player,
     'x',jsonb_build_object('id',xprof.id,'name',xprof.display_name,'username',xprof.username,'avatarPath',xprof.avatar_path),
     'o',jsonb_build_object('id',oprof.id,'name',oprof.display_name,'username',oprof.username,'avatarPath',oprof.avatar_path),
@@ -123,8 +125,8 @@ BEGIN
   UPDATE public.looply_ttt_games SET status='declined',turn_player=NULL,updated_at=now()
     WHERE conversation_id=p_conversation_id AND status='invited'
       AND created_at<now()-interval '30 minutes';
-  INSERT INTO public.looply_ttt_games(conversation_id,x_player,o_player,turn_player)
-    VALUES(p_conversation_id,actor,peer,actor)
+  INSERT INTO public.looply_ttt_games(conversation_id,x_player,o_player,invited_by,turn_player)
+    VALUES(p_conversation_id,actor,peer,actor,actor)
     ON CONFLICT DO NOTHING RETURNING id INTO current_id;
   IF current_id IS NULL THEN
     SELECT id INTO current_id FROM public.looply_ttt_games
@@ -141,7 +143,7 @@ AS $$
 DECLARE actor uuid:=(SELECT public.looply_legacy_uid()); g public.looply_ttt_games%ROWTYPE;
 BEGIN
   SELECT * INTO g FROM public.looply_ttt_games WHERE id=p_game_id FOR UPDATE;
-  IF actor IS NULL OR NOT FOUND OR actor<>g.o_player THEN
+  IF actor IS NULL OR NOT FOUND OR actor NOT IN (g.x_player,g.o_player) OR actor=g.invited_by THEN
     RAISE EXCEPTION 'Only invited player can accept' USING ERRCODE='42501';
   END IF;
   IF g.status='invited' THEN
@@ -241,8 +243,8 @@ BEGIN
   IF new_id IS NOT NULL THEN RETURN public.v25_ttt_view(new_id); END IF;
   next_x:=COALESCE(g.winner_id,g.o_player);
   next_o:=CASE WHEN next_x=g.x_player THEN g.o_player ELSE g.x_player END;
-  INSERT INTO public.looply_ttt_games(conversation_id,x_player,o_player,turn_player,round,previous_game_id,status)
-  VALUES(g.conversation_id,next_x,next_o,next_x,g.round+1,g.id,'invited')
+  INSERT INTO public.looply_ttt_games(conversation_id,x_player,o_player,invited_by,turn_player,round,previous_game_id,status)
+  VALUES(g.conversation_id,next_x,next_o,actor,next_x,g.round+1,g.id,'invited')
   ON CONFLICT DO NOTHING RETURNING id INTO new_id;
   IF new_id IS NULL THEN
     SELECT id INTO new_id FROM public.looply_ttt_games WHERE previous_game_id=g.id LIMIT 1;
