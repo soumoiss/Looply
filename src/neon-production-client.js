@@ -245,7 +245,7 @@ async function storyEngagementRpc(name, args) {
 // Never silently fall back to a generic unsupported-feature response.
 const scheduledLetterRpcNames = new Set([
   "v24_create_scheduled_letter", "v24_update_scheduled_letter",
-  "v24_cancel_scheduled_letter"
+  "v24_cancel_scheduled_letter", "v26_scheduled_recipient_inbox"
 ]);
 async function scheduledLetterRpc(name, args) {
   if (!scheduledLetterRpcNames.has(name)) return blocked();
@@ -272,6 +272,7 @@ async function scheduledLetterRpc(name, args) {
     }
     const valid = name === "v24_create_scheduled_letter"
       ? typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)
+      : name === "v26_scheduled_recipient_inbox" ? Array.isArray(value)
       : value === true;
     return valid
       ? { data: value, error: null }
