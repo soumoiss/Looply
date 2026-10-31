@@ -275,8 +275,7 @@ BEGIN
   END;
   RETURN jsonb_build_object('body',v_body);
 END
-$function$
-
+$function$;
 
 -- The existing FCM SQL queue now includes only Peixinho-authorized
 -- administrative events. Identity is resolved by the existing profile join.
@@ -352,5 +351,4 @@ AS $function$
  LEFT JOIN public.profiles p ON p.id=a.actor_id
  LEFT JOIN looply_migration.call_signal_events c
    ON e.source='incoming-call' AND md5('cs:'||c.id::text)::uuid=e.event_id
-$function$
-
+$function$;
