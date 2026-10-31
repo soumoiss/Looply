@@ -62,7 +62,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     globalSettings = data || {};
   } catch (error) { console.warn("Looply home global settings unavailable", error); }
   const [socialResult, storiesResult] = await Promise.allSettled([
-    loadSocialData(client), loadStories(client)
+    loadSocialData(client), loadStories(client,user.id)
   ]);
   const socialData = socialResult.status === "fulfilled"
     ? socialResult.value
