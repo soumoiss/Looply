@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=confirm-logout-20261031";
+import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
