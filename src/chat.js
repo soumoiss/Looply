@@ -176,6 +176,13 @@ export async function loadChatData(client, userId) {
       else if (result.data?.[0]) latestByConversation.set(conversation.id,result.data[0]);
     }));
   }
+  // Order by the most recent real message, not the original creation time
+  // or an unrelated group/profile update. Stable tie-breaker avoids jumps.
+  const lastActivity = conversation => Date.parse(
+    latestByConversation.get(conversation.id)?.created_at || conversation.updated_at || conversation.created_at || 0
+  ) || 0;
+  conversations.sort((left,right) => lastActivity(right)-lastActivity(left) ||
+    String(left.id).localeCompare(String(right.id)));
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const profiles = profilesResult.data || [];
   // Both profile search and nested conversation participants hold distinct
