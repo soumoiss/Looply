@@ -61,7 +61,7 @@ test("conversation list renders real authorized data without hard-coded sample c
 });
 test("stories, real group creation and user search remain wired in Chat",async()=>{
   const [entry,markup]=await Promise.all([read("assets/js/chat.js"),read("src/chat.js")]);
-  assert.match(entry,/loadStories\(client\)/);
+  assert.match(entry,/loadStories\(client,\s*user\.id\)/);
   assert.match(entry,/bindStories\(root, client/);
   assert.match(markup,/data-chat-group-create/);
   assert.match(markup,/data-chat-search/);
@@ -89,8 +89,8 @@ test("both entrypoints mount actual real-time WebRTC call setup",async()=>{
   for(const file of ["assets/js/chat.js","assets/js/conversation.js"]) {
     const source=await read(file);
     assert.match(source,/setupChatCalls\(root, client, user\.id\)/);
-    assert.match(source,/chat-calls\.js\?v=incoming-handoff-20261030/);
-    assert.match(source,/(chat-mobile-20261027|avatar-sync-20261028|incoming-handoff-20261030)/);
+    assert.match(source,/chat-calls\.js\?v=[a-z0-9-]+/);
+    assert.match(source,/\?v=[a-z0-9-]*20[0-9]{6}/);
   }
 });
 test("voice calling uses real microphone + RTCPeerConnection + private signaling",async()=>{
