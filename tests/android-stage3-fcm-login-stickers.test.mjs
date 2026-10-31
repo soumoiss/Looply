@@ -16,7 +16,7 @@ function harness(rows, accepted=true, claimed=true) {
   const queries=[],sent=[];
   const query=async (_env,sql,params)=>{
     queries.push({sql,params});
-    if(sql.includes("FROM (\n SELECT 'activity'")) return rows;
+    if(sql.includes("FROM public.v22_android_fcm_named_candidates()")) return rows;
     if(sql.includes("INSERT INTO public.android_fcm_deliveries")) return claimed?[{event_id:rows[0].event_id}]:[];
     if(sql.includes("UPDATE public.android_fcm_deliveries")) return [{event_id:rows[0].event_id}];
     throw Error("unexpected query");
@@ -30,7 +30,7 @@ test("FCM worker issues data-only notification after database claim, never a fak
   const result=await deliverNotifications(env,h);
   assert.deepEqual(result,{eligible:1,sent:1,failed:0});
   assert.equal(h.sent.length,1);
-  assert.ok(h.queries[0].sql.includes("chat_notifications"));
+  assert.ok(h.queries[0].sql.includes("v22_android_fcm_named_candidates"));
   assert.equal(h.queries[1].params[1],sample.event_id);
   assert.equal(h.queries.at(-1).params[3],"sent");
   const {url,opts}=h.sent[0];
@@ -40,7 +40,7 @@ test("FCM worker issues data-only notification after database claim, never a fak
   assert.equal(body.message.token,sample.fcm_token);
   assert.equal(body.message.data.kind,"voice");
   assert.equal(body.message.data.conversationId,sample.conversation_id);
-  assert.equal(body.message.data.body,"Nova mensagem de voz");
+  assert.equal(body.message.data.body,"Enviou uma mensagem de voz");
   assert.equal(body.message.android.priority,"HIGH");
   assert.equal(body.message.notification,undefined);
 });
@@ -64,8 +64,9 @@ test("No queued events means no OAuth or FCM HTTP request",async()=>{
 });
 test("Dispatch reads chat audio media before classifying a voice notification",async()=>{
   const worker=await read("backend/cloudflare/android-push-worker.mjs");
-  assert.match(worker,/public\.chat_media cm/);
-  assert.match(worker,/cm\.mime_type LIKE 'audio\/%'/);
+  const named=await read("migration/20261031_fcm_named_fast_call.sql");
+  assert.match(named,/public\.chat_media cm/);
+  assert.match(named,/cm\.mime_type LIKE 'audio\/%'/);
   assert.match(worker,/NOT EXISTS \(/);
   assert.match(worker,/d\.status IN \('sent','pending'\)/);
 });
