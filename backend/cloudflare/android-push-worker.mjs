@@ -197,7 +197,7 @@ export async function deliverNotifications(env,{
     // action and no private excerpt, password or attachment in FCM.
     const message={token:item.fcm_token,data,
       android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",
-        ttl:kind==="call"?"120s":"86400s"}};
+        ttl:kind==="call"?"30s":"86400s"}};
     let ok=false;
     try{
       const response=await sendFetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
