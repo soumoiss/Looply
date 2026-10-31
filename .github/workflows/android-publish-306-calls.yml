@@ -77,7 +77,6 @@ jobs:
           (cd android && ./gradlew --no-daemon --stacktrace assembleRelease)
           rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
       - name: Check installability, signature and bundled call fix
-        env:
         run: |
           set -euo pipefail
           apk=android/app/build/outputs/apk/release/app-release.apk
