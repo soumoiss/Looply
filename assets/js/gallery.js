@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { icon } from "../../src/icons.js";
 import { optimizeUploadImage } from "../../src/media-upload-optimizer.js";
 import { cachedSignedUrl } from "../../src/storage-url-cache.js";
