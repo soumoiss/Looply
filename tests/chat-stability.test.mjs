@@ -165,7 +165,7 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
   for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /(notification-bus-20261022|avatar-sync-20261028|feed-media-audio-20261029|incoming-handoff-20261030)/);
-  assert.match(serviceWorker, /looply-shell-v10-admin-notices-20261031/);
+  assert.match(serviceWorker, /looply-shell-v11-single-navigation-20261031/);
 });
 
 test("voice recorder pause and resume exclude paused time and expose accessible controls", async () => {
