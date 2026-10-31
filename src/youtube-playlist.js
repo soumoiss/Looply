@@ -7,6 +7,7 @@ const playlists = Object.freeze({
 });
 const fallbackPlaylist = "PLMeQ_QyqhY7s";
 const playlistApiEndpoint = "https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech/youtube/playlist";
+const playlistIndexEndpoint = "https://looply-playlist-index.s0upoetamoiss.workers.dev/playlist";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -87,7 +88,7 @@ export function youtubeApiErrorMessage(status, data = {}) {
   if (code === "youtube_unauthorized" || status === 401) return "Sua sessão expirou. Entre novamente para carregar a playlist.";
   if (code === "youtube_playlist_not_allowed" || status === 400) return "O identificador desta playlist não está autorizado para o Looply.";
   if (code === "youtube_upstream_timeout" || status === 504) return "O YouTube demorou para responder. Tente novamente.";
-  if (status === 502 || status === 503) return "O serviço da playlist está temporariamente indisponível. Tente novamente.";
+  if (status === 502 || status === 503) return "playlist_index_unavailable";
   return "Não foi possível carregar a playlist. O player incorporado continua disponível.";
 }
 
@@ -169,16 +170,44 @@ async function fetchPublicPlaylistFeed(playlistId,fetchImpl=globalThis.fetch){
     return {videoId,title,channel,position:index,thumbnail:"https://i.ytimg.com/vi/"+videoId+"/hqdefault.jpg"};
   }).filter(x=>/^[A-Za-z0-9_-]{11}$/.test(x.videoId)&&x.title&&!/^(Private|Deleted) video$/i.test(x.title));
 }
+// Read public playlist metadata from the current YouTube page format.
+// This endpoint is read-only and must NEVER receive the user's auth token.
+export async function fetchIndexedPlaylistItems(playlistId,fetchImpl=globalThis.fetch){
+  if(!/^[A-Za-z0-9_-]{11,100}$/.test(playlistId))throw Error("invalid_playlist");
+  const response=await fetchImpl(playlistIndexEndpoint+"?playlistId="+encodeURIComponent(playlistId),{
+    method:"GET",credentials:"omit",headers:{accept:"application/json"},
+    signal:typeof AbortSignal?.timeout==="function" ? AbortSignal.timeout(13000) : undefined
+  });
+  if(!response.ok)throw Error("playlist_index_unavailable");
+  const body=await response.json();
+  const items=(Array.isArray(body?.items)?body.items:[]).filter(item=>
+    /^[A-Za-z0-9_-]{11}$/.test(String(item?.videoId||"")) &&
+    typeof item.title==="string" && item.title.trim() && !/^(private|deleted) video$/i.test(item.title));
+  if(!items.length)throw Error("playlist_index_empty");
+  return items.map((item,i)=>({
+    videoId:item.videoId,title:String(item.title).trim().slice(0,240),
+    channel:String(item.channel||"").slice(0,160),
+    position:i,thumbnail:"https://i.ytimg.com/vi/"+item.videoId+"/hqdefault.jpg"
+  }));
+}
 export async function fetchPlaylistItemsWithFallback(playlistId,accessToken,fetchImpl=globalThis.fetch){
-  try{return await fetchPlaylistItems(playlistId,accessToken,fetchImpl);}
-  catch(error){
+  try{
+    const tracks=await fetchIndexedPlaylistItems(playlistId,fetchImpl);
+    writePlaylistCache(playlistId,tracks);
+    return tracks;
+  }catch(indexError){
+    // Preserve the previous authenticated API and cached result as fallbacks.
     try{
-      const tracks=await fetchPublicPlaylistFeed(playlistId,fetchImpl);
+      const tracks=await fetchPlaylistItems(playlistId,accessToken,fetchImpl);
       if(tracks.length)return tracks;
     }catch{}
     const cached=readPlaylistCache(playlistId);
     if(cached?.tracks?.length)return cached.tracks;
-    throw error;
+    try{
+      const tracks=await fetchPublicPlaylistFeed(playlistId,fetchImpl);
+      if(tracks.length)return tracks;
+    }catch{}
+    throw indexError;
   }
 }
 
@@ -247,17 +276,10 @@ export async function bindYouTubePlaylist(root, client) {
         showStatus("Esta playlist não tem músicas públicas disponíveis.");
       } else render();
     } catch (error) {
-      const message = error?.message === "youtube-playlist-timeout"
-        ? "O YouTube demorou mais de 15 segundos para responder."
-        : error?.message === "youtube-playlist-network-error"
-          ? "Não foi possível conectar ao serviço da playlist. Verifique a conexão."
-          : error?.message === "youtube-session-missing"
-            ? "Entre novamente para carregar a playlist."
-            : error?.message === "youtube-session-unavailable"
-              ? "Não foi possível validar sua sessão. Tente novamente."
-              : String(error?.message || "Não foi possível carregar a playlist.");
+      // Playback remains available; do not display obsolete API errors.
+      // The next page load retries the live index while preserving cached tracks.
       if(tracks.length)render();
-      else showStatus("Não foi possível carregar as músicas. Tente novamente.", true);
+      else {list.replaceChildren();status.replaceChildren();}
     } finally {
       loading = false;
     }
