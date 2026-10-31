@@ -150,7 +150,7 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
         });
         return ready;
       }
-      ready = open().catch(async cloudflareError=>
+      ready = open().catch(async cloudflareError=>{
         // Preserve the October 19 WebRTC offer/answer/ICE contract. When the
         // optional Cloudflare WebSocket is blocked, use a separate authenticated
         // Neon signaling RPC (which checks membership independently).
