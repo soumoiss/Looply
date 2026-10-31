@@ -61,8 +61,8 @@ test("Catalog limitations are clear to members without exposing provider diagnos
 
 test("Story song picker has no local file chooser and preserves catalog search",()=>{
   assert.doesNotMatch(picker,/fileInput|data-studio-audio-file|studio-audio-upload/);
-  assert.match(picker,/searchCatalog\\(term/);
-  assert.match(picker,/downloadLicensedStorySong\\(track/);
+  assert.ok(picker.includes("searchCatalog(term"));
+  assert.ok(picker.includes("downloadLicensedStorySong(track"));
 });
 
 test("Story viewer floats its controls over uncropped media",()=>{
