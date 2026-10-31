@@ -35,4 +35,5 @@ test("production global listener no longer suppresses an inbox offer for the act
   assert.match(calls,/addEventListener\("looply:incoming-call"/);
   assert.match(calls,/event\.preventDefault\(\)/);
   assert.match(calls,/receiveOffer\(payload\)/);
+  assert.ok(calls.indexOf("const receiveOffer =") < calls.indexOf("const ensureChannel ="),"offer handler must be in shared scope, not nested inside ensureChannel");
 });
