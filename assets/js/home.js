@@ -2,8 +2,8 @@ import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b"
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
-import { bindSocialEvents, disposeSocialRealtime, loadSocialData, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=feed-media-audio-20261029";
-import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=feed-media-audio-20261029";
+import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=feed-media-audio-20261029";
+import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=feed-media-audio-20261029";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
 
@@ -113,6 +113,20 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
       });
     }
   }
+  root.__looplyRefreshData = async () => {
+    const [storyOk,feedOk,settingsResult] = await Promise.all([
+      refreshStoriesInPlace(root),
+      refreshSocialFeed(root, client, user.id, isAdmin),
+      client.from("app_settings").select("music_of_the_day_title,music_of_the_day_url,welcome_banner_text").eq("id", 1).maybeSingle()
+    ]);
+    if (!settingsResult.error) {
+      const fragment = document.createElement("template");
+      fragment.innerHTML = renderGlobalHomeSettings(settingsResult.data || {});
+      root.querySelector("[data-global-welcome]")?.replaceWith(fragment.content.querySelector("[data-global-welcome]"));
+      root.querySelector("[data-global-music]")?.replaceWith(fragment.content.querySelector("[data-global-music]"));
+    }
+    return storyOk && feedOk && !settingsResult.error;
+  };
   setupStoriesRealtime(client, user.id, root);
   setupSocialRealtime(client, user.id, root, isAdmin);
   window.addEventListener("pagehide", () => {
