@@ -49,6 +49,14 @@ export function applyTheme(name) {
     root.style.setProperty(`--${key}`, value);
     root.style.setProperty(`--${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`, value);
   }
+  // Map historical Gallery/Home palette tokens to the account theme.
+  root.style.setProperty("--accent",values.primary);
+  root.style.setProperty("--accent-soft",values.lilac);
+  root.style.setProperty("--surface-muted",values.surfaceSoft);
+  root.style.setProperty("--border",values.line);
+  root.style.setProperty("--gallery-action",values.primary);
+  root.style.setProperty("--gallery-control-border",values.line);
+  root.style.setProperty("--gallery-control-bg-hover",values.bg2);
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", values.bg);
   try { localStorage.setItem(THEME_KEY, selected); } catch {}
   window.dispatchEvent(new CustomEvent("looply:theme-changed", { detail: { theme: selected, resolvedTheme: theme } }));
