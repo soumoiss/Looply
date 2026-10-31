@@ -38,7 +38,7 @@ test("Admin-only notices are grounded by authenticated SQL and recipient RLS",as
   assert.match(sql,/lower\(p\.username\)='peixinho'/);
   assert.match(sql,/public\.v3_self_is_admin\(\)/);
   assert.match(sql,/admin_id=public\.looply_legacy_uid\(\)/);
-  assert.match(sql,/AFTER INSERT ON public\.archived_card_reads/);
+  assert.match(sql,/AFTER INSERT\s+ON public\.archived_card_reads/);
   assert.match(sql,/AFTER INSERT ON public\.looply_community_letter_reads/);
   assert.match(sql,/GRANT EXECUTE ON FUNCTION public\.v23_mark_global_announcement_read\(uuid\) TO authenticated/);
   assert.match(sql,/ON CONFLICT DO NOTHING/);
