@@ -47,7 +47,7 @@ test("background call carries validated conversation and high priority FCM data"
   assert.equal(message.data.kind,"call");
   assert.equal(message.data.conversationId,"d584c7df-237b-405f-98cc-c3f27a326b20");
   assert.equal(message.android.priority,"HIGH");
-  assert.equal(message.android.ttl,"120s");
+  assert.equal(message.android.ttl,"30s");
   assert.equal(message.notification,undefined);
 });
 test("feed and gallery interactions generate generic private-by-default notification metadata",async()=>{
