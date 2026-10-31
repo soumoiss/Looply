@@ -1444,6 +1444,12 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   }
 }
 
+/** Reuse the existing bound Story controller; never recreate a camera/viewer or editor. */
+export async function refreshStoriesInPlace(root) {
+  const refresh = refreshers.get(root);
+  return refresh ? await refresh() : false;
+}
+
 export function setupStoriesRealtime(client, userId, root) {
   const refresh = refreshers.get(root);
   if (!client || !refresh) return;
