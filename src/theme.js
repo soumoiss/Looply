@@ -62,6 +62,10 @@ export function applyProfilePreferences(profile = {}) {
   root.dataset.fontFamily = family;
   root.style.setProperty("--looply-font-family", FONT_FAMILIES[family]);
   root.style.setProperty("--looply-root-font-size", fontSize);
+  try {
+    localStorage.setItem("looply_font_family", family);
+    localStorage.setItem("looply_font_size", profile.font_size in FONT_SIZES ? profile.font_size : "normal");
+  } catch { /* Private browsing may disallow storage. */ }
   return applyTheme(isTheme(profile.theme) || profile.theme === "system" ? profile.theme : getSavedTheme());
 }
 
