@@ -1,8 +1,8 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=incoming-handoff-20261030";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?v=chat-recent-photo-20261031";
+import { mountAppPage } from "../../src/page-runtime.js?v=confirm-logout-20261031";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?v=instant-fcm-20261031";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-reconnect-20261031";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
-import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=stories-seen-20261031";
+import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");
