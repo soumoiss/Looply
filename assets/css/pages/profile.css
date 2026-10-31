@@ -201,6 +201,8 @@
 .pr-avatar-menu-body{padding:22px;display:grid;gap:10px}
 .pr-avatar-menu h2{font-size:18px;margin:0;color:inherit}
 .pr-avatar-menu p{font-size:12px;color:var(--muted,#756882);margin:0 0 8px}
+.pr-avatar-menu .pr-avatar-menu-status{font-weight:700;color:var(--danger,#b42318);margin:0;font-size:12px}
+.pr-avatar-menu .pr-avatar-menu-status:empty{display:none}
 .pr-avatar-menu button{width:100%;min-height:50px;border-radius:14px;border:1px solid var(--border,#e4d8eb);
   display:flex;align-items:center;justify-content:center;gap:12px;background:color-mix(in srgb,var(--primary,#935ac4) 7%,var(--surface,#fff));
   color:var(--text,#34283e);font:inherit;font-size:13px;font-weight:750;cursor:pointer}
