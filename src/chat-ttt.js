@@ -170,8 +170,10 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     if(target.matches("[data-v2-game]")){
       if(!validConversation()){toast("O jogo está disponível apenas em conversas individuais.");return true;}
       await switchConversation();
-      if(current&&current.status!=="declined")reconcile(current,{show:true});
-      else showInvitePrompt();
+      // Reopening a match must re-read Neon before enabling any move.
+      // A cached board from before a disconnect is never authoritative.
+      await refresh({show:true});
+      if(!current||current.status==="declined")showInvitePrompt();
       return true;
     }
     if(target.matches("[data-v2-send-invite]")){
