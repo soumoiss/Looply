@@ -1,46 +1,76 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Compartilhar no Looply</title>
-<style>
-:root{color-scheme:light;font-family:system-ui,sans-serif}*{box-sizing:border-box}
-body{background:#f5f0fa;color:#20112f;margin:0;padding:22px;border-radius:22px}
-h1{font-size:20px;margin:0 0 9px}p{font-size:13px;line-height:1.5;color:#625470}
-label{font-size:13px;font-weight:700;display:block;margin:14px 0 6px}
-input,textarea{font:inherit;font-size:14px;width:100%;border:1px solid #d6c9e3;border-radius:11px;background:white;padding:11px;color:#20112f}
-textarea{height:68px;resize:vertical}footer{display:flex;gap:10px;margin-top:17px}
-button{font:inherit;border:0;border-radius:12px;padding:12px;cursor:pointer}
-#cancel{flex:1;background:#e8e0ef;color:#20112f}#publish{flex:2;background:#5b16a3;color:white;font-weight:700}
-#publish:disabled{opacity:.55}#status{font-size:13px;min-height:1.5em;margin-top:11px}
-#imagePreview,#videoPreview{width:100%;max-height:40vh;object-fit:contain;background:#130f17;border-radius:12px}
-[hidden]{display:none!important}#linkSection[hidden]{display:none}
-</style></head><body>
-<h1>Publicar no Looply</h1>
-<p>Confira o link ou a mídia compartilhada. Nada será publicado sem tocar em Publicar.</p>
-<form id="form">
-<section id="linkSection"><label for="link">Link recebido</label><input id="link" type="url" readonly></section>
-<img id="imagePreview" alt="Foto compartilhada" hidden>
-<video id="videoPreview" controls playsinline preload="metadata" hidden></video>
-<label for="caption">Legenda (opcional)</label><textarea id="caption" maxlength="2200" placeholder="Escreva alguma coisa..."></textarea>
-<footer><button id="cancel" type="button">Cancelar</button><button id="publish" type="submit">Publicar</button></footer>
-<div id="status" role="status" aria-live="polite"></div>
-</form>
+<link rel="stylesheet" href="./assets/css/pages/share-external.css">
+</head>
+<body>
+<main class="share-shell">
+  <header class="share-heading">
+    <div class="share-heading-mark" aria-hidden="true">↗</div>
+    <div class="share-heading-title"><span class="share-eyebrow">Looply · Compartilhamento</span><h1>Compartilhar no Looply</h1></div>
+    <button id="cancel" type="button" class="share-icon-button" aria-label="Fechar compartilhamento">×</button>
+  </header>
+  <p class="share-description">Revise seu conteúdo e escolha quem poderá visualizar. Nada será publicado sem sua confirmação.</p>
+  <form id="form">
+    <section class="share-preview" aria-label="Pré-visualização do conteúdo">
+      <div id="previewHeading" class="share-preview-heading"><span id="providerBadge" class="share-provider">Conteúdo externo</span><span id="previewType" class="share-preview-type">Link</span></div>
+      <div id="linkSection" class="share-external-link"><label for="link">Link recebido</label><input id="link" type="url" readonly aria-label="Endereço compartilhado"></div>
+      <div id="linkThumbnail" class="share-link-thumbnail" hidden><img id="externalThumbnail" alt="Miniatura da publicação compartilhada" loading="lazy"></div>
+      <img id="imagePreview" alt="Foto compartilhada" hidden>
+      <video id="videoPreview" controls playsinline preload="metadata" hidden aria-label="Vídeo compartilhado"></video>
+    </section>
+    <label class="share-label" for="caption">Legenda <span>(opcional)</span></label>
+    <textarea id="caption" maxlength="2200" rows="3" placeholder="Escreva alguma coisa…"></textarea>
+    <fieldset class="share-audience" aria-describedby="shareAudienceNote">
+      <legend><span class="share-people-icon" aria-hidden="true">◉</span> Quem pode visualizar?</legend>
+      <div class="share-visibility-options">
+        <label class="share-visibility"><input type="radio" name="shareAudience" value="public" checked><span class="share-visibility-icon" aria-hidden="true">◎</span><span class="share-visibility-copy"><strong>Todos</strong><small>Membros do Looply</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
+        <label class="share-visibility"><input type="radio" name="shareAudience" value="selected"><span class="share-visibility-icon" aria-hidden="true">♧</span><span class="share-visibility-copy"><strong>Pessoas selecionadas</strong><small>Apenas quem você escolher</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
+      </div>
+      <p id="shareAudienceNote" class="share-privacy-explain">Todos os usuários autorizados do Looply poderão visualizar.</p>
+      <section id="selectedAudience" class="share-selected-audience" hidden aria-label="Destinatários">
+        <div class="share-selected-head"><strong id="chosenCount">Nenhuma pessoa selecionada</strong><button type="button" id="choosePeople" class="share-text-button">Escolher pessoas</button></div>
+        <div id="chosenPeople" class="share-selected-chips" aria-live="polite"></div>
+      </section>
+    </fieldset>
+    <footer class="share-footer"><button id="cancelPublish" type="button" class="share-cancel">Cancelar</button><button id="publish" type="submit" class="share-submit">Publicar</button></footer>
+    <p id="status" role="status" aria-live="polite" class="share-status"></p>
+  </form>
+</main>
+<dialog id="peoplePicker" class="share-picker" aria-labelledby="peoplePickerTitle">
+  <div class="share-picker-shell">
+    <header class="share-picker-heading"><div><span class="share-eyebrow">Privacidade</span><h2 id="peoplePickerTitle">Escolher pessoas</h2><p>Somente os perfis escolhidos poderão visualizar.</p></div><button type="button" id="cancelPeople" class="share-icon-button" aria-label="Fechar seleção">×</button></header>
+    <label class="share-search-label" for="sharePersonSearch">Pesquisar usuário</label>
+    <input id="sharePersonSearch" type="search" placeholder="Nome ou @usuário" autocomplete="off" enterkeyhint="search">
+    <div id="sharePeopleList" class="share-people-list" role="group" aria-label="Usuários disponíveis"><p class="share-empty">Carregando usuários…</p></div>
+    <footer class="share-picker-footer"><span id="peopleCount" aria-live="polite">0 selecionada(s)</span><button type="button" id="confirmPeople" disabled>Confirmar seleção</button></footer>
+  </div>
+</dialog>
 <script>
-// This control must remain usable when a remote ES module cannot be fetched.
-// Initial UI and "Cancelar" never depend on Neon Auth or an external CDN.
+// Keep cancellation independent from any remote module or authentication.
+// The Android Sharesheet host exposes only this deliberate close action.
 document.getElementById("cancel").addEventListener("click", () => {
-  window.LooplyShare?.complete();
+  if (window.LooplyShare?.complete) window.LooplyShare.complete();
+  else if (history.length > 1) history.back();
 });
-window.addEventListener("error", event => {
-  if (event.target && event.target.tagName === "SCRIPT") {
-    const status = document.getElementById("status");
-    if (status && !status.textContent)
-      status.textContent = "Não foi possível iniciar o compartilhamento. Verifique a conexão.";
+document.getElementById("cancelPublish").addEventListener("click",()=>{
+  document.getElementById("cancel").click();
+});
+window.addEventListener("error",event=>{
+  if(event.target?.tagName==="SCRIPT"){
+    const status=document.getElementById("status");
+    if(status&&!status.textContent)status.textContent="Não foi possível iniciar o compartilhamento. Verifique a conexão.";
   }
-}, true);
+},true);
 </script>
 <script type="module">
-import {activeSession, NEON_DATA_API_URL, looplyClient} from "./src/neon-production-client.js";
+import {activeSession,NEON_DATA_API_URL,looplyClient} from "./src/neon-production-client.js";
+import {mountShareAudience,shareProvider} from "./src/share-audience.js";
 const $=id=>document.getElementById(id);
+const status=message=>$("status").textContent=message;
 const params=new URLSearchParams(location.search);
 const raw=(params.get("text")||"").slice(0,2500);
 const mime=params.get("mime");
@@ -49,83 +79,126 @@ const isMedia=Object.hasOwn(MIME_EXT,mime||"");
 const allowed=new Set(["instagram.com","www.instagram.com","m.instagram.com","l.instagram.com","tiktok.com","www.tiktok.com","vm.tiktok.com","vt.tiktok.com","youtube.com","www.youtube.com","m.youtube.com","youtu.be"]);
 const extracted=raw.match(/https:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;!?]+$/,"")||"";
 let link=null;
-try{const u=new URL(extracted);if(u.protocol==="https:"&&allowed.has(u.hostname.toLowerCase())&&extracted.length<=2048)link=u.href;}catch{}
+try{const url=new URL(extracted);if(url.protocol==="https:"&&allowed.has(url.hostname.toLowerCase())&&extracted.length<=2048)link=url.href;}catch{}
 $("link").value=link||"";
 $("linkSection").hidden=!link;
 $("caption").value=(link?raw.replace(extracted,""):raw).trim().slice(0,2200);
-// Cancel is wired in the independent inline script above.
-if(isMedia){
- const preview=mime.startsWith("video/")?$("videoPreview"):$("imagePreview");
- preview.hidden=false;
- preview.src="https://soumoiss.github.io/Looply/__shared/media";
- // Do not call remote social-network scrapers. Source bytes come from the
- // exact read-only content URI granted by the original Android application.
+$("providerBadge").textContent=shareProvider(link);
+$("previewType").textContent=isMedia?(mime.startsWith("video/")?"Vídeo":"Imagem"):"Link";
+if(link&&shareProvider(link)==="YouTube"){
+  try{
+    const url=new URL(link);
+    const videoId=url.hostname==="youtu.be"?url.pathname.split("/")[1]:
+      url.pathname==="/watch"?url.searchParams.get("v"):
+      url.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1];
+    if(videoId&&/^[\w-]{11}$/.test(videoId)){
+      $("externalThumbnail").src="https://i.ytimg.com/vi/"+videoId+"/hqdefault.jpg";
+      $("externalThumbnail").onload=()=>{ $("linkThumbnail").hidden=false; };
+    }
+  }catch{}
 }
-if(!link&&!isMedia){$("status").textContent="Nenhum link ou arquivo permitido recebido."; $("publish").disabled=true;}
+if(isMedia){
+  const preview=mime.startsWith("video/")?$("videoPreview"):$("imagePreview");
+  preview.hidden=false;
+  preview.src="https://soumoiss.github.io/Looply/__shared/media";
+  $("providerBadge").textContent="Arquivo do dispositivo";
+}
+if(!link&&!isMedia){status("Nenhum link ou arquivo permitido recebido.");$("publish").disabled=true;}
+const audience=mountShareAudience({client:looplyClient,onError:status});
 const call=async(path,args,token)=>{
- const response=await fetch(NEON_DATA_API_URL+"/rpc/"+path,{
-  method:"POST",cache:"no-store",
-  headers:{authorization:"Bearer "+token,accept:"application/json","content-type":"application/json"},
-  body:JSON.stringify(args)
- });
- const data=await response.json().catch(()=>null);
- if(!response.ok)throw Error("O Neon recusou a operação. Confira suas permissões.");
- return data;
+  const response=await fetch(NEON_DATA_API_URL+"/rpc/"+path,{
+    method:"POST",cache:"no-store",
+    headers:{authorization:"Bearer "+token,accept:"application/json","content-type":"application/json"},
+    body:JSON.stringify(args)
+  });
+  const data=await response.json().catch(()=>null);
+  if(!response.ok)throw Error(typeof data?.message==="string"?data.message:"O Neon recusou a operação. Confira suas permissões.");
+  return data;
 };
+let submitting=false;
 $("form").addEventListener("submit",async event=>{
- event.preventDefault();
- if(!link&&!isMedia)return;
- const button=$("publish");button.disabled=true;
- let postId=null,storagePath=null;
- try{
-  $("status").textContent="Verificando a sessão...";
-  const session=await activeSession();
-  if(!session?.access_token)throw Error("Entre na sua conta do Looply antes de compartilhar.");
-  let media=null;
-  if(isMedia){
-   $("status").textContent="Preparando a mídia autorizada...";
-   const response=await fetch("https://soumoiss.github.io/Looply/__shared/media",{cache:"no-store"});
-   if(!response.ok)throw Error("A mídia não está disponível. Compartilhe novamente.");
-   const blob=await response.blob();
-   if(!blob.size||blob.size>100*1024*1024)throw Error("Compartilhe arquivos de até 100 MB.");
-   if(blob.type&&blob.type!==mime)throw Error("Formato de mídia incompatível.");
-   media=new File([blob],"compartilhado."+MIME_EXT[mime],{type:mime});
+  event.preventDefault();
+  if(submitting||(!link&&!isMedia))return;
+  submitting=true;
+  const button=$("publish");
+  button.disabled=true;
+  let postId=null,storagePath=null,published=false;
+  try{
+    const selected=await audience.audience(); // reject empty/malformed audiences before any upload
+    status("Verificando a sessão...");
+    const session=await activeSession();
+    if(!session?.access_token)throw Error("Entre na sua conta do Looply antes de compartilhar.");
+    let media=null;
+    if(isMedia){
+      status("Preparando a mídia autorizada...");
+      const response=await fetch("https://soumoiss.github.io/Looply/__shared/media",{cache:"no-store"});
+      if(!response.ok)throw Error("A mídia não está disponível. Compartilhe novamente.");
+      const blob=await response.blob();
+      if(!blob.size||blob.size>100*1024*1024)throw Error("Compartilhe arquivos de até 100 MB.");
+      if(blob.type&&blob.type!==mime)throw Error("Formato de mídia incompatível.");
+      media=new File([blob],"compartilhado."+MIME_EXT[mime],{type:mime});
+    }
+    // Never create a public or selected post before media upload and its DB
+    // record have both succeeded. This temporary post is author-only.
+    status("Preparando publicação privada...");
+    postId=await call("v5_create_post",{
+      p_body:$("caption").value.trim(),p_visibility:"private",p_external_url:link
+    },session.access_token);
+    if(typeof postId!=="string"||!/^[0-9a-f-]{36}$/i.test(postId))throw Error("O Neon não confirmou a publicação.");
+    if(media){
+      const mediaId=crypto.randomUUID();
+      storagePath="posts/"+postId+"/"+mediaId+"."+MIME_EXT[mime];
+      status("Enviando foto ou vídeo...");
+      const upload=await looplyClient.storage.from("looply-media").upload(storagePath,media,{contentType:mime,upsert:false});
+      if(upload.error||upload.data?.path!==storagePath)throw Error("O envio da mídia não foi confirmado.");
+      status("Registrando mídia no Feed...");
+      const result=await call("v5_attach_post_media",{
+        p_post_id:postId,p_storage_path:storagePath,
+        p_kind:mime.startsWith("video/")?"video":"image",
+        p_mime_type:mime,p_byte_size:media.size,p_alt_text:""
+      },session.access_token);
+      if(typeof result!=="string")throw Error("O Neon não confirmou o vínculo da mídia.");
+      const mediaCheck=await looplyClient.from("post_media").select("storage_path").eq("post_id",postId);
+      if(mediaCheck.error||!mediaCheck.data?.some(row=>row.storage_path===storagePath))
+        throw Error("Não foi possível confirmar a mídia enviada.");
+    }
+    // Single atomic Neon operation inserts the selected recipients and only
+    // then makes the post visible; users never see a half-uploaded file.
+    status("Confirmando quem pode visualizar...");
+    const confirmed=await call("v24_publish_shared_post",{
+      p_post_id:postId,p_visibility:selected.visibility,p_recipient_ids:selected.recipientIds
+    },session.access_token);
+    if(confirmed!==postId)throw Error("A confirmação de privacidade não foi concluída.");
+    published=true;
+    const postCheck=await looplyClient.from("posts").select("id,visibility").eq("id",postId).single();
+    if(postCheck.error||postCheck.data?.visibility!==selected.visibility)
+      throw Error("Não foi possível confirmar as permissões da publicação.");
+    status("Publicado com sucesso!");
+    if(window.LooplyShare?.complete)window.LooplyShare.complete();
+  }catch(error){
+    // A response can be lost after the final commit. Reconcile instead of
+    // silently posting the same share twice or falsely claiming failure.
+    if(postId&&!published){
+      try{
+        const current=await looplyClient.from("posts").select("id,visibility").eq("id",postId).single();
+        if(!current.error&&current.data?.visibility!== "private"){
+          published=true;
+          status("Publicado com sucesso!");
+          if(window.LooplyShare?.complete)window.LooplyShare.complete();
+          return;
+        }
+      }catch{}
+    }
+    if(postId&&!published){
+      if(storagePath){try{await looplyClient.storage.from("looply-media").remove([storagePath]);}catch{}}
+      try{await looplyClient.from("posts").delete().eq("id",postId);}catch{}
+    }
+    status(error?.message||"Não foi possível publicar.");
+  }finally{
+    button.disabled=false;
+    submitting=false;
   }
-  $("status").textContent="Criando publicação...";
-  const body=$("caption").value.trim();
-  postId=await call("v5_create_post",{p_body:body,p_visibility:"public",p_external_url:link},session.access_token);
-  if(typeof postId!=="string"||!/^[0-9a-f-]{36}$/i.test(postId))throw Error("O Neon não confirmou a publicação.");
-  if(media){
-   const mediaId=crypto.randomUUID();
-   storagePath="posts/"+postId+"/"+mediaId+"."+MIME_EXT[mime];
-   $("status").textContent="Enviando foto ou vídeo...";
-   const upload=await looplyClient.storage.from("looply-media").upload(storagePath,media,{contentType:mime,upsert:false});
-   if(upload.error||upload.data?.path!==storagePath)throw Error("O envio da mídia não foi confirmado.");
-   $("status").textContent="Registrando mídia no Feed...";
-   const result=await call("v5_attach_post_media",{
-    p_post_id:postId,p_storage_path:storagePath,p_kind:mime.startsWith("video/")?"video":"image",
-    p_mime_type:mime,p_byte_size:media.size,p_alt_text:""
-   },session.access_token);
-   if(typeof result!=="string")throw Error("O Neon não confirmou o vínculo da mídia.");
-   const [postCheck,mediaCheck]=await Promise.all([
-    looplyClient.from("posts").select("id,body").eq("id",postId).single(),
-    looplyClient.from("post_media").select("storage_path").eq("post_id",postId)
-   ]);
-   if(postCheck.error||mediaCheck.error||!postCheck.data||
-     !mediaCheck.data?.some(row=>row.storage_path===storagePath))
-      throw Error("Não foi possível confirmar a mídia publicada.");
-  }
-  $("status").textContent="Publicado com sucesso!";
-  window.LooplyShare?.complete();
- }catch(error){
-  // Never claim publication success for an incomplete upload. Cleanup stays
-  // owner-scoped and cannot remove another user's content.
-  if(postId){
-   if(storagePath){try{await looplyClient.storage.from("looply-media").remove([storagePath]);}catch{}}
-   try{await looplyClient.from("posts").delete().eq("id",postId);}catch{}
-  }
-  $("status").textContent=error?.message||"Não foi possível publicar.";
-  button.disabled=false;
- }
 });
-</script></body></html>
+</script>
+</body>
+</html>
