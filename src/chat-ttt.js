@@ -13,7 +13,7 @@ export const tttScore=(game,userId)=>{
 
 export function setupChatTtt({root,client,userId,selectedConversation,isGroup,openModal,closeModal,toast}){
   let conversationId="",channel=null,timer=null,current=null,busy=false;
-  let dismissedId="",hydration=null,disposed=false,offline=false;
+  let dismissedId="",hydration=null,hydrationConversation="",disposed=false,offline=false;
   const avatars=new Map();
   const gameIsOpen=()=>Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-v2-game-board]"));
   function showConnectionState(){
@@ -127,9 +127,10 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
   }
   async function refresh({show=false}={}){
     if(disposed||!validConversation()||!conversationId)return;
-    if(hydration)return hydration;
+    if(hydration && hydrationConversation===conversationId)return hydration;
     const id=conversationId;
-    hydration=(async()=>{
+    hydrationConversation=id;
+    const pending=(async()=>{
       try{
         const game=await rpc("v25_ttt_state",{p_conversation_id:id});
         if(id!==conversationId||disposed)return;
@@ -144,7 +145,8 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
         if(show)toast("Jogo indisponível. Confira a conexão ou a sessão.");
       }
     })();
-    try{return await hydration;}finally{hydration=null;}
+    hydration=pending;
+    try{return await pending;}finally{if(hydration===pending){hydration=null;hydrationConversation="";}}
   }
   async function switchConversation(){
     if(disposed)return;
@@ -167,18 +169,21 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     },3500);
     await refresh();
   }
-  async function withAction(task){
+  async function withAction(task,operation="jogada"){
     if(busy)return;
     busy=true;
     const controls=[...root.querySelectorAll("[data-v2-game-board] button")];
     controls.forEach(button=>button.disabled=true);
     try{
       const game=await task();
-      if(game?.gameId){reconcile(game,{show:true});void notify(game.gameId);}
+      if(!game?.gameId)throw Error("Operação não confirmada.");
+      reconcile(game,{show:true});void notify(game.gameId);
     }catch(error){
-      toast(/not your turn|turno/i.test(error?.message||"")
-        ?"Aguarde sua vez. O tabuleiro será sincronizado.":"Não foi possível concluir a jogada. Sincronizando…");
+      console.warn("Looply TTT operation failed",operation,error?.message || "unavailable");
       await refresh({show:true});
+      toast(/not your turn|turno/i.test(error?.message||"")
+        ?"Aguarde sua vez.":operation==="convite"
+          ?"Convite não enviado. Tente novamente.":"Não foi possível concluir. Tente novamente.");
     }finally{busy=false;}
   }
   async function handleClick(target){
@@ -192,7 +197,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
       return true;
     }
     if(target.matches("[data-v2-send-invite]")){
-      if(validConversation())await withAction(()=>rpc("v25_ttt_invite",{p_conversation_id:conversationId}));
+      if(validConversation())await withAction(()=>rpc("v25_ttt_invite",{p_conversation_id:conversationId}),"convite");
       return true;
     }
     if(target.matches("[data-v2-accept]")){
@@ -226,7 +231,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     if(timer)clearInterval(timer);
     timer=null;
     if(channel)void client.removeChannel(channel).catch(()=>{});
-    channel=null;conversationId="";
+    channel=null;conversationId="";hydration=null;hydrationConversation="";
   }
   return {handleClick,onConversation:switchConversation,dispose};
 }
