@@ -29,18 +29,14 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     '<p class="studio-music-found" data-studio-music-found role="status" aria-live="polite"></p>' +
     '<section class="studio-music-preview" data-studio-music-preview hidden aria-label="Prévia da música"></section>' +
     '<div class="studio-music-results" data-studio-music-results></div>' +
-    '<label class="studio-audio-upload">Áudio próprio<input type="file" data-studio-audio-file accept="audio/*"></label>' +
     '</div>');
   const query=body.querySelector("[data-studio-music-query]");
   const listing=body.querySelector("[data-studio-music-results]");
   const found=body.querySelector("[data-studio-music-found]");
   const player=body.querySelector("[data-studio-music-preview]");
-  const fileInput=body.querySelector("[data-studio-audio-file]");
   let items=[],seq=0,timer=null,controller=null,importController=null,importBusy=false;
-  let catalogAwaitingUserAudio=null;
   const validatedStreams=new Set(), searchCache=new Map();
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
-  const needsOwnAudio=track=>track.kind==="catalog";
   const addText=(parent,tag,value,className)=>{
     const el=document.createElement(tag);el.textContent=String(value??"");
     if(className)el.className=className;
@@ -60,13 +56,10 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   };
   const chooseForStory=async track=>{
     if(closed||importBusy)return;
-    if(needsOwnAudio(track)){
-      // A search result is metadata, not a license or an audio file. For
-      // Apple/Deezer catalog choices the author may supply a recording that
-      // they are permitted to synchronize with their Story.
-      catalogAwaitingUserAudio=track;
-      found.textContent="Selecione um áudio que você tenha autorização para usar com esta música. A prévia da plataforma não será copiada.";
-      fileInput.click();
+    if(track?.kind === "catalog") {
+      // Commercial promotional previews are preview-only; they may not be
+      // synchronized with user-uploaded Stories (including 30s iTunes clips).
+      found.textContent="A prévia desta plataforma serve para conhecer a faixa, não para publicar como trilha do Story.";
       return;
     }
     if(track.kind==="openverse"){
@@ -264,25 +257,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   query.addEventListener("input",()=>{
     if(timer)clearTimeout(timer);
     timer=setTimeout(()=>void search(),180);
-  });
-  fileInput.addEventListener("change",event=>{
-    const file=event.target.files?.[0];
-    if(!file){catalogAwaitingUserAudio=null;return;}
-    if(!file.type.startsWith("audio/")||file.size<=0||file.size>15*1024*1024){
-      onStatus?.("Escolha um áudio válido de até 15 MB.",true);
-      catalogAwaitingUserAudio=null;fileInput.value="";return;
-    }
-    const catalog=catalogAwaitingUserAudio;
-    catalogAwaitingUserAudio=null;
-    if(catalog && !window.confirm("Você confirma que possui autorização para sincronizar este arquivo de áudio com o Story e compartilhá-lo com outros usuários?")){
-      fileInput.value="";return;
-    }
-    preview(catalog
-      ? {kind:"file",title:catalog.title,artist:catalog.artist,file,
-          catalogProvider:catalog.provider,catalogUrl:catalog.url,
-          licenseVerifiedByUser:true}
-      : {kind:"file",title:file.name.slice(0,120),artist:"Áudio próprio",file});
-    fileInput.value="";
   });
   draw();query.focus?.();return cleanup;
 }
