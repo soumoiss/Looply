@@ -42,13 +42,16 @@ test("chat message edits are limited in the UI to the sender and rely on existin
   assert.match(schema, /create policy chat_messages_update_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/);
 });
 
-test("chat deletion requires confirmation and only exposes messages without attachments", async () => {
+test("chat deletion requires confirmation and deletes owned attachments", async () => {
   const [source, schema] = await Promise.all([
     read("src/chat.js"), read("supabase/migrations/20261015234516_conversations_letters_chat_media.sql")
   ]);
-  assert.match(source, /message\.media\?\.length \? "" : `<button[^`]*data-chat-delete=/);
+  assert.match(source, /isMine \? \`<button[^\`]*data-chat-edit-open=/);
+  assert.match(source, /data-chat-delete=/);
+  assert.match(source, /client\.from\("chat_media"\)[\s\S]*?\.select\("storage_path"\)/);
+  assert.match(source, /client\.storage\.from\("looply-chat"\)\.remove\(paths\)/);
   assert.match(source, /window\.confirm\("Excluir esta mensagem\?/);
-  assert.match(source, /\.delete\(\)[\s\S]*?\.eq\("id", deleteMessageButton\.dataset\.chatDelete\)[\s\S]*?\.eq\("conversation_id", deleteMessageButton\.dataset\.conversationId\)/);
+  assert.match(source, /\.delete\(\)[\s\S]*?\.eq\("id", messageId\)[\s\S]*?\.eq\("conversation_id", deleteMessageButton\.dataset\.conversationId\)/);
   assert.match(schema, /create policy chat_messages_delete_own[\s\S]*?sender_id = \(select auth\.uid\(\)\)/);
 });
 
