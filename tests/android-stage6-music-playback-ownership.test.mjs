@@ -5,18 +5,15 @@ import {captionWithLicensedMusic} from "../src/story-licensed-music.js";
 import {storyMusicCanPublish} from "../src/story-music-picker.js";
 const source=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
-test("Selecting an Apple or Deezer track offers a separate licensed file; never records promotional snippets",async()=>{
+test("Apple and Deezer catalog previews never trigger native audio selection or unauthorized Story export",async()=>{
   const picker=await source("src/story-music-picker.js");
-  assert.match(picker,/catalogAwaitingUserAudio=track/);
-  assert.match(picker,/fileInput\.click\(\)/);
-  assert.match(picker,/Vincular meu áudio autorizado/);
-  assert.match(picker,/Você confirma que possui autorização para sincronizar este arquivo/);
-  assert.match(picker,/catalogProvider:catalog\.provider,catalogUrl:catalog\.url/);
-  assert.match(picker,/licenseVerifiedByUser:true/);
-  assert.doesNotMatch(picker,/fetch\(\s*track\.previewUrl/);
+  assert.doesNotMatch(picker,/catalogAwaitingUserAudio|fileInput\\.click\\(\\)|data-studio-audio-file/);
+  assert.match(picker,/track\\?\\.kind === "catalog"/);
+  assert.match(picker,/prévia desta plataforma serve para conhecer a faixa/);
+  assert.doesNotMatch(picker,/fetch\\(\\s*track\\.previewUrl/);
   assert.equal(storyMusicCanPublish({kind:"catalog",provider:"apple",id:"123"}),false);
   assert.equal(storyMusicCanPublish({kind:"catalog",provider:"deezer",id:"456"}),false);
-  assert.equal(storyMusicCanPublish({kind:"file",file:{type:"audio/wav",size:1024},catalogProvider:"apple"}),true);
+  assert.equal(storyMusicCanPublish({kind:"openverse",license:"by",audioUrl:"https://example.org/music.mp3"}),true);
 });
 
 test("Selected catalog metadata survives as song/artist attribution when author's authorized file is exported",()=>{
