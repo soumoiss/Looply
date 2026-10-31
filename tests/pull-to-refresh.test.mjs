@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { hasPendingRefreshWork,isPullRefreshBlocked,mountPullToRefresh } from "../src/pull-to-refresh.js";
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
-const cleanRoot=()=>({isConnected:true,querySelector:()=>null,querySelectorAll:()=>[]});
+const cleanRoot=()=>({isConnected:true,querySelector:()=>null,querySelectorAll:()=>[],contains:()=>true,addEventListener(){},removeEventListener(){}});
 function mockControl(overrides={}) {
   return {disabled:false,type:"text",value:"",defaultValue:"",tagName:"INPUT",...overrides};
 }
