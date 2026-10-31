@@ -211,7 +211,9 @@ export function setupChatCalls(root, client, userId) {
     attachMedia();
     return pc;
   };
-  const waitForIceGatheringComplete = (peer, timeout = 5000) => new Promise((resolve) => {
+  // Allow 1.5 s for ICE before dispatching the call; late candidates
+  // are already handled by createCallIceGate after offer/answer.
+  const waitForIceGatheringComplete = (peer, timeout = 1500) => new Promise((resolve) => {
     if (!peer || peer.iceGatheringState === "complete") { resolve(); return; }
     let timer;
     const finish = () => {
