@@ -80,20 +80,25 @@ async function render(root, client, isAdmin=false) {
     // Keep the current DOM (including touch focus and scroll) when nothing changed.
     const nextSignature = JSON.stringify(items.map(({ id, source, read_at, kind, preview, created_at }) =>
       [id, source, read_at, kind, preview, created_at]));
-    if (nextSignature === lastNotificationSignature && root.querySelector("[data-notification-list]")) return;
+    if (nextSignature === lastNotificationSignature && root.querySelector("[data-notification-list]")) return true;
     lastNotificationSignature = nextSignature;
     root.innerHTML = `<section class="panel notifications-panel"><div class="notifications-toolbar"><span>${items.filter((item) => !item.read_at).length} não lidas</span><button type="button" class="text-button" data-notifications-read-all ${items.some((item) => !item.read_at) ? "" : "disabled"}>Marcar todas como lidas</button></div>
       <div class="notification-list" data-notification-list>${items.length ? items.map(notificationMarkup).join("") : `<p class="notification-empty">Nenhuma notificação</p>`}</div><p class="notification-status" data-notification-status role="status" aria-live="polite"></p></section>`;
+    return true;
   } catch (error) {
     if (sequence !== renderSequence || !root.isConnected) return;
     console.error("Looply notification load failed", error);
     lastNotificationSignature = "";
-    root.innerHTML = `<section class="panel notifications-panel"><p class="notification-empty" role="alert">Não foi possível carregar as notificações. Atualize a página e tente novamente.</p></section>`;
+    // Preserve the last successfully loaded notification list on network failure.
+    if (!root.querySelector("[data-notification-list]"))
+      root.innerHTML = `<section class="panel notifications-panel"><p class="notification-empty" role="alert">Não foi possível carregar as notificações. Atualize a página e tente novamente.</p></section>`;
+    return false;
   }
 }
 
 await mountAppPage({ page: "notifications", render: async ({ root, client, isAdmin }) => {
   await render(root, client, isAdmin);
+  root.__looplyRefreshData = () => render(root, client, isAdmin);
   const stopWatching = notificationBus.subscribeDebounced(() => { void render(root, client, isAdmin); }, 180);
   root.addEventListener("click", async (event) => {
     const markAll = event.target.closest("[data-notifications-read-all]");
