@@ -10,7 +10,7 @@ export const accounts=Object.freeze({
   angel0v:"angeloeng@loooply.app",angelo:"angeloeng@loooply.app"
 });
 export function emailOf(value){
-  const identity=String(value??"").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/^@/,"");
+  const identity=String(value??"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/^@/,"");
   if(accounts[identity])return accounts[identity];
   if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity))return identity;
   return /^[a-z0-9_]{3,30}$/.test(identity)?identity+"@loooply.app":null;
