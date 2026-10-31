@@ -1,0 +1,95 @@
+name: Publish signed Looply APK for public download
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-looply-signed-download.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: looply-signed-apk-public-download
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '41146896644'
+      SOURCE_SHA: '54ec18f0d50c88cc333f8b3c4d34e286d0d9a00f'
+      EXPECTED_APK_SHA256: '5d67de88cd29cb4136e25be37906b1af2a8430d6e76fde68efdcc94cea2a1683'
+      EXPECTED_SIGNER_SHA256: '0d7a7eb02810db2ac32aa5c08afc05f3247eb9ac26effde8872e150b05ad4ad6'
+      RELEASE_TAG: 'android-v3.0.4-signed-download-20261030'
+      APK_NAME: 'Looply-Android-3.0.4-APK-ASSINADO.apk'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Validate provenance of the successful signed Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .head_sha)" = "$SOURCE_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .conclusion)" = "success"
+          git merge-base --is-ancestor "$SOURCE_SHA" HEAD
+      - name: Retrieve signed Release APK, not the Debug variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "Looply-3.0.4-signed-release" --dir "$RUNNER_TEMP/looply-artifact"
+          mkdir -p public-apk
+          cp "$RUNNER_TEMP/looply-artifact/apk/release/app-release.apk" "public-apk/$APK_NAME"
+          printf '%s  %s\n' "$EXPECTED_APK_SHA256" "public-apk/$APK_NAME" | sha256sum -c -
+          test "$(stat -c %s "public-apk/$APK_NAME")" = "4006010"
+          unzip -t "public-apk/$APK_NAME" | tail -1
+          unzip -Z1 "public-apk/$APK_NAME" | grep -Fx 'assets/home.html'
+          unzip -Z1 "public-apk/$APK_NAME" | grep -Fx 'assets/src/neon-production-client.js'
+      - name: Install official Android signature verifier
+        uses: android-actions/setup-android@v4
+      - name: Verify signed APK certificate and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;36.0.0"
+          signer=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "public-apk/$APK_NAME")
+          printf '%s\n' "$signer" | grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true'
+          printf '%s\n' "$signer" | grep -F 'Verified using v3 scheme (APK Signature Scheme v3): true'
+          actual=$(printf '%s\n' "$signer" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test "$actual" = "$EXPECTED_SIGNER_SHA256"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "public-apk/$APK_NAME" | grep -F "name='com.looply.app'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "public-apk/$APK_NAME" | grep -F "versionName='3.0.4'"
+      - name: Package alternative ZIP and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd public-apk && zip -q Looply-Android-3.0.4-APK-ASSINADO.zip "$APK_NAME")
+          (cd public-apk && sha256sum "$APK_NAME" Looply-Android-3.0.4-APK-ASSINADO.zip > SHA256SUMS.txt)
+          cat > public-apk/LEIA-ME.txt <<'EOF'
+          Looply Android 3.0.4 APK assinado.
+          Extraido do GitHub Actions build 41146896644, commit 54ec18f.
+          Este link e publico e nao depende da Biblioteca do ChatGPT.
+          Testes Android automatizados e compilacao passaram. Isso nao garante
+          todos os recursos de producao ou todas as redes e aparelhos.
+          EOF
+      - name: Publish verifiable public GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already present: $RELEASE_TAG"
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" public-apk/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Looply Android 3.0.4 — APK assinado (download público)" \
+            --notes "APK Release assinado compilado e verificado; SHA-256 $EXPECTED_APK_SHA256. Arquivo extraído da execução bem-sucedida 41146896644. Testes Android automatizados passaram, mas nem todos os fluxos de produção foram comprovados. Alternativa ZIP incluída para download pelo Chrome."
+      - name: Redownload public APK and verify byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$APK_NAME"
+          curl --fail --location --retry 4 --retry-delay 3 "$url" --output "$RUNNER_TEMP/public-apk.apk"
+          cmp "public-apk/$APK_NAME" "$RUNNER_TEMP/public-apk.apk"
+          echo "Public APK is independently downloadable."
