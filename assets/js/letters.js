@@ -98,7 +98,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archive, isAdmin, people);
   const $ = (selector) => root.querySelector(selector);
   const state = { filter: "recebidas", sub: "todas", date: "", adminUser: user.id,
-    cards: archive.cards, reads: new Set(archive.reads.map(item => item.card_id)), letters, selectedRecipient: null, editor: null, reading: null };
+    cards: archive.cards, reads: new Set(archive.reads.map(item => item.card_id)), letters, hiddenSent: new Set(), selectedRecipient: null, editor: null, reading: null };
   const notify = (message, error = false) => {
     const notice = $("#cartasToast"); notice.textContent = message; notice.hidden = false;
     notice.classList.toggle("error", error);
@@ -115,7 +115,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       }));
     } else {
       const owner = ownerTarget();
-      rows = state.letters.filter(c => state.filter === "enviadas" ? c.sender_id === owner : c.recipient_id === owner)
+      rows = state.letters.filter(c => state.filter === "enviadas"
+        ? c.sender_id === owner && !state.hiddenSent.has("community:"+c.id)
+        : c.recipient_id === owner)
         .map((c, i) => ({
           kind: "community", id: c.id, title: c.subject, author: state.filter === "enviadas" ? "Para " + fullName(c.recipient_id) : fullName(c.sender_id),
           date: c.created_at, num: i + 1, read: false, locked: c.is_protected, raw: c
@@ -134,7 +136,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     const rows = filtered();
     const total = state.filter === "originais"
       ? state.cards.filter(c => c.recipient_id === ownerTarget()).length
-      : state.letters.filter(c => state.filter === "enviadas" ? c.sender_id === ownerTarget() : c.recipient_id === ownerTarget()).length;
+      : state.letters.filter(c => state.filter === "enviadas"
+          ? c.sender_id === ownerTarget() && !state.hiddenSent.has("community:"+c.id)
+          : c.recipient_id === ownerTarget()).length;
     $("#colecaoTitulo").textContent = state.filter === "originais" ? "Minhas Cartas" : state.filter === "enviadas" ? "Cartas enviadas" : "Cartas recebidas";
     $("#colecaoCount").textContent = total + (total === 1 ? " carta" : " cartas");
     const archives = state.cards.filter(c => c.recipient_id === ownerTarget());
@@ -146,6 +150,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       '<article class="carta-item">' +
       '<button type="button" class="carta-open" data-letter-kind="'+c.kind+'" data-letter-id="'+h(c.id)+'" aria-label="Ler '+h(c.title)+'"><span class="num">'+String(c.num || i + 1).padStart(2,"0")+'</span><span class="info"><span class="carta-kicker">CARTA '+String(c.num || i + 1).padStart(2,"0")+'</span><span class="titulo">'+h(c.title)+'</span><span class="date">'+h(day(c.date))+'</span><span class="sender">'+(c.kind === "archive" ? "Enviada por " : "")+h(c.author)+'</span></span><span class="check '+(c.read?'checked':'')+'" aria-label="'+(c.read?"Lida":"Não lida")+'">'+(c.read ? "✓" : "✉")+'</span></button>' +
       ((c.kind==="community" && c.raw.sender_id===user.id) || (isAdmin && c.kind==="archive") ? '<button class="carta-admin-edit" type="button" data-edit-kind="'+c.kind+'" data-edit-id="'+h(c.id)+'">'+"Editar"+'</button>' : "") +
+      (c.kind==="community" && c.raw.sender_id===user.id ? '<button type="button" class="carta-admin-edit scheduled-danger" data-delete-sent="'+h(c.id)+'" aria-label="Excluir carta enviada da minha coleção">Excluir</button>' : "") +
       '</article>').join("") : '<p class="cartas-empty">Nenhuma carta encontrada para os filtros selecionados.</p>';
     if (isAdmin) $("#adminCartasCount").textContent = "Cartas arquivadas: "+archives.length+" · correspondências: "+total;
   };
@@ -164,6 +169,10 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       }
     }
     if (cr.status === "fulfilled") state.letters = cr.value;
+    const hidden=await client.rpc("v26_hidden_sent_ids",{});
+    if(!hidden.error && Array.isArray(hidden.data))
+      state.hiddenSent=new Set(hidden.data.map(x=>String(x.kind)+":"+String(x.id)));
+    else console.warn("Sent letter hidden list unavailable",hidden.error?.code||"network");
     if (scheduledController) await scheduledController.reload();
     updateList();
     const complete = ar.status === "fulfilled" && cr.status === "fulfilled";
@@ -514,6 +523,23 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   $("#dataCartas").addEventListener("change",e=>{state.date=e.target.value;updateList();});
   $("#limparData").addEventListener("click",()=>{state.date="";$("#dataCartas").value="";$("#dataWrap").hidden=true;updateList();});
   $("#cartasList").addEventListener("click",async e=>{
+    const remove=e.target.closest("[data-delete-sent]");
+    if(remove){
+      e.preventDefault();
+      const id=remove.dataset.deleteSent;
+      if(!state.letters.some(item=>item.id===id && item.sender_id===user.id))return;
+      if(!confirm("Excluir esta carta da sua coleção de enviadas? A cópia recebida será preservada."))return;
+      remove.disabled=true;
+      try{
+        const {data,error}=await client.rpc("v26_hide_sent_letter",{p_kind:"community",p_id:id});
+        if(error || data!==true)throw error||Error("delete_unconfirmed");
+        state.hiddenSent.add("community:"+id);
+        updateList();
+        notify("Carta excluída da sua coleção.");
+      }catch(error){console.warn("Sent letter removal unavailable",error?.code||"network");notify("Não foi possível excluir a carta.",true);}
+      finally{remove.disabled=false;}
+      return;
+    }
     const edit=e.target.closest("[data-edit-id]");
     if (edit) {
       e.preventDefault();
