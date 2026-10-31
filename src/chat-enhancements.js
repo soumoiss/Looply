@@ -215,7 +215,8 @@ export function setupChatEnhancements(root, client, userId) {
       queueMicrotask(applyFilters);
     }
   });
-  root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); });
+  root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); void game.onConversation(); });
+  root.addEventListener("looply:conversation-activated", () => { void game.onConversation(); });
   root.addEventListener("focusout", (event) => {
     if (event.target.matches(".chat-message-form textarea")) {
       root.dispatchEvent(new CustomEvent("looply:chat-draft-blur"));
