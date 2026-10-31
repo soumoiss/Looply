@@ -157,18 +157,20 @@ export function installScheduledLetters({
   $("#scheduledConfirm").addEventListener("click",async()=>{
     if(busy || !pending) return;
     busy=true;$("#scheduledConfirm").disabled=true;
-    $("#scheduledPreviewStatus").textContent="Registrando a programação no Neon...";
+    $("#scheduledPreviewStatus").textContent="Programando sua carta...";
     try {
       const isEdit=Boolean(editId);
       const input=isEdit ? {p_id:editId,...pending} : {p_request_id:requestId,...pending};
       const {data,error}=await client.rpc(isEdit?"v24_update_scheduled_letter":"v24_create_scheduled_letter",input);
       if(error) throw error;
-      if(!data || (isEdit && data!==true)) throw Error("O banco não confirmou a programação.");
+      if(!data || (isEdit && data!==true)) throw Error("O agendamento não foi confirmado.");
       closePreview();$("#modalEscrever").close();compose.reset();reset();
-      await onChanged(); selectScheduled();
-      notify(isEdit?"Programação atualizada.":"Carta programada e confirmada no Neon.");
+      try {await onChanged();selectScheduled();}
+      catch(refreshError){console.warn("Programmed letter refresh pending",refreshError);}
+      notify(isEdit?"Programação atualizada.":"Carta programada.");
     } catch(error) {
-      $("#scheduledPreviewStatus").textContent=error.message || "Não foi possível salvar. Tente novamente.";
+      console.warn("Looply scheduled letter confirmation failed",error?.message||"unavailable");
+      $("#scheduledPreviewStatus").textContent="Não foi possível programar a carta. Confira a conexão e tente novamente.";
     } finally {busy=false;$("#scheduledConfirm").disabled=false;}
   });
   const statusLabels={scheduled:"Programada",sending:"Enviando",delivered:"Entregue",
@@ -271,7 +273,7 @@ export function installScheduledLetters({
         .eq("sender_id",user.id).order("created_at",{ascending:false}).limit(200);
       if(error) throw error;
       rows=data || [];loadError="";
-    } catch(error) {loadError=error?.message||"Falha de sincronização";} finally {loading=false;}
+    } catch(error) {console.warn("Scheduled letter list unavailable",error?.message||"network");loadError="Falha de sincronização";} finally {loading=false;}
   };
   const render = () => {
     $("#colecaoTitulo").textContent="Cartas programadas";
