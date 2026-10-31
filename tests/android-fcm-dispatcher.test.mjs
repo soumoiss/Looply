@@ -28,3 +28,13 @@ test("Private Stories are never enqueued as general public Story push",async()=>
  assert.match(sql,/ON CONFLICT \(story_id,recipient_id\) DO NOTHING/);
  assert.match(sql,/REVOKE ALL ON public\.android_fcm_story_events FROM PUBLIC/);
 });
+
+test("production FCM workflow verifies the private key before secret synchronization", async () => {
+ const workflow=await read(".github/workflows/android-fcm-deploy.yml");
+ assert.match(workflow,/branches: \[main\]/);
+ assert.match(workflow,/backend\/cloudflare\/android-push-worker\.mjs/);
+ assert.match(workflow,/parseFcmServiceAccount/);
+ assert.match(workflow,/decodeFcmPrivateKey/);
+ assert.match(workflow,/subtle\.importKey\('pkcs8'/);
+ assert.match(workflow,/wrangler@4 secret put FCM_SERVICE_ACCOUNT_JSON/);
+});
