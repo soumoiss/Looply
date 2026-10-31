@@ -520,10 +520,26 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#desbloquearNova").hidden=!letter.is_protected;$("#readCartaTexto").hidden=Boolean(letter.is_protected);
     $("#readCartaTexto").textContent=letter.is_protected?"":letter.body||"";$("#readCartaStatus").textContent="";$("#senhaLeituraNova").value="";
     $("#modalLeituraNova").showModal();
+    if(!letter.is_protected && letter.recipient_id===user.id && letter.sender_id!==user.id) {
+      void client.rpc("v23_mark_community_letter_read",{p_letter_id:letter.id})
+        .then(({error})=>{if(error)console.warn("Could not record letter read",error);});
+    }
   });
   $("#desbloquearNova").addEventListener("submit",async e=>{
     e.preventDefault();const letter=state.reading;if(!letter)return;
-    try{const opened=await openProtectedLetter(letter,$("#senhaLeituraNova").value);$("#readCartaTexto").textContent=opened;$("#readCartaTexto").hidden=false;$("#desbloquearNova").hidden=true;$("#readCartaStatus").textContent="Carta desbloqueada.";}
+    try{
+      const opened=await openProtectedLetter(letter,$("#senhaLeituraNova").value);
+      $("#readCartaTexto").textContent=opened;$("#readCartaTexto").hidden=false;
+      $("#desbloquearNova").hidden=true;$("#readCartaStatus").textContent="Carta desbloqueada.";
+      if(letter.recipient_id===user.id && letter.sender_id!==user.id){
+        const [{error:unlockError},{error:readError}]=await Promise.all([
+          client.rpc("looply_register_recipient_unlock",{p_letter_id:letter.id}),
+          client.rpc("v23_mark_community_letter_read",{p_letter_id:letter.id})
+        ]);
+        if(unlockError)console.warn("Could not register private-letter unlock",unlockError);
+        if(readError)console.warn("Could not register private-letter read",readError);
+      }
+    }
     catch{$("#readCartaStatus").textContent="Senha incorreta ou conteúdo indisponível.";}
   });
   $("#adminEditForm").addEventListener("submit",async e=>{
