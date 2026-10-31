@@ -347,24 +347,6 @@ export function setupChatCalls(root, client, userId) {
     window.setTimeout(() => { if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall(); }, 0);
   };
 
-  const ensureChannel = async () => {
-    const id = activeConversation();
-    if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
-    if (channel && channelConversationId === id) {
-      const ready = channelReady ? await channelReady : Boolean(channel);
-      if (ready) restorePendingIncomingCall(id);
-      return ready ? channel : null;
-    }
-    if (channel) await client.removeChannel(channel);
-    channel = null; channelReady = null; channelConversationId = id;
-    const session = await client.auth.getSession();
-    if (session.error || !session.data?.session?.access_token) {
-      channelConversationId = "";
-      throw new Error("call_auth_required");
-    }
-    await client.realtime.setAuth(session.data.session.access_token);
-    const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false }, preferNeon: true } });
-    channel = next;
   // The Neon all-conversation inbox can receive an offer while this page's
   // conversation-scoped signaling channel is still connecting. Both sources
   // must use exactly the same incoming dialog and accept/decline controller.
@@ -388,6 +370,24 @@ export function setupChatCalls(root, client, userId) {
     void ringtone.start();
     return true;
   };
+  const ensureChannel = async () => {
+    const id = activeConversation();
+    if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
+    if (channel && channelConversationId === id) {
+      const ready = channelReady ? await channelReady : Boolean(channel);
+      if (ready) restorePendingIncomingCall(id);
+      return ready ? channel : null;
+    }
+    if (channel) await client.removeChannel(channel);
+    channel = null; channelReady = null; channelConversationId = id;
+    const session = await client.auth.getSession();
+    if (session.error || !session.data?.session?.access_token) {
+      channelConversationId = "";
+      throw new Error("call_auth_required");
+    }
+    await client.realtime.setAuth(session.data.session.access_token);
+    const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false }, preferNeon: true } });
+    channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
