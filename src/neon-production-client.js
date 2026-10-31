@@ -78,7 +78,9 @@ export async function unregisterAndroidFcmDevice() {
   const response = await fetch(config.data + "/rpc/v16_unregister_android_fcm_token", {
     method: "POST",cache:"no-store",
     headers:{authorization:"Bearer " + session.access_token,accept:"application/json","content-type":"application/json"},
-    body:JSON.stringify({p_device_id:androidDeviceId})
+    body:JSON.stringify({p_device_id:androidDeviceId}),
+    // Never let an unresponsive token endpoint hold the user at logout.
+    signal:typeof AbortSignal?.timeout==="function" ? AbortSignal.timeout(1200) : undefined
   });
   const removed = response.ok && (await response.json().catch(()=>false)) === true;
   if(removed) {
