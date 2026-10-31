@@ -1778,3 +1778,40 @@ body.page-gallery{background:linear-gradient(155deg,#f5f3ff,#ede9fe 65%,#f8f2ff)
  .page-gallery .gallery-viewer-top-title { font-size:11px; }
  .page-gallery .gallery-viewer-bottom { gap:6px; }
 }
+
+/* Account-theme repair, after the 2026 gallery redesign. Keep full-screen
+   media black for accurate photos/videos, theme all chrome and controls. */
+html[data-theme] body.page-gallery {
+  background:var(--bg)!important;color:var(--text)!important;
+  background-attachment:scroll!important;
+}
+html[data-theme] .page-gallery .gallery-shell {color:var(--text)!important}
+html[data-theme] .page-gallery :is(.gallery-hero,.gallery-dialog,.gallery-action-sheet,.gallery-filter-sheet,.gallery-album-toolbar,.gallery-page-more-menu) {
+  background:var(--surface-strong)!important;color:var(--text)!important;
+  border-color:var(--line)!important;
+}
+html[data-theme] .page-gallery :is(.gallery-eyebrow,.gallery-heading,.gallery-title,.gallery-subtitle,.gallery-count) {
+  color:var(--text)!important;
+}
+html[data-theme] .page-gallery :is(.gallery-filter-toggle,.gallery-page-more-toggle,.gallery-search-wrap,.gallery-category-row .gallery-tab,.gallery-chip,.gallery-search,.gallery-action-list button,.gallery-album-toolbar select) {
+  background:var(--surface-soft)!important;color:var(--text)!important;
+  border-color:var(--line)!important;
+}
+html[data-theme] .page-gallery :is(.gallery-category-row .gallery-tab.active,.gallery-tab.active,.gallery-chip.active,.gallery-primary) {
+  background:var(--primary)!important;border-color:var(--primary)!important;color:#fff!important;
+  background-image:none!important;
+}
+html[data-theme] .page-gallery :is(.gallery-category-row .gallery-tab,.gallery-chip,.gallery-primary,.gallery-filter-toggle,.gallery-tool) .looply-icon {
+  color:currentColor!important;
+}
+html[data-theme] .page-gallery :is(.gallery-action-list button:hover,.gallery-page-more-menu button:hover) {
+  background:var(--bg-2)!important;
+}
+html[data-theme] .page-gallery :is(input,select,textarea) {
+  accent-color:var(--primary)!important;
+}
+html[data-theme] .page-gallery .gallery-viewer-action[aria-pressed="true"] {
+  background:var(--primary)!important;border-color:var(--primary-dark)!important;color:#fff!important;
+}
+html[data-theme] .page-gallery .gallery-photo-adjust input[type="range"] {accent-color:var(--primary)!important}
+html[data-theme] .page-gallery .gallery-photo-adjust .gallery-primary {background:var(--primary)!important;border-color:var(--primary)!important}
