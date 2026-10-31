@@ -44,7 +44,32 @@ AS $fcm$
         LEFT(COALESCE(NULLIF(BTRIM(p.display_name),''),NULLIF(BTRIM(p.username),''),'Alguém'),64) AS actor_name,
         CASE WHEN e.source='incoming-call' AND c.payload->>'mode' IN ('video','audio')
              THEN c.payload->>'mode' ELSE NULL END AS call_mode
- FROM public.v20_android_fcm_activity_candidates() e
+ FROM (
+    SELECT v.source,v.event_id,v.kind,v.resource_id,v.conversation_id,
+           v.token_id,v.fcm_token,v.created_at
+    FROM public.v20_android_fcm_activity_candidates() v
+    UNION ALL
+    SELECT 'activity',n.id,n.kind,n.resource_id,NULL::uuid,t.id,t.fcm_token,n.created_at
+    FROM public.notifications n
+    JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
+    UNION ALL
+    SELECT 'chat',n.id,
+       CASE WHEN EXISTS(SELECT 1 FROM public.chat_media cm
+              WHERE cm.message_id=n.message_id AND cm.mime_type LIKE 'audio/%')
+            THEN 'voice' ELSE n.kind END,
+       n.message_id,n.conversation_id,t.id,t.fcm_token,n.created_at
+    FROM public.chat_notifications n
+    JOIN public.android_fcm_tokens t ON t.user_id=n.user_id
+    UNION ALL
+    SELECT 'letter',n.id,'letter',n.letter_id,NULL::uuid,t.id,t.fcm_token,n.created_at
+    FROM public.letter_event_notifications n
+    JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
+    WHERE n.event_type='new_received'
+    UNION ALL
+    SELECT 'story',n.id,'story',n.story_id,NULL::uuid,t.id,t.fcm_token,n.created_at
+    FROM public.android_fcm_story_events n
+    JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
+ ) e
  LEFT JOIN LATERAL (
    SELECT CASE e.source
       WHEN 'activity' THEN (SELECT n.actor_id FROM public.notifications n WHERE n.id=e.event_id)
