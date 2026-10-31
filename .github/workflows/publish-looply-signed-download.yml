@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      - name: Fetch pinned source commit for provenance validation
+        shell: bash
+        run: git fetch --no-tags --depth=100 origin "$SOURCE_SHA"
       - name: Validate provenance of the successful signed Android build
         shell: bash
         run: |
