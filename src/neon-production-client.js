@@ -241,6 +241,24 @@ async function storyEngagementRpc(name, args) {
     return { data: null, error: { message: error?.message || "neon_story_engagement_unavailable" } };
   }
 }
+const tttRpcNames=new Set(["v25_ttt_state","v25_ttt_invite","v25_ttt_accept","v25_ttt_decline","v25_ttt_move","v25_ttt_rematch"]);
+async function tttRpc(name,args){
+  if(!tttRpcNames.has(name))return blocked();
+  try{
+    const session=await activeSession();
+    if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+    const response=await fetch(config.data+"/rpc/"+name,{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify(args||{})
+    });
+    const value=await response.json().catch(()=>null);
+    if(!response.ok)return {data:null,error:{message:value?.message||"tic_tac_toe_rejected",status:response.status,code:value?.code||""}};
+    if(value!==null&&(!value?.gameId||!Array.isArray(value.board)||value.board.length!==9))
+      return {data:null,error:{message:"tic_tac_toe_invalid_state"}};
+    return {data:value,error:null};
+  }catch(error){return {data:null,error:{message:"tic_tac_toe_network_error",details:error?.message||""}};}
+}
 const publicationRpcNames = new Set(["v5_create_post","v5_create_story","v5_attach_post_media","v5_attach_story_media","v5_add_story_mentions"]);
 async function ownerPublicationRpc(name,args) {
   if(!publicationRpcNames.has(name)) return blocked();
@@ -498,7 +516,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : tttRpcNames.has(name) ? tttRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: (name,options) => name === "looply-admin" ? adminFunctionInvoke(options) : chatFunctionInvoke(name,options) }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,

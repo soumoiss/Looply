@@ -731,3 +731,79 @@
   transform:scaleX(-1) !important;
   transform-origin: center center;
 }
+
+
+/* Looply authoritative tic-tac-toe: clean two-player layout, local SVGs and
+   a touch-friendly board that never overlaps the conversation composer. */
+.page-chat .chat-v2-modal:has(.chat-ttt-game) {
+  width:min(100%,440px);
+  max-height:min(90dvh,760px);
+  padding:clamp(15px,3vw,24px);
+  overflow-y:auto;
+  border-radius:23px;
+  border:1px solid color-mix(in srgb,var(--primary,#884ad4) 22%,var(--line,#e5d9ed));
+  background:var(--surface-strong,#fff);
+}
+.page-chat .chat-ttt-game { min-width:0; width:100%; }
+.page-chat .chat-ttt-game .chat-v2-kicker { color:var(--primary,#884ad4); }
+.page-chat .chat-ttt-game h2 { margin:5px 35px 15px 0; font-size:clamp(19px,4.5vw,23px); }
+.page-chat .chat-ttt-players { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.page-chat .chat-ttt-player {
+  display:flex; align-items:center; min-width:0; gap:8px;
+  padding:11px 8px; border:1px solid var(--line,#ebdef5);
+  border-radius:14px; background:color-mix(in srgb,var(--surface-strong,#fff) 87%,#e5d5fc);
+  transition:border-color .18s,background .18s;
+}
+.page-chat .chat-ttt-player.is-turn { background:color-mix(in srgb,var(--surface-strong,#fff) 73%,#eee1ff); border-color:var(--primary,#884ad4); }
+.page-chat .chat-ttt-player.is-winner { border-color:#21a67b; }
+.page-chat .chat-ttt-avatar {
+  flex:0 0 36px; width:36px; height:36px; display:grid; place-items:center;
+  overflow:hidden; border-radius:50%; color:#6c36a1; background:#e9d8fc; font-size:15px; font-weight:850;
+}
+.page-chat .chat-ttt-avatar img { width:100%; height:100%; display:block; object-fit:cover; border-radius:inherit; }
+.page-chat .chat-ttt-identity { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+.page-chat .chat-ttt-player-symbol { font-size:9px; font-weight:850; letter-spacing:.02em; color:var(--primary,#884ad4); }
+.page-chat .chat-ttt-identity strong {
+  font-size:clamp(11px,2.9vw,13px); font-weight:800; min-width:0; max-width:100%;
+  white-space:nowrap; text-overflow:ellipsis; overflow:hidden;
+}
+.page-chat .chat-ttt-identity small {
+  color:var(--muted,#796c80); font-size:10px; max-width:100%;
+  white-space:nowrap; text-overflow:ellipsis; overflow:hidden;
+}
+.page-chat .chat-ttt-win-count { color:var(--primary,#8547c4); font-size:10px; font-weight:750; }
+.page-chat .chat-ttt-game .chat-v2-game-status {
+  margin:14px 0 5px; min-height:22px; font-size:clamp(12px,3vw,14px); color:var(--text,#322344);
+}
+.page-chat .chat-ttt-game .chat-v2-scoreboard {
+  margin:0; text-align:center; font-size:11px; color:var(--muted,#786b87);
+}
+.page-chat .chat-ttt-game .chat-v2-board {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  width:min(100%,285px); max-width:100%; gap:7px; margin:15px auto;
+}
+.page-chat .chat-ttt-game .chat-v2-cell {
+  display:grid; place-items:center; aspect-ratio:1; min-width:0; min-height:0;
+  padding:0; border:1px solid #d6c5f0; border-radius:13px;
+  color:#6e38b6; background:color-mix(in srgb,#fff 82%,#eadbff);
+  font-size:clamp(29px,8vw,44px); font-weight:900;
+  transition:transform .12s,background .12s;
+}
+.page-chat .chat-ttt-game .chat-v2-cell:not(:disabled):active { transform:scale(.96); background:#e8d7fd; }
+.page-chat .chat-ttt-game .chat-v2-cell.is-winning {
+  background:color-mix(in srgb,#d7f8e8 85%,#a1dbff); color:#107d58; border-color:#3ab98e;
+}
+.page-chat .chat-ttt-game .chat-v2-cell:focus-visible { outline:2px solid var(--primary,#884ad4); outline-offset:2px; }
+.page-chat .chat-ttt-connection { font-size:10px; color:var(--muted,#887894); text-align:center; margin:0 0 4px; }
+.page-chat .chat-ttt-game .chat-v2-actions { margin-top:14px; }
+.page-chat .chat-ttt-game .chat-v2-button.is-primary { background:linear-gradient(120deg,#9759da,#6e34bb); border-color:#7f42c9; }
+@media(max-width:360px) {
+  .page-chat .chat-v2-modal:has(.chat-ttt-game) { padding:13px 10px; }
+  .page-chat .chat-ttt-player { padding:8px 5px; gap:5px; }
+  .page-chat .chat-ttt-avatar { flex-basis:29px; width:29px; height:29px; font-size:12px; }
+  .page-chat .chat-ttt-win-count { font-size:9px; }
+  .page-chat .chat-ttt-game .chat-v2-board { width:min(100%,252px); gap:6px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .page-chat .chat-ttt-game *, .page-chat .chat-ttt-player { transition:none!important; animation:none!important; }
+}

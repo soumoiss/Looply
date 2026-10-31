@@ -165,7 +165,7 @@ test("chat emoji picker updates invalidate static page, stylesheet and module ca
     read("chat.html"), read("conversa.html"), read("assets/js/chat.js"), read("assets/js/conversation.js"), read("sw.js")
   ]);
   for (const source of [chatPage, conversationPage, chatEntry, conversationEntry]) assert.match(source, /(notification-bus-20261022|avatar-sync-20261028|feed-media-audio-20261029|incoming-handoff-20261030)/);
-  assert.match(serviceWorker, /looply-shell-v12-pull-refresh-20261031/);
+  assert.match(serviceWorker, /looply-shell-v13-ttt-neon-20261031/);
 });
 
 test("voice recorder pause and resume exclude paused time and expose accessible controls", async () => {
@@ -195,17 +195,18 @@ test("WebRTC call controls distinguish microphone, speaker, camera, and camera s
   assert.match(css, /\.chat-call-backdrop\s*\{\s*position:\s*fixed/);
 });
 
-test("tic-tac-toe randomizes the first starter, gives the previous winner the next start, and records results idempotently", async () => {
-  const source = await read("src/chat-enhancements.js");
-  const migration = await read("supabase/migrations/20261018191500_chat_ttt_persistent_scores.sql");
-  const indexes = await read("supabase/migrations/20261018194500_chat_ttt_score_indexes.sql");
-  assert.match(source, /Math\.random\(\) < 0\.5 \? gameInvite\.senderId : userId/);
-  assert.match(source, /gameState\.winnerId \|\|/);
-  assert.match(source, /record_chat_ttt_result/);
-  assert.match(migration, /game_id uuid primary key/);
-  assert.match(migration, /on conflict \(game_id\) do nothing/);
-  assert.match(migration, /conversation_participants/);
-  assert.match(indexes, /chat_ttt_results_conversation_created_idx/);
+test("tic-tac-toe randomizes initial turn and persists results after server validation", async () => {
+  const [controller,migration] = await Promise.all([
+    read("src/chat-ttt.js"), read("migration/20261031_v25_authoritative_ttt.sql")
+  ]);
+  assert.match(migration, /random\(\)<0\.5 THEN actor ELSE peer/);
+  assert.match(migration, /COALESCE\(g\.winner_id,g\.o_player\)/);
+  assert.match(migration, /FOR UPDATE/);
+  assert.match(migration, /INSERT INTO public\.chat_ttt_results/);
+  assert.match(migration, /ON CONFLICT \(game_id\) DO NOTHING/);
+  assert.match(migration, /public\.conversation_participants/);
+  assert.match(controller, /v25_ttt_move/);
+  assert.doesNotMatch(controller, /record_chat_ttt_result/);
 });
 
 
@@ -272,13 +273,18 @@ test("remote audio/video tracks remain attached to the remote stream and the spe
   assert.match(source, /remote\.play\(\)/);
 });
 
-test("tic-tac-toe shows actual player names and resolves the winner from the winning player ID", async () => {
-  const source = await read("src/chat-enhancements.js");
-  assert.match(source, /const ownDisplayName = \(\) => root\.querySelector\("\.looply-account strong"\)/);
-  assert.match(source, /senderName: ownDisplayName\(\)/);
-  assert.match(source, /oName: ownDisplayName\(\)/);
-  assert.match(source, /const winnerId = gameState\.winnerId \|\|/);
-  assert.doesNotMatch(source, /senderName: root\.querySelector\("\[data-site-header\]"\)\?\.textContent/);
+test("tic-tac-toe uses server-verifiable player names and winning IDs", async () => {
+  const [controller,migration,bridge]=await Promise.all([
+    read("src/chat-ttt.js"),read("migration/20261031_v25_authoritative_ttt.sql"),
+    read("src/neon-production-client.js")
+  ]);
+  assert.match(controller, /tttDisplayName\(player\)/);
+  assert.match(controller, /game\.winnerId/);
+  assert.match(controller, /game\.xPlayer/);
+  assert.match(migration, /xprof\.display_name/);
+  assert.match(migration, /oprof\.display_name/);
+  assert.match(bridge, /v25_ttt_state/);
+  assert.doesNotMatch(controller, /senderName: ownDisplayName\(\)/);
 });
 
 
