@@ -52,7 +52,7 @@ test("public Worker health never reports ready merely because secrets exist",asy
   assert.equal(JSON.stringify(malformed).includes("private_key"),false);
   const valid=await (await worker.fetch(request,{
     ...base,FCM_SERVICE_ACCOUNT_JSON:JSON.stringify({
-      project_id:"looplyv3",client_email:"fcm@example.invalid",private_key
+      project_id:"looplyv3",client_email:"fcm@example.invalid",private_key:privateKey
     })
   })).json();
   assert.equal(valid.ready,true);
