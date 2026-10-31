@@ -76,7 +76,7 @@ test("Story Studio has in-app original music and retains photo/video capture", a
     readFile(resolve(root, "src/story-music-picker.js"), "utf8")
   ]);
   assert.match(picker, /data-studio-music-query/);
-  assert.match(picker, /data-studio-audio-file accept="audio\/\*"/);
+  assert.doesNotMatch(picker, /data-studio-audio-file accept="audio\/\*"/);
   assert.match(studio, /accept="image\/jpeg,image\/png,image\/webp,video\/mp4,video\/webm"/);
   assert.match(studio, /const BUILTIN = Object\.freeze/);
   assert.match(studio, /await uploadResumable\(client, uploadedPath, normalized/);
