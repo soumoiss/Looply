@@ -12,7 +12,7 @@ if (chatRoot) {
 
 await mountAppPage({ page: "chat", render: async ({ root, client, user, profile }) => {
   const [dataResult, storiesResult, socialResult] = await Promise.allSettled([
-    loadChatData(client, user.id), loadStories(client), loadSocialData(client)
+    loadChatData(client, user.id), loadStories(client,user.id), loadSocialData(client)
   ]);
   const data = dataResult.status === "fulfilled" ? dataResult.value : { error: true, conversations: [], notifications: [], profiles: [] };
   const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
