@@ -214,11 +214,43 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
   const stopProfileNavigation = bindProfileNavigation({root,header,user});
-  header.querySelector("[data-sign-out]").addEventListener("click", async (event) => {
-    event.currentTarget.disabled = true;
-    await unregisterAndroidFcmDevice().catch(() => false);
-    const { error } = await supabase.auth.signOut();
-    if (error) event.currentTarget.disabled = false;
+  // Confirm before any auth mutation, and perform exactly one logout.
+  // The auth adapter revokes this device's FCM token once (no double request).
+  const logoutButton=header.querySelector("[data-sign-out]");
+  const logoutDialog=document.createElement("dialog");
+  logoutDialog.className="looply-logout-dialog";
+  logoutDialog.setAttribute("aria-labelledby","looplyLogoutTitle");
+  logoutDialog.innerHTML='<form method="dialog" class="looply-logout-card">'+
+    '<h2 id="looplyLogoutTitle">Sair da sua conta?</h2>'+
+    '<p>Você precisará entrar novamente para acessar o Looply.</p>'+
+    '<p class="looply-logout-error" data-logout-error role="alert" hidden></p>'+
+    '<div class="looply-logout-actions">'+
+    '<button type="submit" value="cancel" data-logout-cancel>Cancelar</button>'+
+    '<button type="button" data-logout-confirm>Confirmar saída</button></div></form>';
+  document.body.append(logoutDialog);
+  logoutButton?.addEventListener("click",()=>{
+    header.querySelector(".looply-account-menu")?.removeAttribute("open");
+    if(!logoutDialog.open)logoutDialog.showModal();
+  });
+  logoutDialog.querySelector("[data-logout-confirm]").addEventListener("click",async()=>{
+    const confirm=logoutDialog.querySelector("[data-logout-confirm]");
+    const cancel=logoutDialog.querySelector("[data-logout-cancel]");
+    const status=logoutDialog.querySelector("[data-logout-error]");
+    if(confirm.disabled)return;
+    confirm.disabled=true;cancel.disabled=true;
+    confirm.textContent="Saindo…";
+    status.hidden=true;
+    try{
+      const {error}=await supabase.auth.signOut();
+      if(error)throw error;
+      window.location.replace("login.html");
+    }catch(error){
+      console.warn("Looply logout unsuccessful",error?.name||"network");
+      status.textContent="Não foi possível concluir a saída. Verifique a conexão.";
+      status.hidden=false;
+      confirm.disabled=false;cancel.disabled=false;
+      confirm.textContent="Confirmar saída";
+    }
   });
 
   // Keep the signed avatar in the global header current without reloading
