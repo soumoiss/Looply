@@ -1,33 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {startAdminPresenceTracking} from "../src/admin-presence.js";
+import {startAdminPresenceTracking,clearAdminPresenceSession} from "../src/admin-presence.js";
 import {deliverNotifications} from "../backend/cloudflare/android-push-worker.mjs";
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
-test("Only verified foreground entry generates one admin notice per session interval",async()=>{
+test("A real browser session registers only once, regardless of focus or elapsed time",async()=>{
   const listeners=new Map(),values=new Map(),calls=[];
-  const doc={visibilityState:"visible",addEventListener:(name,fn)=>listeners.set(name,fn),
-    removeEventListener:(name,fn)=>{if(listeners.get(name)===fn)listeners.delete(name);}};
-  const storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
-  let time=5000000;
-  const stop=startAdminPresenceTracking({rpc:async(name)=>{
-    calls.push(name);return {data:true,error:null};
-  }},"valid-user-id",{clock:()=>time,documentRef:doc,storage});
+  const doc={visibilityState:"visible",addEventListener:(event,fn)=>listeners.set(event,fn),
+    removeEventListener:(event,fn)=>{if(listeners.get(event)===fn)listeners.delete(event);}};
+  const storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),
+    removeItem:key=>values.delete(key)};
+  const createSessionId=()=>"550e8400-e29b-41d4-a716-446655440000";
+  const client={rpc:async(name,args)=>{
+    calls.push({name,args});return {data:true,error:null};
+  }};
+  const start=()=>startAdminPresenceTracking(client,"valid-user-id",
+    {documentRef:doc,storage,createSessionId});
+  const stop=start();
   await flush();
-  assert.deepEqual(calls,["v23_register_app_open"]);
-  listeners.get("visibilitychange")();
+  assert.deepEqual(calls,[{name:"v28_register_app_open",
+    args:{p_session_id:"550e8400-e29b-41d4-a716-446655440000"}}]);
+  stop();
+  // Switching to a different page or reopening a menu is not a new session.
+  const stopSecondPage=start();
   await flush();
-  assert.equal(calls.length,1,"navigating the same session must not spam presence");
-  time+=180001;
-  listeners.get("visibilitychange")();
+  assert.equal(calls.length,1);
+  doc.visibilityState="hidden";
+  await flush();
+  doc.visibilityState="visible";
+  listeners.get("visibilitychange")?.();
+  await flush();
+  assert.equal(calls.length,1);
+  stopSecondPage();
+  // Actual sign-out clears that session; next authenticated visit is new.
+  clearAdminPresenceSession("valid-user-id",{storage});
+  const stopNewLogin=start();
   await flush();
   assert.equal(calls.length,2);
-  stop();
-  assert.equal(listeners.has("visibilitychange"),false);
+  stopNewLogin();
 });
 
+test("Server deduplicates app-open events by session UUID and disables obsolete heartbeat RPC",async()=>{
+  const sql=await read("migration/20261031_v28_unique_admin_app_sessions.sql");
+  assert.match(sql,/UNIQUE INDEX IF NOT EXISTS looply_v28_admin_online_session_once/);
+  assert.match(sql,/actor_id,resource_id/);
+  assert.match(sql,/v28_register_app_open\(p_session_id uuid\)/);
+  assert.match(sql,/ON CONFLICT DO NOTHING/);
+  assert.match(sql,/v23_register_app_open\(\)/);
+  assert.match(sql,/SELECT \(public\.looply_legacy_uid\(\) IS NOT NULL\)/);
+});
 test("Admin-only notices are grounded by authenticated SQL and recipient RLS",async()=>{
   const sql=await read("migration/20261031_v23_peixinho_admin_alerts_and_announcement_ack.sql");
   for(const type of ["admin_online","admin_letter_read","admin_private_unlock"])
