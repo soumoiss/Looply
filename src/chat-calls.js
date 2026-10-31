@@ -63,8 +63,8 @@ export function setupChatCalls(root, client, userId) {
   const iceGate = createCallIceGate(candidate => send("ice", { candidate }));
   const ringtone = createCallRingtone();
   const releaseMedia = () => {
-    ringtone.stop();
     iceGate.reset();
+    ringtone.stop();
     setCallPlaybackActive(false);
     clearOfferRetry();
     clearConnectionTimer();
