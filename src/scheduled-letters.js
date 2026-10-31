@@ -43,7 +43,8 @@ export function installScheduledLetters({
 }) {
   const $ = q => root.querySelector(q);
   const compose = $("#cartaComposeForm"), send = $("#enviarCarta");
-  let rows = [], editId = null, editPassword = "", requestId = crypto.randomUUID();
+  let rows = [], recipientRows = [], hiddenIds = new Set(), direction="sent";
+  let editId = null, editPassword = "", requestId = crypto.randomUUID();
   let loading = false, busy = false, loadError = "";
   const filter = document.createElement("button");
   filter.type="button"; filter.className="filter-btn"; filter.dataset.filter="programadas";
@@ -252,12 +253,26 @@ export function installScheduledLetters({
     await onChanged();notify("Envio cancelado.");
   };
   $("#cartasList").addEventListener("click",async event=>{
+    const tab=event.target.closest("[data-scheduled-direction]");
+    if(tab){direction=tab.dataset.scheduledDirection;render();return;}
     const b=event.target.closest("[data-scheduled-action]");if(!b)return;
     event.preventDefault();
+    if(b.dataset.scheduledAction==="received"){
+      root.querySelector('[data-filter="recebidas"]')?.click();
+      return;
+    }
     const row=rows.find(item=>item.id===b.dataset.scheduleId);
     if(!row)return;
     b.disabled=true;
     try {
+      if(b.dataset.scheduledAction==="delete"){
+        if(!confirm("Excluir esta carta da sua coleção? Se estiver pendente, o envio será cancelado."))return;
+        const {data,error}=await client.rpc("v26_hide_sent_letter",{p_kind:"scheduled",p_id:row.id});
+        if(error || data!==true)throw error||Error("delete_not_confirmed");
+        hiddenIds.add("scheduled:"+row.id);
+        await reload();render();notify("Carta excluída da sua coleção.");
+        return;
+      }
       if(b.dataset.scheduledAction==="view")await showRead(row);
       if(b.dataset.scheduledAction==="edit")await edit(row);
       if(b.dataset.scheduledAction==="cancel")await cancel(row);
@@ -268,32 +283,62 @@ export function installScheduledLetters({
     if(loading) return;
     loading=true;
     try {
-      const {data,error}=await client.from("scheduled_letters")
-        .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,deliver_at,status,delivered_at,created_at")
-        .eq("sender_id",user.id).order("created_at",{ascending:false}).limit(200);
-      if(error) throw error;
-      rows=data || [];loadError="";
+      const [sent, received, hidden] = await Promise.all([
+        client.from("scheduled_letters")
+          .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,deliver_at,status,delivered_at,created_at")
+          .eq("sender_id",user.id).order("created_at",{ascending:false}).limit(200),
+        client.rpc("v26_scheduled_recipient_inbox",{}),
+        client.rpc("v26_hidden_sent_ids",{})
+      ]);
+      if(sent.error || received.error || hidden.error) throw sent.error || received.error || hidden.error;
+      hiddenIds=new Set((hidden.data||[]).map(x=>String(x.kind)+":"+String(x.id)));
+      rows=(sent.data||[]).filter(x=>!hiddenIds.has("scheduled:"+x.id));
+      recipientRows=(received.data||[]).filter(x=>x.recipient_id===user.id);
+      loadError="";
     } catch(error) {console.warn("Scheduled letter list unavailable",error?.message||"network");loadError="Falha de sincronização";} finally {loading=false;}
   };
   const render = () => {
     $("#colecaoTitulo").textContent="Cartas programadas";
-    $("#colecaoCount").textContent=rows.length+" "+(rows.length===1?"carta":"cartas");
-    $("#lidasCount").textContent="Apenas você pode consultar as cartas antes da entrega.";
-    const items=rows.filter(item=>{
-      if(!$("#dataCartas").value) return true;
+    $("#colecaoCount").textContent=(rows.length+recipientRows.length)+" cartas";
+    $("#lidasCount").textContent=direction==="received"
+      ?"O conteúdo permanece bloqueado até o horário da entrega."
+      :"Você pode editar ou cancelar uma carta enquanto estiver pendente.";
+    const items=(direction==="received"?recipientRows:rows).filter(item=>{
+      if(!$("#dataCartas").value)return true;
       return new Intl.DateTimeFormat("en-CA",{timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit"})
         .format(new Date(item.deliver_at))===$("#dataCartas").value;
     });
-    $("#cartasList").innerHTML=loadError?'<p class="cartas-empty" role="alert">Não foi possível carregar programações: '+esc(loadError)+'</p>':
-      (items.length?items.map(row=>'<article class="carta-item scheduled-card">'+
-      '<div class="scheduled-person"><span class="scheduled-avatar">'+avatar(row.recipient_id)+'</span><div><small>Para</small>'+
-      '<strong>'+esc(name(row.recipient_id))+'</strong></div></div>'+
-      '<h3>'+esc(row.subject)+'</h3><p>📅 '+esc(formatted(row.deliver_at))+'</p>'+
-      '<span class="scheduled-status" data-status="'+esc(row.status)+'">'+esc(statusLabels[row.status]||row.status)+'</span>'+
-      '<div class="scheduled-actions"><button type="button" data-scheduled-action="view" data-schedule-id="'+esc(row.id)+'">Visualizar</button>'+
-      (eligible(row)?'<button type="button" data-scheduled-action="edit" data-schedule-id="'+esc(row.id)+'">Editar programação</button>'+
-      '<button type="button" class="scheduled-danger" data-scheduled-action="cancel" data-schedule-id="'+esc(row.id)+'">Cancelar envio</button>':'')+
-      '</div></article>').join(""):'<p class="cartas-empty">Nenhuma carta programada.</p>');
+    const tabs='<div class="scheduled-direction-tabs" role="group" aria-label="Cartas programadas">'+
+      '<button type="button" data-scheduled-direction="sent" aria-pressed="'+(direction==="sent")+'">Enviadas ('+rows.length+')</button>'+
+      '<button type="button" data-scheduled-direction="received" aria-pressed="'+(direction==="received")+'">Recebidas ('+recipientRows.length+')</button></div>';
+    let cards="";
+    if(direction==="received"){
+      cards=items.length?items.map(row=>
+        '<article class="carta-item scheduled-card"><div class="scheduled-person">'+
+        '<span class="scheduled-avatar">'+avatar(row.sender_id)+'</span>'+
+        '<div><small>De</small><strong>'+esc(name(row.sender_id))+'</strong></div></div>'+
+        '<h3>✉ Carta programada</h3><p>📅 '+esc(formatted(row.deliver_at))+'</p>'+
+        '<span class="scheduled-status" data-status="'+esc(row.status)+'">'+
+        esc(row.status==="delivered"?"Entregue":row.status==="sending"?"Em processamento":"Pendente")+'</span>'+
+        (row.status==="delivered"&&row.delivered_letter_id
+          ? '<div class="scheduled-actions"><button type="button" data-scheduled-action="received" data-schedule-id="'+esc(row.id)+'">Abrir nas cartas recebidas</button></div>'
+          : '<p class="scheduled-lock-note">🔒 O conteúdo será liberado quando chegar a data programada.</p>')+
+        '</article>').join(""):'<p class="cartas-empty">Nenhuma carta programada recebida.</p>';
+    }else{
+      cards=items.length?items.map(row=>
+        '<article class="carta-item scheduled-card">'+
+        '<div class="scheduled-person"><span class="scheduled-avatar">'+avatar(row.recipient_id)+'</span>'+
+        '<div><small>Para</small><strong>'+esc(name(row.recipient_id))+'</strong></div></div>'+
+        '<h3>'+esc(row.subject)+'</h3><p>📅 '+esc(formatted(row.deliver_at))+'</p>'+
+        '<span class="scheduled-status" data-status="'+esc(row.status)+'">'+
+        esc(statusLabels[row.status]||row.status)+'</span>'+
+        '<div class="scheduled-actions"><button type="button" data-scheduled-action="view" data-schedule-id="'+esc(row.id)+'">Visualizar</button>'+
+        (eligible(row)?'<button type="button" data-scheduled-action="edit" data-schedule-id="'+esc(row.id)+'">Editar programação</button>'+
+          '<button type="button" class="scheduled-danger" data-scheduled-action="cancel" data-schedule-id="'+esc(row.id)+'">Cancelar envio</button>':'')+
+        '<button type="button" class="scheduled-danger" data-scheduled-action="delete" data-schedule-id="'+esc(row.id)+'">Excluir da minha lista</button>'+
+        '</div></article>').join(""):'<p class="cartas-empty">Nenhuma carta programada enviada.</p>';
+    }
+    $("#cartasList").innerHTML=tabs+(loadError?'<p class="cartas-empty" role="alert">Não foi possível sincronizar as programações.</p>':cards);
   };
   reset();
   void reload();
