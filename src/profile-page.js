@@ -53,10 +53,11 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
       <button class="pr-button pr-share" type="button" data-pr-share aria-label="Compartilhar perfil" title="Compartilhar perfil">${icon('share')}<span>Compartilhar</span></button></div>`;
   }
   async function refreshStats() {
-    if(saving||pendingFollows.size)return;
+    if(saving||pendingFollows.size)return false;
     const revision=statsRevision;
     const next=await profileRpc(client,'v11_profile_overview',{p_profile_id:targetId});
-    if (next?.profile && revision===statsRevision && !saving && !pendingFollows.size) {stats=next;person={...person,...next.profile};drawCard();}
+    if (next?.profile && revision===statsRevision && !saving && !pendingFollows.size) {stats=next;person={...person,...next.profile};drawCard();return true;}
+    return false;
   }
   const announceFollow=detail=>{window.dispatchEvent(new CustomEvent('looply:follow-updated',{detail}));bus?.postMessage(detail);};
   async function follow(id, next, button) {
@@ -87,7 +88,8 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   };
   function drawGrid(){const grid=$(`[data-pr-grid="${tab}"]`);grid.innerHTML=items.length?`<div class="pr-grid">${items.map(tile).join('')}</div>`:'<p class="pr-empty">Nenhuma publicação nesta aba.</p>';$('[data-pr-more]').hidden=!hasMore;}
   async function loadContent(reset=true){
-    if(!reset&&loading)return;
+    if(loading)return false;
+    const previousItems=items,previousHasMore=hasMore;
     const request=++generation,current=tab;loading=true;
     $('[data-pr-more]').disabled=true;
     if(reset){items=[];hasMore=false;$('[data-pr-more]').hidden=true;$(`[data-pr-grid="${tab}"]`).innerHTML=skeleton();}
@@ -97,8 +99,16 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
       await signContentCovers(client,rows);
       if(request!==generation)return;
       items=reset?rows:items.concat(rows);hasMore=rows.length===30;drawGrid();
-    }catch(error){if(request!==generation)return;if(reset)$(`[data-pr-grid="${tab}"]`).innerHTML='<p class="pr-empty">Não foi possível carregar as publicações. <button type="button" class="pr-button" data-pr-content-retry>Tentar novamente</button></p>';else status(profileError(error));}
-    finally{if(request===generation){loading=false;$('[data-pr-more]').disabled=false;}}
+      return true;
+    }catch(error){
+      if(request!==generation)return false;
+      if(reset){
+        items=previousItems;hasMore=previousHasMore;
+        if(previousItems.length)drawGrid();
+        else $(`[data-pr-grid="${tab}"]`).innerHTML='<p class="pr-empty">Não foi possível carregar as publicações. <button type="button" class="pr-button" data-pr-content-retry>Tentar novamente</button></p>';
+      } else status(profileError(error));
+      return false;
+    }finally{if(request===generation){loading=false;$('[data-pr-more]').disabled=false;}}
   }
   function drawPeople(){
     const query=$('[data-pr-user-search]').value.trim().replace(/^@/,'').toLocaleLowerCase('pt-BR');
@@ -185,6 +195,11 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   }
   viewer=createProfileMediaViewer({root,client,user,onChanged:async()=>{await Promise.all([refreshStats(),loadContent()]);},status});
   drawCard();void loadContent();
+  root.__looplyRefreshData = async () => {
+    if(saving || pendingFollows.size || loading)return false;
+    const results=await Promise.allSettled([refreshStats(),loadContent()]);
+    return results.every(result=>result.status==="fulfilled"&&result.value===true);
+  };
   const onSocial=event=>{const detail=event.detail;if(pendingFollows.size)return;if(detail.actorId===targetId||detail.targetId===targetId)void refreshStats().catch(()=>{});};
   window.addEventListener('looply:follow-updated',onSocial);
   if(bus)bus.onmessage=event=>{if(event.data?.type==='profile'){if(event.data.profileId===person.id){++statsRevision;person={...person,...event.data};drawCard();}}else onSocial({detail:event.data||{}});};

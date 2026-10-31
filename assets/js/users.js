@@ -15,13 +15,20 @@ await mountAppPage({ page: "users", render: async ({ root, client, user }) => {
   root.innerHTML = directoryMarkup();
   bindProfileEvents(root, client, null);
   const results = root.querySelector("[data-profile-results]");
+  const loadDirectory = async () => {
   try {
     const { data, error } = await client.from("profiles").select("id,username,display_name,avatar_path")
       .neq("id", user.id).order("username").limit(100);
     if (error) throw error;
     renderSearchResults(results, await signProfileAvatars(client, data || []));
+    return true;
   } catch (error) {
     console.error("Looply directory load failed", error);
-    results.innerHTML = `<p class="search-empty" role="alert">Não foi possível carregar os usuários.</p>`;
+    if (!results.querySelector(".profile-card, .profile-result, [data-profile-open]"))
+      results.innerHTML = `<p class="search-empty" role="alert">Não foi possível carregar os usuários.</p>`;
+    return false;
   }
+  };
+  root.__looplyRefreshData = loadDirectory;
+  await loadDirectory();
 } });

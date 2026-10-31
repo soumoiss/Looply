@@ -7,6 +7,7 @@ import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-ha
 import { mountGlobalAnnouncements } from "./global-announcements.js";
 import { startAdminPresenceTracking } from "./admin-presence.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
+import { mountPullToRefresh } from "./pull-to-refresh.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 import { bindAdminModeSync } from "./admin-mode.js";
 
@@ -323,6 +324,22 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     notice(root, "Não foi possível carregar esta página. Confira sua conexão e tente novamente.", "error");
   }
 
+  // Mount once, after page-specific data and gesture controllers have loaded.
+  // Existing page handlers update real Neon data without remounting event listeners.
+  const stopPullToRefresh = mountPullToRefresh({
+    root, page,
+    refresh: async () => {
+      if (typeof root.__looplyRefreshData === "function") {
+        return (await root.__looplyRefreshData()) === true;
+      }
+      // Less frequent pages (administration/settings) have no safe incremental
+      // renderer. A guarded, authenticated navigation is the fallback.
+      if (navigator.onLine === false) return false;
+      window.location.reload();
+      return true;
+    }
+  });
+
   let stopGlobalAnnouncements = () => {};
   // Announcement receipts belong to the linked Looply profile, not the Neon Auth UUID.
   void mountGlobalAnnouncements({ client: supabase, user, profileId: profile.id })
@@ -342,6 +359,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
+    stopPullToRefresh();
+    delete root.__looplyRefreshData;
     stopAdminPresence();
     stopAdminModeSync();
     stopProfileNavigation();

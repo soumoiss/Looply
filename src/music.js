@@ -325,7 +325,8 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
   area.setAttribute("aria-busy", "true");
   try {
     const latest = await loadMusicData(client, userId);
-    if (latest.dedicationsError) throw latest.dedicationsError;
+    const readError = latest.dedicationsError || latest.libraryError || latest.generalCommentsError || latest.peopleError;
+    if (readError) throw readError;
     area.outerHTML = musicMarkup(latest, userId);
     bindMusicPlayers(root);
     return true;
@@ -335,6 +336,11 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
     area.removeAttribute("aria-busy");
     return false;
   }
+}
+
+/** Safe for pull-to-refresh: it keeps the player shell and refuses open edits. */
+export async function refreshMusicInPlace(root, client, userId) {
+  return refreshMusic(root, client, userId, { force: false });
 }
 
 function updateMusicPlayer(player, audio) {

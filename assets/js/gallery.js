@@ -160,8 +160,9 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     return x[pendingKey];
   };
   const load = async (reset = false) => {
-    if (loading) return;
+    if (loading) return false;
     loading = true;
+    const prior = reset ? {items: [...items], loadPage, hasMore, privateKeys: [...privateKeys]} : null;
     if (reset) {
       loadPage = 0; hasMore = true; items = []; privateKeys.clear(); signedUrlFailures = 0; say("Carregando mídias…");
       grid.innerHTML = Array.from({length:8}, () => '<div class="gallery-card gallery-skeleton-card" aria-hidden="true"><span class="gallery-skeleton"></span></div>').join("");
@@ -178,9 +179,16 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
         client.from("gallery_album_items").select("album_id,source,media_id").order("added_at",{ascending:false}),
         client.from("gallery_media_pins").select("source,media_id,pinned_at")
       ].map(safeQuery));
+      // On a refresh of an already populated gallery, never discard a whole
+      // source merely because one storage/database query failed temporarily.
       if (a.error && c.error) {
         console.error("Gallery media sources failed", { archive: a.error, community: c.error });
         throw new Error("Nenhuma fonte de mídia pôde ser consultada.");
+      }
+      if (prior?.items.length && (a.error || c.error)) {
+        // A partial source failure during refresh cannot erase previously
+        // displayed photos. Initial loads may still show the available source.
+        throw new Error("Não foi possível atualizar todas as mídias.");
       }
       const sourceWarnings = [];
       if (a.error) {
@@ -254,10 +262,17 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       draw();
       say(sourceWarnings.join(" "));
       $("[data-load-more]").hidden = !hasMore;
+      return true;
     } catch (error) {
       console.error("Gallery load failed", error);
+      if(prior){
+        items=prior.items;loadPage=prior.loadPage;hasMore=prior.hasMore;
+        privateKeys.clear();prior.privateKeys.forEach(key=>privateKeys.add(key));
+        if(items.length)draw();
+      }
       say("Não foi possível carregar a Galeria. Verifique sua conexão e tente novamente.");
       if (!items.length) grid.innerHTML = '<div class="gallery-empty">A Galeria não pôde ser carregada. Tente novamente.</div>';
+      return false;
     } finally { loading = false; }
   };
   const visible = () => {
@@ -1106,5 +1121,6 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
   viewerMedia.addEventListener("pointerup",endPointer);
   viewerMedia.addEventListener("pointercancel",()=>{gestureController.reset();syncGestureState();});
   viewerMedia.addEventListener("wheel",e=>{const img=$("[data-viewer-media] img");if(!img||!e.ctrlKey)return;e.preventDefault();const rect=viewerMedia.getBoundingClientRect();setZoom(viewerZoom+(e.deltaY<0?0.15:-0.15),e.clientX-rect.left-rect.width/2,e.clientY-rect.top-rect.height/2);},{passive:false});
+  root.__looplyRefreshData = () => load(true);
   try { await load(true); const linked = new URL(location.href).searchParams.get("media"); if (linked && getItem(linked)) await openViewer(linked); } catch (error) { console.error(error); say("Não foi possível carregar a Galeria. Verifique a conexão e tente novamente."); }
 } });

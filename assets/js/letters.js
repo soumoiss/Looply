@@ -166,6 +166,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     if (!complete) notify("Parte das cartas não pôde ser sincronizada com o Neon.", true);
     return complete;
   };
+  // Re-read real Neon letters and read receipts without remounting private editors.
+  root.__looplyRefreshData = () => loadCurrent();
   if (isAdmin) {
     $("#cartasAdmin").hidden = false;
     $("#adminUserFilter").innerHTML = people.map(p=>'<option value="'+h(p.id)+'">'+h(p.display_name||p.username)+' · @'+h(p.username)+'</option>').join("");

@@ -699,7 +699,8 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
     refreshReelsViewer(root);
     return true;
   } catch (error) {
-    feed.innerHTML = feedMarkup([], error);
+    // Pull-to-refresh must preserve the existing feed if the network fails.
+    console.warn("Looply feed refresh unavailable", error);
     return false;
   } finally {
     feed.removeAttribute("aria-busy");
