@@ -16,7 +16,7 @@ export function decodeFcmPrivateKey(pem, decode = atob) {
   if (typeof pem !== "string" || !pem.trim()) throw Error("fcm_private_key_missing");
   let normalized = pem.trim().replace(/^\uFEFF/, "");
   for (let i = 0; i < 3; i++) {
-    normalized = normalized.replace(/\\r\\n|\\n|\\r/g, "\n");
+    normalized = normalized.replace(/\\+r\\+n|\\+n|\\+r/g, "\n");
   }
   const body = normalized.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "")
     .replace(/[\s\uFEFF]/g, "");
