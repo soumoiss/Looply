@@ -5,6 +5,7 @@ import { encodeStorySong } from "./story-music-catalog.js?v=story-music-official
 import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-official-widget-20261028";
 import { isExplicitStoryPublishGesture, preventImplicitStorySubmit } from "./story-publish-intent.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
+import { storyMusicStartSeconds } from "./story-music-clip.js";
 import { captionWithLicensedMusic } from "./story-licensed-music.js";
 import { STORY_TEXT_FONTS, STORY_TEXT_DEFAULT_FONT, storyTextNormalize, storyTextClampSize,
   storyTextPinchSize, storyTextClampPosition, storyTextFont, storyTextFontCss,
@@ -1082,7 +1083,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
           // original audio rather than masking it with a second full-volume
           // soundtrack. Own/CC source remains baked into the exported media.
           source = attachStoryMusic(audioCtx, destination, buffer, {
-            volume:videoMedia ? 0.35 : 0.85
+            volume:videoMedia ? 0.35 : 0.85,
+            startSeconds:storyMusicStartSeconds(music.startSeconds,buffer.duration)
           });
         }
         destination.stream.getAudioTracks().forEach(t => framesStream.addTrack(t));
@@ -1102,8 +1104,8 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       // Start the soundtrack after the recorder begins: don't lose its first notes.
       if (videoMedia) {
         await videoMedia.play();
-        if (source) source.start();
-      } else if (source) source.start();
+        if (source) source.start(0, source.loopStart || 0);
+      } else if (source) source.start(0, source.loopStart || 0);
       if (videoMedia) {
         const redraw = () => {
           fillCanvas(canvas, videoMedia, editFilter);

@@ -1,6 +1,7 @@
 import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js";
 import { dedupeStorySongRecordings } from "./story-music-dedupe.js";
+import { storyMusicStartSeconds, withStoryMusicStart } from "./story-music-clip.js";
 import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js";
 
 // Apple/Deezer/Spotify: catalog previews only; own or licensed audio is the publishable soundtrack.
@@ -37,6 +38,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   let items=[],seq=0,timer=null,controller=null,importController=null,importBusy=false;
   const validatedStreams=new Set(), searchCache=new Map();
   let audio=null,iframe=null,fileUrl=null,previewToken=0,closed=false;
+  let previewedTrack=null,previewStartSeconds=0,licensedTrackConfirmed=null;
   const addText=(parent,tag,value,className)=>{
     const el=document.createElement(tag);el.textContent=String(value??"");
     if(className)el.className=className;
@@ -47,6 +49,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     if(audio){audio.pause();audio.removeAttribute("src");audio.load();audio=null;}
     if(iframe){iframe.src="about:blank";iframe.remove();iframe=null;}
     if(fileUrl){URL.revokeObjectURL(fileUrl);fileUrl=null;}
+    previewedTrack=null;previewStartSeconds=0;licensedTrackConfirmed=null;
     player.replaceChildren();player.hidden=true;
   };
   const cleanup=()=>{
@@ -56,20 +59,26 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   };
   const chooseForStory=async track=>{
     if(closed||importBusy)return;
+    const startSeconds = previewedTrack === track ? previewStartSeconds : 0;
     if(track.kind==="catalog"){
       found.textContent="Esta prévia é apenas para ouvir no seletor. Escolha uma gravação com licença adequada para publicar.";
       return;
     }
     if(track.kind==="openverse"){
-      // Search results contain license declarations, NOT legal verification.
-      if(!window.confirm("Você verificou na origem a autoria e a licença desta gravação para uso no Story?"))return;
+      // An inline checkbox replaces disruptive confirm() dialogs. An index
+      // license tag does not independently verify the recording\u0027s rights.
+      if(licensedTrackConfirmed !== track){
+        if(previewedTrack !== track)preview(track);
+        found.textContent="Confirme a licença e a autoria na própria seleção antes de publicar.";
+        return;
+      }
       importBusy=true;
       const task=new AbortController();importController?.abort();importController=task;
       found.textContent="Importando áudio…";
       try{
         const imported=await downloadLicensedStorySong(track,{signal:task.signal});
         if(closed||task.signal.aborted)return;
-        stopPreview();onSelect(imported);
+        stopPreview();onSelect(withStoryMusicStart(imported,startSeconds));
         onStatus?.("Áudio confirmado para incorporação.",false);
       }catch(error){
         if(!closed&&!task.signal.aborted)found.textContent="Não foi possível importar esta faixa.";
@@ -78,18 +87,29 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     }
     if(!storyMusicCanPublish(track)){found.textContent="Este resultado não possui áudio utilizável.";return;}
     stopPreview();
-    onSelect(track);
+    onSelect(withStoryMusicStart(track,startSeconds));
   };
   const makeAudio=src=>{
     const el=document.createElement("audio");audio=el;
-    el.controls=true;el.autoplay=false;el.preload="metadata";
+    // Audio is internal: never display a second native/third-party player.
+    el.controls=false;el.autoplay=false;el.preload="metadata";
     el.setAttribute("aria-label","Ouvir prévia da música");
     el.src=src;player.append(el);
+    const toggle=addText(player,"button","▶ Ouvir trecho","studio-music-preview-toggle");
+    toggle.type="button";toggle.dataset.studioMusicPlay="";
+    toggle.onclick=()=>{
+      if(el.paused){void el.play().catch(()=>{found.textContent="Toque novamente para ouvir a prévia.";});}
+      else el.pause();
+    };
     el.addEventListener("playing",()=>{
       if(el!==audio||closed)return;
       if(el.currentSrc && el.readyState>=2)validatedStreams.add(el.currentSrc);
-      found.textContent="Som iniciado. Você pode selecionar esta música.";
+      toggle.textContent="⏸ Pausar trecho";
+      found.textContent=storyMusicCanPublish(previewedTrack)
+        ?"Trecho tocando. Ajuste o início e selecione para usar no Story."
+        :"Prévia oficial tocando. Esta faixa não pode ser incorporada ao Story.";
     });
+    el.addEventListener("pause",()=>{if(el===audio)toggle.textContent="▶ Ouvir trecho";});
     el.addEventListener("error",()=>{if(el===audio && !closed)found.textContent="Não foi possível reproduzir o áudio.";});
     void el.play().catch(()=>{
       if(el===audio && !closed)found.textContent="Toque em reproduzir para ouvir a prévia.";
@@ -98,6 +118,8 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
   const preview=track=>{
     if(closed)return;
     stopPreview();
+    previewedTrack=track;
+    previewStartSeconds=storyMusicStartSeconds(track.startSeconds);
     player.hidden=false;
     const token=previewToken;
     addText(player,"strong",track.title+" · "+(track.artist||"Áudio próprio"),"studio-music-preview-title");
@@ -126,6 +148,53 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         iframe.referrerPolicy="strict-origin-when-cross-origin";
         player.append(iframe);
       }else found.textContent="Esta gravação não disponibilizou prévia.";
+    }
+    // Pick the exact second of a licensed recording in the same panel.
+    // The recorded video then starts at this position, not at second zero.
+    if(storyMusicCanPublish(track) && audio){
+      const trackAudio=audio;
+      const clipLabel=addText(player,"label","Início do trecho: 0:00","studio-music-clip-label");
+      const clipRange=document.createElement("input");
+      clipRange.type="range";clipRange.min="0";clipRange.max="0";clipRange.step="1";
+      clipRange.value=String(Math.floor(previewStartSeconds));
+      clipRange.setAttribute("aria-label","Segundo inicial da música no Story");
+      clipLabel.append(clipRange);
+      clipLabel.hidden=true;
+      const formatTime=seconds=>Math.floor(seconds/60)+":"+String(Math.floor(seconds%60)).padStart(2,"0");
+      const refreshClip=()=>{
+        if(trackAudio!==audio || !Number.isFinite(trackAudio.duration))return;
+        const available=Math.min(3600,Math.max(0,Math.floor(trackAudio.duration)-1));
+        clipRange.max=String(available);
+        previewStartSeconds=storyMusicStartSeconds(previewStartSeconds,trackAudio.duration);
+        clipRange.value=String(Math.min(available,Math.floor(previewStartSeconds)));
+        clipLabel.firstChild.textContent="Início do trecho: "+formatTime(previewStartSeconds);
+        clipLabel.hidden=available<1;
+        if(previewStartSeconds>0){
+          try{trackAudio.currentTime=previewStartSeconds;}catch{}
+        }
+      };
+      trackAudio.addEventListener("loadedmetadata",refreshClip);
+      if(trackAudio.readyState>=1)refreshClip();
+      clipRange.addEventListener("input",()=>{
+        if(trackAudio!==audio)return;
+        previewStartSeconds=storyMusicStartSeconds(Number(clipRange.value),trackAudio.duration);
+        clipLabel.firstChild.textContent="Início do trecho: "+formatTime(previewStartSeconds);
+        try{trackAudio.currentTime=previewStartSeconds;}catch{}
+        void trackAudio.play().catch(()=>{found.textContent="Toque em ouvir para reproduzir o trecho.";});
+      });
+    }
+    if(track.kind==="openverse"){
+      const licenseLabel=document.createElement("label");
+      licenseLabel.className="studio-music-license-check";
+      const checkbox=document.createElement("input");
+      checkbox.type="checkbox";
+      checkbox.setAttribute("aria-label","Confirmo que verifiquei a licença e a autoria desta gravação");
+      checkbox.addEventListener("change",()=>{
+        licensedTrackConfirmed=checkbox.checked?track:null;
+      });
+      licenseLabel.append(checkbox);
+      addText(licenseLabel,"span","Confirmei a autoria e a licença desta gravação para usar no Story.");
+      player.append(licenseLabel);
     }
     const actions=addText(player,"div","","studio-music-preview-actions");
     if(storyMusicCanPublish(track)){

@@ -139,7 +139,7 @@ test("Android music cards have separate grid action row, readable text, and visi
   assert.match(css,/\.story-studio \.studio-catalog-song \{[\s\S]*?display:grid!important;/);
   assert.match(css,/\.story-studio \.studio-catalog-song > \.studio-music-row-actions \{[\s\S]*?grid-row:2;/);
   assert.match(css,/\.story-studio \.studio-catalog-select \{[\s\S]*?color:#18141d!important/);
-  assert.match(picker,/el\.controls=true/);
+  assert.match(picker,/el\.controls=false/);
   assert.match(picker,/void el\.play\(\)\.catch/);
   assert.match(picker,/el\.addEventListener\("error"/);
   assert.match(picker,/const listen=addText\(buttons,"button","▶ Ouvir prévia"/);
