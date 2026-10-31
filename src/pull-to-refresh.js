@@ -44,7 +44,11 @@ export function hasPendingRefreshWork(root) {
         continue;
       }
       if (control.tagName==="SELECT"){
-        if ([...control.options].some(option=>option.selected!==option.defaultSelected))return true;
+        const options=[...control.options];
+        const defaults=options.filter(option=>option.defaultSelected);
+        // Browsers select the first option implicitly when none declares "selected".
+        if(!defaults.length&&!control.multiple&&options.length)defaults.push(options[0]);
+        if(options.some(option=>option.selected!==defaults.includes(option)))return true;
       } else if (typeof control.value==="string" && control.value!==control.defaultValue) return true;
     }
   }
