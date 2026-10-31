@@ -64,7 +64,8 @@ test("Publishing does not synthesize fake audio from Apple, Deezer or Spotify me
   assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
   assert.match(viewer,/storyText\.music\?\.provider\s*===\s*"itunes"/);
   assert.doesNotMatch(viewer,/audiusStoryStreamUrl/);
-  assert.doesNotMatch(viewer,/story-viewer-music-hidden/);
+  assert.match(viewer,/story-viewer-music-hidden/);
+  assert.match(viewer,/resolveAppleStoryPreview\(appleSong\)/);
 });
 test("Only tracks with stated, verifiable compatible licenses can be offered for imported soundtrack",()=>{
   const metadata={id:"valid-one",title:"Original",creator:"Author",url:"https://archive.org/file.mp3",
