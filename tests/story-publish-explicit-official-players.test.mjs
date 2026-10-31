@@ -71,6 +71,6 @@ test("published Story contains only the music label and real in-viewer audio, ne
  const picker=read("src/story-music-picker.js");
  assert.doesNotMatch(picker,/open\.spotify\.com|spotify:\/\//);
  assert.match(picker,/searchCatalog=searchStorySongs/);
- assert.match(picker,/Vincular meu áudio autorizado/);
+ assert.doesNotMatch(picker,/Vincular meu áudio autorizado/);
 });
 

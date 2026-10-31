@@ -59,7 +59,7 @@ test("Publishing does not synthesize fake audio from Apple, Deezer or Spotify me
     assert.equal(storyMusicCanPublish({kind:"catalog",provider,id:"123"}),false);
   assert.equal(storyMusicCanPublish({kind:"catalog",provider:"audius",id:"A1"}),false);
   assert.equal(storyMusicCanPublish({kind:"file",file:{size:1}}),true);
-  assert.match(picker,/Vincular meu áudio autorizado/);
+  assert.doesNotMatch(picker,/Vincular meu áudio autorizado/);
   assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
   assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
   assert.match(viewer,/storyText\.music\?\.provider\s*===\s*"itunes"/);
