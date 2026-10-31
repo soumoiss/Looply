@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 
 test("SW serves cached static pages immediately without mixing different build URLs", async () => {
   const worker = await readFile(resolve(root,"sw.js"),"utf8");
-  assert.match(worker,/const CACHE = "looply-shell-v10-admin-notices-20261031"/);
+  assert.match(worker,/const CACHE = "looply-shell-v11-single-navigation-20261031"/);
   assert.match(worker,/Promise\.allSettled\(SHELL\.map/);
   assert.ok(worker.includes("const cached = await cache.match(event.request, { ignoreSearch: false })"));
   assert.match(worker,/if \(cached\) \{/);

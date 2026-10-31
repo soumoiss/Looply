@@ -133,11 +133,6 @@
 .page-home .ig-post .post-comments { padding:0; }
 .page-home .ig-post .post-comments h3, .page-home .ig-post .post-comments .comment-list, .page-home .ig-post .post-comments > .comment-form { display:none!important; }
 .page-home .post-card.ig-post .post-comments[data-comments-expanded="true"] h3,.page-home .post-card.ig-post .post-comments[data-comments-expanded="true"] .comment-list,.page-home .post-card.ig-post .post-comments[data-comments-expanded="true"] > .comment-form { display:none!important; }
-.page-home .looply-feed-nav { display:flex; position:fixed; left:0; right:0; bottom:0; z-index:19999; height:calc(62px + env(safe-area-inset-bottom)); padding:5px 3px env(safe-area-inset-bottom); align-items:center; justify-content:space-around; background:color-mix(in srgb,var(--surface) 92%,transparent); border-top:1px solid var(--hybrid-border); backdrop-filter:blur(12px); box-shadow:0 -4px 16px #2615340d; }
-.page-home .looply-feed-nav a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:0; flex:1; width:auto; height:51px; padding:5px 3px; border-radius:13px; background:transparent; color:var(--muted); text-decoration:none; }
-.page-home .looply-feed-nav a[aria-current="page"] { color:var(--hybrid-coral); background:color-mix(in srgb,var(--hybrid-coral) 12%,var(--surface)); }
-.page-home .looply-feed-nav a svg { width:20px; height:20px; }
-.page-home .looply-feed-nav a small { font-size:9px; font-weight:750; }
 .page-home .post-composer-fields:not([hidden]) {
   position:fixed; z-index:20010; inset:50% auto auto 50%; transform:translate(-50%,-50%); box-sizing:border-box;
   display:flex; flex-direction:column; width:min(94vw,460px); height:auto; max-height:min(88dvh,840px);
@@ -203,7 +198,6 @@
   .page-home .page-content { padding:12px 11px calc(90px + env(safe-area-inset-bottom)); }
   .page-home .ig-post .post-external { margin:10px 10px 0; border-radius:15px; }
   .page-home .post-card.ig-post { border-left:1px solid var(--hybrid-border); border-right:1px solid var(--hybrid-border); border-radius:23px; }
-  .page-home .looply-feed-nav { z-index:19999; }
   .page-home .post-composer-fields:not([hidden]) { width:min(94vw,450px); max-height:91dvh; border-radius:20px; padding:16px; }
 }
 @media (max-width:370px) {
@@ -212,7 +206,6 @@
   .page-home .home-welcome .home-profile-shortcut { padding:6px; font-size:10px; }
   .page-home .post-card.ig-post .post-icon-button { min-width:31px; padding:6px; font-size:10px; }
   .page-home .ig-post .post-interactions { gap:4px; }
-  .page-home .looply-feed-nav a small { font-size:8px; }
 }
 @media(prefers-reduced-motion:reduce) {
   .page-home .hybrid-external-watch,.page-home .story-avatar-frame { animation:none; transition:none; }
