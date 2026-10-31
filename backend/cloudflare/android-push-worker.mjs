@@ -34,18 +34,40 @@ export function decodeFcmPrivateKey(pem, decode = atob) {
     throw Error("fcm_private_key_invalid_base64");
   }
 }
+// Accept JSON-stringified or secret-manager wrapped service-account JSON.
+// Android's public google-services.json cannot authenticate an FCM sender.
 export function parseFcmServiceAccount(value, projectId) {
-  let account;
-  try {
-    account = JSON.parse(String(value || ""));
-    if (typeof account === "string") account = JSON.parse(account);
-  } catch {
-    throw Error("fcm_service_account_invalid_json");
+  let account=value;
+  for (let attempt=0;attempt<5;attempt++) {
+    if (typeof account==="string") {
+      try { account=JSON.parse(account.trim()); }
+      catch { throw Error("fcm_service_account_invalid_json"); }
+      continue;
+    }
+    if (account && typeof account==="object" && !Array.isArray(account)) {
+      if (account.project_info && Array.isArray(account.client))
+        throw Error("fcm_android_config_not_service_account");
+      if (typeof account.private_key==="string" || typeof account.privateKey==="string")
+        break;
+      const key=["service_account","serviceAccount","firebase_service_account",
+        "firebaseServiceAccount","credentials","FCM_SERVICE_ACCOUNT_JSON"]
+        .find(k=>account[k] && (typeof account[k]==="object" || typeof account[k]==="string"));
+      if(key) { account=account[key];continue; }
+    }
+    break;
   }
-  if (!account || typeof account !== "object" || typeof account.client_email !== "string" ||
-      typeof account.private_key !== "string") throw Error("fcm_service_account_invalid_fields");
-  if (account.project_id !== projectId) throw Error("fcm_project_mismatch");
-  return account;
+  if(!account || typeof account!=="object" || Array.isArray(account))
+    throw Error("fcm_service_account_invalid_fields");
+  const normalized={...account,
+    project_id:account.project_id||account.projectId,
+    client_email:account.client_email||account.clientEmail,
+    private_key:account.private_key||account.privateKey};
+  if(typeof normalized.client_email!=="string" || !normalized.client_email.includes("@"))
+    throw Error("fcm_service_account_missing_client_email");
+  if(typeof normalized.private_key!=="string" || !normalized.private_key.trim())
+    throw Error("fcm_service_account_missing_private_key");
+  if(normalized.project_id!==projectId)throw Error("fcm_project_mismatch");
+  return normalized;
 }
 async function googleAccessToken(env){
   if(cachedOauth && cachedOauth.expiresAt > Date.now()+60_000) return cachedOauth.accessToken;
@@ -183,19 +205,26 @@ export async function deliverNotifications(env,{
 export default {
   async fetch(request,env){
     if(request.method==="GET"&&new URL(request.url).pathname==="/health") {
-      let ready=false;
-      // Bindings existing does NOT mean FCM is ready. Validate the private
-      // credential in-place without returning any details, bytes or tokens.
+      let ready=false,status="missing_configuration";
+      const codes=new Set(["fcm_service_account_invalid_json",
+        "fcm_android_config_not_service_account","fcm_service_account_invalid_fields",
+        "fcm_service_account_missing_client_email","fcm_service_account_missing_private_key",
+        "fcm_project_mismatch","fcm_private_key_missing",
+        "fcm_private_key_too_short","fcm_private_key_non_base64_characters",
+        "fcm_private_key_bad_length","fcm_private_key_invalid_base64"]);
       try {
         if (env.FCM_SERVICE_ACCOUNT_JSON && env.NEON_PUSH_DATABASE_URL && env.FCM_PROJECT_ID) {
           const account=parseFcmServiceAccount(env.FCM_SERVICE_ACCOUNT_JSON,env.FCM_PROJECT_ID);
           const keyBytes=decodeFcmPrivateKey(account.private_key);
           await crypto.subtle.importKey("pkcs8",keyBytes,
             {name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
-          ready=true;
+          ready=true; status="ready";
         }
-      } catch { ready=false; }
-      return Response.json({service:"looply-android-fcm",ready}, {headers:{"cache-control":"no-store"}});
+      } catch (error) { status=codes.has(error?.message)?error.message:"fcm_private_key_invalid_pkcs8"; }
+      // Only a fixed diagnostic code is returned; never tokens, credentials,
+      // email addresses, user IDs or raw Google error payloads.
+      return Response.json({service:"looply-android-fcm",ready,status},
+        {headers:{"cache-control":"no-store"}});
     }
     return Response.json({error:"not_found"},{status:404});
   },
