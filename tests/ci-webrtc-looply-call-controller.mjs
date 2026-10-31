@@ -23,7 +23,7 @@ try {
         page.on("pageerror",error=>console.error("[peer "+index+"] page-error:",String(error)));
         await page.route("**/src/*.js*", async route => {
           const file = new URL(route.request().url()).pathname.split("/").at(-1);
-          if(!["chat-calls.js","call-ice-gate.js","icons.js","media-playback-coordinator.js"].includes(file)) {
+          if(!["chat-calls.js","call-ice-gate.js","call-ringtone.js","icons.js","media-playback-coordinator.js"].includes(file)) {
             return route.abort();
           }
           const body = await readFile(new URL("../src/"+file,import.meta.url),"utf8");
@@ -36,7 +36,15 @@ try {
         await page.exposeBinding("__relaySignal",async ({page:source},packet)=>{
           const recipient=pages.find(p=>p!==source);
           if(!recipient) return "error";
-          await recipient.evaluate(packet => window.__receiveTestSignal?.(packet), packet);
+          await recipient.evaluate(({packet,useInbox}) => {
+            if (useInbox && packet.type === "offer") {
+              document.querySelector("#root")?.dispatchEvent(new CustomEvent("looply:incoming-call", {
+                cancelable:true, detail:{conversationId:packet.conversationId,payload:packet}
+              }));
+              return;
+            }
+            window.__receiveTestSignal?.(packet);
+          },{packet,useInbox:mode === "video"});
           return "ok";
         });
         await page.goto("http://localhost:8765/webrtc-fixture");

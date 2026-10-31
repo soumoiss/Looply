@@ -1,4 +1,5 @@
 import { createFastIncomingPoller } from "./fast-incoming-calls.js";
+import { routeIncomingCallToOpenChat } from "./call-incoming-router.js";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 const pendingKey = (userId) => `looply:pending-call:${userId}`;
@@ -94,6 +95,13 @@ export function setupGlobalCallListener(client, userId, profile) {
     // Call offers are repeated for unreliable networks. Never restart ringing
     // or rebuild the dialog when the same offer is delivered by both channels.
     if (incoming?.conversationId === call.conversationId) return;
+    // After the user accepts and navigates into the conversation, the new
+    // page must not display a duplicate incoming dialog during the handoff.
+    try {
+      const accepted = JSON.parse(sessionStorage.getItem(pendingKey(userId)) || "null");
+      if (accepted?.accepted === true && accepted.conversationId === call.conversationId &&
+          Date.now() - accepted.savedAt < 90000) return;
+    } catch { /* Session storage is optional. */ }
     if (incoming && incoming.conversationId !== call.conversationId) {
       void signal(call, "decline");
       return;
@@ -127,12 +135,17 @@ export function setupGlobalCallListener(client, userId, profile) {
     channel.on("broadcast", { event: "signal" }, ({ payload }) => {
       if (!payload || payload.conversationId !== conversation.id || payload.senderId === userId) return;
       if (!participants.some((p) => p.user_id === payload.senderId)) return;
-      // The chat page already has its own WebRTC controller for the open thread.
-      if (activeConversationId() === conversation.id) return;
       if (payload.type === "offer") {
         if (!payload.description || !["audio", "video"].includes(payload.mode)) return;
+        // Deliver to the open conversation even if its Neon call room is not
+        // subscribed yet. If no controller handles it, use the global overlay.
+        if (routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversation.id,payload)) {
+          if (incoming?.conversationId === conversation.id) hideOverlay();
+          return;
+        }
         showIncoming(call, payload);
       } else if (payload.type === "hangup" || payload.type === "decline" || payload.type === "failed") {
+        routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversation.id,payload);
         if (incoming?.conversationId === conversation.id) hideOverlay();
       }
     });
@@ -150,13 +163,18 @@ export function setupGlobalCallListener(client, userId, profile) {
   fastInbox = createFastIncomingPoller({
     client,
     onSignal:({conversationId,senderId,payload})=>{
-      if (closed || senderId === userId || activeConversationId() === conversationId) return;
+      if (closed || senderId === userId) return;
       const call = channels.get(conversationId) || {conversationId,participants:[],channel:null};
       if (payload.type === "offer") {
         if (!payload.description || !["audio","video"].includes(payload.mode)) return;
+        if (routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversationId,payload)) {
+          if (incoming?.conversationId === conversationId) hideOverlay();
+          return;
+        }
         showIncoming(call,payload);
-      } else if (incoming?.conversationId === conversationId) {
-        hideOverlay();
+      } else {
+        routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversationId,payload);
+        if (incoming?.conversationId === conversationId) hideOverlay();
       }
     }
   });

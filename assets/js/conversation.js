@@ -1,7 +1,7 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b";
+import { mountAppPage } from "../../src/page-runtime.js?v=incoming-handoff-20261030";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=avatar-sync-20261028-user-stickers";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
-import { setupChatCalls } from "../../src/chat-calls.js?v=feed-media-audio-20261029";
+import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {
   root.dataset.conversationPage = "true";

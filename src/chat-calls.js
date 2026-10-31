@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { createCallIceGate } from "./call-ice-gate.js";
+import { createCallRingtone } from "./call-ringtone.js";
 import { setCallPlaybackActive } from "./media-playback-coordinator.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
@@ -60,8 +61,10 @@ export function setupChatCalls(root, client, userId) {
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
   const iceGate = createCallIceGate(candidate => send("ice", { candidate }));
+  const ringtone = createCallRingtone();
   const releaseMedia = () => {
     iceGate.reset();
+    ringtone.stop();
     setCallPlaybackActive(false);
     clearOfferRetry();
     clearConnectionTimer();
@@ -286,6 +289,7 @@ export function setupChatCalls(root, client, userId) {
   const acceptCall = async () => {
     if (!incomingOffer || answeringCall || pc) return;
     answeringCall = true;
+    ringtone.stop();
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
     callPeerName = incomingOffer.senderName || peerName();
     try {
@@ -343,6 +347,29 @@ export function setupChatCalls(root, client, userId) {
     window.setTimeout(() => { if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall(); }, 0);
   };
 
+  // The Neon all-conversation inbox can receive an offer while this page's
+  // conversation-scoped signaling channel is still connecting. Both sources
+  // must use exactly the same incoming dialog and accept/decline controller.
+  const receiveOffer = payload => {
+    if (!payload || payload.conversationId !== activeConversation() ||
+        payload.senderId === userId || payload.description?.type !== "offer" ||
+        !["audio","video"].includes(payload.mode)) return false;
+    if (pc) {
+      if (incomingOffer?.senderId === payload.senderId &&
+          incomingOffer?.conversationId === payload.conversationId) return true;
+      void send("decline");
+      return true;
+    }
+    if (incomingOffer?.senderId === payload.senderId &&
+        incomingOffer?.conversationId === payload.conversationId) return true;
+    if (incomingOffer) return false;
+    incomingOffer = payload;
+    callMode = payload.mode;
+    callPeerName = payload.senderName || peerName();
+    showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+    void ringtone.start();
+    return true;
+  };
   const ensureChannel = async () => {
     const id = activeConversation();
     if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
@@ -364,16 +391,7 @@ export function setupChatCalls(root, client, userId) {
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
-        if (pc) {
-          if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
-          await send("decline");
-          return;
-        }
-        if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
-        incomingOffer = payload;
-        callMode = payload.mode === "video" ? "video" : "audio";
-        callPeerName = payload.senderName || peerName();
-        showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+        receiveOffer(payload);
       } else if (payload.type === "answer" && pc && isCaller) {
         try {
           clearOfferRetry();
@@ -415,6 +433,27 @@ export function setupChatCalls(root, client, userId) {
     if (!heading.querySelector("[data-call-audio]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-audio aria-label="Ligar por áudio" title="Chamada de áudio">☎</button>');
     if (!heading.querySelector("[data-call-video]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-video aria-label="Ligar por vídeo" title="Chamada de vídeo">' + icon("video") + '</button>');
   };
+  root.addEventListener("looply:incoming-call", event => {
+    const payload = event.detail?.payload;
+    if (event.detail?.conversationId !== activeConversation() || !payload) return;
+    if (payload.type !== "offer") {
+      // A caller may hang up before the conversation room has subscribed.
+      if (incomingOffer?.senderId !== payload.senderId ||
+          !["hangup", "decline", "failed"].includes(payload.type)) return;
+      event.preventDefault();
+      void endCall(false, "A outra pessoa encerrou a chamada.");
+      return;
+    }
+    if (!receiveOffer(payload)) return;
+    // Tell the global listener that this conversation owns the incoming UI.
+    // It must not simultaneously show a second ringing overlay on Android.
+    event.preventDefault();
+    // Begin the secure Neon channel handshake while the user decides. The
+    // incoming dialog is available immediately, regardless of room latency.
+    void ensureChannel().then(ready => {
+      if (!ready && incomingOffer === payload) toast("Canal de chamadas indisponível. Verifique a conexão.");
+    }).catch(error => console.warn("Looply incoming call channel unavailable",error));
+  });
   root.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
@@ -505,6 +544,7 @@ export function setupChatCalls(root, client, userId) {
     if (event.target.matches("[data-call-modal]")) endCall(true);
   });
   window.addEventListener("pagehide", () => {
+    ringtone.stop();
     observer.disconnect();
     if (pc || localStream) endCall(false, "");
     if (channel) client.removeChannel(channel);
