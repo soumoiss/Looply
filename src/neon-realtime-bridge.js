@@ -132,6 +132,24 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const start = () => {
       if (closed) return Promise.resolve(null);
       if (ready) return ready;
+      // Calls must use ONE transport on both ends. A caller on Cloudflare
+      // and a callee on the Neon fallback cannot exchange answers/ICE.
+      // Prefer the authenticated Neon RPC for all direct call signaling;
+      // retain WebSockets for chat invalidations and games.
+      if (roomKind === "call" && useFallback && options?.config?.preferNeon === true) {
+        ready = fallback.connect(conversationId, deliver, error => {
+          console.warn("Looply call signal polling interrupted", error?.message);
+        }, 700).then(backup => {
+          if (closed) { backup.close(); return null; }
+          ws = backup;
+          report("SUBSCRIBED");
+          return backup;
+        }).catch(error => {
+          if (!closed) report("CHANNEL_ERROR", error);
+          return null;
+        });
+        return ready;
+      }
       ready = open().catch(async cloudflareError=>{
         // Preserve the October 19 WebRTC offer/answer/ICE contract. When the
         // optional Cloudflare WebSocket is blocked, use a separate authenticated

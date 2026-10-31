@@ -85,8 +85,8 @@ test("Story music UI keeps imported music in-app, and caption credits persist wi
   assert.match(picker,/downloadLicensedStorySong\(track,\{signal:task.signal\}\)/);
   assert.match(picker,/onSelect\(imported\)/);
   assert.match(picker,/window\.confirm/);
-  assert.match(picker,/fileInput\.click\(\)/);
-  assert.match(picker,/catalogAwaitingUserAudio=track/);
+  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+  assert.doesNotMatch(picker,/catalogAwaitingUserAudio=track/);
   assert.match(studio,/captionWithLicensedMusic\(caption.value,music\)/);
   assert.match(studio,/const media = await exportFinal\(armedAudioContext\)/);
   assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer, \{/);

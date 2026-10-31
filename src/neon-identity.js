@@ -11,7 +11,7 @@ export async function fetchLinkedNeonProfile({session, dataApiUrl, fetchImpl = f
   const endpoint = String(dataApiUrl || "").replace(/\/$/, "");
   if (!endpoint.startsWith("https://")) throw new Error("A consulta segura do perfil Neon está indisponível.");
   const url = `${endpoint}/v3_self_profile?select=${encodeURIComponent(fields)}&limit=2`;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++) {
     let response;
     try {
       response = await fetchImpl(url, {
@@ -20,15 +20,15 @@ export async function fetchLinkedNeonProfile({session, dataApiUrl, fetchImpl = f
         cache: "no-store"
       });
     } catch {
-      if (attempt < 2) { await sleep(180 * (attempt + 1)); continue; }
+      if (attempt < 5) { await sleep(260 * (attempt + 1)); continue; }
       throw new Error("Não foi possível conectar ao Neon para verificar o perfil.");
     }
     if (!response.ok) {
       // A denied session must never be retried as an anonymous or privileged user.
       if (response.status === 401 || response.status === 403)
         throw new Error("O Neon não autorizou esta sessão. Entre novamente para renovar o acesso.");
-      if ([502,503,504].includes(response.status) && attempt < 2) {
-        await sleep(180 * (attempt + 1));
+      if ([502,503,504].includes(response.status) && attempt < 5) {
+        await sleep(260 * (attempt + 1));
         continue;
       }
       throw new Error("Não foi possível consultar o perfil vinculado no Neon.");
@@ -41,7 +41,7 @@ export async function fetchLinkedNeonProfile({session, dataApiUrl, fetchImpl = f
     // Multiple returned profiles are a security problem, not a transient delay.
     if (rows.length > 1 || (rows.length === 1 && !rows[0]?.id))
       throw new Error("O Neon retornou uma resposta de perfil inválida.");
-    if (attempt < 2) await sleep(180 * (attempt + 1));
+    if (attempt < 5) await sleep(260 * (attempt + 1));
   }
   throw new Error("A identidade foi autenticada, mas o perfil original ainda não está vinculado.");
 }

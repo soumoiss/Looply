@@ -352,7 +352,7 @@ export function setupChatCalls(root, client, userId) {
       throw new Error("call_auth_required");
     }
     await client.realtime.setAuth(session.data.session.access_token);
-    const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false } } });
+    const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false }, preferNeon: true } });
     channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
