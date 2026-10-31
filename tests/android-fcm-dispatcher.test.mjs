@@ -17,8 +17,8 @@ test("Worker dispatch is based on real events and keeps data only FCM payload",a
  const named=await read("migration/20261031_fcm_named_fast_call.sql");
  for(const table of ["notifications","chat_notifications","letter_event_notifications","android_fcm_story_events","android_fcm_tokens"])
   assert.ok(named.includes("public."+table),table);
- assert.match(worker,/public\\.v22_android_fcm_named_candidates\\(\\)/);
- assert.match(worker,/public\\.android_fcm_deliveries/);
+ assert.match(worker,/public\.v22_android_fcm_named_candidates\(\)/);
+ assert.match(worker,/public\.android_fcm_deliveries/);
  assert.match(worker,/ON CONFLICT\(source,event_id,token_id\)/);
  assert.match(worker,/WHERE created_at > now\(\)-interval '2 hours'/);
  assert.match(worker,/android:\{priority:/);
