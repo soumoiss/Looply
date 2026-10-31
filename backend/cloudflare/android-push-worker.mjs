@@ -175,24 +175,49 @@ export async function deliverNotifications(env,{
     if(item.resource_id)data.resourceId=String(item.resource_id);
     // Names are sourced from Neon after recipient visibility checks. Never
     // trust senderName from the client signaling payload.
-    const actor=String(item.actor_name||"").trim().slice(0,64) || "Alguém";
+    const actor=String(item.actor_name||"").replace(/[\\r\\n\\t]+/g," ").trim().slice(0,64) || "Alguém";
     const callMode=item.call_mode==="video"?"video":"audio";
-    const suffix=kind==="call"
-      ? " está ligando por "+(callMode==="video"?"vídeo":"voz")
-      : "";
+    // Every notification identifies the verified actor and the specific
+    // event type; never put private message, letter, or comment text in FCM.
+    const actionBySource={
+      "feed":"Publicou no feed",
+      "post-mention":"Mencionou você em uma publicação",
+      "feed-comment":"Comentou uma publicação",
+      "gallery":"Publicou uma mídia na galeria",
+      "gallery-comment":"Comentou uma mídia da galeria",
+      "gallery-like":"Curtiu sua mídia da galeria",
+      "gallery-mention":"Mencionou você em um comentário da galeria",
+      "gallery-tag":"Marcou você em uma mídia da galeria",
+      "archive-gallery-comment":"Comentou uma mídia da galeria histórica",
+      "archive-gallery-mention":"Mencionou você na galeria histórica",
+      "story":"Publicou um Story",
+      "story-mention":"Mencionou você em um Story",
+      "story-like":"Curtiu seu Story",
+      "post-like":"Curtiu sua publicação",
+      "letter":"Enviou uma carta para você",
+      "community-letter":"Enviou uma carta para você",
+      "music-dedication":"Dedicou uma música para você",
+      "music-comment":"Comentou uma dedicatória musical",
+      "music-page-comment":"Comentou uma música",
+      "music-admin-comment":"Comentou uma música"
+    };
+    const genericByKind={
+      "voice":"Enviou uma mensagem de voz","message":"Enviou uma mensagem",
+      "letter":"Enviou uma carta para você","comment":"Comentou sua publicação",
+      "reply":"Respondeu ao seu comentário","mention":"Mencionou você",
+      "story_mention":"Mencionou você em um Story",
+      "story_like":"Curtiu seu Story","post_like":"Curtiu sua publicação",
+      "dedication":"Dedicou uma música para você","music_dedication":"Dedicou uma música para você",
+      "post":"Publicou no feed","reel":"Publicou um Reel",
+      "like":"Curtiu sua publicação","gallery":"Publicou na galeria"
+    };
+    const action=kind==="call"?"Está ligando por "+(callMode==="video"?"vídeo":"voz"):
+      item.source==="chat"?(kind==="voice"?"Enviou uma mensagem de voz":"Enviou uma mensagem"):
+      item.source==="activity"?(genericByKind[String(item.kind)]||"Interagiu com você"):
+      actionBySource[String(item.source)]||genericByKind[String(item.kind)]||"Interagiu com você";
     data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
     if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
-    data.body=kind==="call"?actor+suffix:kind==="voice"?"Enviou uma mensagem de voz":
-      kind==="message"?"Enviou uma mensagem":kind==="letter"?"Enviou uma carta":
-      kind==="post"?(item.source==="post-mention"?"Mencionou você numa publicação":"Publicou no feed"):
-      kind==="comment"?"Comentou uma publicação":
-      kind==="gallery"?(item.source==="gallery-mention"||item.source==="gallery-tag"||item.source==="archive-gallery-mention"?"Marcou você na galeria":
-        item.source==="gallery-comment"||item.source==="archive-gallery-comment"?"Comentou na galeria":
-        item.source==="gallery-like"?"Curtiu sua foto na galeria":"Publicou na galeria"):
-      kind==="mention"?"Mencionou você em um Story":
-      kind==="dedication"?(item.source.includes("comment")?"Comentou uma música":"Dedicou uma música a você"):
-      kind==="story"?(item.source==="story-like"?"Curtiu seu Story":"Publicou um Story"):
-      kind==="like"?"Curtiu sua publicação":"Interagiu com você";
+    data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):action;
     // For stories, replies and comments we keep only a short generic
     // action and no private excerpt, password or attachment in FCM.
     const message={token:item.fcm_token,data,
