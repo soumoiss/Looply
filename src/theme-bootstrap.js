@@ -21,6 +21,25 @@
     document.documentElement.dataset.savedTheme = saved;
     document.documentElement.dataset.theme = theme;
     values.forEach((value, index) => document.documentElement.style.setProperty(`--${keys[index]}`, value));
+    const fonts = {
+      system:'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      sans:'Arial, Helvetica, sans-serif', serif:'Georgia, "Times New Roman", serif',
+      rounded:'ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif',
+      manrope:'Manrope, Inter, sans-serif', dm_sans:'"DM Sans", Inter, sans-serif',
+      jakarta:'"Plus Jakarta Sans", Inter, sans-serif',
+      space_grotesk:'"Space Grotesk", Inter, sans-serif', nunito:'Nunito, sans-serif',
+      quicksand:'Quicksand, sans-serif', montserrat:'Montserrat, sans-serif',
+      cormorant:'"Cormorant Garamond", Georgia, serif',
+      playfair:'"Playfair Display", Georgia, serif',
+      fraunces:'Fraunces, Georgia, serif', caveat:'Caveat, cursive',
+      syne:'Syne, Inter, sans-serif'
+    };
+    const sizes = {small:"14.4px",normal:"16px",large:"17.92px",very_large:"20px"};
+    const savedFont = localStorage.getItem("looply_font_family") || "system";
+    const savedSize = localStorage.getItem("looply_font_size") || "normal";
+    document.documentElement.style.setProperty("--looply-font-family", fonts[savedFont] || fonts.system);
+    document.documentElement.style.setProperty("--looply-root-font-size", sizes[savedSize] || sizes.normal);
+    document.documentElement.dataset.fontFamily = savedFont in fonts ? savedFont : "system";
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", values[4]);
   } catch {}
 }());
