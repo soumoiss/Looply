@@ -9,7 +9,7 @@
 <body>
 <main class="share-shell">
   <header class="share-heading">
-    <div class="share-heading-mark" aria-hidden="true">↗</div>
+    <div class="share-heading-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.6 6.6-4.2m-6.6 7 6.6 4.1"/></svg></div>
     <div class="share-heading-title"><span class="share-eyebrow">Looply · Compartilhamento</span><h1>Compartilhar no Looply</h1></div>
     <button id="cancel" type="button" class="share-icon-button" aria-label="Fechar compartilhamento">×</button>
   </header>
@@ -25,10 +25,10 @@
     <label class="share-label" for="caption">Legenda <span>(opcional)</span></label>
     <textarea id="caption" maxlength="2200" rows="3" placeholder="Escreva alguma coisa…"></textarea>
     <fieldset class="share-audience" aria-describedby="shareAudienceNote">
-      <legend><span class="share-people-icon" aria-hidden="true">◉</span> Quem pode visualizar?</legend>
+      <legend><span class="share-people-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.5a3.5 3.5 0 0 1 0 6.8M17 14a5.5 5.5 0 0 1 4.5 5.5"/></svg></span> Quem pode visualizar?</legend>
       <div class="share-visibility-options">
-        <label class="share-visibility"><input type="radio" name="shareAudience" value="public" checked><span class="share-visibility-icon" aria-hidden="true">◎</span><span class="share-visibility-copy"><strong>Todos</strong><small>Membros do Looply</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
-        <label class="share-visibility"><input type="radio" name="shareAudience" value="selected"><span class="share-visibility-icon" aria-hidden="true">♧</span><span class="share-visibility-copy"><strong>Pessoas selecionadas</strong><small>Apenas quem você escolher</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
+        <label class="share-visibility"><input type="radio" name="shareAudience" value="public" checked><span class="share-visibility-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.4 4 3.4 14 0 18M12 3c-3.4 4-3.4 14 0 18"/></svg></span><span class="share-visibility-copy"><strong>Todos</strong><small>Membros do Looply</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
+        <label class="share-visibility"><input type="radio" name="shareAudience" value="selected"><span class="share-visibility-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.5a3.5 3.5 0 0 1 0 6.8M17 14a5.5 5.5 0 0 1 4.5 5.5"/></svg></span><span class="share-visibility-copy"><strong>Pessoas selecionadas</strong><small>Apenas quem você escolher</small></span><span class="share-radio-check" aria-hidden="true"></span></label>
       </div>
       <p id="shareAudienceNote" class="share-privacy-explain">Todos os usuários autorizados do Looply poderão visualizar.</p>
       <section id="selectedAudience" class="share-selected-audience" hidden aria-label="Destinatários">
