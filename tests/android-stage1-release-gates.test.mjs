@@ -12,7 +12,7 @@ test("Android packaging always identifies the exact 3.0.6 package under review",
   assert.match(gradle, /applicationId\s*=\s*"com\.looply\.app"/);
   assert.match(gradle, /versionCode\s*=\s*306\b/);
   assert.match(gradle, /versionName\s*=\s*"3\.0\.6"/);
-  assert.match(workflow, /versionCode='305'/);
+  assert.match(workflow, /versionCode='306'/);
   assert.match(workflow, /versionName='3\.0\.6'/);
   assert.match(workflow, /name:\s*Looply-3\.0\.6-debug-apk/);
   assert.match(workflow, /name:\s*Looply-3\.0\.6-signed-release/);
