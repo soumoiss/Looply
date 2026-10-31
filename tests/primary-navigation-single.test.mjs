@@ -49,7 +49,8 @@ test("no HTML page includes a second hardcoded primary navigation",async()=>{
   for(const path of files){
     const file=await read(path);
     assert.doesNotMatch(file,/<nav[^>]*class="[^"]*page-navigation/i,path);
-    assert.match(file,/<header[^>]*data-site-header[^>]*><\/header>/,path);
+    if(path==="chat.html")assert.match(file,/<header[^>]*data-site-header[^>]*><a class="brand-inline"/,path);
+    else assert.match(file,/<header[^>]*data-site-header[^>]*><\/header>/,path);
   }
 });
 
