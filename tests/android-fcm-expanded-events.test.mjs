@@ -14,7 +14,7 @@ const sample=(kind,source)=>({
 const run=async row=>{
   const messages=[];
   const query=async (_env,sql)=>{
-    if(sql.includes("FROM (\n SELECT 'activity'"))return [row];
+    if(sql.includes("FROM public.v22_android_fcm_named_candidates()"))return [row];
     if(sql.includes("INSERT INTO public.android_fcm_deliveries"))return [{event_id:row.event_id}];
     if(sql.includes("UPDATE public.android_fcm_deliveries"))return [{event_id:row.event_id}];
     throw Error("unexpected SQL");
@@ -28,7 +28,7 @@ const run=async row=>{
 test("all supported event types are queued through least-privilege candidate function",async()=>{
   const worker=await read("backend/cloudflare/android-push-worker.mjs");
   const migration=await read("migration/20261031_fcm_comprehensive_activity_candidates.sql");
-  assert.match(worker,/public\.v20_android_fcm_activity_candidates\(\)/);
+  assert.match(worker,/public\.v22_android_fcm_named_candidates\(\)/);
   for(const source of ["feed","feed-comment","gallery","gallery-comment",
     "post-mention","story-mention","gallery-mention","gallery-tag",
     "post-like","story-like","gallery-like","community-letter","music-dedication","incoming-call"]){
