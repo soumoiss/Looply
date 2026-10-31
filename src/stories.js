@@ -294,6 +294,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
             '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">➤</button>' +
             '<span class="story-reply-status" data-story-reply-status role="status" aria-live="polite"></span>' +
           '</div>' +
+          '<button type="button" class="story-repost-visible" data-story-repost hidden aria-label="Republicar story em que fui mencionado">↻ Repostar no meu story</button>' +
         '</footer>' +
         '<div class="story-quick-reactions" data-story-quick-reactions hidden role="group" aria-label="Reações rápidas">' +
           ['❤️','🔥','👏','😍','😂','😮','😢','💜'].map(emoji => '<button type="button" data-story-quick-reaction="' + emoji + '" aria-label="Reagir com ' + emoji + '">' + emoji + '</button>').join('') +
@@ -306,7 +307,6 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<strong>Compartilhar story</strong>' +
           '<label>Enviar para<select data-story-share-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
           '<button type="button" data-story-share-send>Enviar na conversa</button>' +
-          '<button type="button" data-story-repost hidden>Repostar no meu story</button>' +
           '<button type="button" data-story-share-native>Compartilhar pelo aparelho</button>' +
           '<button type="button" data-story-share-copy>Copiar link</button>' +
           '<button type="button" data-story-share-close>Cancelar</button>' +
@@ -540,8 +540,10 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       void client.from("story_mentions").select("id")
         .eq("story_id", story.id).eq("mentioned_user_id", userId).maybeSingle()
         .then(({data,error}) => {
-          if (!error && data?.id && viewer.open && state.slideVersion === version)
+          if (!error && data?.id && viewer.open && state.slideVersion === version) {
             repostButton.hidden = false;
+            repostButton.disabled = false;
+          } else if(error) console.warn("Story mention lookup failed",error?.code||"network");
         }).catch(() => {});
     }
     viewer.querySelector("[data-story-quick-reactions]").hidden = true;
