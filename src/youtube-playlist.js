@@ -152,6 +152,36 @@ export async function fetchPlaylistItems(playlistId, accessToken, fetchImpl = gl
   throw new Error("youtube-playlist-too-large");
 }
 
+// Public, read-only fallback when the authenticated playlist service is unavailable.
+// YouTube's playlist feed does not require a Google API key and exposes recent public entries.
+async function fetchPublicPlaylistFeed(playlistId,fetchImpl=globalThis.fetch){
+  const response=await fetchImpl("https://www.youtube.com/feeds/videos.xml?playlist_id="+encodeURIComponent(playlistId),{cache:"no-store"});
+  if(!response.ok)throw Error("youtube-public-feed-unavailable");
+  const xml=await response.text();
+  const doc=new DOMParser().parseFromString(xml,"application/xml");
+  if(doc.querySelector("parsererror"))throw Error("youtube-public-feed-invalid");
+  const entries=[...doc.getElementsByTagName("entry")];
+  return entries.map((entry,index)=>{
+    const videoId=entry.getElementsByTagName("yt:videoId")[0]?.textContent?.trim()
+      ||entry.getElementsByTagNameNS("http://www.youtube.com/xml/schemas/2015","videoId")[0]?.textContent?.trim()||"";
+    const title=entry.getElementsByTagName("title")[0]?.textContent?.trim()||"";
+    const channel=entry.getElementsByTagName("name")[0]?.textContent?.trim()||"";
+    return {videoId,title,channel,position:index,thumbnail:"https://i.ytimg.com/vi/"+videoId+"/hqdefault.jpg"};
+  }).filter(x=>/^[A-Za-z0-9_-]{11}$/.test(x.videoId)&&x.title&&!/^(Private|Deleted) video$/i.test(x.title));
+}
+export async function fetchPlaylistItemsWithFallback(playlistId,accessToken,fetchImpl=globalThis.fetch){
+  try{return await fetchPlaylistItems(playlistId,accessToken,fetchImpl);}
+  catch(error){
+    try{
+      const tracks=await fetchPublicPlaylistFeed(playlistId,fetchImpl);
+      if(tracks.length)return tracks;
+    }catch{}
+    const cached=readPlaylistCache(playlistId);
+    if(cached?.tracks?.length)return cached.tracks;
+    throw error;
+  }
+}
+
 function trackMarkup(track, index) {
   const number = String(index + 1);
   return `<li><div class="youtube-track-row"><button class="youtube-track" type="button" data-youtube-track="${escapeHtml(track.videoId)}" aria-pressed="false">
@@ -207,7 +237,7 @@ export async function bindYouTubePlaylist(root, client) {
       if (error) throw new Error("youtube-session-unavailable");
       const accessToken = String(data?.session?.access_token || "");
       if (!accessToken) throw new Error("youtube-session-missing");
-      const freshTracks = await fetchPlaylistItems(playlistId, accessToken);
+      const freshTracks = await fetchPlaylistItemsWithFallback(playlistId, accessToken);
       if (!playlist.isConnected) return;
       tracks = freshTracks;
       writePlaylistCache(playlistId, tracks);
@@ -226,7 +256,8 @@ export async function bindYouTubePlaylist(root, client) {
             : error?.message === "youtube-session-unavailable"
               ? "Não foi possível validar sua sessão. Tente novamente."
               : String(error?.message || "Não foi possível carregar a playlist.");
-      showStatus(tracks.length ? `${tracks.length} músicas salvas. ${message}` : message, true);
+      if(tracks.length)render();
+      else showStatus("Não foi possível carregar as músicas. Tente novamente.", true);
     } finally {
       loading = false;
     }
