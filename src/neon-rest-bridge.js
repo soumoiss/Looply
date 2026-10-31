@@ -51,6 +51,7 @@ const WRITABLE = Object.freeze({
   letter_event_notifications: ["read_at","notified_at"],
   notifications: ["read_at"],
   chat_notifications: ["read_at"],
+  looply_admin_activity_notifications: ["read_at"],
   app_settings: []
 });
 const plainIdentifier = /^[a-z][a-z0-9_]*$/;
@@ -111,7 +112,7 @@ export function createNeonRestQuery(table, {dataApiUrl,getAccessToken,fetchImpl=
       // column and the explicit unread-only predicate. Never generalize this
       // exception to posts, messages or administrator data.
       const scopedUnreadUpdate = state.mode === "update"
-        && ["notifications","chat_notifications"].includes(table)
+        && ["notifications","chat_notifications","looply_admin_activity_notifications"].includes(table)
         && state.filters.length === 1
         && state.filters[0][0] === "is"
         && state.filters[0][1] === "read_at"
