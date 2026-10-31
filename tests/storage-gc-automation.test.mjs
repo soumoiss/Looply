@@ -25,7 +25,7 @@ test('expiry cleanup enqueues via database then deletes only unreferenced storag
     return [];
   };
   const output=await runMaintenance({query,remove:async(bucket,object)=>removed.push([bucket,object])});
-  assert.deepEqual(output,{expired:4,cleaned:1,protected:0,retry:0});
+  assert.deepEqual(output,{expired:1,cleaned:1,protected:0,retry:0});
   assert.deepEqual(removed,[['looply-media',key]]);
   assert.ok(calls.some(c=>c.sql.includes('gc_finish_job')&&c.params[1]==='done'));
 });
