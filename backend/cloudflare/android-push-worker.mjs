@@ -174,10 +174,13 @@ export async function deliverNotifications(env,{
   if(!rows.length)return {eligible:0,sent:0,failed:0};
   const accessToken=await accessTokenProvider(env);
   let sent=0,failed=0;
-  for(const item of rows){
+  // Bounded concurrency: one slow device cannot hold back other ringing phones.
+  // Unique SQL claims still protect against duplicate deliveries.
+  for(let offset=0;offset<rows.length;offset+=5){
+    await Promise.all(rows.slice(offset,offset+5).map(async item=>{
     const values=[String(item.source),String(item.event_id),String(item.token_id)];
     const claim=await query(env,claimSql,values);
-    if(!claim.length)continue;
+    if(!claim.length)return;
     const kind=kindFor(item);
     const data={kind};
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
@@ -260,6 +263,7 @@ export async function deliverNotifications(env,{
     }catch{console.warn("Looply FCM network unavailable");}
     await query(env,doneSql,[...values,ok?"sent":"failed"]);
     if(ok)sent++;else failed++;
+    }));
   }
   return {eligible:rows.length,sent,failed};
 }
