@@ -53,7 +53,7 @@
 // Keep cancellation independent from any remote module or authentication.
 // The Android Sharesheet host exposes only this deliberate close action.
 document.getElementById("cancel").addEventListener("click", () => {
-  if (window.LooplyShare?.complete) window.LooplyShare.complete();
+  if (window.LooplyShare?.complete) window.LooplyShare?.complete();
   else if (history.length > 1) history.back();
 });
 document.getElementById("cancelPublish").addEventListener("click",()=>{
@@ -174,7 +174,7 @@ $("form").addEventListener("submit",async event=>{
     if(postCheck.error||postCheck.data?.visibility!==selected.visibility)
       throw Error("Não foi possível confirmar as permissões da publicação.");
     status("Publicado com sucesso!");
-    if(window.LooplyShare?.complete)window.LooplyShare.complete();
+    if(window.LooplyShare?.complete)window.LooplyShare?.complete();
   }catch(error){
     // A response can be lost after the final commit. Reconcile instead of
     // silently posting the same share twice or falsely claiming failure.
@@ -184,7 +184,7 @@ $("form").addEventListener("submit",async event=>{
         if(!current.error&&current.data?.visibility!== "private"){
           published=true;
           status("Publicado com sucesso!");
-          if(window.LooplyShare?.complete)window.LooplyShare.complete();
+          if(window.LooplyShare?.complete)window.LooplyShare?.complete();
           return;
         }
       }catch{}
