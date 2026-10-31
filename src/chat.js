@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
@@ -1060,7 +1061,9 @@ export function bindChatEvents(root, client, getUserId) {
     let persisted = false;
     try {
       status.textContent = "Salvando foto…";
-      const image = await normalizeGroupCover(file);
+      const cropped=await editGroupCover(file);
+      if(!cropped){status.textContent="";return;}
+      const image = await normalizeGroupCover(cropped);
       const message = await client.from("chat_messages").insert({
         conversation_id:conversationId,sender_id:userId,body:"Atualizou a foto do grupo."
       }).select("id").single();
