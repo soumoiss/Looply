@@ -23,7 +23,7 @@ try {
         page.on("pageerror",error=>console.error("[peer "+index+"] page-error:",String(error)));
         await page.route("**/src/*.js*", async route => {
           const file = new URL(route.request().url()).pathname.split("/").at(-1);
-          if(!["chat-calls.js","call-ice-gate.js","call-ringtone.js","icons.js","media-playback-coordinator.js"].includes(file)) {
+          if(!["chat-calls.js","call-ice-gate.js","call-ringtone.js","call-push-alert.js","icons.js","media-playback-coordinator.js"].includes(file)) {
             return route.abort();
           }
           const body = await readFile(new URL("../src/"+file,import.meta.url),"utf8");
