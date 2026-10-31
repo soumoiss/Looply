@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS looply_private.storage_gc_jobs (
 
 CREATE INDEX IF NOT EXISTS storage_gc_ready ON looply_private.storage_gc_jobs (next_attempt_at,id) WHERE state IN ('pending','processing');
 
-REVOKE ALL ON looply_private.storage_gc_jobs FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON looply_private.storage_gc_jobs FROM PUBLIC,anonymous,authenticated;
 
 CREATE OR REPLACE FUNCTION looply_private.queue_deleted_media()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
@@ -52,7 +52,7 @@ CREATE OR REPLACE FUNCTION looply_private.queue_deleted_media()
   RETURN OLD;
  END $$;
 
-REVOKE ALL ON FUNCTION looply_private.queue_deleted_media() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION looply_private.queue_deleted_media() FROM PUBLIC,anonymous,authenticated;
 
 DROP TRIGGER IF EXISTS looply_gc_story_media ON public.story_media;
 
@@ -95,7 +95,7 @@ CREATE OR REPLACE FUNCTION looply_private.gc_expired_stories(max_rows integer DE
   RETURN removed;
  END $$;
 
-REVOKE ALL ON FUNCTION looply_private.gc_expired_stories(integer) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION looply_private.gc_expired_stories(integer) FROM PUBLIC,anonymous,authenticated;
 
 CREATE OR REPLACE FUNCTION looply_private.gc_claim_jobs(max_rows integer DEFAULT 20)
  RETURNS TABLE(id bigint,bucket text,object_key text,attempts integer)
@@ -114,7 +114,7 @@ CREATE OR REPLACE FUNCTION looply_private.gc_claim_jobs(max_rows integer DEFAULT
   ) SELECT * FROM claims
  $$;
 
-REVOKE ALL ON FUNCTION looply_private.gc_claim_jobs(integer) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION looply_private.gc_claim_jobs(integer) FROM PUBLIC,anonymous,authenticated;
 
 CREATE OR REPLACE FUNCTION looply_private.gc_reference_count(p_bucket text,p_path text)
  RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO '' AS $$
@@ -130,7 +130,7 @@ CREATE OR REPLACE FUNCTION looply_private.gc_reference_count(p_bucket text,p_pat
  ELSE 1 END
  $$;
 
-REVOKE ALL ON FUNCTION looply_private.gc_reference_count(text,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION looply_private.gc_reference_count(text,text) FROM PUBLIC,anonymous,authenticated;
 
 CREATE OR REPLACE FUNCTION looply_private.gc_finish_job(p_id bigint,p_state text,p_error text DEFAULT NULL)
  RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $$
@@ -145,4 +145,4 @@ CREATE OR REPLACE FUNCTION looply_private.gc_finish_job(p_id bigint,p_state text
   WHERE id=p_id AND state='processing';
  END $$;
 
-REVOKE ALL ON FUNCTION looply_private.gc_finish_job(bigint,text,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION looply_private.gc_finish_job(bigint,text,text) FROM PUBLIC,anonymous,authenticated;
