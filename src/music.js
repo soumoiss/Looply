@@ -325,7 +325,8 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
   area.setAttribute("aria-busy", "true");
   try {
     const latest = await loadMusicData(client, userId);
-    if (latest.dedicationsError) throw latest.dedicationsError;
+    const readError = latest.dedicationsError || latest.libraryError || latest.generalCommentsError || latest.peopleError;
+    if (readError) throw readError;
     area.outerHTML = musicMarkup(latest, userId);
     bindMusicPlayers(root);
     return true;
