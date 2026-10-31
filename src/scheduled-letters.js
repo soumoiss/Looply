@@ -152,7 +152,7 @@ export function installScheduledLetters({
       $("#scheduledPreviewContent").innerHTML=detail;
       $("#scheduledPreviewStatus").textContent="";
       preview.showModal();
-    } catch(error) {notify(error.message || "Verifique os dados da programação.",true);}
+    } catch(error) {console.warn("Scheduled letter preview rejected",error?.name||"invalid");notify("Confira os dados da programação.",true);}
   },true);
   $("#scheduledConfirm").addEventListener("click",async()=>{
     if(busy || !pending) return;
@@ -261,7 +261,7 @@ export function installScheduledLetters({
       if(b.dataset.scheduledAction==="view")await showRead(row);
       if(b.dataset.scheduledAction==="edit")await edit(row);
       if(b.dataset.scheduledAction==="cancel")await cancel(row);
-    } catch(error) {notify(error.message||"Operação indisponível.",true);}
+    } catch(error) {console.warn("Scheduled letter operation failed",error?.name||"unavailable");notify("Não foi possível concluir. Tente novamente.",true);}
     finally {b.disabled=false;}
   });
   const reload = async () => {
