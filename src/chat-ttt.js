@@ -136,8 +136,8 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
         const reconnecting=offline;
         offline=false;
         if(game)reconcile(game,{show:show||(reconnecting&&gameIsOpen())});
-        showConnectionState();
         else if(show)showInvitePrompt();
+        showConnectionState();
       }catch{
         offline=true;
         showConnectionState();
