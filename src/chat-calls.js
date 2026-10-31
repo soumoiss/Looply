@@ -3,6 +3,7 @@ import { createCallIceGate } from "./call-ice-gate.js";
 import { createCallRingtone } from "./call-ringtone.js";
 import { requestImmediateCallPush } from "./call-push-alert.js";
 import { setCallPlaybackActive } from "./media-playback-coordinator.js";
+import { captureCallMedia, isRecoverableCallCaptureError } from "./call-media-capture.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
   if (!root || root.dataset.chatCalls === "true") return;
@@ -16,6 +17,7 @@ export function setupChatCalls(root, client, userId) {
   let incomingOffer = null;
   let callMode = "audio";
   let callPeerName = "Contato";
+  let videoUnavailable = false;
   let pendingCandidates = [];
   let isCaller = false;
   let closing = false;
@@ -77,6 +79,7 @@ export function setupChatCalls(root, client, userId) {
     if (remote) remote.srcObject = null;
     remoteStream = null;
     pendingCandidates = [];
+    videoUnavailable = false;
     incomingOffer = null;
     isCaller = false;
     startingCall = false;
@@ -142,7 +145,7 @@ export function setupChatCalls(root, client, userId) {
     }
   };
   const callView = (statusText) => {
-    showModal(`<div class="chat-call-heading"><span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p></div><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button chat-call-audio-unlock" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-label="Silenciar microfone" aria-pressed="false">${icon("mic")} <span>Silenciar microfone</span></button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-label="Silenciar áudio remoto" aria-pressed="false">${icon("volume")} <span>Áudio ligado</span></button>${callMode === "video" ? '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-label="Desligar câmera" aria-pressed="false">' + icon("camera") + ' <span>Desligar câmera</span></button><button type="button" class="chat-v2-button" data-call-flip-camera aria-label="Trocar câmera">' + icon("cameraSwitch") + ' <span>Trocar câmera</span></button>' : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup aria-label="Encerrar chamada">${icon("hangup")} <span>Encerrar chamada</span></button></div>`);
+    showModal(`<div class="chat-call-heading"><span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p></div><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button chat-call-audio-unlock" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-label="Silenciar microfone" aria-pressed="false">${icon("mic")} <span>Silenciar microfone</span></button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-label="Silenciar áudio remoto" aria-pressed="false">${icon("volume")} <span>Áudio ligado</span></button>${callMode === "video" ? (videoUnavailable ? '<button type="button" class="chat-v2-button" data-call-retry-camera aria-label="Tentar ativar câmera">' + icon("camera") + ' <span>Ativar câmera</span></button>' : '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-label="Desligar câmera" aria-pressed="false">' + icon("camera") + ' <span>Desligar câmera</span></button><button type="button" class="chat-v2-button" data-call-flip-camera aria-label="Trocar câmera">' + icon("cameraSwitch") + ' <span>Trocar câmera</span></button>') : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup aria-label="Encerrar chamada">${icon("hangup")} <span>Encerrar chamada</span></button></div>`);
     const modal = getModal();
     modal.classList.toggle("is-video-call", callMode === "video");
     modal.classList.toggle("is-audio-call", callMode === "audio");
@@ -200,6 +203,11 @@ export function setupChatCalls(root, client, userId) {
       } else if (peer.connectionState === "closed") void endCall(false);
     };
     if (localStream) localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    if (callMode === "video" && !localStream?.getVideoTracks().length) {
+      // Keep an m=video section even while the remote camera is occupied.
+      // The user can enable video later via replaceTrack (no renegotiation).
+      pc.addTransceiver("video",{direction:"sendrecv"});
+    }
     attachMedia();
     return pc;
   };
@@ -232,16 +240,17 @@ export function setupChatCalls(root, client, userId) {
     try {
       // Request capture while still handling the user's direct click, before
       // any slow signaling handshake (important on Android WebView/mobile).
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === "video" });
-      if (!localStream.getAudioTracks().length ||
-          (mode === "video" && !localStream.getVideoTracks().length)) {
+      const capture = await captureCallMedia(navigator.mediaDevices,mode);
+      localStream = capture.stream;
+      videoUnavailable = capture.videoUnavailable;
+      if (!localStream.getAudioTracks().length) {
         throw new DOMException("Required capture device is missing","NotFoundError");
       }
       setCallPlaybackActive(true);
       const liveChannel = await ensureChannel();
       if (!liveChannel) throw new Error("signaling unavailable");
       createPeerConnection();
-      callView("Chamando…");
+      callView(videoUnavailable ? "Chamando por áudio. Câmera indisponível; você poderá tentar ativá-la." : "Chamando…");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
@@ -297,8 +306,10 @@ export function setupChatCalls(root, client, userId) {
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
     callPeerName = incomingOffer.senderName || peerName();
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callMode === "video" });
-      if (!localStream.getAudioTracks().length || (callMode === "video" && !localStream.getVideoTracks().length)) {
+      const capture = await captureCallMedia(navigator.mediaDevices,callMode);
+      localStream = capture.stream;
+      videoUnavailable = capture.videoUnavailable;
+      if (!localStream.getAudioTracks().length) {
         throw new DOMException("Required capture device is missing", "NotFoundError");
       }
       setCallPlaybackActive(true);
@@ -311,9 +322,18 @@ export function setupChatCalls(root, client, userId) {
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
       iceGate.markDescriptionSent(pc);
-      callView("Conectando…");
+      callView(videoUnavailable ? "Conectando por áudio. A câmera está ocupada; tente ativá-la depois." : "Conectando…");
     } catch (error) {
-      console.error("Looply call accept failed", error);
+      console.error("Looply call accept failed", {name:error?.name||"unknown"});
+      if (isRecoverableCallCaptureError(error)) {
+        // A temporarily busy microphone is not a declined call. Keep the
+        // incoming offer and show retry without sending FAILED or HANGUP.
+        const offer=incomingOffer;
+        releaseMedia();
+        incomingOffer=offer;
+        showModal(`<span class="chat-v2-kicker">Dispositivo ocupado</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>O Android não liberou o microfone ou a câmera. Feche outros aplicativos que estejam usando esses dispositivos e tente atender novamente.</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Tentar atender novamente</button></div>`);
+        return;
+      }
       if (["NotAllowedError", "PermissionDeniedError"].includes(error?.name)) {
         const offer = incomingOffer;
         releaseMedia();
@@ -557,6 +577,29 @@ export function setupChatCalls(root, client, userId) {
         button.setAttribute("aria-label", label);
         button.innerHTML = icon(remote.muted ? "volumeOff" : "volume") + " <span>" + label + "</span>";
       }
+      return;
+    }
+    if (button.matches("[data-call-retry-camera]")) {
+      if (!pc || !localStream || callMode !== "video" || !videoUnavailable) return;
+      button.disabled = true;
+      let cameraStream=null;
+      try {
+        cameraStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+        const track=cameraStream.getVideoTracks()[0];
+        if (!track) throw new DOMException("Camera unavailable","NotFoundError");
+        const sender=pc.getTransceivers().find(item=>item.receiver?.track?.kind==="video")?.sender;
+        if (!sender) throw Error("video_sender_unavailable");
+        await sender.replaceTrack(track);
+        localStream.addTrack(track);
+        videoUnavailable=false;
+        const local=root.querySelector("[data-call-local]");
+        if (local) { local.srcObject=localStream; local.hidden=false; void local.play().catch(()=>{}); }
+        button.remove();
+        updateStatus("Câmera ativada.");
+      } catch (error) {
+        cameraStream?.getTracks().forEach(track=>track.stop());
+        toast("Câmera ainda indisponível. O áudio continua conectado.");
+      } finally {button.disabled=false;}
       return;
     }
     if (button.matches("[data-call-toggle-camera]")) {

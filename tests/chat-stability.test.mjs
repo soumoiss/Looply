@@ -243,7 +243,7 @@ test("a call accepted from the global notification is restored and handed to the
   assert.match(restore, /pending\.accepted !== true/);
   assert.match(restore, /pending\.conversationId !== conversationId/);
   assert.match(restore, /window\.setTimeout\(\(\) => \{[\s\S]*?void acceptCall\(\)/);
-  assert.match(source, /getUserMedia\(\{ audio: true, video: callMode === "video" \}\)/);
+  assert.match(source, /captureCallMedia\(navigator\.mediaDevices,callMode\)/);
   assert.match(source, /PermissionDeniedError/);
   assert.match(source, /Permita o acesso ao microfone/);
   assert.match(source, /if \(\["NotAllowedError", "PermissionDeniedError"\]\.includes\(error\?\.name\)\)[\s\S]*?return;[\s\S]*?await send\("failed",/);
