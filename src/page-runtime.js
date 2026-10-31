@@ -343,7 +343,8 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   }
 
   let stopGlobalAnnouncements = () => {};
-  void mountGlobalAnnouncements({ client: supabase, user })
+  // Announcement receipts belong to the linked Looply profile, not the Neon Auth UUID.
+  void mountGlobalAnnouncements({ client: supabase, user, profileId: profile.id })
     .then((cleanup) => { stopGlobalAnnouncements = cleanup; })
     .catch((error) => console.warn("Looply global announcements could not start", error));
 

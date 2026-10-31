@@ -2,8 +2,11 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 })[character]);
 
-export async function mountGlobalAnnouncements({ client, user }) {
-  if (!client || !user?.id) return () => {};
+export async function mountGlobalAnnouncements({ client, user, profileId }) {
+  if (!client || !user?.id || !profileId) return () => {};
+  // The Neon Auth account UUID is different from the Looply profile UUID.
+  // RLS for global_announcement_reads requires the verified legacy profile ID.
+  const receiptUserId = profileId;
 
   let disposed = false;
   let currentOverlay = null;
@@ -96,7 +99,7 @@ export async function mountGlobalAnnouncements({ client, user }) {
       try {
         const { error } = await client.from("global_announcement_reads").insert({
           announcement_id: announcement.id,
-          user_id: user.id
+          user_id: receiptUserId
         });
         if (error && error.code !== "23505") throw error;
         knownRead.add(announcement.id);
@@ -158,7 +161,7 @@ export async function mountGlobalAnnouncements({ client, user }) {
     const ids = (announcements || []).map((item) => item.id);
     if (ids.length) {
       const { data: reads, error: readsError } = await client.from("global_announcement_reads")
-        .select("announcement_id").eq("user_id", user.id).in("announcement_id", ids);
+        .select("announcement_id").eq("user_id", receiptUserId).in("announcement_id", ids);
       if (readsError) throw readsError;
       (reads || []).forEach((row) => knownRead.add(row.announcement_id));
     }
