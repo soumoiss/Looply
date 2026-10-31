@@ -151,3 +151,27 @@ test("chat persistence announces only after Neon commits and refreshes the autho
  assert.match(src,/await openConversation\(root, client, conversationId, userId\)/);
  assert.match(src,/25000/);
 });
+
+test("Cloudflare calls also mirror offers to Neon so the cross-page incoming-call inbox receives them", async () => {
+  const mirrored = [];
+  const bridge = createNeonRealtimeBridge({
+    endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
+    getSession:async()=>({access_token:"sample.neon.auth.token"}),
+    fetcher:async()=>({ok:true,json:async()=>({ticket})}),
+    Socket:MockSocket,
+    fallback:{
+      publish:async(room,item)=>{mirrored.push({room,item});return "ok";}
+    }
+  });
+  const channel=await active(bridge);
+  const socket=MockSocket.instances.at(-1);
+  const offer={type:"offer",conversationId:conv,description:{sdp:"authentic WebRTC offer"}};
+  assert.equal(await channel.send({type:"broadcast",event:"signal",payload:offer}),"ok");
+  assert.equal(mirrored.length,1);
+  assert.equal(mirrored[0].room,conv);
+  assert.deepEqual(mirrored[0].item,{event:"signal",payload:offer});
+  assert.equal(socket.sent.at(-1).signal_type,"offer");
+  assert.equal(await channel.send({type:"broadcast",event:"signal",payload:{type:"answer",conversationId:conv}}),"ok");
+  assert.equal(mirrored.length,1,"only offers require global inbox mirroring");
+  await channel.unsubscribe();
+});
