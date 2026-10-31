@@ -129,7 +129,7 @@ class LooplyMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setTimeoutAfter(35000L)
+            .setTimeoutAfter(30000L)
             .setFullScreenIntent(fullScreen,true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person,decline,answer))
         manager.notify(notificationId,builder.build())
