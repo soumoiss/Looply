@@ -20,10 +20,12 @@ test("Chat CSS is loaded AFTER desktop legacy Chat CSS and conversation CSS", as
   }
 });
 test("only global page-runtime renders the six real bottom navigation links", async () => {
-  const [runtime,html]=await Promise.all([read("src/page-runtime.js"),read("chat.html")]);
-  assert.match(runtime,/page-navigation/);
-  for(const route of ["home.html","chat.html","notificacoes.html"]) assert.match(runtime,new RegExp(route.replace(".","\\.")));
-  assert.doesNotMatch(html,/<nav class="global-nav"/);
+  const [runtime,nav,html]=await Promise.all([
+    read("src/page-runtime.js"),read("src/primary-navigation.js"),read("chat.html")
+  ]);
+  assert.match(runtime,/primaryNavigationMarkup/);
+  for(const route of ["home.html","chat.html","notificacoes.html"]) assert.match(nav,new RegExp(route.replace(".","\\.")));
+  assert.doesNotMatch(html,/<nav[^>]+aria-label="Navegação principal"|<nav class="global-nav"/);
 });
 test("reference stylesheet forces mobile width to one column with the desktop rule overridden",async()=>{
   const css=await read("assets/css/pages/chat-mobile-reference.css");
