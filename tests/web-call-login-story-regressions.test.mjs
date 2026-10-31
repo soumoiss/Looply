@@ -88,9 +88,11 @@ test("linked profile retrieval survives several temporarily empty Neon responses
   assert.equal(n,6);
 });
 
-test("Story music picker never requests a local audio file as a substitute for a catalog preview",async()=>{
+test("Story catalog preview cannot open local audio selection",async()=>{
   const picker=await source("story-music-picker.js");
-  assert.doesNotMatch(picker,/data-studio-audio-file|fileInput\\.click\\(\\)|Áudio próprio<input/);
-  assert.match(picker,/track\\?\\.kind === "catalog"/);
-  assert.match(picker,/track\\.kind==="openverse"/);
+  assert.ok(!picker.includes("data-studio-audio-file"));
+  assert.ok(!picker.includes("fileInput.click("));
+  assert.ok(!picker.includes("Áudio próprio<input"));
+  assert.ok(picker.includes('track?.kind === "catalog"'));
+  assert.ok(picker.includes('track.kind==="openverse"'));
 });
