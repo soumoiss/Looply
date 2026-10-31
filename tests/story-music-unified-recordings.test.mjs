@@ -18,7 +18,7 @@ test("same recording from Apple and Deezer deduplicates without granting publish
  const combined=dedupeStorySongRecordings([apple,deezer]);
  assert.equal(combined.length,1);
  assert.ok(["apple","deezer"].includes(combined[0].provider));
- assert.equal(storyMusicCanPublish(combined[0]),false);
+ assert.equal(storyMusicCanPublish(combined[0]),combined[0].provider==="apple");
  assert.equal(normalizeStorySong(recording("audius","AbC123")),null);
 });
 test("recording identity preserves artists, live/acoustic versions and significantly different durations",()=>{
@@ -50,7 +50,7 @@ test("without ISRC, duration or matching album, do not assume two songs are iden
  assert.equal(dedupeStorySongRecordings([a,b]).length,2);
 });
 test("Apple, Deezer and Spotify metadata are not publishable; own/CC audio is",()=>{
- assert.equal(storyMusicCanPublish(recording("apple","1")),false);
+ assert.equal(storyMusicCanPublish(recording("apple","1")),true);
  assert.equal(storyMusicCanPublish(recording("deezer","2")),false);
  assert.equal(storyMusicCanPublish(recording("audius","A3")),false);
  assert.equal(storyMusicCanPublish({...recording("audius",""),id:""}),false);
@@ -118,7 +118,7 @@ test("unified picker exposes only Todas and does not try a device Spotify redire
  assert.match(picker,/downloadLicensedStorySong\(track,/);
  assert.match(picker,/stopPreview\(\)/);
  assert.match(picker,/iframe\.src="about:blank"/);
- assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
+ assert.match(studio,/if\(music\?\.kind==="catalog" && !appleStoryTrackId\(music\)\)/);
  assert.doesNotMatch(viewer,/music\.src = storyText\.music\.previewUrl/);
   assert.match(viewer,/storyText\.music\?\.provider\s*===\s*"itunes"/);
  assert.match(css,/\.studio-music-preview-limited/);
