@@ -2,7 +2,7 @@
    The universal header is NEVER replaced. Neon users, posts and Stories remain dynamic.
    Colors route through the current Looply theme with warm coral and lilac accents. */
 .page-home {
-  --hybrid-coral:#e07a5f; --hybrid-orange:#f4a261;
+  --hybrid-coral:var(--primary); --hybrid-orange:var(--primary-dark);
   --hybrid-border:color-mix(in srgb,var(--primary) 14%,var(--line));
   --hybrid-paper:var(--surface);
   --hybrid-lilac:color-mix(in srgb,var(--primary) 6%,var(--surface-soft));
@@ -16,7 +16,7 @@
   margin:0; padding:15px; background:var(--hybrid-paper); border:1px solid var(--hybrid-border);
   border-radius:18px; box-shadow:0 3px 13px #2615340b; min-width:0;
 }
-.page-home .home-welcome-avatar { width:50px; height:50px; flex:0 0 50px; border:0; border-radius:14px; color:#fff; background:linear-gradient(135deg,#a06cdd,#d66fbd); box-shadow:0 5px 12px #8a4daa35; }
+.page-home .home-welcome-avatar { width:50px; height:50px; flex:0 0 50px; border:0; border-radius:14px; color:#fff; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); box-shadow:0 5px 12px #8a4daa35; }
 .page-home .home-welcome-avatar img { display:none; }
 .page-home .home-welcome-avatar [data-home-avatar-initial] { font-size:25px; font-weight:800; color:white; }
 .page-home .home-welcome-copy { flex:1 1 auto; min-width:0; }
@@ -61,7 +61,7 @@
 }
 .page-home .story-add-mark { position:absolute; bottom:-2px; right:-1px; display:grid; place-items:center; width:23px; height:23px; border:3px solid var(--surface); border-radius:50%; color:white; background:var(--hybrid-coral); font-weight:800; font-size:13px; }
 .page-home .story-avatar-label { width:72px; color:var(--text); font-weight:600; font-size:11px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.page-home .story-count { position:absolute; top:0; right:0; z-index:1; min-width:17px; min-height:17px; display:grid; place-items:center; border:2px solid var(--surface); border-radius:99px; padding:1px 3px; background:#ef5c68; color:white; font-size:10px; }
+.page-home .story-count { position:absolute; top:0; right:0; z-index:1; min-width:17px; min-height:17px; display:grid; place-items:center; border:2px solid var(--surface); border-radius:99px; padding:1px 3px; background:var(--primary); color:white; font-size:10px; }
 .page-home .story-feed-status:empty { display:none; }
 .page-home .story-feed-status { font-size:11px; color:var(--muted); margin:5px 0 0; }
 .page-home .social-area { width:100%; max-width:100%; margin:0; min-width:0; padding:0 0 90px; }
@@ -76,7 +76,7 @@
 .page-home .post-composer-heading { display:flex; justify-content:flex-start; gap:12px; min-height:73px; padding:15px; border:1px solid var(--hybrid-border); border-radius:18px; }
 .page-home .post-compose-pen { flex:0 0 42px; width:42px; height:42px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--hybrid-coral) 12%,var(--surface)); color:var(--hybrid-coral); font-size:21px; font-weight:800; }
 .page-home .post-composer-heading strong { flex:1; font-size:14px; font-weight:800; color:var(--text); }
-.page-home .post-add-button { width:37px; height:37px; flex:0 0 37px; border:0; border-radius:50%; background:var(--hybrid-coral); color:white; box-shadow:0 4px 12px #e07a5f30; }
+.page-home .post-add-button { width:37px; height:37px; flex:0 0 37px; border:0; border-radius:50%; background:var(--hybrid-coral); color:white; box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 22%,transparent); }
 .page-home .post-card.ig-post {
   width:100%; max-width:100%; margin:0 0 15px; padding:0 0 10px; overflow:hidden;
   border:1px solid var(--hybrid-border); border-radius:23px; background:var(--hybrid-paper);
@@ -180,7 +180,7 @@
 .page-home .home-hybrid-profile-dialog { width:min(92vw,380px); max-width:none; max-height:calc(100dvh - 25px); border:1px solid var(--hybrid-border); border-radius:25px; background:var(--surface); color:var(--text); padding:0; overflow:auto; box-shadow:0 25px 70px #0004; }
 .page-home .hybrid-profile-card { display:flex; flex-direction:column; align-items:center; position:relative; padding:24px 22px 22px; gap:7px; text-align:center; }
 .page-home .hybrid-profile-close { position:absolute; top:12px; right:12px; display:grid; place-items:center; width:34px; height:34px; border:0; border-radius:50%; background:var(--surface-soft); color:var(--text); font-size:24px; cursor:pointer; }
-.page-home .hybrid-profile-avatar { width:87px; height:87px; border:4px solid #f7c8ab; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--hybrid-lilac); color:var(--primary); font-size:28px; font-weight:850; }
+.page-home .hybrid-profile-avatar { width:87px; height:87px; border:4px solid var(--primary); border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--hybrid-lilac); color:var(--primary); font-size:28px; font-weight:850; }
 .page-home .hybrid-profile-avatar img { width:100%; height:100%; object-fit:cover; }
 .page-home .hybrid-profile-card h2 { font-size:19px; margin:8px 0 0; font-weight:850; color:var(--text); line-height:1.3; }
 .page-home .hybrid-profile-handle { font-size:12px; color:var(--hybrid-coral); font-weight:750; margin:0; }
