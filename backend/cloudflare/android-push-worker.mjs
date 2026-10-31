@@ -108,6 +108,13 @@ async function neonQuery(env,query,params=[]){
   if(!Array.isArray(payload.rows))throw Error("neon_invalid_rows");
   return payload.rows;
 }
+// Runs on the same one-minute Cron Trigger using the pre-existing restricted
+// Neon connection. The DB function owns row locks and exactly-once delivery.
+// No scheduled content, passwords or recipient identifiers are returned.
+export async function dispatchScheduledLetters(env,{query=neonQuery}={}){
+  const rows=await query(env,"SELECT processed,delivered,failed FROM public.v24_dispatch_scheduled_letters($1)",[50]);
+  return rows[0]||{processed:0,delivered:0,failed:0};
+}
 const pendingSql = `
 SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.conversation_id,events.token_id,events.fcm_token,
@@ -335,9 +342,17 @@ export default {
     return Response.json({error:"not_found"},{status:404});
   },
   async scheduled(_controller,env,ctx){
-    ctx.waitUntil(deliverNotifications(env).catch(error=>{
-      // No secrets, notification bodies or device tokens in logs.
-      console.error("Looply scheduled FCM failed",String(error?.message||"unavailable").slice(0,120));
-    }));
+    ctx.waitUntil((async()=>{
+      // Persist due letters BEFORE querying notification candidates.
+      // A failure here must not interrupt ordinary message/call notifications.
+      try { await dispatchScheduledLetters(env); }
+      catch(error) {
+        console.error("Looply scheduled letters failed",String(error?.message||"unavailable").slice(0,120));
+      }
+      try { await deliverNotifications(env); }
+      catch(error) {
+        console.error("Looply scheduled FCM failed",String(error?.message||"unavailable").slice(0,120));
+      }
+    })());
   }
 };
