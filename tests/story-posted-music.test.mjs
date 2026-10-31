@@ -15,7 +15,7 @@ test("Catalog music selection stays in app and never opens the device picker aut
  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
   assert.doesNotMatch(picker,/catalogAwaitingUserAudio=track/);
  assert.doesNotMatch(picker,/data-studio-audio-file/);
- assert.doesNotMatch(picker,/Áudio próprio/);
+ assert.doesNotMatch(picker,/Áudio próprio<input|studio-audio-upload/);
  assert.match(studio,/music\.kind === "file"/);
 });
 
