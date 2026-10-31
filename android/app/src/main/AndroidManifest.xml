@@ -8,6 +8,7 @@
     <!-- Chromium WebView requires this normal permission when selecting the Android audio input. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -25,6 +26,11 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
+        <activity
+            android:name=".IncomingCallActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
         <activity
             android:name=".ShareReceiverActivity"
             android:theme="@style/LooplyShareTheme"
