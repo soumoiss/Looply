@@ -60,3 +60,57 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 }
 /* Keep native account actions accessible beside the profile avatar on mobile. */
 .looply-account > .account-menu-caret { display:inline-flex; align-items:center; justify-content:center; width:24px; min-height:36px; }
+
+
+/* One shared, touch-only pull-to-refresh indicator. Never overlays native status bar. */
+.looply-pull-indicator {
+  --looply-pull-distance: 0px;
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 1450;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100vw - 28px);
+  min-height: 43px;
+  padding: 7px 14px 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line));
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--surface-strong);
+  box-shadow: 0 9px 28px rgba(54, 34, 87, .16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% + var(--looply-pull-distance)));
+  transition: opacity 140ms ease, transform 160ms ease;
+  will-change: transform;
+}
+.looply-pull-indicator[hidden] { display: none !important; }
+.looply-pull-indicator.is-pulling,
+.looply-pull-indicator.is-loading,
+.looply-pull-indicator.has-error { opacity: 1; }
+.looply-pull-indicator-icon {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+}
+.looply-pull-indicator-icon .looply-icon { width: 18px; height: 18px; }
+.looply-pull-indicator-text { color: var(--text); font-size: 11px; font-weight: 750; white-space: nowrap; }
+.looply-pull-indicator.is-ready .looply-pull-indicator-icon { background: var(--primary); color: #fff; }
+.looply-pull-indicator.is-loading .looply-pull-indicator-icon svg { animation: looply-pull-spin .8s linear infinite; }
+.looply-pull-indicator.has-error { border-color: color-mix(in srgb, var(--danger, #bf3254) 25%, var(--line)); }
+.looply-pull-indicator.has-error .looply-pull-indicator-text { white-space: normal; }
+@keyframes looply-pull-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) and (pointer: coarse) {
+  .looply-page { overscroll-behavior-y: contain; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .looply-pull-indicator { transition: none; will-change: auto; }
+  .looply-pull-indicator.is-loading .looply-pull-indicator-icon svg { animation: none; }
+}
