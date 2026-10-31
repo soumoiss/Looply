@@ -114,7 +114,7 @@ SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.actor_name,events.call_mode
 FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
-AND (events.source<>'incoming-call' OR created_at>now()-interval '35 seconds')
+AND (events.source<>'incoming-call' OR created_at>now()-interval '30 seconds')
 AND NOT EXISTS (
   SELECT 1 FROM public.android_fcm_deliveries d
   WHERE d.source=events.source AND d.event_id=events.event_id AND d.token_id=events.token_id
