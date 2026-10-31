@@ -407,7 +407,9 @@ async function loadPosts(client) {
     .select("id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .range(0, 29);
+    // Preserve the first October publications in the existing feed as well.
+    // 50 covers the historical data without altering ownership or chronology.
+    .range(0, 49);
   if (error) throw error;
   const posts = data || [];
   if (posts.length) {
