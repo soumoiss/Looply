@@ -431,6 +431,62 @@ export function setupChatCalls(root, client, userId) {
     if (subscribed) restorePendingIncomingCall(id);
     return subscribed ? channel : null;
   };
+  // The Android CallStyle answer/decline button opens an authenticated chat.
+  // Fetch only the last active offer for this recipient, even if the WebView
+  // was killed while the FCM message was being delivered.
+  const requestedNativeAction=new URLSearchParams(window.location.search).get("nativeCallAction");
+  let nativeActionHandled=false;
+  const handleNativeCallAction = () => {
+    if(nativeActionHandled || !["accept","decline"].includes(requestedNativeAction))return;
+    const conversationId=activeConversation();
+    if(!conversationId || isGroup() || !client?.dataApiUrl)return;
+    const urlConversation=new URLSearchParams(window.location.search).get("id");
+    if(urlConversation!==conversationId)return;
+    nativeActionHandled=true;
+    // Prevent re-answering on refresh/back navigation.
+    const url=new URL(window.location.href);
+    url.searchParams.delete("nativeCallAction");
+    window.history.replaceState(window.history.state,"",url.href);
+    void(async()=>{
+      try{
+        const {data,error}=await client.auth.getSession();
+        if(error || !data?.session?.access_token)throw Error("session_required");
+        const headers={authorization:"Bearer "+data.session.access_token,
+          "content-type":"application/json",accept:"application/json"};
+        const offerResponse=await fetch(client.dataApiUrl+"/rpc/v23_fcm_pending_incoming_offer",{
+          method:"POST",headers,body:JSON.stringify({p_conversation_id:conversationId}),
+          cache:"no-store",credentials:"omit"
+        });
+        if(!offerResponse.ok)throw Error("call_lookup_failed");
+        const offer=await offerResponse.json();
+        if(!offer || offer.conversationId!==conversationId ||
+           offer.senderId===userId || !["audio","video"].includes(offer.mode)) {
+          toast("A chamada não está mais disponível.");
+          return;
+        }
+        if(requestedNativeAction==="decline"){
+          const reject=await fetch(client.dataApiUrl+"/rpc/v3_call_signal_send",{
+            method:"POST",headers,cache:"no-store",credentials:"omit",
+            body:JSON.stringify({p_conversation_id:conversationId,
+              p_kind:"signal",p_payload:{type:"decline",conversationId}})
+          });
+          if(!reject.ok)throw Error("decline_failed");
+          toast("Chamada recusada.");
+          return;
+        }
+        const ready=await ensureChannel();
+        if(!ready)throw Error("signaling_unavailable");
+        if(pc || incomingOffer)return;
+        incomingOffer=offer;
+        callMode=offer.mode;
+        callPeerName=peerName();
+        await acceptCall();
+      }catch(error){
+        console.warn("Looply Android call response unavailable",error?.message);
+        toast("Não foi possível abrir a chamada. Confira a conexão.");
+      }
+    })();
+  };
   const addButtons = () => {
     const heading = root.querySelector(".chat-thread-heading");
     if (!heading || heading.dataset.chatKind === "group") return;
@@ -540,10 +596,10 @@ export function setupChatCalls(root, client, userId) {
       return;
     }
   });
-  const observer = new MutationObserver(() => { addButtons(); if (activeConversation() && !isGroup()) ensureChannel(); });
+  const observer = new MutationObserver(() => { addButtons(); if (activeConversation() && !isGroup()) { void ensureChannel(); handleNativeCallAction(); } });
   observer.observe(root, { childList: true, subtree: true });
-  root.addEventListener("looply:open-conversation", () => { setTimeout(() => { addButtons(); ensureChannel(); }, 0); });
-  root.addEventListener("looply:chat-rendered", () => { addButtons(); ensureChannel(); });
+  root.addEventListener("looply:open-conversation", () => { setTimeout(() => { addButtons(); void ensureChannel(); handleNativeCallAction(); }, 0); });
+  root.addEventListener("looply:chat-rendered", () => { addButtons(); void ensureChannel(); handleNativeCallAction(); });
   root.addEventListener("click", (event) => {
     if (event.target.matches("[data-call-modal]")) endCall(true);
   });
@@ -554,4 +610,5 @@ export function setupChatCalls(root, client, userId) {
     if (channel) client.removeChannel(channel);
   }, { once: true });
   addButtons();
+  handleNativeCallAction();
 }
