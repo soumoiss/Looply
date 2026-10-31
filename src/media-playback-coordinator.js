@@ -28,7 +28,7 @@ export function releaseMediaPlayback(owner, media) {
 
 export function setCallPlaybackActive(value) {
   callActive = Boolean(value);
-  if (callActive && active?.scope !== "call") {
+  if (callActive && active && active.scope !== "call") {
     active.media.forEach(pause);
     active = null;
   }
