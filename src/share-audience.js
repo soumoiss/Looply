@@ -87,7 +87,7 @@ export function mountShareAudience({client,root=document,onError=()=>{}}={}){
         photo.replaceChildren(img);
       }
       const names=el("span","share-person-names");
-      names.append(el("strong","",labelFor(person)),el("small","","@"+person.username));
+      names.append(el("strong","",labelFor(person)),el("small","", "@"+person.username));
       row.append(check,photo,names);
       peopleList.append(row);
     }
