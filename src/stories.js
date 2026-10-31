@@ -269,6 +269,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button class="story-sound-toggle" type="button" data-story-sound-toggle aria-label="Ativar música do story" hidden>🔊 <span>Ativar som</span></button>' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
           '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">✕</button></div></header>' +
+        '<button class="story-close-floating" type="button" data-story-close aria-label="Fechar story">✕</button>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-media-backdrop" data-story-media-backdrop aria-hidden="true"></div>' +
