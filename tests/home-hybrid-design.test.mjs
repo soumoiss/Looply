@@ -71,9 +71,14 @@ test("immersive viewer supports official embeds, real videos, single active play
   assert.match(file,/video\?\.pause\(\)/);
   assert.match(file,/post-external-embed iframe/);
 });
-test("home footer links only to existing tabs and carries all six reference labels", () => {
-  const html = socialMarkup({people:[],posts:[]}, "viewer");
-  for (const name of ["Início","Cartas","Músicas","Galeria","Chat","Avisos"]) assert.ok(html.includes("<small>"+name+"</small>"));
+test("home reuses one global navigation with all six labels, never a separate feed footer", async () => {
+  const {primaryNavigationMarkup}=await import("../src/primary-navigation.js");
+  const html=primaryNavigationMarkup("home");
+  const feed=socialMarkup({people:[],posts:[]}, "viewer");
+  for(const name of ["Início","Cartas","Músicas","Galeria","Chat","Avisos"]) {
+    assert.ok(html.includes('aria-label="'+name+'"'),name);
+  }
+  assert.doesNotMatch(feed,/looply-feed-nav|aria-label="Navegação rápida"/);
 });
 test("new CSS styles actual story list and existing viewer, not fake story media", async () => {
   const css = await read("assets/css/pages/home-hybrid.css");
