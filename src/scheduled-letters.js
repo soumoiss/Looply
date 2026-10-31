@@ -12,15 +12,30 @@ const localDate = () => {
   }).formatToParts(new Date()).map(p=>[p.type,p.value]));
   return [parts.year,parts.month,parts.day].join("-");
 };
-// The current legal time in Fortaleza is UTC-03:00 (Brazil abolished DST).
-// Server always receives an instant with an explicit UTC offset.
+// Dates are resolved against the IANA zone, then sent to the server in UTC.
 export function fortalezaInstant(date,time) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))
     throw Error("Escolha uma data e um horário válidos.");
-  const instant = new Date(date+"T"+time+":00-03:00");
-  if (Number.isNaN(instant.getTime()) || instant.toISOString().slice(0,10)==="") throw Error("Data inválida.");
-  if (instant.getTime() <= Date.now()) throw Error("Selecione uma data e um horário futuros.");
-  return instant.toISOString();
+  // Resolve the IANA timezone at the chosen future date (no fixed UTC offset).
+  const [year,month,day]=date.split("-").map(Number);
+  const [hour,minute]=time.split(":").map(Number);
+  const desired=Date.UTC(year,month-1,day,hour,minute);
+  let resolved=desired;
+  const dtf=new Intl.DateTimeFormat("en-US",{timeZone:zone,
+    year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",
+    minute:"2-digit",hourCycle:"h23"});
+  const components=timestamp=>Object.fromEntries(dtf.formatToParts(new Date(timestamp))
+    .filter(p=>p.type!=="literal").map(p=>[p.type,Number(p.value)]));
+  for(let i=0;i<3;i++){
+    const p=components(resolved);
+    const represented=Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute);
+    resolved+=desired-represented;
+  }
+  const check=components(resolved);
+  if(check.year!==year||check.month!==month||check.day!==day||
+     check.hour!==hour||check.minute!==minute) throw Error("Data inválida para o fuso horário.");
+  if (resolved <= Date.now()) throw Error("Selecione uma data e um horário futuros.");
+  return new Date(resolved).toISOString();
 }
 export function installScheduledLetters({
   root,client,user,people,getRecipient,setRecipient,sealLetter,openProtectedLetter,
@@ -80,7 +95,8 @@ export function installScheduledLetters({
     $("#scheduledFields").hidden=value!=="later";
     $("#scheduledDate").required=value==="later";
     $("#scheduledTime").required=value==="later";
-    send.textContent=value==="later" ? "▣ Programar carta" : "Enviar";
+    send.innerHTML=value==="later" ?
+      '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 15h3"/></svg> Programar carta' : "Enviar";
     renderDate();
   };
   compose.querySelectorAll('[name="delivery_mode"]').forEach(input =>
@@ -159,7 +175,12 @@ export function installScheduledLetters({
     canceled:"Cancelada",failed:"Falha de entrega"};
   const eligible = row => ["scheduled","failed"].includes(row.status);
   const showRead = async row => {
-    const body=row.is_protected ? "🔒 Carta protegida por senha." : esc(row.body);
+    let body=esc(row.body);
+    if(row.is_protected){
+      const unlocked=await askPassword(row);
+      if(!unlocked) return;
+      body=esc(unlocked.body);
+    }
     $("#scheduledReadContent").innerHTML='<div class="scheduled-person"><span class="scheduled-avatar">'+avatar(row.recipient_id)+
       '</span><div><small>Destinatário</small><strong>'+esc(name(row.recipient_id))+'</strong></div></div>'+
       '<h2>'+esc(row.subject)+'</h2><p class="scheduled-preview-body">'+body+'</p>'+
@@ -181,7 +202,8 @@ export function installScheduledLetters({
   const askPassword = row => new Promise(resolve=>{
     const form=$("#scheduledUnlockForm"),msg=$("#scheduledUnlockError");
     form.reset();msg.textContent="";
-    const finish=value=>{unlock.close();form.removeEventListener("submit",submit);cancel.removeEventListener("click",onCancel);resolve(value);};
+    const finish=value=>{unlock.removeEventListener("cancel",onEsc);unlock.close();
+      form.removeEventListener("submit",submit);cancel.removeEventListener("click",onCancel);resolve(value);};
     const cancel=$("#scheduledUnlockCancel");
     const onCancel=()=>finish(null);
     const submit=async e=>{
@@ -193,7 +215,8 @@ export function installScheduledLetters({
     };
     cancel.addEventListener("click",onCancel);
     form.addEventListener("submit",submit);
-    unlock.addEventListener("cancel",()=>finish(null),{once:true});
+    const onEsc=()=>finish(null);
+    unlock.addEventListener("cancel",onEsc,{once:true});
     unlock.showModal();
   });
   const edit = async row => {
