@@ -186,6 +186,19 @@ export async function loadChatData(client, userId) {
     String(left.id).localeCompare(String(right.id)));
   const readByConversation = new Map(participants.map((row) => [row.conversation_id, row.last_read_at]));
   const profiles = profilesResult.data || [];
+  // The People selector prioritizes contacts who have actually exchanged
+  // messages with this user, using the same recency as the conversation list.
+  const contactActivity = new Map();
+  for(const conversation of conversations){
+    if(conversation.kind!=="direct" || !latestByConversation.has(conversation.id))continue;
+    const timestamp=lastActivity(conversation);
+    for(const participant of conversation.participants||[]){
+      if(participant.user_id!==userId)
+        contactActivity.set(participant.user_id,Math.max(contactActivity.get(participant.user_id)||0,timestamp));
+    }
+  }
+  profiles.sort((a,b)=>(contactActivity.get(b.id)||0)-(contactActivity.get(a.id)||0) ||
+    String(a.display_name||a.username||"").localeCompare(String(b.display_name||b.username||""),"pt-BR"));
   // Both profile search and nested conversation participants hold distinct
   // objects for the same profile ID. Assign signed URLs to EVERY reference,
   // not just the last reference inserted into a Map.
