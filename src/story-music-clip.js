@@ -8,7 +8,7 @@ export function storyMusicStartSeconds(value, durationSeconds = Infinity) {
   const maximum = Number.isFinite(duration) && duration > 0
     ? Math.max(0, duration - 0.05)
     : Number.isFinite(duration) ? 0 : 3600;
-  return Math.round(Math.min(input, maximum) * 10) / 10;
+  return Math.floor(Math.min(input, maximum) * 10) / 10;
 }
 
 export function withStoryMusicStart(track, startSeconds = 0) {
