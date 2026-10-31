@@ -1,5 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=incoming-handoff-20261030";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=avatar-sync-20261028-user-stickers";
+import { mountAppPage } from "../../src/page-runtime.js?v=confirm-logout-20261031";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=instant-fcm-20261031";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
 import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 
