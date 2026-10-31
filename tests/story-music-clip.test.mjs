@@ -29,7 +29,7 @@ test("commercial catalog and video proxy audio do not bypass publication rights"
 
 test("recording uses loopStart of the selected second rather than original intro",()=>{
   const channel=new Float32Array(44100*10);
-  channel[1000]=0.2;
+  channel[0]=0.2;
   const buffer={duration:10,numberOfChannels:1,getChannelData:()=>channel};
   const source={buffer:null,loop:false,loopStart:0,connect(){}};
   const ctx={createBufferSource:()=>source};
