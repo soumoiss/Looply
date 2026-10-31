@@ -56,10 +56,10 @@ test("composer has an actionable submit button inside the existing form", () => 
   const html = page([]);
   assert.match(html,/data-social-post>[\s\S]*?data-close-composer[\s\S]*?<button type="submit">Compartilhar/);
 });
-test("navigational destinations target real Looply routes", () => {
+test("the feed never creates a second bottom navigation", () => {
   const html = page([]);
-  for (const path of ["home.html","cartas.html","musicas.html","galeria.html","chat.html","notificacoes.html"]) assert.ok(html.includes('href="' + path + '"'));
-  assert.match(html,/aria-label="Navegação rápida"/);
+  assert.doesNotMatch(html, /looply-feed-nav|aria-label="Navegação rápida"/);
+  assert.match(html, /class="social-area"/);
 });
 test("licensed official Instagram embedding remains on-site", () => {
   assert.equal(instagramEmbedDetails("https://www.instagram.com/reel/ABCDE12345/").embedUrl,"https://www.instagram.com/reel/ABCDE12345/embed/");
