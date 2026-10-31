@@ -1,10 +1,11 @@
 import { icon } from './icons.js';
 import { saveNeonProfile } from './neon-avatar-profile.js';
+import { mountProfileAvatarEditor } from './avatar-crop-editor.js';
 import { normalizeYouTubePlaylistUrl } from './youtube-playlist.js';
-import { PROFILE_TABS, esc, isProfileId, profileError, profileRpc, signPeople, signContentCovers, optimisticFollow, prepareProfileAvatar } from './profile-api.js';
+import { PROFILE_TABS, esc, isProfileId, profileError, profileRpc, signPeople, signContentCovers, optimisticFollow } from './profile-api.js';
 import { createProfileMediaViewer } from './profile-media-viewer.js';
 
-const avatar = p => p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" data-profile-avatar-id="${esc(p.id)}" alt="" referrerpolicy="no-referrer">` : `<span aria-hidden="true">${esc(Array.from(p.display_name || p.username || '?')[0])}</span>`;
+const avatar = (p,link=true) => p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" ${link?`data-profile-avatar-id="${esc(p.id)}"`:''} alt="" referrerpolicy="no-referrer">` : `<span aria-hidden="true">${esc(Array.from(p.display_name || p.username || '?')[0])}</span>`;
 const closeButton = label => `<button type="button" class="pr-icon" data-pr-close aria-label="${label}">${icon('close')}</button>`;
 const skeleton = () => `<div class="pr-grid" aria-busy="true">${Array.from({length:9},()=>'<div class="pr-tile pr-skeleton"></div>').join('')}</div>`;
 
@@ -20,7 +21,7 @@ export function profileShellMarkup(mine, isAdmin, person) {
       <div class="pr-connections-list" data-pr-people></div><p class="pr-status" data-pr-list-status role="status"></p><button type="button" class="pr-button" data-pr-people-more hidden>Carregar mais pessoas</button>
     </dialog>
     ${mine?`<dialog class="pr-dialog" data-pr-edit aria-labelledby="prEditTitle"><div class="pr-dialog-header"><h2 id="prEditTitle">Editar perfil</h2>${closeButton('Fechar edição')}</div>
-      <form data-pr-edit-form><div class="pr-edit-avatar" data-pr-preview>${avatar(person)}</div><label>Foto de perfil<input type="file" name="avatar" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG ou WebP. A foto é salva junto com as alterações.</small></label>
+      <form data-pr-edit-form><div class="pr-edit-photo-row"><button type="button" class="pr-edit-avatar" data-pr-avatar-change aria-label="Editar foto de perfil" data-pr-preview>${avatar(person,false)}</button><button type="button" class="pr-avatar-change" data-pr-avatar-change>Trocar foto de perfil</button></div>
       <label>Nome de exibição<input name="displayName" required maxlength="80" autocomplete="name"></label><label>Biografia<textarea name="bio" maxlength="280" rows="3"></textarea></label>
       ${isAdmin?'<label>URL da playlist do YouTube<input name="playlistUrl" type="url" maxlength="260" placeholder="https://www.youtube.com/playlist?list=…"></label>':''}
       <p class="pr-status" data-pr-save-status role="status"></p><button class="pr-button pr-primary" type="submit">Salvar alterações</button></form></dialog>`:''}
@@ -31,7 +32,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   let targetId = new URLSearchParams(location.search).get('usuario') || new URLSearchParams(location.search).get('user_id') || actor.id;
   if (!isProfileId(targetId)) { root.innerHTML='<section class="pr-card" role="alert">O link deste perfil é inválido.</section>';return; }
   const mine=targetId===actor.id;
-  let stats,person,tab='fotos',generation=0,loading=false,hasMore=false,items=[],saving=false,pendingAvatar=null,previewUrl='',avatarGeneration=0;
+  let stats,person,tab='fotos',generation=0,loading=false,hasMore=false,items=[],saving=false,avatarSaving=false,avatarEditor=null;
   let listKind='followers',listRows=[],listOffset=0,listMore=false,listLoading=false,listGeneration=0,searchTimer;
   const pendingFollows=new Set();
   let viewer,refreshTimer,statsRevision=0;
@@ -47,7 +48,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   const status=message=>{$('[data-pr-status]').textContent=message||'';};
   document.title=(person.display_name||person.username)+' — Looply';
   function drawCard() {
-    $('[data-pr-card]').innerHTML=`<div class="pr-identity-top"><div class="pr-avatar">${avatar(person)}</div><div class="pr-stats"><div><strong>${Number(stats.posts)}</strong><span>Posts</span></div><button type="button" data-pr-list="followers"><strong>${Number(stats.followers)}</strong><span>Seguidores</span></button><button type="button" data-pr-list="following"><strong>${Number(stats.following)}</strong><span>Seguindo</span></button></div></div>
+    $('[data-pr-card]').innerHTML=`<div class="pr-identity-top">${mine?`<button type="button" class="pr-avatar pr-avatar-action" data-pr-avatar-change aria-label="Editar foto de perfil">${avatar(person,false)}<span class="pr-avatar-camera" aria-hidden="true">${icon('camera')}</span></button>`:`<div class="pr-avatar">${avatar(person)}</div>`}<div class="pr-stats"><div><strong>${Number(stats.posts)}</strong><span>Posts</span></div><button type="button" data-pr-list="followers"><strong>${Number(stats.followers)}</strong><span>Seguidores</span></button><button type="button" data-pr-list="following"><strong>${Number(stats.following)}</strong><span>Seguindo</span></button></div></div>
       <div class="pr-bio"><h1 data-profile-name-id="${esc(person.id)}">${esc(person.display_name||person.username)}</h1><p class="pr-handle">@${esc(person.username)}</p>${person.bio?`<p>${esc(person.bio)}</p>`:''}</div>
       <div class="pr-actions">${mine?`<button class="pr-button pr-primary" type="button" data-pr-open-edit>${icon('pencil')}Editar perfil</button>`:`<button class="pr-button ${stats.isFollowing?'':'pr-primary'}" type="button" data-pr-follow="${esc(targetId)}" aria-pressed="${Boolean(stats.isFollowing)}" ${pendingFollows.has(targetId)?'disabled':''}>${stats.isFollowing?'Seguindo':'Seguir'}</button><button class="pr-button pr-message" type="button" data-pr-message>${icon('chat')}Mensagem</button>`}
       <button class="pr-button pr-share" type="button" data-pr-share aria-label="Compartilhar perfil" title="Compartilhar perfil">${icon('share')}<span>Compartilhar</span></button></div>`;
@@ -134,14 +135,14 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
     $$('[data-pr-tab]').forEach(b=>{const active=b.dataset.prTab===tab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     PROFILE_TABS.forEach(t=>$(`#grid-${t}`).hidden=t!==tab);void loadContent();
   }
-  function clearPending(){++avatarGeneration;pendingAvatar=null;if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';}
-  function closeDialog(dialog){if(saving&&dialog===$('[data-pr-edit]'))return;dialog.close();if(dialog===$('[data-pr-edit]'))clearPending();}
+  function closeDialog(dialog){if(saving&&dialog===$('[data-pr-edit]'))return;dialog.close();}
   $$('dialog').forEach(dialog=>{
     dialog.addEventListener('click',event=>{if(event.target===dialog)closeDialog(dialog);});
     dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog(dialog);});
   });
   root.addEventListener('click',async event=>{
     const close=event.target.closest('[data-pr-close]');if(close){closeDialog(close.closest('dialog'));return;}
+    if(mine&&event.target.closest('[data-pr-avatar-change]')){avatarEditor?.open();return;}
     const list=event.target.closest('[data-pr-list]');if(list){listKind=list.dataset.prList;listRows=[];$('[data-pr-people]').innerHTML='';$('[data-pr-user-search]').value='';$('#prConnectionsTitle').textContent=listKind==='followers'?'Seguidores':'Seguindo';$('[data-pr-connections]').showModal();void loadPeople();return;}
     const followButton=event.target.closest('[data-pr-follow]');if(followButton){const id=followButton.dataset.prFollow,following=id===targetId?stats.isFollowing:listRows.find(p=>p.id===id)?.isFollowing;void follow(id,!following,followButton);return;}
     if(event.target.closest('[data-pr-share]')){
@@ -150,8 +151,8 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
     }
     const message=event.target.closest('[data-pr-message]');if(message){message.disabled=true;try{const {data,error}=await client.functions.invoke('looply-chat',{body:{action:'create_direct',targetId}});if(error||!data?.conversationId)throw error||Error('Chat unavailable');location.assign('conversa.html?id='+encodeURIComponent(data.conversationId));}catch(error){status(profileError(error));message.disabled=false;}return;}
     if(event.target.closest('[data-pr-open-edit]')){
-      clearPending();const form=$('[data-pr-edit-form]');form.reset();Array.from(form.elements).forEach(el=>el.disabled=false);form.elements.displayName.value=person.display_name||person.username;form.elements.bio.value=person.bio||'';if(form.elements.playlistUrl)form.elements.playlistUrl.value=actor.playlist_url||'';
-      $('[data-pr-preview]').innerHTML=avatar(person);$('[data-pr-save-status]').textContent='';$('[data-pr-edit]').showModal();return;
+      const form=$('[data-pr-edit-form]');form.reset();Array.from(form.elements).forEach(el=>el.disabled=false);form.elements.displayName.value=person.display_name||person.username;form.elements.bio.value=person.bio||'';if(form.elements.playlistUrl)form.elements.playlistUrl.value=actor.playlist_url||'';
+      $('[data-pr-preview]').innerHTML=avatar(person,false);$('[data-pr-save-status]').textContent='';$('[data-pr-edit]').showModal();return;
     }
     const tabButton=event.target.closest('[data-pr-tab]');if(tabButton){selectTab(tabButton.dataset.prTab);return;}
     if(event.target.closest('[data-pr-more]')){void loadContent(false);return;}
@@ -167,24 +168,16 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   $('[data-pr-user-search]').addEventListener('input',()=>{drawPeople();clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadPeople(),180);});
   if(mine){
     const form=$('[data-pr-edit-form]');
-    form.elements.avatar.addEventListener('change',async()=>{
-      clearPending();const request=avatarGeneration,file=form.elements.avatar.files?.[0];if(!file){form.querySelector('[type=submit]').disabled=false;$('[data-pr-preview]').innerHTML=avatar(person);return;}
-      const submit=form.querySelector('[type=submit]');submit.disabled=true;$('[data-pr-save-status]').textContent='Preparando foto…';
-      try{const ready=await prepareProfileAvatar(file);if(request!==avatarGeneration)return;pendingAvatar=ready;previewUrl=URL.createObjectURL(ready);$('[data-pr-preview]').innerHTML=`<img src="${esc(previewUrl)}" alt="Prévia da nova foto">`;$('[data-pr-save-status]').textContent='Foto selecionada. Toque em Salvar alterações para publicar.';}
-      catch(error){if(request!==avatarGeneration)return;form.elements.avatar.value='';$('[data-pr-preview]').innerHTML=avatar(person);$('[data-pr-save-status]').textContent=profileError(error);}
-      finally{if(request===avatarGeneration)submit.disabled=false;}
-    });
     form.addEventListener('submit',async event=>{
-      event.preventDefault();if(saving)return;
+      event.preventDefault();if(saving||avatarSaving)return;
       const updates={display_name:form.elements.displayName.value.trim(),bio:form.elements.bio.value.trim(),profile_visibility:'members'};
       if(!updates.display_name||updates.display_name.length>80||updates.bio.length>280)return;
       if(form.elements.playlistUrl){const raw=form.elements.playlistUrl.value.trim();const url=normalizeYouTubePlaylistUrl(raw);if(raw&&!url){$('[data-pr-save-status]').textContent='Informe uma URL válida de playlist do YouTube.';return;}updates.playlist_url=url||null;}
       saving=true;Array.from(form.elements).forEach(el=>el.disabled=true);$('[data-pr-save-status]').textContent='Salvando alterações…';
       try{
         const session=await client.auth.getSession();if(session.error||!session.data?.session)throw Object.assign(Error('Session required'),{status:401});
-        const saved=await saveNeonProfile({profileId:user.id,session:session.data.session,dataApiUrl:client.dataApiUrl,storage:client.storage,updates,avatarFile:pendingAvatar});
-        let avatarUrl=person.avatarUrl;
-        if(pendingAvatar){const signed=await client.storage.from('looply-avatars').createSignedUrl(saved.avatarPath,1800);if(signed.error||!signed.data?.signedUrl)throw Error('Avatar URL unavailable');avatarUrl=signed.data.signedUrl;}
+        const saved=await saveNeonProfile({profileId:user.id,session:session.data.session,dataApiUrl:client.dataApiUrl,storage:client.storage,updates,avatarFile:null});
+        const avatarUrl=person.avatarUrl;
         ++statsRevision;person={...person,...saved.profile,avatarUrl};Object.assign(actor,person);stats.profile=person;drawCard();
         const detail={profileId:user.id,display_name:person.display_name,bio:person.bio,avatar_path:person.avatar_path,avatarUrl};
         window.dispatchEvent(new CustomEvent('looply:profile-updated',{detail}));window.dispatchEvent(new CustomEvent('looply:avatar-updated',{detail}));
@@ -193,10 +186,30 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
       finally{saving=false;Array.from(form.elements).forEach(el=>el.disabled=false);}
     });
   }
+  if(mine){
+    avatarEditor=mountProfileAvatarEditor({
+      root,client,userId:user.id,
+      onSaving:active=>{avatarSaving=active;const submit=$('[data-pr-edit-form] button[type="submit"]');if(submit)submit.disabled=active||saving;},
+      onStatus:message=>status(message),
+      onSaved:async saved=>{
+        ++statsRevision;
+        person={...person,...saved.profile,avatarUrl:saved.avatarUrl};
+        Object.assign(actor,person);stats.profile=person;
+        drawCard();
+        const preview=$('[data-pr-preview]');
+        if(preview)preview.innerHTML=avatar(person,false);
+        const detail={profileId:user.id,display_name:person.display_name,bio:person.bio,
+          avatar_path:person.avatar_path,avatarUrl:saved.avatarUrl};
+        window.dispatchEvent(new CustomEvent('looply:profile-updated',{detail}));
+        window.dispatchEvent(new CustomEvent('looply:avatar-updated',{detail}));
+        bus?.postMessage({type:'profile',...detail});
+      }
+    });
+  }
   viewer=createProfileMediaViewer({root,client,user,onChanged:async()=>{await Promise.all([refreshStats(),loadContent()]);},status});
   drawCard();void loadContent();
   root.__looplyRefreshData = async () => {
-    if(saving || pendingFollows.size || loading)return false;
+    if(saving || avatarSaving || pendingFollows.size || loading)return false;
     const results=await Promise.allSettled([refreshStats(),loadContent()]);
     return results.every(result=>result.status==="fulfilled"&&result.value===true);
   };
@@ -204,6 +217,6 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   window.addEventListener('looply:follow-updated',onSocial);
   if(bus)bus.onmessage=event=>{if(event.data?.type==='profile'){if(event.data.profileId===person.id){++statsRevision;person={...person,...event.data};drawCard();}}else onSocial({detail:event.data||{}});};
   refreshTimer=setInterval(()=>{if(document.hidden||pendingFollows.size)return;void refreshStats().catch(()=>{});if($('[data-pr-connections]').open&&!listLoading)void loadPeople();},15000);
-  window.addEventListener('pagehide',()=>{clearPending();clearTimeout(searchTimer);clearInterval(refreshTimer);++generation;++listGeneration;window.removeEventListener('looply:follow-updated',onSocial);bus?.close();viewer.destroy();},{once:true});
+  window.addEventListener('pagehide',()=>{avatarEditor?.dispose();clearTimeout(searchTimer);clearInterval(refreshTimer);++generation;++listGeneration;window.removeEventListener('looply:follow-updated',onSocial);bus?.close();viewer.destroy();},{once:true});
   if(mine&&new URLSearchParams(location.search).get('foto')==='obrigatoria')$('[data-pr-open-edit]').click();
 }
