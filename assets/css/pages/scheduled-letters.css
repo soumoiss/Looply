@@ -83,3 +83,14 @@
 @media(prefers-reduced-motion:reduce) {
   .page-letters .scheduled-confirm, .page-letters .scheduled-card { animation: none!important; transition: none!important; }
 }
+
+/* Sent/received scheduled letter collection. Locked cards contain only
+   metadata; no hidden plaintext is sent to the recipient's browser. */
+.scheduled-direction-tabs {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.scheduled-direction-tabs button {min-height:43px;border-radius:12px;padding:8px 6px;
+  border:1px solid var(--line,#d8d2df);background:var(--surface-strong,#fff);color:var(--text,#202020);font-weight:700}
+.scheduled-direction-tabs button[aria-pressed=true] {border-color:var(--primary,#7010b0);
+  background:var(--primary,#7010b0);color:white}
+.scheduled-lock-note {font-size:13px;color:var(--muted,#6c6271);margin:10px 0 2px}
+.scheduled-card .scheduled-actions {display:flex;flex-wrap:wrap;gap:8px}
+.scheduled-card .scheduled-actions button {min-height:40px}
