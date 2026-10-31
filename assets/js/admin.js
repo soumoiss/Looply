@@ -1,4 +1,4 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
+import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { adminMarkup, bindAdminEvents } from "../../src/admin.js?v=archive-card-controls-20261022";
 import { bindArchiveImport } from "../../src/archive-import.js";
 
