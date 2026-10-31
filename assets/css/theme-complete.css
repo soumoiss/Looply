@@ -1,0 +1,84 @@
+/* Looply unified theme 2026-10-31.
+   This sheet loads LAST after page CSS, before rendering. Visual styles only.
+   Video/photo viewers remain intentionally dark for faithful media display. */
+html[data-theme] {
+  accent-color:var(--primary);
+  --accent:var(--primary);
+  --accent-soft:var(--lilac);
+  --border:var(--line);
+  --surface-muted:var(--surface-soft);
+  --hybrid-coral:var(--primary);
+  --hybrid-orange:var(--primary-dark);
+}
+html[data-theme] body:not(.page-login) {color:var(--text);background-color:var(--bg)}
+html[data-theme] :is(.page-home,.page-gallery,.page-chat,.page-music,.page-profile,.page-settings,.page-users,.page-notifications,.page-admin,.page-letters) {
+  --accent:var(--primary);--accent-soft:var(--lilac);--gallery-action:var(--primary);
+  --gallery-control-border:var(--line);--gallery-control-bg-hover:var(--bg-2);
+}
+html[data-theme] :is(.page-home,.page-gallery,.page-chat,.page-music,.page-profile,.page-settings,.page-users,.page-notifications,.page-admin) :is(
+  .section-kicker,.gallery-eyebrow,.gallery-title,.gallery-hero h1,.gallery-hero h2,.social-heading .section-kicker,
+  .story-area-heading .section-kicker,.post-composer-heading strong,.post-create-header strong,
+  .gallery-category-row h2,.gallery-category-row strong,.gallery-section-title,
+  .chat-panel-heading h3,.notifications-heading h2
+) {color:var(--primary)!important}
+html[data-theme] .page-home .story-area-heading .section-kicker::before,
+html[data-theme] .page-home .story-add-mark,
+html[data-theme] .page-home .post-add-button,
+html[data-theme] .page-home .post-create-header button[type=submit],
+html[data-theme] .page-home .post-create-form button[type=submit] {
+  background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;
+}
+html[data-theme] .page-home .post-compose-pen {color:var(--primary)!important;background:var(--lilac)!important}
+html[data-theme] .page-home :is(.post-composer-fields,.post-create-header,.post-composer,.post-create-preview,.post-composer-heading) {
+  background:var(--surface-strong)!important;color:var(--text)!important;
+  border-color:var(--line)!important;
+}
+html[data-theme] .page-home :is(.post-composer-fields input,.post-composer-fields textarea,.post-composer-fields select) {
+  background:var(--surface-soft)!important;color:var(--text)!important;
+  border-color:var(--line)!important;
+}
+html[data-theme] .page-home .post-create-header button[data-close-composer] {
+  background:var(--surface-soft)!important;color:var(--text)!important;
+}
+html[data-theme] .page-home .post-create-header button[type=submit] {background:var(--primary)!important;color:#fff!important}
+html[data-theme] .page-home .ig-post .visibility-pill {background:var(--lilac)!important;color:var(--primary)!important;border-color:var(--line)!important}
+html[data-theme] .page-home .ig-post .post-like-button.is-liked {color:var(--primary)!important}
+html[data-theme] .page-home .home-welcome-avatar {
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark))!important;
+}
+html[data-theme] .page-gallery .gallery-shell {color:var(--text)!important}
+html[data-theme] .page-gallery :is(.gallery-hero,.gallery-dialog,.gallery-action-sheet,.gallery-filter-sheet,.gallery-album-toolbar) {
+  background:var(--surface-strong)!important;color:var(--text)!important;border-color:var(--line)!important;
+}
+html[data-theme] .page-gallery .gallery-category-row .gallery-tab.active {
+  background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;
+}
+html[data-theme] .page-gallery :is(.gallery-primary,.gallery-filter-toggle,.gallery-action-list button.is-active) {
+  color:#fff!important;background:var(--primary)!important;border-color:var(--primary-dark)!important;
+}
+html[data-theme] .page-gallery :is(.gallery-search-wrap,.gallery-search,.gallery-category-row .gallery-tab:not(.active)) {
+  background:var(--surface-soft)!important;color:var(--text)!important;border-color:var(--line)!important;
+}
+html[data-theme] :is(.page-gallery,.page-chat,.page-users,.page-settings,.page-profile,.page-notifications,.page-music,.page-admin) :is(
+  button[aria-pressed=true],.filter-button.active,.navigation-button[aria-current=page],.gallery-chip.active
+) {accent-color:var(--primary)}
+html[data-theme] :is(input,select,textarea,button):focus-visible {outline-color:var(--primary)}
+html[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range]) {accent-color:var(--primary)}
+html[data-theme] .looply-logout-dialog {
+  position:fixed;inset:0;margin:auto;padding:0;
+  max-width:min(420px,calc(100vw - 28px));width:100%;border:1px solid var(--line);
+  border-radius:22px;background:var(--surface-strong);color:var(--text);
+  box-shadow:0 20px 80px #0006;
+}
+html[data-theme] .looply-logout-dialog::backdrop {background:#101016ae;backdrop-filter:blur(5px)}
+html[data-theme] .looply-logout-card {padding:24px 20px;display:grid;gap:14px}
+html[data-theme] .looply-logout-card h2 {font-size:19px;margin:0;color:var(--text)}
+html[data-theme] .looply-logout-card p {margin:0;color:var(--muted);font-size:13px}
+html[data-theme] .looply-logout-card .looply-logout-error {color:var(--danger)}
+html[data-theme] .looply-logout-actions {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+html[data-theme] .looply-logout-actions button {
+  min-height:46px;border-radius:13px;border:1px solid var(--line);background:var(--surface-soft);
+  color:var(--text);font-weight:700
+}
+html[data-theme] .looply-logout-actions [data-logout-confirm] {background:var(--primary);border-color:var(--primary);color:#fff}
+html[data-theme] .looply-logout-actions button:disabled {opacity:.7}
