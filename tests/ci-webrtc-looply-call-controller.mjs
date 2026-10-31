@@ -36,7 +36,15 @@ try {
         await page.exposeBinding("__relaySignal",async ({page:source},packet)=>{
           const recipient=pages.find(p=>p!==source);
           if(!recipient) return "error";
-          await recipient.evaluate(packet => window.__receiveTestSignal?.(packet), packet);
+          await recipient.evaluate(({packet,useInbox}) => {
+            if (useInbox && packet.type === "offer") {
+              document.querySelector("#root")?.dispatchEvent(new CustomEvent("looply:incoming-call", {
+                cancelable:true, detail:{conversationId:packet.conversationId,payload:packet}
+              }));
+              return;
+            }
+            window.__receiveTestSignal?.(packet);
+          },{packet,useInbox:mode === "video"});
           return "ok";
         });
         await page.goto("http://localhost:8765/webrtc-fixture");
