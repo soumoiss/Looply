@@ -58,16 +58,11 @@
 .page-home .post-composer-fields .composer-options .primary-button { display:none; }
 .page-home .post-composer-fields label, .page-home .post-composer-fields input, .page-home .post-composer-fields select { max-width:100%; }
 /* Fixed mobile footer links use actual Looply pages and the same palette as the theme. */
-.page-home .looply-feed-nav { display:none; }
 @media (max-width:680px) {
   .page-home .social-area { padding-bottom:100px; }
   .page-home .post-card.ig-post { width:100%; border-radius:0; border-left:0; border-right:0; }
   .page-home .post-composer { width:100%; }
   .page-home .post-card.ig-post .post-media { max-height:none; }
-  .page-home .looply-feed-nav { display:flex; position:fixed; left:0; bottom:0; right:0; z-index:19999; height:calc(56px + env(safe-area-inset-bottom)); padding:5px 6px env(safe-area-inset-bottom); align-items:center; justify-content:space-around; border-top:1px solid var(--line); background:var(--surface); }
-  .page-home .looply-feed-nav a, .page-home .looply-feed-nav button { display:grid; place-items:center; width:45px; height:45px; border:0; background:transparent; color:var(--text); cursor:pointer; }
-  .page-home .looply-feed-nav svg { width:25px; height:25px; }
-  .page-home .looply-feed-nav [aria-current="page"] { color:var(--primary); }
 }
 .looply-reels-scroll { position:fixed; inset:0; z-index:30000; width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; padding:0; border:0; overflow:hidden; background:#050508; color:#fff; }
 .looply-reels-scroll::backdrop { background:#050508; }
