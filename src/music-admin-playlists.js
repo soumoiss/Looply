@@ -1,6 +1,6 @@
 // Admin playlist inspector backed by Neon Auth + Postgres RLS (no legacy Supabase Edge Function).
 // Only admins authenticated by v3_self_is_admin() can see this panel or insert private notes.
-import { fetchPlaylistItemsWithFallback } from "./youtube-playlist.js?v=playlist-recovery-20261031";
+import { fetchPlaylistItemsWithFallback } from "./youtube-playlist.js?v=live-index-20261031";
 import { signProfileAvatars } from "./profiles.js";
 const h = (v) => String(v??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const defaults=Object.freeze({misol:"PLUZFdmgmipvI",yara:"PLCn4CAsA_tiM",patati:"PLE0tcB0gaSzM",peixinho:"PLD5PXwJcU-Sg"});
@@ -88,7 +88,7 @@ export async function mountMusicAdminPlaylistPanel(root,client){
       if(request!==sequence)return;
       track.replaceChildren(new Option(tracks.length?"Escolha uma música":"Playlist sem faixas disponíveis",""));
       for(const t of tracks){const opt=new Option(t.title||"Música",t.videoId);opt.dataset.title=t.title||"Música";track.add(opt);}
-      status.textContent=tracks.length?tracks.length+" músicas recuperadas da playlist.":"Não há músicas públicas retornadas pela API.";
+      status.textContent=tracks.length?tracks.length+" músicas na playlist.":"";
     }catch(err){
       if(request!==sequence)return;
       track.replaceChildren(new Option("Selecione uma música",""));
