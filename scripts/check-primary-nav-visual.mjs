@@ -68,6 +68,7 @@ try{
        positions:getComputedStyle(nav).position,
        active:links.filter(x=>x.active).map(x=>x.href)};
    });
+   console.log("NAV_VIEWPORT_DIAGNOSTICS",JSON.stringify(data));
    assert.equal(errors.length,0,errors.join(" | "));
    assert.equal(data.navs,1,"exactly one nav at "+width);
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
