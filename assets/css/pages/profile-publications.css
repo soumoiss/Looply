@@ -1,0 +1,29 @@
+/* Profile publications: preserve historical text and comments even when old
+   photos were intentionally reset. Existing Photos/Videos/Mentions remain intact. */
+.page-profile .pr-tabs {grid-template-columns:repeat(4,minmax(0,1fr));}
+.page-profile .pr-tabs button {min-width:0;padding-inline:4px;}
+.page-profile .pr-tabs button span {font-size:clamp(10px,2.5vw,12px);}
+.page-profile .pr-publications {display:grid;gap:13px;width:100%;margin:12px auto;}
+.page-profile .pr-publication {
+  display:grid;gap:10px;padding:16px;
+  border:1px solid var(--line);border-radius:18px;
+  background:var(--surface-strong);color:var(--text);
+  overflow-wrap:anywhere;
+}
+.page-profile .pr-publication time {font-size:12px;color:var(--muted);font-weight:650;}
+.page-profile .pr-publication-caption {margin:0;font-size:14px;white-space:pre-wrap;line-height:1.5;}
+.page-profile .pr-publication img,.page-profile .pr-publication video {
+  width:100%;height:auto;max-height:70dvh;object-fit:contain;border-radius:12px;background:#101014;
+}
+.page-profile .pr-publication-lost {
+  display:grid;gap:6px;margin:0;padding:13px 14px;
+  border:1px dashed var(--line);border-radius:12px;
+  background:var(--surface-soft);color:var(--muted);
+  font-size:12px;line-height:1.55;
+}
+.page-profile .pr-publication-lost span {color:var(--text);font-weight:600;}
+.page-profile .pr-publication-comments {display:grid;gap:8px;padding-top:9px;border-top:1px solid var(--line);}
+.page-profile .pr-publication-comments strong {font-size:12px;color:var(--muted);}
+.page-profile .pr-publication-comments p {margin:0;font-size:13px;line-height:1.5;}
+.page-profile .pr-publication-comments p span {color:var(--primary);font-weight:800;}
+.page-profile .pr-publication a {color:var(--primary);font-size:13px;font-weight:700;}
