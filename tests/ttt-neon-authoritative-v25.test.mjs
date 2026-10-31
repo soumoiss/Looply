@@ -94,6 +94,8 @@ test("secure read/write routing does not change message or call signaling",async
   assert.match(controller,/data-ttt-avatar/);
   assert.match(controller,/client\.storage\.from\("looply-avatars"\)/);
   assert.match(controller,/data-v2-scoreboard/);
+  assert.match(controller,/offline=true/);
+  assert.match(controller,/Sem conexão\. A partida será sincronizada automaticamente/);
   assert.match(controller,/setInterval/);
   assert.match(controller,/clearInterval/);
   assert.match(chat,/data-call-accept/);
@@ -118,5 +120,5 @@ test("mobile styles ensure readable identities, three-by-three board and touch t
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(css,/prefers-reduced-motion:reduce/);
   assert.match(html,/chat\.css\?v=20261031/);
-  assert.match(wrapper,/chat-enhancements\.js\?v=ttt-neon-20261031/);
+  assert.match(wrapper,/chat-enhancements\.js\?v=ttt-reconnect-20261031/);
 });
