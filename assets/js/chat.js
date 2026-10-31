@@ -1,7 +1,7 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b";
+import { mountAppPage } from "../../src/page-runtime.js?v=incoming-handoff-20261030";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=neon-catalog-packs-20261029";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
-import { setupChatCalls } from "../../src/chat-calls.js?v=feed-media-audio-20261029";
+import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=feed-media-audio-20261029";
 import { loadSocialData } from "../../src/social.js";
 
