@@ -807,3 +807,29 @@
 @media(prefers-reduced-motion:reduce) {
   .page-chat .chat-ttt-game *, .page-chat .chat-ttt-player { transition:none!important; animation:none!important; }
 }
+
+/* Native-like 1:1 group photo crop/zoom overlay. All existing group
+   upload permissions and media transaction checks remain unchanged. */
+.looply-group-cover-editor {
+  position:fixed;inset:0;margin:auto;padding:0;border:0;border-radius:22px;
+  width:min(calc(100vw - 24px),390px);max-height:calc(100dvh - 24px);
+  overflow:auto;background:var(--surface-strong,#fff);color:var(--text,#242027);
+  box-shadow:0 20px 70px #0007;
+}
+.looply-group-cover-editor::backdrop {background:#090913ba;backdrop-filter:blur(5px)}
+.group-cover-editor-card {display:grid;gap:15px;padding:20px 16px 22px;text-align:center}
+.group-cover-editor-card h2 {margin:0;font-size:20px}
+.group-cover-editor-card p {margin:0;color:var(--muted);font-size:13px}
+.group-cover-editor-stage {
+  width:min(280px,calc(100vw - 60px));height:min(280px,calc(100vw - 60px));
+  aspect-ratio:1;margin:auto;overflow:hidden;position:relative;
+  border-radius:50%;background:#18151f;touch-action:none;cursor:grab;
+  outline:2px solid var(--primary);
+}
+.group-cover-editor-stage:active {cursor:grabbing}
+.group-cover-editor-stage img {position:absolute;left:50%;top:50%;max-width:none;max-height:none;pointer-events:none;user-select:none}
+.group-cover-editor-card label {display:grid;gap:6px;font-size:13px}
+.group-cover-editor-card input[type=range] {accent-color:var(--primary);width:100%}
+.group-cover-editor-actions {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.group-cover-editor-actions button {min-height:44px;border-radius:13px;border:1px solid var(--primary);background:var(--surface);color:var(--text);font-weight:700}
+.group-cover-editor-actions [data-cover-confirm] {background:var(--primary);color:white}
