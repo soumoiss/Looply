@@ -241,6 +241,46 @@ async function storyEngagementRpc(name, args) {
     return { data: null, error: { message: error?.message || "neon_story_engagement_unavailable" } };
   }
 }
+// Scheduled letters use the already installed, authenticated v24 Neon RPCs.
+// Never silently fall back to a generic unsupported-feature response.
+const scheduledLetterRpcNames = new Set([
+  "v24_create_scheduled_letter", "v24_update_scheduled_letter",
+  "v24_cancel_scheduled_letter"
+]);
+async function scheduledLetterRpc(name, args) {
+  if (!scheduledLetterRpcNames.has(name)) return blocked();
+  try {
+    const session = await activeSession();
+    if (!session?.access_token)
+      return { data: null, error: { message: "Sua sessão precisa ser renovada.", status: 401 } };
+    const response = await fetch(config.data + "/rpc/" + name, {
+      method: "POST", cache: "no-store",
+      headers: {
+        authorization: "Bearer " + session.access_token,
+        accept: "application/json", "content-type": "application/json"
+      },
+      body: JSON.stringify(args || {})
+    });
+    const value = await response.json().catch(() => null);
+    if (!response.ok) {
+      console.warn("Looply scheduled letter RPC failed", name, response.status, value?.code || "");
+      return { data: null, error: {
+        message: response.status === 401 ? "Sua sessão precisa ser renovada." :
+          "Não foi possível confirmar a programação. Tente novamente.",
+        status: response.status, code: value?.code || ""
+      } };
+    }
+    const valid = name === "v24_create_scheduled_letter"
+      ? typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)
+      : value === true;
+    return valid
+      ? { data: value, error: null }
+      : { data: null, error: { message: "Não foi possível confirmar a programação." } };
+  } catch (error) {
+    console.warn("Looply scheduled letter connection failed", name, error?.name || "network");
+    return { data: null, error: { message: "Não foi possível conectar para programar a carta." } };
+  }
+}
 const tttRpcNames=new Set(["v25_ttt_state","v25_ttt_invite","v25_ttt_accept","v25_ttt_decline","v25_ttt_move","v25_ttt_rematch"]);
 async function tttRpc(name,args){
   if(!tttRpcNames.has(name))return blocked();
@@ -516,7 +556,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : tttRpcNames.has(name) ? tttRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : scheduledLetterRpcNames.has(name) ? scheduledLetterRpc(name,args) : tttRpcNames.has(name) ? tttRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: (name,options) => name === "looply-admin" ? adminFunctionInvoke(options) : chatFunctionInvoke(name,options) }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,
