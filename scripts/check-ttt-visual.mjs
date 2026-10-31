@@ -46,6 +46,10 @@ try{
       return {width:innerWidth,overflow:document.documentElement.scrollWidth-innerWidth,
         parts:[board,modal,...cards].map(r=>({left:r.left,right:r.right,width:r.width}))};
     });
+    if(geometry.overflow>1){
+      const offenders=await page.evaluate(()=>[...document.querySelectorAll("body *")].map(el=>({tag:el.tagName,classes:el.className?.toString()?.slice(0,70),rect:el.getBoundingClientRect()})).filter(x=>x.rect.right>innerWidth+1||x.rect.left< -1).slice(0,15).map(x=>({tag:x.tag,classes:x.classes,left:x.rect.left,right:x.rect.right,width:x.rect.width})));
+      console.log("TTT_HORIZONTAL_OVERFLOW",JSON.stringify({geometry,offenders}));
+    }
     assert.ok(geometry.overflow<=1,"Horizontal overflow "+JSON.stringify(geometry));
     for(const rect of geometry.parts)
       assert.ok(rect.left>=-1&&rect.right<=width+1,"Outside viewport "+JSON.stringify(rect));
