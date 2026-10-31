@@ -21,7 +21,7 @@ export function decodeFcmPrivateKey(pem, decode = atob) {
   const body = normalized.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "")
     .replace(/[\s\uFEFF]/g, "");
   if (body.length < 100) throw Error("fcm_private_key_too_short");
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) throw Error("fcm_private_key_non_base64_characters");
+  if (!/^[A-Za-z0-9+/]+={0,8}$/.test(body)) throw Error("fcm_private_key_non_base64_characters");
   // The transport sometimes adds inappropriate trailing padding. Normalize
   // padding, but do not accept a malformed RSA key: importKey still validates
   // the complete DER structure before any OAuth request can be made.
