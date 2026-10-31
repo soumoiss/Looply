@@ -722,3 +722,21 @@
 .story-studio .studio-publish-row [data-studio-publicar] {
   min-height:44px;
 }
+
+/* Product requirement: never offer attaching local music from the Android file
+ * chooser in the Story song search. Provider previews stay listen-only; tracks
+ * with valid synchronization licenses remain selectable from the music catalog.
+ * Apply at the end to override the old mobile grid/upload rules. */
+.story-studio .studio-modal[data-sheet="music"] .studio-audio-upload,
+.story-studio .studio-modal[data-sheet="music"] .studio-catalog-select,
+.story-studio .studio-modal[data-sheet="music"] input[data-studio-audio-file] {
+  display: none !important;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview-actions .studio-music-listen {
+  flex: 1 1 100%;
+}
