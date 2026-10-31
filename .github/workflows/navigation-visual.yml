@@ -1,0 +1,42 @@
+name: Looply single navigation visual regression
+on:
+  pull_request:
+    paths:
+      - "src/primary-navigation.js"
+      - "src/page-runtime.js"
+      - "src/social.js"
+      - "assets/css/pages/shared.css"
+      - "assets/css/pages/home-hybrid.css"
+      - "assets/css/pages/feed-reels-experience.css"
+      - "scripts/check-primary-nav-visual.mjs"
+      - ".github/workflows/navigation-visual.yml"
+  push:
+    branches: [fix/single-reliable-mobile-navigation-20261031]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium and visual test dependency
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Render real navigation and check screen geometry
+        run: node scripts/check-primary-nav-visual.mjs
+      - name: Upload responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: looply-navigation-responsive-screenshots
+          path: smoke-results/navigation-20261031/
+          retention-days: 14
+          if-no-files-found: warn
