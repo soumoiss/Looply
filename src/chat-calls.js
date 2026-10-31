@@ -1,6 +1,7 @@
 import { icon } from "./icons.js";
 import { createCallIceGate } from "./call-ice-gate.js";
 import { createCallRingtone } from "./call-ringtone.js";
+import { requestImmediateCallPush } from "./call-push-alert.js";
 import { setCallPlaybackActive } from "./media-playback-coordinator.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
@@ -253,6 +254,9 @@ export function setupChatCalls(root, client, userId) {
       const sent = await send("offer", offerPayload);
       if (!sent) throw new Error("offer could not be sent");
       iceGate.markDescriptionSent(pc);
+      // A 60-second cron is slower than a 30-second call. Wake Android through
+      // FCM now; the call itself proceeds even if this optional path fails.
+      void requestImmediateCallPush(client,activeConversation());
       // Broadcast is ephemeral. Retry the offer while waiting so a listener that is
       // still loading its conversation memberships can still receive the call.
       clearOfferRetry();
