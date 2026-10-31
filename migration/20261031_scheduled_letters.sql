@@ -180,9 +180,11 @@ BEGIN
      delivered:=delivered+1;
    EXCEPTION WHEN OTHERS THEN
      GET STACKED DIAGNOSTICS v_error = RETURNED_SQLSTATE;
+     -- The UPDATE inside BEGIN was rolled back with the failed INSERT.
+     -- Increment attempts here, outside the failed subtransaction.
      UPDATE public.scheduled_letters SET status='failed',
-       last_error_code=v_error, updated_at=now(),
-       next_attempt_at=now()+make_interval(mins=>least(60,(power(2,least(attempts,6)))::integer))
+       attempts=attempts+1,last_error_code=v_error, updated_at=now(),
+       next_attempt_at=now()+make_interval(mins=>least(60,(power(2,least(attempts+1,6)))::integer))
      WHERE id=r.id;
      INSERT INTO public.scheduled_letter_delivery_events(scheduled_letter_id,status,sqlstate)
      VALUES(r.id,'failed',v_error);
