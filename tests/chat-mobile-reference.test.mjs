@@ -87,8 +87,8 @@ test("both entrypoints mount actual real-time WebRTC call setup",async()=>{
   for(const file of ["assets/js/chat.js","assets/js/conversation.js"]) {
     const source=await read(file);
     assert.match(source,/setupChatCalls\(root, client, user\.id\)/);
-    assert.match(source,/chat-calls\.js\?v=feed-media-audio-20261029/);
-    assert.match(source,/(chat-mobile-20261027|avatar-sync-20261028)/);
+    assert.match(source,/chat-calls\.js\?v=incoming-handoff-20261030/);
+    assert.match(source,/(chat-mobile-20261027|avatar-sync-20261028|incoming-handoff-20261030)/);
   }
 });
 test("voice calling uses real microphone + RTCPeerConnection + private signaling",async()=>{
