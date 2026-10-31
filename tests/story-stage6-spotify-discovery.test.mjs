@@ -29,7 +29,7 @@ test("Spotify catalog uses only the existing authenticated Neon Function; never 
   const picker=await read("src/story-music-picker.js");
   assert.match(picker,/searchSpotifyAuthenticated/);
   assert.match(picker,/searchSpotifyStoryMetadata\(term,/);
-  assert.match(picker,/Vincular meu áudio autorizado/);
+  assert.doesNotMatch(picker,/Vincular meu áudio autorizado/);
   assert.doesNotMatch(picker,/SPOTIFY_CLIENT_SECRET|client_secret\s*:/i);
 });
 test("Unconfigured Spotify credentials and untrusted endpoints fail closed",async()=>{
