@@ -73,8 +73,8 @@ test("Published Story does not try to decode Spotify, Apple or Deezer previews a
   assert.doesNotMatch(viewer,/api\.audius\.co/);
   assert.match(picker,/▶ Ouvir/);
   assert.match(picker,/Selecionar para o Story/);
-  assert.match(picker,/fileInput\.click\(\)/);
-  assert.match(picker,/Vincular meu áudio autorizado/);
+  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
+  assert.doesNotMatch(picker,/Vincular meu áudio autorizado/);
   assert.match(picker,/stopPreview/);
 });
 
