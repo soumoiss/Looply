@@ -155,7 +155,7 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
     }
     // Pick the exact second of a licensed recording in the same panel.
     // The recorded video then starts at this position, not at second zero.
-    if(storyMusicCanPublish(track) && audio){
+    if((track.kind==="file" || track.kind==="openverse") && audio){
       const trackAudio=audio;
       const clipLabel=addText(player,"label","Início do trecho: 0:00","studio-music-clip-label");
       const clipRange=document.createElement("input");
