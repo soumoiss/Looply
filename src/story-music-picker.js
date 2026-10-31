@@ -136,9 +136,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         "studio-catalog-select");
       choose.type="button";choose.onclick=()=>void chooseForStory(track);
     }else{
-      const chooseOwn=addText(actions,"button","Vincular meu áudio autorizado","studio-catalog-select");
-      chooseOwn.type="button";
-      chooseOwn.onclick=()=>void chooseForStory(track);
       const reason=addText(actions,"span","Prévia do catálogo não pode ser incorporada","studio-music-preview-limited");
       reason.setAttribute("role","status");
     }
