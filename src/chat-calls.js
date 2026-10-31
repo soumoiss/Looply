@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { createCallIceGate } from "./call-ice-gate.js";
 import { setCallPlaybackActive } from "./media-playback-coordinator.js";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
@@ -58,7 +59,9 @@ export function setupChatCalls(root, client, userId) {
       return result === "ok" || result?.status === "ok";
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
+  const iceGate = createCallIceGate(candidate => send("ice", { candidate }));
   const releaseMedia = () => {
+    iceGate.reset();
     setCallPlaybackActive(false);
     clearOfferRetry();
     clearConnectionTimer();
@@ -175,7 +178,9 @@ export function setupChatCalls(root, client, userId) {
       { urls: "stun:stun.cloudflare.com:3478" },
       ...configuredIceServers
     ] });
-    pc.onicecandidate = (event) => { if (event.candidate) send("ice", { candidate: event.candidate.toJSON() }); };
+    // The offer/answer already contains the candidates gathered before it is sent.
+    // Suppress duplicate, premature ICE RPCs; publish only genuinely late candidates.
+    iceGate.bind(pc);
     const peer = pc;
     pc.onconnectionstatechange = () => {
       if (pc !== peer) return;
@@ -244,6 +249,7 @@ export function setupChatCalls(root, client, userId) {
       };
       const sent = await send("offer", offerPayload);
       if (!sent) throw new Error("offer could not be sent");
+      iceGate.markDescriptionSent(pc);
       // Broadcast is ephemeral. Retry the offer while waiting so a listener that is
       // still loading its conversation memberships can still receive the call.
       clearOfferRetry();
@@ -296,6 +302,7 @@ export function setupChatCalls(root, client, userId) {
       await waitForIceGatheringComplete(pc);
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
+      iceGate.markDescriptionSent(pc);
       callView("Conectando…");
     } catch (error) {
       console.error("Looply call accept failed", error);
