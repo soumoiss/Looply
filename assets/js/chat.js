@@ -1,8 +1,8 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=incoming-handoff-20261030";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=neon-catalog-packs-20261029";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?v=neon-catalog-packs-20261029";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
 import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
-import { bindStories, disposeStoriesRealtime, loadStories, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=feed-media-audio-20261029";
+import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=feed-media-audio-20261029";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");
@@ -49,5 +49,12 @@ await mountAppPage({ page: "chat", render: async ({ root, client, user, profile 
   }
   bindStories(root, client, user.id, stories, storiesError, profile);
   setupStoriesRealtime(client, user.id, root);
+  root.__looplyRefreshData = async () => {
+    const [chatOk, storyOk] = await Promise.all([
+      refreshChatInPlace(root, client, user.id),
+      refreshStoriesInPlace(root)
+    ]);
+    return chatOk && storyOk;
+  };
   window.addEventListener("pagehide", () => { disposeChatRealtime(client); disposeStoriesRealtime(client, root); }, { once: true });
 } });
