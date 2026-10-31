@@ -1,9 +1,9 @@
-import { mountAppPage } from "../../src/page-runtime.js?v=avatar-sync-20261028b";
+import { mountAppPage } from "../../src/page-runtime.js?v=confirm-logout-20261031";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=feed-media-audio-20261029";
-import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=stories-seen-20261031";
+import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
 
