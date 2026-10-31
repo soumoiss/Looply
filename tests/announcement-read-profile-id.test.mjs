@@ -9,9 +9,9 @@ test("announcement receipt uses the linked Looply profile UUID, never Neon Auth 
   ]);
   assert.match(runtime,/mountGlobalAnnouncements\(\{ client: supabase, user, profileId: profile\.id \}\)/);
   assert.match(component,/const receiptUserId = profileId;/);
-  assert.match(component,/announcement_id: announcement\.id,\s*user_id: receiptUserId/);
+  assert.match(component,/p_announcement_id: announcement\.id/);
   assert.match(component,/select\("announcement_id"\)\.eq\("user_id", receiptUserId\)/);
-  assert.doesNotMatch(component,/announcement_id: announcement\.id,\s*user_id: user\.id/);
+  assert.doesNotMatch(component,/p_user_id: user\.id/);
   assert.doesNotMatch(component,/select\("announcement_id"\)\.eq\("user_id", user\.id\)/);
 });
 test("announcement acknowledgment is verified in Neon RPC and stays idempotent",async()=>{
