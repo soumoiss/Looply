@@ -1,4 +1,4 @@
-import { decodeStorySong, appleStoryTrackId, resolveAppleStoryPreview } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { decodeStorySong, encodeStorySong, appleStoryTrackId, resolveAppleStoryPreview } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { startStoryMediaPlayback, stopStoryMediaPlayback } from "./story-viewer-playback.js?v=feed-media-audio-20261029";
 import { icon } from "./icons.js";
 import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
@@ -290,6 +290,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<strong>Compartilhar story</strong>' +
           '<label>Enviar para<select data-story-share-person><option value="">Selecione um perfil</option>' + recipientOptions + '</select></label>' +
           '<button type="button" data-story-share-send>Enviar na conversa</button>' +
+          '<button type="button" data-story-repost hidden>Repostar no meu story</button>' +
           '<button type="button" data-story-share-native>Compartilhar pelo aparelho</button>' +
           '<button type="button" data-story-share-copy>Copiar link</button>' +
           '<button type="button" data-story-share-close>Cancelar</button>' +
@@ -513,6 +514,17 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-owner-menu]").hidden = true;
     viewer.querySelector("[data-story-mention-dialog]").hidden = true;
     viewer.querySelector("[data-story-share-panel]").hidden = true;
+    const repostButton = viewer.querySelector("[data-story-repost]");
+    repostButton.hidden = true;
+    repostButton.disabled = false;
+    if (story.author_id !== userId && story.visibility === "public") {
+      void client.from("story_mentions").select("id")
+        .eq("story_id", story.id).eq("mentioned_user_id", userId).maybeSingle()
+        .then(({data,error}) => {
+          if (!error && data?.id && viewer.open && state.slideVersion === version)
+            repostButton.hidden = false;
+        }).catch(() => {});
+    }
     viewer.querySelector("[data-story-quick-reactions]").hidden = true;
     viewer.querySelector("[data-story-quick-reactions-toggle]").setAttribute("aria-expanded","false");
     viewer.querySelector("[data-story-action-status]").hidden = true;
@@ -974,6 +986,75 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       }
     } finally { button.disabled = false; }
   };
+  const repostCurrentStory = async () => {
+    const story = currentStory(), button = viewer.querySelector("[data-story-repost]");
+    if (!story || button.disabled || button.hidden || story.author_id === userId) return;
+    button.disabled = true;
+    const version = state.slideVersion;
+    let createdId = null, uploadedPath = null;
+    try {
+      if (story.visibility !== "public" || !(await availableToShare(story)))
+        throw Error("Story não disponível para repostagem.");
+      const { data: mention, error: mentionError } = await client.from("story_mentions")
+        .select("id").eq("story_id", story.id).eq("mentioned_user_id", userId).maybeSingle();
+      if (mentionError || !mention?.id) throw Error("A menção não foi confirmada.");
+      const media = Array.isArray(story.media) ? story.media[0] : story.media;
+      const source = rawSignedUrl(media?.signedUrl);
+      if (!media || !source || !["image","video"].includes(media.kind))
+        throw Error("A mídia original não está disponível.");
+      const fetched = await fetch(source, { credentials: "omit", cache: "no-store" });
+      if (!fetched.ok) throw Error("A mídia original não está disponível.");
+      const blob = await fetched.blob();
+      if (!blob.size || blob.size > 100 * 1024 * 1024) throw Error("Tamanho de mídia não suportado.");
+      const mime = String(media.mime_type || blob.type || "").split(";")[0].toLowerCase();
+      const extensions = {
+        "image/jpeg":"jpg","image/png":"png","image/webp":"webp",
+        "video/mp4":"mp4","video/webm":"webm"
+      };
+      const extension = extensions[mime];
+      if (!extension || (media.kind === "video") !== mime.startsWith("video/"))
+        throw Error("Formato de mídia não suportado.");
+      const authorHandle = String(story.author?.username || "").replace(/[^a-zA-Z0-9_.]/g,"");
+      const decoded = decodeStorySong(story.body || "");
+      const captionText = decodeStoryBody(decoded.text || "").text || "";
+      const credit = authorHandle ? "Repost de @" + authorHandle : "Story republicado";
+      const caption = credit + (captionText ? "\n" + captionText : "");
+      const repostBody = decoded.song ? encodeStorySong(caption, decoded.song) : caption;
+      const created = await client.rpc("v5_create_story", {
+        p_body: repostBody, p_visibility: "public", p_recipient_ids: []
+      });
+      if (created.error || !/^[0-9a-f-]{36}$/i.test(String(created.data || "")))
+        throw Error("Não foi possível criar seu story.");
+      createdId = created.data;
+      uploadedPath = "stories/" + createdId + "/" + crypto.randomUUID() + "." + extension;
+      const copy = new File([blob], "repost." + extension, { type: mime });
+      const uploaded = await client.storage.from("looply-media").upload(uploadedPath,copy,{contentType:mime});
+      if (uploaded.error) throw Error("Não foi possível copiar a mídia.");
+      const attached = await client.rpc("v5_attach_story_media", {
+        p_story_id: createdId, p_storage_path: uploadedPath,
+        p_kind: media.kind, p_mime_type: mime, p_byte_size: copy.size
+      });
+      if (attached.error || !attached.data) throw Error("Não foi possível publicar a mídia.");
+      const verified = await client.from("story_media").select("id")
+        .eq("story_id",createdId).eq("storage_path",uploadedPath).maybeSingle();
+      if (verified.error || !verified.data?.id) throw Error("A publicação não foi confirmada.");
+      sharePanel.hidden = true;
+      if (viewer.open && state.slideVersion === version) actionStatus("Repostado no seu story.");
+      await refresh();
+    } catch(error) {
+      console.warn("Looply mentioned story repost unsuccessful", error?.message || "unavailable");
+      if (uploadedPath) {
+        try { await client.storage.from("looply-media").remove([uploadedPath]); } catch {}
+      }
+      if (createdId) {
+        try { await client.from("stories").delete().eq("id",createdId).eq("author_id",userId); } catch {}
+      }
+      if (viewer.open && state.slideVersion === version)
+        actionStatus("Não foi possível repostar. Tente novamente.",true);
+    } finally {
+      button.disabled = false;
+    }
+  };
   // If Android/WebView consumed the opening gesture before the remote
   // media became ready, a tap anywhere on the Story media stage retries
   // playback immediately. No provider modal, redirect or right-side player.
@@ -1059,6 +1140,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       resumeStoryTimer();
       return;
     }
+    if (event.target.closest("[data-story-repost]")) { await repostCurrentStory(); return; }
     if (event.target.closest("[data-story-share-send]")) { await shareCurrentStory("send"); return; }
     if (event.target.closest("[data-story-share-copy]")) { await shareCurrentStory("copy"); return; }
     if (event.target.closest("[data-story-share-native]")) { await shareCurrentStory("native"); return; }
@@ -1153,7 +1235,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         const {error}=await client.rpc("v5_add_story_mentions",{p_story_id:story.id,p_user_ids:[selector.value]});
         if(error)throw error;
         viewer.querySelector("[data-story-mention-dialog]").hidden=true;
-        actionStatus("Menção adicionada. A notificação será processada pelo servidor.");
+        actionStatus("Menção adicionada.");
         resumeStoryTimer();
       }catch(error){actionStatus("Não foi possível mencionar esse perfil. Confira a privacidade do Story.",true);}
       finally{button.disabled=false;}
