@@ -121,7 +121,7 @@ test("Final 9:16 portrait capture and licensed audio export meet requested contr
   assert.match(studio,/height:\{ideal:960\}/);
   assert.match(studio,/resizeMode:\{ideal:"none"\}/);
   assert.match(studio,/withMusic \? 7000 : 15000/);
-  assert.match(studio,/source\.start\(\)/);
+  assert.match(studio,/source\.start\(0, source\.loopStart \|\| 0\)/);
   assert.match(studio,/recorded\.start\(250\)/);
   assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer, \{/);
   assert.match(studio,/recorded\?\.state === "recording"/);
