@@ -2,6 +2,7 @@ import { mountAppPage } from "../../src/page-runtime.js?v=private-letter-fixed-2
 import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?v=author-only-hints-20261030";
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 import { signProfileAvatars } from "../../src/profiles.js";
+import { installScheduledLetters } from "../../src/scheduled-letters.js?v=20261031";
 import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?v=sender-editor-20261030";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -127,7 +128,9 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     if (state.sub === "semdata") rows = rows.filter(c => !c.date || Number.isNaN(new Date(c.date).getTime()));
     return rows;
   };
+  let scheduledController = null;
   const updateList = () => {
+    if (state.filter === "programadas") { scheduledController?.render(); return; }
     const rows = filtered();
     const total = state.filter === "originais"
       ? state.cards.filter(c => c.recipient_id === ownerTarget()).length
@@ -161,6 +164,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       }
     }
     if (cr.status === "fulfilled") state.letters = cr.value;
+    if (scheduledController) await scheduledController.reload();
     updateList();
     const complete = ar.status === "fulfilled" && cr.status === "fulfilled";
     if (!complete) notify("Parte das cartas não pôde ser sincronizada com o Neon.", true);
@@ -183,6 +187,22 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
   };
   const close = (id) => { const dialog=$("#"+id); if (dialog?.open) dialog.close(); };
   $("#btnEscrever").addEventListener("click", () => { state.selectedRecipient = null; $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#enviarStatus").textContent=""; renderRecipients(); $("#modalEscrever").showModal(); });
+  scheduledController = installScheduledLetters({
+    root,client,user,people,sealLetter,openProtectedLetter,notify,
+    getRecipient:()=>state.selectedRecipient,
+    setRecipient:id=>{state.selectedRecipient=id;renderRecipients();},
+    onChanged:()=>loadCurrent(),
+    selectScheduled:()=>{
+      state.filter="programadas";state.sub="todas";state.date="";
+      $("#dataCartas").value="";
+      root.querySelectorAll("[data-filter]").forEach(button=>{
+        const active=button.dataset.filter==="programadas";
+        button.classList.toggle("active",active);
+        button.setAttribute("aria-pressed",String(active));
+      });
+      updateList();
+    }
+  });
   $("#fecharModal").addEventListener("click", ()=>close("modalEscrever"));
   $("#fecharLeituraNova").addEventListener("click", ()=>close("modalLeituraNova"));
   let editLoadGeneration = 0;
