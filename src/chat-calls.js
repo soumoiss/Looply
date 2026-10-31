@@ -361,19 +361,32 @@ export function setupChatCalls(root, client, userId) {
     await client.realtime.setAuth(session.data.session.access_token);
     const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false }, preferNeon: true } });
     channel = next;
+  // The Neon all-conversation inbox can receive an offer while this page's
+  // conversation-scoped signaling channel is still connecting. Both sources
+  // must use exactly the same incoming dialog and accept/decline controller.
+  const receiveOffer = payload => {
+    if (!payload || payload.conversationId !== activeConversation() ||
+        payload.senderId === userId || payload.description?.type !== "offer" ||
+        !["audio","video"].includes(payload.mode)) return false;
+    if (pc) {
+      if (incomingOffer?.senderId === payload.senderId &&
+          incomingOffer?.conversationId === payload.conversationId) return true;
+      void send("decline");
+      return true;
+    }
+    if (incomingOffer?.senderId === payload.senderId &&
+        incomingOffer?.conversationId === payload.conversationId) return true;
+    if (incomingOffer) return false;
+    incomingOffer = payload;
+    callMode = payload.mode;
+    callPeerName = payload.senderName || peerName();
+    showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+    return true;
+  };
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
       if (payload.type === "offer") {
-        if (pc) {
-          if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
-          await send("decline");
-          return;
-        }
-        if (incomingOffer?.senderId === payload.senderId && incomingOffer?.conversationId === payload.conversationId) return;
-        incomingOffer = payload;
-        callMode = payload.mode === "video" ? "video" : "audio";
-        callPeerName = payload.senderName || peerName();
-        showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+        receiveOffer(payload);
       } else if (payload.type === "answer" && pc && isCaller) {
         try {
           clearOfferRetry();
@@ -415,6 +428,18 @@ export function setupChatCalls(root, client, userId) {
     if (!heading.querySelector("[data-call-audio]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-audio aria-label="Ligar por áudio" title="Chamada de áudio">☎</button>');
     if (!heading.querySelector("[data-call-video]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-video aria-label="Ligar por vídeo" title="Chamada de vídeo">' + icon("video") + '</button>');
   };
+  root.addEventListener("looply:incoming-call", event => {
+    const payload = event.detail?.payload;
+    if (event.detail?.conversationId !== activeConversation() || !receiveOffer(payload)) return;
+    // Tell the global listener that this conversation owns the incoming UI.
+    // It must not simultaneously show a second ringing overlay on Android.
+    event.preventDefault();
+    // Begin the secure Neon channel handshake while the user decides. The
+    // incoming dialog is available immediately, regardless of room latency.
+    void ensureChannel().then(ready => {
+      if (!ready && incomingOffer === payload) toast("Canal de chamadas indisponível. Verifique a conexão.");
+    }).catch(error => console.warn("Looply incoming call channel unavailable",error));
+  });
   root.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
