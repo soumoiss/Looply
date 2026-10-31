@@ -11,7 +11,7 @@ test("Catalog music selection stays in app and never opens the device picker aut
  assert.match(studio,/if\(music\?\.kind==="catalog"\)/);
  assert.match(studio,/não pode ser incorporada ao Story/);
  assert.doesNotMatch(picker,/const needsOwnAudio=track=>track\.kind==="catalog"/);
- assert.match(picker,/onSelect\(track\)/);
+ assert.match(picker,/onSelect\(withStoryMusicStart\(track,startSeconds\)\)/);
  assert.doesNotMatch(picker,/fileInput\.click\(\)/);
   assert.doesNotMatch(picker,/catalogAwaitingUserAudio=track/);
  assert.doesNotMatch(picker,/data-studio-audio-file/);
@@ -28,7 +28,7 @@ test("Pre-arm WebAudio synchronously in publish handler, keep audio until the re
  assert.match(studio,/attachStoryMusic\(audioCtx, destination, buffer, \{/);
  assert.match(studio,/framesStream\.addTrack\(t\)/);
  assert.match(studio,/audioCtx\.state !== "running"/);
- assert.match(studio,/if\s*\(source\) source\.start\(\)/);
+ assert.match(studio,/if\s*\(source\) source\.start\(0, source\.loopStart \|\| 0\)/);
 });
 
 test("Story player unblocks sound without auto-pausing it on same tap, and pauses with entire Story",()=>{
