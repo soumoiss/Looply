@@ -9,11 +9,43 @@ const b64url = data => {
   let string = ""; for(const byte of bytes) string += String.fromCharCode(byte);
   return btoa(string).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 };
+// Google service account JSON is sometimes stored with literal \n sequences
+// (an extra JSON-escaping layer in CI/CD secrets). Normalize the PEM rather
+// than passing a backslash-containing string into atob. Never log secret bytes.
+export function decodeFcmPrivateKey(pem, decode = atob) {
+  if (typeof pem !== "string" || !pem.trim()) throw Error("fcm_private_key_missing");
+  let normalized = pem.trim().replace(/^\uFEFF/, "");
+  for (let i = 0; i < 3; i++) {
+    normalized = normalized.replace(/\\r\\n|\\n|\\r/g, "\n");
+  }
+  const body = normalized.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "")
+    .replace(/[\s\uFEFF]/g, "");
+  if (body.length < 100 || body.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body))
+    throw Error("fcm_private_key_invalid_base64");
+  try {
+    return Uint8Array.from(decode(body), character => character.charCodeAt(0));
+  } catch {
+    throw Error("fcm_private_key_invalid_base64");
+  }
+}
+export function parseFcmServiceAccount(value, projectId) {
+  let account;
+  try {
+    account = JSON.parse(String(value || ""));
+    if (typeof account === "string") account = JSON.parse(account);
+  } catch {
+    throw Error("fcm_service_account_invalid_json");
+  }
+  if (!account || typeof account !== "object" || typeof account.client_email !== "string" ||
+      typeof account.private_key !== "string") throw Error("fcm_service_account_invalid_fields");
+  if (account.project_id !== projectId) throw Error("fcm_project_mismatch");
+  return account;
+}
 async function googleAccessToken(env){
   if(cachedOauth && cachedOauth.expiresAt > Date.now()+60_000) return cachedOauth.accessToken;
-  const account = JSON.parse(env.FCM_SERVICE_ACCOUNT_JSON || "{}");
-  if(!account.client_email || !account.private_key || !env.FCM_PROJECT_ID) throw Error("missing_fcm_config");
-  const keyBytes = Uint8Array.from(atob(account.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g,"")),x=>x.charCodeAt(0));
+  if(!env.FCM_PROJECT_ID) throw Error("missing_fcm_config");
+  const account = parseFcmServiceAccount(env.FCM_SERVICE_ACCOUNT_JSON,env.FCM_PROJECT_ID);
+  const keyBytes = decodeFcmPrivateKey(account.private_key);
   const key = await crypto.subtle.importKey("pkcs8",keyBytes,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
   const now = Math.floor(Date.now()/1000);
   const part = b64url(JSON.stringify({alg:"RS256",typ:"JWT"}))+"."+
@@ -70,7 +102,7 @@ FROM (
  SELECT 'story',n.id,'story',n.story_id,NULL::uuid,t.id,t.fcm_token,n.created_at
  FROM public.android_fcm_story_events n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
 ) events
-WHERE created_at > now()-interval '15 minutes'
+WHERE created_at > now()-interval '2 hours'
 AND NOT EXISTS (
   SELECT 1 FROM public.android_fcm_deliveries d
   WHERE d.source=events.source AND d.event_id=events.event_id AND d.token_id=events.token_id
@@ -129,7 +161,13 @@ export async function deliverNotifications(env,{
       });
       ok=response.ok;
       // Tokens are opaque. Do not log the response body or a token.
-      if(!ok)console.warn("Looply FCM delivery rejected",response.status);
+      if(!ok) {
+        // Log a Firebase error category only; never log destination tokens
+        // or message bodies, even when Google includes them in a response.
+        const detail=await response.json().catch(()=>null);
+        const status=String(detail?.error?.status||"unknown").slice(0,48);
+        console.warn("Looply FCM delivery rejected",response.status,/^[A-Z_]+$/.test(status)?status:"unknown");
+      }
     }catch{console.warn("Looply FCM network unavailable");}
     await query(env,doneSql,[...values,ok?"sent":"failed"]);
     if(ok)sent++;else failed++;
