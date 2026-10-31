@@ -1,0 +1,35 @@
+name: Looply external share audience visual checks
+on:
+  pull_request:
+    paths:
+      - "share.html"
+      - "src/share-audience.js"
+      - "assets/css/pages/share-external.css"
+      - "scripts/check-external-share-audience-visual.mjs"
+      - ".github/workflows/external-share-audience-visual.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Verify audience picker and mobile layout
+        run: node scripts/check-external-share-audience-visual.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: looply-share-audience-responsive
+          path: smoke-results/external-share-audience/
+          retention-days: 14
+          if-no-files-found: warn
