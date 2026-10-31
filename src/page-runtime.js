@@ -5,7 +5,7 @@ import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } fro
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-handoff-20261030";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
-import { startAdminPresenceTracking } from "./admin-presence.js";
+import { startAdminPresenceTracking, clearAdminPresenceSession } from "./admin-presence.js?v=one-entry-20261031";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { mountPullToRefresh } from "./pull-to-refresh.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
@@ -243,6 +243,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     try{
       const {error}=await supabase.auth.signOut();
       if(error)throw error;
+      clearAdminPresenceSession(user.id);
       window.location.replace("login.html");
     }catch(error){
       console.warn("Looply logout unsuccessful",error?.name||"network");
