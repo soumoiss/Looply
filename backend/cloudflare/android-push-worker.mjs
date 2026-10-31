@@ -175,7 +175,7 @@ export async function deliverNotifications(env,{
     if(item.resource_id)data.resourceId=String(item.resource_id);
     // Names are sourced from Neon after recipient visibility checks. Never
     // trust senderName from the client signaling payload.
-    const actor=String(item.actor_name||"").replace(/[\\r\\n\\t]+/g," ").trim().slice(0,64) || "Alguém";
+    const actor=String(item.actor_name||"").replace(/\s+/g," ").trim().slice(0,64) || "Alguém";
     const callMode=item.call_mode==="video"?"video":"audio";
     // Every notification identifies the verified actor and the specific
     // event type; never put private message, letter, or comment text in FCM.
