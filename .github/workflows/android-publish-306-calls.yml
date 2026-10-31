@@ -1,0 +1,135 @@
+name: Publish Looply Android 3.0.6 signed call fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-publish-306-calls.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: looply-signed-calls-306
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-v3.0.6-calls-20261031
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify only reviewed main builds are released
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git branch --show-current)" = main || test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Run all Looply regressions and produce bundled web resources
+        run: |
+          npm run build
+          npm test
+          test -s dist/src/call-media-capture.js
+          grep -Fq 'captureCallMedia' dist/src/chat-calls.js
+      - name: Validate production signing secrets exist
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing signing secret $name"
+              exit 1
+            fi
+          done
+      - name: Preserve official Looply launcher artwork
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 android/tools/prepare_icon.py
+      - name: Build update signed with the existing production key
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          LOOPLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          LOOPLY_ANDROID_KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          LOOPLY_ANDROID_KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/looply-signer"
+          export LOOPLY_ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/looply-signer/release.jks"
+          printf %s "$KEYSTORE_B64" | base64 --decode > "$LOOPLY_ANDROID_KEYSTORE_FILE"
+          (cd android && ./gradlew --no-daemon --stacktrace assembleRelease)
+          rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
+      - name: Check installability, signature and bundled call fix
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$tools/apksigner" verify --verbose "$apk"
+          # Compare against our previously signed, publicly released APK
+          # to preserve in-place upgrades even if no certificate secret exists.
+          mkdir -p previous-release
+          gh release download android-v3.0.5-signed-20261031 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Looply-3.0.5-Android-ASSINADO.apk' --dir previous-release
+          test -s previous-release/Looply-3.0.5-Android-ASSINADO.apk
+          old_cert=$("$tools/apksigner" verify --print-certs previous-release/Looply-3.0.5-Android-ASSINADO.apk |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          new_cert=$("$tools/apksigner" verify --print-certs "$apk" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$old_cert" && test "$old_cert" = "$new_cert"
+          badging=$("$tools/aapt" dump badging "$apk")
+          grep -Fq "name='com.looply.app'" <<< "$badging"
+          grep -Fq "versionCode='306'" <<< "$badging"
+          grep -Fq "versionName='3.0.6'" <<< "$badging"
+          grep -Fq "sdkVersion:'24'" <<< "$badging"
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/chat-calls.js'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/call-media-capture.js'
+          mkdir -p release
+          cp "$apk" release/Looply-3.0.6-CHAMADAS-ASSINADO.apk
+          (cd release && sha256sum Looply-3.0.6-CHAMADAS-ASSINADO.apk > SHA256SUMS.txt)
+      - name: Publish permanent public GitHub APK
+        run: |
+          set -euo pipefail
+          cat > RELEASE-NOTES.md <<'EOF'
+          Looply Android 3.0.6 — correção do atendimento de chamadas.
+          Corrige falha NotReadableError quando a câmera está temporariamente ocupada.
+          Tenta reabrir a captura; se o microfone estiver disponível, mantém a
+          chamada por áudio com opção de reativar a câmera posteriormente.
+          Se o microfone estiver bloqueado, oferece uma nova tentativa sem
+          notificar falsamente que a chamada foi recusada.
+          Preserva a assinatura, o pacote com.looply.app e o ícone original.
+          Compatível a partir do Android 7.0 (API 24).
+          Testes automatizados, integridade do APK e assinatura realizados.
+          Recepção audiovisual real entre dois dispositivos não é comprovada
+          pela compilação e precisa de ensaio ponta a ponta.
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/Looply-3.0.6-CHAMADAS-ASSINADO.apk release/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" release/Looply-3.0.6-CHAMADAS-ASSINADO.apk release/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Looply Android 3.0.6 — correção de chamadas" \
+              --notes-file RELEASE-NOTES.md --latest
+          fi
+      - name: Verify published release asset exists
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name=="Looply-3.0.6-CHAMADAS-ASSINADO.apk") | select(.size > 1000000) | .browser_download_url' | grep '^https://github.com/'
