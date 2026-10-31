@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { requestImmediateMessagePush } from "./chat-push-alert.js";
 import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
@@ -1591,6 +1592,8 @@ export function bindChatEvents(root, client, getUserId) {
         // Notify the other authorized client only after Neon confirms the
         // message and all attachments. Never send fake message bodies over WS.
         root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
+        // Never delay the sender's UI; cron remains a deduplicated fallback.
+        void requestImmediateMessagePush(client,message.id);
         await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
