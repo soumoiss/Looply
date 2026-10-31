@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { optimizeUploadImage } from "./media-upload-optimizer.js";
 import { cachedSignedUrls } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
@@ -527,7 +528,7 @@ async function selectedMedia(formData) {
   for (const original of originals) {
     const file = await preparePublicationMedia(original);
     if (!file || !mediaExtensions.has(file.type) || file.size > maxMediaBytes) throw new Error("unsupported file");
-    files.push(file);
+    files.push(await optimizeUploadImage(file));
   }
   return files;
 }
