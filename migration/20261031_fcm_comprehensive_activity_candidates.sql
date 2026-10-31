@@ -135,6 +135,51 @@ AS $fcm$
     JOIN public.android_fcm_tokens t ON t.user_id=d.recipient_id AND t.user_id<>d.sender_id
    WHERE d.created_at>now()-interval '2 hours'
   UNION ALL
+  -- Comments on dedicated music remain visible only to the original
+  -- sender/recipient, never to arbitrary listeners or devices.
+  SELECT 'music-comment',c.id,'dedication',d.id,NULL::uuid,
+         t.id,t.fcm_token,c.created_at
+    FROM public.music_comments c JOIN public.music_dedications d ON d.id=c.dedication_id
+    JOIN public.android_fcm_tokens t
+      ON t.user_id<>c.author_id AND (t.user_id=d.sender_id OR t.user_id=d.recipient_id)
+   WHERE c.created_at>now()-interval '2 hours'
+  UNION ALL
+  SELECT 'music-page-comment',c.id,'dedication',NULL::uuid,NULL::uuid,
+         t.id,t.fcm_token,c.created_at
+    FROM public.music_page_comments c
+    JOIN public.android_fcm_tokens t ON t.user_id=c.recipient_id AND t.user_id<>c.author_id
+   WHERE c.created_at>now()-interval '2 hours'
+  UNION ALL
+  SELECT 'music-admin-comment',c.id,'dedication',NULL::uuid,NULL::uuid,
+         t.id,t.fcm_token,c.created_at
+    FROM public.admin_music_track_comments c
+    JOIN public.android_fcm_tokens t ON t.user_id=c.recipient_id AND t.user_id<>c.author_id
+   WHERE c.created_at>now()-interval '2 hours'
+  UNION ALL
+  -- Historical gallery comments and tags: respect the archived visibility.
+  SELECT 'archive-gallery-comment',c.id,'gallery_comment',c.media_id,NULL::uuid,
+         t.id,t.fcm_token,c.created_at
+    FROM public.archive_media_comments c
+    JOIN public.archive_media m ON m.id=c.media_id
+    JOIN public.archive_media_comment_recipients r ON r.comment_id=c.id
+    JOIN public.android_fcm_tokens t ON t.user_id=r.user_id AND t.user_id<>c.author_id
+   WHERE c.created_at>now()-interval '2 hours'
+     AND (m.visibility='members' OR EXISTS
+       (SELECT 1 FROM public.archive_media_recipients v
+        WHERE v.media_id=m.id AND v.user_id=t.user_id))
+  UNION ALL
+  SELECT 'archive-gallery-mention',
+         md5('agm:'||g.comment_id::text||':'||g.person_id::text)::uuid,
+         'gallery_mention',c.media_id,NULL::uuid,t.id,t.fcm_token,g.created_at
+    FROM public.gallery_comment_mentions g
+    JOIN public.archive_media_comments c ON c.id=g.comment_id AND g.source='archive'
+    JOIN public.archive_media m ON m.id=c.media_id
+    JOIN public.android_fcm_tokens t ON t.user_id=g.person_id AND t.user_id<>c.author_id
+   WHERE g.created_at>now()-interval '2 hours'
+     AND (m.visibility='members' OR EXISTS
+       (SELECT 1 FROM public.archive_media_recipients v
+        WHERE v.media_id=m.id AND v.user_id=t.user_id))
+  UNION ALL
   -- A closed Android app has no JS subscription. Only genuine call offers
   -- from conversation participants are candidates for high priority FCM.
   SELECT 'incoming-call',md5('cs:'||c.id::text)::uuid,'call',
