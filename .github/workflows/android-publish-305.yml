@@ -27,8 +27,14 @@ jobs:
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN}" --jq .head_sha)" = "$SOURCE_SHA"
           mkdir -p release
           gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name Looply-3.0.5-signed-release --dir release
-          test -s release/app-release.apk
-          test -s release/app-release.aab
+          # upload-artifact preserves subdirectories when sources have
+          # different root paths (APK and AAB). Locate both deterministically.
+          APK_PATH="$(find release -type f -name 'app-release.apk' -print -quit)"
+          AAB_PATH="$(find release -type f -name 'app-release.aab' -print -quit)"
+          test -n "$APK_PATH" && test -s "$APK_PATH"
+          test -n "$AAB_PATH" && test -s "$AAB_PATH"
+          if [ "$APK_PATH" != release/app-release.apk ]; then cp "$APK_PATH" release/app-release.apk; fi
+          if [ "$AAB_PATH" != release/app-release.aab ]; then cp "$AAB_PATH" release/app-release.aab; fi
       - name: Set up Android APK verification tools
         uses: android-actions/setup-android@v4
       - name: Verify APK and package/Android SDK compatibility
