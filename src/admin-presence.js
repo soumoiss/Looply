@@ -1,36 +1,58 @@
-// A verified foreground visit, not a persistent background tracker.
-// sessionStorage prevents page navigation from generating dozens of alerts;
-// the Neon RPC independently deduplicates repeated sessions/foreground events.
-export function startAdminPresenceTracking(client,userId, {
-  clock=()=>Date.now(),documentRef=globalThis.document,
-  storage=globalThis.sessionStorage
-}={}) {
-  if (!client?.rpc || !userId || !documentRef) return ()=>{};
-  const key="looply:admin-open:"+userId;
-  let stopped=false, inFlight=false;
-  const track=async()=>{
-    if(stopped || inFlight || documentRef.visibilityState==="hidden")return;
-    const now=clock();
-    let previous=0;
-    try{previous=Number(storage?.getItem(key))||0;}catch{}
-    if(now-previous<180000 && now>=previous)return;
+// One administrative entry notice per actual browser/app session.
+// Focus changes, heartbeat refreshes and ordinary navigation are NOT logins.
+// SessionStorage persists across internal pages, but not a newly opened tab/WebView.
+const keyFor = userId => "looply:admin-open:session:" + userId;
+const acknowledgedFor = userId => "looply:admin-open:ack:" + userId;
+
+export function clearAdminPresenceSession(userId,{storage=globalThis.sessionStorage}={}){
+  if(!userId)return;
+  try {
+    storage?.removeItem(keyFor(userId));
+    storage?.removeItem(acknowledgedFor(userId));
+  }catch{}
+}
+
+export function startAdminPresenceTracking(client,userId,{
+  documentRef=globalThis.document,
+  storage=globalThis.sessionStorage,
+  createSessionId=()=>globalThis.crypto?.randomUUID?.()
+}={}){
+  if(!client?.rpc||!userId||!documentRef||!storage)return ()=>{};
+  const sessionKey=keyFor(userId),ackKey=acknowledgedFor(userId);
+  let stopped=false,inFlight=false,sessionId;
+  try {
+    sessionId=storage.getItem(sessionKey);
+    if(!sessionId){
+      sessionId=createSessionId();
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sessionId||""))return ()=>{};
+      storage.setItem(sessionKey,sessionId);
+    }
+  }catch{return ()=>{};}
+  const register=async()=>{
+    if(stopped||inFlight||documentRef.visibilityState==="hidden")return;
+    try{if(storage.getItem(ackKey)===sessionId)return;}catch{return;}
     inFlight=true;
     try{
-      const {data,error}=await client.rpc("v23_register_app_open",{});
-      if(error || data!==true)throw error||Error("presence_not_confirmed");
-      if(!stopped){try{storage?.setItem(key,String(now));}catch{}}
+      const {data,error}=await client.rpc("v28_register_app_open",{p_session_id:sessionId});
+      if(error||data!==true)throw error||Error("app_open_not_confirmed");
+      if(!stopped)storage.setItem(ackKey,sessionId);
     }catch(error){
-      console.warn("Looply admin presence event unavailable",String(error?.message||"network").slice(0,80));
+      console.warn("Looply entry event unavailable",String(error?.code||error?.name||"network").slice(0,50));
     }finally{inFlight=false;}
   };
-  const onVisible=()=>{if(documentRef.visibilityState!=="hidden")void track();};
-  const onFocus=()=>{void track();};
-  documentRef.addEventListener("visibilitychange",onVisible);
-  globalThis.window?.addEventListener("focus",onFocus);
-  void track();
+  // A page may initialize hidden; register only when first shown. Do not
+  // register subsequent returns from background or periodic Android focus.
+  const onVisible=()=>{
+    if(documentRef.visibilityState!=="hidden"){
+      documentRef.removeEventListener("visibilitychange",onVisible);
+      void register();
+    }
+  };
+  if(documentRef.visibilityState==="hidden")
+    documentRef.addEventListener("visibilitychange",onVisible);
+  else void register();
   return ()=>{
     stopped=true;
     documentRef.removeEventListener("visibilitychange",onVisible);
-    globalThis.window?.removeEventListener("focus",onFocus);
   };
 }
