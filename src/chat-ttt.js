@@ -1,5 +1,3 @@
-import { icon } from "./icons.js";
-
 // Cloudflare notifies, but the Neon database authoritatively validates all
 // players, moves, completed games and historical scores.
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,
