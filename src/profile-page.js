@@ -4,6 +4,7 @@ import { mountProfileAvatarEditor } from './avatar-crop-editor.js';
 import { normalizeYouTubePlaylistUrl } from './youtube-playlist.js';
 import { PROFILE_TABS, esc, isProfileId, profileError, profileRpc, signPeople, signContentCovers, optimisticFollow } from './profile-api.js';
 import { createProfileMediaViewer } from './profile-media-viewer.js';
+import { loadProfilePublications, profilePublicationsMarkup } from './profile-publications.js?v=historical-posts-20261031';
 
 const avatar = (p,link=true) => p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" ${link?`data-profile-avatar-id="${esc(p.id)}"`:''} alt="" referrerpolicy="no-referrer">` : `<span aria-hidden="true">${esc(Array.from(p.display_name || p.username || '?')[0])}</span>`;
 const closeButton = label => `<button type="button" class="pr-icon" data-pr-close aria-label="${label}">${icon('close')}</button>`;
@@ -13,7 +14,7 @@ export function profileShellMarkup(mine, isAdmin, person) {
   return `<section class="pr-page" aria-label="Perfil de usuário">
     <div class="pr-card" data-pr-card></div>
     <p class="pr-status" data-pr-status role="status"></p>
-    <nav class="pr-tabs" role="tablist" aria-label="Conteúdos do perfil">${PROFILE_TABS.map((tab,i)=>`<button type="button" id="tab-${tab}" role="tab" aria-controls="grid-${tab}" aria-selected="${i===0}" tabindex="${i===0?0:-1}" data-pr-tab="${tab}">${icon(['image','video','users'][i])}<span>${['Fotos','Vídeos','Menções'][i]}</span></button>`).join('')}</nav>
+    <nav class="pr-tabs" role="tablist" aria-label="Conteúdos do perfil">${PROFILE_TABS.map((tab,i)=>`<button type="button" id="tab-${tab}" role="tab" aria-controls="grid-${tab}" aria-selected="${i===0}" tabindex="${i===0?0:-1}" data-pr-tab="${tab}">${icon(['image','video','users','grid'][i])}<span>${['Fotos','Vídeos','Menções','Publicações'][i]}</span></button>`).join('')}</nav>
     ${PROFILE_TABS.map((tab,i)=>`<section id="grid-${tab}" role="tabpanel" aria-labelledby="tab-${tab}" ${i?'hidden':''}><div data-pr-grid="${tab}">${skeleton()}</div></section>`).join('')}
     <button type="button" class="pr-button pr-more" data-pr-more hidden>Carregar mais</button>
     <dialog class="pr-dialog pr-connections" data-pr-connections aria-labelledby="prConnectionsTitle"><div class="pr-dialog-header"><h2 id="prConnectionsTitle">Seguidores</h2>${closeButton('Fechar lista')}</div>
@@ -87,7 +88,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
     const preview=cover?.signedUrl?(cover.kind==='video'?`<video src="${esc(cover.signedUrl)}#t=0.1" muted playsinline preload="metadata" aria-hidden="true"></video>`:`<img src="${esc(cover.signedUrl)}" alt="" loading="lazy" decoding="async">`):'<span class="pr-unavailable">Prévia indisponível</span>';
     return `<article class="pr-tile"><button type="button" class="pr-media-open" data-pr-media="${esc(key)}" aria-label="${esc(label)}">${preview}${cover?.kind==='video'?`<span class="pr-tile-mark">${icon('play')}</span>`:item.media?.length>1?`<span class="pr-tile-mark">${icon('grid')}</span>`:''}</button>${mine&&item.owner_id===user.id?`<details class="pr-tile-menu"><summary aria-label="Opções da publicação">⋯</summary><div>${['caption','clear_mentions','delete'].map((action,i)=>`<button type="button" data-pr-content-action="${action}" data-pr-key="${esc(key)}">${['Editar legenda','Remover menções','Excluir publicação'][i]}</button>`).join('')}</div></details>`:''}</article>`;
   };
-  function drawGrid(){const grid=$(`[data-pr-grid="${tab}"]`);grid.innerHTML=items.length?`<div class="pr-grid">${items.map(tile).join('')}</div>`:'<p class="pr-empty">Nenhuma publicação nesta aba.</p>';$('[data-pr-more]').hidden=!hasMore;}
+  function drawGrid(){const grid=$(`[data-pr-grid="${tab}"]`);grid.innerHTML=tab==='publicacoes'?profilePublicationsMarkup(items):items.length?`<div class="pr-grid">${items.map(tile).join('')}</div>`:'<p class="pr-empty">Nenhuma publicação nesta aba.</p>';$('[data-pr-more]').hidden=!hasMore;}
   async function loadContent(reset=true){
     if(loading)return false;
     const previousItems=items,previousHasMore=hasMore;
@@ -95,9 +96,11 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
     $('[data-pr-more]').disabled=true;
     if(reset){items=[];hasMore=false;$('[data-pr-more]').hidden=true;$(`[data-pr-grid="${tab}"]`).innerHTML=skeleton();}
     try{
-      const rows=await profileRpc(client,'v11_profile_content',{p_profile_id:targetId,p_tab:current,p_offset:reset?0:items.length,p_limit:30});
+      const rows=current==='publicacoes'
+        ? await loadProfilePublications(client,targetId,reset?0:items.length,30)
+        : await profileRpc(client,'v11_profile_content',{p_profile_id:targetId,p_tab:current,p_offset:reset?0:items.length,p_limit:30});
       if(!Array.isArray(rows))throw Error('Content unavailable');
-      await signContentCovers(client,rows);
+      if(current!=='publicacoes')await signContentCovers(client,rows);
       if(request!==generation)return;
       items=reset?rows:items.concat(rows);hasMore=rows.length===30;drawGrid();
       return true;
@@ -163,7 +166,7 @@ export async function mountProfilePage({root,client,user,profile:actor,isAdmin})
   });
   $('[role="tablist"]').addEventListener('keydown',event=>{
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
-    const index=PROFILE_TABS.indexOf(tab);const next=event.key==='Home'?0:event.key==='End'?2:(index+(event.key==='ArrowRight'?1:2))%3;selectTab(PROFILE_TABS[next]);$(`[data-pr-tab="${tab}"]`).focus();
+    const index=PROFILE_TABS.indexOf(tab);const length=PROFILE_TABS.length;const next=event.key==='Home'?0:event.key==='End'?length-1:(index+(event.key==='ArrowRight'?1:length-1))%length;selectTab(PROFILE_TABS[next]);$(`[data-pr-tab="${tab}"]`).focus();
   });
   $('[data-pr-user-search]').addEventListener('input',()=>{drawPeople();clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadPeople(),180);});
   if(mine){
