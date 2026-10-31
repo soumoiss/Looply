@@ -1,5 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=notification-bus-20261022";
 import { icon } from "../../src/icons.js";
+import { optimizeUploadImage } from "../../src/media-upload-optimizer.js";
 import { cachedSignedUrl } from "../../src/storage-url-cache.js";
 import { createGalleryGestureController } from "./gallery-gestures.js";
 
@@ -664,7 +665,8 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
     $("[data-upload-progress]").hidden = false;
     let uploaded = 0, completed = 0, failures = [];
     try {
-      for (const file of files) {
+      for (const original of files) {
+        const file = await optimizeUploadImage(original);
         let path = "", mediaId = null;
         try {
           const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi,"").toLowerCase();
