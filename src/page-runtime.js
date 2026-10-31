@@ -97,11 +97,16 @@ async function loadProfileAvatar(profile) {
 }
 
 async function loadUnreadNotifications(client) {
-  const [notifications, chats] = await Promise.all([
+  const [notifications, chats, adminNotices] = await Promise.all([
     client.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
-    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null)
+    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    // RLS reveals Peixinho's administrative events only to Peixinho.
+    client.from("looply_admin_activity_notifications")
+      .select("id", { count: "exact", head: true }).is("read_at", null)
   ]);
-  return (notifications.error ? 0 : notifications.count || 0) + (chats.error ? 0 : chats.count || 0);
+  return (notifications.error ? 0 : notifications.count || 0)
+    + (chats.error ? 0 : chats.count || 0)
+    + (adminNotices.error ? 0 : adminNotices.count || 0);
 }
 
 async function refreshUnreadBadge(header, client) {
