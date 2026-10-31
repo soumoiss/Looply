@@ -9,7 +9,7 @@ test('profile editor exists only on self and playlist control only on verified a
  assert.match(own,/data-pr-edit-form/);assert.doesNotMatch(own,/name="playlistUrl"/);
  assert.doesNotMatch(other,/data-pr-edit-form|name="playlistUrl"/);assert.match(admin,/name="playlistUrl"/);
  assert.doesNotMatch(own,/Quem pode encontrar|onclick=|unsplash|tailwind/);
- assert.deepEqual(PROFILE_TABS,['fotos','videos','mencoes']);
+ assert.deepEqual(PROFILE_TABS,['fotos','videos','mencoes','publicacoes']);
  for(const tab of PROFILE_TABS)assert.match(own,new RegExp('id="grid-'+tab+'"'));
 });
 test('optimistic follow counts remain stable on duplicate intent and cannot become negative',()=>{
