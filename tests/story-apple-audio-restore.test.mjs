@@ -25,7 +25,7 @@ test("Apple track is selected by stable ID; layout stays unchanged",()=>{
 
 test("new Story marker preserves track reference, not transient audio URL",()=>{
   const encoded=encodeStorySong("Minha foto",song);
-  assert.match(encoded(/^$/)?'':encoded,/^\[\[looply-music-v6\|/);
+  assert.match(encoded,/^\[\[looply-music-v6\|/);
   assert.ok(!encoded.includes("temporary-preview"));
   const restored=decodeStorySong(encoded);
   assert.equal(restored.text,"Minha foto");
