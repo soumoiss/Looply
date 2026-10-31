@@ -149,6 +149,53 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         player.append(iframe);
       }else found.textContent="Esta gravação não disponibilizou prévia.";
     }
+    // Pick the exact second of a licensed recording in the same panel.
+    // The recorded video then starts at this position, not at second zero.
+    if(storyMusicCanPublish(track) && audio){
+      const trackAudio=audio;
+      const clipLabel=addText(player,"label","Início do trecho: 0:00","studio-music-clip-label");
+      const clipRange=document.createElement("input");
+      clipRange.type="range";clipRange.min="0";clipRange.max="0";clipRange.step="1";
+      clipRange.value=String(Math.floor(previewStartSeconds));
+      clipRange.setAttribute("aria-label","Segundo inicial da música no Story");
+      clipLabel.append(clipRange);
+      clipLabel.hidden=true;
+      const formatTime=seconds=>Math.floor(seconds/60)+":"+String(Math.floor(seconds%60)).padStart(2,"0");
+      const refreshClip=()=>{
+        if(trackAudio!==audio || !Number.isFinite(trackAudio.duration))return;
+        const available=Math.min(3600,Math.max(0,Math.floor(trackAudio.duration)-1));
+        clipRange.max=String(available);
+        previewStartSeconds=storyMusicStartSeconds(previewStartSeconds,trackAudio.duration);
+        clipRange.value=String(Math.min(available,Math.floor(previewStartSeconds)));
+        clipLabel.firstChild.textContent="Início do trecho: "+formatTime(previewStartSeconds);
+        clipLabel.hidden=available<1;
+        if(previewStartSeconds>0){
+          try{trackAudio.currentTime=previewStartSeconds;}catch{}
+        }
+      };
+      trackAudio.addEventListener("loadedmetadata",refreshClip);
+      if(trackAudio.readyState>=1)refreshClip();
+      clipRange.addEventListener("input",()=>{
+        if(trackAudio!==audio)return;
+        previewStartSeconds=storyMusicStartSeconds(Number(clipRange.value),trackAudio.duration);
+        clipLabel.firstChild.textContent="Início do trecho: "+formatTime(previewStartSeconds);
+        try{trackAudio.currentTime=previewStartSeconds;}catch{}
+        void trackAudio.play().catch(()=>{found.textContent="Toque em ouvir para reproduzir o trecho.";});
+      });
+    }
+    if(track.kind==="openverse"){
+      const licenseLabel=document.createElement("label");
+      licenseLabel.className="studio-music-license-check";
+      const checkbox=document.createElement("input");
+      checkbox.type="checkbox";
+      checkbox.setAttribute("aria-label","Confirmo que verifiquei a licença e a autoria desta gravação");
+      checkbox.addEventListener("change",()=>{
+        licensedTrackConfirmed=checkbox.checked?track:null;
+      });
+      licenseLabel.append(checkbox);
+      addText(licenseLabel,"span","Confirmei a autoria e a licença desta gravação para usar no Story.");
+      player.append(licenseLabel);
+    }
     const actions=addText(player,"div","","studio-music-preview-actions");
     if(storyMusicCanPublish(track)){
       const choose=addText(actions,"button",
