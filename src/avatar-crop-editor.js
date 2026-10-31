@@ -41,7 +41,7 @@ const blobFromCanvas=canvas=>new Promise((resolve,reject)=>{
   canvas.toBlob(blob=>blob?.size?resolve(blob):reject(Error("avatar-decode-failed")),"image/jpeg",.91);
 });
 
-export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()=>{}}){
+export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()=>{},onSaving=()=>{}}){
   const host=document.createElement("div");
   host.className="pr-avatar-host";
   host.innerHTML=`<dialog class="pr-avatar-menu" data-avatar-menu aria-labelledby="prAvatarMenuTitle">
@@ -76,7 +76,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
         </label>
         <div class="pr-avatar-tools">
           <button type="button" data-avatar-reset>${icon("refresh")} Redefinir</button>
-          <button type="button" data-avatar-rotate>${icon("rotate")} Girar 90°</button>
+          <button type="button" data-avatar-rotate>${icon("rotateRight")} Girar 90°</button>
         </div>
         <p role="status" aria-live="polite" data-avatar-status class="pr-avatar-editor-status"></p>
       </div>
@@ -162,7 +162,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   };
   const save=async()=>{
     if(!bitmap||!state||working||disposed)return;
-    working=true;done.disabled=true;status.textContent="Salvando foto de perfil…";
+    working=true;onSaving(true);done.disabled=true;status.textContent="Salvando foto de perfil…";
     try{
       const canvas=document.createElement("canvas");canvas.width=canvas.height=AVATAR_OUTPUT_SIZE;
       paintAvatarSquare(canvas,bitmap,state);
@@ -182,7 +182,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
       status.textContent=error?.status===401?"Sua sessão expirou. Entre novamente.":
         error?.status===403?"Não foi possível autorizar esta foto.":
         "Não foi possível salvar. A foto antiga foi preservada. Tente novamente.";
-    }finally{working=false;done.disabled=false;}
+    }finally{working=false;onSaving(false);done.disabled=false;}
   };
   host.addEventListener("click",onClick);
   for(const input of host.querySelectorAll("[data-avatar-source]"))
