@@ -1,5 +1,3 @@
-import { storyMusicStartSeconds } from "./story-music-clip.js";
-
 // Shared, testable Story soundtrack mixer. The input must be owned or licensed
 // for synchronization; commercial catalogue previews never reach this module.
 export function hasAudibleStorySamples(buffer, threshold=0.0005) {
@@ -27,7 +25,12 @@ export function attachStoryMusic(context, destination, buffer, {volume=1,startSe
   source.loop=true;
   // When the selected clip reaches its end, loop from the selected position.
   // The caller starts the source at this same offset after recording begins.
-  source.loopStart=storyMusicStartSeconds(startSeconds,buffer.duration);
+  // Keep this small mixer standalone so the real Chrome MediaRecorder
+  // acceptance test can execute its exact production source.
+  const seconds=Number(startSeconds);
+  source.loopStart=Number.isFinite(seconds) && seconds>0
+    ? Math.floor(Math.min(seconds,Math.max(0,buffer.duration-0.05))*10)/10
+    : 0;
   // Keep a voice recording audible instead of summing both inputs at 100%.
   // MediaStreamDestination receives the actual mixed audio track; not just
   // provider metadata or a muted player outside the exported file.
