@@ -181,8 +181,13 @@ await mountAppPage({ page: "gallery", render: async ({ root, client, user, profi
       ].map(safeQuery));
       // On a refresh of an already populated gallery, never discard a whole
       // source merely because one storage/database query failed temporarily.
-      if ((a.error && c.error) || (prior?.items.length && (a.error || c.error))) {
+      if (a.error && c.error) {
         console.error("Gallery media sources failed", { archive: a.error, community: c.error });
+        throw new Error("Nenhuma fonte de mídia pôde ser consultada.");
+      }
+      if (prior?.items.length && (a.error || c.error)) {
+        // A partial source failure during refresh cannot erase previously
+        // displayed photos. Initial loads may still show the available source.
         throw new Error("Não foi possível atualizar todas as mídias.");
       }
       const sourceWarnings = [];
