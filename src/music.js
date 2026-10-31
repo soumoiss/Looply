@@ -337,6 +337,11 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
   }
 }
 
+/** Safe for pull-to-refresh: it keeps the player shell and refuses open edits. */
+export async function refreshMusicInPlace(root, client, userId) {
+  return refreshMusic(root, client, userId, { force: false });
+}
+
 function updateMusicPlayer(player, audio) {
   const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
   const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
