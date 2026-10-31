@@ -159,7 +159,7 @@ function kindFor(row){
   if(row.source==="letter" || row.source==="community-letter")return "letter";
   if(row.source==="story")return "story";
   if(row.source==="post-mention")return "post";
-  if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag"].includes(row.source))
+  if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag","archive-gallery-comment","archive-gallery-mention"].includes(row.source))
     return "gallery";
   if(kind==="story_mention")return "mention";
   if(kind==="story_like")return "story";
@@ -196,7 +196,7 @@ export async function deliverNotifications(env,{
         item.source==="gallery-comment"?"Novo comentário na galeria":
         item.source==="gallery-like"?"Curtiram sua foto na galeria":"Nova mídia na galeria"):
       kind==="mention"?"Você foi mencionado em um Story":
-      kind==="dedication"?"Você recebeu uma música":
+      kind==="dedication"?(item.source.includes("comment")?"Comentaram uma música":"Você recebeu uma música"):
       kind==="story"?"Nova atividade nos Stories":
       kind==="like"?"Curtiram sua publicação":"Nova atividade";
     const message={token:item.fcm_token,data,
