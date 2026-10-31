@@ -8,7 +8,7 @@ export async function editGroupCover(file) {
   try { await image.decode(); } catch { URL.revokeObjectURL(url); throw Error("invalid_group_cover"); }
   const width=image.naturalWidth,height=image.naturalHeight;
   if(!width||!height){URL.revokeObjectURL(url);throw Error("invalid_group_cover");}
-  const size=280, base=Math.max(size/width,size/height);
+  let size=280, base=Math.max(size/width,size/height);
   let zoom=1,dx=0,dy=0,drag=null,finished=false;
   const dialog=document.createElement("dialog");
   dialog.className="looply-group-cover-editor";
@@ -77,5 +77,8 @@ export async function editGroupCover(file) {
       }catch(error){console.warn("Group cover crop unavailable",error?.name||"error");button.disabled=false;}
     });
     dialog.showModal();
+    size=stage.clientWidth||280;
+    base=Math.max(size/width,size/height);
+    dx=0;dy=0;render();
   });
 }
