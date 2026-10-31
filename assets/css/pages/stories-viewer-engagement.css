@@ -232,3 +232,70 @@
 .story-viewer-dialog .story-sound-toggle:disabled {opacity:.78;cursor:default}
 .story-viewer-dialog .story-sound-toggle[data-kind="unavailable"] {border-color:#ffffff2e;color:#ffffffc7}
 @media(max-width:390px){.story-viewer-dialog .story-sound-toggle:not([hidden]){max-width:112px}.story-viewer-dialog .story-sound-toggle span{max-width:72px}}
+
+
+/* 20261031 framing repair: one intrinsic, uncropped image/video centered in
+   the viewport between the profile header and the keyboard-aware reply bar.
+   Existing click/gesture overlays and the sound player remain untouched. */
+.story-viewer-dialog .story-viewer-stage {
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  display:block!important;
+  overflow:hidden!important;
+  background:#060608!important;
+}
+.story-viewer-dialog .story-media-backdrop { display:none!important; }
+.story-viewer-dialog .story-viewer-media {
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  top:calc(env(safe-area-inset-top) + 86px)!important;
+  bottom:calc(env(safe-area-inset-bottom) + 78px + var(--story-keyboard-inset,0px))!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:#060608!important;
+}
+.story-viewer-dialog .story-viewer-media img,
+.story-viewer-dialog .story-viewer-media video {
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  transform:none!important;
+  margin:auto!important;
+}
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  top:auto!important;
+  bottom:var(--story-keyboard-inset,0px)!important;
+  width:100%!important;
+  max-height:min(34dvh,245px)!important;
+  margin:0!important;
+  padding:12px 12px calc(9px + env(safe-area-inset-bottom))!important;
+  box-sizing:border-box!important;
+}
+.story-viewer-dialog .story-viewer-caption:not(:empty):not(.unused) {
+  bottom:calc(90px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
+}
+@media(max-height:560px) {
+  .story-viewer-dialog .story-viewer-media {
+    top:calc(env(safe-area-inset-top) + 66px)!important;
+    bottom:calc(env(safe-area-inset-bottom) + 62px + var(--story-keyboard-inset,0px))!important;
+  }
+}
