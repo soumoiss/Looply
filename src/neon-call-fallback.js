@@ -94,5 +94,22 @@ export function createNeonSignalFallback({
       }
     };
   };
-  return { connect };
+  // Mirror outgoing call offers to the authenticated Neon inbox even while
+  // the fast Cloudflare WebSocket is healthy. Otherwise a recipient who has
+  // not yet joined the room can miss the ephemeral offer entirely.
+  const publish = async (conversationId, {event,payload}={}) => {
+    if (!UUID.test(conversationId) || event !== "signal" ||
+        !payload || typeof payload !== "object" || Array.isArray(payload) ||
+        payload.type !== "offer" || JSON.stringify(payload).length > 12000) return "error";
+    try {
+      await rpc("v3_call_signal_send", {
+        p_conversation_id:conversationId,p_kind:"signal",p_payload:payload
+      });
+      return "ok";
+    } catch (error) {
+      console.warn("Looply incoming-call inbox mirror failed",error?.message);
+      return "error";
+    }
+  };
+  return { connect, publish };
 }

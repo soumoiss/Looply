@@ -194,7 +194,20 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
           wire={type:"broadcast",event:"ttt",payload};
         } else if (item.event==="invalidate") wire={type:"invalidate"};
         else return "error";
-        try {live.send(JSON.stringify(wire));return "ok";}catch{return "error";}
+        let socketSent = false;
+        try { live.send(JSON.stringify(wire)); socketSent = true; }
+        catch (error) { console.warn("Looply call room send failed", error?.message); }
+        // Cloudflare WebSockets carry fast offers only to *current* subscribers.
+        // The global incoming-call overlay listens to the Neon inbox instead.
+        // Persist the same authenticated offer there so a recipient navigating
+        // from another page can hear the ring and accept the call.
+        if (item.event === "signal" && payload.type === "offer" &&
+            roomKind === "call" && typeof fallback?.publish === "function") {
+          const mirrored = await fallback.publish(conversationId,{event:"signal",payload});
+          if (mirrored !== "ok") console.warn("Looply call offer inbox mirror unavailable");
+          return socketSent || mirrored === "ok" ? "ok" : "error";
+        }
+        return socketSent ? "ok" : "error";
       },
       async unsubscribe() {
         closed = true; intentionalClose = true;

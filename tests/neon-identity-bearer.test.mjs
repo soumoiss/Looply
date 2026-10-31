@@ -53,3 +53,39 @@ test("unexpected response does not impersonate a profile", async () => {
     fetchImpl: async () => new Response(JSON.stringify({ id: "untrusted" }), { status: 200 })
   }), /resposta de perfil inválida/);
 });
+
+test("newly authenticated profile recovers from a transient empty Neon view", async () => {
+  let calls = 0;
+  const profile = await fetchLinkedNeonProfile({
+    dataApiUrl, session: {access_token: "signed.jwt.token"},
+    sleep: async () => {},
+    fetchImpl: async () => {
+      calls++;
+      return new Response(JSON.stringify(calls === 1 ? [] : [{id:"legacy-linked",username:"kelry"}]), {status:200});
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(profile.id, "legacy-linked");
+});
+
+test("profile lookup retries temporary Neon 503 and never retries authorization failure", async () => {
+  let calls = 0;
+  const options = {dataApiUrl,session:{access_token:"signed.jwt.token"},sleep:async()=>{}};
+  const resolved = await fetchLinkedNeonProfile({
+    ...options,
+    fetchImpl: async () => {
+      calls++;
+      return calls === 1
+        ? new Response("{}", {status:503})
+        : new Response(JSON.stringify([{id:"verified-profile"}]), {status:200});
+    }
+  });
+  assert.equal(resolved.id, "verified-profile");
+  assert.equal(calls, 2);
+  calls = 0;
+  await assert.rejects(fetchLinkedNeonProfile({
+    ...options,
+    fetchImpl: async () => {calls++; return new Response("{}", {status:403});}
+  }),/não autorizou/);
+  assert.equal(calls, 1);
+});
