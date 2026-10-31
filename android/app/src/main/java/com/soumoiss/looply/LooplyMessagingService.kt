@@ -79,6 +79,11 @@ class LooplyMessagingService : FirebaseMessagingService() {
         val name = (data["callerName"] ?: "Contato").trim().take(64).ifBlank { "Contato" }
         val mode = if (data["callMode"] == "video") "video" else "audio"
         val title = if (mode == "video") "Chamada de vídeo" else "Chamada de voz"
+        // Prevent an exported launcher intent from forging a native accept
+        // or decline for a conversation that did not actually ring.
+        getSharedPreferences("looply_android_device", MODE_PRIVATE).edit()
+            .putString("pending_incoming_call",conversationId)
+            .putLong("pending_incoming_call_at",System.currentTimeMillis()).apply()
         val notificationId = conversationId.hashCode()
         val channelId = "looply_calls_v2"
         if (Build.VERSION.SDK_INT >= 26) {
