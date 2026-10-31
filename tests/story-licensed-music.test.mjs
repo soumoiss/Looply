@@ -83,7 +83,7 @@ test("Story music UI keeps imported music in-app, and caption credits persist wi
   assert.match(picker,/searchLicensed\(term,\{signal:current.signal\}\)/);
   assert.doesNotMatch(picker,/data-studio-provider="openverse"/);
   assert.match(picker,/downloadLicensedStorySong\(track,\{signal:task.signal\}\)/);
-  assert.match(picker,/onSelect\(imported\)/);
+  assert.match(picker,/onSelect\(withStoryMusicStart\(imported,startSeconds\)\)/);
   assert.doesNotMatch(picker,/window\.confirm/);
   assert.match(picker,/studio-music-license-check/);
   assert.match(picker,/licensedTrackConfirmed !== track/);
