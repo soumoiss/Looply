@@ -1186,11 +1186,23 @@ export function bindChatEvents(root, client, getUserId) {
       if (!window.confirm("Excluir esta mensagem? Essa ação não pode ser desfeita.")) return;
       deleteMessageButton.disabled = true;
       try {
+        const messageId=deleteMessageButton.dataset.chatDelete;
+        // Read first: FK cascade removes chat_media metadata on message deletion.
+        const {data:attachments,error:attachmentsError}=await client.from("chat_media")
+          .select("storage_path").eq("message_id",messageId)
+          .eq("conversation_id",deleteMessageButton.dataset.conversationId);
+        if(attachmentsError)throw attachmentsError;
         const { data, error } = await client.from("chat_messages").delete()
-          .eq("id", deleteMessageButton.dataset.chatDelete)
+          .eq("id", messageId)
           .eq("conversation_id", deleteMessageButton.dataset.conversationId).select("id").maybeSingle();
         if (error) throw error;
         if (!data?.id) throw new Error("message delete unavailable");
+        const paths=(attachments||[]).map(item=>item.storage_path).filter(Boolean);
+        if(paths.length) {
+          // Immediate removal; the database trigger persists a retry job if S3 fails.
+          const result=await client.storage.from("looply-chat").remove(paths);
+          if(result.error)console.warn("Chat attachment queued for storage reconciliation",result.error.code||"network");
+        }
         await openConversation(root, client, deleteMessageButton.dataset.conversationId, userId);
       } catch (error) {
         console.error("Looply chat message delete failed", error);
