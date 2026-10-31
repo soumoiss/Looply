@@ -7,8 +7,8 @@ const RESTRICTED_START = [
   "[data-story-list]","[data-story-viewer]","[data-story-touch-surface]",
   "[data-story-capture]","[data-gallery-viewer]","[data-viewer-media]",
   "[data-post-carousel]","[data-photo-adjust-panel]","[data-crop-source]",
-  "video","audio","canvas",".chat-thread",".chat-sidebar",
-  ".cartas-container",".gallery-grid",".pr-grid",".reels-viewer",
+  "video","audio","canvas",".chat-thread",
+  ".reels-viewer",
   ".story-viewer-dialog",".story-studio",".post-carousel",
   ".gallery-viewer",".gallery-modal",".chat-message-form"
 ].join(",");
@@ -58,7 +58,12 @@ export function hasPendingRefreshWork(root) {
 function nestedScrollable(target, scrollRoot, win) {
   for(let el=target?.parentElement;el && el!==scrollRoot && el!==scrollRoot?.ownerDocument?.body;el=el.parentElement){
     const style=win.getComputedStyle(el);
-    if (/(auto|scroll|overlay)/.test(style.overflowY) && el.scrollHeight>el.clientHeight+3) return true;
+    if (/(auto|scroll|overlay)/.test(style.overflowY) && el.scrollHeight>el.clientHeight+3) {
+      // Only the top of a real list is eligible; never steal older message
+      // history or gestures of embedded viewers.
+      const eligible=el.matches?.(".chat-sidebar,.cartas-container,[data-chat-conversations],.gallery-grid,.pr-grid");
+      if(!eligible || el.scrollTop>1)return true;
+    }
   }
   return false;
 }
