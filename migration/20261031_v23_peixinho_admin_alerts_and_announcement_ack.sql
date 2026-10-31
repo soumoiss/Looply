@@ -352,3 +352,28 @@ AS $function$
  LEFT JOIN looply_migration.call_signal_events c
    ON e.source='incoming-call' AND md5('cs:'||c.id::text)::uuid=e.event_id
 $function$;
+
+-- Restore the missing production RPC used ONLY after successful client-side
+-- decryption. The Neon server validates the real recipient; no client-supplied
+-- sender, actor or recipient ID is trusted and no password is logged.
+CREATE OR REPLACE FUNCTION public.looply_register_recipient_unlock(p_letter_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $fn$
+DECLARE v_reader uuid;v_sender uuid;
+BEGIN
+ v_reader:=public.looply_legacy_uid();
+ IF v_reader IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE='42501'; END IF;
+ SELECT l.sender_id INTO v_sender
+ FROM public.community_letters l
+ WHERE l.id=p_letter_id AND l.is_protected=true AND l.recipient_id=v_reader
+   AND l.sender_id<>v_reader;
+ IF NOT FOUND THEN RAISE EXCEPTION 'protected_letter_unavailable' USING ERRCODE='42501'; END IF;
+ INSERT INTO public.letter_event_notifications(
+   recipient_id,sender_id,letter_type,letter_id,event_type)
+ VALUES(v_reader,v_sender,'community_letter',p_letter_id,'recipient_unlocked')
+ ON CONFLICT(recipient_id,letter_type,letter_id,event_type) DO NOTHING;
+ RETURN true;
+END
+$fn$;
+REVOKE ALL ON FUNCTION public.looply_register_recipient_unlock(uuid) FROM PUBLIC,anonymous;
+GRANT EXECUTE ON FUNCTION public.looply_register_recipient_unlock(uuid) TO authenticated;
