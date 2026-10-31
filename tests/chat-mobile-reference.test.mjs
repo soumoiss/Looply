@@ -95,7 +95,7 @@ test("both entrypoints mount actual real-time WebRTC call setup",async()=>{
 });
 test("voice calling uses real microphone + RTCPeerConnection + private signaling",async()=>{
   const source=await read("src/chat-calls.js");
-  assert.match(source,/getUserMedia\(\{ audio: true, video: mode === "video" \}\)/);
+  assert.match(source,/captureCallMedia\(navigator\.mediaDevices,mode\)/);
   assert.match(source,/new RTCPeerConnection/);
   assert.match(source,/await pc\.createOffer\(\)/);
   assert.match(source,/await pc\.createAnswer\(\)/);
