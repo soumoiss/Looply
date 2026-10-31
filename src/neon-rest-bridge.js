@@ -22,6 +22,8 @@ const WRITABLE = Object.freeze({
   admin_music_track_comments: ["author_id","recipient_id","playlist_id","video_id","track_title","body"],
   community_letters: ["sender_id","recipient_id","subject","body","is_protected","password_salt","password_iv","password_ciphertext","attachments","password_hint","password_hints"],
   archived_card_reads: ["card_id","user_id","read_at"],
+  // RLS permits only the authenticated user to acknowledge active announcements.
+  global_announcement_reads: ["announcement_id","user_id"],
   music_library: ["owner_id","title","artist","listen_url","note"],
   music_dedications: ["sender_id","recipient_id","title","artist","listen_url","dedication_note"],
   music_comments: ["dedication_id","author_id","body","visibility"],
