@@ -177,10 +177,6 @@ export function openStoryMusicPicker({modal,body,builtin,onSelect,onStatus,isAdm
         choose.type="button";choose.setAttribute("aria-label","Selecionar "+track.title);
         choose.onclick=()=>void chooseForStory(track);
       }else{
-        const linkAudio=addText(buttons,"button","Vincular meu áudio autorizado","studio-catalog-select");
-        linkAudio.type="button";
-        linkAudio.setAttribute("aria-label","Vincular áudio autorizado a "+track.title);
-        linkAudio.onclick=()=>void chooseForStory(track);
         addText(buttons,"small","Prévia do catálogo não pode ser publicada","studio-music-preview-limited");
       }
       listing.append(article);
