@@ -134,7 +134,7 @@ export function storyMediaUrlTtl(expiresAt, now = Date.now()) {
   return Math.max(0, Math.min(1800, Math.floor(secondsBeforeExpiry / 30) * 30));
 }
 
-export async function loadStories(client) {
+export async function loadStories(client, viewerId = null) {
   const { data, error } = await client.from("stories")
     .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,alt_text,created_at)")
     .gt("expires_at", new Date().toISOString())
@@ -193,7 +193,21 @@ export async function loadStories(client) {
     list.push(item);
     mediaByStory.set(item.storyId, list);
   }
+  // The server's own view receipts control ring state; private content is
+  // never included in this lookup.
+  const seen = new Set();
+  if (viewerId && rows.length) {
+    const ids = rows.map(item=>item.id);
+    for(let index=0;index<ids.length;index+=75){
+      const {data,error} = await client.from("story_views")
+        .select("story_id").eq("viewer_id",viewerId)
+        .in("story_id",ids.slice(index,index+75)).limit(200);
+      if(!error)(data||[]).forEach(item=>seen.add(item.story_id));
+      else console.warn("Story views unavailable",error?.code||"network");
+    }
+  }
   for (const story of rows) {
+    story.seen = story.author_id === viewerId || seen.has(story.id);
     story.media = mediaByStory.get(story.id) || [];
     if (story.author) story.author.avatarUrl = avatarUrls.get(story.author.avatar_path) || null;
   }
@@ -204,7 +218,9 @@ function storyButtonMarkup(group, userId) {
   const own = group.author_id === userId;
   const author = group.author || {};
   const label = own ? "Seu story" : profileName(author);
-  return '<button class="story-avatar-button" type="button" data-story-open="' + escapeHtml(group.author_id) +
+  const allSeen = group.stories.every(item=>item.seen===true);
+  return '<button class="story-avatar-button ' + (allSeen ? "is-story-seen" : "is-story-unseen") +
+    '" type="button" data-story-open="' + escapeHtml(group.author_id) +
     '" aria-label="Abrir stories de ' + escapeHtml(label) + '">' +
     storyAvatar(author, label, own) + '<span class="story-count">' + group.stories.length + "</span></button>";
 }
@@ -252,7 +268,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '</div><div class="story-viewer-header-controls">' +
           '<button class="story-sound-toggle" type="button" data-story-sound-toggle aria-label="Ativar música do story" hidden>🔊 <span>Ativar som</span></button>' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
-          '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">' + icon("close") + '</button></div></header>' +
+          '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">✕</button></div></header>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-media-backdrop" data-story-media-backdrop aria-hidden="true"></div>' +
@@ -386,6 +402,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const { data, error } = await client.rpc("record_story_view", { p_story_id: storyId });
       if (error || typeof data !== "boolean") throw error || Error("story_view_unconfirmed");
       state.viewedThisSession.add(storyId);
+      for(const group of state.groups)for(const item of group.stories)
+        if(item.id===storyId)item.seen=true;
+      renderList();
     } catch (error) {
       console.warn("Looply story view could not be recorded.", error);
     } finally { state.viewPending.delete(storyId); }
@@ -849,7 +868,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const refresh = async () => {
     try {
-      state.groups = groupActiveStories(await loadStories(client));
+      state.groups = groupActiveStories(await loadStories(client,userId));
       renderList();
       if (state.active) {
         const replacement = state.groups.find((group) => group.author_id === state.active.author_id);
@@ -1107,7 +1126,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       const retryVersion = state.slideVersion;
       try {
         showStatus("Carregando mídia do story…");
-        const refreshed = await loadStories(client);
+        const refreshed = await loadStories(client,userId);
         if (!viewer.open || state.slideVersion !== retryVersion || currentStory()?.id !== current.id) return;
         state.groups = groupActiveStories(refreshed);
         const group = state.groups.find((item) => item.author_id === current.author_id);
