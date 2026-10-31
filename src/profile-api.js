@@ -1,7 +1,7 @@
 import { cachedSignedUrls } from './storage-url-cache.js';
 import { prepareAvatarSource } from './avatar-image-processing.js';
 
-export const PROFILE_TABS = Object.freeze(['fotos', 'videos', 'mencoes']);
+export const PROFILE_TABS = Object.freeze(['fotos', 'videos', 'mencoes', 'publicacoes']);
 export const isProfileId = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');
 const RPCS = new Set(['v11_profile_overview', 'v11_profile_connections', 'v11_profile_content', 'v11_set_follow', 'v11_edit_profile_content']);
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
