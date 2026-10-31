@@ -21,7 +21,7 @@ test("YouTube 2026 lockup format reconstructs genuine playlist tracks",()=>{
   assert.equal(tracks[0].videoId,id);
   assert.equal(tracks[0].title,"Pensando Em Você");
   assert.equal(tracks[0].channel,"Babado Novo");
-  assert.equal(extractPlaylist(html,"PLDifferentPlaylist"),tracks.length?[]:[]);
+  assert.deepEqual(extractPlaylist(html,"PLDifferentPlaylist"),[]);
 });
 test("public playlist index never receives JWT and returns validated songs",async()=>{
   let requests=0;
