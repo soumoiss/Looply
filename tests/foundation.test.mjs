@@ -611,11 +611,13 @@ test("group conversations are created through the authenticated server path with
 });
 
 test("global navigation keeps the six core pages and puts profile tools in the account menu", async () => {
-  const [runtime, shared] = await Promise.all([read("src/page-runtime.js"), read("assets/css/pages/shared.css")]);
-  const primaryNavigation = runtime.slice(runtime.indexOf("const navigation = ["), runtime.indexOf("const navigationIcons = {"));
-  assert.match(primaryNavigation, /"letters", "Cartas"/);
-  assert.match(primaryNavigation, /"notifications", "Notificações"/);
-  assert.doesNotMatch(primaryNavigation, /"users"|"profile"|"settings"/);
+  const [runtime, shared, primaryNavigation] = await Promise.all([
+    read("src/page-runtime.js"),read("assets/css/pages/shared.css"),read("src/primary-navigation.js")
+  ]);
+  assert.match(primaryNavigation, /"letters","Cartas"/);
+  assert.match(primaryNavigation, /"notifications","Avisos"/);
+  assert.doesNotMatch(primaryNavigation, /\["users"|\["profile"|\["settings"/);
+  assert.match(runtime,/primaryNavigationMarkup\(page, unreadCount\)/);
   assert.match(runtime, /class="account-menu-link"[^>]*href="usuarios.html"/);
   assert.match(runtime, /data-sign-out/);
   assert.match(shared, /\.account-menu-popover/);
@@ -799,8 +801,8 @@ test("shared header provides one accessible back control, active navigation, and
   assert.match(runtime, /data-page-back/);
   assert.match(runtime, /href="home\.html" data-page-back aria-label="Voltar para o início"/);
   assert.doesNotMatch(runtime, /window\.history\.back\(\)/);
-  assert.match(runtime, /navigationIcons\.back/);
-  assert.match(runtime, /aria-current/);
+  assert.match(runtime, /icon\("back"\)/);
+  assert.match(await read("src/primary-navigation.js"), /aria-current="page"/);
   assert.match(runtime, /loadProfileAvatar\(profile\)/);
   assert.match(runtime, /onAuthStateChange/);
   assert.match(runtime, /looply-activity-\$\{user\.id\}/);
