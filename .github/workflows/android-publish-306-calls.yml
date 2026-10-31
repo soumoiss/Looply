@@ -50,10 +50,9 @@ jobs:
           STORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
-          EXPECTED_CERT_SHA256: ${{ secrets.LOOPLY_ANDROID_EXPECTED_SIGNER_SHA256 }}
         run: |
           set -euo pipefail
-          for name in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD EXPECTED_CERT_SHA256; do
+          for name in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing signing secret $name"
               exit 1
@@ -79,15 +78,23 @@ jobs:
           rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
       - name: Check installability, signature and bundled call fix
         env:
-          EXPECTED_CERT_SHA256: ${{ secrets.LOOPLY_ANDROID_EXPECTED_SIGNER_SHA256 }}
         run: |
           set -euo pipefail
           apk=android/app/build/outputs/apk/release/app-release.apk
           tools="$ANDROID_HOME/build-tools/36.0.0"
           "$tools/apksigner" verify --verbose "$apk"
-          actual=$("$tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
-          expected=$(printf %s "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')
-          test -n "$actual" && test "$actual" = "$expected"
+          # Compare against our previously signed, publicly released APK
+          # to preserve in-place upgrades even if no certificate secret exists.
+          mkdir -p previous-release
+          gh release download android-v3.0.5-signed-20261031 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Looply-3.0.5-Android-ASSINADO.apk' --dir previous-release
+          test -s previous-release/Looply-3.0.5-Android-ASSINADO.apk
+          old_cert=$("$tools/apksigner" verify --print-certs previous-release/Looply-3.0.5-Android-ASSINADO.apk |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          new_cert=$("$tools/apksigner" verify --print-certs "$apk" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$old_cert" && test "$old_cert" = "$new_cert"
           badging=$("$tools/aapt" dump badging "$apk")
           grep -Fq "name='com.looply.app'" <<< "$badging"
           grep -Fq "versionCode='306'" <<< "$badging"
