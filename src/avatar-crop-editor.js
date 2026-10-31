@@ -46,7 +46,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   host.className="pr-avatar-host";
   host.innerHTML=`<dialog class="pr-avatar-menu" data-avatar-menu aria-labelledby="prAvatarMenuTitle">
     <div class="pr-avatar-menu-body"><h2 id="prAvatarMenuTitle">Alterar foto de perfil</h2>
-    <p>Escolha de onde deseja obter sua foto.</p>
+    <p>Escolha de onde deseja obter sua foto.</p><p role="status" aria-live="polite" class="pr-avatar-menu-status" data-avatar-menu-status></p>
     <button type="button" data-avatar-pick="gallery">${icon("image")} <span>Escolher da galeria</span></button>
     <button type="button" data-avatar-pick="camera">${icon("camera")} <span>Tirar foto</span></button>
     <button type="button" data-avatar-cancel>Cancelar</button></div>
@@ -86,7 +86,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   const $=selector=>host.querySelector(selector);
   const menu=$("[data-avatar-menu]"),dialog=$("[data-avatar-crop]"),stage=$("[data-avatar-stage]");
   const image=$("[data-avatar-image]"),preview=$("[data-avatar-preview]"),zoomControl=$("[data-avatar-zoom]");
-  const status=$("[data-avatar-status]"),done=$("[data-avatar-confirm]");
+  const status=$("[data-avatar-status]"),menuStatus=$("[data-avatar-menu-status]"),done=$("[data-avatar-confirm]");
   let bitmap=null,url="",state=null,drag=null,request=0,working=false,disposed=false,frame=0;
   const activePointers=new Map();
   const clear=()=>{
@@ -119,7 +119,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   async function choose(file){
     if(!file||working||disposed)return;
     const current=++request;
-    status.textContent="Preparando fotografia…";
+    status.textContent="Preparando fotografia…";menuStatus.textContent="Preparando fotografia…";
     let source=null,newUrl="";
     try{
       source=await prepareAvatarSource(file);
@@ -130,7 +130,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
       bitmap=source.bitmap;url=newUrl;
       state=avatarCropLayout(bitmap.width,bitmap.height);
       image.src=url;
-      status.textContent="";
+      status.textContent="";menuStatus.textContent="";
       if(menu.open)menu.close();
       dialog.showModal();
       update();
@@ -141,10 +141,10 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
       status.textContent=error?.message==="avatar-file-invalid"?
         "Escolha uma fotografia JPEG, PNG, WebP ou HEIC válida (até 35 MB).":
         "Não foi possível abrir esta imagem. Selecione outra foto.";
-      if(!dialog.open){menu.showModal();onStatus(status.textContent);}
+      if(!dialog.open){menuStatus.textContent=status.textContent;if(!menu.open)menu.showModal();onStatus(status.textContent);}
     }
   }
-  const start=()=>{if(!working&&!disposed&&!menu.open&&!dialog.open)menu.showModal();};
+  const start=()=>{if(!working&&!disposed&&!menu.open&&!dialog.open){menuStatus.textContent="";menu.showModal();}};
   const onClick=event=>{
     const item=event.target.closest("[data-avatar-pick]");
     if(item){const input=$('[data-avatar-source="'+item.dataset.avatarPick+'"]');input?.click();return;}
