@@ -33,6 +33,20 @@ test("implicitly selected first option is not an unsaved form edit",()=>{
   select.options[0].selected=false;select.options[1].selected=true;
   assert.equal(hasPendingRefreshWork(root),true);
 });
+test("top-of-list permits Chat/Cartas refresh but not scrolled history",()=>{
+  const root=cleanRoot(),doc={visibilityState:"visible",scrollingElement:{scrollTop:0},body:{},querySelectorAll:()=>[]};
+  const win={scrollY:0,getComputedStyle:()=>({display:"block",visibility:"visible",overflowY:"auto"})};
+  const scrollable={parentElement:doc.body,clientHeight:300,scrollHeight:700,scrollTop:0,
+    matches:selector=>selector.includes(".chat-sidebar")};
+  const target={parentElement:scrollable,closest:()=>null};
+  assert.equal(isPullRefreshBlocked({target,root,doc,win}),false);
+  scrollable.scrollTop=3;
+  assert.equal(isPullRefreshBlocked({target,root,doc,win}),true);
+  scrollable.scrollTop=0;
+  scrollable.matches=()=>false;
+  assert.equal(isPullRefreshBlocked({target,root,doc,win}),true);
+});
+
 test("scrolling, interactive components and hidden tab block gesture",()=>{
   const root=cleanRoot(),doc={
     visibilityState:"visible",scrollingElement:{scrollTop:0},
