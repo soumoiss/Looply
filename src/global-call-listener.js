@@ -95,6 +95,13 @@ export function setupGlobalCallListener(client, userId, profile) {
     // Call offers are repeated for unreliable networks. Never restart ringing
     // or rebuild the dialog when the same offer is delivered by both channels.
     if (incoming?.conversationId === call.conversationId) return;
+    // After the user accepts and navigates into the conversation, the new
+    // page must not display a duplicate incoming dialog during the handoff.
+    try {
+      const accepted = JSON.parse(sessionStorage.getItem(pendingKey(userId)) || "null");
+      if (accepted?.accepted === true && accepted.conversationId === call.conversationId &&
+          Date.now() - accepted.savedAt < 90000) return;
+    } catch { /* Session storage is optional. */ }
     if (incoming && incoming.conversationId !== call.conversationId) {
       void signal(call, "decline");
       return;
@@ -138,6 +145,7 @@ export function setupGlobalCallListener(client, userId, profile) {
         }
         showIncoming(call, payload);
       } else if (payload.type === "hangup" || payload.type === "decline" || payload.type === "failed") {
+        routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversation.id,payload);
         if (incoming?.conversationId === conversation.id) hideOverlay();
       }
     });
@@ -164,8 +172,9 @@ export function setupGlobalCallListener(client, userId, profile) {
           return;
         }
         showIncoming(call,payload);
-      } else if (incoming?.conversationId === conversationId) {
-        hideOverlay();
+      } else {
+        routeIncomingCallToOpenChat(document.getElementById("pageContent"),conversationId,payload);
+        if (incoming?.conversationId === conversationId) hideOverlay();
       }
     }
   });
