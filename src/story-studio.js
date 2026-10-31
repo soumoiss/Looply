@@ -1,7 +1,7 @@
 import { StoryFaceLens } from "./story-ar.js";
 import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest } from "./story-ar-catalog.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
-import { encodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
+import { encodeStorySong, appleStoryTrackId } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { openStoryMusicPicker } from "./story-music-picker.js?v=story-music-official-widget-20261028";
 import { isExplicitStoryPublishGesture, preventImplicitStorySubmit } from "./story-publish-intent.js";
 import { attachStoryMusic } from "./story-audio-mixer.js";
@@ -1192,7 +1192,9 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Preparando sua mídia…");
       // Never publish only catalog metadata: this used to produce silent
       // Apple/Deezer Stories because their previews cannot be synchronized.
-      if(music?.kind==="catalog")
+      // Apple metadata identifies the author-authorized background stream;
+      // it does not alter or embed the original media file.
+      if(music?.kind==="catalog" && !appleStoryTrackId(music))
         throw new Error("A prévia do catálogo não pode ser incorporada ao Story. Escolha um áudio próprio ou autorizado.");
       const media = await exportFinal(armedAudioContext);
       const normalized = normalizePublicationMedia(media);
