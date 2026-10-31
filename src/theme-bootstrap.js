@@ -40,6 +40,14 @@
     document.documentElement.style.setProperty("--looply-font-family", fonts[savedFont] || fonts.system);
     document.documentElement.style.setProperty("--looply-root-font-size", sizes[savedSize] || sizes.normal);
     document.documentElement.dataset.fontFamily = savedFont in fonts ? savedFont : "system";
+    const root=document.documentElement;
+    root.style.setProperty("--accent",values[0]);
+    root.style.setProperty("--accent-soft",values[5]);
+    root.style.setProperty("--surface-muted",values[10]);
+    root.style.setProperty("--border",values[8]);
+    root.style.setProperty("--gallery-action",values[0]);
+    root.style.setProperty("--gallery-control-border",values[8]);
+    root.style.setProperty("--gallery-control-bg-hover",values[5]);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", values[4]);
   } catch {}
 }());
