@@ -129,6 +129,10 @@ FROM (
  UNION ALL
  SELECT 'story',n.id,'story',n.story_id,NULL::uuid,t.id,t.fcm_token,n.created_at
  FROM public.android_fcm_story_events n JOIN public.android_fcm_tokens t ON t.user_id=n.recipient_id
+ UNION ALL
+ SELECT e.source,e.event_id,e.kind,e.resource_id,e.conversation_id,
+        e.token_id,e.fcm_token,e.created_at
+ FROM public.v20_android_fcm_activity_candidates() e
 ) events
 WHERE created_at > now()-interval '2 hours'
 AND NOT EXISTS (
@@ -154,7 +158,13 @@ function kindFor(row){
   if(row.source==="chat")return kind==="call"?"call":kind==="voice"?"voice":"message";
   if(row.source==="letter")return "letter";
   if(row.source==="story")return "story";
+  if(row.source==="post-mention")return "post";
+  if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag"].includes(row.source))
+    return "gallery";
   if(kind==="story_mention")return "mention";
+  if(kind==="story_like")return "story";
+  if(kind==="gallery_like" || kind==="gallery_mention" || kind==="gallery_comment")return "gallery";
+  if(kind==="dedication")return "dedication";
   if(kind==="story_like")return "story";
   if(kind==="music_dedication")return "dedication";
   if(["comment","reply","post","post_like","like","reel","story","mention","call"].includes(kind))return kind==="post_like"?"like":kind;
@@ -178,9 +188,20 @@ export async function deliverNotifications(env,{
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
     if(item.resource_id)data.resourceId=String(item.resource_id);
     data.title="Looply";
-    data.body=kind==="call"?"Chamada recebida":kind==="voice"?"Nova mensagem de voz":kind==="message"?"Nova mensagem":kind==="letter"?"Nova carta":"Nova atividade";
+    data.body=kind==="call"?"Chamada recebida":kind==="voice"?"Nova mensagem de voz":
+      kind==="message"?"Nova mensagem":kind==="letter"?"Nova carta":
+      kind==="post"?(item.source==="post-mention"?"Você foi mencionado numa publicação":"Nova publicação no feed"):
+      kind==="comment"?"Novo comentário em uma publicação":
+      kind==="gallery"?(item.source==="gallery-mention"||item.source==="gallery-tag"?"Você foi marcado na galeria":
+        item.source==="gallery-comment"?"Novo comentário na galeria":
+        item.source==="gallery-like"?"Curtiram sua foto na galeria":"Nova mídia na galeria"):
+      kind==="mention"?"Você foi mencionado em um Story":
+      kind==="dedication"?"Você recebeu uma música":
+      kind==="story"?"Nova atividade nos Stories":
+      kind==="like"?"Curtiram sua publicação":"Nova atividade";
     const message={token:item.fcm_token,data,
-      android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",ttl:kind==="call"?"120s":"86400s"}};
+      android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",
+        ttl:kind==="call"?"120s":"86400s"}};
     let ok=false;
     try{
       const response=await sendFetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(env.FCM_PROJECT_ID)+"/messages:send",{
