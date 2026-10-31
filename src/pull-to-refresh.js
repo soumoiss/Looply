@@ -31,9 +31,23 @@ function isVisible(node, win) {
 }
 
 /** Conservative: user edits, media controls and modal interactions take priority. */
-export function hasPendingRefreshWork(root) {
+export function hasPendingRefreshWork(root, editedForms = null) {
   if (!root) return false;
   if (root.querySelector('[aria-busy="true"],[data-upload-busy="true"],[data-recording="true"],[data-saving="true"],.is-recording,.chat-recording-active')) return true;
+  if (editedForms) {
+    // Form baselines may be filled asynchronously by Neon. Only trusted user
+    // edits should block reload; never mistake a server-populated form for
+    // unsaved changes.
+    for(const form of editedForms) {
+      if(form.isConnected && root.contains(form))return true;
+      editedForms.delete(form);
+    }
+    for(const form of root.querySelectorAll("form")) {
+      for(const control of form.elements || [])
+        if(control.type==="file" && control.files?.length)return true;
+    }
+    return false;
+  }
   for (const form of root.querySelectorAll("form")) {
     for (const control of form.elements || []) {
       if (control.disabled || control.type==="hidden" || control.type==="search"
@@ -68,14 +82,14 @@ function nestedScrollable(target, scrollRoot, win) {
   return false;
 }
 
-export function isPullRefreshBlocked({target,root,doc,win}) {
+export function isPullRefreshBlocked({target,root,doc,win,editedForms=null}) {
   if (!target || !root || !doc || !win || !root.isConnected) return true;
   if (doc.visibilityState==="hidden" || (doc.scrollingElement?.scrollTop||0)>1 || (win.scrollY||0)>1) return true;
   if (target.closest?.(RESTRICTED_START)) return true;
   if (target.closest?.("nav,[role='tablist'],[role='slider'],[role='dialog'],[role='menu'],.chat-thread-panel")) return true;
   if ([...doc.querySelectorAll(ACTIVE_OVERLAYS)].some(el=>isVisible(el,win)))return true;
   if (nestedScrollable(target,doc.scrollingElement,win)) return true;
-  if (hasPendingRefreshWork(root))return true;
+  if (hasPendingRefreshWork(root,editedForms))return true;
   return false;
 }
 
@@ -101,6 +115,13 @@ export function mountPullToRefresh({
   const message=indicator.querySelector(".looply-pull-indicator-text");
   let startY=0,startX=0,distance=0,dragging=false,tracking=false,loading=false,disposed=false;
   let errorTimer=0,inflight=null;
+  const editedForms=new Set();
+  const onFormInput=event=>{
+    if (!event.isTrusted || event.target?.type==="search")return;
+    const form=event.target?.closest?.("form");
+    if(form && root.contains(form))editedForms.add(form);
+  };
+  const onFormReset=event=>editedForms.delete(event.target);
   const reset=()=>{
     tracking=false;dragging=false;distance=0;
     if(!loading){indicator.classList.remove("is-pulling","is-ready","is-loading");indicator.style.removeProperty("--looply-pull-distance");indicator.hidden=true;}
@@ -108,7 +129,7 @@ export function mountPullToRefresh({
   const start=event=>{
     if(disposed || loading || event.touches?.length!==1) return;
     const touch=event.touches[0];
-    if(isPullRefreshBlocked({target:event.target,root,doc,win}))return;
+    if(isPullRefreshBlocked({target:event.target,root,doc,win,editedForms}))return;
     startY=touch.clientY;startX=touch.clientX;tracking=true;dragging=false;distance=0;
   };
   const move=event=>{
@@ -118,7 +139,7 @@ export function mountPullToRefresh({
     const dy=touch.clientY-startY,dx=touch.clientX-startX;
     if(dy<0 || (Math.abs(dx)>12 && Math.abs(dx)>dy*0.75)){reset();return;}
     if(!dragging && dy<8)return;
-    if(isPullRefreshBlocked({target:event.target,root,doc,win})){reset();return;}
+    if(isPullRefreshBlocked({target:event.target,root,doc,win,editedForms})){reset();return;}
     dragging=true;
     if(event.cancelable)event.preventDefault();
     distance=Math.min(112,Math.max(0,dy*0.55));
@@ -161,6 +182,9 @@ export function mountPullToRefresh({
     if(shouldRun)void run();else reset();
   };
   const cancel=()=>reset();
+  root.addEventListener("input",onFormInput);
+  root.addEventListener("change",onFormInput);
+  root.addEventListener("reset",onFormReset);
   doc.addEventListener("touchstart",start,{passive:true});
   doc.addEventListener("touchmove",move,{passive:false});
   doc.addEventListener("touchend",end,{passive:true});
@@ -168,6 +192,9 @@ export function mountPullToRefresh({
   const stop=()=>{
     if(disposed)return;
     disposed=true;win.clearTimeout(errorTimer);
+    root.removeEventListener("input",onFormInput);
+    root.removeEventListener("change",onFormInput);
+    root.removeEventListener("reset",onFormReset);
     doc.removeEventListener("touchstart",start);
     doc.removeEventListener("touchmove",move);
     doc.removeEventListener("touchend",end);
