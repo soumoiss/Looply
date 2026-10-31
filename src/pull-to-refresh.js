@@ -31,41 +31,42 @@ function isVisible(node, win) {
 }
 
 /** Conservative: user edits, media controls and modal interactions take priority. */
+function formHasDirtyValues(form) {
+  for (const control of form.elements || []) {
+    if (control.disabled || control.type==="hidden" || control.type==="search"
+      || control.type==="submit" || control.type==="button" || control.type==="reset")continue;
+    if(control.type==="file"){if(control.files?.length)return true;continue;}
+    if(control.type==="checkbox"||control.type==="radio"){
+      if(control.checked!==control.defaultChecked)return true;
+      continue;
+    }
+    if(control.tagName==="SELECT"){
+      const options=[...control.options],defaults=options.filter(option=>option.defaultSelected);
+      if(!defaults.length&&!control.multiple&&options.length)defaults.push(options[0]);
+      if(options.some(option=>option.selected!==defaults.includes(option)))return true;
+    }else if(typeof control.value==="string" && control.value!==control.defaultValue)return true;
+  }
+  return false;
+}
+
 export function hasPendingRefreshWork(root, editedForms = null) {
   if (!root) return false;
-  if (root.querySelector('[aria-busy="true"],[data-upload-busy="true"],[data-recording="true"],[data-saving="true"],.is-recording,.chat-recording-active')) return true;
-  if (editedForms) {
-    // Form baselines may be filled asynchronously by Neon. Only trusted user
-    // edits should block reload; never mistake a server-populated form for
-    // unsaved changes.
-    for(const form of editedForms) {
-      if(form.isConnected && root.contains(form))return true;
+  if (root.querySelector('[aria-busy="true"],[data-upload-busy="true"],[data-recording="true"],[data-saving="true"],.is-recording,.chat-recording-active'))return true;
+  if(editedForms) {
+    // Server-populated admin fields are not human edits. Track actual
+    // edit events, and release the guard when the user restores the values.
+    for(const form of editedForms){
+      if(form.isConnected && root.contains(form) && formHasDirtyValues(form))return true;
       editedForms.delete(form);
     }
-    for(const form of root.querySelectorAll("form")) {
-      for(const control of form.elements || [])
+    for(const form of root.querySelectorAll("form")){
+      for(const control of form.elements||[])
         if(control.type==="file" && control.files?.length)return true;
     }
     return false;
   }
-  for (const form of root.querySelectorAll("form")) {
-    for (const control of form.elements || []) {
-      if (control.disabled || control.type==="hidden" || control.type==="search"
-        || control.type==="submit" || control.type==="button" || control.type==="reset") continue;
-      if (control.type==="file") {if (control.files?.length) return true;continue;}
-      if (control.type==="checkbox" || control.type==="radio") {
-        if (control.checked!==control.defaultChecked)return true;
-        continue;
-      }
-      if (control.tagName==="SELECT"){
-        const options=[...control.options];
-        const defaults=options.filter(option=>option.defaultSelected);
-        // Browsers select the first option implicitly when none declares "selected".
-        if(!defaults.length&&!control.multiple&&options.length)defaults.push(options[0]);
-        if(options.some(option=>option.selected!==defaults.includes(option)))return true;
-      } else if (typeof control.value==="string" && control.value!==control.defaultValue) return true;
-    }
-  }
+  for(const form of root.querySelectorAll("form"))
+    if(formHasDirtyValues(form))return true;
   return false;
 }
 
@@ -119,7 +120,10 @@ export function mountPullToRefresh({
   const onFormInput=event=>{
     if (!event.isTrusted || event.target?.type==="search")return;
     const form=event.target?.closest?.("form");
-    if(form && root.contains(form))editedForms.add(form);
+    if(form && root.contains(form)){
+      if(formHasDirtyValues(form))editedForms.add(form);
+      else editedForms.delete(form);
+    }
   };
   const onFormReset=event=>editedForms.delete(event.target);
   const reset=()=>{
