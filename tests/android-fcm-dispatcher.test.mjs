@@ -17,7 +17,7 @@ test("Worker dispatch is based on real events and keeps data only FCM payload",a
  for(const table of ["notifications","chat_notifications","letter_event_notifications","android_fcm_story_events","android_fcm_tokens","android_fcm_deliveries"])
   assert.ok(worker.includes("public."+table),table);
  assert.match(worker,/ON CONFLICT\(source,event_id,token_id\)/);
- assert.match(worker,/WHERE created_at > now\(\)-interval '15 minutes'/);
+ assert.match(worker,/WHERE created_at > now\(\)-interval '2 hours'/);
  assert.match(worker,/android:\{priority:/);
  assert.doesNotMatch(worker,/message=\{token:.*notification:/);
 });
