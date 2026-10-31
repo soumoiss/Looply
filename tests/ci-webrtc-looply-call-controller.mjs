@@ -19,6 +19,8 @@ try {
     try {
       for(let index=0;index<2;index++) {
         const page=pages[index];
+        page.on("console", msg => console.log("[peer "+index+"] "+msg.type()+": "+msg.text()));
+        page.on("pageerror",error=>console.error("[peer "+index+"] page-error:",String(error)));
         await page.route("**/src/*.js*", async route => {
           const file = new URL(route.request().url()).pathname.split("/").at(-1);
           if(!["chat-calls.js","call-ice-gate.js","icons.js","media-playback-coordinator.js"].includes(file)) {
@@ -53,6 +55,7 @@ try {
             },
             async unsubscribe(){this.ready=false;return "ok";}
           };
+          window.__testChannel=channel;
           window.__receiveTestSignal=packet=>{
             if(channel.ready) return channel.signal?.({payload:packet});
           };
@@ -73,7 +76,21 @@ try {
       // Both channels must subscribe before caller publishes the first offer.
       await Promise.all(pages.map(p=>p.waitForFunction(()=>Boolean(window.__receiveTestSignal))));
       await pages[0].click(mode==="audio"?"[data-call-audio]":"[data-call-video]");
-      await pages[1].waitForSelector("[data-call-accept]",{state:"visible",timeout:30000});
+      try {
+        await pages[1].waitForSelector("[data-call-accept]",{state:"visible",timeout:16000});
+      } catch(error) {
+        const diagnostic=await Promise.all(pages.map(p=>p.evaluate(()=>({
+          secure:window.isSecureContext,
+          channelReady:window.__testChannel?.ready,
+          peerCount:window.__testPeerConnections?.length,
+          connectionStates:window.__testPeerConnections?.map(x=>({signaling:x.signalingState,ice:x.iceConnectionState})),
+          toast:document.querySelector("[data-call-toast]")?.textContent,
+          status:document.querySelector("[data-call-status]")?.textContent,
+          content:document.querySelector("#root")?.innerText?.slice(0,500)
+        }))));
+        console.error("LOOPLY E2E missing incoming call diagnostic",JSON.stringify(diagnostic));
+        throw error;
+      }
       await pages[1].click("[data-call-accept]");
       await Promise.all(pages.map(page=>page.waitForFunction(
         ()=>window.__testPeerConnections?.some(pc=>pc.connectionState==="connected"),
