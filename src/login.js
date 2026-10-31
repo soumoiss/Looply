@@ -14,6 +14,18 @@ const inviteForm = document.getElementById("invitePasswordForm");
 const inviteMessage = document.getElementById("inviteMessage");
 const inviteFlow = new URLSearchParams(window.location.search).get("invite") === "1";
 
+// A newly authenticated login is a new app session. This only clears
+// Looply's entry-notification marker; it does not touch auth or other data.
+function resetAppEntryOnSuccessfulLogin(){
+  try {
+    for(let i=sessionStorage.length-1;i>=0;i--){
+      const key=sessionStorage.key(i);
+      if(key?.startsWith("looply:admin-open:session:") ||
+         key?.startsWith("looply:admin-open:ack:"))sessionStorage.removeItem(key);
+    }
+  }catch{}
+}
+
 function status(element, text, kind = "error") {
   if (!element) return;
   element.textContent = text;
@@ -128,6 +140,7 @@ if (!isSupabaseConfigured || !supabase) {
           if (!fallbackAuthData?.session?.access_token || !fallbackAuthData.session.refresh_token) {
             throw new Error("session_not_created");
           }
+          resetAppEntryOnSuccessfulLogin();
           window.location.replace(nextPage);
           return;
         }
@@ -140,6 +153,7 @@ if (!isSupabaseConfigured || !supabase) {
         if (!savedSessionData?.session?.access_token || !savedSessionData.session.refresh_token) {
           throw new Error("session_not_created");
         }
+        resetAppEntryOnSuccessfulLogin();
         window.location.replace(nextPage);
       } catch (error) {
         // Log only a status code, never request objects, tokens, or credential payloads.
