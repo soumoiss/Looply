@@ -156,7 +156,7 @@ WHERE source=$1 AND event_id=$2::uuid AND token_id=$3::uuid RETURNING event_id`;
 function kindFor(row){
   const kind=String(row.kind||"activity");
   if(row.source==="chat")return kind==="call"?"call":kind==="voice"?"voice":"message";
-  if(row.source==="letter")return "letter";
+  if(row.source==="letter" || row.source==="community-letter")return "letter";
   if(row.source==="story")return "story";
   if(row.source==="post-mention")return "post";
   if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag"].includes(row.source))
