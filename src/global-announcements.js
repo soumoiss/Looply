@@ -97,11 +97,12 @@ export async function mountGlobalAnnouncements({ client, user, profileId }) {
       readButton.disabled = true;
       status.textContent = "Registrando leitura…";
       try {
-        const { error } = await client.from("global_announcement_reads").insert({
-          announcement_id: announcement.id,
-          user_id: receiptUserId
+        // The server resolves the verified Looply identity itself. This
+        // acknowledgment is idempotent even when a different device read first.
+        const { data, error } = await client.rpc("v23_mark_global_announcement_read", {
+          p_announcement_id: announcement.id
         });
-        if (error && error.code !== "23505") throw error;
+        if (error || data !== true) throw error || Error("announcement_ack_unconfirmed");
         knownRead.add(announcement.id);
         overlay.remove();
         currentOverlay = null;
