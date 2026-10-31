@@ -85,8 +85,8 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='306'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.6'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='307'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.7'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
@@ -98,7 +98,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.6-debug-apk
+          name: Looply-3.0.7-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -114,7 +114,7 @@ jobs:
         if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.6-release-unsigned-input
+          name: Looply-3.0.7-release-unsigned-input
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 3
@@ -129,7 +129,7 @@ jobs:
         if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.6-android-signing-tools
+          name: Looply-3.0.7-android-signing-tools
           path: signing-tools/
           if-no-files-found: error
           retention-days: 3
@@ -171,7 +171,7 @@ jobs:
         if: steps.release_ready.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.6-signed-release
+          name: Looply-3.0.7-signed-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
