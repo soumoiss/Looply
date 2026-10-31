@@ -739,3 +739,27 @@
 .story-studio .studio-modal[data-sheet="music"] .studio-music-preview-actions .studio-music-listen {
   flex: 1 1 100%;
 }
+
+/* Story music: one inline control, no separate HTML5 audio chrome/popup.
+   This applies only to the music sheet and does not alter other app pages. */
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview > audio {
+  display:none !important;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-preview-toggle {
+  width:100%; border:0; padding:11px 14px; border-radius:11px;
+  background:#362847; color:#fff; font-size:13px; font-weight:700;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-clip-label {
+  display:grid; gap:7px; font-size:12px; font-weight:650; color:#40312f;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-clip-label[hidden] {display:none}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-clip-label input[type="range"] {
+  width:100%; min-height:28px; accent-color:#7744ae;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-license-check {
+  display:flex; align-items:center; gap:9px; color:#4a3937;
+  font-size:12px; line-height:1.4;
+}
+.story-studio .studio-modal[data-sheet="music"] .studio-music-license-check input[type="checkbox"] {
+  flex:0 0 18px; width:18px; height:18px; accent-color:#7744ae;
+}
