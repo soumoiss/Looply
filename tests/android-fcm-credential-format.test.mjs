@@ -28,5 +28,6 @@ test("FCM service-account loader validates JSON and project without disclosing k
   assert.deepEqual(parseFcmServiceAccount(JSON.stringify(JSON.stringify(object)),"looplyv3"),object);
   assert.throws(()=>parseFcmServiceAccount(JSON.stringify(object),"wrong"),/fcm_project_mismatch/);
   assert.throws(()=>parseFcmServiceAccount("not json","looplyv3"),/fcm_service_account_invalid_json/);
-  assert.throws(()=>decodeFcmPrivateKey("not-a-valid-private-key"),/fcm_private_key_invalid_base64/);
+  assert.throws(()=>decodeFcmPrivateKey("not-a-valid-private-key"),/fcm_private_key_too_short/);
+  assert.throws(()=>decodeFcmPrivateKey("!".repeat(180)),/fcm_private_key_non_base64_characters/);
 });
