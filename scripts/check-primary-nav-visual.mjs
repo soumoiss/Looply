@@ -69,6 +69,19 @@ try{
        active:links.filter(x=>x.active).map(x=>x.href)};
    });
    console.log("NAV_VIEWPORT_DIAGNOSTICS",JSON.stringify(data));
+   const svgDebug=await page.evaluate(()=>{
+     const el=document.querySelector(".page-navigation a svg");
+     const parent=el?.parentElement;
+     if(!el)return {found:false,nav:document.querySelector(".page-navigation")?.outerHTML.slice(0,550)};
+     const x=el.getBoundingClientRect();
+     return {found:true,outer:el.outerHTML.slice(0,220),width:x.width,height:x.height,display:getComputedStyle(el).display,visibility:getComputedStyle(el).visibility,
+       computedWidth:getComputedStyle(el).width,computedHeight:getComputedStyle(el).height,
+       parentDisplay:getComputedStyle(parent).display,parentWidth:getComputedStyle(parent).width,
+       navHTML:document.querySelector(".page-navigation")?.outerHTML.slice(0,600)};
+   });
+   console.log("SVG_STYLE_DIAGNOSTICS",JSON.stringify(svgDebug));
+   await page.screenshot({path:join(OUT,"navigation-diagnostic-"+width+".png")});
+
    assert.equal(errors.length,0,errors.join(" | "));
    assert.equal(data.navs,1,"exactly one nav at "+width);
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
