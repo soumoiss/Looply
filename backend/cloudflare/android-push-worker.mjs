@@ -140,6 +140,8 @@ const doneSql=`UPDATE public.android_fcm_deliveries SET status=$4,updated_at=now
 WHERE source=$1 AND event_id=$2::uuid AND token_id=$3::uuid RETURNING event_id`;
 function kindFor(row){
   const kind=String(row.kind||"activity");
+  if(row.source==="admin_event")
+    return ["admin_online","admin_letter_read","admin_private_unlock"].includes(kind)?kind:"activity";
   if(row.source==="chat")return kind==="call"?"call":kind==="voice"?"voice":"message";
   if(row.source==="letter" || row.source==="community-letter")return "letter";
   if(row.source==="story")return "story";
@@ -176,10 +178,19 @@ export async function deliverNotifications(env,{
     // Names are sourced from Neon after recipient visibility checks. Never
     // trust senderName from the client signaling payload.
     const actor=String(item.actor_name||"").replace(/\s+/g," ").trim().slice(0,64) || "Alguém";
+    const happened=new Date(item.created_at);
+    const happenedLabel=Number.isNaN(happened.valueOf())?"":new Intl.DateTimeFormat("pt-BR",{
+      timeZone:"America/Fortaleza",day:"2-digit",month:"2-digit",year:"numeric",
+      hour:"2-digit",minute:"2-digit"
+    }).format(happened);
+    if(!Number.isNaN(happened.valueOf()))data.occurredAt=happened.toISOString();
     const callMode=item.call_mode==="video"?"video":"audio";
     // Every notification identifies the verified actor and the specific
     // event type; never put private message, letter, or comment text in FCM.
     const actionBySource={
+      "admin_event":kind==="admin_online"?"Entrou no aplicativo":
+        kind==="admin_letter_read"?"Leu uma carta enviada por você":
+        kind==="admin_private_unlock"?"Desbloqueou uma carta privada":"Atividade administrativa",
       "feed":"Publicou no feed",
       "post-mention":"Mencionou você em uma publicação",
       "feed-comment":"Comentou uma publicação",
@@ -217,7 +228,8 @@ export async function deliverNotifications(env,{
       actionBySource[String(item.source)]||genericByKind[String(item.kind)]||"Interagiu com você";
     data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
     if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
-    data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):action;
+    data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):
+      item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action;
     // For stories, replies and comments we keep only a short generic
     // action and no private excerpt, password or attachment in FCM.
     const message={token:item.fcm_token,data,

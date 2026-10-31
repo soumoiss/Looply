@@ -9,15 +9,17 @@ test("announcement receipt uses the linked Looply profile UUID, never Neon Auth 
   ]);
   assert.match(runtime,/mountGlobalAnnouncements\(\{ client: supabase, user, profileId: profile\.id \}\)/);
   assert.match(component,/const receiptUserId = profileId;/);
-  assert.match(component,/announcement_id: announcement\.id,\s*user_id: receiptUserId/);
+  assert.match(component,/p_announcement_id: announcement\.id/);
   assert.match(component,/select\("announcement_id"\)\.eq\("user_id", receiptUserId\)/);
-  assert.doesNotMatch(component,/announcement_id: announcement\.id,\s*user_id: user\.id/);
+  assert.doesNotMatch(component,/p_user_id: user\.id/);
   assert.doesNotMatch(component,/select\("announcement_id"\)\.eq\("user_id", user\.id\)/);
 });
-test("announcement acknowledgment preserves existing insert semantics and duplicate handling",async()=>{
+test("announcement acknowledgment is verified in Neon RPC and stays idempotent",async()=>{
   const component=await read("src/global-announcements.js");
-  assert.match(component,/client\.from\("global_announcement_reads"\)\.insert\(/);
-  assert.match(component,/error && error\.code !== "23505"/);
+  assert.match(component,/client\.rpc\("v23_mark_global_announcement_read"/);
+  assert.match(component,/p_announcement_id: announcement\.id/);
+  assert.match(component,/data !== true/);
+  assert.doesNotMatch(component,/client\.from\("global_announcement_reads"\)\.insert\(/);
   assert.match(component,/knownRead\.add\(announcement\.id\)/);
   assert.match(component,/status\.textContent = "Registrando leitura…"/);
   assert.match(component,/readButton\.disabled = false/);

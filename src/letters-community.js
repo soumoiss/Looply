@@ -411,6 +411,11 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
     if (hintStatus) hintStatus.textContent = "";
     await renderLetterAttachments(activeLetter, !activeLetter.is_protected);
     dialog.showModal();
+    if (!activeLetter.is_protected && activeLetter.recipient_id === user.id && activeLetter.sender_id !== user.id) {
+      // Count a read only after the actual letter is displayed.
+      void client.rpc("v23_mark_community_letter_read",{p_letter_id:activeLetter.id})
+        .then(({error})=>{if(error)console.warn("Could not record community-letter read",error);});
+    }
     if (activeLetter.is_protected) unlockForm.querySelector("input").focus();
   });
   root.addEventListener("submit", async (event) => {
@@ -520,7 +525,14 @@ export function bindCommunityLetters(root, client, user, profiles, initialLetter
         await reload();
       } else {
         const opened = await openProtectedLetter(activeLetter, String(values.get("password") || ""));
-        if(activeLetter.recipient_id===user.id&&activeLetter.sender_id!==user.id){const {error:eventError}=await client.rpc("looply_register_recipient_unlock",{p_letter_id:activeLetter.id});if(eventError)console.warn("Could not record recipient unlock",eventError);}
+        if(activeLetter.recipient_id===user.id&&activeLetter.sender_id!==user.id){
+          const [{error:unlockError},{error:readError}]=await Promise.all([
+            client.rpc("looply_register_recipient_unlock",{p_letter_id:activeLetter.id}),
+            client.rpc("v23_mark_community_letter_read",{p_letter_id:activeLetter.id})
+          ]);
+          if(unlockError)console.warn("Could not record recipient unlock",unlockError);
+          if(readError)console.warn("Could not record private-letter read",readError);
+        }
         const body = root.querySelector("[data-community-letter-body]");
         body.textContent = opened;
         body.hidden = false;

@@ -4,6 +4,7 @@ import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } fro
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-handoff-20261030";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
+import { startAdminPresenceTracking } from "./admin-presence.js";
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
 import { bindAdminModeSync } from "./admin-mode.js";
@@ -96,11 +97,16 @@ async function loadProfileAvatar(profile) {
 }
 
 async function loadUnreadNotifications(client) {
-  const [notifications, chats] = await Promise.all([
+  const [notifications, chats, adminNotices] = await Promise.all([
     client.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
-    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null)
+    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    // RLS reveals Peixinho's administrative events only to Peixinho.
+    client.from("looply_admin_activity_notifications")
+      .select("id", { count: "exact", head: true }).is("read_at", null)
   ]);
-  return (notifications.error ? 0 : notifications.count || 0) + (chats.error ? 0 : chats.count || 0);
+  return (notifications.error ? 0 : notifications.count || 0)
+    + (chats.error ? 0 : chats.count || 0)
+    + (adminNotices.error ? 0 : adminNotices.count || 0);
 }
 
 async function refreshUnreadBadge(header, client) {
@@ -225,6 +231,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
   const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
+  const stopAdminPresence = startAdminPresenceTracking(supabase, user.id);
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
@@ -361,6 +368,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     authListener.subscription.unsubscribe();
     supabase.removeChannel(activityChannel);
     stopGlobalAnnouncements();
+    stopAdminPresence();
     stopAdminModeSync();
     stopProfileNavigation();
     if (maintenanceChannel) supabase.removeChannel(maintenanceChannel);
