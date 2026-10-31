@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
-import { setupChatTtt } from "./chat-ttt.js";
+import { setupChatTtt } from "./chat-ttt.js?v=ttt-reconnect-20261031";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },

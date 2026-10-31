@@ -13,9 +13,17 @@ export const tttScore=(game,userId)=>{
 
 export function setupChatTtt({root,client,userId,selectedConversation,isGroup,openModal,closeModal,toast}){
   let conversationId="",channel=null,timer=null,current=null,busy=false;
-  let dismissedId="",hydration=null,disposed=false,requestedFor="";
+  let dismissedId="",hydration=null,disposed=false,offline=false;
   const avatars=new Map();
   const gameIsOpen=()=>Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-v2-game-board]"));
+  function showConnectionState(){
+    const notice=root.querySelector("[data-v2-game-board] .chat-ttt-connection");
+    if(notice)notice.textContent=offline
+      ?"Sem conexão. A partida será sincronizada automaticamente."
+      :"Jogadas validadas pelo servidor";
+    if(offline)root.querySelectorAll("[data-v2-game-board] [data-v2-cell]")
+      .forEach(button=>button.disabled=true);
+  }
   const validConversation=()=>selectedConversation()&&!isGroup();
   const rpc=async(name,args)=>{
     const {data,error}=await client.rpc(name,args);
@@ -92,6 +100,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
       '<div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">'+board+'</div>'+
       '<p class="chat-ttt-connection">Jogadas validadas pelo servidor</p>'+
       '<div class="chat-v2-actions">'+actions+'</div></div>');
+    showConnectionState();
     void setAvatars(game);
   }
   function showInvitePrompt(){
@@ -124,9 +133,14 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
       try{
         const game=await rpc("v25_ttt_state",{p_conversation_id:id});
         if(id!==conversationId||disposed)return;
-        if(game)reconcile(game,{show});
+        const reconnecting=offline;
+        offline=false;
+        if(game)reconcile(game,{show:show||(reconnecting&&gameIsOpen())});
         else if(show)showInvitePrompt();
+        showConnectionState();
       }catch{
+        offline=true;
+        showConnectionState();
         if(show)toast("Jogo indisponível. Confira a conexão ou a sessão.");
       }
     })();
@@ -138,6 +152,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     if(id===conversationId)return;
     if(timer){clearInterval(timer);timer=null;}
     const old=channel;channel=null;conversationId=id;current=null;dismissedId="";
+    offline=false;
     if(old)void client.removeChannel(old).catch(()=>{});
     if(!id)return;
     const nextChannel=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
