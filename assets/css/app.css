@@ -850,3 +850,6 @@ html[data-theme] :is(button,input,textarea,select):focus-visible {
   --looply-ds-motion-easing: cubic-bezier(.2,.75,.28,1);
 
 }
+
+/* Prompt 003 — o aviso de manutenção usa o SVG existente, não um emoji solto. */
+.looply-maintenance-icon > .looply-icon { display:block; width:40px; height:40px; color:inherit; stroke-width:1.8; }
