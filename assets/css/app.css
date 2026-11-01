@@ -840,4 +840,13 @@ html[data-theme] :is(button,input,textarea,select):focus-visible {
   /* Current typography follows the user's profile preferences. */
   --looply-ds-font-body: var(--looply-font-family, Inter, ui-sans-serif, sans-serif);
   --looply-ds-font-size-body: var(--looply-root-font-size, 16px);
+
+  /* Prompt 002 — component semantics reuse the current design vocabulary. */
+  --looply-ds-control-comfortable-height: 48px;
+  --looply-ds-control-radius: var(--radius-sm);
+  --looply-ds-card-radius: var(--radius-md);
+  --looply-ds-chip-radius: var(--pill);
+  --looply-ds-dialog-radius: var(--radius-lg);
+  --looply-ds-motion-easing: cubic-bezier(.2,.75,.28,1);
+
 }
