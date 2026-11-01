@@ -11,3 +11,29 @@
 .notification-copy time { color: var(--muted); font-size: 12px; }
 .notification-empty { margin: 0; padding: 25px 10px; color: var(--muted); text-align: center; }
 .notification-status { min-height: 1.3em; margin: 8px 0 0; color: #a13f59; font-size: 13px; }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — notifications, no event or read-state changes. */
+.page-notifications .notifications-toolbar { flex-wrap: wrap; gap: 8px 12px; }
+.page-notifications .notification-list { gap: 3px; }
+.page-notifications .notification-row {
+  min-height: 58px;
+  min-width: 0;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 12px;
+  transition: background-color .16s cubic-bezier(.2,.75,.28,1);
+}
+.page-notifications .notification-copy { min-width: 0; line-height: 1.5; }
+.page-notifications .notification-row.is-unread {
+  background: color-mix(in srgb,var(--primary) 6%,var(--surface-strong));
+}
+.page-notifications .notification-row:focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 48%,transparent);
+  outline-offset: -2px;
+}
+.page-notifications .notification-status { min-height: 0; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width:390px) {
+  .page-notifications .notification-row { padding: 13px 9px; gap: 9px; }
+}
+@media (prefers-reduced-motion:reduce) { .page-notifications .notification-row { transition: none; } }
