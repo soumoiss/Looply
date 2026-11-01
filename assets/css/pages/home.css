@@ -969,3 +969,38 @@
   .story-viewer-dialog .story-like-button [data-story-like-label] { display: none; }
   .story-viewer-dialog .story-viewer-caption { bottom: calc(98px + env(safe-area-inset-bottom)) !important; }
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — feed and story rail; media geometry unchanged. */
+.page-home :where(.home-welcome,.story-area,.post-composer,.post-composer-fields,.ig-post) {
+  min-width: 0;
+}
+.page-home :where(.story-area,.home-welcome) { border-color: var(--line); }
+.page-home :where(.story-area-heading,.post-composer-heading) {
+  min-width: 0;
+  gap: 10px;
+}
+.page-home :where(.story-area-heading,.post-composer-heading) :where(h2,h3) {
+  min-width: 0;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.page-home :where(.story-avatar-button,.post-add-button,.post-composer button) {
+  -webkit-tap-highlight-color: transparent;
+}
+.page-home :where(.story-avatar-button,.post-add-button):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 55%,var(--surface-strong));
+  outline-offset: 3px;
+}
+.page-home :where(.post-composer-fields,.post-create-form) :where(input,textarea,select) {
+  min-width: 0;
+  max-width: 100%;
+}
+.page-home :where(.ig-post,.post-composer,.post-create-preview) { overflow-wrap: anywhere; }
+.page-home :where(.post-create-form,.post-composer-fields) :where(button,input,textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width:390px) {
+  .page-home :where(.story-area-heading,.post-composer-heading) { gap: 7px; }
+  .page-home :where(.post-composer,.story-area) { min-width: 0; }
+}

@@ -65,3 +65,25 @@ textarea{width:100%;min-height:74px;max-height:160px;resize:vertical;font-size:1
 @media(max-width:360px){body{padding:5px}.share-shell{padding:13px;border-radius:16px}.share-heading-mark{width:37px;height:37px}.share-visibility{padding:8px 5px;gap:5px}.share-visibility-copy strong{font-size:10.5px}.share-visibility-icon{width:24px;height:26px;font-size:16px}.share-visibility-copy small{font-size:9px}}
 @media(min-width:600px){.share-picker{border-radius:22px;margin:auto;inset:0;max-height:75dvh}.share-picker-shell{max-height:72dvh}.share-shell{max-height:88dvh}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — standalone share UI; retains its existing violet palette. */
+.share-shell { min-width: 0; max-width: 100%; }
+.share-heading { gap: 12px; }
+.share-heading-title { line-height: 1.2; text-wrap: balance; }
+.share-preview { min-width: 0; overflow-wrap: anywhere; }
+.share-visibility-options { gap: 10px; }
+.share-visibility { min-width: 0; }
+.share-footer { gap: 10px; flex-wrap: wrap; }
+.share-footer button { min-height: 44px; }
+.share-people-list,.share-person-row,.share-selected-chips { min-width: 0; }
+.share-picker-shell { max-height: calc(100dvh - 24px); overscroll-behavior: contain; }
+.share-shell :where(button,input,textarea):focus-visible,
+.share-picker :where(button,input,textarea):focus-visible {
+  outline: 3px solid var(--violet);
+  outline-offset: 3px;
+}
+@media (max-width:390px) {
+  .share-footer { gap: 8px; }
+  .share-footer button { flex: 1 1 auto; }
+}

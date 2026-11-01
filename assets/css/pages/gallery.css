@@ -1815,3 +1815,40 @@ html[data-theme] .page-gallery .gallery-viewer-action[aria-pressed="true"] {
 }
 html[data-theme] .page-gallery .gallery-photo-adjust input[type="range"] {accent-color:var(--primary)!important}
 html[data-theme] .page-gallery .gallery-photo-adjust .gallery-primary {background:var(--primary)!important;border-color:var(--primary)!important}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — grid, tabs, upload modal; viewer logic untouched. */
+.page-gallery :where(.gallery-shell,.gallery-toolbar,.gallery-grid,.gallery-card,.gallery-card-body) { min-width: 0; }
+.page-gallery :where(.gallery-toolbar,.gallery-filters,.gallery-actions,.gallery-tabs) {
+  gap: 9px;
+  align-items: center;
+}
+.page-gallery :where(.gallery-tool,.gallery-primary,.gallery-tab,.gallery-chip) {
+  min-height: 40px;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .18s cubic-bezier(.2,.75,.28,1),
+              border-color .18s cubic-bezier(.2,.75,.28,1);
+}
+.page-gallery :where(.gallery-tool,.gallery-primary,.gallery-tab,.gallery-chip):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 2px;
+}
+.page-gallery .gallery-card { border-radius: 18px; }
+.page-gallery .gallery-card-title { line-height: 1.35; text-wrap: pretty; }
+.page-gallery :where(.gallery-search,.gallery-form input,.gallery-form select,.gallery-form textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+.page-gallery .gallery-dialog {
+  border-radius: 20px;
+  overscroll-behavior: contain;
+}
+.page-gallery :where(.gallery-dialog-actions,.gallery-card-actions) { gap: 9px; }
+@media (max-width:390px) {
+  .page-gallery .gallery-toolbar { gap: 7px; }
+  .page-gallery :where(.gallery-dialog-actions,.gallery-card-actions) { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .page-gallery :where(.gallery-tool,.gallery-primary,.gallery-tab,.gallery-chip) { transition: none; }
+}

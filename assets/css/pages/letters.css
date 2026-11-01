@@ -418,3 +418,41 @@
   .page-letters .letter-reader-actions { gap:8px; }
   .page-letters .letter-reader-actions > button { flex:1 1 auto; }
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — preserve distinctive letter/paper aesthetics. */
+.page-letters :where(
+  .written-letters-panel,.community-letter-collection,.community-letter-compose-panel,
+  .community-letter-dialog,.card-row,.community-letter-row
+) { min-width: 0; }
+.page-letters :where(.written-letters-heading,.community-letter-heading) {
+  min-width: 0;
+  gap: 10px;
+}
+.page-letters :where(.community-letter-form,.community-letter-dialog) :where(input,textarea,select) {
+  min-width: 0;
+  max-width: 100%;
+}
+.page-letters :where(.community-letter-form,.community-letter-dialog) textarea {
+  line-height: 1.6;
+  resize: vertical;
+}
+.page-letters :where(.letter-collection-switcher,.community-letter-compose-actions) {
+  gap: 9px;
+}
+.page-letters :where(.community-letter-compose-toggle,.filter-button,.icon-action):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 45%,transparent);
+  outline-offset: 3px;
+}
+.page-letters .community-letter-row {
+  overflow-wrap: anywhere;
+  border-radius: 13px;
+}
+.page-letters .community-letter-dialog {
+  overscroll-behavior: contain;
+  max-height: calc(100dvh - 24px);
+}
+@media (max-width:520px) {
+  .page-letters :where(.community-letter-compose-actions,.letter-collection-switcher) { flex-wrap: wrap; }
+  .page-letters .community-letter-dialog { max-width: calc(100vw - 16px); }
+}

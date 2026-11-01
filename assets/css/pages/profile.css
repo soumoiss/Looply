@@ -254,3 +254,26 @@
  .pr-avatar-crop-heading{padding:9px 12px}
 }
 @media(prefers-reduced-motion:reduce){.pr-avatar-menu,.pr-avatar-crop{scroll-behavior:auto}}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — profile controls, no follow/upload changes. */
+.page-profile :where(.profile-overview,.profile-editor-form,.profile-edit-grid,.pr-page,.pr-card,.pr-dialog) { min-width: 0; }
+.page-profile :where(.profile-editor-form,.pr-dialog) :where(input,textarea,select) { max-width: 100%; min-width: 0; }
+.page-profile :where(.profile-photo-picker,.profile-icon-button,.pr-button) {
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .18s cubic-bezier(.2,.75,.28,1),
+              border-color .18s cubic-bezier(.2,.75,.28,1);
+}
+.page-profile :where(.profile-photo-picker,.profile-icon-button,.pr-button):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 3px;
+}
+.page-profile :where(.pr-card,.profile-overview) { overflow-wrap: anywhere; }
+.page-profile .pr-dialog { max-width: calc(100vw - 20px); max-height: calc(100dvh - 24px); overscroll-behavior: contain; }
+.page-profile :where(.profile-edit-footer,.profile-avatar-actions) { gap: 10px; }
+@media (max-width:390px) {
+  .page-profile :where(.profile-edit-grid,.profile-avatar-actions) { gap: 9px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .page-profile :where(.profile-photo-picker,.profile-icon-button,.pr-button) { transition: none; }
+}

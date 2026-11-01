@@ -114,3 +114,75 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
   .looply-pull-indicator { transition: none; will-change: auto; }
   .looply-pull-indicator.is-loading .looply-pull-indicator-icon svg { animation: none; }
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — shared navigation, original six destinations. */
+.looply-page .page-header {
+  isolation: isolate;
+  column-gap: clamp(8px,1.5vw,16px);
+  border-color: var(--line);
+  background: color-mix(in srgb,var(--surface-strong) 90%,var(--bg));
+  box-shadow: 0 3px 18px color-mix(in srgb,var(--deep) 8%,transparent);
+}
+.looply-page .page-navigation .header-action {
+  gap: 5px;
+  border-radius: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.looply-page .page-navigation [aria-current="page"] {
+  border-color: color-mix(in srgb,var(--primary) 24%,var(--line));
+  background: color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
+}
+.looply-page .page-navigation .header-action .page-navigation-icon,
+.looply-page .page-navigation .header-action .page-navigation-icon svg {
+  flex-shrink: 0;
+}
+.looply-account-menu > summary {
+  border-radius: 14px;
+}
+.looply-account-menu > summary:focus-visible,
+.looply-account-menu .account-menu-link:focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 3px;
+}
+.account-menu-popover {
+  max-width: min(300px,calc(100vw - 26px));
+  border-color: var(--line);
+  box-shadow: 0 12px 32px color-mix(in srgb,var(--deep) 15%,transparent);
+}
+.account-menu-popover .account-menu-link {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+@media (max-width:760px) {
+  .looply-page .page-header {
+    top: max(5px,env(safe-area-inset-top));
+    border-radius: 17px;
+    padding: 8px 10px;
+  }
+  .looply-page .page-navigation {
+    bottom: calc(7px + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 35px color-mix(in srgb,var(--deep) 18%,transparent);
+  }
+  .looply-page .page-navigation .header-action {
+    min-height: 53px;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 13px;
+  }
+  .looply-page .page-navigation .page-navigation-label {
+    letter-spacing: -.01em;
+  }
+}
+@media (max-width:360px) {
+  .looply-page .page-navigation { gap: 1px; padding: 5px 4px; }
+  .looply-page .page-navigation .header-action { padding-inline: 0; }
+  .looply-page .page-navigation .page-navigation-label { font-size: 9px; }
+  .looply-page .page-navigation .page-navigation-icon,
+  .looply-page .page-navigation .page-navigation-icon svg { width: 19px; height: 19px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .looply-page .page-navigation .header-action { transition:none !important; }
+}

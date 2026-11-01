@@ -351,3 +351,34 @@
   touch-action:manipulation!important;pointer-events:auto!important;
 }
 .story-viewer-dialog .story-repost-visible[hidden] {display:none!important}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — viewer controls only; never affect media fit. */
+.story-viewer-dialog :where(
+  .story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle
+) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.story-viewer-dialog :where(
+  .story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle
+):focus-visible {
+  outline: 3px solid rgba(255,255,255,.9);
+  outline-offset: 3px;
+}
+.story-viewer-dialog :where(.story-viewer-caption,.story-reply-status,.story-song-label) {
+  overflow-wrap: anywhere;
+}
+.story-viewer-dialog :where(.story-viewer-actions,.story-viewer-reply-actions) {
+  min-width: 0;
+  gap: 7px;
+}
+.story-viewer-dialog :where(.story-mention-dialog,.story-share-panel,.story-insights-panel) {
+  max-width: calc(100vw - 18px);
+  overscroll-behavior: contain;
+}
+@media (prefers-reduced-motion:reduce) {
+  .story-viewer-dialog :where(.story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle) {
+    transition:none!important;
+  }
+}

@@ -763,3 +763,37 @@
 .story-studio .studio-modal[data-sheet="music"] .studio-music-license-check input[type="checkbox"] {
   flex:0 0 18px; width:18px; height:18px; accent-color:#7744ae;
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — editor controls only; camera/stage dimensions unchanged. */
+.story-studio :where(.studio-icon,.studio-pill,.studio-gallery-button,.studio-ratio-button,.studio-modal-actions button) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.story-studio :where(.studio-icon,.studio-pill,.studio-gallery-button,.studio-ratio-button,.studio-modal-actions button):focus-visible {
+  outline: 3px solid rgba(255,255,255,.9);
+  outline-offset: 3px;
+}
+.story-studio :where(.studio-edit-tools,.studio-edit-top,.studio-modal-head,.studio-publish-row) {
+  min-width: 0;
+  gap: 8px;
+}
+.story-studio .studio-modal-panel {
+  max-width: calc(100vw - 18px);
+  max-height: calc(100dvh - 20px);
+  overscroll-behavior: contain;
+}
+.story-studio :where(.studio-music-results,.studio-stickers,.studio-music-picker) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.story-studio .studio-music-search-label input:focus-visible {
+  outline: 3px solid rgba(255,255,255,.83);
+  outline-offset: 2px;
+}
+@media (max-width:390px) {
+  .story-studio :where(.studio-edit-tools,.studio-publish-row) { gap: 5px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .story-studio :where(.studio-icon,.studio-pill,.studio-gallery-button,.studio-ratio-button) { transition:none!important; }
+}

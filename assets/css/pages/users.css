@@ -8,3 +8,24 @@
 .page-users .person-result-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .page-users .person-result-actions .text-button { padding: 6px 8px; }
 @media (max-width: 540px) { .page-users .person-result { align-items: flex-start; flex-wrap: wrap; } .page-users .person-result-actions { width: 100%; justify-content: flex-end; } }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — people search without changing discovery behavior. */
+.page-users :where(.people-area,.profile-results,.person-result) { min-width: 0; }
+.page-users .people-search-form { border-radius: 15px; gap: 9px; }
+.page-users .people-search-form input { min-height: 44px; font-size: 14px; }
+.page-users .people-search-heading h2 { line-height: 1.3; text-wrap: balance; }
+.page-users .person-result {
+  gap: 12px;
+  border-radius: 15px;
+  overflow-wrap: anywhere;
+}
+.page-users .person-result-actions { align-items: center; gap: 8px; }
+.page-users :where(.text-button,.person-result-actions button,.person-result a):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 3px;
+}
+@media (max-width:390px) {
+  .page-users .people-search-form { gap: 6px; padding-inline: 9px; }
+  .page-users .person-result-actions { gap: 6px; flex-wrap: wrap; }
+}
