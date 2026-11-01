@@ -70,3 +70,16 @@ São capturas do **login público** em resolução controlada. Os links "depois"
 ## Reversão
 
 Excluir a branch `ux/login-access-looply-20261101` ou reverter seu commit CSS. Enquanto não houver merge, `main` e o site publicado permanecem no estado anterior.
+
+
+## Complemento de verificação (mesma etapa)
+
+- **GitHub Actions:** workflow `Verify Looply` concluiu com **success** no commit CSS/documentação do PR #238; outros workflows não foram acionados automaticamente por esta alteração.
+- **Diff auditado:** `assets/css/login.css` append-only; 129 linhas CSS adicionadas e nenhuma excluída; nenhuma nova cor hexadecimal, nenhuma declaração `!important` e chaves CSS balanceadas. Segundo arquivo modificado é exclusivamente este documento.
+- **Estado de convite sem sessão:** capturas [antes](https://hcti.io/v1/image/01a1987d-4bf6-7948-bc0b-330fff5aadd3.png) e [depois](https://hcti.io/v1/image/01a1987d-5537-7213-9f5c-c3653d6d516d.png), 390px, feitas via `?invite=1`; o resultado visual não certifica convite válido nem provedor externo.
+- **Mensagem de erro em preview:** [captura 320px](https://hcti.io/v1/image/01a1987d-5ca3-7aeb-bd50-1289ea343d7f.png); o estado foi exposto **artificialmente via CSS** na página pública para verificar a aparência, não causado por login inválido real.
+- **Tema noturno simulado via tokens:** [antes](https://hcti.io/v1/image/01a1987e-0f17-7adc-b297-357e0bf2c03d.png) e [depois](https://hcti.io/v1/image/01a1987e-1a24-7057-921e-04453bcfcfb0.png), 390px. A paleta noite foi injetada apenas na captura; **não verifica persistência de preferência em conta ou modo escuro real no Android**.
+- **Viewport de 390 × 540px (altura curta, cenário de teclado):** [captura](https://hcti.io/v1/image/01a1987e-2466-719b-ab67-948eb53bdd47.png). Este teste visual não é uma interação com teclado Android e não garante composição da WebView.
+- **Validações que faltam:** teste manual do foco/Enter, credenciais, convite válido, zoom/fonte personalizada, abertura de WhatsApp, contraste real, teclado Android, medição de overflow/scroll, inspeção pixel a pixel das screenshots e revisão externa independente.
+
+**PR em aberto, sem merge e sem publicação:** https://github.com/soumoiss/Looply/pull/238.
