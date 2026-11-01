@@ -32,7 +32,7 @@ const galleryMarkup = () => [
         '<div class="gallery-page-more-wrap"><button class="gallery-tab gallery-page-more-toggle" type="button" data-toggle-page-menu aria-expanded="false" aria-label="Mais ações da galeria" title="Mais ações">', icon("more"), '</button><div class="gallery-page-more-menu" data-page-menu hidden><button type="button" data-open-people-filter>', icon("users"), '<span>Filtrar por pessoas</span></button><button type="button" data-shuffle>', icon("sync"), '<span>Embaralhar mídias</span></button><button type="button" data-create-album>', icon("plus"), '<span>Criar álbum</span></button></div></div>',
       '</div>',
       '<div class="gallery-category-row">',
-        '<button class="gallery-tab active" type="button" data-main="recentes" aria-label="Recentes" title="Recentes">', icon("refresh"), '<span>Recentes</span></button>',
+        '<button class="gallery-tab active" type="button" data-main="recentes" aria-label="Recentes" title="Recentes">', icon("image"), '<span>Recentes</span></button>',
         '<button class="gallery-tab" type="button" data-main="privadas" aria-label="Privadas" title="Privadas">', icon("lock"), '<span>Privadas</span></button>',
         '<button class="gallery-tab" type="button" data-main="exclusivos" aria-label="Exclusivos" title="Exclusivos">', icon("shield"), '<span>Exclusivos</span></button>',
         '<button class="gallery-tab" type="button" data-main="favoritos">', icon("star"), '<span>Favoritos</span></button>',

@@ -432,3 +432,29 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
     transform:none !important;
   }
 }
+
+/* Prompt 003 — baseline dos SVGs no shell existente, sem mudar os handlers. */
+.looply-page .page-navigation .page-navigation-icon {
+  line-height: 0;
+}
+.looply-page .page-navigation .page-navigation-icon > .looply-icon {
+  display: block;
+  stroke-width: 1.8;
+  vertical-align: middle;
+  pointer-events: none;
+}
+.looply-page .account-menu-popover [data-sign-out] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--looply-ds-space-2, 8px);
+  text-align: left;
+}
+.looply-page .account-menu-popover [data-sign-out] > .looply-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: inherit;
+  pointer-events: none;
+}
