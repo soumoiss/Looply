@@ -82,3 +82,195 @@ html[data-theme] .looply-logout-actions button {
 }
 html[data-theme] .looply-logout-actions [data-logout-confirm] {background:var(--primary);border-color:var(--primary);color:#fff}
 html[data-theme] .looply-logout-actions button:disabled {opacity:.7}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — presentation only; reuses existing theme tokens.
+   Scope excludes full-screen media, camera, story editor, WebRTC and game overlays. */
+html[data-theme] .looply-page {
+  --ui-motion: cubic-bezier(.2,.75,.28,1);
+  --ui-control-radius: 13px;
+  --ui-card-radius: 20px;
+}
+html[data-theme] .looply-page :where(button, a, input, select, textarea, summary) {
+  -webkit-tap-highlight-color: transparent;
+}
+html[data-theme] .looply-page :where(button, a, summary):focus-visible,
+html[data-theme] .looply-page :where(input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 58%,var(--surface-strong));
+  outline-offset: 3px;
+}
+html[data-theme] .looply-page :where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+html[data-theme] .looply-page :where(
+  .primary-button, .secondary-button, .danger-button, .quiet-button,
+  .header-action, .icon-action, .gallery-tool, .gallery-tab,
+  .filter-button, .pr-button, .music-song-picker-open
+) {
+  transition: background-color .18s var(--ui-motion),
+              border-color .18s var(--ui-motion),
+              color .18s var(--ui-motion),
+              box-shadow .18s var(--ui-motion),
+              transform .18s var(--ui-motion);
+}
+@media (hover:hover) and (pointer:fine) {
+  html[data-theme] .looply-page :where(
+    .primary-button, .secondary-button, .header-action, .icon-action,
+    .gallery-tool, .gallery-tab, .pr-button
+  ):not(:disabled):hover { transform: translateY(-1px); }
+}
+html[data-theme] .looply-page :where(
+  .primary-button, .secondary-button, .danger-button,
+  .gallery-primary, .gallery-tool, .pr-button
+):not(:disabled):active {
+  transform: scale(.985);
+}
+html[data-theme] .looply-page :where(.primary-button,.secondary-button,.danger-button) {
+  min-height: 44px;
+  border-radius: var(--ui-control-radius);
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+html[data-theme] .looply-page :where(
+  .field, .form-field, .gallery-form, .profile-editor-form, .admin-broadcast-form
+) { min-width: 0; }
+html[data-theme] .looply-page :where(
+  .field input:not([type=checkbox]):not([type=radio]):not([type=file]),
+  .field select, .field textarea,
+  .form-field input:not([type=checkbox]):not([type=radio]):not([type=file]),
+  .form-field select, .form-field textarea
+) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ui-control-radius);
+  border-color: var(--line);
+  color: var(--text);
+}
+html[data-theme] .looply-page :where(
+  .field input:not([type=checkbox]):not([type=radio]):not([type=file]),
+  .field select, .field textarea,
+  .form-field input:not([type=checkbox]):not([type=radio]):not([type=file]),
+  .form-field select, .form-field textarea
+):focus-visible {
+  border-color: var(--primary);
+}
+html[data-theme] .looply-page :where(
+  .page-title-panel,.chat-panel,.notifications-panel,
+  .music-admin-playlists,.admin-broadcast-panel,
+  .gallery-dialog,.gallery-action-sheet,.gallery-filter-sheet,
+  .community-letter-compose-panel,.community-letter-dialog
+) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html[data-theme] .looply-page :where(.page-title-panel h1,.page-title-panel h2,.gallery-title,.admin-heading h2) {
+  line-height: 1.14;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+html[data-theme] .looply-page :where(.page-title-panel,.admin-broadcast-panel,.music-admin-playlists) {
+  border-color: var(--line);
+  box-shadow: 0 3px 18px color-mix(in srgb,var(--deep) 5%,transparent);
+}
+html[data-theme] .looply-page :where(
+  .gallery-dialog,.gallery-filter-sheet,.gallery-action-sheet,
+  .music-picker-dialog,.pr-dialog,.community-letter-dialog
+) {
+  max-width: calc(100vw - 20px);
+}
+html[data-theme] .looply-page :where(
+  .gallery-dialog,.gallery-filter-sheet,.gallery-action-sheet,
+  .music-picker-dialog,.pr-dialog,.community-letter-dialog
+) :where(button,input,select,textarea) { max-width: 100%; }
+html[data-theme] .looply-page :where(
+  .gallery-dialog,.gallery-filter-sheet,.gallery-action-sheet,
+  .music-picker-dialog,.pr-dialog,.community-letter-dialog
+) :where(h2,h3) {
+  line-height: 1.25;
+  text-wrap: balance;
+}
+html[data-theme] .looply-page :where(
+  .gallery-dialog,.gallery-filter-sheet,.gallery-action-sheet,
+  .music-picker-dialog,.pr-dialog,.community-letter-dialog
+)::backdrop {
+  background: rgba(16,11,24,.64);
+}
+html[data-theme] .looply-page :where(.gallery-card,.chat-conversation,.notification-row,.community-letter-row,.youtube-track-row) {
+  min-width: 0;
+}
+html[data-theme] .looply-page :where(.gallery-card,.chat-conversation,.notification-row,.community-letter-row,.youtube-track-row) :where(img,video) {
+  max-width: 100%;
+}
+html[data-theme] .looply-page :where(.gallery-search,.chat-search-form,.pr-search) input {
+  min-width: 0;
+}
+html[data-theme] .page-notifications .notification-row {
+  gap: 12px;
+  border-radius: 12px;
+  padding-inline: 12px;
+}
+html[data-theme] .page-notifications .notification-row:focus-visible {
+  background: color-mix(in srgb,var(--primary) 7%,var(--surface-strong));
+}
+html[data-theme] .page-chat .chat-conversation {
+  border-radius: 14px;
+  transition: background-color .18s var(--ui-motion);
+}
+html[data-theme] .page-chat .chat-conversation:focus-visible {
+  background: color-mix(in srgb,var(--primary) 7%,var(--surface-strong));
+}
+html[data-theme] .page-admin :where(.admin-broadcast-actions,.admin-user-actions) {
+  gap: 10px;
+  align-items: center;
+}
+html[data-theme] .page-music :where(.music-composer,.music-general-comments,.music-admin-playlists) {
+  min-width: 0;
+}
+html[data-theme] .page-gallery :where(.gallery-toolbar,.gallery-actions,.gallery-card-actions) {
+  gap: 9px;
+}
+html[data-theme] .page-gallery .gallery-card {
+  isolation: isolate;
+  transition: box-shadow .2s var(--ui-motion),border-color .2s var(--ui-motion);
+}
+@media (hover:hover) and (pointer:fine) {
+  html[data-theme] .page-gallery .gallery-card:hover {
+    border-color: color-mix(in srgb,var(--primary) 26%,var(--line));
+    box-shadow: 0 8px 25px color-mix(in srgb,var(--deep) 10%,transparent);
+  }
+}
+@media (max-width:760px) {
+  html[data-theme] .looply-page :where(.page-title-panel,.admin-broadcast-panel,.music-admin-playlists) {
+    margin-bottom: 14px;
+  }
+  html[data-theme] .looply-page :where(.gallery-dialog,.music-picker-dialog,.pr-dialog,.community-letter-dialog) {
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 22px);
+  }
+  html[data-theme] .page-admin :where(.admin-broadcast-actions,.admin-user-actions) {
+    flex-wrap: wrap;
+  }
+  html[data-theme] .page-admin :where(.admin-broadcast-actions,.admin-user-actions) button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+@media (max-width:390px) {
+  html[data-theme] .looply-page :where(.page-title-panel h1,.gallery-title) {
+    overflow-wrap: anywhere;
+  }
+  html[data-theme] .page-gallery :where(.gallery-toolbar,.gallery-card-actions) {
+    gap: 7px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .looply-page :where(
+    .primary-button,.secondary-button,.danger-button,.quiet-button,
+    .header-action,.icon-action,.gallery-tool,.gallery-tab,.pr-button,
+    .gallery-card,.chat-conversation
+  ) {
+    transition: none !important;
+    transform: none !important;
+  }
+}
