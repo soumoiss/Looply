@@ -212,3 +212,33 @@
 @media (prefers-reduced-motion:reduce) {
   .page-home .ig-post [data-feed-carousel] {transition:none}
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — reels chrome only; media sizes and playback unchanged. */
+.page-home .looply-reels-scroll :where(.looply-reels-top,.looply-reels-rail,.looply-reels-bottom) { min-width: 0; }
+.page-home .looply-reels-scroll :where(.looply-reel-action,.looply-reels-mute) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.page-home .looply-reels-scroll :where(.looply-reel-action,.looply-reels-mute):focus-visible {
+  outline: 3px solid rgba(255,255,255,.88);
+  outline-offset: 3px;
+}
+.page-home .looply-reels-scroll :where(.looply-reel-count,.looply-reels-bottom) {
+  overflow-wrap: anywhere;
+}
+.page-home :where(.post-controls,.post-interactions,.post-owner-menu-actions,.post-caption-editor-actions) {
+  min-width: 0;
+  gap: 9px;
+}
+.page-home :where(.post-icon-button,.reel-expand-button,.post-edit-button):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 52%,transparent);
+  outline-offset: 2px;
+}
+.page-home :where(.post-caption-editor,.comment-form) :where(textarea,input) {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width:390px) {
+  .page-home :where(.post-controls,.post-interactions,.post-owner-menu-actions) { gap: 6px; }
+}
