@@ -788,3 +788,56 @@ html[data-theme] :is(.chat-v2-kicker,.scheduled-person small,.settings-section-k
 html[data-theme] :is(button,input,textarea,select):focus-visible {
   outline-color:var(--primary);
 }
+
+
+/* LOOPLY DESIGN SYSTEM · Prompt 02 · semantic aliases only.
+   Values are aliases of the existing theme. src/theme.js and profile
+   preferences remain the source of truth; no palette or font replacement. */
+:root {
+  /* Semantic color roles: inherit the active profile/system theme. */
+  --looply-ds-brand: var(--primary);
+  --looply-ds-brand-pressed: var(--primary-dark);
+  --looply-ds-brand-emphasis: var(--primary-deep);
+  --looply-ds-canvas: var(--bg);
+  --looply-ds-canvas-subtle: var(--bg-2);
+  --looply-ds-surface: var(--surface);
+  --looply-ds-surface-raised: var(--surface-strong);
+  --looply-ds-surface-recessed: var(--surface-soft);
+  --looply-ds-text: var(--text);
+  --looply-ds-text-secondary: var(--muted);
+  --looply-ds-stroke: var(--line);
+  --looply-ds-positive: var(--success);
+  --looply-ds-negative: var(--danger);
+  --looply-ds-paper: var(--paper);
+  --looply-ds-paper-ink: var(--paper-text);
+
+  /* Existing sizes/patterns, named for reuse (not a new scale). */
+  --looply-ds-space-1: 4px;
+  --looply-ds-space-2: 8px;
+  --looply-ds-space-3: 12px;
+  --looply-ds-space-4: 16px;
+  --looply-ds-space-6: 24px;
+  --looply-ds-space-8: 32px;
+
+  /* Legacy project radii and elevation: no geometric replacement. */
+  --looply-ds-radius-sm: var(--radius-sm);
+  --looply-ds-radius-md: var(--radius-md);
+  --looply-ds-radius-lg: var(--radius-lg);
+  --looply-ds-radius-xl: var(--radius-xl);
+  --looply-ds-radius-pill: var(--pill);
+  --looply-ds-elevation-low: var(--shadow-sm);
+  --looply-ds-elevation-mid: var(--shadow-md);
+  --looply-ds-elevation-high: var(--shadow-lg);
+
+  /* Existing interaction values, with motion/accessibility contracts. */
+  --looply-ds-control-min-height: 44px;
+  --looply-ds-navigation-min-height: 54px;
+  --looply-ds-icon-base: 20px;
+  --looply-ds-focus-width: 3px;
+  --looply-ds-motion-quick: 140ms;
+  --looply-ds-motion-standard: 180ms;
+
+  /* Current typography follows the user's profile preferences. */
+  --looply-ds-font-body: var(--looply-font-family, Inter, ui-sans-serif, sans-serif);
+  --looply-ds-font-size-body: var(--looply-root-font-size, 16px);
+}
