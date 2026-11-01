@@ -60,7 +60,7 @@ try {
     for (const screen of ["nav","camera","editor"]) {
       const theme = screen==="nav" && width>=390 ? "noite" : "lilas";
       const context = await browser.newContext({viewport:{width,height:820},deviceScaleFactor:1,
-        isMobile:width<=428,hasTouch:width<=428,reducedMotion:"reduce",colorScheme:theme==="noite"?"dark":"light"});
+        hasTouch:width<=428,reducedMotion:"reduce",colorScheme:theme==="noite"?"dark":"light"});
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror",e=>errors.push(e.message));
@@ -88,6 +88,7 @@ try {
           navIcons:nav?.querySelectorAll("a .looply-icon").length,navLinks:nav?.querySelectorAll("a").length,
           dialogOpen:!!dialog?.open,svgCount:dialog?.querySelectorAll("svg.looply-icon").length||0,dims};
       },screen);
+      console.log("ICON_003_LAYOUT",JSON.stringify({screen,theme,width,actual}));
       assert.equal(actual.vw,width,"viewport mismatch "+width);
       assert.equal(actual.navLinks,6,"navigation destinations");
       assert.equal(actual.navIcons,6,"navigation icons");
