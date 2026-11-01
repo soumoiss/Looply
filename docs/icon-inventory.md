@@ -65,6 +65,9 @@
 | `upload` | Enviar arquivo | https://icons8.com/icons/set/upload |
 | `save` | Salvar | https://icons8.com/icons/set/save |
 | `menu` | Menu | https://icons8.com/icons/set/menu |
+| `chevronDown` | Expandir recursos e opções | SVG local original do Looply; sem download externo |
+| `clock` | Temporizador de captura | SVG local original do Looply; sem download externo |
+| `logout` | Sair da conta | SVG local original do Looply; sem download externo |
 | `alert` | Erro/atenção | https://icons8.com/icons/set/alert |
 | `offline` | Sem conexão | https://icons8.com/icons/set/offline |
 | `empty` | Conteúdo vazio | https://icons8.com/icons/set/empty |
