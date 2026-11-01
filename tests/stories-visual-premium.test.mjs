@@ -28,5 +28,6 @@ test("Stories redesign keeps original handlers and media proportions", () => {
   assert.match(sheet, /env\(safe-area-inset-bottom\)/);
   assert.match(sheet, /prefers-reduced-motion:\s*reduce/);
   assert.doesNotMatch(sheet, /pointer-events:\s*none\s*!important/);
-  // Atributos hidden devem continuar escondendo menus inativos.\n  assert.match(sheet, /\.story-viewer-owner-actions\[hidden\]/);
+  // Atributos hidden devem continuar escondendo menus inativos.
+  assert.match(sheet, /\.story-viewer-owner-actions\[hidden\]/);
 });
