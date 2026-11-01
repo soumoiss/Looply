@@ -186,3 +186,20 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 @media (prefers-reduced-motion:reduce) {
   .looply-page .page-navigation .header-action { transition:none !important; }
 }
+
+
+/* LOOPLY DESIGN SYSTEM · Prompt 02 · non-invasive semantic adoption.
+   These are the same values already used by the existing shared shell. */
+.looply-page .page-header {
+  border-color: var(--looply-ds-stroke, var(--line));
+}
+.looply-page .page-navigation [aria-current="page"] {
+  color: var(--looply-ds-brand, var(--primary));
+}
+.looply-page .account-menu-popover {
+  background: var(--looply-ds-surface-raised, var(--surface-strong));
+  border-color: var(--looply-ds-stroke, var(--line));
+}
+.looply-page .looply-user-initial {
+  color: var(--looply-ds-brand, var(--primary));
+}
