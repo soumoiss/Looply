@@ -63,3 +63,17 @@ O diff deve ser comparado com `main@521b4ed5`: apenas `assets/css/pages/home-hyb
 - Antes de autorizar merge, verificar visualmente em sessão real e 320/360/390/428/768/1024px, temas claro/escuro, teclado/safe areas, estados sem conteúdo e com conteúdo e navegação entre abas. Nenhum desses testes pode ser presumido a partir das fixtures.
 
 **Rollback:** eliminar/reverter o commit CSS da branch. A `main` permanece intacta até merge explícito. O APK 3.0.4 e o backend Neon/Cloudflare/R2/FCM permaneceram intocados nesta etapa.
+
+
+## 7. Capturas adicionais (segunda série de fixtures)
+
+Para complementar a matriz de seis resoluções, foram renderizadas fixtures *antes/depois* com CSS de origem e CSS da branch:
+
+| Largura | Antes | Depois |
+|---:|---|---|
+| 360 | https://hcti.io/v1/image/01a1988c-3b53-79e9-869e-1d912b2b635d.png | https://hcti.io/v1/image/01a1988c-4647-71b1-9808-952e40d72b85.png |
+| 428 | https://hcti.io/v1/image/01a1988c-52b5-76da-a982-d47ff0192bf8.png | https://hcti.io/v1/image/01a1988c-5c85-7f92-8805-77b130b34a7b.png |
+| 1024 | https://hcti.io/v1/image/01a1988c-7a52-7d84-a5b5-f44a4355ea8e.png | https://hcti.io/v1/image/01a1988a-66e7-737b-a211-f196776b749e.png |
+| 390 / noturno simulado | https://hcti.io/v1/image/01a1988c-663c-7ce2-9789-2ea443a9e056.png | https://hcti.io/v1/image/01a1988c-6fee-7d07-a618-6c6042be4188.png |
+
+**Limite da segunda série:** usa fixture equivalente, com simplificação dos blocos de conta, sem autenticação. A série de 320/390/768 usa fixture técnica mais completa, também não autenticada. As diferenças entre fixtures impedem comparação cruzada de valores de pixels e não devem ser tratadas como equivalência pixel-perfect. O tema noturno é simulado pelos valores reais dos tokens de `src/theme.js`, não por uma sessão autenticada. O inventário das larguras agora contém todos os tamanhos solicitados, mas testes reais de interação, viewport com teclado, vídeos e feed povoado continuam **não verificados**.
