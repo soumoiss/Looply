@@ -193,3 +193,44 @@
 .music-dedication-edit-form [data-music-edit-status]:empty { display:none; }
 .music-dedication-edit-form button:disabled { opacity:.6; }
 @media (max-width:480px) { .music-dedication-edit-dialog { max-height:92dvh; } .music-dedication-edit-form { max-height:92dvh; } }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — music UI only; player/track logic untouched. */
+.page-music :where(.youtube-playlist,.music-admin-playlists,.music-general-comments,.music-composer) { min-width: 0; }
+.page-music :where(.youtube-track-panel,.music-admin-playlists,.music-general-comments) {
+  border-color: var(--line);
+  border-radius: 17px;
+}
+.page-music .youtube-track {
+  min-height: 52px;
+  border-radius: 12px;
+  transition: background-color .16s cubic-bezier(.2,.75,.28,1);
+}
+.page-music .youtube-track[aria-pressed="true"] {
+  background: color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
+}
+.page-music .youtube-track:focus-visible,
+.page-music :where(.youtube-track-comment,.youtube-track-share,.youtube-track-external):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 45%,transparent);
+  outline-offset: 2px;
+}
+.page-music :where(.youtube-track-comment,.youtube-track-share,.youtube-track-external) {
+  border-radius: 12px;
+  border-color: var(--line);
+  min-height: 44px;
+}
+.page-music :where(.music-general-comments textarea,.youtube-track-comments textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface-soft);
+}
+.page-music :where(.youtube-track-dialog,.music-picker-dialog) {
+  max-height: calc(100dvh - 24px);
+}
+@media (max-width:390px) {
+  .page-music .youtube-track { gap: 7px; padding-inline: 5px; }
+  .page-music .youtube-track-row { gap: 4px; }
+}
+@media (prefers-reduced-motion:reduce) { .page-music .youtube-track { transition:none; } }
