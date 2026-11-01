@@ -1,4 +1,5 @@
 import { StoryFaceLens } from "./story-ar.js";
+import { icon } from "./icons.js";
 import { DEFAULT_STORY_EFFECTS, loadStoryEffectCatalog, loadStoryEffectManifest } from "./story-ar-catalog.js";
 import { normalizePublicationMedia, uploadResumable } from "./social.js";
 import { encodeStorySong, appleStoryTrackId } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
@@ -114,18 +115,18 @@ export function storyStudioMarkup(recipientOptions) {
         '<div class="studio-edited-media" data-studio-edited hidden></div>' +
         '<div class="studio-overlays" data-studio-overlays></div>' +
         '<header class="studio-top studio-camera-only">' +
-          '<button type="button" class="studio-icon" data-studio-close aria-label="Fechar">×</button>' +
+          '<button type="button" class="studio-icon" data-studio-close aria-label="Fechar">' + icon("close") + '</button>' +
           '<button type="button" class="studio-icon" data-studio-flash aria-label="Flash" title="Flash">ϟ</button>' +
-          '<button type="button" class="studio-icon" data-studio-settings aria-label="Configurações">⚙</button>' +
+          '<button type="button" class="studio-icon" data-studio-settings aria-label="Configurações">' + icon("settings") + '</button>' +
         '</header>' +
         '<div class="studio-side studio-camera-only">' +
           '<button type="button" class="studio-icon" data-studio-text-mode aria-label="Criar story de texto">Aa</button>' +
           '<button type="button" class="studio-icon" data-studio-boomerang aria-label="Alternar Boomerang" aria-pressed="false">∞</button>' +
-          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade de alinhamento" aria-pressed="false">⊞</button>' +
+          '<button type="button" class="studio-icon" data-studio-grid-toggle aria-label="Grade de alinhamento" aria-pressed="false">' + icon("grid") + '</button>' +
           '<button type="button" class="studio-icon studio-ratio-button" data-studio-ratio aria-label="Proporção da captura">9:16</button>' +
-          '<button type="button" class="studio-icon" data-studio-camera-more aria-label="Mais recursos da câmera" aria-expanded="false">⌄</button>' +
+          '<button type="button" class="studio-icon" data-studio-camera-more aria-label="Mais recursos da câmera" aria-expanded="false">' + icon("chevronDown") + '</button>' +
           '<div class="studio-camera-extra" data-studio-camera-extra hidden>' +
-            '<button type="button" class="studio-icon" data-studio-timer aria-label="Temporizador">◷</button>' +
+            '<button type="button" class="studio-icon" data-studio-timer aria-label="Temporizador">' + icon("clock") + '</button>' +
             '<button type="button" class="studio-icon" data-studio-handsfree aria-label="Gravar sem segurar" aria-pressed="false">●</button>' +
           '</div>' +
         '</div>' +
@@ -137,9 +138,9 @@ export function storyStudioMarkup(recipientOptions) {
               '<span class="studio-lens-title">' + effect.name + '</span></button>').join("") +
           '</div>' +
           '<div class="studio-capture-row">' +
-            '<label class="studio-gallery-button" title="Abrir galeria"><span data-studio-thumb>▧</span><input type="file" data-studio-file accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" aria-label="Selecionar da galeria"></label>' +
+            '<label class="studio-gallery-button" title="Abrir galeria"><span data-studio-thumb aria-hidden="true">' + icon("image") + '</span><input type="file" data-studio-file accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" aria-label="Selecionar da galeria"></label>' +
             '<button type="button" class="studio-shutter" data-studio-shutter aria-label="Toque para foto; segure para vídeo"><span></span></button>' +
-            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">⟳</button>' +
+            '<button type="button" class="studio-icon" data-studio-flip aria-label="Inverter câmera">' + icon("cameraSwitch") + '</button>' +
           '</div>' +
           '<nav class="studio-modes" aria-label="Modos de publicação">' +
             '<button type="button" data-studio-post>POST</button><b>STORY</b>' +
@@ -147,16 +148,16 @@ export function storyStudioMarkup(recipientOptions) {
           '<div class="studio-progress" data-studio-progress hidden></div>' +
         '</section>' +
         '<header class="studio-edit-top studio-edit-only" hidden>' +
-          '<button type="button" class="studio-icon" data-studio-back aria-label="Voltar à câmera">←</button>' +
+          '<button type="button" class="studio-icon" data-studio-back aria-label="Voltar à câmera">' + icon("back") + '</button>' +
           '<span class="studio-edit-top-spacer" aria-hidden="true"></span>' +
         '</header>' +
         '<div class="studio-edit-tools studio-edit-only" hidden>' +
           '<button type="button" class="studio-icon" data-studio-add-text aria-label="Adicionar texto">Aa</button>' +
-          '<button type="button" class="studio-icon studio-layer-edit-action" data-studio-edit-selected aria-label="Editar texto selecionado" hidden>✎</button>' +
+          '<button type="button" class="studio-icon studio-layer-edit-action" data-studio-edit-selected aria-label="Editar texto selecionado" hidden>' + icon("pencil") + '</button>' +
 
-          '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">♫<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
+          '<button type="button" class="studio-icon studio-music-side-button" data-studio-music-open aria-label="Adicionar música" title="Adicionar música">' + icon("music") + '<span class="visually-hidden" data-studio-track-label>Adicionar música</span><span class="visually-hidden" data-studio-track-hint>Trilha sonora</span><i class="studio-music-indicator" data-studio-music-indicator hidden aria-hidden="true"></i></button>' +
           '<button type="button" class="studio-icon" data-studio-effects-open aria-label="Filtros de imagem e vídeo">✦</button>' +
-          '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">⌄</button>' +
+          '<button type="button" class="studio-icon" data-studio-editor-more aria-label="Mais recursos de edição" aria-expanded="false">' + icon("chevronDown") + '</button>' +
           '<div class="studio-editor-extra" data-studio-editor-extra hidden><button type="button" class="studio-icon" data-studio-mentions-open aria-label="Mencionar pessoas">@</button></div>' +
 
         '</div>' +
@@ -166,11 +167,11 @@ export function storyStudioMarkup(recipientOptions) {
             '<button type="button" class="studio-pill studio-publish-public" data-studio-publicar><span aria-hidden="true">◉</span> Publicar story</button>' +
             '<button type="button" class="studio-pill" data-studio-publish-friends hidden>Publicar para amigos</button>' +
             '<button type="button" class="studio-pill" data-studio-friends><span class="studio-star">★</span> Amigos próximos</button>' +
-            '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">➜</button>' +
+            '<button type="button" class="studio-next" data-studio-send aria-label="Mais opções de compartilhamento">' + icon("forward") + '</button>' +
           '</div>' +
         '</div>' +
         '<div class="studio-modal" data-studio-modal hidden><section class="studio-modal-panel" data-studio-panel>' +
-          '<div class="studio-modal-head"><strong data-studio-modal-title>Editar</strong><button type="button" class="studio-icon" data-studio-modal-close>×</button></div>' +
+          '<div class="studio-modal-head"><strong data-studio-modal-title>Editar</strong><button type="button" class="studio-icon" data-studio-modal-close aria-label="Fechar painel">' + icon("close") + '</button></div>' +
           '<div data-studio-modal-body></div></section></div>' +
         '<p class="studio-feedback" data-studio-status role="status" aria-live="polite"></p>' +
       '</div>' +
@@ -553,7 +554,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       } else {
         lastThumb = null;
         holder.style.background = "#454254af";
-        $("[data-studio-thumb]").textContent = "▶";
+        $("[data-studio-thumb]").innerHTML = icon("play");
       }
     }
     revokeUrl(); edits.replaceChildren(); edits.hidden = kind === "text";
@@ -736,7 +737,7 @@ export function bindStoryStudio(root, client, userId, refresh, isAdmin = false) 
       status("Escolha foto JPEG/PNG/WebP ou vídeo MP4/WebM de até 100 MB.", true); return;
     }
     const thumb = $("[data-studio-thumb]");
-    thumb.textContent = normalized.type.startsWith("image/") ? "▣" : "▶";
+    thumb.innerHTML = icon(normalized.type.startsWith("image/") ? "image" : "play");
     showEditor(normalized, normalized.type.startsWith("video/") ? "video" : "image");
   };
   const selectLayer = el => {
