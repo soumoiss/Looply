@@ -7,3 +7,20 @@
   .page-conversation .chat-thread-panel { min-height: calc(100dvh - 245px); }
   .page-conversation .chat-thread { min-height: calc(100dvh - 300px); }
 }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — conversation presentation, composer mechanics unchanged. */
+.page-conversation :where(.chat-layout,.chat-thread-panel,.chat-thread,.chat-message-form) { min-width: 0; }
+.page-conversation .conversation-back {
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  border-radius: 12px;
+  text-underline-offset: 3px;
+}
+.page-conversation .conversation-back:focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 3px;
+}
+.page-conversation .chat-thread-panel { max-width: 100%; }
+.page-conversation :where(.chat-message,.chat-reply-context) { overflow-wrap: anywhere; }
