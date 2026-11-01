@@ -1,0 +1,38 @@
+name: Looply icon and Story Studio visual regression
+on:
+  pull_request:
+    paths:
+      - "src/icons.js"
+      - "src/story-studio.js"
+      - "src/page-runtime.js"
+      - "assets/css/pages/shared.css"
+      - "assets/css/pages/story-studio.css"
+      - "assets/css/app.css"
+      - "scripts/check-icon-controls-visual.mjs"
+      - ".github/workflows/icon-controls-visual.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install headless Chromium test tools (CI only)
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Validate icon semantics and responsive geometry on real DOM
+        run: node scripts/check-icon-controls-visual.mjs
+      - name: Preserve no-private-data screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: looply-icons-003-responsive
+          path: smoke-results/icons-003/
+          retention-days: 14
+          if-no-files-found: warn
