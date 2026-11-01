@@ -585,3 +585,360 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+/* 2026-11-01 — Referência de visualização mobile compacta (foto recebida).
+   Regras finais para impedir que cartões de gerenciamento cubram o Story.
+   Apenas composição; a mídia mantém proporção original e os handlers existentes. */
+.story-viewer-dialog,
+.story-viewer-dialog[data-admin="true"] {
+  --story-viewer-bottom: calc(11px + env(safe-area-inset-bottom));
+  background: #0a0d14 !important;
+}
+.story-viewer-dialog .story-viewer-stage,
+.story-viewer-dialog .story-viewer-media {
+  background: #0a0d14 !important;
+}
+.story-viewer-dialog .story-viewer-media {
+  top: calc(env(safe-area-inset-top) + 5px) !important;
+  bottom: calc(70px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px)) !important;
+}
+.story-viewer-dialog .story-viewer-media :is(img, video) {
+  object-fit: contain !important;
+  object-position: center center !important;
+  transform: none !important;
+}
+.story-viewer-dialog .story-progress-list {
+  top: calc(env(safe-area-inset-top) + 8px) !important;
+  left: 10px !important;
+  right: 10px !important;
+  height: 3px;
+  gap: 4px;
+}
+.story-viewer-dialog .story-progress-item {
+  height: 2.5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.44);
+}
+.story-viewer-dialog .story-viewer-header,
+.story-viewer-dialog[data-admin="true"] .story-viewer-header {
+  top: calc(16px + env(safe-area-inset-top)) !important;
+  padding: 10px 12px 18px !important;
+  min-height: 60px;
+  background: linear-gradient(180deg,rgba(0,0,0,.39), transparent);
+  gap: 8px;
+}
+.story-viewer-dialog .story-viewer-author {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 110px);
+}
+.story-viewer-dialog .story-viewer-person {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.story-viewer-dialog .story-viewer-identity { gap: 8px; }
+.story-viewer-dialog .story-viewer-identity strong {
+  font-size: 13px;
+  font-weight: 750;
+  max-width: min(46vw, 220px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.story-viewer-dialog .story-viewer-identity time {
+  display: inline;
+  font-size: 11px;
+  flex-shrink: 0;
+  color: rgba(255,255,255,.76);
+}
+.story-viewer-dialog .story-viewer-header-controls {
+  gap: 3px;
+  padding-right: 43px !important;
+  margin-left: auto;
+}
+.story-viewer-dialog .story-play-toggle {
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  min-width: 40px;
+  height: 40px !important;
+  min-height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,.24);
+  box-shadow: none;
+}
+.story-viewer-dialog .story-play-toggle > svg { width: 20px; height: 20px; }
+.story-viewer-dialog .story-close-floating {
+  top: calc(30px + env(safe-area-inset-top)) !important;
+  right: 8px !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 44px !important;
+  height: 44px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(0,0,0,.28) !important;
+  box-shadow: none !important;
+  font-size: inherit !important;
+}
+.story-viewer-dialog .story-close-floating svg { width: 23px; height: 23px; }
+.story-viewer-dialog .story-viewer-caption:not(:empty):not(.unused) {
+  left: 15px !important;
+  right: 15px !important;
+  bottom: calc(82px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px)) !important;
+  padding: 7px 1px 10px !important;
+  max-height: min(19dvh,140px);
+  overflow-y: auto;
+  border-radius: 0;
+  background: transparent !important;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.story-viewer-dialog.story-viewer-text-only .story-viewer-caption:not(:empty) {
+  top: 50% !important;
+  bottom: auto !important;
+  max-height: 52dvh;
+  font-size: clamp(18px,5vw,30px);
+  text-align: center;
+}
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: var(--story-keyboard-inset,0px) !important;
+  top: auto !important;
+  margin: 0 !important;
+  padding: 14px 13px var(--story-viewer-bottom) !important;
+  max-height: min(28dvh, 210px) !important;
+  min-height: 0;
+  overflow: visible !important;
+  gap: 0 !important;
+  border: 0 !important;
+  background: linear-gradient(0deg,rgba(10,13,20,.99) 0%,rgba(10,13,20,.91) 62%,rgba(10,13,20,0) 100%);
+}
+.story-viewer-dialog .story-viewer-owner-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-owner-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  gap: 12px !important;
+}
+.story-viewer-dialog .story-viewer-owner-actions[hidden],
+.story-viewer-dialog[data-admin="true"] .story-viewer-owner-actions[hidden],
+.story-viewer-dialog .story-viewer-reply-actions[hidden] { display: none !important; }
+.story-viewer-dialog .story-owner-action,
+.story-viewer-dialog .story-owner-insights,
+.story-viewer-dialog .story-owner-more {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px !important;
+  height: 46px;
+  padding: 7px 5px !important;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: none;
+}
+.story-viewer-dialog .story-owner-action > span[aria-hidden] {
+  display: grid; place-items: center;
+  font-size: 22px;
+  text-shadow: none;
+}
+.story-viewer-dialog .story-owner-action svg {
+  width: 23px; height: 23px;
+  color: #fff;
+  stroke-width: 1.9px;
+}
+.story-viewer-dialog .story-owner-insights small {
+  display: block;
+  width: auto;
+  max-width: min(54vw, 250px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+  font-weight: 650;
+  color: rgba(255,255,255,.94);
+}
+.story-viewer-dialog .story-owner-more {
+  flex: 0 0 44px;
+  margin-left: auto;
+}
+.story-viewer-dialog .story-owner-more small { display: none !important; }
+.story-viewer-dialog .story-owner-action:active,
+.story-viewer-dialog .story-close-floating:active {
+  transform: scale(.95);
+}
+/* Terceiros: campo de resposta e três ícones outline, em UMA linha. */
+.story-viewer-dialog .story-viewer-reply-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-reply-actions {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  width: 100%;
+  gap: 6px !important;
+  min-height: 50px;
+}
+.story-viewer-dialog .story-reply-form {
+  order: 0 !important;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none;
+  min-height: 50px !important;
+  padding: 0 8px;
+  margin: 0 !important;
+  border: 1.5px solid rgba(255,255,255,.56);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.story-viewer-dialog .story-reply-form input {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px !important;
+  padding: 8px 10px;
+  font-size: 15px !important;
+  color: #fff;
+  border: 0;
+  background: transparent;
+}
+.story-viewer-dialog .story-reply-form input::placeholder {
+  color: rgba(255,255,255,.93);
+}
+.story-viewer-dialog .story-reply-form > button {
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 6px !important;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent !important;
+}
+.story-viewer-dialog .story-reply-form > button svg { width: 21px; height: 21px; }
+@supports selector(:has(*)) {
+  .story-viewer-dialog .story-reply-form:has(input:placeholder-shown) > button { display: none !important; }
+}
+.story-viewer-dialog .story-like-button {
+  order: 1 !important;
+}
+.story-viewer-dialog .story-aux-action[data-story-quick-reactions-toggle] { order: 2 !important; }
+.story-viewer-dialog .story-aux-action[data-story-share] { order: 3 !important; }
+.story-viewer-dialog :where(.story-aux-action,.story-like-button) {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 5px !important;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+.story-viewer-dialog :where(.story-aux-action,.story-like-button) svg {
+  width: 27px; height: 27px;
+  display: block;
+  color: #fff;
+  stroke-width: 1.9px;
+}
+.story-viewer-dialog .story-like-button[aria-pressed="true"] svg { color: #ff6b9b; }
+.story-viewer-dialog .story-like-button > [data-story-like-glyph] {
+  display: grid;place-items:center;
+}
+.story-viewer-dialog .story-aux-action:active,
+.story-viewer-dialog .story-like-button:active { transform: scale(.94); }
+/* Menus contextuais abrem só sob ação do usuário; sem cartões flutuantes ociosos. */
+.story-viewer-dialog .story-owner-menu:not([hidden]) {
+  right: 10px;
+  left: auto;
+  bottom: calc(78px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px));
+  width: min(calc(100% - 20px), 320px);
+  max-height: min(65dvh, 470px);
+  padding: 12px;
+  gap: 4px;
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px;
+  background: rgba(20,16,27,.98);
+  box-shadow: 0 15px 50px rgba(0,0,0,.45);
+}
+.story-viewer-dialog .story-owner-menu .story-menu-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: #fff;
+}
+.story-viewer-dialog .story-owner-menu .story-menu-action > svg {
+  flex: 0 0 20px; width: 20px; height: 20px;
+}
+.story-viewer-dialog .story-owner-menu .story-menu-action:active { background: rgba(255,255,255,.1); }
+/* ADM ao ver outros Stories: a opção de moderação não cria uma segunda linha de ações. */
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions:has(.story-viewer-reply-actions:not([hidden]))
+  .story-viewer-owner-actions:not([hidden]) {
+  position: fixed;
+  z-index: 13;
+  top: calc(29px + env(safe-area-inset-top));
+  right: 92px;
+  bottom: auto;
+  left: auto;
+  width: 40px;
+  min-height: 44px;
+  height: 44px;
+}
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions:has(.story-viewer-reply-actions:not([hidden]))
+  .story-owner-more {
+  width: 40px;
+  min-width: 40px;
+  height: 44px;
+  margin: 0;
+}
+.story-viewer-dialog .story-quick-reactions:not([hidden]) {
+  bottom: calc(74px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px));
+}
+/* Preserva status / carregamento / erro sem banners de código nem áreas permanentes. */
+.story-viewer-dialog .story-viewer-action-status:not([hidden]) {
+  left: 14px; right: 14px;
+  bottom: calc(78px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px));
+  border-radius: 12px;
+}
+@media (max-width: 370px) {
+  .story-viewer-dialog .story-viewer-actions { padding-inline: 8px !important; }
+  .story-viewer-dialog .story-viewer-reply-actions { gap: 2px !important; }
+  .story-viewer-dialog :where(.story-aux-action,.story-like-button) {
+    flex-basis: 39px !important;
+    width: 39px !important;
+    min-width: 39px !important;
+  }
+  .story-viewer-dialog .story-viewer-identity strong { max-width: 36vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-viewer-dialog :where(.story-owner-action,.story-aux-action,.story-like-button,.story-close-floating) {
+    transition: none !important;
+  }
+}
