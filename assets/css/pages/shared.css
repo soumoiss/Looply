@@ -203,3 +203,207 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 .looply-page .looply-user-initial {
   color: var(--looply-ds-brand, var(--primary));
 }
+
+
+
+/* LOOPLY PROMPT 03 · global navigation & account geometry.
+   CSS-only: canonical six links, destination/active logic, counts and event
+   handlers stay in src/primary-navigation.js and src/page-runtime.js. */
+.looply-page .page-header {
+  min-width: 0;
+  row-gap: 9px;
+}
+.looply-page .page-navigation {
+  min-width: 0;
+  align-items: center;
+  scroll-padding-inline: 8px;
+}
+.looply-page .page-navigation .header-action {
+  min-height: 44px;
+  white-space: nowrap;
+  text-align: center;
+}
+.looply-page .page-navigation .page-navigation-icon {
+  flex-shrink: 0;
+}
+.looply-page .page-navigation .page-navigation-label {
+  min-width: 0;
+  line-height: 1.25;
+}
+.looply-page .page-navigation .header-action:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+.looply-page .page-navigation .navigation-badge {
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 4px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+.looply-page .header-back-button {
+  min-height: 44px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.looply-page .header-back-button > span:first-child { color: inherit; }
+.looply-page .brand-inline { min-width: 0; }
+.looply-page .brand-inline:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+.looply-page .looply-account-menu > summary {
+  min-height: 44px;
+  padding: 3px 5px;
+  gap: 8px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.looply-page .looply-account-menu[open] > summary {
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface-strong));
+}
+.looply-page .account-menu-popover {
+  min-width: 208px;
+  width: max-content;
+  max-width: min(290px, calc(100vw - 28px));
+  max-height: min(70dvh, 520px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.looply-page .account-menu-popover .account-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  text-align: left;
+  white-space: normal;
+}
+.looply-page .account-menu-popover .account-menu-link .looply-icon,
+.looply-page .account-menu-popover .account-menu-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.looply-page .account-menu-popover .header-action {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.looply-page .account-menu-popover :where(a, button):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* The chat's older mobile stylesheet contains an orange active tab.
+   Specificity here restores the currently selected *profile* theme,
+   without adding or rearranging any destinations. */
+@media (max-width: 760px) {
+  .looply-page .page-navigation {
+    width: min(calc(100% - 14px), 900px);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 3px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+  .looply-page .page-navigation .header-action {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    padding: 5px 1px;
+    gap: 4px;
+    font-size: 10px;
+    line-height: 1.15;
+    overflow: visible;
+    white-space: normal;
+  }
+  .looply-page .page-navigation .page-navigation-label {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .looply-page .page-navigation .navigation-badge {
+    top: 1px;
+    right: 1px;
+  }
+  .looply-page.page-chat .page-navigation {
+    display: grid;
+    width: min(calc(100% - 14px), 900px);
+    max-width: 900px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 3px;
+    overflow: visible;
+    background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+    border-color: var(--line);
+    border-radius: 20px;
+  }
+  .looply-page.page-chat .page-navigation .header-action {
+    min-width: 0;
+    min-height: 54px;
+    flex: none;
+    border-color: transparent;
+    color: var(--text);
+    background: transparent;
+  }
+  .looply-page.page-chat .page-navigation [aria-current="page"] {
+    color: var(--primary);
+    border-color: transparent;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+  }
+}
+
+/* Open conversation has its own contact/group header. Hide duplicate global
+   chrome, but retain the exact original six-link nav (mobile: bottom dock;
+   desktop: slim navigation row). Calls and dialog overlays remain unaffected. */
+.looply-page.page-conversation .page-header {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  isolation: auto;
+  margin-bottom: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.looply-page.page-conversation .page-header > :not(.page-navigation) {
+  display: none;
+}
+.looply-page.page-conversation .page-header > .page-navigation {
+  flex: 1 1 100%;
+}
+@media (max-width: 760px) {
+  .looply-page.page-chat.page-conversation .page-header {
+    width: 100%;
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .looply-page.page-chat.page-conversation .page-header > .page-navigation {
+    position: fixed;
+  }
+}
+@media (max-width: 360px) {
+  .looply-page .page-navigation { gap: 1px; padding: 5px 4px; }
+  .looply-page .page-navigation .header-action { padding-inline: 0; }
+  .looply-page .page-navigation .page-navigation-label { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .looply-page .page-navigation .header-action,
+  .looply-page .looply-account-menu > summary,
+  .looply-page .account-menu-popover .account-menu-link {
+    transition: none;
+    transform: none;
+  }
+}
