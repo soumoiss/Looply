@@ -333,12 +333,12 @@ html[data-theme] .looply-page:not(.page-letters) .badge:not(.badge-exclusive) {
   min-height: 24px;
   padding-inline: 9px;
   border: 1px solid var(--looply-ds-stroke, var(--line));
-  border-radius: var(--looply-ds-radius-pill, 999px);
+  border-radius: var(--looply-ds-chip-radius, 999px);
   font-size: 11px;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
-html[data-theme] .looply-page:not(.page-letters) :where(
+html[data-theme] :where(
   .page-home .ig-post,
   .page-gallery .gallery-card,
   .page-notifications .notification-row,
