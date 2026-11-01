@@ -833,3 +833,38 @@
 .group-cover-editor-actions {display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .group-cover-editor-actions button {min-height:44px;border-radius:13px;border:1px solid var(--primary);background:var(--surface);color:var(--text);font-weight:700}
 .group-cover-editor-actions [data-cover-confirm] {background:var(--primary);color:white}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — chat visuals; keyboard/RTC/message logic unchanged. */
+.page-chat :where(.chat-layout,.chat-panel,.chat-thread-panel,.chat-conversation,.chat-conversation-copy) {
+  min-width: 0;
+}
+.page-chat .chat-conversation {
+  border-radius: 14px;
+  transition: background-color .18s cubic-bezier(.2,.75,.28,1);
+}
+.page-chat .chat-conversation-copy :where(strong,small,time) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page-chat .chat-filter-tabs {
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.page-chat .chat-filter-tabs button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.page-chat :where(.chat-conversation,.chat-filter-tabs button,.chat-message-actions button):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 48%,transparent);
+  outline-offset: 2px;
+}
+.page-chat :where(.chat-message-form,.chat-reply-context,.chat-audio-player) { min-width: 0; }
+.page-chat :where(.chat-message,.chat-conversation-copy) { overflow-wrap: anywhere; }
+@media (max-width:390px) {
+  .page-chat .chat-filter-tabs { gap: 5px; }
+  .page-chat .chat-filter-tabs button { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion:reduce) { .page-chat .chat-conversation { transition: none; } }
