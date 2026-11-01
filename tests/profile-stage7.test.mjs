@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+import { icon } from "../src/icons.js";
 
 test("profile images are cropped to a real 512x512 square before upload", async () => {
   const [source, avatar] = await Promise.all([read("src/profiles.js"),read("src/neon-avatar-profile.js")]);
@@ -44,7 +45,9 @@ test("profile and account actions use consistent accessible SVG icons", async ()
   assert.match(profile, /aria-label="Fechar recorte"/);
   assert.match(profile, /profile-visibility-badge"><svg/);
   assert.match(profile, /profile-overview-shortcut[^>]*><svg/);
-  assert.match(runtime, /data-sign-out><svg/);
+  assert.match(runtime, /data-sign-out>\$\{icon\("logout"\)\}Sair/);
+  assert.match(icon("logout"), /^<svg class="looply-icon/);
+  assert.match(icon("logout"), /aria-hidden="true"/);
   assert.match(runtime, /configuracoes\.html">\$\{icon\("settings"\)\}/);
   assert.match(css, /account-menu-link svg/);
 });
