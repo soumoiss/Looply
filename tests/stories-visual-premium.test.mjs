@@ -31,3 +31,23 @@ test("Stories redesign keeps original handlers and media proportions", () => {
   // Atributos hidden devem continuar escondendo menus inativos.
   assert.match(sheet, /\.story-viewer-owner-actions\[hidden\]/);
 });
+
+
+test("Stories viewer reference: minimal toolbar retains all actions through menu", async () => {
+  const {storiesMarkup} = await import("../src/stories.js");
+  const viewer = storiesMarkup([], null, [], null, "author", {username:"author"});
+  const nav = viewer.split('<nav class="story-viewer-owner-actions"')[1].split("</nav>")[0];
+  const menu = viewer.split('<div class="story-owner-menu"')[1].split("</div>")[0];
+  assert.match(nav, /data-story-insights-open/);
+  assert.match(nav, /data-story-more/);
+  assert.doesNotMatch(nav, /data-story-share|data-story-mention-add/);
+  for(const action of ["data-story-share","data-story-mention-add","data-story-save","data-story-delete"])
+    assert.ok(menu.includes(action),action+" accessible in more menu");
+  const reply = viewer.split('<div class="story-viewer-reply-actions"')[1].split("</div>")[0];
+  for(const action of ["data-story-reply","data-story-like","data-story-quick-reactions-toggle","data-story-share"])
+    assert.ok(reply.includes(action),action+" preserved for other viewers");
+  assert.match(viewer, /data-story-like-glyph/);
+  assert.match(sheet, /story-reply-form:has\(input:placeholder-shown\)/);
+  assert.match(sheet, /story-viewer-media\s*\{/);
+  assert.match(sheet, /object-fit:\s*contain\s*!important/);
+});
