@@ -64,8 +64,12 @@ try {
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror",e=>errors.push(e.message));
-      await page.goto(origin+"/?screen="+screen+"&theme="+theme,{waitUntil:"domcontentloaded"});
+      await page.goto(origin+"/?screen="+screen+"&theme="+theme,{waitUntil:"load"});
       if(screen!=="nav") {
+        await page.waitForFunction(() => {
+          const button=document.querySelector(".studio-icon");
+          return button && getComputedStyle(button).width === "44px";
+        },null,{timeout:30000});
         await page.evaluate(mode=>{
           const stage=document.querySelector("[data-studio-stage]");
           stage.dataset.mode=mode==="editor"?"edit":"camera";
