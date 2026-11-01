@@ -274,3 +274,13 @@ html[data-theme] .page-gallery .gallery-card {
     transform: none !important;
   }
 }
+
+
+/* LOOPLY DESIGN SYSTEM · Prompt 02 · existing control contracts via aliases.
+   This intentionally preserves all theme, typography and editor overrides. */
+html[data-theme] .looply-page :where(.primary-button,.secondary-button,.danger-button) {
+  min-height: var(--looply-ds-control-min-height, 44px);
+}
+html[data-theme] .looply-page :where(.primary-button,.secondary-button,.danger-button):focus-visible {
+  outline-width: var(--looply-ds-focus-width, 3px);
+}
