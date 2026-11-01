@@ -407,3 +407,28 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
     transform: none;
   }
 }
+
+/* LOOPLY · PROMPT 002 · acabamento do menu compartilhado.
+   Mantém destinos, foco e o controle nativo <details> existentes. */
+.looply-page .account-menu-popover :where(.account-menu-link,.header-action) {
+  border-radius: var(--looply-ds-control-radius, var(--radius-sm));
+  touch-action: manipulation;
+}
+@media (hover:hover) and (pointer:fine) {
+  .looply-page .account-menu-popover .account-menu-link:hover {
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface-strong));
+    color: var(--text);
+  }
+}
+.looply-page .account-menu-popover .account-menu-link:active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+}
+.looply-page .looply-account-menu > summary:focus-visible {
+  outline-width: var(--looply-ds-focus-width, 3px);
+}
+@media (prefers-reduced-motion:reduce) {
+  .looply-page .account-menu-popover .account-menu-link {
+    transition:none !important;
+    transform:none !important;
+  }
+}

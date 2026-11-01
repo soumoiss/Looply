@@ -15,6 +15,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
 <link rel="stylesheet" href="/assets/css/pages/home-hybrid.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
+<link rel="stylesheet" href="/assets/css/theme-complete.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
 </head><body class="looply-page page-home"><div class="container-page">
 <header class="page-header" data-site-header></header>
