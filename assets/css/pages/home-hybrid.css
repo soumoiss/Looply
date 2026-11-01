@@ -210,3 +210,162 @@
 @media(prefers-reduced-motion:reduce) {
   .page-home .hybrid-external-watch,.page-home .story-avatar-frame { animation:none; transition:none; }
 }
+
+
+/* LOOPLY PROMPT 05 · Original social dashboard, presentation only.
+   Preserve markup order, selectors, publication media sizing, auth,
+   realtime status, story camera, and actual user data. */
+.page-home .page-content {
+  row-gap: 10px;
+  padding-top: 10px;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+}
+.page-home .home-welcome {
+  min-height: 72px;
+  padding: 12px 14px;
+  gap: 11px;
+}
+.page-home .home-welcome-avatar {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.page-home .home-welcome-avatar img {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.page-home .home-welcome .hero-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.page-home .home-welcome-copy p {
+  display: none; /* Redundant presentation hint; realtime state remains visible. */
+}
+.page-home .home-welcome .home-profile-shortcut {
+  min-height: 44px;
+  padding-inline: 12px;
+}
+.page-home .looply-welcome-banner,
+.page-home .looply-music-of-day {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.page-home .story-area {
+  padding: 12px 13px 10px;
+}
+.page-home .story-area-heading {
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+.page-home .story-area-heading [data-story-create-open] {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.page-home .story-list {
+  min-height: 0;
+  padding-bottom: 5px;
+}
+.page-home .social-area {
+  padding-bottom: 0;
+  min-width: 0;
+}
+.page-home .social-heading {
+  min-height: 44px;
+  padding: 3px 4px 8px;
+  margin-bottom: 0;
+}
+.page-home .social-heading .section-kicker {
+  display: none; /* "Feed" remains the visible h2, with real realtime status. */
+}
+.page-home .social-heading h2 {
+  margin: 0;
+  line-height: 1.25;
+}
+.page-home .social-heading .realtime-state {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.page-home .post-composer {
+  margin-bottom: 12px;
+}
+.page-home .post-composer-heading {
+  min-height: 64px;
+  padding: 10px 13px;
+}
+.page-home .post-composer-heading strong {
+  min-width: 0;
+  line-height: 1.3;
+}
+.page-home .post-add-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+.page-home .feed-list {
+  min-width: 0;
+}
+.page-home .feed-list > .social-message {
+  margin: 0 0 12px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.page-home .post-card.ig-post {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.page-home .ig-post-header,
+.page-home .ig-post .post-author,
+.page-home .ig-post .post-author-profile {
+  min-width: 0;
+}
+.page-home .ig-post .post-interactions .post-icon-button {
+  min-height: 44px;
+}
+.page-home :is(.home-profile-shortcut,.post-add-button,.story-area-heading [data-story-create-open],.ig-post .post-icon-button):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (max-width: 560px) {
+  .page-home .page-content {
+    padding: 8px 10px calc(96px + env(safe-area-inset-bottom, 0px));
+    row-gap: 9px;
+  }
+  .page-home .home-welcome {
+    padding: 10px 11px;
+    gap: 9px;
+  }
+  .page-home .story-area {
+    padding: 10px 11px 8px;
+  }
+  .page-home .social-heading {
+    gap: 8px;
+  }
+  .page-home .social-heading .realtime-state {
+    max-width: 50%;
+    line-height: 1.3;
+  }
+}
+@media (max-width: 370px) {
+  .page-home .home-welcome .home-profile-shortcut {
+    padding-inline: 8px;
+  }
+  .page-home .story-area-heading [data-story-create-open] {
+    padding-inline: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-home :is(.home-profile-shortcut,.post-add-button,.story-area-heading [data-story-create-open]) {
+    transition: none;
+  }
+}
