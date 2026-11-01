@@ -831,3 +831,11 @@
   stroke-width: 1.8;
   pointer-events: none;
 }
+
+/* Prompt 003 · área mínima de toque para ferramentas laterais do editor. */
+.story-studio .studio-edit-tools .studio-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
