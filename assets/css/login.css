@@ -28,3 +28,26 @@
 }
 html[data-theme="noite"] .login-button { color: #170b25; }
 @media (prefers-reduced-motion: reduce) { .login-logo .circle { animation: none; } }
+
+
+/* LOOPLY UI POLISH 2026-11-01 — login/invitation, original brand preserved. */
+.login-page { min-height: 100dvh; padding: max(20px,env(safe-area-inset-top)) 14px max(20px,env(safe-area-inset-bottom)); }
+.login-card {
+  min-width: 0;
+  max-width: min(100%,480px);
+  border-radius: clamp(18px,3vw,26px);
+  box-shadow: 0 14px 44px color-mix(in srgb,var(--deep) 11%,transparent);
+}
+.login-card :where(input,button) { -webkit-tap-highlight-color: transparent; }
+.login-card :where(input,button,a):focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 55%,var(--surface-strong));
+  outline-offset: 3px;
+}
+.login-card .input-wrap { min-width: 0; }
+.login-card .input-wrap .input { min-width: 0; width: 100%; min-height: 46px; border-radius: 13px; }
+.login-card .login-button { min-height: 46px; border-radius: 14px; transition: background-color .18s cubic-bezier(.2,.75,.28,1),transform .18s cubic-bezier(.2,.75,.28,1); }
+.login-card .login-button:not(:disabled):active { transform: scale(.988); }
+.login-card .login-button:disabled { opacity: .65; cursor: wait; }
+.login-card .form-message { overflow-wrap: anywhere; }
+@media (max-width:390px) { .login-page { padding-inline: 10px; } }
+@media (prefers-reduced-motion:reduce) { .login-card .login-button { transition: none; transform: none; } }
