@@ -269,7 +269,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           '<button class="story-sound-toggle" type="button" data-story-sound-toggle aria-label="Ativar música do story" hidden>🔊 <span>Ativar som</span></button>' +
           '<button class="story-play-toggle" type="button" data-story-play-toggle aria-label="Pausar story" aria-pressed="false">' + icon("pause") + '</button>' +
           '<button class="icon-button" type="button" data-story-close aria-label="Fechar stories">✕</button></div></header>' +
-        '<button class="story-close-floating" type="button" data-story-close aria-label="Fechar story">' + icon("close") + '</button>' +
+        '<button class="story-close-floating" type="button" data-story-close aria-label="Fechar story">✕</button>' +
         '<div class="story-viewer-stage" data-story-touch-surface>' +
           '<button class="story-tap-zone story-tap-zone-prev" type="button" data-story-prev aria-label="Story anterior"></button>' +
           '<div class="story-media-backdrop" data-story-media-backdrop aria-hidden="true"></div>' +
@@ -279,16 +279,20 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
         '<p class="story-viewer-caption" data-story-viewer-caption></p>' +
         '<footer class="story-viewer-actions">' +
           '<nav class="story-viewer-owner-actions" data-story-owner-actions aria-label="Gerenciar meu story" hidden>' +
-            '<button type="button" class="story-owner-action story-owner-insights" data-story-insights-open aria-label="Ver atividade do meu story"><span aria-hidden="true">' + icon("eye") + '</span><small data-story-view-count>Atividade</small></button>' +
-            '<button type="button" class="story-owner-action story-owner-more" data-story-more aria-label="Mais opções do story" aria-expanded="false"><span aria-hidden="true">' + icon("more") + '</span><small>Mais</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-insights-open><span aria-hidden="true">◉</span><small data-story-view-count>Atividade</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-share><span aria-hidden="true">➤</span><small>Compartilhar</small></button>' +
+
+
+            '<button type="button" class="story-owner-action" data-story-mention-add><span aria-hidden="true">@</span><small>Mencionar</small></button>' +
+            '<button type="button" class="story-owner-action" data-story-more aria-expanded="false"><span aria-hidden="true">⋮</span><small>Mais</small></button>' +
           '</nav>' +
           '<div class="story-viewer-reply-actions" data-story-reply-actions hidden>' +
-            '<button class="story-like-button" type="button" data-story-like aria-label="Curtir story" aria-pressed="false"><span aria-hidden="true" data-story-like-glyph>' + icon("heart") + '</span><span class="sr-only" data-story-like-label>Curtir</span></button>' +
+            '<button class="story-like-button" type="button" data-story-like aria-label="Curtir story" aria-pressed="false"><span aria-hidden="true">♡</span><span class="sr-only" data-story-like-label>Curtir</span></button>' +
             '<form class="story-reply-form" data-story-reply><label class="visually-hidden" for="storyReplyMessage">Responder em particular</label>' +
               '<input id="storyReplyMessage" name="reply" maxlength="2000" placeholder="Enviar mensagem..." autocomplete="off" required>' +
-              '<button type="submit" aria-label="Enviar resposta privada">' + icon("send") + '</button></form>' +
-            '<button type="button" class="story-aux-action" data-story-quick-reactions-toggle aria-label="Enviar reação rápida" aria-expanded="false">' + icon("smile") + '</button>' +
-            '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">' + icon("send") + '</button>' +
+              '<button type="submit" aria-label="Enviar resposta privada">➤</button></form>' +
+            '<button type="button" class="story-aux-action" data-story-quick-reactions-toggle aria-label="Enviar reação rápida" aria-expanded="false">☺</button>' +
+            '<button type="button" class="story-aux-action" data-story-share aria-label="Compartilhar story">➤</button>' +
             '<span class="story-reply-status" data-story-reply-status role="status" aria-live="polite"></span>' +
           '</div>' +
           '<button type="button" class="story-repost-visible" data-story-repost hidden aria-label="Republicar story em que fui mencionado">↻ Repostar no meu story</button>' +
@@ -297,9 +301,7 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           ['❤️','🔥','👏','😍','😂','😮','😢','💜'].map(emoji => '<button type="button" data-story-quick-reaction="' + emoji + '" aria-label="Reagir com ' + emoji + '">' + emoji + '</button>').join('') +
         '</div>' +
         '<div class="story-owner-menu" data-story-owner-menu hidden role="group" aria-label="Outras opções do Story">' +
-          '<button type="button" class="story-menu-action" data-story-share>' + icon("send") + ' Compartilhar</button>' +
-          '<button type="button" class="story-menu-action" data-story-mention-add>' + icon("user") + ' Mencionar pessoa</button>' +
-          '<button type="button" class="story-menu-action" data-story-save>' + icon("save") + ' Salvar mídia</button>' +
+          '<button type="button" data-story-save>Salvar mídia</button>' +
           '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
           '<button type="button" data-story-more-close>Cancelar</button></div>' +
         '<div class="story-share-panel" data-story-share-panel hidden role="group" aria-label="Compartilhar story">' +
@@ -530,7 +532,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     storyTime.setAttribute("aria-label", timeLabels.exact ? "Publicado em " + timeLabels.exact : "Publicado agora");
     viewer.querySelector("[data-story-close-friends]").hidden = story.visibility !== "selected";
     viewer.querySelector("[data-story-owner-menu]").hidden = true;
-    viewer.querySelector("[data-story-more]").setAttribute("aria-expanded", "false");
     viewer.querySelector("[data-story-mention-dialog]").hidden = true;
     viewer.querySelector("[data-story-share-panel]").hidden = true;
     const repostButton = viewer.querySelector("[data-story-repost]");
@@ -725,7 +726,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     viewer.querySelector("[data-story-delete]").hidden = !canDelete;
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
     viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
-    viewer.querySelector("[data-story-mention-add]").hidden = story.author_id !== userId;
     const insightsButton = viewer.querySelector("[data-story-insights-open]");
     if (insightsButton) {
       insightsButton.hidden = story.author_id !== userId;
@@ -740,8 +740,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     likeButton.disabled = false;
     likeButton.setAttribute("aria-pressed", state.likedStories.has(story.id) ? "true" : "false");
     viewer.querySelector("[data-story-like-label]").textContent = state.likedStories.has(story.id) ? "Curtido" : "Curtir";
-    const likeIcon = likeButton.querySelector("[data-story-like-glyph]");
-    if (likeIcon) likeIcon.innerHTML = icon(state.likedStories.has(story.id) ? "heartFilled" : "heart");
+    const likeIcon = likeButton.querySelector("[aria-hidden]");
+    if (likeIcon) likeIcon.textContent = state.likedStories.has(story.id) ? "♥" : "♡";
     const replyInput = viewer.querySelector("[data-story-reply] input");
     if (replyInput) replyInput.value = state.replyDrafts.get(story.id) || "";
     if (story.author_id === userId) {
@@ -1150,8 +1150,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       return;
     }
     if (event.target.closest("[data-story-share]")) {
-      viewer.querySelector("[data-story-owner-menu]").hidden = true;
-      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded","false");
       sharePanel.hidden = !sharePanel.hidden;
       if (!sharePanel.hidden) {
         clearTimer();
@@ -1240,8 +1238,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       if (story.visibility==="private") {actionStatus("Menções não são permitidas em Stories privados.",true);return;}
       const selector=viewer.querySelector("[data-story-mention-person]");
       [...selector.options].forEach(option=>{if(option.value)option.disabled=option.value===userId;});
-      viewer.querySelector("[data-story-owner-menu]").hidden=true;
-      viewer.querySelector("[data-story-more]").setAttribute("aria-expanded","false");
       viewer.querySelector("[data-story-mention-dialog]").hidden=false;
       clearTimer();
       return;
@@ -1310,8 +1306,8 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         if (viewer.open && currentStory()?.id === story.id) {
           button.setAttribute("aria-pressed", isLiked ? "false" : "true");
           viewer.querySelector("[data-story-like-label]").textContent = isLiked ? "Curtir" : "Curtido";
-          const glyph = button.querySelector("[data-story-like-glyph]");
-          if (glyph) glyph.innerHTML = icon(isLiked ? "heart" : "heartFilled");
+          const icon = button.querySelector("[aria-hidden]");
+          if (icon) icon.textContent = isLiked ? "♡" : "♥";
         }
       } catch (error) {
         console.error("Looply story reaction failed.", error);
