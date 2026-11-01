@@ -77,3 +77,7 @@ Para complementar a matriz de seis resoluções, foram renderizadas fixtures *an
 | 390 / noturno simulado | https://hcti.io/v1/image/01a1988c-663c-7ce2-9789-2ea443a9e056.png | https://hcti.io/v1/image/01a1988c-6fee-7d07-a618-6c6042be4188.png |
 
 **Limite da segunda série:** usa fixture equivalente, com simplificação dos blocos de conta, sem autenticação. A série de 320/390/768 usa fixture técnica mais completa, também não autenticada. As diferenças entre fixtures impedem comparação cruzada de valores de pixels e não devem ser tratadas como equivalência pixel-perfect. O tema noturno é simulado pelos valores reais dos tokens de `src/theme.js`, não por uma sessão autenticada. O inventário das larguras agora contém todos os tamanhos solicitados, mas testes reais de interação, viewport com teclado, vídeos e feed povoado continuam **não verificados**.
+
+## 8. CI executado
+
+No commit `b1913ec0ba4aa2d85fa41076ef2ef9bc5e471088` do PR #239, os workflows **Verify Looply** e **Looply single navigation visual regression** finalizaram em **success**. Esses testes não demonstram que o conteúdo autenticado foi carregado ou que o retorno entre abas foi validado manualmente. O diff mantém apenas o CSS de Home e documentação.
