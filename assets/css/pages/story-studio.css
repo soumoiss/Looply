@@ -797,3 +797,37 @@
 @media (prefers-reduced-motion:reduce) {
   .story-studio :where(.studio-icon,.studio-pill,.studio-gallery-button,.studio-ratio-button) { transition:none!important; }
 }
+
+/* Prompt 003 — ícones da biblioteca original; preservar Aa, flash,
+   Boomerang, os efeitos criativos e a mídia em proporção original. */
+.story-studio .studio-icon > .looply-icon,
+.story-studio .studio-next > .looply-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  color: currentColor;
+  stroke-width: 1.8;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.story-studio .studio-icon,
+.story-studio .studio-next {
+  place-items: center;
+}
+.story-studio .studio-next {
+  display: grid;
+}
+.story-studio .studio-gallery-button [data-studio-thumb] {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  line-height: 0;
+}
+.story-studio .studio-gallery-button [data-studio-thumb] > .looply-icon {
+  width: 23px;
+  height: 23px;
+  color: currentColor;
+  stroke-width: 1.8;
+  pointer-events: none;
+}
