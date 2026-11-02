@@ -39,24 +39,25 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   if (!cacheable(event.request)) return;
   event.respondWith(caches.open(CACHE).then(async cache => {
-    // Versioned JS/CSS imports must never reuse a different build's bytes.
-    // The former ignoreSearch:true mixed code from different deployments.
     const cached = await cache.match(event.request, { ignoreSearch: false });
-    // Fast page transitions/offline fallback while the browser validates the
-    // static file in the background. Never cache signed cross-origin media.
-    if (cached) {
-      // Shell assets are tied to a content-hashed worker build. Re-fetching
-      // every module on every route would consume slow mobile bandwidth.
-      // Only HTML documents need opportunistic background revalidation.
-      const url = new URL(event.request.url);
-      if (event.request.mode === "navigate" || url.pathname.endsWith(".html")) {
-        event.waitUntil(fetch(event.request).then(response => store(cache, event.request, response))
-          .catch(() => null));
+    const url = new URL(event.request.url);
+    const critical = event.request.mode === "navigate" || /\.(?:html|js|css)$/i.test(url.pathname);
+    if (critical) {
+      // SECURITY/FRESHNESS: returning an old JS module before revalidation can
+      // keep old RPC allowlists active after the database and UI are migrated.
+      // Always prefer the network for executable code and navigation; retain
+      // the cached copy solely as an offline fallback.
+      try {
+        const response = await fetch(event.request, { cache: "no-cache" });
+        if (response.ok) return store(cache,event.request,response);
+        return cached || response;
+      } catch {
+        return cached || Response.error();
       }
-      return cached;
     }
-    return fetch(event.request).then(response => store(cache, event.request, response))
-      .catch(() => cached || Response.error());
+    if (cached) return cached;
+    return fetch(event.request).then(response => store(cache,event.request,response))
+      .catch(() => Response.error());
   }));
 });
 self.addEventListener("push", (event) => {
