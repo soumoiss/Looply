@@ -378,17 +378,35 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   }
   function makePeer(id){
     if(remotePeers.has(id))return remotePeers.get(id);
-    const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+    const optionalTurn=(Array.isArray(globalThis.LOOPLY_CONFIG?.rtcIceServers)?globalThis.LOOPLY_CONFIG.rtcIceServers:[])
+      .filter(s=>s && s.urls && s.username && s.credential);
+    const pc=new RTCPeerConnection({iceServers:[
+      {urls:"stun:stun.l.google.com:19302"},
+      {urls:"stun:stun1.l.google.com:19302"},...optionalTurn
+    ]});
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
-    const record={pc,audio,pending:[]};remotePeers.set(id,record);
+    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,retried:false};remotePeers.set(id,record);
     voiceStream?.getTracks().forEach(track=>pc.addTrack(track,voiceStream));
-    pc.ontrack=e=>{audio.srcObject=e.streams[0]||new MediaStream([e.track]);audio.play().catch(()=>{});};
+    pc.ontrack=e=>{
+      audio.srcObject=e.streams[0]||new MediaStream([e.track]);
+      audio.play().catch(()=>{const status=root.querySelector("[data-gartic-audio-status]");if(status)status.textContent="Toque em Áudio";});
+    };
     pc.onicecandidate=e=>{if(e.candidate)void sendPacket({kind:"voice-signal",target:id,signal:{type:"candidate",candidate:e.candidate.toJSON()}});};
     pc.onconnectionstatechange=()=>{
-      if(["failed","closed"].includes(pc.connectionState)){
-        audio.remove();remotePeers.delete(id);try{pc.close();}catch{}
+      const status=root.querySelector("[data-gartic-audio-status]");
+      if(status && voiceJoined)status.textContent=pc.connectionState==="connected"?"Áudio conectado":
+        pc.connectionState==="connecting"?"Conectando áudio…":
+        pc.connectionState==="failed"?"Reconectando áudio…":"Áudio";
+      if(pc.connectionState==="failed"&&!record.retried){
+        record.retried=true;
+        setTimeout(()=>{
+          if(!voiceJoined||remotePeers.get(id)!==record)return;
+          audio.remove();remotePeers.delete(id);pc.close();
+          void sendPacket({kind:"voice-join"});
+        },1400);
       }
+      if(pc.connectionState==="closed"){audio.remove();remotePeers.delete(id);}
     };
     return record;
   }
@@ -404,23 +422,29 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       if(packet.kind==="voice-ready"){
         const record=makePeer(sender);
-        if(record.pc.signalingState!=="stable")return;
-        const offer=await record.pc.createOffer();
-        await record.pc.setLocalDescription(offer);
-        void sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:offer.sdp}});
+        if(record.pc.signalingState!=="stable"||record.makingOffer)return;
+        record.makingOffer=true;
+        try{
+          await record.pc.setLocalDescription(await record.pc.createOffer());
+          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:record.pc.localDescription.sdp}});
+        }finally{record.makingOffer=false;}
       }
       if(packet.kind==="voice-signal" && packet.signal){
         const data=packet.signal,record=makePeer(sender);
         if(data.type==="offer"){
+          const collision=record.makingOffer||record.pc.signalingState!=="stable";
+          record.ignoreOffer=!record.polite&&collision;
+          if(record.ignoreOffer)return;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
-          const answer=await record.pc.createAnswer();
-          await record.pc.setLocalDescription(answer);
-          void sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:answer.sdp}});
+          await record.pc.setLocalDescription(await record.pc.createAnswer());
+          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
         }else if(data.type==="answer"){
-          await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
+          if(record.pc.signalingState==="have-local-offer")
+            await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
         }else if(data.type==="candidate"){
-          if(record.pc.remoteDescription)await record.pc.addIceCandidate(data.candidate);
-          else record.pending.push(data.candidate);
+          if(record.ignoreOffer)return;
+          if(record.pc.remoteDescription)await record.pc.addIceCandidate(data.candidate).catch(()=>{});
+          else if(record.pending.length<120)record.pending.push(data.candidate);
         }
         if(record.pc.remoteDescription && record.pending.length){
           const waiting=record.pending.splice(0);
@@ -435,11 +459,18 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       toast("Este navegador não permite áudio ao vivo.");return;
     }
     try{
-      voiceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      voiceStream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+        video:false
+      });
       voiceJoined=true;voiceMuted=false;
-      await sendPacket({kind:"voice-join"});
+      const announced=await sendPacket({kind:"voice-join"});
+      if(!announced)throw Error("audio_signaling_offline");
       renderGame(true);
-    }catch(error){toast("Não foi possível acessar o microfone.");}
+    }catch(error){
+      stopVoice();
+      toast(error?.name==="NotAllowedError"?"Permita o uso do microfone.":"Não foi possível conectar ao áudio.");
+    }
   }
   async function switchConversation(){
     const id=selectedConversation();
