@@ -405,7 +405,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
     const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,
-      polite:userId>id,isInitialOfferer:userId<id,recoveryTimer:null,retries:0};
+      polite:userId>id,recoveryTimer:null,retries:0};
     remotePeers.set(id,record);
     // Receive audio even if THIS player has never granted microphone access.
     // A recvonly transceiver is upgraded to sendrecv only on explicit mic tap.
@@ -413,10 +413,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
     pc.onnegotiationneeded=async()=>{
       if(!voiceJoined || remotePeers.get(id)!==record || record.makingOffer)return;
-      // Only one initial recvonly offer is needed. The other participant
-      // responds as an answerer, avoiding duplicate inactive audio sections.
-      // An explicit microphone activation may initiate an offer from either end.
-      if(!record.isInitialOfferer && !pc.remoteDescription && !voiceStream)return;
+
       try{
         record.makingOffer=true;
         if(pc.signalingState!=="stable")return;
