@@ -483,7 +483,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
     if(!id||!client)return;
     const currentId=id;
-    const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
+    const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false}}});
     channel=next;
     next.on("broadcast",{event:"ttt"},({payload})=>{
       if(currentId!==conversationId||payload?.type!=="gartic"||payload.senderId===userId)return;
