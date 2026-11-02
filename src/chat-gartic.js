@@ -59,7 +59,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
-  let latestGuessFeedback = "", mediaBooting = false;
+  let latestGuessFeedback = "", mediaBooting = false, chatBusy = false;
   let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
@@ -207,7 +207,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceMuted?'Silenciado':'Conectado'):'')+'</div></section>'+
       '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
       '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
-      '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" autocomplete="off" placeholder="Conversar…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
+      '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" enterkeyhint="send" autocomplete="off" placeholder="Mensagem…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
       '<button type="submit" aria-label="Enviar mensagem"'+(me?'':' disabled')+'>➤</button></form></section></aside>';
     const markup='<div data-looply-gartic class="gartic-shell">'+head+'<div class="gartic-grid">'+
       '<div class="gartic-primary">'+body+'</div>'+sidebar+'</div>'+
@@ -624,10 +624,42 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       return true;
     }
     if(form.matches("[data-gartic-chat]")){
-      event.preventDefault();const input=form.elements.message,text=input.value.trim();
-      if(!text)return true;
-      input.value="";
-      await perform("chat",text);
+      // Chat must not share the drawing/configuration lock. The old handler
+      // cleared the input first, then perform() silently dropped the message
+      // whenever another game action was in flight.
+      event.preventDefault();
+      event.stopPropagation();
+      const input=form.elements.message,text=input?.value?.trim();
+      if(!text || chatBusy || !game || !inGame())return true;
+      chatBusy=true;
+      const submit=form.querySelector('button[type="submit"]');
+      if(submit)submit.disabled=true;
+      try{
+        let next;
+        try{next=await rpc("chat",text);}
+        catch(error){
+          if(/rate|too many|limit/i.test(String(error.message||""))){
+            await new Promise(resolve=>setTimeout(resolve,800));
+            next=await rpc("chat",text);
+          }else throw error;
+        }
+        if(next?.gameId===game?.gameId){
+          const turnChanged=game.turn!==next.turn;
+          game=next;
+          if(turnChanged)renderGame(true);
+          else syncLiveGame();
+          void sendPacket({kind:"updated"});
+          // Preserve anything typed while the request was in progress.
+          if(input.isConnected && input.value.trim()===text)input.value="";
+        }else throw Error("chat_no_confirmation");
+      }catch(error){
+        console.warn("Gartic chat send failed",error?.message);
+        if(input.isConnected && !input.value.trim())input.value=text;
+        toast("Mensagem não enviada. Tente novamente.");
+      }finally{
+        chatBusy=false;
+        if(submit?.isConnected)submit.disabled=false;
+      }
       return true;
     }
     return false;
