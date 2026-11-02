@@ -198,8 +198,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<h3>'+escapeHtml(currentName(game.winnerId))+' venceu!</h3><p>Partida finalizada · '+players.length+' jogadores</p>'+
         people+makeButton("create","Nova partida",true)+'</div>';
     }
-    const sidebar='<aside class="gartic-sidebar"><section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+
-      (active||ended?people:'')+'</section>'+
+    const sidebar='<aside class="gartic-sidebar">'+
+      ((active||ended)?'<section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+people+'</section>':'')+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
       ''+
       (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
@@ -342,7 +342,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(disposed||!conversationId||busy)return;
     try {
       const next=await rpc("tick");
-      if(!next){game=null;updateGameIndicator();renderInviteBanner();if(force)showEmpty();return;}
+      if(!next){
+        const wasVisible=gameVisible();
+        game=null;updateGameIndicator();renderInviteBanner();
+        if(force || wasVisible)showEmpty();
+        return;
+      }
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
       const wasInvited=game?.status==="waiting"&&game?.inviteStatus==="pending";
@@ -550,7 +555,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         if(action==="chat" && gameVisible())syncLiveGame();
         else renderGame(true);
         if(action!=="create")void sendPacket({kind:"updated"});
-      }else if(action==="state")showEmpty();
+      }else {
+        game=null;renderInviteBanner();updateGameIndicator();
+        if(open && screen!=="hub")showEmpty();
+      }
     }catch(error){
       console.warn("Looply Gartic action failed",action,error?.message||"unknown");
       toast(/at least two/i.test(error.message)?"Aguarde pelo menos dois participantes.":/not a member|forbidden|session/i.test(error.message)?"Sua sessão precisa ser renovada para jogar.":"Não foi possível concluir a ação. Tente novamente.");
