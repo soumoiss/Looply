@@ -235,9 +235,9 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if(visibility==="selected"&&mentionIds.some(id=>!audience.includes(id)))
       throw Error("Menções precisam estar dentro do público selecionado");
     const isPhoto=message.originalKind==="image";
-    const duration=isPhoto&&Number(message.photoDuration)===30&&message.hasMusic?30:15;
-    // Persist duration in the existing Story text; no database migration required.
-    const body=(isPhoto?"[[WN-DURATION:"+duration+"]]":"")+
+    const duration=message.hasMusic&&Number(message.photoDuration)===30?30:15;
+    // Photo and music-backed video display duration travels in existing Story text.
+    const body=(isPhoto||message.hasMusic?"[[WN-DURATION:"+duration+"]]":"")+
       (reason?"✳ "+reason+"\n":"")+caption;
     const catalog=message.catalogTrack;
     const text=catalog?.kind==="catalog"&&catalog.provider==="apple"
