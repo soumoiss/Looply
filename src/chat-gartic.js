@@ -1,4 +1,5 @@
 import { applyGarticStroke } from "./gartic-paint.js";
+import { attachGarticViewport } from "./gartic-viewport.js";
 // Looply Gartic: server-authoritative word game scoped to an authenticated conversation.
 // Shares the existing authenticated Cloudflare "ttt" room for ephemeral drawing/audio signals.
 // All words, turns, scores, chat messages and persisted strokes are verified by Neon RPCs.
@@ -59,10 +60,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
-  let latestGuessFeedback = "", mediaBooting = false;
-  let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
+  let latestGuessFeedback = "", mediaBooting = false, chatBusy = false;
+  let voiceStream = null, voiceJoined = false, voiceMuted = true, voiceOptOut = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
+  const zoomState = {scale:1,x:0,y:0};
+  let canvasViewport = null;
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
   const hubVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-games-hub]"));
   // Intentionally independent of the legacy client.rpc allowlist: stale cached
@@ -177,10 +180,18 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<strong data-gartic-clock>--:--</strong></div>'+
         '<div class="gartic-word"><small>'+escapeHtml(wordLabel)+'</small><strong>'+safeWord+'</strong>'+
         '<span>'+answered+' acerto(s)</span></div>'+
-        '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
+        '<div class="gartic-canvas-viewport" data-gartic-viewport>'+
+          '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
+          '<canvas width="1000" height="650" class="gartic-canvas-preview" data-gartic-preview aria-hidden="true"></canvas>'+
+          '</div><div class="gartic-zoom-controls">'+
+          '<button type="button" data-gartic-zoom="out" aria-label="Diminuir zoom">−</button>'+
+          '<span data-gartic-zoom-status>100%</span>'+
+          '<button type="button" data-gartic-zoom="in" aria-label="Aumentar zoom">+</button>'+
+          '<button type="button" data-gartic-zoom="reset" aria-label="Redefinir zoom">↺</button></div>'+
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
           '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
           '<button type="button" data-gartic-tool="eraser" title="Borracha" aria-label="Borracha">⌫</button>'+
+          '<button type="button" data-gartic-tool="pan" title="Mover quadro" aria-label="Mover quadro">✋</button>'+
           '<button type="button" data-gartic-tool="fill" title="Balde de tinta" aria-label="Preencher área">▰</button>'+
           '<button type="button" data-gartic-tool="line" title="Linha" aria-label="Linha">╱</button>'+
           '<button type="button" data-gartic-tool="circle" title="Círculo" aria-label="Círculo">◯</button>'+
@@ -202,12 +213,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       ((active||ended)?'<section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+people+'</section>':'')+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
       ''+
-      (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
-        makeButton("join-voice","Entrar no áudio",false,!me||!connected))+
-      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceMuted?'Silenciado':'Conectado'):'')+'</div></section>'+
+      (voiceJoined?makeButton("mute",voiceStream?(voiceMuted?'Ativar microfone':'Silenciar microfone'):'Ativar microfone')+
+        makeButton("join-voice","Ouvir áudio")+makeButton("leave-voice","Sair do áudio"):
+        makeButton("join-voice","Ouvir áudio",false,!me))+
+      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceStream&&!voiceMuted?'Microfone ligado':'Ouvindo'):'')+'</div></section>'+
       '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
       '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
-      '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" autocomplete="off" placeholder="Conversar…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
+      '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" enterkeyhint="send" autocomplete="off" placeholder="Mensagem…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
       '<button type="submit" aria-label="Enviar mensagem"'+(me?'':' disabled')+'>➤</button></form></section></aside>';
     const markup='<div data-looply-gartic class="gartic-shell">'+head+'<div class="gartic-grid">'+
       '<div class="gartic-primary">'+body+'</div>'+sidebar+'</div>'+
@@ -215,6 +227,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
+    // Voice is auto-received only while the player is actually in Gartic.
+    if(me && (waiting || active))startVoiceListening();
     for(const draft of previousDrafts){
       const input=draft.cls?.includes("gartic-chat-form")?
         root.querySelector(".gartic-chat-form input"):root.querySelector(".gartic-guess-form input");
@@ -246,7 +260,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const feedback=root.querySelector("[data-gartic-feedback]");
     if(feedback && latestGuessFeedback)feedback.textContent=latestGuessFeedback;
     const audioStatus=root.querySelector("[data-gartic-audio-status]");
-    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceMuted?"Silenciado":"Conectado"):"";
+    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceStream&&!voiceMuted?"Microfone ligado":"Ouvindo"):"";
     drawAll();
     updateClock();
   }
@@ -297,46 +311,46 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     for(const stroke of [...(game?.strokes||[]),...localStrokes])drawStroke(ctx,stroke);
   }
   function setupCanvas(){
-    const canvas=root.querySelector("[data-gartic-canvas]");if(!canvas)return;
-    if(!amDrawer()){canvas.style.touchAction="auto";return;}
-    canvas.style.touchAction="none";
-    const position=e=>{
-      const b=canvas.getBoundingClientRect();
-      return [Math.round(Math.max(0,Math.min(1000,(e.clientX-b.left)*1000/b.width))),
-        Math.round(Math.max(0,Math.min(1000,(e.clientY-b.top)*1000/b.height)))];
-    };
-    canvas.onpointerdown=e=>{
-      if(!amDrawer()||e.button>0)return;
-      e.preventDefault();canvas.setPointerCapture(e.pointerId);
-      drawing={tool,color:tool==="eraser"?"#ffffff":color,width:tool==="eraser"?26:width,points:[position(e)]};
-      if(tool==="fill"){void canvas.onpointerup(e);return;}
-      drawAll();drawStroke(canvas.getContext("2d"),drawing);
-    };
-    canvas.onpointermove=e=>{
-      if(!drawing)return;e.preventDefault();
-      const p=position(e),last=drawing.points.at(-1);
-      if(last&&Math.hypot(last[0]-p[0],last[1]-p[1])<2)return;
-      if(["line","circle","rectangle"].includes(drawing.tool))drawing.points=[drawing.points[0],p];
-      else if(drawing.points.length<140)drawing.points.push(p);
-      drawAll();drawStroke(canvas.getContext("2d"),drawing);
-    };
-    canvas.onpointerup=async e=>{
-      if(!drawing)return;
-      const stroke=drawing;drawing=null;
-      if(stroke.points.length===1 && stroke.tool!=="fill")stroke.points.push(stroke.points[0]);
-      localStrokes.push(stroke);drawAll();
-      try{
-        const next=await rpc("stroke",JSON.stringify(stroke));
-        const previous=game?.turn;
-        if(next){game=next;serverDelta=Date.parse(next.serverNow)-Date.now();if(next.turn!==previous)localStrokes=[];}
-        localStrokes=[];drawAll();
-        void sendPacket({kind:"stroke",turn:previous,stroke});
-      }catch(error){
-        localStrokes=localStrokes.filter(x=>x!==stroke);
-        drawAll();toast("O traço não foi salvo. Confira a conexão.");
+    canvasViewport?.destroy();canvasViewport=null;
+    const canvas=root.querySelector("[data-gartic-canvas]");
+    if(!canvas)return;
+    canvasViewport=attachGarticViewport(canvas,{
+      state:zoomState,canDraw:amDrawer,currentTool:()=>tool,
+      onPreview:stroke=>{
+        drawing=stroke;
+        // Separate transparent overlay: avoid replaying the whole 650K-pixel
+        // drawing on every pointermove, which stalls audio on Android WebView.
+        const layer=root.querySelector("[data-gartic-preview]");
+        const preview=layer?.getContext("2d");
+        if(!preview)return;
+        preview.clearRect(0,0,1000,650);
+        if(stroke && stroke.tool!=="fill")drawStroke(preview,{
+          ...stroke,color:stroke.tool==="eraser"?"#ffffff":color,
+          width:stroke.tool==="eraser"?26:width
+        });
+      },
+      onCommit:async stroke=>{
+        if(!amDrawer()||!game?.gameId)return;
+        const targetGame=game.gameId,targetTurn=game.turn;
+        const packet={...stroke,color:stroke.tool==="eraser"?"#ffffff":color,
+          width:stroke.tool==="eraser"?26:width};
+        localStrokes.push(packet);drawAll();
+        try{
+          const next=await rpc("stroke",JSON.stringify(packet));
+          if(!next || next.gameId!==targetGame)throw Error("gartic_stroke_outdated");
+          if(game?.gameId===targetGame && game.turn===targetTurn){
+            game=next;
+            localStrokes=localStrokes.filter(v=>v!==packet);
+            drawAll();
+            void sendPacket({kind:"stroke",turn:targetTurn,stroke:packet});
+          }else localStrokes=localStrokes.filter(v=>v!==packet);
+        }catch(error){
+          localStrokes=localStrokes.filter(v=>v!==packet);
+          drawAll();
+          toast("Não foi possível salvar o desenho.");
+        }
       }
-    };
-    canvas.onpointercancel=()=>{drawing=null;drawAll();};
+    });
   }
   async function refresh(force=false){
     if(disposed||!conversationId||busy)return;
@@ -356,9 +370,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       game=next;
       if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
         toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
-      updateGameIndicator();renderInviteBanner();
+      updateGameIndicator();renderInviteBanner();startVoiceListening();
       if(priorGame!==next.gameId || priorTurn!==next.turn){
         localStrokes=[];latestGuessFeedback="";
+        zoomState.scale=1;zoomState.x=0;zoomState.y=0;
       }
       if(open&&screen!=="hub"&&(changed||force)){
         renderedKey=key;
@@ -378,10 +393,14 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   }
   function stopVoice(){
     if(voiceJoined)void sendPacket({kind:"voice-leave"});
-    for(const {pc,audio} of remotePeers.values()){try{pc.close();}catch{}audio?.remove();}
+    for(const {pc,audio,recoveryTimer} of remotePeers.values()){
+      clearTimeout(recoveryTimer);
+      try{pc.close();}catch{}
+      audio?.remove();
+    }
     remotePeers.clear();
     voiceStream?.getTracks().forEach(t=>t.stop());voiceStream=null;
-    voiceJoined=false;voiceMuted=false;
+    voiceJoined=false;voiceMuted=true;
   }
   function makePeer(id){
     if(remotePeers.has(id))return remotePeers.get(id);
@@ -391,13 +410,53 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       {urls:"stun:stun.l.google.com:19302"},
       {urls:"stun:stun1.l.google.com:19302"},...optionalTurn
     ]});
-    const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;
+    const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
-    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,retried:false};remotePeers.set(id,record);
-    voiceStream?.getTracks().forEach(track=>pc.addTrack(track,voiceStream));
+    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,
+      polite:userId>id,initialOfferer:userId<id,needsNegotiation:true,
+      recoveryTimer:null,retries:0};
+    remotePeers.set(id,record);
+    // Negotiate audio both ways without accessing anyone's microphone.
+    // The sender initially has no track, so no audio is transmitted by listeners.
+    record.transceiver=pc.addTransceiver("audio",{direction:"sendrecv"});
+    if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
+    // A stable, serialized offer queue prevents microphone enable/disable from
+    // racing the first recvonly SDP exchange (the source of silent receivers).
+    // Only one side sends the first offer; either side can renegotiate later.
+    record.negotiate=async()=>{
+      if(!record.needsNegotiation || record.makingOffer || !voiceJoined ||
+         !connected || remotePeers.get(id)!==record)return;
+      if(!record.initialOfferer && !pc.remoteDescription)return;
+      if(pc.signalingState!=="stable")return;
+      record.makingOffer=true;record.needsNegotiation=false;
+      try{
+        await pc.setLocalDescription(await pc.createOffer());
+        if(pc.localDescription?.type!=="offer")return;
+        const sent=await sendPacket({kind:"voice-signal",target:id,
+          signal:{type:"offer",sdp:pc.localDescription.sdp}});
+        if(!sent)record.needsNegotiation=true;
+      }catch(error){
+        record.needsNegotiation=true;
+        console.warn("Gartic audio renegotiation failed",error?.message);
+      }finally{
+        record.makingOffer=false;
+        if(record.needsNegotiation && pc.signalingState==="stable" && connected)
+          queueMicrotask(()=>void record.negotiate());
+      }
+    };
+    pc.onnegotiationneeded=()=>{
+      record.needsNegotiation=true;void record.negotiate();
+    };
+    pc.onsignalingstatechange=()=>{
+      if(pc.signalingState==="stable" && record.needsNegotiation)
+        void record.negotiate();
+    };
     pc.ontrack=e=>{
       audio.srcObject=e.streams[0]||new MediaStream([e.track]);
-      audio.play().catch(()=>{const status=root.querySelector("[data-gartic-audio-status]");if(status)status.textContent="Toque em Áudio";});
+      void audio.play().catch(()=>{
+        const status=root.querySelector("[data-gartic-audio-status]");
+        if(status)status.textContent="Toque em Ouvir áudio";
+      });
     };
     pc.onicecandidate=e=>{if(e.candidate)void sendPacket({kind:"voice-signal",target:id,signal:{type:"candidate",candidate:e.candidate.toJSON()}});};
     pc.onconnectionstatechange=()=>{
@@ -405,15 +464,28 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(status && voiceJoined)status.textContent=pc.connectionState==="connected"?"Áudio conectado":
         pc.connectionState==="connecting"?"Conectando áudio…":
         pc.connectionState==="failed"?"Reconectando áudio…":"Áudio";
-      if(pc.connectionState==="failed"&&!record.retried){
-        record.retried=true;
-        setTimeout(()=>{
-          if(!voiceJoined||remotePeers.get(id)!==record)return;
-          audio.remove();remotePeers.delete(id);pc.close();
-          void sendPacket({kind:"voice-join"});
-        },1400);
+      if(pc.connectionState==="connected"){
+        clearTimeout(record.recoveryTimer);record.recoveryTimer=null;record.retries=0;
       }
-      if(pc.connectionState==="closed"){audio.remove();remotePeers.delete(id);}
+      if(["failed","disconnected"].includes(pc.connectionState) &&
+          record.recoveryTimer===null && record.retries<3){
+        record.recoveryTimer=setTimeout(()=>{
+          record.recoveryTimer=null;
+          if(!voiceJoined || remotePeers.get(id)!==record ||
+             !["failed","disconnected"].includes(pc.connectionState))return;
+          record.retries++;
+          // ICE restart retains the received stream and avoids a cascade of
+          // destroyed peers/failed offers on a brief mobile network handoff.
+          try{
+            if(typeof pc.restartIce==="function")pc.restartIce();
+            else void sendPacket({kind:"voice-join"});
+          }catch(error){console.warn("Gartic ICE recovery",error?.message);}
+        },pc.connectionState==="failed"?2500:5500);
+      }
+      if(pc.connectionState==="closed"){
+        clearTimeout(record.recoveryTimer);
+        audio.remove();remotePeers.delete(id);
+      }
     };
     return record;
   }
@@ -429,12 +501,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       if(packet.kind==="voice-ready"){
         const record=makePeer(sender);
-        if(record.pc.signalingState!=="stable"||record.makingOffer)return;
-        record.makingOffer=true;
-        try{
-          await record.pc.setLocalDescription(await record.pc.createOffer());
-          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:record.pc.localDescription.sdp}});
-        }finally{record.makingOffer=false;}
+        void record.negotiate();
       }
       if(packet.kind==="voice-signal" && packet.signal){
         const data=packet.signal,record=makePeer(sender);
@@ -442,9 +509,14 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           const collision=record.makingOffer||record.pc.signalingState!=="stable";
           record.ignoreOffer=!record.polite&&collision;
           if(record.ignoreOffer)return;
+          if(collision)record.needsNegotiation=true;
+          // The non-initiator's initial recvonly transceiver is satisfied by
+          // this answer; do not start a redundant offer unless a mic is active.
+          else if(!record.initialOfferer)record.needsNegotiation=false;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
           await record.pc.setLocalDescription(await record.pc.createAnswer());
           await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
+          if(record.needsNegotiation)void record.negotiate();
         }else if(data.type==="answer"){
           if(record.pc.signalingState==="have-local-offer")
             await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
@@ -460,29 +532,75 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       }
     }catch(error){console.warn("Gartic voice negotiation failed",error?.message);}
   }
+  function startVoiceListening(){
+    if(voiceOptOut || voiceJoined || !inGame() || disposed ||
+       !open || screen==="hub" || !gameVisible())return;
+    if(!globalThis.RTCPeerConnection)return;
+    voiceJoined=true;
+    voiceMuted=!voiceStream;
+    if(connected)void sendPacket({kind:"voice-join"});
+  }
   async function joinVoice(){
-    if(voiceJoined||!connected||!inGame()) {toast("A sala de áudio ainda não está disponível.");return;}
-    if(!navigator.mediaDevices?.getUserMedia||!globalThis.RTCPeerConnection){
-      toast("Este navegador não permite áudio ao vivo.");return;
+    if(!inGame() || !globalThis.RTCPeerConnection){
+      toast("Áudio indisponível nesta sala.");return;
     }
+    voiceOptOut=false;
+    startVoiceListening();
+    // Playback unlock requires a user gesture on some mobile WebViews.
+    // An audio element without an incoming stream can leave play() pending.
+    // Never block the receiver's UI or the next peer's join on that promise.
+    for(const record of remotePeers.values()){
+      if(record.audio.srcObject)void record.audio.play().catch(()=>{});
+    }
+    const node=root.querySelector("[data-gartic-audio-status]");
+    if(node)node.textContent="Ouvindo";
+  }
+  async function toggleMicrophone(){
+    if(mediaBooting || !inGame())return;
+    voiceOptOut=false;startVoiceListening();
+    if(voiceStream){
+      voiceMuted=!voiceMuted;
+      voiceStream.getAudioTracks().forEach(track=>track.enabled=!voiceMuted);
+      updateVoiceControls();
+      return;
+    }
+    if(!navigator.mediaDevices?.getUserMedia){
+      toast("Microfone indisponível.");return;
+    }
+    mediaBooting=true;
     try{
+      // Only the person transmitting audio needs to authorize the microphone.
       voiceStream=await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},
         video:false
       });
-      voiceJoined=true;voiceMuted=false;
-      const announced=await sendPacket({kind:"voice-join"});
-      if(!announced)throw Error("audio_signaling_offline");
-      renderGame(true);
+      voiceMuted=false;
+      const track=voiceStream.getAudioTracks()[0];
+      for(const record of remotePeers.values()){
+        if(!record.transceiver)continue;
+        await record.transceiver.sender.replaceTrack(track);
+        // Direction was negotiated at connection establishment, so no SDP update.
+      }
+      if(connected)void sendPacket({kind:"voice-join"});
+      updateVoiceControls();
     }catch(error){
-      stopVoice();
-      toast(error?.name==="NotAllowedError"?"Permita o uso do microfone.":"Não foi possível conectar ao áudio.");
-    }
+      voiceStream?.getTracks().forEach(track=>track.stop());voiceStream=null;voiceMuted=true;
+      console.warn("Gartic microphone permission",error?.name);
+      toast(error?.name==="NotAllowedError"?"Permita o acesso ao microfone.":"Não foi possível ativar o microfone.");
+    }finally{mediaBooting=false;}
+  }
+  function updateVoiceControls(){
+    const mic=root.querySelector('[data-gartic-action="mute"]');
+    if(mic)mic.textContent=!voiceStream||voiceMuted?"Ativar microfone":"Silenciar microfone";
+    const status=root.querySelector("[data-gartic-audio-status]");
+    if(status)status.textContent=voiceStream&&!voiceMuted?"Microfone ligado":"Ouvindo";
   }
   async function switchConversation(){
     const id=selectedConversation();
     if(id===conversationId)return;
-    stopVoice();if(channel)try{await client.removeChannel(channel)}catch{}
+    stopVoice();voiceOptOut=false;canvasViewport?.destroy();canvasViewport=null;
+    zoomState.scale=1;zoomState.x=0;zoomState.y=0;
+    if(channel)try{await client.removeChannel(channel)}catch{}
     conversationId=id;channel=null;game=null;connected=false;renderedKey="";localStrokes=[];
     root.querySelector("[data-gartic-invitation]")?.remove();
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
@@ -509,7 +627,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       connected=status==="SUBSCRIBED";
       const node=root.querySelector("[data-gartic-audio-status]");
       if(node)node.textContent=connected?"Sala conectada":"Conectando ao tempo real…";
-      if(connected&&voiceJoined)void sendPacket({kind:"voice-join"});
+      if(connected&&voiceJoined){
+        void sendPacket({kind:"voice-join"});
+        for(const record of remotePeers.values())void record.negotiate();
+      }
     });
     let backgroundPolls=0;
     pollTimer=setInterval(()=>{
@@ -549,7 +670,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           }
         }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
-        renderInviteBanner();updateGameIndicator();
+        renderInviteBanner();updateGameIndicator();startVoiceListening();
         if(before!==next.turn)localStrokes=[];
         renderedKey="";
         if(action==="chat" && gameVisible())syncLiveGame();
@@ -575,18 +696,19 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       else if(action==="ttt"){stopVoice();open=false;closeModal();await openTtt();}
       else if(action==="gartic")await openGartic();
       else if(action==="join-voice")await joinVoice();
-      else if(action==="mute"){
-        voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
-        const mute=root.querySelector('[data-gartic-action="mute"]');
-        if(mute)mute.textContent=voiceMuted?"Ativar microfone":"Silenciar microfone";
-        const status=root.querySelector("[data-gartic-audio-status]");
-        if(status)status.textContent=voiceMuted?"Silenciado":"Conectado";
-      }else if(action==="leave-voice"){stopVoice();renderGame(true);}
+      else if(action==="mute")await toggleMicrophone();
+      else if(action==="leave-voice"){voiceOptOut=true;stopVoice();renderGame(true);}
       else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
       return true;
     }
     if(button.hasAttribute("data-gartic-invite-user")){
       await perform("invite",button.dataset.garticInviteUser);
+      return true;
+    }
+    if(button.hasAttribute("data-gartic-zoom")){
+      const action=button.dataset.garticZoom;
+      if(action==="reset")canvasViewport?.reset();
+      else canvasViewport?.zoom(action==="in"?1.35:1/1.35);
       return true;
     }
     if(button.hasAttribute("data-gartic-color")){
@@ -624,15 +746,49 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       return true;
     }
     if(form.matches("[data-gartic-chat]")){
-      event.preventDefault();const input=form.elements.message,text=input.value.trim();
-      if(!text)return true;
-      input.value="";
-      await perform("chat",text);
+      // Chat must not share the drawing/configuration lock. The old handler
+      // cleared the input first, then perform() silently dropped the message
+      // whenever another game action was in flight.
+      event.preventDefault();
+      event.stopPropagation();
+      const input=form.elements.message,text=input?.value?.trim();
+      if(!text || chatBusy || !game || !inGame())return true;
+      chatBusy=true;
+      const submit=form.querySelector('button[type="submit"]');
+      if(submit)submit.disabled=true;
+      try{
+        let next;
+        try{next=await rpc("chat",text);}
+        catch(error){
+          if(/rate|too many|limit/i.test(String(error.message||""))){
+            await new Promise(resolve=>setTimeout(resolve,800));
+            next=await rpc("chat",text);
+          }else throw error;
+        }
+        if(next?.gameId===game?.gameId){
+          const turnChanged=game.turn!==next.turn;
+          game=next;
+          if(turnChanged)renderGame(true);
+          else syncLiveGame();
+          void sendPacket({kind:"updated"});
+          // Preserve anything typed while the request was in progress.
+          const latestInput=root.querySelector('[data-gartic-chat] input[name="message"]');
+          if(latestInput?.value.trim()===text)latestInput.value="";
+        }else throw Error("chat_no_confirmation");
+      }catch(error){
+        console.warn("Gartic chat send failed",error?.message);
+        const latestInput=root.querySelector('[data-gartic-chat] input[name="message"]');
+        if(latestInput && !latestInput.value.trim())latestInput.value=text;
+        toast("Mensagem não enviada. Tente novamente.");
+      }finally{
+        chatBusy=false;
+        if(submit?.isConnected)submit.disabled=false;
+      }
       return true;
     }
     return false;
   }
   function onConversation(){void switchConversation();}
-  function dispose(){disposed=true;root.querySelector("[data-gartic-invitation]")?.remove();stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
+  function dispose(){disposed=true;canvasViewport?.destroy();canvasViewport=null;root.querySelector("[data-gartic-invitation]")?.remove();stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
   return {handleClick,handleChange,handleSubmit,onConversation,dispose,openHub:renderHub};
 }
