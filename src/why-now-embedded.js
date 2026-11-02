@@ -7,6 +7,8 @@
   const send = (type, data) => window.parent.postMessage(Object.assign({ channel: "looply-why-now-v1", type }, data || {}), origin);
   const pending = new Map();
   let serial = 0, groups = [], me = null, catalogTrack = null, publishing = false, musicPickerCleanup = null;
+  let viewerCatalogAudio = null;
+  function stopCatalogAudio() { if (viewerCatalogAudio) { viewerCatalogAudio.pause(); viewerCatalogAudio.removeAttribute("src"); viewerCatalogAudio = null; } }
   function request(type, data) {
     const id = ++serial;
     return new Promise((resolve, reject) => {
@@ -26,7 +28,7 @@
       id: story.id, remoteUrl: story.url, type: story.type, created: story.created,
       name: group.name, owner: group.authorId === me?.id, initial: (group.name || "?").charAt(0).toUpperCase(),
       avatarUrl: group.avatarUrl || "", caption: story.caption || "", reason: story.reason || "",
-      seen: Boolean(story.seen), items: [], strokes: [], filter: "none"
+      seen: Boolean(story.seen), catalogMusic: story.music || null, items: [], strokes: [], filter: "none"
     };
   }
   function avatarNode(g) {
@@ -45,6 +47,7 @@
   }
   renderHome = function () {
     const row = document.querySelector("#moment-row");
+    document.querySelector("#home .home-sub").textContent = "Why Now";
     row.replaceChildren();
     const all = [];
     const mine = ownGroup();
@@ -76,8 +79,11 @@
     oldShowScreen(name);
     send("mode", { mode: name });
   };
+  const originalStopViewer = stopViewer;
+  stopViewer = function () { stopCatalogAudio(); originalStopViewer(); };
   const originalLoadViewer = loadViewerRecord;
   loadViewerRecord = async function () {
+    stopCatalogAudio();
     await originalLoadViewer();
     const current = viewerRecord();
     if (!current?.remoteUrl) return;
@@ -96,6 +102,27 @@
     } else {
       img.src = current.remoteUrl; img.classList.remove("hidden"); vid.classList.add("hidden");
       document.querySelector("#viewer-sound").hidden = true;
+    }
+    if (current.catalogMusic?.provider === "apple") {
+      const sound = document.querySelector("#viewer-sound");
+      sound.hidden = false; sound.textContent = "♫";
+      sound.title = "Ouvir música do Why Now";
+      sound.setAttribute("aria-label", "Ouvir ou pausar música de fundo");
+      sound.onclick = async () => {
+        if (viewerCatalogAudio) {
+          if (viewerCatalogAudio.paused) void viewerCatalogAudio.play().catch(() => showToast("Toque novamente para ouvir"));
+          else viewerCatalogAudio.pause();
+          return;
+        }
+        try {
+          const catalog = await import("./story-music-catalog.js?v=story-music-official-widget-20261028");
+          const url = await catalog.resolveAppleStoryPreview(current.catalogMusic);
+          if (!url || viewerRecord()?.id !== current.id) return;
+          const audio = new Audio(url);
+          viewerCatalogAudio = audio; audio.preload = "auto";
+          void audio.play().catch(() => showToast("Toque novamente para ouvir"));
+        } catch (e) { console.warn("[Why Now] Apple preview unavailable", e); }
+      };
     }
     const avatar = document.querySelector("#view-avatar");
     if (current.avatarUrl && /^https:\/\//i.test(current.avatarUrl)) {
@@ -217,6 +244,16 @@
       if (screen === "viewer" && viewerRecord()?.remoteUrl) {
         const active = storyForId(viewerRecord().id);
         if (!active) closeViewer();
+      }
+    }
+    if (data.type === "open-story" && data.storyId) {
+      for (const group of groups) {
+        const stories = storiesOf(group).filter(st => st.url);
+        const index = stories.findIndex(st => st.id === data.storyId);
+        if (index >= 0) {
+          openViewer(stories.map(st => contentRecord(st, group)), index, "home");
+          break;
+        }
       }
     }
     if (data.type === "ack") {
