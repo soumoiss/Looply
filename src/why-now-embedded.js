@@ -366,20 +366,180 @@
       }).catch(messageError).finally(() => { b.disabled = false; });
     };
   };
+  // Editor-only publication state; never alter the independent Why Now demo.
   const publish = document.querySelector("#btn-publish");
-  publish.onclick = async function () {
-    if (publishing || !media) return;
-    publishing = true; publish.disabled = true;
-    try {
-      const draft = buildDraft();
-      const blob = draft.music ? await wnExportWithMusic(draft) :
-        draft.type === "image" ? await exportMomentImage(draft) : await exportEditedVideo(draft);
-      if (!(blob instanceof Blob) || !blob.size) throw Error("empty export");
-      await request("publish", { blob, kind: blob.type.startsWith("video/") ? "video" : "image",
-        caption: draft.caption || "", reason: draft.reason || "", catalogTrack });
-      wnStopPreview(); showToast("Why Now publicado"); showScreen("home");
-    } catch (error) { messageError(error); }
-    finally { publishing = false; publish.disabled = false; }
+  let editorAudience="public", editorRecipients=new Set(), editorMentions=new Set(), clipSeconds=15;
+  const baseEnterEditor=enterEditor;
+  const editorMentionsButton=document.createElement("button");
+  editorMentionsButton.type="button";editorMentionsButton.id="wn-editor-mentions";
+  editorMentionsButton.className="round glass";editorMentionsButton.textContent="@";
+  editorMentionsButton.setAttribute("aria-label","Mencionar usuários antes de publicar");
+  editorMentionsButton.title="Mencionar usuários";
+  document.querySelector("#editor .editor-tools").insertBefore(
+    editorMentionsButton,document.querySelector("#tool-options"));
+  const durationBar=document.createElement("div");durationBar.id="wn-duration-options";
+  durationBar.innerHTML='<span>Tempo do instante</span><button type="button" data-wn-seconds="15">15 s</button><button type="button" data-wn-seconds="30">30 s</button>';
+  document.querySelector("#editor .edit-bottom").before(durationBar);
+  const selectedCount=()=>editorMentions.size;
+  function hasEditorMusic(){return Boolean(catalogTrack || wnMusic?.blob);}
+  function editorDuration(){
+    if(media?.type==="image")return hasEditorMusic()?clipSeconds:15;
+    if(hasEditorMusic())return clipSeconds;
+    const duration=Number(document.querySelector("#edit-video")?.duration);
+    return Number.isFinite(duration)&&duration>0?Math.ceil(duration):media?.source==="camera"?90:30;
+  }
+  function syncDurationControl(){
+    const enabled=hasEditorMusic();
+    durationBar.hidden=!enabled;
+    const remains=wnMusic?.blob?(wnMusic.duration-wnMusic.start):Infinity;
+    for(const btn of durationBar.querySelectorAll("[data-wn-seconds]")){
+      const sec=Number(btn.dataset.wnSeconds);
+      btn.disabled=remains<sec-.1;
+      btn.classList.toggle("is-selected",sec===clipSeconds);
+      btn.setAttribute("aria-pressed",String(sec===clipSeconds));
+    }
+    if(enabled&&remains<clipSeconds-.1){clipSeconds=15;syncDurationControl();return;}
+    editorMentionsButton.textContent=selectedCount()?"@"+selectedCount():"@";
+  }
+  durationBar.addEventListener("click",event=>{
+    const btn=event.target.closest("[data-wn-seconds]");
+    if(!btn||btn.disabled)return;
+    clipSeconds=Number(btn.dataset.wnSeconds);
+    if(wnMusic?.blob){
+      wnMusic.length=Math.min(clipSeconds,Math.max(.5,wnMusic.duration-wnMusic.start));
+      wnUpdateSong();
+    }
+    syncDurationControl();
+  });
+  enterEditor=function(item){
+    editorAudience="public";editorRecipients.clear();editorMentions.clear();
+    clipSeconds=15;catalogTrack=null;
+    musicPickerCleanup?.();musicPickerCleanup=null;
+    wnClearSong();
+    baseEnterEditor(item);
+    syncDurationControl();
+  };
+  function selectedPeoplePicker(title,selected,limit,onDone){
+    const oldValues=new Set(selected);
+    pauseViewer(true);
+    sheetOpen('<h2 class="sheet-title">'+escapeHtml(title)+'</h2><div class="wn-editor-people" id="wn-editor-people"></div>');
+    const area=document.querySelector("#wn-editor-people");
+    const search=document.createElement("input");
+    search.type="search";search.placeholder="Pesquisar nome ou @username";search.autocomplete="off";
+    search.setAttribute("aria-label","Buscar usuário");
+    const summary=document.createElement("p");summary.className="wn-editor-selection-info";
+    const list=document.createElement("div");list.className="wn-people-options";
+    const save=document.createElement("button");save.type="button";save.className="wn-sheet-action wn-confirm";
+    save.textContent="Concluir";save.onclick=()=>{onDone(new Set(oldValues));sheetClose();syncDurationControl();};
+    area.append(search,summary,list,save);
+    function updateCount(){summary.textContent=oldValues.size+" selecionado"+(oldValues.size===1?"":"s")+" · máximo "+limit;}
+    updateCount();
+    void request("people",{}).then(({people})=>{
+      if(!area.isConnected)return;
+      const choices=Array.isArray(people)?people:[];
+      const render=()=>{
+        list.replaceChildren();
+        const q=search.value.trim().toLocaleLowerCase("pt-BR");
+        for(const person of choices){
+          if(q&&!String(person.name+" "+person.username).toLocaleLowerCase("pt-BR").includes(q))continue;
+          const button=personElement(person,btn=>{
+            if(oldValues.has(person.id))oldValues.delete(person.id);
+            else if(oldValues.size<limit)oldValues.add(person.id);
+            else {showToast("Selecione no máximo "+limit+" pessoas");return;}
+            btn.classList.toggle("selected",oldValues.has(person.id));
+            btn.setAttribute("aria-pressed",String(oldValues.has(person.id)));
+            updateCount();
+          });
+          button.classList.toggle("selected",oldValues.has(person.id));
+          button.setAttribute("aria-pressed",String(oldValues.has(person.id)));
+          const mark=document.createElement("span");mark.className="wn-editor-check";
+          mark.textContent="✓";button.append(mark);
+          list.append(button);
+        }
+        if(!list.childElementCount){const empty=document.createElement("p");empty.textContent="Nenhum perfil encontrado.";list.append(empty);}
+      };
+      search.addEventListener("input",render);render();
+    }).catch(err=>{messageError(err);sheetClose();});
+  }
+  editorMentionsButton.onclick=()=>{
+    selectedPeoplePicker("Mencionar pessoas",editorMentions,20,ids=>{
+      editorMentions=ids;
+      // A restricted Why Now only allows mentioning its own recipients.
+      if(editorAudience==="selected")for(const id of ids)editorRecipients.add(id);
+    });
+  };
+  const existingTick=viewerTick;
+  viewerTick=function(now){
+    const it=viewerRecord();
+    if(it?.remoteUrl && it.type==="image" && screen==="viewer"){
+      if(!viewerPaused){
+        const dt=Math.max(0,Math.min(100,now-viewerLast));
+        const seconds=[15,30].includes(Number(it.duration))?Number(it.duration):15;
+        viewProgress+=dt/(seconds*1000);
+        const bar=document.querySelector("#prog-"+viewerIdx);
+        if(bar)bar.style.width=(Math.min(1,viewProgress)*100)+"%";
+        if(viewProgress>=1){nextViewer();return;}
+      }
+      viewerLast=now;viewerRaf=requestAnimationFrame(viewerTick);return;
+    }
+    existingTick(now);
+  };
+  async function confirmPublish(){
+    if(publishing || !media)return;
+    if(editorAudience==="selected"&&!editorRecipients.size){showToast("Escolha quem pode visualizar");return;}
+    const finalRecipients=editorAudience==="selected"?
+      [...new Set([...editorRecipients,...editorMentions])]:[];
+    if(finalRecipients.length>49){showToast("Máximo de 49 destinatários");return;}
+    const button=document.querySelector("#wn-publish-confirm");
+    publishing=true;publish.disabled=true;if(button)button.disabled=true;
+    try{
+      const draft=buildDraft();
+      const song=hasEditorMusic();
+      const seconds=editorDuration();
+      if(media.source==="camera"&&draft.type==="video"&&!song&&seconds>90)
+        throw Error("Gravação acima de 90 segundos");
+      const blob=draft.music?.blob ? await wnExportWithMusic({...draft,durationSeconds:seconds}) :
+        draft.type==="image" ? await exportMomentImage(draft) :
+        await exportEditedVideo(draft,song?clipSeconds:Infinity);
+      if(!(blob instanceof Blob)||!blob.size)throw Error("Mídia vazia");
+      await request("publish",{
+        blob,kind:blob.type.startsWith("video/")?"video":"image",
+        caption:draft.caption||"",reason:draft.reason||"",source:media.source||"gallery",
+        durationSeconds:seconds,hasMusic:song,catalogTrack,
+        visibility:editorAudience,recipientIds:finalRecipients,mentionIds:[...editorMentions]
+      });
+      sheetClose();wnStopPreview();showToast("Why Now publicado");showScreen("home");
+    }catch(error){messageError(error);}
+    finally{publishing=false;publish.disabled=false;if(button)button.disabled=false;}
+  }
+  publish.onclick=()=>{
+    if(!media||publishing)return;
+    const title=editorAudience==="selected"?"Pessoas específicas":"Todos";
+    sheetOpen('<h2 class="sheet-title">Quem poderá ver?</h2><p class="sheet-desc">Escolha o público antes de publicar seu Why Now.</p><div id="wn-publish-audience" class="wn-publish-audience"></div>');
+    const area=document.querySelector("#wn-publish-audience");
+    const all=createAction("◎ Todos",()=>{editorAudience="public";draw();});
+    const selected=createAction("◉ Pessoas específicas",()=>{editorAudience="selected";draw();});
+    const people=createAction("Escolher pessoas",()=>{
+      selectedPeoplePicker("Quem pode visualizar",editorRecipients,49,ids=>{
+        editorRecipients=ids;for(const id of editorMentions)editorRecipients.add(id);
+        publish.onclick();
+      });
+    });
+    const count=document.createElement("p");count.className="wn-editor-selection-info";
+    const confirm=createAction("Publicar Why Now",()=>void confirmPublish(),"wn-confirm");
+    confirm.id="wn-publish-confirm";
+    const cancel=createAction("Voltar à edição",()=>sheetClose(),"wn-close");
+    function draw(){
+      all.classList.toggle("is-selected",editorAudience==="public");
+      selected.classList.toggle("is-selected",editorAudience==="selected");
+      all.setAttribute("aria-pressed",String(editorAudience==="public"));
+      selected.setAttribute("aria-pressed",String(editorAudience==="selected"));
+      people.hidden=editorAudience!=="selected";
+      count.textContent=editorAudience==="selected"?
+        editorRecipients.size+" destinatários selecionados":"Todos os usuários do Looply";
+      confirm.disabled=editorAudience==="selected"&&!editorRecipients.size&&!editorMentions.size;
+    }
+    area.append(all,selected,people,count,confirm,cancel);draw();
   };
   const musicButton = document.querySelector("#tool-music");
   musicButton.onclick = async function () {
@@ -395,10 +555,12 @@
             if (track?.kind === "file" && track.file instanceof Blob) {
               catalogTrack = null;
               await wnImportAudio(track.file, track.title || "Música", { artist: track.artist, provider: track.provider || "", source: "file" });
+              syncDurationControl();
             } else if (track?.kind === "catalog" && track.provider === "apple") {
               wnClearSong(); catalogTrack = track;
               musicButton.classList.add("has-track");
               document.querySelector("#wn-music-empty").textContent = track.title + " · " + (track.artist || "Apple Music");
+              syncDurationControl();
             } else { showToast("Selecione uma gravação disponível"); return; }
             musicPickerCleanup?.(); musicPickerCleanup = null;
             sheetClose(); showToast("Música selecionada");
@@ -409,7 +571,7 @@
     } catch (e) { messageError(e); }
   };
   document.querySelector("#wn-music-remove").addEventListener("click", () => {
-    catalogTrack = null; musicButton.classList.remove("has-track");
+    catalogTrack = null; musicButton.classList.remove("has-track");syncDurationControl();
   });
   document.querySelector("#btn-cam-close").addEventListener("click", () => {
     if (screen === "camera") send("mode", { mode: "home" });
@@ -507,6 +669,22 @@
     "#sheet .wn-person-text strong{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     "#sheet .wn-person-text small{font-size:10px;color:#81768f}",
     "#sheet .wn-person-text .wn-viewed-at{font-size:11px;color:var(--violet,#7952d5)}",
+    "#wn-editor-mentions{font-size:20px;font-weight:900;line-height:1}",
+    "#wn-duration-options{position:absolute;bottom:91px;left:16px;display:flex;gap:6px;align-items:center;padding:7px 9px;background:#171021ba;color:#fff;border:1px solid #ffffff33;border-radius:16px;font-size:11px;backdrop-filter:blur(12px)}",
+    "#wn-duration-options[hidden],.wn-sheet-action[hidden]{display:none!important}",
+    "#wn-duration-options button{padding:7px 10px;border-radius:12px;background:#ffffff20;color:#fff;font-weight:800}",
+    "#wn-duration-options button.is-selected{background:var(--violet,#7952d5)}",
+    "#wn-duration-options button:disabled{opacity:.35}",
+    "#wn-editor-people{display:grid;gap:12px}",
+    "#wn-editor-people>input{width:100%;padding:12px 14px;border-radius:15px;background:#f4f1f8;color:#251d30;border:1px solid #e8e2ed;font:inherit;font-size:13px}",
+    "#wn-publish-audience{display:grid;gap:11px}",
+    "#sheet .wn-editor-selection-info{font-size:12px;color:var(--muted,#867a95)}",
+    "#sheet .wn-sheet-action.is-selected{border:2px solid var(--violet,#7952d5);background:color-mix(in srgb,var(--violet) 12%,white)!important}",
+    "#sheet .wn-sheet-action.wn-confirm{background:var(--violet,#7952d5)!important;color:white!important;text-align:center;font-weight:800}",
+    "#sheet .wn-sheet-action.wn-confirm:disabled{opacity:.45}",
+    "#sheet .wn-person-option.selected{outline:2px solid var(--violet,#7952d5)}",
+    "#sheet .wn-editor-check{display:none;color:var(--violet,#7952d5);font-size:18px}",
+    "#sheet .wn-person-option.selected .wn-editor-check{display:block}",
     "#sheet{background:var(--paper,#fff)!important;color:var(--ink,#231e2c)!important}",
     "#sheet .wn-sheet-action{color:var(--ink,#231e2c)}",
     "#sheet .wn-sheet-action:not(.wn-close){background:color-mix(in srgb,var(--violet) 9%,white)}",
