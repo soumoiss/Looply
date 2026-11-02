@@ -301,8 +301,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(!next){game=null;updateGameIndicator();renderInviteBanner();if(force)showEmpty();return;}
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
+      const wasInvited=game?.status==="waiting"&&game?.inviteStatus==="pending";
       const priorTurn=game?.turn,priorGame=game?.gameId;
-      game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
+      game=next;
+      if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
+        toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
       updateGameIndicator();renderInviteBanner();
       if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
       if(open&&screen!=="hub"&&(changed||force)){renderedKey=key;renderGame(true);}
@@ -395,7 +398,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
     channel=next;
     next.on("broadcast",{event:"ttt"},({payload})=>{
-      if(currentId!==conversationId||payload?.type!=="gartic"||payload.gameId!==game?.gameId||payload.senderId===userId)return;
+      if(currentId!==conversationId||payload?.type!=="gartic"||payload.senderId===userId)return;
+      // Invitations can arrive before this client has loaded the new game ID.
+      // Treat updates for a new room as a prompt to refresh authoritative Neon.
+      if(!game || payload.gameId!==game.gameId){
+        if(payload.kind==="updated")void refresh();
+        return;
+      }
       if(payload.kind?.startsWith("voice-")){void onVoicePacket(payload);return;}
       if(payload.kind==="stroke" && payload.senderId===game?.drawerId && payload.turn===game?.turn){
         const canvas=root.querySelector("[data-gartic-canvas]");
