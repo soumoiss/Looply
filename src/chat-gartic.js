@@ -490,7 +490,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     voiceOptOut=false;
     startVoiceListening();
     // Playback unlock requires a user gesture on some mobile WebViews.
-    await Promise.allSettled([...remotePeers.values()].map(record=>record.audio.play()));
+    // An audio element without an incoming stream can leave play() pending.
+    // Never block the receiver's UI or the next peer's join on that promise.
+    for(const record of remotePeers.values()){
+      if(record.audio.srcObject)void record.audio.play().catch(()=>{});
+    }
     const node=root.querySelector("[data-gartic-audio-status]");
     if(node)node.textContent="Ouvindo";
   }
