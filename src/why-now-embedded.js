@@ -445,7 +445,7 @@
       count.textContent=chosen.size+" de "+limit+" selecionado(s)";
     }
     search.oninput=render;
-    confirm.onclick=()=>{if(commit(new Set(chosen))!==false)close();};
+    confirm.onclick=()=>{const accepted=commit(new Set(chosen));if(accepted!==false&&list.isConnected)close();};
     render();search.focus();
   }
   async function openEditorMentions(){
@@ -478,7 +478,6 @@
     }
     audienceButtons.forEach(button=>button.onclick=async()=>{
       if(button.dataset.wnAudience==="public"){publishVisibility="public";render();return;}
-      const previous=publishVisibility;
       await selectProfiles({title:"Pessoas específicas",initial:publishAudience,limit:20,
         commit:chosen=>{
           if(!chosen.size){showToast("Selecione pelo menos uma pessoa");return false;}
@@ -487,7 +486,6 @@
           renderEditorExtras();openPublishChoices();
         }
       });
-      if(publishVisibility===previous&&!sheet.querySelector("[data-wn-audience]"))return;
     });
     sheet.querySelector(".wn-selector-cancel").onclick=()=>sheetClose();
     commit.onclick=async()=>{
