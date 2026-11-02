@@ -22,6 +22,8 @@ export function attachGarticViewport(canvas,{state,canDraw,currentTool,onPreview
   const render=()=>{
     limit();
     canvas.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;
+    const preview=viewport.querySelector("[data-gartic-preview]");
+    if(preview)preview.style.transform=canvas.style.transform;
     const status=viewport.querySelector("[data-gartic-zoom-status]");
     if(status)status.textContent=Math.round(state.scale*100)+"%";
   };
