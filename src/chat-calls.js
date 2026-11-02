@@ -267,6 +267,7 @@ export function setupChatCalls(root, client, userId) {
       await pc.setLocalDescription(offer);
       // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
       await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
       const offerPayload = {
         description: pc.localDescription.toJSON(),
         mode,
@@ -333,6 +334,7 @@ export function setupChatCalls(root, client, userId) {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
       iceGate.markDescriptionSent(pc);
