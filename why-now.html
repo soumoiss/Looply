@@ -985,7 +985,7 @@ async function wnExportWithMusic(item){
   await ctxAudio.resume();
   const startAt=Math.max(0,Math.min(wnFinite(item.music.start),audio.duration-.1));audio.currentTime=startAt;
   const length=wnClipDuration(item.music);
-  let wanted=item.type==='image'?length:Math.min(120,Math.max(.5,wnFinite(visual.duration,15)));
+  let wanted=item.type==='image'?length:Math.min(30,length,Math.max(.5,wnFinite(visual.duration,15)));
   wanted=Math.max(.5,wanted);
   wnDrawCompositedFrame(ctx,item,visual,canvas);
   stream=canvas.captureStream(30);
