@@ -167,8 +167,20 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   }
   create.addEventListener("click",()=>open("open-create"));
   function state() {
-    return {me:{id:user.id,name:String(profile?.display_name||profile?.username||"Você"),avatarUrl:profile?.avatarUrl||""},
-      groups:groupActiveStories(records).map(group=>toGroup(group,user.id))};
+    const styles=getComputedStyle(document.documentElement);
+    const token=(name,fallback)=>String(styles.getPropertyValue(name)||"").trim()||fallback;
+    return {
+      theme:{
+        primary:token("--primary","#7952d5"),
+        primaryDark:token("--primary-dark","#6041b0"),
+        lilac:token("--lilac","#cdb2f3"),
+        surface:token("--surface-strong","#fff"),
+        text:token("--text","#231e2c"),
+        muted:token("--muted","#8c8197")
+      },
+      me:{id:user.id,name:String(profile?.display_name||profile?.username||"Você"),avatarUrl:profile?.avatarUrl||""},
+      groups:groupActiveStories(records).map(group=>toGroup(group,user.id))
+    };
   }
   function sync() {
     renderSurface();
