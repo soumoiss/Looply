@@ -12,7 +12,7 @@
   const hasEditorMusic=()=>Boolean(wnMusic?.blob||catalogTrack?.kind==="catalog");
   const previewDurationAvailable=()=>{
     if(!wnMusic?.blob)return 30;
-    return Math.max(1,Number(wnMusic.duration)||15);
+    return Math.max(1,(Number(wnMusic.duration)||15)-(Number(wnMusic.start)||0));
   };
   function resetPublishEditor(){
     editorMentions.clear();editorDuration=15;publishVisibility="public";publishAudience.clear();
