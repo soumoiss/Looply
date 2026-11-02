@@ -868,3 +868,12 @@
   .page-chat .chat-filter-tabs button { padding-inline: 10px; }
 }
 @media (prefers-reduced-motion:reduce) { .page-chat .chat-conversation { transition: none; } }
+
+
+/* Optional group profile image on creation — the same avatar seen in the list/thread. */
+.page-chat .chat-group-cover-pick{display:flex;align-items:center;gap:12px;margin:10px 0 16px;padding:10px 12px;border:1px solid var(--line,#e5dced);background:var(--surface-soft,#faf7ff);border-radius:15px;cursor:pointer;color:var(--text,#28202f)}
+.page-chat .chat-group-cover-pick:focus-within{outline:2px solid var(--primary,#7952d5);outline-offset:2px}
+.page-chat .chat-group-cover-pick strong{display:block;font-size:12px}
+.page-chat .chat-group-cover-pick small{display:block;color:var(--muted,#827d87);font-size:11px;margin-top:3px}
+.page-chat .chat-group-cover-preview{display:grid;place-items:center;flex:none;width:55px;height:55px;overflow:hidden;border-radius:50%;background:var(--lilac,#dac5f6);color:var(--primary,#7952d5);border:2px solid var(--surface,#fff)}
+.page-chat .chat-group-cover-preview img{display:block;width:100%;height:100%;object-fit:cover}
