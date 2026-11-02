@@ -20,6 +20,7 @@ export function setupChatCalls(root, client, userId) {
   let videoUnavailable = false;
   let pendingCandidates = [];
   let isCaller = false;
+  let activeCallId = "";
   let closing = false;
   // Lock each asynchronous media-permission flow so rapid taps never
   // overwrite an active stream or create two peer connections.
@@ -59,7 +60,7 @@ export function setupChatCalls(root, client, userId) {
     const topic = activeConversation();
     if (!channel || !topic || topic !== channelConversationId) return false;
     try {
-      const result = await channel.send({ type: "broadcast", event: "signal", payload: { type, conversationId: topic, senderId: userId, ...extra } });
+      const result = await channel.send({ type: "broadcast", event: "signal", payload: { type, conversationId: topic, senderId: userId, callId: activeCallId, ...extra } });
       return result === "ok" || result?.status === "ok";
     } catch (error) { console.warn("Looply call signaling failed", error); return false; }
   };
@@ -81,6 +82,7 @@ export function setupChatCalls(root, client, userId) {
     pendingCandidates = [];
     videoUnavailable = false;
     incomingOffer = null;
+    activeCallId = "";
     isCaller = false;
     startingCall = false;
     answeringCall = false;
@@ -193,7 +195,14 @@ export function setupChatCalls(root, client, userId) {
       if (pc !== peer) return;
       if (peer.connectionState === "connected") { clearConnectionTimer(); updateStatus("Conectado"); }
       else if (peer.connectionState === "connecting") updateStatus("Conectando…");
-      else if (peer.connectionState === "failed") void endCall(true, "A conexão da chamada falhou.");
+      else if (peer.connectionState === "failed") {
+         updateStatus("Reconectando…");
+         clearConnectionTimer();
+         connectionTimer = window.setTimeout(() => {
+           if (pc === peer && peer.connectionState === "failed")
+             void endCall(true, "Não foi possível estabelecer a conexão.");
+         }, 10000);
+       }
       else if (peer.connectionState === "disconnected") {
         updateStatus("Reconectando…");
         clearConnectionTimer();
@@ -239,6 +248,7 @@ export function setupChatCalls(root, client, userId) {
     if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
     startingCall = true;
     callMode = mode; callPeerName = peerName(); isCaller = true;
+    activeCallId = typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : String(Date.now())+"-"+Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,"0")).join("");
     try {
       // Request capture while still handling the user's direct click, before
       // any slow signaling handshake (important on Android WebView/mobile).
@@ -257,6 +267,7 @@ export function setupChatCalls(root, client, userId) {
       await pc.setLocalDescription(offer);
       // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
       await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
       const offerPayload = {
         description: pc.localDescription.toJSON(),
         mode,
@@ -305,7 +316,9 @@ export function setupChatCalls(root, client, userId) {
     if (!incomingOffer || answeringCall || pc) return;
     answeringCall = true;
     ringtone.stop();
+    updateStatus("Atendendo…");
     callMode = incomingOffer.mode === "video" ? "video" : "audio";
+    activeCallId = incomingOffer.callId || "";
     callPeerName = incomingOffer.senderName || peerName();
     try {
       const capture = await captureCallMedia(navigator.mediaDevices,callMode);
@@ -321,6 +334,7 @@ export function setupChatCalls(root, client, userId) {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
       const sent = await send("answer", { description: pc.localDescription.toJSON() });
       if (!sent) throw new Error("answer could not be sent");
       iceGate.markDescriptionSent(pc);
@@ -366,6 +380,7 @@ export function setupChatCalls(root, client, userId) {
       || pending.accepted !== true || !Number.isFinite(pending.savedAt)
       || Date.now() - pending.savedAt > 90000 || !pending.description) return;
     incomingOffer = pending;
+    activeCallId = pending.callId || "";
     callMode = pending.mode === "video" ? "video" : "audio";
     callPeerName = pending.senderName || peerName();
     // The user already pressed "Atender" on the global incoming-call overlay.
@@ -383,13 +398,14 @@ export function setupChatCalls(root, client, userId) {
     if (pc) {
       if (incomingOffer?.senderId === payload.senderId &&
           incomingOffer?.conversationId === payload.conversationId) return true;
-      void send("decline");
+      void send("decline",{callId:payload.callId||""});
       return true;
     }
     if (incomingOffer?.senderId === payload.senderId &&
         incomingOffer?.conversationId === payload.conversationId) return true;
     if (incomingOffer) return false;
     incomingOffer = payload;
+    activeCallId = payload.callId || "";
     callMode = payload.mode;
     callPeerName = payload.senderName || peerName();
     showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
@@ -416,6 +432,9 @@ export function setupChatCalls(root, client, userId) {
     channel = next;
     next.on("broadcast", { event: "signal" }, async ({ payload }) => {
       if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
+      // Filter stale ICE, answers and hangups from earlier attempts in this conversation.
+      if (payload.type !== "offer" && (!pc && !incomingOffer)) return;
+      if (payload.type !== "offer" && String(payload.callId || "") !== activeCallId) return;
       if (payload.type === "offer") {
         receiveOffer(payload);
       } else if (payload.type === "answer" && pc && isCaller) {
@@ -500,6 +519,7 @@ export function setupChatCalls(root, client, userId) {
         if(!ready)throw Error("signaling_unavailable");
         if(pc || incomingOffer)return;
         incomingOffer=offer;
+        activeCallId=offer.callId||"";
         callMode=offer.mode;
         callPeerName=peerName();
         await acceptCall();
@@ -521,6 +541,7 @@ export function setupChatCalls(root, client, userId) {
     if (payload.type !== "offer") {
       // A caller may hang up before the conversation room has subscribed.
       if (incomingOffer?.senderId !== payload.senderId ||
+          String(payload.callId || "") !== activeCallId ||
           !["hangup", "decline", "failed"].includes(payload.type)) return;
       event.preventDefault();
       void endCall(false, "A outra pessoa encerrou a chamada.");

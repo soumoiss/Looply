@@ -226,8 +226,8 @@ test("global incoming calls and the active-chat controller use the same legacy s
   assert.match(callController, /restorePendingIncomingCall\(id\)/);
   assert.match(callController, /payload\.type === "answer" && pc && isCaller/);
   assert.match(callController, /type, conversationId: topic, senderId: userId/);
-  assert.doesNotMatch(globalListener, /callId: call\.id/);
-  assert.doesNotMatch(callController, /callId/);
+  assert.match(globalListener, /call\.payload\?\.callId/);
+  assert.match(callController, /callId: activeCallId/);
 });
 
 test("private call signaling authorization is limited to direct conversation members", async () => {

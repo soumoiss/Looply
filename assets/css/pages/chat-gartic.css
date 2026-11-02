@@ -122,3 +122,23 @@
 .page-chat [data-v2-game]{position:relative;color:var(--primary);background:var(--surface-soft);border-color:var(--line);}
 .page-chat [data-v2-game]:hover,.page-chat [data-v2-game]:focus-visible{color:var(--primary);border-color:var(--primary);background:var(--bg2);}
 .page-chat [data-v2-game].has-gartic-game::after{position:absolute;content:"";width:7px;height:7px;right:2px;top:2px;border-radius:50%;background:var(--primary);border:1px solid var(--surface-strong);}
+
+/* Accessible, conversation-scoped invitation controls. No global page overlay. */
+.gartic-invite-banner {
+ display:flex;align-items:center;flex-wrap:wrap;gap:9px;
+ margin:9px 12px;padding:11px 12px;border-radius:15px;
+ background:var(--surface-soft);color:var(--text);border:1px solid var(--line);
+ box-shadow:0 4px 20px rgba(0,0,0,.05);
+}
+.gartic-invite-icon {font-size:25px;flex:none;}
+.gartic-invite-copy {min-width:150px;flex:1;display:grid;gap:4px;}
+.gartic-invite-copy strong {font-size:12px;line-height:1.3;}
+.gartic-invite-copy small {color:var(--muted);font-size:11px;}
+.gartic-invite-banner button {border-radius:10px;min-height:38px;padding:7px 11px;font-weight:700;font-size:11px;border:1px solid var(--line);background:var(--surface-strong);color:var(--text);}
+.gartic-invite-banner [data-gartic-action="accept"] {background:var(--primary);border-color:var(--primary);color:#fff;}
+.gartic-invite-actions {display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0;}
+.gartic-invited-people {display:flex;flex-wrap:wrap;gap:7px;margin-top:11px;}
+.gartic-invite-status {display:flex;gap:5px;align-items:center;background:var(--surface-soft);padding:5px 9px;border-radius:10px;max-width:100%;}
+.gartic-invite-status span {font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gartic-invite-status small {color:var(--muted);font-size:10px;white-space:nowrap;}
+@media(max-width:380px){.gartic-invite-banner {margin:6px;padding:9px;}.gartic-invite-copy {min-width:135px;}}

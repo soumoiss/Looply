@@ -65,7 +65,7 @@ export function createFastIncomingPoller({
       scheduleNext();
     }
   };
-  const send = async ({conversationId,type}) => {
+  const send = async ({conversationId,type,callId=""}) => {
     if (!UUID.test(conversationId || "") || !TYPES.has(type)) return false;
     try {
       const {data,error} = await client.auth.getSession();
@@ -74,7 +74,7 @@ export function createFastIncomingPoller({
         method:"POST",cache:"no-store",credentials:"omit",
         headers:{authorization:"Bearer "+data.session.access_token,
           "content-type":"application/json",accept:"application/json"},
-        body:JSON.stringify({p_conversation_id:conversationId,p_kind:"signal",p_payload:{type,conversationId}})
+        body:JSON.stringify({p_conversation_id:conversationId,p_kind:"signal",p_payload:{type,conversationId,...(callId?{callId}:{})}})
       });
       return response.ok;
     } catch (error) { onError(error); return false; }

@@ -29,7 +29,7 @@ export async function invokeGarticAction({client,conversationId,action,value=nul
   } catch { throw Error("gartic_backend_not_configured"); }
   if(!/^[0-9a-f-]{36}$/i.test(String(conversationId||"")))
     throw Error("gartic_conversation_required");
-  if(!["create","state","tick","join","start","configure","duration","cycles","hint",
+  if(!["create","state","tick","invite","accept","decline","join","start","configure","duration","cycles","hint",
        "guess","chat","stroke","finish"].includes(action))
     throw Error("gartic_action_not_allowed");
   const sessionResult=await client.auth.getSession();
@@ -78,6 +78,25 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       return reply !== "error";
     } catch {return false;}
   };
+  function renderInviteBanner() {
+    let banner=root.querySelector("[data-gartic-invitation]");
+    const pending=game?.status==="waiting" && game?.inviteStatus==="pending" && !inGame();
+    if(!pending || !root.querySelector(".chat-thread-heading")){
+      banner?.remove(); return;
+    }
+    if(!banner){
+      banner=document.createElement("div");
+      banner.dataset.garticInvitation="";
+      banner.className="gartic-invite-banner";
+      root.querySelector(".chat-thread-heading").insertAdjacentElement("afterend",banner);
+    }
+    const inviter=currentName(game.hostId);
+    banner.innerHTML='<span class="gartic-invite-icon" aria-hidden="true">🎨</span>'+
+      '<div class="gartic-invite-copy"><strong>Convite para Desenhe &amp; Adivinhe</strong>'+
+      '<small>'+escapeHtml(inviter)+' convidou você para jogar.</small></div>'+
+      '<button type="button" data-gartic-action="accept">Aceitar</button>'+
+      '<button type="button" data-gartic-action="decline">Recusar</button>';
+  }
   function renderHub() {
     screen="hub";open=true;
     const group = root.querySelector(".chat-thread-heading")?.dataset.chatKind==="group";
@@ -130,9 +149,14 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<label class="gartic-field">Vezes para desenhar<select data-gartic-cycles '+(game.hostId===userId?'':'disabled')+'>'+
         [1,2,3,4,5].map(n=>'<option value="'+n+'"'+(n===Number(game.cycles)?' selected':'')+'>'+n+' vez(es)</option>').join('')+'</select></label></div>'+
         '<div class="gartic-lobby-people"><strong>Participantes · '+players.length+'/6</strong>'+people+'</div>'+
-        '<div class="gartic-lobby-actions">'+(me?'':makeButton("join","Participar da sala",true))+
-        (game.hostId===userId?makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
-        '<p class="gartic-muted">Cada jogador desenha duas vezes. Tempo por desenho: 75 segundos.</p></div></div>';
+        '<div class="gartic-invited-people">'+(game.invites||[]).map(p=>
+          '<div class="gartic-invite-status"><span>'+escapeHtml(p.name)+'</span><small>'+
+          escapeHtml(p.status==='pending'?'Aguardando resposta':p.status==='accepted'?'Aceitou':p.status==='declined'?'Recusou':'Expirou')+'</small></div>').join('')+'</div>'+
+        '<div class="gartic-lobby-actions">'+(!me && game.inviteStatus==='pending'
+          ?'<div class="gartic-invite-actions">'+makeButton("accept","Aceitar convite",true)+makeButton("decline","Recusar")+'</div>'
+          :!me?'<p class="gartic-muted">'+(game.inviteStatus==='declined'?'Você recusou o convite.':'Aguarde um convite do anfitrião.')+'</p>':'')+
+        (game.hostId===userId?makeButton("invite","Enviar ou reenviar convites")+makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
+        '<p class="gartic-muted">Cada pessoa desenha '+Number(game.cycles)+' vez(es), com '+Number(game.duration)+' segundos por desenho.</p></div></div>';
     } else if(active){
       body='<div class="gartic-main"><div class="gartic-topline">'+
         '<span class="gartic-drawer">✏️ '+escapeHtml(currentName(game.drawerId))+' está desenhando</span>'+
@@ -274,12 +298,15 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(disposed||!conversationId||busy)return;
     try {
       const next=await rpc("tick");
-      if(!next){game=null;updateGameIndicator();if(force)showEmpty();return;}
+      if(!next){game=null;updateGameIndicator();renderInviteBanner();if(force)showEmpty();return;}
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
+      const wasInvited=game?.status==="waiting"&&game?.inviteStatus==="pending";
       const priorTurn=game?.turn,priorGame=game?.gameId;
-      game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
-      updateGameIndicator();
+      game=next;
+      if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
+        toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
+      updateGameIndicator();renderInviteBanner();
       if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
       if(open&&screen!=="hub"&&(changed||force)){renderedKey=key;renderGame(true);}
       updateClock();
@@ -364,13 +391,20 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(id===conversationId)return;
     stopVoice();if(channel)try{await client.removeChannel(channel)}catch{}
     conversationId=id;channel=null;game=null;connected=false;renderedKey="";localStrokes=[];
+    root.querySelector("[data-gartic-invitation]")?.remove();
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
     if(!id||!client)return;
     const currentId=id;
     const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
     channel=next;
     next.on("broadcast",{event:"ttt"},({payload})=>{
-      if(currentId!==conversationId||payload?.type!=="gartic"||payload.gameId!==game?.gameId||payload.senderId===userId)return;
+      if(currentId!==conversationId||payload?.type!=="gartic"||payload.senderId===userId)return;
+      // Invitations can arrive before this client has loaded the new game ID.
+      // Treat updates for a new room as a prompt to refresh authoritative Neon.
+      if(!game || payload.gameId!==game.gameId){
+        if(payload.kind==="updated")void refresh();
+        return;
+      }
       if(payload.kind?.startsWith("voice-")){void onVoicePacket(payload);return;}
       if(payload.kind==="stroke" && payload.senderId===game?.drawerId && payload.turn===game?.turn){
         const canvas=root.querySelector("[data-gartic-canvas]");
@@ -410,6 +444,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           game=next;return;
         }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
+        renderInviteBanner();updateGameIndicator();
         if(before!==next.turn)localStrokes=[];
         renderedKey="";renderGame(true);
         void sendPacket({kind:"updated"});
@@ -434,7 +469,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
         renderGame(true);
       }else if(action==="leave-voice"){stopVoice();renderGame(true);}
-      else if(["create","join","start","hint","finish"].includes(action))await perform(action,action==="create"?null:null);
+      else if(["create","invite","accept","decline","join","start","hint","finish"].includes(action))await perform(action);
       return true;
     }
     if(button.hasAttribute("data-gartic-color")){
@@ -479,6 +514,6 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     return false;
   }
   function onConversation(){void switchConversation();}
-  function dispose(){disposed=true;stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
+  function dispose(){disposed=true;root.querySelector("[data-gartic-invitation]")?.remove();stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
   return {handleClick,handleChange,handleSubmit,onConversation,dispose,openHub:renderHub};
 }

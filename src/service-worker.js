@@ -15,8 +15,8 @@ export async function registerLooplyServiceWorker() {
         if (!document.body?.classList.contains("page-chat") || document.hidden) return;
         const draft = [...document.querySelectorAll(".chat-message-form textarea")]
           .some(element => element.value?.trim());
-        const call = document.querySelector("[data-call-overlay]:not([hidden]),[data-call-panel]:not([hidden])");
-        if (draft || call) return;
+        const call = document.querySelector("[data-call-modal]:not([hidden]),.looply-global-call-notice:not([hidden]),[data-call-overlay]:not([hidden]),[data-call-panel]:not([hidden])");
+        if (draft || call || document.querySelector("[data-looply-gartic]")) return;
         const now = Date.now();
         const last = Number(sessionStorage.getItem("looply-sw-last-refresh") || 0);
         if (now - last < 30000) return;
