@@ -227,6 +227,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
+    // Voice is auto-received only while the player is actually in Gartic.
+    if(me && (waiting || active))startVoiceListening();
     for(const draft of previousDrafts){
       const input=draft.cls?.includes("gartic-chat-form")?
         root.querySelector(".gartic-chat-form input"):root.querySelector(".gartic-guess-form input");
@@ -531,7 +533,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }catch(error){console.warn("Gartic voice negotiation failed",error?.message);}
   }
   function startVoiceListening(){
-    if(voiceOptOut || voiceJoined || !inGame() || disposed)return;
+    if(voiceOptOut || voiceJoined || !inGame() || disposed ||
+       !open || screen==="hub" || !gameVisible())return;
     if(!globalThis.RTCPeerConnection)return;
     voiceJoined=true;
     voiceMuted=!voiceStream;
