@@ -197,8 +197,8 @@ BEGIN
    RAISE EXCEPTION 'Hints are locked after the first correct answer' USING ERRCODE='22023'; END IF;
   SELECT term INTO answer FROM public.looply_gartic_words WHERE id=g.word_id;
   IF cardinality(g.revealed)>=greatest(1,pg_catalog.length(answer)/2) THEN RAISE EXCEPTION 'Hint limit reached'; END IF;
-  SELECT pos INTO pos FROM generate_series(1,pg_catalog.length(answer)) pos
-    WHERE pg_catalog.substr(answer,pos,1)~'[[:alnum:]]' AND NOT(pos=ANY(g.revealed)) ORDER BY random() LIMIT 1;
+  SELECT gs.idx INTO pos FROM generate_series(1,pg_catalog.length(answer)) AS gs(idx)
+    WHERE pg_catalog.substr(answer,gs.idx,1)~'[[:alnum:]]' AND NOT(gs.idx=ANY(g.revealed)) ORDER BY random() LIMIT 1;
   IF pos IS NOT NULL THEN
    UPDATE public.looply_gartic_games SET revealed=array_append(revealed,pos),updated_at=clock_timestamp() WHERE id=g.id;
   END IF;
