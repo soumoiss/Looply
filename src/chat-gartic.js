@@ -24,6 +24,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
   let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
+  const avatarCache = new Map();
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
   const hubVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-games-hub]"));
   const rpc = async (action,value=null,number=null) => {
@@ -75,7 +76,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const people=players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>
       '<div class="gartic-player'+(p.id===game.drawerId?' is-drawing':'')+'">'+
       '<span class="gartic-player-rank">'+(i+1)+'</span>'+
-      '<span class="gartic-avatar">'+escapeHtml(personName(p).slice(0,1).toUpperCase())+'</span>'+
+      '<span class="gartic-avatar" data-gartic-avatar="'+escapeHtml(p.id)+'">'+escapeHtml(personName(p).slice(0,1).toUpperCase())+'</span>'+
       '<span class="gartic-player-name"><strong>'+escapeHtml(personName(p))+'</strong><small>@'+escapeHtml(p.username||"")+'</small></span>'+
       '<span class="gartic-score">'+Number(p.score||0)+' pts</span>'+
       (p.id===game.drawerId?'<span aria-label="Desenhista">✏️</span>':'')+'</div>').join("");
@@ -90,6 +91,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       body='<div class="gartic-lobby"><div class="gartic-lobby-hero"><span>✦</span>'+
         '<h3>Preparando a partida</h3><p>Convide os participantes desta conversa para desenhar e adivinhar.</p></div>'+
         '<label class="gartic-field">Tema<select data-gartic-category '+(game.hostId===userId?'':'disabled')+'>'+categories+'</select></label>'+
+        '<div class="gartic-lobby-config"><label class="gartic-field">Tempo por desenho<select data-gartic-duration '+(game.hostId===userId?'':'disabled')+'>'+
+        [45,60,75,90].map(n=>'<option value="'+n+'"'+(n===Number(game.duration)?' selected':'')+'>'+n+' segundos</option>').join('')+'</select></label>'+
+        '<label class="gartic-field">Vezes para desenhar<select data-gartic-cycles '+(game.hostId===userId?'':'disabled')+'>'+
+        [1,2,3,4,5].map(n=>'<option value="'+n+'"'+(n===Number(game.cycles)?' selected':'')+'>'+n+' vez(es)</option>').join('')+'</select></label></div>'+
         '<div class="gartic-lobby-people"><strong>Participantes · '+players.length+'/6</strong>'+people+'</div>'+
         '<div class="gartic-lobby-actions">'+(me?'':makeButton("join","Participar da sala",true))+
         (game.hostId===userId?makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
@@ -134,7 +139,28 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       '</div></div>';
     openModal(markup);
     if(active) {setupCanvas();drawAll();updateClock();}
+    void hydrateAvatars();
     const list=root.querySelector(".gartic-chat-list");if(list)list.scrollTop=list.scrollHeight;
+  }
+  async function hydrateAvatars(){
+    for(const p of game?.players || []){
+      if(!p.avatarPath || !p.id)continue;
+      let url=avatarCache.get(p.id);
+      if(!url){
+        try {
+          const response=await client.storage.from("looply-avatars").createSignedUrl(p.avatarPath,600);
+          if(!response.error && /^https:\/\//.test(response.data?.signedUrl||"")){
+            url=response.data.signedUrl;avatarCache.set(p.id,url);
+          }
+        }catch{}
+      }
+      if(!url)continue;
+      for(const el of root.querySelectorAll('[data-gartic-avatar="'+p.id+'"]')){
+        if(el.querySelector("img"))continue;
+        const img=document.createElement("img");img.alt="";img.loading="lazy";img.src=url;
+        el.replaceChildren(img);
+      }
+    }
   }
   function updateClock(){
     if(!game || game.status!=="active")return;
@@ -323,11 +349,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     showEmpty();
     await refresh(true);
   }
-  async function perform(action,value=null){
+  async function perform(action,value=null,number=null){
     if(busy)return;busy=true;
     const before=game?.turn;
     try{
-      const next=await rpc(action,value);
+      const next=await rpc(action,value,number);
       if(next) {
         if(action==="guess" && game && next.turn===game.turn && next.updatedAt===game.updatedAt){
           const feedback=root.querySelector("[data-gartic-feedback]");
@@ -376,7 +402,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(t.matches("[data-gartic-width]")){width=Math.max(1,Math.min(26,Number(t.value)||5));return true;}
     if(t.matches("[data-gartic-category]")){
       void perform("configure",t.value);return true;
-    }return false;
+    }
+    if(t.matches("[data-gartic-duration]")){void perform("duration",null,Number(t.value));return true;}
+    if(t.matches("[data-gartic-cycles]")){void perform("cycles",null,Number(t.value));return true;}
+    return false;
   }
   async function handleSubmit(event){
     const form=event.target;
