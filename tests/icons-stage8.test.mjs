@@ -82,7 +82,7 @@ test("Stage 8 icon inventory documents the full registry and semantic states", a
   for (const name of iconNames) {
     assert.match(inventory, new RegExp("`" + name + "`"), "inventory missing " + name);
   }
-  for (const name of ["permissionDenied", "offline", "alert", "empty", "sync", "loader", "check", "external", "menu", "more", "grid", "star", "starFilled"]) {
+  for (const name of ["gamepad","permissionDenied", "offline", "alert", "empty", "sync", "loader", "check", "external", "menu", "more", "grid", "star", "starFilled"]) {
     assert.ok(iconNames.includes(name), "missing semantic icon " + name);
   }
   assert.match(inventory, /https:\/\/icons8\.com\/icons\/collections\/ui/);
@@ -98,7 +98,7 @@ test("Stage 8 uses the shared registry instead of improvised UI glyphs", async (
   assert.match(enhancements, /button\.innerHTML = icon\("menu"\)/);
   assert.match(enhancements, /icon\(favorites\.has\(id\) \? "starFilled" : "star"\)/);
   assert.match(enhancements, /\+ icon\("more"\) \+/);
-  assert.match(enhancements, /\+ icon\("grid"\) \+/);
+  assert.match(enhancements, /\+ icon\("gamepad"\) \+/);
   assert.match(chat, /aria-label="Voltar às conversas">\$\{icon\("back"\)\}/);
   assert.match(music, /icon\("external"\)/);
   assert.match(admin, /icon\("external"\)/);
