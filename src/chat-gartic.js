@@ -18,6 +18,42 @@ const makeButton = (action,label,primary=false,disabled=false) =>
   '<button type="button" class="gartic-button'+(primary?' is-primary':'')+'" data-gartic-action="'+action+'"'+(disabled?' disabled':'')+'>'+label+'</button>';
 const personName = (p) => p?.name || p?.username || "Participante";
 
+export async function invokeGarticAction({client,conversationId,action,value=null,number=null,fetchImpl=fetch}) {
+  const api=String(client?.dataApiUrl||"");
+  let endpoint;
+  try {
+    endpoint=new URL(api);
+    if(endpoint.protocol!=="https:"||!endpoint.hostname.endsWith(".neon.tech")||
+       !endpoint.pathname.endsWith("/rest/v1")||endpoint.username||endpoint.password||
+       endpoint.search||endpoint.hash)throw Error("Invalid Neon endpoint");
+  } catch { throw Error("gartic_backend_not_configured"); }
+  if(!/^[0-9a-f-]{36}$/i.test(String(conversationId||"")))
+    throw Error("gartic_conversation_required");
+  if(!["create","state","tick","join","start","configure","duration","cycles","hint",
+       "guess","chat","stroke","finish"].includes(action))
+    throw Error("gartic_action_not_allowed");
+  const sessionResult=await client.auth.getSession();
+  const token=sessionResult?.data?.session?.access_token;
+  if(sessionResult?.error||typeof token!=="string"||token.length<10)
+    throw Error("neon_session_required");
+  const response=await fetchImpl(api.replace(/\\/$/,"")+"/rpc/v26_gartic_action",{
+    method:"POST",cache:"no-store",credentials:"omit",
+    headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
+    body:JSON.stringify({p_conversation_id:conversationId,p_action:action,p_value:value,p_number:number}),
+    signal:typeof AbortSignal!=="undefined"&&typeof AbortSignal.timeout==="function"
+      ?AbortSignal.timeout(12000):undefined
+  });
+  const data=await response.json().catch(()=>null);
+  if(!response.ok){
+    const error=new Error(data?.message||"gartic_server_unavailable");
+    error.status=response.status;error.code=data?.code||"";
+    throw error;
+  }
+  if(data!==null&&(!data.gameId||!Array.isArray(data.players)))
+    throw Error("gartic_invalid_state");
+  return data;
+}
+
 export function setupChatGartic({root,client,userId,selectedConversation,openModal,closeModal,toast,openTtt}) {
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
@@ -27,13 +63,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   const avatarCache = new Map();
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
   const hubVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-games-hub]"));
-  const rpc = async (action,value=null,number=null) => {
-    if(!client || !conversationId) throw Error("Abra uma conversa válida.");
-    const {data,error} = await client.rpc("v26_gartic_action",
-      {p_conversation_id:conversationId,p_action:action,p_value:value,p_number:number});
-    if(error) throw Error(error.message || "Serviço de jogos indisponível.");
-    return data;
-  };
+  // Intentionally independent of the legacy client.rpc allowlist: stale cached
+  // adapters must never reject newly deployed games before contacting Neon.
+  const rpc = (action,value=null,number=null) =>
+    invokeGarticAction({client,conversationId,action,value,number});
   const inGame = () => (game?.players || []).some(p => p.id === userId);
   const amDrawer = () => game?.status === "active" && game.drawerId === userId;
   const currentName = (id) => personName((game?.players || []).find(p => p.id===id));
