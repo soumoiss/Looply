@@ -71,6 +71,6 @@ test("Chat sends without perform() global lock and does not drop drafts",async()
  const section=src.split('if(form.matches("[data-gartic-chat]")){')[1].split('return true;',2)[0];
  assert.match(src,/chatBusy=true/);
  assert.match(src,/await rpc\("chat",text\)/);
- assert.match(src,/if\(input\.isConnected && input\.value\.trim\(\)===text\)input\.value=""/);
+ assert.match(src,/if\(latestInput\?\.value\.trim\(\)===text\)latestInput\.value=""/);
  assert.match(src,/Mensagem não enviada\. Tente novamente/);
 });
