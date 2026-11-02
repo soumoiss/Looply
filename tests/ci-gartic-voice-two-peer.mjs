@@ -18,7 +18,7 @@ try{
   page.on("console",msg=>{if(msg.type()==="error")console.error("[peer "+i+"] "+msg.text());});
   await page.route("**/src/*.js*",async route=>{
    const name=new URL(route.request().url()).pathname.split("/").at(-1);
-   if(!["chat-gartic.js","gartic-paint.js"].includes(name))return route.abort();
+   if(!["chat-gartic.js","gartic-paint.js","gartic-viewport.js"].includes(name))return route.abort();
    const body=await readFile(new URL("../src/"+name,import.meta.url),"utf8");
    return route.fulfill({status:200,contentType:"text/javascript",body});
   });
@@ -71,6 +71,26 @@ try{
    await window.__game.handleClick(document.querySelector('[data-gartic-action="gartic"]'));
   },{userId:users[i],room});
   await page.waitForSelector('[data-gartic-action="join-voice"]');
+  await page.waitForSelector('[data-gartic-chat] input');
+  // The game input must remain editable and send through Neon without needing
+  // the global game-action lock.
+  await page.evaluate(()=>{
+    window.__chatSendRequest=false;
+    const original=window.fetch;
+    window.fetch=(url,options)=>{
+      try{
+        const request=JSON.parse(options?.body||"{}");
+        if(request.p_action==="chat")window.__chatSendRequest=request.p_value;
+      }catch{}
+      return original(url,options);
+    };
+  });
+  await page.locator("[data-gartic-chat] input").fill("Olá, partida!");
+  await page.evaluate(async()=>{
+    const form=document.querySelector("[data-gartic-chat]");
+    await window.__game.handleSubmit({target:form,preventDefault(){},stopPropagation(){}});
+  });
+  await page.waitForFunction(()=>window.__chatSendRequest==="Olá, partida!",null,{timeout:9000});
  }
  for(let i=0;i<2;i++)
    await pages[i].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="join-voice"]')));
@@ -94,7 +114,7 @@ try{
  const listenResult=await incoming(pages[1]);
  if(listenResult.bytes<=0)throw Error("Listen-only peer received no audio");
  console.log("Gartic listen-only RTP",listenResult);
- const wasMicRequested=await pages[1].evaluate(()=>Boolean(document.querySelector("[data-gartic-remote-audio]")));
+
  // Now allow the listener to transmit; both peers must receive audio.
  await pages[1].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="mute"]')));
  for(let i=0;i<2;i++){
