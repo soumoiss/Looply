@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {normalizeGarticAnswer} from "../src/chat-gartic.js";
+import {normalizeGarticAnswer,invokeGarticAction} from "../src/chat-gartic.js";
 
 const get = path => readFile(new URL("../"+path,import.meta.url),"utf8");
 
@@ -74,4 +74,63 @@ test("Production Neon client forwards Gartic actions through authenticated RPC",
  assert.match(client,/config\.data\+"\/rpc\/"\+name/);
  assert.match(client,/authorization:"Bearer "\+session\.access_token/);
  assert.match(client,/gartic_invalid_state/);
+});
+
+test("Gartic recovers from outdated client RPC allowlists using a direct Neon route",async()=>{
+ const calls=[];
+ const id="e3a64c5f-73e6-4b5d-9c31-122222222222";
+ const client={
+  dataApiUrl:"https://ep-example.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1",
+  rpc(){throw Error("obsolete client RPC must not run");},
+  auth:{getSession:async()=>({data:{session:{access_token:"test.access.token.123456789"}}})}
+ };
+ const response=await invokeGarticAction({
+  client,conversationId:id,action:"create",
+  fetchImpl:async(url,options)=>{
+   calls.push({url,options});
+   return {ok:true,json:async()=>({gameId:id,players:[],status:"waiting"})};
+  }
+ });
+ assert.equal(response.status,"waiting");
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,client.dataApiUrl+"/rpc/v26_gartic_action");
+ assert.equal(calls[0].options.method,"POST");
+ assert.equal(calls[0].options.cache,"no-store");
+ assert.equal(calls[0].options.credentials,"omit");
+ assert.equal(calls[0].options.headers.authorization,"Bearer test.access.token.123456789");
+ assert.deepEqual(JSON.parse(calls[0].options.body),{
+  p_conversation_id:id,p_action:"create",p_value:null,p_number:null
+ });
+});
+
+test("Gartic denies anonymous or untrusted RPC endpoints before contacting the server",async()=>{
+ const id="e3a64c5f-73e6-4b5d-9c31-122222222222";
+ let requests=0;
+ const fetchImpl=async()=>{requests++;throw Error("never fetch");};
+ await assert.rejects(()=>invokeGarticAction({
+  client:{dataApiUrl:"https://evil.example/rest/v1",auth:{getSession:async()=>({data:{session:{access_token:"secret.secret.token"}}})}},
+  conversationId:id,action:"create",fetchImpl
+ }),/gartic_backend_not_configured/);
+ await assert.rejects(()=>invokeGarticAction({
+  client:{dataApiUrl:"https://ep-example.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1",auth:{getSession:async()=>({data:{session:null}})}},
+  conversationId:id,action:"create",fetchImpl
+ }),/neon_session_required/);
+ assert.equal(requests,0);
+});
+
+test("Gartic UI no longer depends on the legacy client RPC allowlist",async()=>{
+ const source=await get("src/chat-gartic.js");
+ assert.match(source,/invokeGarticAction\(\{client,conversationId,action,value,number\}\)/);
+ assert.doesNotMatch(source,/client\.rpc\("v26_gartic_action"/);
+});
+
+test("Service worker fetches HTML, JS and CSS network-first, retains offline fallback",async()=>{
+ const sw=await get("sw.js");
+ assert.match(sw,/event\.request\.mode === "navigate"/);
+ assert.match(sw,/\/\\\.\(\?:html\|js\|css\)\$\/i/);
+ assert.match(sw,/fetch\(event\.request, \{ cache: "no-cache" \}\)/);
+ assert.match(sw,/return cached \|\| Response\.error\(\)/);
+ const register=await get("src/service-worker.js");
+ assert.match(register,/updateViaCache: "none"/);
+ assert.match(register,/registration\.update\(\)/);
 });
