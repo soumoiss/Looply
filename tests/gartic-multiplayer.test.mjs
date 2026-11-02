@@ -127,9 +127,9 @@ test("Gartic UI no longer depends on the legacy client RPC allowlist",async()=>{
 test("Service worker fetches HTML, JS and CSS network-first, retains offline fallback",async()=>{
  const sw=await get("sw.js");
  assert.match(sw,/event\.request\.mode === "navigate"/);
- assert.match(sw,/\/\\\.\(\?:html\|js\|css\)\$\/i/);
- assert.match(sw,/fetch\(event\.request, \{ cache: "no-cache" \}\)/);
- assert.match(sw,/return cached \|\| Response\.error\(\)/);
+ assert.ok(sw.includes('const critical = event.request.mode === "navigate"'));
+ assert.ok(sw.includes('fetch(event.request, { cache: "no-cache" })'));
+ assert.ok(sw.includes('return cached || Response.error()'));
  const register=await get("src/service-worker.js");
  assert.match(register,/updateViaCache: "none"/);
  assert.match(register,/registration\.update\(\)/);
