@@ -467,5 +467,6 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     style.remove(); mount.remove();overlay.remove();host.classList.remove("why-now-live");
   };
   window.addEventListener("pagehide", unload, {once:true});
+  unload.refresh=refresh;
   return unload;
 }
