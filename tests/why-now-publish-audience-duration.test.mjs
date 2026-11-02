@@ -11,6 +11,7 @@ test("Why Now camera captures microphone audio up to ninety seconds",()=>{
   assert.match(html,/audio\?\.getAudioTracks\(\)/);
   assert.match(html,/if\(sec>=90\)finishRecording\(\)/);
   assert.match(html,/máximo 90 s/);
+  assert.match(html,/Math\.min\(30,length,/);
 });
 test("Why Now publisher chooses the public or selected audience and confirms before upload",()=>{
   const ui=source("src/why-now-embedded.js");
