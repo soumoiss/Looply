@@ -182,6 +182,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<span>'+answered+' acerto(s)</span></div>'+
         '<div class="gartic-canvas-viewport" data-gartic-viewport>'+
           '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
+          '<canvas width="1000" height="650" class="gartic-canvas-preview" data-gartic-preview aria-hidden="true"></canvas>'+
           '</div><div class="gartic-zoom-controls">'+
           '<button type="button" data-gartic-zoom="out" aria-label="Diminuir zoom">−</button>'+
           '<span data-gartic-zoom-status>100%</span>'+
@@ -315,8 +316,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       state:zoomState,canDraw:amDrawer,currentTool:()=>tool,
       onPreview:stroke=>{
         drawing=stroke;
-        drawAll();
-        if(stroke)drawStroke(canvas.getContext("2d"),{
+        // Separate transparent overlay: avoid replaying the whole 650K-pixel
+        // drawing on every pointermove, which stalls audio on Android WebView.
+        const layer=root.querySelector("[data-gartic-preview]");
+        const preview=layer?.getContext("2d");
+        if(!preview)return;
+        preview.clearRect(0,0,1000,650);
+        if(stroke && stroke.tool!=="fill")drawStroke(preview,{
           ...stroke,color:stroke.tool==="eraser"?"#ffffff":color,
           width:stroke.tool==="eraser"?26:width
         });
