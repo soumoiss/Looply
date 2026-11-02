@@ -25,7 +25,7 @@ test("Photo preview duration and 90-second camera videos have distinct limits",(
   assert.match(html,/if\(sec>=90\)finishRecording\(\)/);
   assert.match(html,/source:'camera'/);
   assert.match(html,/source:'gallery'/);
-  assert.match(ui,/it\.remoteUrl && it\.type==="image"/);
+  assert.match(ui,/it\?\.remoteUrl && it\.type==="image"/);
   assert.match(ui,/viewProgress\+=dt\/\(seconds\*1000\)/);
   assert.match(ui,/hasEditorMusic\(\)/);
   assert.match(ui,/exportEditedVideo\(draft,song\?clipSeconds/);
