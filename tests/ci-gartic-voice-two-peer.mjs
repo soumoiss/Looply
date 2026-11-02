@@ -33,7 +33,7 @@ try{
     players:users.map((id,j)=>({id,name:"Jogador "+j,username:"jogador"+j,avatarPath:null,score:0})),
     invites:[],chat:[],strokes:[],correct:[],inviteStatus:"accepted"
    };
-   route.fulfill({status:200,headers:{"access-control-allow-origin":"*","content-type":"application/json"},body:JSON.stringify(state)});
+   route.fulfill({status:200,headers:{"access-control-allow-origin":"*","access-control-allow-methods":"POST, OPTIONS","access-control-allow-headers":"authorization,content-type","content-type":"application/json"},body:JSON.stringify(state)});
   });
   await page.exposeBinding("__relayGartic",async({page:source},packet)=>{
    const target=pages.find(p=>p!==source);
