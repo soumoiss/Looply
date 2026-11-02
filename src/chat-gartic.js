@@ -339,7 +339,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     next.on("broadcast",{event:"ttt"},({payload})=>{
       if(currentId!==conversationId||payload?.type!=="gartic"||payload.gameId!==game?.gameId||payload.senderId===userId)return;
       if(payload.kind?.startsWith("voice-")){void onVoicePacket(payload);return;}
-      if(payload.kind==="stroke" && payload.turn===game?.turn){
+      if(payload.kind==="stroke" && payload.senderId===game?.drawerId && payload.turn===game?.turn){
         const canvas=root.querySelector("[data-gartic-canvas]");
         if(canvas&&payload.stroke)drawStroke(canvas.getContext("2d"),payload.stroke);
       }
