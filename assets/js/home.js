@@ -4,6 +4,7 @@ import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
 
@@ -73,6 +74,8 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
   )}${socialMarkup(socialData, user.id, isAdmin)}`;
   void mountSecretMessages(client, user.id, isAdmin);
+  // Only the Stories area is replaced; Feed, profile and all other modules remain unchanged.
+  mountWhyNowStories({ root, client, user, profile, initialStories: stories });
   bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
   bindSocialEvents(root, client, () => user.id, isAdmin);
   bindHomeProfilePreview({ root, client, user, profile });
