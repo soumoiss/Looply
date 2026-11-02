@@ -218,6 +218,7 @@ BEGIN
    IF count_correct>=count_players-1 THEN PERFORM public.v26_gartic_next(g.id); END IF;
   END IF;
 
+
  ELSIF p_action='stroke' THEN
   IF g.status<>'active' OR g.drawer_id<>actor OR clock_timestamp()>=g.ends_at THEN
    RAISE EXCEPTION 'Drawing not allowed' USING ERRCODE='42501'; END IF;
@@ -226,7 +227,19 @@ BEGIN
   IF jsonb_typeof(p_value::jsonb)<>'object' OR jsonb_typeof(p_value::jsonb->'points')<>'array'
     OR jsonb_array_length(p_value::jsonb->'points')>140
     OR coalesce(p_value::jsonb->>'tool','') NOT IN ('pen','eraser')
-    OR coalesce(p_value::jsonb->>'color','') !~ '^#[0-9a-fA-F]{6}
+    OR coalesce(p_value::jsonb->>'color','') !~ '^#[0-9a-fA-F]{6}$'
+    OR (p_value::jsonb->>'width')::integer NOT BETWEEN 1 AND 35 THEN RAISE EXCEPTION 'Invalid stroke'; END IF;
+  INSERT INTO public.looply_gartic_strokes(game_id,turn,user_id,payload) VALUES(g.id,g.turn,actor,p_value::jsonb);
+  UPDATE public.looply_gartic_games SET updated_at=clock_timestamp() WHERE id=g.id;
+ ELSIF p_action='chat' THEN
+  IF NOT EXISTS(SELECT 1 FROM public.looply_gartic_players WHERE game_id=g.id AND user_id=actor)
+  THEN RAISE EXCEPTION 'Join the room first'; END IF;
+  IF char_length(btrim(coalesce(p_value,''))) NOT BETWEEN 1 AND 300 THEN RAISE EXCEPTION 'Invalid message'; END IF;
+  IF EXISTS(SELECT 1 FROM public.looply_gartic_chat WHERE game_id=g.id AND user_id=actor
+   AND created_at>clock_timestamp()-interval '700 milliseconds') THEN RAISE EXCEPTION 'Chat rate limit'; END IF;
+  INSERT INTO public.looply_gartic_chat(game_id,user_id,body) VALUES(g.id,actor,btrim(p_value));
+  UPDATE public.looply_gartic_games SET updated_at=clock_timestamp() WHERE id=g.id;
+ ELSIF p_action='finish' THEN
   IF g.host_id<>actor THEN RAISE EXCEPTION 'Only the host can finish' USING ERRCODE='42501'; END IF;
   UPDATE public.looply_gartic_games SET status='finished',ends_at=NULL,updated_at=clock_timestamp(),
     winner_id=(SELECT user_id FROM public.looply_gartic_players WHERE game_id=g.id ORDER BY score DESC,joined_at LIMIT 1)
