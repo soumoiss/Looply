@@ -1,0 +1,124 @@
+/* Looply Gartic: theme-aware, isolated multiplayer interface. */
+.page-chat .chat-v2-modal:has([data-looply-gartic]) {
+  width:min(96vw,960px);max-width:960px;max-height:min(95dvh,1000px);padding:0;
+  background:var(--surface-strong,#fff);border-radius:24px;overflow:hidden;
+}
+.page-chat .chat-v2-modal:has([data-looply-gartic]) > [data-v2-close] {z-index:12;display:none;}
+.page-chat .chat-v2-modal:has([data-looply-games-hub]) {max-width:480px;}
+.gartic-shell,.gartic-hub {color:var(--text);font:inherit;}
+.gartic-shell button,.gartic-hub button,.gartic-shell input,.gartic-shell select {font:inherit;}
+.gartic-shell button,.gartic-hub button {cursor:pointer;}
+.gartic-shell button:disabled {opacity:.45;cursor:default;}
+.gartic-head {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:17px 22px 15px;border-bottom:1px solid var(--line);background:var(--surface-strong);}
+.gartic-head h2,.gartic-hub h2 {margin:2px 0 0;color:var(--text);font-size:clamp(19px,3.2vw,26px);font-weight:800;letter-spacing:-.035em;}
+.gartic-eyebrow {font-size:10px;color:var(--primary);font-weight:800;letter-spacing:.13em;text-transform:uppercase;}
+.gartic-back {display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border:1px solid var(--line);border-radius:50%;background:var(--surface-soft);color:var(--text);font-size:19px;}
+.gartic-grid {display:grid;grid-template-columns:minmax(0,1fr) 252px;max-height:calc(94dvh - 144px);overflow:auto;}
+.gartic-primary {min-width:0;padding:16px 18px 18px;}
+.gartic-sidebar {min-width:0;padding:14px 14px 18px;border-left:1px solid var(--line);background:var(--surface-soft);display:flex;flex-direction:column;gap:12px;}
+.gartic-sidebar-card {padding:12px;background:var(--surface-strong);border:1px solid var(--line);border-radius:15px;}
+.gartic-sidebar-card h3 {color:var(--text);font-size:12px;font-weight:800;margin:0 0 9px;}
+.gartic-muted {margin:4px 0 12px;color:var(--muted);font-size:12px;line-height:1.5;}
+.gartic-hub {padding:26px 20px 22px;}
+.gartic-hub .gartic-muted {font-size:13px;margin-bottom:24px;}
+.gartic-game-card {display:flex;align-items:center;gap:12px;width:100%;margin-bottom:10px;border:1px solid var(--line);border-radius:17px;background:var(--surface-soft);color:var(--text);padding:13px 15px;text-align:left;transition:transform .18s,border-color .18s,box-shadow .18s;}
+.gartic-game-card:hover,.gartic-game-card:focus-visible {transform:translateY(-1px);border-color:var(--primary);box-shadow:0 6px 22px rgba(50,30,70,.07);}
+.gartic-game-icon {display:grid;place-items:center;flex:0 0 49px;width:49px;height:49px;border-radius:14px;background:var(--bg2);color:var(--primary);font-size:22px;font-weight:800;}
+.gartic-game-card span:nth-child(2){display:grid;flex:1;min-width:0;gap:5px;}
+.gartic-game-card strong{font-size:14px;line-height:1.3;}
+.gartic-game-card small{font-size:11px;line-height:1.4;color:var(--muted);}
+.gartic-game-card > span:last-child{font-size:25px;color:var(--muted);}
+.gartic-intro {padding:0 0 24px;text-align:center;}
+.gartic-intro > .gartic-eyebrow {display:block;margin:28px 0 2px;}
+.gartic-intro-art {display:flex;justify-content:center;gap:24px;align-items:center;min-height:140px;color:var(--primary);font-size:64px;font-weight:700;}
+.gartic-intro-art span:nth-child(2){font-size:88px;opacity:.4;}
+.gartic-intro-art span:nth-child(3){font-size:48px;}
+.gartic-intro h2 {margin:0 auto 14px;max-width:340px;font-size:24px;line-height:1.23;letter-spacing:-.04em;}
+.gartic-intro .gartic-muted {max-width:370px;margin:0 auto 24px;padding:0 20px;}
+.gartic-button {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:39px;padding:9px 14px;margin:3px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text);font-size:12px;font-weight:750;white-space:normal;}
+.gartic-button.is-primary {border-color:var(--primary);background:var(--primary);color:white;}
+.gartic-text-action {display:block;margin:13px auto 0;border:0;background:none;color:var(--primary);font-size:12px;font-weight:750;}
+.gartic-lobby-hero {margin:3px 0 17px;text-align:center;padding:18px;background:var(--surface-soft);border-radius:16px;}
+.gartic-lobby-hero span{font-size:30px;}
+.gartic-lobby-hero h3{font-size:18px;margin:6px 0 2px;}
+.gartic-lobby-hero p{font-size:12px;margin:0;color:var(--muted);}
+.gartic-field{display:grid;gap:7px;font-size:12px;font-weight:700;color:var(--text);}
+.gartic-field select {width:100%;min-height:44px;padding:8px 10px;border-radius:11px;border:1px solid var(--line);background:var(--surface-strong);color:var(--text);}
+.gartic-lobby-people{margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:16px;}
+.gartic-lobby-people>strong{display:block;font-size:12px;margin-bottom:12px;}
+.gartic-lobby-actions{margin-top:15px;}
+.gartic-topline{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px;font-weight:700;}
+.gartic-drawer{color:var(--text);font-size:12px;}
+.gartic-topline strong{display:inline-flex;align-items:center;justify-content:center;background:var(--surface-soft);border:1px solid var(--line);color:var(--primary);padding:7px 9px;border-radius:9px;font-size:15px;font-variant-numeric:tabular-nums;}
+.gartic-topline strong.is-urgent{color:#d63f57;}
+.gartic-word{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:13px 0;padding:9px;background:var(--surface-soft);border-radius:13px;text-align:center;}
+.gartic-word small,.gartic-word span{font-size:11px;color:var(--muted);}
+.gartic-word strong{font-size:clamp(16px,3vw,22px);letter-spacing:.12em;overflow-wrap:anywhere;color:var(--text);}
+.gartic-canvas{display:block;width:100%;height:auto;aspect-ratio:1000/650;background:white;border:1px solid rgba(30,40,50,.13);border-radius:15px;cursor:crosshair;box-shadow:0 5px 26px rgba(33,22,52,.045);}
+.gartic-tools {display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:9px;padding:9px 8px;background:var(--surface-soft);border-radius:12px;}
+.gartic-tool-group,.gartic-swatches{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.gartic-tool-group button{min-height:32px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-size:11px;}
+.gartic-tool-group button.is-selected{border-color:var(--primary);color:var(--primary);}
+.gartic-swatches button{width:24px;height:24px;min-width:24px;border:1px solid rgba(40,40,40,.2);border-radius:50%;}
+.gartic-swatches button.is-selected{outline:2px solid var(--primary);outline-offset:2px;}
+.gartic-brush{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;}
+.gartic-brush input{width:78px;accent-color:var(--primary);}
+.gartic-guess-form {display:flex;gap:8px;margin-top:12px;}
+.gartic-guess-form input,.gartic-chat-form input{flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:11px;background:var(--surface-strong);color:var(--text);font-size:13px;}
+.gartic-guess-form button,.gartic-chat-form button{min-height:40px;padding:8px 14px;border:0;border-radius:11px;background:var(--primary);color:white;font-size:12px;font-weight:750;}
+.gartic-status{margin-top:8px;min-height:18px;font-size:11px;color:var(--muted);}
+.gartic-player{display:flex;align-items:center;gap:7px;margin:6px 0;padding:5px 2px;min-width:0;}
+.gartic-player-rank{color:var(--muted);font-size:11px;font-weight:800;width:13px;}
+.gartic-avatar{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:var(--bg2);color:var(--primary);font-size:11px;font-weight:800;}
+.gartic-player-name{display:grid;gap:1px;flex:1;min-width:0;}
+.gartic-player-name strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text);}
+.gartic-player-name small{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;}
+.gartic-score{white-space:nowrap;font-size:10px;color:var(--primary);font-weight:800;}
+.gartic-voice .gartic-button{margin:2px 3px 2px 0;font-size:11px;}
+.gartic-chat-list{display:flex;flex-direction:column;gap:5px;height:116px;overflow:auto;overscroll-behavior:contain;margin-bottom:9px;}
+.gartic-chat-line{font-size:11px;line-height:1.5;overflow-wrap:anywhere;color:var(--text);}
+.gartic-chat-line b{color:var(--primary);}
+.gartic-chat-form{display:flex;gap:4px;}
+.gartic-chat-form input{padding:8px;min-height:35px;font-size:11px;}
+.gartic-chat-form button{padding:7px 10px;min-height:35px;}
+.gartic-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:45px;padding:11px 19px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;}
+.gartic-footer button{border:0;background:none;color:var(--muted);font-size:11px;}
+.gartic-results{text-align:center;padding:25px 0;}
+.gartic-winner-icon{font-size:58px;}
+.gartic-results h3{margin:8px 0;font-size:22px;}
+.gartic-results>p{font-size:12px;color:var(--muted);}
+.gartic-results .gartic-player{text-align:left;border-bottom:1px solid var(--line);padding:9px;}
+.gartic-shell :is(button,input,select):focus-visible,.gartic-hub button:focus-visible {outline:3px solid var(--primary);outline-offset:2px;}
+@media(max-width:680px){
+ .page-chat .chat-v2-modal-backdrop:has([data-looply-gartic]){padding:5px;align-items:center;}
+ .page-chat .chat-v2-modal:has([data-looply-gartic]){width:calc(100vw - 10px);max-height:calc(100dvh - 14px);border-radius:18px;}
+ .gartic-head{padding:12px 15px 10px;}
+ .gartic-head h2{font-size:19px;}
+ .gartic-grid{grid-template-columns:minmax(0,1fr);max-height:calc(100dvh - 100px);overflow:auto;overscroll-behavior:contain;}
+ .gartic-primary{padding:10px;}
+ .gartic-sidebar{border-left:0;border-top:1px solid var(--line);padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+ .gartic-sidebar-card{padding:10px;}
+ .gartic-sidebar-card:first-child{grid-column:1/3;}
+ .gartic-sidebar-card .gartic-player{display:inline-flex;max-width:47%;width:47%;vertical-align:middle;gap:4px;}
+ .gartic-voice,.gartic-chat{min-width:0;}
+ .gartic-word{margin:8px 0;gap:5px;padding:7px;}
+ .gartic-word strong{font-size:17px;}
+ .gartic-canvas{border-radius:10px;}
+ .gartic-footer{padding:8px 12px;}
+ .gartic-topline{font-size:10px;}
+ .gartic-guess-form{margin-top:8px;}
+ .gartic-hub{padding:24px 15px;}
+ .gartic-tools{gap:6px;}
+}
+@media(max-width:350px){.gartic-sidebar{grid-template-columns:1fr;}.gartic-sidebar-card:first-child{grid-column:auto;}}
+@media(prefers-reduced-motion:reduce){.gartic-game-card{transition:none;}}
+
+.gartic-lobby-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;}
+.gartic-avatar{overflow:hidden;}
+.gartic-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;}
+@media(max-width:390px){.gartic-lobby-config{grid-template-columns:1fr;}}
+
+/* Games entry follows the active Looply theme, including dark themes. */
+.page-chat [data-v2-game]{position:relative;color:var(--primary);background:var(--surface-soft);border-color:var(--line);}
+.page-chat [data-v2-game]:hover,.page-chat [data-v2-game]:focus-visible{color:var(--primary);border-color:var(--primary);background:var(--bg2);}
+.page-chat [data-v2-game].has-gartic-game::after{position:absolute;content:"";width:7px;height:7px;right:2px;top:2px;border-radius:50%;background:var(--primary);border:1px solid var(--surface-strong);}

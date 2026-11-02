@@ -160,7 +160,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     const nextChannel=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
     channel=nextChannel;
     nextChannel.on("broadcast",{event:"ttt"},({payload})=>{
-      if(!payload||payload.conversationId!==id||id!==conversationId||payload.senderId===userId)return;
+      if(!payload||payload.type!=="updated"||payload.conversationId!==id||id!==conversationId||payload.senderId===userId)return;
       void refresh();
     });
     nextChannel.subscribe();
@@ -233,5 +233,5 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     if(channel)void client.removeChannel(channel).catch(()=>{});
     channel=null;conversationId="";hydration=null;hydrationConversation="";
   }
-  return {handleClick,onConversation:switchConversation,dispose};
+  return {handleClick,onConversation:switchConversation,dispose,open:async()=>{await switchConversation();await refresh({show:true});if(!current||current.status==="declined")showInvitePrompt();}};
 }

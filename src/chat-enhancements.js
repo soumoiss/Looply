@@ -1,6 +1,7 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { setupChatTtt } from "./chat-ttt.js?v=ttt-invite-sql-20261031";
+import { setupChatGartic } from "./chat-gartic.js?v=gartic-20261102";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },
@@ -44,6 +45,7 @@ export function setupChatEnhancements(root, client, userId) {
   const openModal = (content) => { const node = modal(); node.querySelector("[data-v2-modal-content]").innerHTML = content; node.hidden = false; node.querySelector("[data-v2-close]").focus(); };
   const closeModal = () => { const node = root.querySelector("[data-chat-v2-modal]"); if (node) node.hidden = true; };
   const game = setupChatTtt({root,client,userId,selectedConversation,isGroup,openModal,closeModal,toast});
+  const gartic = setupChatGartic({root,client,userId,selectedConversation,openModal,closeModal,toast,openTtt:()=>game.open()});
   const applyWallpaper = () => {
     const id = selectedConversation();
     const thread = root.querySelector("[data-chat-thread]");
@@ -76,7 +78,7 @@ export function setupChatEnhancements(root, client, userId) {
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
       heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">' + icon("more") + '</button>');
-      if (!isGroup() && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Jogar jogo da velha" title="Jogar jogo da velha">' + icon("grid") + '</button>');
+      if (!heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Abrir Games" title="Games">' + icon("gamepad") + '</button>');
       heading.dataset.conversationId = selectedConversation();
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
@@ -156,6 +158,7 @@ export function setupChatEnhancements(root, client, userId) {
   root.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
+    if (await gartic.handleClick(target)) return;
     if (await game.handleClick(target)) return;
     if (target.matches("[data-v2-close]")) { closeModal(); return; }
     if (target.matches("[data-v2-settings]")) { renderSettings(false); return; }
@@ -193,6 +196,7 @@ export function setupChatEnhancements(root, client, userId) {
     }
   });
   root.addEventListener("change", async (event) => {
+    if (gartic.handleChange(event)) return;
     const fileInput = event.target.closest("[data-v2-wallpaper-file]");
     if (!fileInput?.files?.[0]) return;
     const file = fileInput.files[0];
@@ -215,8 +219,9 @@ export function setupChatEnhancements(root, client, userId) {
       queueMicrotask(applyFilters);
     }
   });
-  root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); void game.onConversation(); });
-  root.addEventListener("looply:conversation-activated", () => { void game.onConversation(); });
+  root.addEventListener("submit", event => { if (event.target.matches("[data-gartic-guess],[data-gartic-chat]")) void gartic.handleSubmit(event); }, true);
+  root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); void game.onConversation(); gartic.onConversation(); });
+  root.addEventListener("looply:conversation-activated", () => { void game.onConversation(); gartic.onConversation(); });
   root.addEventListener("focusout", (event) => {
     if (event.target.matches(".chat-message-form textarea")) {
       root.dispatchEvent(new CustomEvent("looply:chat-draft-blur"));
@@ -225,10 +230,10 @@ export function setupChatEnhancements(root, client, userId) {
   root.addEventListener("looply:open-conversation", () => { setTimeout(async () => { await game.onConversation(); renderTools(); }, 0); });
   const observer = new MutationObserver(() => { renderTools(); applyFilters(); });
   observer.observe(root, { childList: true, subtree: true });
-  window.addEventListener("pagehide", () => { observer.disconnect(); game.dispose(); }, { once: true });
+  window.addEventListener("pagehide", () => { observer.disconnect(); game.dispose(); gartic.dispose(); }, { once: true });
   renderTools();
   applyFilters();
-  void game.onConversation();
+  void game.onConversation(); gartic.onConversation();
   // Reconcile previously local nicknames with the authenticated, RLS-protected
   // Neon table so a nickname remains available across the user's devices.
   void (async () => {

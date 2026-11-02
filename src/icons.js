@@ -15,6 +15,7 @@ const paths = Object.freeze({
   starFilled: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" fill="currentColor"/>',
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  gamepad: '<path d="M6.6 8h10.8a4 4 0 0 1 3.8 3l1.1 5.7a2.5 2.5 0 0 1-4.1 2.2l-2.6-2.2H8.4l-2.6 2.2a2.5 2.5 0 0 1-4.1-2.2L2.8 11a4 4 0 0 1 3.8-3Z"/><path d="M7 10.8v5m-2.5-2.5h5M16 12h.01M18.5 14h.01"/>',
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   forward: '<path d="M5 12h14M12 5l7 7-7 7"/>',
   circle: '<circle cx="12" cy="12" r="9"/>',
