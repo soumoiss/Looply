@@ -1,3 +1,4 @@
+import { applyGarticStroke } from "./gartic-paint.js";
 // Looply Gartic: server-authoritative word game scoped to an authenticated conversation.
 // Shares the existing authenticated Cloudflare "ttt" room for ephemeral drawing/audio signals.
 // All words, turns, scores, chat messages and persisted strokes are verified by Neon RPCs.
@@ -167,9 +168,15 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<span>'+escapeHtml(game.category||"")+' · '+answered+' acerto(s)</span></div>'+
         '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
-          '<button type="button" data-gartic-tool="pen" aria-label="Pincel">✏️</button>'+
-          '<button type="button" data-gartic-tool="eraser" aria-label="Borracha">◻</button>'+
-          '<button type="button" data-gartic-action="hint" title="Revelar uma letra aleatória">💡 Dica</button>'+
+          '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
+          '<button type="button" data-gartic-tool="eraser" title="Borracha" aria-label="Borracha">⌫</button>'+
+          '<button type="button" data-gartic-tool="fill" title="Balde de tinta" aria-label="Preencher área">▰</button>'+
+          '<button type="button" data-gartic-tool="line" title="Linha" aria-label="Linha">╱</button>'+
+          '<button type="button" data-gartic-tool="circle" title="Círculo" aria-label="Círculo">◯</button>'+
+          '<button type="button" data-gartic-tool="rectangle" title="Retângulo" aria-label="Retângulo">▭</button>'+
+          '<button type="button" data-gartic-action="undo" title="Desfazer" aria-label="Desfazer">↶</button>'+
+          '<button type="button" data-gartic-action="clear" title="Limpar desenho" aria-label="Limpar">🗑</button>'+
+          '<button type="button" data-gartic-action="hint" title="Dica" aria-label="Dica">💡</button>'+
           '</div><div class="gartic-swatches">'+PALETTE.map(c=>'<button type="button" data-gartic-color="'+c+'" style="background:'+c+'" title="Cor '+c+'"></button>').join('')+
           '</div><label class="gartic-brush">Espessura <input type="range" min="1" max="26" value="'+width+'" data-gartic-width></label></div>':
           '<form data-gartic-guess class="gartic-guess-form"><input name="guess" maxlength="96" autocomplete="off" placeholder="'+(me?'O que está sendo desenhado?':'Entre na próxima partida para pontuar')+'" '+(me?'':'disabled')+' aria-label="Sua resposta"><button type="submit" '+(me?'':'disabled')+'>Enviar</button></form>')+
@@ -264,18 +271,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     clock.textContent=String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");
     clock.classList.toggle("is-urgent",remaining<=12);
   }
-  function drawStroke(ctx,stroke) {
-    if(!stroke||!Array.isArray(stroke.points)||stroke.points.length===0)return;
-    const points=stroke.points.filter(p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isFinite(v)&&v>=0&&v<=1000));
-    if(!points.length)return;
-    const col=stroke.tool==="eraser"?"#ffffff":/^#[0-9a-f]{6}$/i.test(stroke.color)?stroke.color:"#242432";
-    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.min(35,Math.max(1,Number(stroke.width)||4));
-    ctx.lineCap="round";ctx.lineJoin="round";
-    ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]*.65);
-    if(points.length===1){ctx.arc(points[0][0],points[0][1]*.65,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();return;}
-    for(const p of points.slice(1))ctx.lineTo(p[0],p[1]*.65);
-    ctx.stroke();
-  }
+  const drawStroke = applyGarticStroke;
   function drawAll(){
     const canvas=root.querySelector("[data-gartic-canvas]"); if(!canvas)return;
     const ctx=canvas.getContext("2d",{alpha:false});if(!ctx)return;
@@ -295,19 +291,21 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(!amDrawer()||e.button>0)return;
       e.preventDefault();canvas.setPointerCapture(e.pointerId);
       drawing={tool,color:tool==="eraser"?"#ffffff":color,width:tool==="eraser"?26:width,points:[position(e)]};
+      if(tool==="fill"){void canvas.onpointerup(e);return;}
       drawAll();drawStroke(canvas.getContext("2d"),drawing);
     };
     canvas.onpointermove=e=>{
       if(!drawing)return;e.preventDefault();
       const p=position(e),last=drawing.points.at(-1);
       if(last&&Math.hypot(last[0]-p[0],last[1]-p[1])<2)return;
-      if(drawing.points.length<140)drawing.points.push(p);
+      if(["line","circle","rectangle"].includes(drawing.tool))drawing.points=[drawing.points[0],p];
+      else if(drawing.points.length<140)drawing.points.push(p);
       drawAll();drawStroke(canvas.getContext("2d"),drawing);
     };
     canvas.onpointerup=async e=>{
       if(!drawing)return;
       const stroke=drawing;drawing=null;
-      if(stroke.points.length===1)stroke.points.push(stroke.points[0]);
+      if(stroke.points.length===1 && stroke.tool!=="fill")stroke.points.push(stroke.points[0]);
       localStrokes.push(stroke);drawAll();
       try{
         const next=await rpc("stroke",JSON.stringify(stroke));
@@ -510,7 +508,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
         renderGame(true);
       }else if(action==="leave-voice"){stopVoice();renderGame(true);}
-      else if(["create","invite","accept","decline","join","start","hint","finish"].includes(action))await perform(action);
+      else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
       return true;
     }
     if(button.hasAttribute("data-gartic-color")){
