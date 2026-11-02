@@ -100,10 +100,16 @@ try{
   await page.waitForFunction(()=>window.__testPeers.some(pc=>pc.connectionState==="connected"),null,{timeout:23000});
  }
  const incoming=async page=>page.evaluate(async()=>{
-   const pc=window.__testPeers.find(x=>x.connectionState==="connected");
-   const stats=[...(await pc.getStats()).values()];
-   return {state:pc.connectionState,bytes:stats.filter(x=>x.type==="inbound-rtp"&&
-     (x.kind||x.mediaType)==="audio").reduce((n,x)=>n+(x.bytesReceived||0),0)};
+   const peers=window.__testPeers.filter(x=>x.connectionState==="connected");
+   const all=await Promise.all(peers.map(async pc=>{
+     const stats=[...(await pc.getStats()).values()];
+     return {state:pc.connectionState,
+       negotiated:pc.getTransceivers().map(t=>({direction:t.direction,current:t.currentDirection,
+         sending:Boolean(t.sender.track),receiving:t.receiver.track.readyState})),
+       bytes:stats.filter(x=>x.type==="inbound-rtp"&&
+         (x.kind||x.mediaType)==="audio").reduce((n,x)=>n+(x.bytesReceived||0),0)};
+   }));
+   return {state:peers[0]?.connectionState||"none",bytes:all.reduce((n,p)=>n+p.bytes,0),peers:all};
  });
  await pages[1].waitForFunction(async()=>{
    const pc=window.__testPeers.find(x=>x.connectionState==="connected");
@@ -112,6 +118,7 @@ try{
    return stats.some(x=>x.type==="inbound-rtp"&&(x.kind||x.mediaType)==="audio"&&(x.bytesReceived||0)>0);
  },null,{timeout:24000});
  const listenResult=await incoming(pages[1]);
+ console.log("Listen-only RTP diagnostics",JSON.stringify(listenResult));
  if(listenResult.bytes<=0)throw Error("Listen-only peer received no audio");
  console.log("Gartic listen-only RTP",listenResult);
 
