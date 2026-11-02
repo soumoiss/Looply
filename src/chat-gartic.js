@@ -502,6 +502,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           record.ignoreOffer=!record.polite&&collision;
           if(record.ignoreOffer)return;
           if(collision)record.needsNegotiation=true;
+          // The non-initiator's initial recvonly transceiver is satisfied by
+          // this answer; do not start a redundant offer unless a mic is active.
+          else if(!record.initialOfferer && !voiceStream)record.needsNegotiation=false;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
           await record.pc.setLocalDescription(await record.pc.createAnswer());
           await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
