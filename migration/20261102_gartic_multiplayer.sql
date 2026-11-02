@@ -100,7 +100,7 @@ BEGIN
    ELSE mask:=mask||'•'; END IF;
   END LOOP;
  END IF;
- SELECT coalesce(jsonb_agg(jsonb_build_object('id',p.user_id,'name',coalesce(nullif(pr.display_name,''),pr.username),'username',pr.username,'score',p.score,'joinedAt',p.joined_at) ORDER BY p.joined_at,p.user_id),'[]'::jsonb)
+ SELECT coalesce(jsonb_agg(jsonb_build_object('id',p.user_id,'name',coalesce(nullif(pr.display_name,''),pr.username),'username',pr.username,'avatarPath',pr.avatar_path,'score',p.score,'joinedAt',p.joined_at) ORDER BY p.joined_at,p.user_id),'[]'::jsonb)
  INTO players FROM public.looply_gartic_players p JOIN public.profiles pr ON pr.id=p.user_id WHERE p.game_id=g.id;
  RETURN jsonb_build_object('gameId',g.id,'conversationId',g.conversation_id,'status',g.status,'hostId',g.host_id,
  'category',g.category,'duration',g.duration_seconds,'cycles',g.cycles,'turn',g.turn,
@@ -175,6 +175,14 @@ BEGIN
   IF g.host_id<>actor OR g.status<>'waiting' THEN RAISE EXCEPTION 'Only the host can configure' USING ERRCODE='42501'; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.looply_gartic_words WHERE category=p_value) THEN RAISE EXCEPTION 'Invalid category'; END IF;
   UPDATE public.looply_gartic_games SET category=p_value,updated_at=clock_timestamp() WHERE id=g.id;
+ ELSIF p_action='duration' THEN
+  IF g.host_id<>actor OR g.status<>'waiting' THEN RAISE EXCEPTION 'Only the host can configure' USING ERRCODE='42501'; END IF;
+  IF p_number NOT IN (45,60,75,90) THEN RAISE EXCEPTION 'Invalid duration'; END IF;
+  UPDATE public.looply_gartic_games SET duration_seconds=p_number,updated_at=clock_timestamp() WHERE id=g.id;
+ ELSIF p_action='cycles' THEN
+  IF g.host_id<>actor OR g.status<>'waiting' THEN RAISE EXCEPTION 'Only the host can configure' USING ERRCODE='42501'; END IF;
+  IF p_number NOT BETWEEN 1 AND 5 THEN RAISE EXCEPTION 'Invalid cycles'; END IF;
+  UPDATE public.looply_gartic_games SET cycles=p_number,updated_at=clock_timestamp() WHERE id=g.id;
  ELSIF p_action='start' THEN
   IF g.host_id<>actor OR g.status<>'waiting' THEN RAISE EXCEPTION 'Only the host can start' USING ERRCODE='42501'; END IF;
   SELECT count(*) INTO count_players FROM public.looply_gartic_players WHERE game_id=g.id;
