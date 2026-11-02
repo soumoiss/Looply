@@ -79,7 +79,7 @@ export function setupGlobalCallListener(client, userId, profile) {
     try {
       if (call.channel) {
         const response = await call.channel.send({ type: "broadcast", event: "signal", payload: {
-          type, conversationId: call.conversationId, senderId: userId, callId: call.payload?.callId || ""
+          type, conversationId: call.conversationId, senderId: userId, ...(call.payload?.callId ? { callId: call.payload.callId } : {})
         } });
         if (response === "ok" || response?.status === "ok") return;
       }
