@@ -162,6 +162,14 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       }
     }
   }
+  function updateGameIndicator(){
+    const button=root.querySelector("[data-v2-game]");
+    if(!button)return;
+    const exists=game && ["waiting","active"].includes(game.status);
+    button.classList.toggle("has-gartic-game",Boolean(exists));
+    button.title=exists?"Games · há uma partida nesta conversa":"Games";
+    button.setAttribute("aria-label",button.title);
+  }
   function updateClock(){
     if(!game || game.status!=="active")return;
     const clock=root.querySelector("[data-gartic-clock]");
@@ -232,11 +240,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(disposed||!conversationId||busy)return;
     try {
       const next=await rpc("tick");
-      if(!next){game=null;if(force)showEmpty();return;}
+      if(!next){game=null;updateGameIndicator();if(force)showEmpty();return;}
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
       const priorTurn=game?.turn,priorGame=game?.gameId;
       game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
+      updateGameIndicator();
       if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
       if(open&&screen!=="hub"&&(changed||force)){renderedKey=key;renderGame(true);}
       updateClock();
@@ -341,7 +350,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(node)node.textContent=connected?"Sala conectada":"Conectando ao tempo real…";
       if(connected&&voiceJoined)void sendPacket({kind:"voice-join"});
     });
-    pollTimer=setInterval(()=>{if(!document.hidden && screen!=="hub" && open)void refresh();},2600);
+    let backgroundPolls=0;
+    pollTimer=setInterval(()=>{
+      if(document.hidden)return;
+      if(open&&screen!=="hub")void refresh();
+      else if(++backgroundPolls%4===0)void refresh();
+    },2600);
+    void refresh();
   }
   async function openGartic(){
     await switchConversation();
