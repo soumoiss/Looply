@@ -30,7 +30,7 @@ export async function invokeGarticAction({client,conversationId,action,value=nul
   if(!/^[0-9a-f-]{36}$/i.test(String(conversationId||"")))
     throw Error("gartic_conversation_required");
   if(!["create","state","tick","invite","accept","decline","join","start","configure","duration","cycles","hint",
-       "guess","chat","stroke","finish"].includes(action))
+       "guess","chat","stroke","undo","clear","finish"].includes(action))
     throw Error("gartic_action_not_allowed");
   const sessionResult=await client.auth.getSession();
   const token=sessionResult?.data?.session?.access_token;
@@ -58,6 +58,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
+  let latestGuessFeedback = "", mediaBooting = false;
   let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
@@ -74,7 +75,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(!channel || !connected || !game?.gameId) return false;
     try {
       const reply = await channel.send({type:"broadcast",event:"ttt",
-        payload:{type:"gartic",gameId:game.gameId,conversationId,...packet}});
+        payload:{type:"gartic",gameId:game.gameId,conversationId,senderId:userId,...packet}});
       return reply !== "error";
     } catch {return false;}
   };
@@ -92,7 +93,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     const inviter=currentName(game.hostId);
     banner.innerHTML='<span class="gartic-invite-icon" aria-hidden="true">🎨</span>'+
-      '<div class="gartic-invite-copy"><strong>Convite para Desenhe &amp; Adivinhe</strong>'+
+      '<div class="gartic-invite-copy"><strong>Convite · Gartic</strong>'+
       '<small>'+escapeHtml(inviter)+' convidou você para jogar.</small></div>'+
       '<button type="button" data-gartic-action="accept">Aceitar</button>'+
       '<button type="button" data-gartic-action="decline">Recusar</button>';
@@ -102,20 +103,20 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const group = root.querySelector(".chat-thread-heading")?.dataset.chatKind==="group";
     openModal('<div data-looply-games-hub class="gartic-hub">'+
       '<div class="gartic-eyebrow">🎮 &nbsp; LOOPLY GAMES</div>'+
-      '<h2 id="chatV2ModalTitle">Jogos na conversa</h2>'+
-      '<p class="gartic-muted">Escolha um jogo e desafie seus amigos sem sair do chat.</p>'+
+      '<h2 id="chatV2ModalTitle">Jogos</h2>'+
+
       '<button type="button" data-gartic-action="ttt" class="gartic-game-card"'+(group?' disabled aria-disabled="true"':'')+'>'+
       '<span class="gartic-game-icon">✕○</span><span><strong>Jogo da Velha</strong><small>'+(group?'Disponível somente em conversas individuais.':'O clássico X e O, com placar salvo.')+'</small></span><span>›</span></button>'+
       '<button type="button" data-gartic-action="gartic" class="gartic-game-card">'+
-      '<span class="gartic-game-icon">🎨</span><span><strong>Desenhe &amp; Adivinhe</strong><small>Gartic com desenho, chat, dicas e áudio.</small></span><span>›</span></button></div>');
+      '<span class="gartic-game-icon">🎨</span><span><strong>Gartic</strong></span><span>›</span></button></div>');
   }
   function showEmpty() {
     screen="empty";open=true;
     openModal('<div data-looply-gartic class="gartic-shell gartic-intro">'+
-      '<div class="gartic-eyebrow">✦ &nbsp; DESENHE & ADIVINHE</div>'+
+      '<div class="gartic-eyebrow">🎮 &nbsp; LOOPLY GAMES</div>'+
       '<div class="gartic-intro-art"><span>✎</span><span>◌</span><span>✦</span></div>'+
-      '<h2 id="chatV2ModalTitle">Seu próximo desenho pode valer uma vitória.</h2>'+
-      '<p class="gartic-muted">Crie uma partida entre vocês dois ou com os participantes do grupo. Escolha o tema e descubra as palavras.</p>'+
+      '<h2 id="chatV2ModalTitle">Gartic</h2>'+
+
       makeButton("create","Criar nova partida",true)+
       '<button type="button" class="gartic-text-action" data-gartic-action="back">Voltar aos jogos</button></div>');
   }
@@ -137,12 +138,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const chat=(game.chat||[]).map(m=>'<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
     const answered=(game.correct||[]).filter(id=>id!==game.drawerId).length;
     const head='<header class="gartic-head"><div><span class="gartic-eyebrow">🎨 &nbsp; LOOPLY GAMES</span>'+
-      '<h2 id="chatV2ModalTitle">Desenhe &amp; Adivinhe</h2></div>'+
+      '<h2 id="chatV2ModalTitle">Gartic</h2></div>'+
       '<button type="button" data-gartic-action="back" class="gartic-back" aria-label="Voltar aos jogos">✕</button></header>';
     let body="";
     if(waiting){
       body='<div class="gartic-lobby"><div class="gartic-lobby-hero"><span>✦</span>'+
-        '<h3>Preparando a partida</h3><p>Convide os participantes desta conversa para desenhar e adivinhar.</p></div>'+
+        '<h3>Sala de espera</h3></div>'+
         '<label class="gartic-field">Tema<select data-gartic-category '+(game.hostId===userId?'':'disabled')+'>'+categories+'</select></label>'+
         '<div class="gartic-lobby-config"><label class="gartic-field">Tempo por desenho<select data-gartic-duration '+(game.hostId===userId?'':'disabled')+'>'+
         [45,60,75,90].map(n=>'<option value="'+n+'"'+(n===Number(game.duration)?' selected':'')+'>'+n+' segundos</option>').join('')+'</select></label>'+
@@ -154,9 +155,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           escapeHtml(p.status==='pending'?'Aguardando resposta':p.status==='accepted'?'Aceitou':p.status==='declined'?'Recusou':'Expirou')+'</small></div>').join('')+'</div>'+
         '<div class="gartic-lobby-actions">'+(!me && game.inviteStatus==='pending'
           ?'<div class="gartic-invite-actions">'+makeButton("accept","Aceitar convite",true)+makeButton("decline","Recusar")+'</div>'
-          :!me?'<p class="gartic-muted">'+(game.inviteStatus==='declined'?'Você recusou o convite.':'Aguarde um convite do anfitrião.')+'</p>':'')+
-        (game.hostId===userId?makeButton("invite","Enviar ou reenviar convites")+makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
-        '<p class="gartic-muted">Cada pessoa desenha '+Number(game.cycles)+' vez(es), com '+Number(game.duration)+' segundos por desenho.</p></div></div>';
+          :!me?'<p class="gartic-muted">'+(game.inviteStatus==='declined'?'Você recusou o convite.':'')+'</p>':'')+
+        (game.hostId===userId?makeButton("invite","Convidar")+makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
+        '</div></div>';
     } else if(active){
       body='<div class="gartic-main"><div class="gartic-topline">'+
         '<span class="gartic-drawer">✏️ '+escapeHtml(currentName(game.drawerId))+' está desenhando</span>'+
@@ -172,7 +173,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           '</div><div class="gartic-swatches">'+PALETTE.map(c=>'<button type="button" data-gartic-color="'+c+'" style="background:'+c+'" title="Cor '+c+'"></button>').join('')+
           '</div><label class="gartic-brush">Espessura <input type="range" min="1" max="26" value="'+width+'" data-gartic-width></label></div>':
           '<form data-gartic-guess class="gartic-guess-form"><input name="guess" maxlength="96" autocomplete="off" placeholder="'+(me?'O que está sendo desenhado?':'Entre na próxima partida para pontuar')+'" '+(me?'':'disabled')+' aria-label="Sua resposta"><button type="submit" '+(me?'':'disabled')+'>Enviar</button></form>')+
-        '<div class="gartic-status" role="status" data-gartic-feedback>Respostas e pontos validados pelo servidor.</div>'+
+        '<div class="gartic-status" role="status" data-gartic-feedback></div>'+
         '</div>';
     }else if(ended){
       body='<div class="gartic-results"><div class="gartic-winner-icon">🏆</div>'+
@@ -180,19 +181,19 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         people+makeButton("create","Nova partida",true)+'</div>';
     }
     const sidebar='<aside class="gartic-sidebar"><section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+
-      (active||ended?people:'<p class="gartic-muted">A classificação aparece quando o jogo começar.</p>')+'</section>'+
+      (active||ended?people:'<p class="gartic-muted"></p>')+'</section>'+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
-      '<p class="gartic-muted">'+(voiceJoined?(voiceMuted?'Seu microfone está silenciado.':'Você está no chat de voz.'):'Entre para conversar ao vivo com os jogadores.')+'</p>'+
+      '<p class="gartic-muted">'+(voiceJoined?(voiceMuted?'Seu microfone está silenciado.':'Você está no chat de voz.'):'')+'</p>'+
       (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
         makeButton("join-voice","Entrar no áudio",false,!me||!connected))+
       '<div data-gartic-audio-status class="gartic-muted">'+(connected?'Sala conectada':'Conectando ao tempo real…')+'</div></section>'+
-      '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Conversa da sala</h3>'+
-      '<div class="gartic-chat-list" aria-live="polite">'+(chat||'<p class="gartic-muted">Comece a conversa.</p>')+'</div>'+
+      '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
+      '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
       '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" autocomplete="off" placeholder="Conversar…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
       '<button type="submit" aria-label="Enviar mensagem"'+(me?'':' disabled')+'>➤</button></form></section></aside>';
     const markup='<div data-looply-gartic class="gartic-shell">'+head+'<div class="gartic-grid">'+
       '<div class="gartic-primary">'+body+'</div>'+sidebar+'</div>'+
-      '<div class="gartic-footer">'+(game.lastWord?'<span>Palavra anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span>Conversa privada · Looply Games</span>')+
+      '<div class="gartic-footer">'+(game.lastWord?'<span>Palavra anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span></span>')+
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
@@ -223,7 +224,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   function updateGameIndicator(){
     const button=root.querySelector("[data-v2-game]");
     if(!button)return;
-    const exists=game && ["waiting","active"].includes(game.status);
+    const exists=game && ["waiting","active"].includes(game.status) && (inGame() || game.inviteStatus==="pending");
     button.classList.toggle("has-gartic-game",Boolean(exists));
     button.title=exists?"Games · há uma partida nesta conversa":"Games";
     button.setAttribute("aria-label",button.title);
