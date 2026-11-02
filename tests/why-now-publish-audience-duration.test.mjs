@@ -46,7 +46,7 @@ test("image playback lasts fifteen seconds or selected music preview length",()=
   assert.match(ui,/editorDuration=15/);
   assert.match(ui,/Foto com música/);
   assert.match(ui,/data-wn-duration="30"/);
-  assert.match(ui,/draft\.music\.length=duration/);
+  assert.match(ui,/draft\.music\.length=Math\.min\(duration,draft\.music\.length,30\)/);
   assert.match(ui,/viewProgress\+=dt\/\(Math\.max\(1,Number\(item\.duration\)\|\|15\)\*1000\)/);
 });
 test("group images can be selected at creation, cropped and bound to authorized group covers",()=>{
