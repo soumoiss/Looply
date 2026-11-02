@@ -386,7 +386,8 @@
     if(media?.type==="image")return hasEditorMusic()?clipSeconds:15;
     if(hasEditorMusic())return clipSeconds;
     const duration=Number(document.querySelector("#edit-video")?.duration);
-    return Number.isFinite(duration)&&duration>0?Math.ceil(duration):media?.source==="camera"?90:30;
+    if(media?.source==="camera")return Number.isFinite(duration)&&duration>0?Math.min(90,Math.ceil(duration)):90;
+    return Number.isFinite(duration)&&duration>0?Math.ceil(duration):30;
   }
   function syncDurationControl(){
     const enabled=hasEditorMusic();
@@ -398,7 +399,7 @@
       btn.classList.toggle("is-selected",sec===clipSeconds);
       btn.setAttribute("aria-pressed",String(sec===clipSeconds));
     }
-    if(enabled&&remains<clipSeconds-.1){clipSeconds=15;syncDurationControl();return;}
+    if(enabled&&remains<clipSeconds-.1&&clipSeconds!==15){clipSeconds=15;syncDurationControl();return;}
     editorMentionsButton.textContent=selectedCount()?"@"+selectedCount():"@";
   }
   durationBar.addEventListener("click",event=>{
@@ -496,11 +497,11 @@
       const draft=buildDraft();
       const song=hasEditorMusic();
       const seconds=editorDuration();
-      if(media.source==="camera"&&draft.type==="video"&&!song&&seconds>90)
-        throw Error("Gravação acima de 90 segundos");
+      if(song&&wnMusic?.blob&&(wnMusic.duration-wnMusic.start)<seconds-.1)
+        throw Error("A faixa não tem áudio suficiente para esse trecho");
       const blob=draft.music?.blob ? await wnExportWithMusic({...draft,durationSeconds:seconds}) :
         draft.type==="image" ? await exportMomentImage(draft) :
-        await exportEditedVideo(draft,song?clipSeconds:Infinity);
+        await exportEditedVideo(draft,song?clipSeconds:media.source==="camera"&&Number(document.querySelector("#edit-video")?.duration)>90?90:Infinity);
       if(!(blob instanceof Blob)||!blob.size)throw Error("Mídia vazia");
       await request("publish",{
         blob,kind:blob.type.startsWith("video/")?"video":"image",
