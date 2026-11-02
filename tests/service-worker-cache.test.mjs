@@ -5,16 +5,15 @@ import test from "node:test";
 
 const root = resolve(import.meta.dirname, "..");
 
-test("SW serves cached static pages immediately without mixing different build URLs", async () => {
+test("SW fetches executable assets fresh while respecting versioned caches and offline fallback", async () => {
   const worker = await readFile(resolve(root,"sw.js"),"utf8");
   assert.match(worker,/const CACHE = "looply-shell-v(?:1[4-9]|[2-9][0-9])-[a-z0-9-]+"/);
   assert.match(worker,/Promise\.allSettled\(SHELL\.map/);
   assert.ok(worker.includes("const cached = await cache.match(event.request, { ignoreSearch: false })"));
-  assert.match(worker,/if \(cached\) \{/);
-  assert.match(worker,/event\.waitUntil\(fetch\(event\.request\)/);
-  assert.match(worker,/return cached;/);
-  assert.match(worker,/\.catch\(\(\) => cached \|\| Response\.error\(\)\)/);
-  assert.doesNotMatch(worker,/cache:\s*"no-cache"/);
+  assert.match(worker,/if \(critical\) \{/);
+  assert.match(worker,/fetch\(event\.request, \{ cache: "no-cache" \}\)/);
+  assert.match(worker,/return cached \|\| Response\.error\(\)/);
+  assert.match(worker,/if \(cached\) return cached;/);
   assert.match(worker,/response\.type === "basic"/);
   assert.match(worker,/url\.origin === self\.location\.origin/);
   assert.match(worker,/!url\.pathname\.includes\("\/api\/"\)/);
