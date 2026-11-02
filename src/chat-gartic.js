@@ -23,7 +23,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
   let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
-  let serverDelta = 0, serverTimer = null, lastStatus = "";
+  let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
   const hubVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-games-hub]"));
   const rpc = async (action,value=null,number=null) => {
@@ -329,6 +329,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       const next=await rpc(action,value);
       if(next) {
+        if(action==="guess" && game && next.turn===game.turn && next.updatedAt===game.updatedAt){
+          const feedback=root.querySelector("[data-gartic-feedback]");
+          if(feedback)feedback.textContent="Ainda não! Tente outra resposta.";
+          game=next;return;
+        }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
         if(before!==next.turn)localStrokes=[];
         renderedKey="";renderGame(true);
@@ -395,6 +400,6 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     return false;
   }
   function onConversation(){void switchConversation();}
-  function dispose(){disposed=true;stopVoice();if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
+  function dispose(){disposed=true;stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
   return {handleClick,handleChange,handleSubmit,onConversation,dispose,openHub:renderHub};
 }
