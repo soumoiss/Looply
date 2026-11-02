@@ -313,7 +313,7 @@ export function chatMarkup(data, userId) {
   const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
     <form class="chat-group-form" data-chat-group-create>
       <div class="field"><label for="chatGroupSubject">Nome do grupo</label><input id="chatGroupSubject" name="subject" type="text" maxlength="120" required placeholder="Ex.: Amigos"></div>
-      <fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
+      <label class="chat-group-cover-create"><span class="chat-group-cover-placeholder" data-chat-new-group-cover-fallback>${icon("image")}</span><img class="chat-group-cover-preview" data-chat-new-group-cover-preview alt="Prévia da foto do grupo" hidden><span><strong>Foto do grupo</strong><small>Adicionar capa (opcional)</small></span><input class="visually-hidden" name="cover" type="file" accept="image/jpeg,image/png,image/webp" data-chat-new-group-cover></label><fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
       <button class="primary-button compact-button" type="submit"${groupProfiles.length < 2 ? " disabled" : ""}>Criar grupo</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
@@ -570,6 +570,42 @@ async function normalizeGroupCover(file) {
   } finally {
     image?.close?.();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function persistNewGroupCover(client,conversationId,userId,file) {
+  const image=await normalizeGroupCover(file);
+  let messageId=null,uploadedPath=null,committed=false;
+  try {
+    const message=await client.from("chat_messages").insert({
+      conversation_id:conversationId,sender_id:userId,body:"Adicionou a foto do grupo."
+    }).select("id").single();
+    if(message.error||!message.data?.id)throw message.error||Error("group_cover_message_unconfirmed");
+    messageId=message.data.id;
+    uploadedPath="conversations/"+conversationId+"/"+messageId+"/"+crypto.randomUUID()+".webp";
+    await uploadResumable(client,uploadedPath,image);
+    const stored=await client.from("chat_media").insert({
+      conversation_id:conversationId,message_id:messageId,created_by:userId,
+      storage_path:uploadedPath,mime_type:"image/webp",byte_size:image.size,file_name:"capa-grupo.webp"
+    }).select("id").maybeSingle();
+    if(stored.error||!stored.data?.id)throw stored.error||Error("group_cover_media_unconfirmed");
+    const cover=await client.rpc("v10_set_group_cover",{
+      p_conversation_id:conversationId,p_storage_path:uploadedPath
+    });
+    if(cover.error||cover.data!==uploadedPath)throw cover.error||Error("group_cover_rpc_unconfirmed");
+    committed=true;
+    const check=await client.from("group_covers").select("storage_path")
+      .eq("conversation_id",conversationId).maybeSingle();
+    if(check.error||check.data?.storage_path!==uploadedPath)
+      throw check.error||Error("group_cover_read_unconfirmed");
+    return uploadedPath;
+  }catch(error){
+    if(!committed){
+      if(uploadedPath)try{await client.storage.from("looply-chat").remove([uploadedPath]);}catch{}
+      if(messageId)try{await client.from("chat_messages").delete()
+        .eq("id",messageId).eq("conversation_id",conversationId);}catch{}
+    }
+    throw error;
   }
 }
 
@@ -1052,6 +1088,28 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
+  // Preview and crop a group cover before the group is created.
+  root.addEventListener("change",async event=>{
+    const input=event.target.closest("[data-chat-new-group-cover]");
+    if(!input)return;
+    const form=input.closest("[data-chat-group-create]");
+    const file=input.files?.[0];input.value="";
+    if(!form||!file)return;
+    try{
+      const cropped=await editGroupCover(file);
+      if(!cropped)return;
+      const image=await normalizeGroupCover(cropped);
+      if(form._looplyGroupCoverPreview)URL.revokeObjectURL(form._looplyGroupCoverPreview);
+      form._looplyGroupCoverFile=image;
+      form._looplyGroupCoverPreview=URL.createObjectURL(image);
+      const img=form.querySelector("[data-chat-new-group-cover-preview]");
+      img.src=form._looplyGroupCoverPreview;img.hidden=false;
+      form.querySelector("[data-chat-new-group-cover-fallback]").hidden=true;
+    }catch(error){
+      console.warn("Group cover preview",error);
+      setStatus(form,"Não foi possível preparar essa imagem.","error");
+    }
+  });
   // The group creator can replace the cover. The image is stored once in
   // the already-authorized chat-media bucket, and the cover points to it.
   root.addEventListener("click", event => {
@@ -1528,9 +1586,18 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_group", subject, targetIds } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "group unavailable");
+        const newCover=form._looplyGroupCoverFile;
+        let coverSaved=true;
+        if(newCover){
+          try{await persistNewGroupCover(client,data.conversationId,userId,newCover);}
+          catch(error){coverSaved=false;console.error("New group cover failed",error);}
+        }
+        if(form._looplyGroupCoverPreview)URL.revokeObjectURL(form._looplyGroupCoverPreview);
+        delete form._looplyGroupCoverFile;
+        delete form._looplyGroupCoverPreview;
         form.reset();
         activeConversationId = data.conversationId;
-        setStatus(form, "Grupo criado.");
+        setStatus(form, coverSaved?"Grupo criado com foto.":"Grupo criado. Você pode adicionar a foto no grupo.");
         await refreshChat(root, client, userId);
         if (root.dataset.conversationPage !== "true") {
           window.location.assign(`conversa.html?id=${encodeURIComponent(data.conversationId)}`);
