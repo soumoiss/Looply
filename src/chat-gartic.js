@@ -123,6 +123,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   }
   function renderGame(force=false) {
     if(!game) {showEmpty();return;}
+    const previousForm=root.querySelector(".gartic-chat-form input, .gartic-guess-form input");
+    const previousDrafts=[...root.querySelectorAll(".gartic-chat-form input, .gartic-guess-form input")].map(el=>({
+      cls:el.closest("form")?.className, value:el.value, focused:document.activeElement===el,
+      selection:el.selectionStart
+    }));
     screen=game.status;open=true;
     const me=inGame(), drawer=amDrawer(), waiting=game.status==="waiting", active=game.status==="active";
     const ended=game.status==="finished", players=game.players||[];
@@ -210,6 +215,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
+    for(const draft of previousDrafts){
+      const input=draft.cls?.includes("gartic-chat-form")?
+        root.querySelector(".gartic-chat-form input"):root.querySelector(".gartic-guess-form input");
+      if(!input)continue;
+      input.value=draft.value;
+      if(draft.focused){input.focus({preventScroll:true});try{input.setSelectionRange(draft.selection,draft.selection);}catch{}}
+    }
     if(active) {setupCanvas();drawAll();updateClock();}
     void hydrateAvatars();
     const list=root.querySelector(".gartic-chat-list");if(list)list.scrollTop=list.scrollHeight;
@@ -512,7 +524,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       else if(action==="join-voice")await joinVoice();
       else if(action==="mute"){
         voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
-        renderGame(true);
+        const mute=root.querySelector('[data-gartic-action="mute"]');
+        if(mute)mute.textContent=voiceMuted?"Ativar microfone":"Silenciar microfone";
+        const status=root.querySelector("[data-gartic-audio-status]");
+        if(status)status.textContent=voiceMuted?"Silenciado":"Conectado";
       }else if(action==="leave-voice"){stopVoice();renderGame(true);}
       else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
       return true;
