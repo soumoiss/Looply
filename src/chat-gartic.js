@@ -382,7 +382,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         void sendPacket({kind:"updated"});
       }else if(action==="state")showEmpty();
     }catch(error){
-      toast(/at least two/i.test(error.message)?"Aguarde pelo menos dois participantes.":"Não foi possível concluir: "+String(error.message||"").slice(0,110));
+      console.warn("Looply Gartic action failed",action,error?.message||"unknown");
+      toast(/at least two/i.test(error.message)?"Aguarde pelo menos dois participantes.":/not a member|forbidden|session/i.test(error.message)?"Sua sessão precisa ser renovada para jogar.":"Não foi possível concluir a ação. Tente novamente.");
     }finally{busy=false;}
   }
   async function handleClick(button){
