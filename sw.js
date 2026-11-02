@@ -41,7 +41,7 @@ self.addEventListener("fetch", event => {
   event.respondWith(caches.open(CACHE).then(async cache => {
     const cached = await cache.match(event.request, { ignoreSearch: false });
     const url = new URL(event.request.url);
-    const critical = event.request.mode === "navigate" || /\\.(?:html|js|css)$/i.test(url.pathname);
+    const critical = event.request.mode === "navigate" || /\.(?:html|js|css)$/i.test(url.pathname);
     if (critical) {
       // SECURITY/FRESHNESS: returning an old JS module before revalidation can
       // keep old RPC allowlists active after the database and UI are migrated.
