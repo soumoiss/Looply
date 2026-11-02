@@ -151,6 +151,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<label class="gartic-field">Vezes para desenhar<select data-gartic-cycles '+(game.hostId===userId?'':'disabled')+'>'+
         [1,2,3,4,5].map(n=>'<option value="'+n+'"'+(n===Number(game.cycles)?' selected':'')+'>'+n+' vez(es)</option>').join('')+'</select></label></div>'+
         '<div class="gartic-lobby-people"><strong>Participantes · '+players.length+'/6</strong>'+people+'</div>'+
+        (game.hostId===userId?'<div class="gartic-candidates">'+(game.inviteCandidates||[]).map(p=>
+          '<div class="gartic-candidate"><span class="gartic-avatar" data-gartic-avatar="'+escapeHtml(p.userId)+'">'+escapeHtml((p.name||"?").slice(0,1))+'</span>'+
+          '<span class="gartic-candidate-name">'+escapeHtml(p.name||p.username)+'</span>'+
+          '<small>'+escapeHtml(p.status==="pending"?"Pendente":p.status==="accepted"?"Aceitou":p.status==="declined"?"Recusou":"")+'</small>'+
+          (p.status!=="accepted"?'<button type="button" class="gartic-invite-one" data-gartic-invite-user="'+escapeHtml(p.userId)+'">'+(p.status==="pending"?"Reenviar":"Convidar")+'</button>':'')+
+          '</div>').join('')+'</div>':'')+
         '<div class="gartic-invited-people">'+(game.invites||[]).map(p=>
           '<div class="gartic-invite-status"><span>'+escapeHtml(p.name)+'</span><small>'+
           escapeHtml(p.status==='pending'?'Aguardando resposta':p.status==='accepted'?'Aceitou':p.status==='declined'?'Recusou':'Expirou')+'</small></div>').join('')+'</div>'+
@@ -236,7 +242,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     return String(mask).replace(/•/g,"_").replace(/\s+/g,"  —  ").replace(/-/g," – ");
   }
   async function hydrateAvatars(){
-    for(const p of game?.players || []){
+    for(const p of [...(game?.players || []),...(game?.inviteCandidates || []).map(x=>({...x,id:x.userId}))]){
       if(!p.avatarPath || !p.id)continue;
       let url=avatarCache.get(p.id);
       if(!url){
@@ -484,9 +490,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         renderInviteBanner();updateGameIndicator();
         if(before!==next.turn)localStrokes=[];
         renderedKey="";
-        if(action==="chat" && gameVisible() && game.status==="active")syncLiveGame();
+        if(action==="chat" && gameVisible())syncLiveGame();
         else renderGame(true);
-        void sendPacket({kind:"updated"});
+        if(action!=="create")void sendPacket({kind:"updated"});
       }else if(action==="state")showEmpty();
     }catch(error){
       console.warn("Looply Gartic action failed",action,error?.message||"unknown");
@@ -509,6 +515,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         renderGame(true);
       }else if(action==="leave-voice"){stopVoice();renderGame(true);}
       else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
+      return true;
+    }
+    if(button.hasAttribute("data-gartic-invite-user")){
+      await perform("invite",button.dataset.garticInviteUser);
       return true;
     }
     if(button.hasAttribute("data-gartic-color")){
