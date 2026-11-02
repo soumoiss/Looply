@@ -3,7 +3,7 @@ import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshC
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-reconnect-20261031";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { loadStories, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
-import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102-editor2";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");
