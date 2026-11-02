@@ -49,7 +49,8 @@
       id: story.id, remoteUrl: story.url, type: story.type, created: story.created,
       name: group.name, owner: group.authorId === me?.id, initial: (group.name || "?").charAt(0).toUpperCase(),
       avatarUrl: group.avatarUrl || "", caption: story.caption || "", reason: story.reason || "",
-      seen: Boolean(story.seen), catalogMusic: story.music || null, items: [], strokes: [], filter: "none"
+      seen: Boolean(story.seen), catalogMusic: story.music || null, duration: Number(story.duration) || 15,
+      items: [], strokes: [], filter: "none"
     };
   }
   function avatarNode(g) {
