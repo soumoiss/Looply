@@ -1,4 +1,5 @@
 import { applyGarticStroke } from "./gartic-paint.js";
+import { attachGarticViewport } from "./gartic-viewport.js";
 // Looply Gartic: server-authoritative word game scoped to an authenticated conversation.
 // Shares the existing authenticated Cloudflare "ttt" room for ephemeral drawing/audio signals.
 // All words, turns, scores, chat messages and persisted strokes are verified by Neon RPCs.
@@ -63,6 +64,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let voiceStream = null, voiceJoined = false, voiceMuted = true, voiceOptOut = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
+  const zoomState = {scale:1,x:0,y:0};
+  let canvasViewport = null;
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
   const hubVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-games-hub]"));
   // Intentionally independent of the legacy client.rpc allowlist: stale cached
@@ -177,7 +180,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<strong data-gartic-clock>--:--</strong></div>'+
         '<div class="gartic-word"><small>'+escapeHtml(wordLabel)+'</small><strong>'+safeWord+'</strong>'+
         '<span>'+answered+' acerto(s)</span></div>'+
-        '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
+        '<div class="gartic-canvas-viewport" data-gartic-viewport>'+
+          '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
+          '</div><div class="gartic-zoom-controls">'+
+          '<button type="button" data-gartic-zoom="out" aria-label="Diminuir zoom">−</button>'+
+          '<span data-gartic-zoom-status>100%</span>'+
+          '<button type="button" data-gartic-zoom="in" aria-label="Aumentar zoom">+</button>'+
+          '<button type="button" data-gartic-zoom="reset" aria-label="Redefinir zoom">↺</button></div>'+
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
           '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
           '<button type="button" data-gartic-tool="eraser" title="Borracha" aria-label="Borracha">⌫</button>'+
@@ -298,46 +307,41 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     for(const stroke of [...(game?.strokes||[]),...localStrokes])drawStroke(ctx,stroke);
   }
   function setupCanvas(){
-    const canvas=root.querySelector("[data-gartic-canvas]");if(!canvas)return;
-    if(!amDrawer()){canvas.style.touchAction="auto";return;}
-    canvas.style.touchAction="none";
-    const position=e=>{
-      const b=canvas.getBoundingClientRect();
-      return [Math.round(Math.max(0,Math.min(1000,(e.clientX-b.left)*1000/b.width))),
-        Math.round(Math.max(0,Math.min(1000,(e.clientY-b.top)*1000/b.height)))];
-    };
-    canvas.onpointerdown=e=>{
-      if(!amDrawer()||e.button>0)return;
-      e.preventDefault();canvas.setPointerCapture(e.pointerId);
-      drawing={tool,color:tool==="eraser"?"#ffffff":color,width:tool==="eraser"?26:width,points:[position(e)]};
-      if(tool==="fill"){void canvas.onpointerup(e);return;}
-      drawAll();drawStroke(canvas.getContext("2d"),drawing);
-    };
-    canvas.onpointermove=e=>{
-      if(!drawing)return;e.preventDefault();
-      const p=position(e),last=drawing.points.at(-1);
-      if(last&&Math.hypot(last[0]-p[0],last[1]-p[1])<2)return;
-      if(["line","circle","rectangle"].includes(drawing.tool))drawing.points=[drawing.points[0],p];
-      else if(drawing.points.length<140)drawing.points.push(p);
-      drawAll();drawStroke(canvas.getContext("2d"),drawing);
-    };
-    canvas.onpointerup=async e=>{
-      if(!drawing)return;
-      const stroke=drawing;drawing=null;
-      if(stroke.points.length===1 && stroke.tool!=="fill")stroke.points.push(stroke.points[0]);
-      localStrokes.push(stroke);drawAll();
-      try{
-        const next=await rpc("stroke",JSON.stringify(stroke));
-        const previous=game?.turn;
-        if(next){game=next;serverDelta=Date.parse(next.serverNow)-Date.now();if(next.turn!==previous)localStrokes=[];}
-        localStrokes=[];drawAll();
-        void sendPacket({kind:"stroke",turn:previous,stroke});
-      }catch(error){
-        localStrokes=localStrokes.filter(x=>x!==stroke);
-        drawAll();toast("O traço não foi salvo. Confira a conexão.");
+    canvasViewport?.destroy();canvasViewport=null;
+    const canvas=root.querySelector("[data-gartic-canvas]");
+    if(!canvas)return;
+    canvasViewport=attachGarticViewport(canvas,{
+      state:zoomState,canDraw:amDrawer,currentTool:()=>tool,
+      onPreview:stroke=>{
+        drawing=stroke;
+        drawAll();
+        if(stroke)drawStroke(canvas.getContext("2d"),{
+          ...stroke,color:stroke.tool==="eraser"?"#ffffff":color,
+          width:stroke.tool==="eraser"?26:width
+        });
+      },
+      onCommit:async stroke=>{
+        if(!amDrawer()||!game?.gameId)return;
+        const targetGame=game.gameId,targetTurn=game.turn;
+        const packet={...stroke,color:stroke.tool==="eraser"?"#ffffff":color,
+          width:stroke.tool==="eraser"?26:width};
+        localStrokes.push(packet);drawAll();
+        try{
+          const next=await rpc("stroke",JSON.stringify(packet));
+          if(!next || next.gameId!==targetGame)throw Error("gartic_stroke_outdated");
+          if(game?.gameId===targetGame && game.turn===targetTurn){
+            game=next;
+            localStrokes=localStrokes.filter(v=>v!==packet);
+            drawAll();
+            void sendPacket({kind:"stroke",turn:targetTurn,stroke:packet});
+          }else localStrokes=localStrokes.filter(v=>v!==packet);
+        }catch(error){
+          localStrokes=localStrokes.filter(v=>v!==packet);
+          drawAll();
+          toast("Não foi possível salvar o desenho.");
+        }
       }
-    };
-    canvas.onpointercancel=()=>{drawing=null;drawAll();};
+    });
   }
   async function refresh(force=false){
     if(disposed||!conversationId||busy)return;
@@ -360,6 +364,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       updateGameIndicator();renderInviteBanner();startVoiceListening();
       if(priorGame!==next.gameId || priorTurn!==next.turn){
         localStrokes=[];latestGuessFeedback="";
+        zoomState.scale=1;zoomState.x=0;zoomState.y=0;
       }
       if(open&&screen!=="hub"&&(changed||force)){
         renderedKey=key;
@@ -532,7 +537,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   async function switchConversation(){
     const id=selectedConversation();
     if(id===conversationId)return;
-    stopVoice();voiceOptOut=false;if(channel)try{await client.removeChannel(channel)}catch{}
+    stopVoice();voiceOptOut=false;canvasViewport?.destroy();canvasViewport=null;
+    zoomState.scale=1;zoomState.x=0;zoomState.y=0;
+    if(channel)try{await client.removeChannel(channel)}catch{}
     conversationId=id;channel=null;game=null;connected=false;renderedKey="";localStrokes=[];
     root.querySelector("[data-gartic-invitation]")?.remove();
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
@@ -634,6 +641,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       await perform("invite",button.dataset.garticInviteUser);
       return true;
     }
+    if(button.hasAttribute("data-gartic-zoom")){
+      const action=button.dataset.garticZoom;
+      if(action==="reset")canvasViewport?.reset();
+      else canvasViewport?.zoom(action==="in"?1.35:1/1.35);
+      return true;
+    }
     if(button.hasAttribute("data-gartic-color")){
       color=button.dataset.garticColor;tool="pen";
       root.querySelectorAll("[data-gartic-color]").forEach(b=>b.classList.toggle("is-selected",b===button));return true;
@@ -710,6 +723,6 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     return false;
   }
   function onConversation(){void switchConversation();}
-  function dispose(){disposed=true;root.querySelector("[data-gartic-invitation]")?.remove();stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
+  function dispose(){disposed=true;canvasViewport?.destroy();canvasViewport=null;root.querySelector("[data-gartic-invitation]")?.remove();stopVoice();if(serverTimer)clearInterval(serverTimer);if(pollTimer)clearInterval(pollTimer);if(channel)void client?.removeChannel(channel).catch(()=>{});}
   return {handleClick,handleChange,handleSubmit,onConversation,dispose,openHub:renderHub};
 }
