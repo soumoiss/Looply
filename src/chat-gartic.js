@@ -125,7 +125,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     screen=game.status;open=true;
     const me=inGame(), drawer=amDrawer(), waiting=game.status==="waiting", active=game.status==="active";
     const ended=game.status==="finished", players=game.players||[];
-    const safeWord=escapeHtml(drawer?game.word:game.masked||"");
+    const safeWord=escapeHtml(drawer?game.word:displayGarticMask(game.masked||""));
     const wordLabel=active?(drawer?'Sua palavra secreta:':'Descubra a palavra:'):'';
     const people=players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>
       '<div class="gartic-player'+(p.id===game.drawerId?' is-drawing':'')+'">'+
@@ -200,6 +200,33 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(active) {setupCanvas();drawAll();updateClock();}
     void hydrateAvatars();
     const list=root.querySelector(".gartic-chat-list");if(list)list.scrollTop=list.scrollHeight;
+  }
+  function syncLiveGame() {
+    // Patch only changing sections; never replace a focused input or canvas.
+    const chatList=root.querySelector(".gartic-chat-list");
+    if(chatList) {
+      const messages=game?.chat||[];
+      const incoming=messages.map(m=>String(m.id)).join(",");
+      if(chatList.dataset.messageIds!==incoming){
+        const nearBottom=chatList.scrollHeight-chatList.scrollTop-chatList.clientHeight<55;
+        chatList.innerHTML=messages.map(m=>'<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
+        chatList.dataset.messageIds=incoming;
+        if(nearBottom)chatList.scrollTop=chatList.scrollHeight;
+      }
+    }
+    const word=root.querySelector(".gartic-word strong");
+    if(word)word.textContent=amDrawer()?game.word||"":displayGarticMask(game.masked||"");
+    const matches=root.querySelector(".gartic-word span");
+    if(matches)matches.textContent=(game.correct||[]).filter(id=>id!==game.drawerId).length+" acerto(s)";
+    const feedback=root.querySelector("[data-gartic-feedback]");
+    if(feedback && latestGuessFeedback)feedback.textContent=latestGuessFeedback;
+    const audioStatus=root.querySelector("[data-gartic-audio-status]");
+    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceMuted?"Silenciado":"Conectado"):"";
+    drawAll();
+    updateClock();
+  }
+  function displayGarticMask(mask){
+    return String(mask).replace(/•/g,"_").replace(/\s+/g,"  —  ").replace(/-/g," – ");
   }
   async function hydrateAvatars(){
     for(const p of game?.players || []){
@@ -303,13 +330,24 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
       const wasInvited=game?.status==="waiting"&&game?.inviteStatus==="pending";
-      const priorTurn=game?.turn,priorGame=game?.gameId;
+      const priorTurn=game?.turn,priorGame=game?.gameId,priorStatus=game?.status;
+      const priorInviteStatus=game?.inviteStatus,priorPlayers=game?.players?.length;
       game=next;
       if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
         toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
       updateGameIndicator();renderInviteBanner();
       if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
-      if(open&&screen!=="hub"&&(changed||force)){renderedKey=key;renderGame(true);}
+      if(open&&screen!=="hub"&&(changed||force)){
+        renderedKey=key;
+        if(gameVisible() && next.status==="active" && priorStatus==="active" &&
+          priorTurn===next.turn && priorGame===next.gameId && priorPlayers===next.players?.length &&
+          !force) syncLiveGame();
+        else if(gameVisible() && next.status==="waiting" && priorStatus==="waiting" &&
+          priorInviteStatus===next.inviteStatus && priorPlayers===next.players?.length &&
+          !force && document.activeElement?.matches(".gartic-shell input,.gartic-shell select")) {
+          // Preserve text composition and focused selection while lobby updates.
+        } else renderGame(true);
+      }
       updateClock();
     }catch(error){
       if(force)toast("Não foi possível sincronizar a partida. Confira a conexão.");
@@ -447,7 +485,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
         renderInviteBanner();updateGameIndicator();
         if(before!==next.turn)localStrokes=[];
-        renderedKey="";renderGame(true);
+        renderedKey="";
+        if(action==="chat" && gameVisible() && game.status==="active")syncLiveGame();
+        else renderGame(true);
         void sendPacket({kind:"updated"});
       }else if(action==="state")showEmpty();
     }catch(error){
@@ -509,8 +549,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     if(form.matches("[data-gartic-chat]")){
       event.preventDefault();const input=form.elements.message,text=input.value.trim();
-      if(!text)return true;input.value="";
-      await perform("chat",text);return true;
+      if(!text)return true;
+      input.value="";
+      await perform("chat",text);
+      return true;
     }
     return false;
   }
