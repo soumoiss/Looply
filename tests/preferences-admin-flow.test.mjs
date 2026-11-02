@@ -21,8 +21,8 @@ test("new themes and fonts are applied from the profile and the service worker r
   assert.match(css, /--looply-font-family/);
   assert.match(worker, /looply-shell-v(?:1[4-9]|[2-9][0-9])-[a-z0-9-]+/);
   assert.match(worker, /caches\.delete/);
-  assert.doesNotMatch(worker, /cache: "no-cache"/);
-  assert.match(worker, /return cached;/);
+  assert.match(worker, /fetch\\(event\\.request, \\{ cache: "no-cache" \\}\\)/);
+  assert.match(worker, /return cached \\|\\| Response\\.error\\(\\)/);
 });
 
 test("ADM can provision a normal account without a manual password and delete feed or story content", async () => {
