@@ -16,7 +16,7 @@ function storyText(story) {
   const song = decodeStorySong(story.body || "");
   const plain = decodeStoryBody(song.text || "").text || "";
   const match = plain.match(/^✳\s*([^\n]{1,100})\n?/);
-  return { caption: match ? plain.slice(match[0].length) : plain, reason: match?.[1] || "" };
+  return { caption: match ? plain.slice(match[0].length) : plain, reason: match?.[1] || "", music: song.song || null };
 }
 function toGroup(storyGroup, userId) {
   const author = storyGroup.author || {};
@@ -31,7 +31,7 @@ function toGroup(storyGroup, userId) {
         id: story.id, url: media?.signedUrl || "",
         type: media?.kind === "video" ? "video" : "image",
         created: Date.parse(story.created_at) || Date.now(),
-        seen: Boolean(story.seen), caption: text.caption, reason: text.reason
+        seen: Boolean(story.seen), caption: text.caption, reason: text.reason, music: text.music
       };
     }).filter(story => story.url)
   };
