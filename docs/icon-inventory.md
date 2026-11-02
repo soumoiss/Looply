@@ -23,6 +23,7 @@
 | `star` | Favorito inativo | https://icons8.com/icons/set/star |
 | `starFilled` | Favorito ativo | https://icons8.com/icons/set/star-filled |
 | `more` | Mais opções | https://icons8.com/icons/set/more |
+| `gamepad` | Jogos e Central de Games (conversas individuais e grupos) | https://icons8.com/icons/set/game-controller |
 | `grid` | Grade/jogo | https://icons8.com/icons/set/grid |
 | `back` | Voltar | https://icons8.com/icons/set/back |
 | `forward` | Avançar | https://icons8.com/icons/set/forward |
