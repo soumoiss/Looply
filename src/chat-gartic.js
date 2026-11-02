@@ -36,7 +36,7 @@ export async function invokeGarticAction({client,conversationId,action,value=nul
   const token=sessionResult?.data?.session?.access_token;
   if(sessionResult?.error||typeof token!=="string"||token.length<10)
     throw Error("neon_session_required");
-  const response=await fetchImpl(api.replace(/\\/$/,"")+"/rpc/v26_gartic_action",{
+  const response=await fetchImpl((api.endsWith("/")?api.slice(0,-1):api)+"/rpc/v26_gartic_action",{
     method:"POST",cache:"no-store",credentials:"omit",
     headers:{"authorization":"Bearer "+token,"content-type":"application/json","accept":"application/json"},
     body:JSON.stringify({p_conversation_id:conversationId,p_action:action,p_value:value,p_number:number}),
