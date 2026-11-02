@@ -8,6 +8,16 @@
   const pending = new Map();
   let serial = 0, groups = [], me = null, catalogTrack = null, publishing = false, musicPickerCleanup = null;
   let viewerCatalogAudio = null;
+  let editorMentions=new Set(), editorDuration=15, publishVisibility="public", publishAudience=new Set();
+  const hasEditorMusic=()=>Boolean(wnMusic?.blob||catalogTrack?.kind==="catalog");
+  const previewDurationAvailable=()=>{
+    if(!wnMusic?.blob)return 30;
+    return Math.max(1,Number(wnMusic.duration)||15);
+  };
+  function resetPublishEditor(){
+    editorMentions.clear();editorDuration=15;publishVisibility="public";publishAudience.clear();
+    renderEditorExtras();
+  }
   const previewUrls = new Map();
   let catalogRequestVersion = 0;
   let lastSoundBlocked = false;
@@ -49,7 +59,7 @@
       id: story.id, remoteUrl: story.url, type: story.type, created: story.created,
       name: group.name, owner: group.authorId === me?.id, initial: (group.name || "?").charAt(0).toUpperCase(),
       avatarUrl: group.avatarUrl || "", caption: story.caption || "", reason: story.reason || "",
-      seen: Boolean(story.seen), catalogMusic: story.music || null, items: [], strokes: [], filter: "none"
+      seen: Boolean(story.seen), catalogMusic: story.music || null, duration: story.duration || 15, items: [], strokes: [], filter: "none"
     };
   }
   function avatarNode(g) {
@@ -366,21 +376,166 @@
       }).catch(messageError).finally(() => { b.disabled = false; });
     };
   };
-  const publish = document.querySelector("#btn-publish");
-  publish.onclick = async function () {
-    if (publishing || !media) return;
-    publishing = true; publish.disabled = true;
-    try {
-      const draft = buildDraft();
-      const blob = draft.music ? await wnExportWithMusic(draft) :
-        draft.type === "image" ? await exportMomentImage(draft) : await exportEditedVideo(draft);
-      if (!(blob instanceof Blob) || !blob.size) throw Error("empty export");
-      await request("publish", { blob, kind: blob.type.startsWith("video/") ? "video" : "image",
-        caption: draft.caption || "", reason: draft.reason || "", catalogTrack });
-      wnStopPreview(); showToast("Why Now publicado"); showScreen("home");
-    } catch (error) { messageError(error); }
-    finally { publishing = false; publish.disabled = false; }
+  const extra=document.createElement("section");
+  extra.className="wn-editor-extras";
+  extra.setAttribute("aria-label","Opções do Why Now");
+  extra.innerHTML='<button type="button" class="wn-editor-mention" aria-label="Mencionar pessoas antes de publicar">＠ Mencionar <span class="wn-editor-mention-count"></span></button>'+
+    '<div class="wn-editor-duration hidden" role="group" aria-label="Duração da foto com música">'+
+    '<span>Foto com música</span><button type="button" data-wn-duration="15" aria-pressed="true">15 s</button>'+
+    '<button type="button" data-wn-duration="30" aria-pressed="false">30 s</button></div>';
+  document.querySelector("#editor .edit-bottom").before(extra);
+  function renderEditorExtras(){
+    extra.querySelector(".wn-editor-mention-count").textContent=editorMentions.size?"· "+editorMentions.size:"";
+    const duration=extra.querySelector(".wn-editor-duration");
+    const visible=media?.type==="image"&&hasEditorMusic();
+    duration.classList.toggle("hidden",!visible);
+    if(!visible)editorDuration=15;
+    const enough=previewDurationAvailable()>=30;
+    if(!enough&&editorDuration===30)editorDuration=15;
+    for(const button of duration.querySelectorAll("[data-wn-duration]")){
+      const chosen=Number(button.dataset.wnDuration)===editorDuration;
+      button.setAttribute("aria-pressed",String(chosen));
+      button.disabled=button.dataset.wnDuration==="30"&&!enough;
+      button.title=button.disabled?"Prévia de menos de 30 segundos":"Duração da foto";
+    }
+  }
+  extra.querySelector(".wn-editor-mention").onclick=()=>openEditorMentions();
+  extra.querySelectorAll("[data-wn-duration]").forEach(button=>button.onclick=()=>{
+    editorDuration=Number(button.dataset.wnDuration)===30?30:15;renderEditorExtras();
+  });
+  const previousEnterEditor=enterEditor;
+  enterEditor=function(item){
+    catalogTrack=null;previousEnterEditor(item);resetPublishEditor();
   };
+  async function selectProfiles({title,initial,allowed,limit=20,commit}){
+    const chosen=new Set(initial||[]);
+    const sheet= document.querySelector("#sheet");
+    sheetOpen('<h2 class="sheet-title">'+escapeHtml(title)+'</h2>'+
+      '<div class="wn-selector-content"><label class="wn-selector-label" for="wn-profile-search">Buscar pessoas</label>'+
+      '<input type="search" id="wn-profile-search" placeholder="Nome ou @usuário" autocomplete="off">'+
+      '<p class="wn-selected-count" aria-live="polite"></p><div class="wn-selector-list"></div>'+
+      '<div class="wn-selector-footer"><button type="button" class="wn-selector-cancel">Voltar</button>'+
+      '<button type="button" class="wn-selector-confirm">Confirmar</button></div></div>');
+    const list=sheet.querySelector(".wn-selector-list");
+    const search=sheet.querySelector("#wn-profile-search");
+    const count=sheet.querySelector(".wn-selected-count");
+    const confirm=sheet.querySelector(".wn-selector-confirm");
+    const close=()=>sheetClose();
+    sheet.querySelector(".wn-selector-cancel").onclick=close;
+    const {people}=await request("people",{}).catch(err=>{messageError(err);return {people:[]};});
+    if(!sheet.contains(list))return;
+    const valid=(people||[]).filter(p=>!allowed||allowed.has(p.id));
+    function render(){
+      const term=search.value.trim().replace(/^@/,"").toLocaleLowerCase("pt-BR");
+      const filtered=valid.filter(p=>!term||[p.name,p.username].some(x=>String(x||"").toLocaleLowerCase("pt-BR").includes(term)));
+      list.replaceChildren();
+      for(const person of filtered){
+        const button=personElement(person,()=>{
+          if(chosen.has(person.id))chosen.delete(person.id);
+          else if(chosen.size<limit)chosen.add(person.id);
+          else{showToast("Selecione no máximo "+limit+" pessoas");return;}
+          render();
+        });
+        button.classList.toggle("is-selected",chosen.has(person.id));
+        button.setAttribute("aria-pressed",String(chosen.has(person.id)));
+        const mark=document.createElement("span");mark.className="wn-selector-check";mark.textContent=chosen.has(person.id)?"✓":"+";
+        button.append(mark);list.append(button);
+      }
+      if(!filtered.length){const empty=document.createElement("p");empty.className="wn-selector-empty";empty.textContent="Nenhum perfil encontrado.";list.append(empty);}
+      count.textContent=chosen.size+" de "+limit+" selecionado(s)";
+    }
+    search.oninput=render;
+    confirm.onclick=()=>{if(commit(new Set(chosen))!==false)close();};
+    render();search.focus();
+  }
+  async function openEditorMentions(){
+    const allowed=publishVisibility==="selected"?publishAudience:null;
+    await selectProfiles({title:"Mencionar no Why Now",initial:editorMentions,allowed,limit:20,
+      commit:chosen=>{editorMentions=chosen;renderEditorExtras();showToast(chosen.size+" menção(ões) preparada(s)");}
+    });
+  }
+  function openPublishChoices(){
+    if(!media)return;
+    sheetOpen('<h2 class="sheet-title">Publicar Why Now</h2>'+
+      '<p class="sheet-desc">Quem poderá assistir a este instante?</p>'+
+      '<div class="wn-audience-options">'+
+      '<button type="button" data-wn-audience="public"><strong>🌐 Todos</strong><small>Disponível para todos com acesso aos Why Now públicos</small></button>'+
+      '<button type="button" data-wn-audience="selected"><strong>👥 Pessoas específicas</strong><small>Somente os perfis escolhidos</small></button></div>'+
+      '<p class="wn-audience-count"></p>'+
+      '<div class="wn-selector-footer"><button class="wn-selector-cancel" type="button">Voltar</button>'+
+      '<button class="wn-selector-confirm" type="button">Publicar agora</button></div>');
+    const sheet=document.querySelector("#sheet");
+    const audienceButtons=[...sheet.querySelectorAll("[data-wn-audience]")];
+    const summary=sheet.querySelector(".wn-audience-count");
+    const commit=sheet.querySelector(".wn-selector-confirm");
+    function render(){
+      audienceButtons.forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.wnAudience===publishVisibility)));
+      summary.textContent=publishVisibility==="selected"
+        ?publishAudience.size+" pessoa(s) autorizada(s) · "+editorMentions.size+" mencionada(s)"
+        :editorMentions.size+" pessoa(s) mencionada(s)";
+      commit.disabled=publishVisibility==="selected"&&!publishAudience.size;
+      commit.textContent=publishing?"Publicando…":"Publicar agora";
+    }
+    audienceButtons.forEach(button=>button.onclick=async()=>{
+      if(button.dataset.wnAudience==="public"){publishVisibility="public";render();return;}
+      const previous=publishVisibility;
+      await selectProfiles({title:"Pessoas específicas",initial:publishAudience,limit:20,
+        commit:chosen=>{
+          if(!chosen.size){showToast("Selecione pelo menos uma pessoa");return false;}
+          publishAudience=chosen;publishVisibility="selected";
+          editorMentions=new Set([...editorMentions].filter(id=>chosen.has(id)));
+          renderEditorExtras();openPublishChoices();
+        }
+      });
+      if(publishVisibility===previous&&!sheet.querySelector("[data-wn-audience]"))return;
+    });
+    sheet.querySelector(".wn-selector-cancel").onclick=()=>sheetClose();
+    commit.onclick=async()=>{
+      if(publishing)return;
+      if(publishVisibility==="selected"&&!publishAudience.size)return;
+      publishing=true;commit.disabled=true;render();
+      try{
+        const draft=buildDraft();
+        const hasMusic=hasEditorMusic();
+        const duration=media.type==="image"&&hasMusic?editorDuration:15;
+        if(draft.music && media.type==="image"){
+          if(draft.music.duration-draft.music.start<duration-.1)throw Error("A música não possui este trecho.");
+          draft.music.length=duration;
+        }
+        const blob=draft.music?await wnExportWithMusic(draft):
+          draft.type==="image"?await exportMomentImage(draft):await exportEditedVideo(draft);
+        if(!(blob instanceof Blob)||!blob.size)throw Error("Não foi possível exportar a mídia");
+        await request("publish",{
+          blob,kind:blob.type.startsWith("video/")?"video":"image",
+          originalKind:media.type,hasMusic,photoDuration:duration,
+          caption:draft.caption||"",reason:draft.reason||"",catalogTrack,
+          visibility:publishVisibility,recipientIds:[...publishAudience],
+          mentionIds:[...editorMentions]
+        });
+        wnStopPreview();sheetClose();showToast("Why Now publicado");showScreen("home");
+      }catch(error){messageError(error);}
+      finally{publishing=false;if(commit.isConnected)render();}
+    };
+    render();
+  }
+  // A photo without audio lasts 15 seconds; photos with music offer 15/30.
+  const oldViewerTick=viewerTick;
+  viewerTick=function(now){
+    const item=viewerRecord();
+    if(screen==="viewer"&&item?.remoteUrl&&item.type==="image"){
+      if(!viewerPaused){
+        const dt=Math.min(100,now-viewerLast);
+        viewProgress+=dt/(Math.max(1,Number(item.duration)||15)*1000);
+        const bar=document.getElementById("prog-"+viewerIdx);
+        if(bar)bar.style.width=(clamp(viewProgress,0,1)*100)+"%";
+        if(viewProgress>=1){nextViewer();return;}
+      }
+      viewerLast=now;viewerRaf=requestAnimationFrame(viewerTick);return;
+    }
+    oldViewerTick(now);
+  };
+  const publish=document.querySelector("#btn-publish");
+  publish.onclick=()=>openPublishChoices();
   const musicButton = document.querySelector("#tool-music");
   musicButton.onclick = async function () {
     try {
@@ -401,7 +556,7 @@
               document.querySelector("#wn-music-empty").textContent = track.title + " · " + (track.artist || "Apple Music");
             } else { showToast("Selecione uma gravação disponível"); return; }
             musicPickerCleanup?.(); musicPickerCleanup = null;
-            sheetClose(); showToast("Música selecionada");
+            sheetClose();renderEditorExtras(); showToast("Música selecionada");
           } catch (error) { messageError(error); }
         },
         onStatus: text => { if (text) console.info("[Why Now music]", text); }
@@ -409,7 +564,7 @@
     } catch (e) { messageError(e); }
   };
   document.querySelector("#wn-music-remove").addEventListener("click", () => {
-    catalogTrack = null; musicButton.classList.remove("has-track");
+    catalogTrack = null; musicButton.classList.remove("has-track");renderEditorExtras();
   });
   document.querySelector("#btn-cam-close").addEventListener("click", () => {
     if (screen === "camera") send("mode", { mode: "home" });
@@ -507,6 +662,32 @@
     "#sheet .wn-person-text strong{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     "#sheet .wn-person-text small{font-size:10px;color:#81768f}",
     "#sheet .wn-person-text .wn-viewed-at{font-size:11px;color:var(--violet,#7952d5)}",
+    "#editor .wn-editor-extras{position:absolute;z-index:12;left:14px;right:14px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:auto}",
+    "#editor .wn-editor-mention{border:1px solid #ffffff77;background:#24212cab;color:white;padding:10px 13px;border-radius:999px;font-size:12px;font-weight:800;backdrop-filter:blur(12px)}",
+    "#editor .wn-editor-duration{display:flex;align-items:center;gap:5px;border-radius:999px;background:#24212ccc;color:white;padding:5px 8px;font-size:10px;font-weight:700}",
+    "#editor .wn-editor-duration.hidden{display:none}",
+    "#editor .wn-editor-duration button{padding:7px 9px;border-radius:99px;color:#fff9;font-weight:800;font-size:10px}",
+    "#editor .wn-editor-duration button[aria-pressed=true]{background:var(--violet,#7952d5);color:#fff}",
+    "#editor .wn-editor-duration button:disabled{opacity:.4}",
+    "#sheet .wn-selector-content{display:grid;gap:10px}",
+    "#sheet .wn-selector-label{font-size:12px;font-weight:800}",
+    "#sheet #wn-profile-search{width:100%;border:1px solid #d9d1e7;border-radius:13px;padding:12px 13px;color:var(--ink,#292133);background:#fff;outline-color:var(--violet,#7952d5)}",
+    "#sheet .wn-selector-list{overflow-y:auto;max-height:45dvh;display:grid;gap:6px}",
+    "#sheet .wn-selector-count,#sheet .wn-selected-count,#sheet .wn-audience-count{font-size:11px;color:var(--violet,#7952d5);font-weight:700}",
+    "#sheet .wn-selector-check{font-size:17px;display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#eee8f7;color:#6f4ac1;font-weight:800;flex:none}",
+    "#sheet .wn-person-option.is-selected{background:color-mix(in srgb,var(--violet,#7952d5) 13%,white)}",
+    "#sheet .wn-person-option.is-selected .wn-selector-check{background:var(--violet,#7952d5);color:#fff}",
+    "#sheet .wn-selector-footer{display:flex;gap:9px;margin-top:10px}",
+    "#sheet .wn-selector-footer button{flex:1;min-height:46px;padding:10px;border-radius:13px;font-size:12px;font-weight:800}",
+    "#sheet .wn-selector-cancel{border:1px solid #e2daea;background:#fff;color:#6f6480}",
+    "#sheet .wn-selector-confirm{background:var(--violet,#7952d5);color:white}",
+    "#sheet .wn-selector-confirm:disabled{opacity:.48}",
+    "#sheet .wn-audience-options{display:grid;gap:9px}",
+    "#sheet .wn-audience-options button{display:grid;gap:5px;text-align:left;border:2px solid #e6e0ef;border-radius:15px;padding:13px;background:#fff;color:var(--ink,#292133)}",
+    "#sheet .wn-audience-options button strong{font-size:13px}",
+    "#sheet .wn-audience-options button small{font-size:11px;color:#796d89}",
+    "#sheet .wn-audience-options button[aria-pressed=true]{border-color:var(--violet,#7952d5);background:color-mix(in srgb,var(--violet,#7952d5) 9%,white)}",
+
     "#sheet{background:var(--paper,#fff)!important;color:var(--ink,#231e2c)!important}",
     "#sheet .wn-sheet-action{color:var(--ink,#231e2c)}",
     "#sheet .wn-sheet-action:not(.wn-close){background:color-mix(in srgb,var(--violet) 9%,white)}",
