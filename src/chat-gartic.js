@@ -60,7 +60,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
   let latestGuessFeedback = "", mediaBooting = false, chatBusy = false;
-  let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
+  let voiceStream = null, voiceJoined = false, voiceMuted = true, voiceOptOut = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
   const gameVisible = () => Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-looply-gartic]"));
@@ -202,9 +202,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       ((active||ended)?'<section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+people+'</section>':'')+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
       ''+
-      (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
-        makeButton("join-voice","Entrar no áudio",false,!me||!connected))+
-      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceMuted?'Silenciado':'Conectado'):'')+'</div></section>'+
+      (voiceJoined?makeButton("mute",voiceStream?(voiceMuted?'Ativar microfone':'Silenciar microfone'):'Ativar microfone')+
+        makeButton("join-voice","Ouvir áudio")+makeButton("leave-voice","Sair do áudio"):
+        makeButton("join-voice","Ouvir áudio",false,!me))+
+      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceStream&&!voiceMuted?'Microfone ligado':'Ouvindo'):'')+'</div></section>'+
       '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
       '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
       '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" enterkeyhint="send" autocomplete="off" placeholder="Mensagem…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
@@ -246,7 +247,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const feedback=root.querySelector("[data-gartic-feedback]");
     if(feedback && latestGuessFeedback)feedback.textContent=latestGuessFeedback;
     const audioStatus=root.querySelector("[data-gartic-audio-status]");
-    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceMuted?"Silenciado":"Conectado"):"";
+    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceStream&&!voiceMuted?"Microfone ligado":"Ouvindo"):"";
     drawAll();
     updateClock();
   }
@@ -356,7 +357,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       game=next;
       if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
         toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
-      updateGameIndicator();renderInviteBanner();
+      updateGameIndicator();renderInviteBanner();startVoiceListening();
       if(priorGame!==next.gameId || priorTurn!==next.turn){
         localStrokes=[];latestGuessFeedback="";
       }
@@ -381,7 +382,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     for(const {pc,audio} of remotePeers.values()){try{pc.close();}catch{}audio?.remove();}
     remotePeers.clear();
     voiceStream?.getTracks().forEach(t=>t.stop());voiceStream=null;
-    voiceJoined=false;voiceMuted=false;
+    voiceJoined=false;voiceMuted=true;
   }
   function makePeer(id){
     if(remotePeers.has(id))return remotePeers.get(id);
@@ -391,13 +392,29 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       {urls:"stun:stun.l.google.com:19302"},
       {urls:"stun:stun1.l.google.com:19302"},...optionalTurn
     ]});
-    const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;
+    const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
     const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,retried:false};remotePeers.set(id,record);
-    voiceStream?.getTracks().forEach(track=>pc.addTrack(track,voiceStream));
+    // Receive audio even if THIS player has never granted microphone access.
+    // A recvonly transceiver is upgraded to sendrecv only on explicit mic tap.
+    record.transceiver=pc.addTransceiver("audio",{direction:voiceStream&&!voiceMuted?"sendrecv":"recvonly"});
+    if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
+    pc.onnegotiationneeded=async()=>{
+      if(!voiceJoined || remotePeers.get(id)!==record || record.makingOffer)return;
+      try{
+        record.makingOffer=true;
+        if(pc.signalingState!=="stable")return;
+        await pc.setLocalDescription();
+        await sendPacket({kind:"voice-signal",target:id,signal:{type:"offer",sdp:pc.localDescription.sdp}});
+      }catch(error){console.warn("Gartic audio renegotiation failed",error?.message);}
+      finally{record.makingOffer=false;}
+    };
     pc.ontrack=e=>{
       audio.srcObject=e.streams[0]||new MediaStream([e.track]);
-      audio.play().catch(()=>{const status=root.querySelector("[data-gartic-audio-status]");if(status)status.textContent="Toque em Áudio";});
+      void audio.play().catch(()=>{
+        const status=root.querySelector("[data-gartic-audio-status]");
+        if(status)status.textContent="Toque em Ouvir áudio";
+      });
     };
     pc.onicecandidate=e=>{if(e.candidate)void sendPacket({kind:"voice-signal",target:id,signal:{type:"candidate",candidate:e.candidate.toJSON()}});};
     pc.onconnectionstatechange=()=>{
@@ -428,13 +445,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(!voiceJoined || packet.target!==userId)return;
     try{
       if(packet.kind==="voice-ready"){
-        const record=makePeer(sender);
-        if(record.pc.signalingState!=="stable"||record.makingOffer)return;
-        record.makingOffer=true;
-        try{
-          await record.pc.setLocalDescription(await record.pc.createOffer());
-          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:record.pc.localDescription.sdp}});
-        }finally{record.makingOffer=false;}
+        makePeer(sender); // onnegotiationneeded handles listener-only and microphone offers.
       }
       if(packet.kind==="voice-signal" && packet.signal){
         const data=packet.signal,record=makePeer(sender);
@@ -460,29 +471,68 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       }
     }catch(error){console.warn("Gartic voice negotiation failed",error?.message);}
   }
+  function startVoiceListening(){
+    if(voiceOptOut || voiceJoined || !inGame() || disposed)return;
+    if(!globalThis.RTCPeerConnection)return;
+    voiceJoined=true;
+    voiceMuted=!voiceStream;
+    if(connected)void sendPacket({kind:"voice-join"});
+  }
   async function joinVoice(){
-    if(voiceJoined||!connected||!inGame()) {toast("A sala de áudio ainda não está disponível.");return;}
-    if(!navigator.mediaDevices?.getUserMedia||!globalThis.RTCPeerConnection){
-      toast("Este navegador não permite áudio ao vivo.");return;
+    if(!inGame() || !globalThis.RTCPeerConnection){
+      toast("Áudio indisponível nesta sala.");return;
     }
+    voiceOptOut=false;
+    startVoiceListening();
+    // Playback unlock requires a user gesture on some mobile WebViews.
+    await Promise.allSettled([...remotePeers.values()].map(record=>record.audio.play()));
+    const node=root.querySelector("[data-gartic-audio-status]");
+    if(node)node.textContent="Ouvindo";
+  }
+  async function toggleMicrophone(){
+    if(mediaBooting || !inGame())return;
+    voiceOptOut=false;startVoiceListening();
+    if(voiceStream){
+      voiceMuted=!voiceMuted;
+      voiceStream.getAudioTracks().forEach(track=>track.enabled=!voiceMuted);
+      updateVoiceControls();
+      return;
+    }
+    if(!navigator.mediaDevices?.getUserMedia){
+      toast("Microfone indisponível.");return;
+    }
+    mediaBooting=true;
     try{
+      // Only the person transmitting audio needs to authorize the microphone.
       voiceStream=await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},
         video:false
       });
-      voiceJoined=true;voiceMuted=false;
-      const announced=await sendPacket({kind:"voice-join"});
-      if(!announced)throw Error("audio_signaling_offline");
-      renderGame(true);
+      voiceMuted=false;
+      const track=voiceStream.getAudioTracks()[0];
+      for(const record of remotePeers.values()){
+        if(!record.transceiver)continue;
+        await record.transceiver.sender.replaceTrack(track);
+        record.transceiver.direction="sendrecv";
+      }
+      if(connected)void sendPacket({kind:"voice-join"});
+      updateVoiceControls();
     }catch(error){
-      stopVoice();
-      toast(error?.name==="NotAllowedError"?"Permita o uso do microfone.":"Não foi possível conectar ao áudio.");
-    }
+      voiceStream?.getTracks().forEach(track=>track.stop());voiceStream=null;voiceMuted=true;
+      console.warn("Gartic microphone permission",error?.name);
+      toast(error?.name==="NotAllowedError"?"Permita o acesso ao microfone.":"Não foi possível ativar o microfone.");
+    }finally{mediaBooting=false;}
+  }
+  function updateVoiceControls(){
+    const mic=root.querySelector('[data-gartic-action="mute"]');
+    if(mic)mic.textContent=!voiceStream||voiceMuted?"Ativar microfone":"Silenciar microfone";
+    const status=root.querySelector("[data-gartic-audio-status]");
+    if(status)status.textContent=voiceStream&&!voiceMuted?"Microfone ligado":"Ouvindo";
   }
   async function switchConversation(){
     const id=selectedConversation();
     if(id===conversationId)return;
-    stopVoice();if(channel)try{await client.removeChannel(channel)}catch{}
+    stopVoice();voiceOptOut=false;if(channel)try{await client.removeChannel(channel)}catch{}
     conversationId=id;channel=null;game=null;connected=false;renderedKey="";localStrokes=[];
     root.querySelector("[data-gartic-invitation]")?.remove();
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
@@ -549,7 +599,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           }
         }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
-        renderInviteBanner();updateGameIndicator();
+        renderInviteBanner();updateGameIndicator();startVoiceListening();
         if(before!==next.turn)localStrokes=[];
         renderedKey="";
         if(action==="chat" && gameVisible())syncLiveGame();
@@ -575,13 +625,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       else if(action==="ttt"){stopVoice();open=false;closeModal();await openTtt();}
       else if(action==="gartic")await openGartic();
       else if(action==="join-voice")await joinVoice();
-      else if(action==="mute"){
-        voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
-        const mute=root.querySelector('[data-gartic-action="mute"]');
-        if(mute)mute.textContent=voiceMuted?"Ativar microfone":"Silenciar microfone";
-        const status=root.querySelector("[data-gartic-audio-status]");
-        if(status)status.textContent=voiceMuted?"Silenciado":"Conectado";
-      }else if(action==="leave-voice"){stopVoice();renderGame(true);}
+      else if(action==="mute")await toggleMicrophone();
+      else if(action==="leave-voice"){voiceOptOut=true;stopVoice();renderGame(true);}
       else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
       return true;
     }
