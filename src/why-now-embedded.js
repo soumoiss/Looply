@@ -8,6 +8,27 @@
   const pending = new Map();
   let serial = 0, groups = [], me = null, catalogTrack = null, publishing = false, musicPickerCleanup = null;
   let viewerCatalogAudio = null;
+  const previewUrls = new Map();
+  let catalogRequestVersion = 0;
+  let lastSoundBlocked = false;
+  function previewKey(song) { return String(song?.id || song?.url || ""); }
+  async function catalogPreview(song) {
+    if (!song || song.provider !== "apple") return "";
+    const key=previewKey(song);
+    if (!key) return "";
+    if(previewUrls.has(key))return previewUrls.get(key);
+    const { resolveAppleStoryPreview }=await import("./story-music-catalog.js?v=story-music-official-widget-20261028");
+    const url=await resolveAppleStoryPreview(song).catch(()=> "");
+    previewUrls.set(key,url);
+    return url;
+  }
+  function preparePreviews() {
+    const unique=new Map();
+    for(const group of groups)for(const item of storiesOf(group)) {
+      if(item.music?.provider==="apple"&&unique.size<30)unique.set(previewKey(item.music),item.music);
+    }
+    for(const song of unique.values())void catalogPreview(song);
+  }
   function stopCatalogAudio() { if (viewerCatalogAudio) { viewerCatalogAudio.pause(); viewerCatalogAudio.removeAttribute("src"); viewerCatalogAudio = null; } }
   function request(type, data) {
     const id = ++serial;
@@ -81,20 +102,54 @@
   };
   const originalStopViewer = stopViewer;
   stopViewer = function () { stopCatalogAudio(); originalStopViewer(); };
+  const basePauseViewer=pauseViewer;
+  pauseViewer=function(mode){
+    basePauseViewer(mode);
+    if(viewerCatalogAudio){
+      if(viewerPaused)viewerCatalogAudio.pause();
+      else void viewerCatalogAudio.play().catch(()=>{});
+    }
+  };
+  const baseSheetClose=sheetClose;
+  sheetClose=function(){
+    baseSheetClose();
+    if(screen==="viewer"&&viewerPaused)pauseViewer(false);
+  };
   const originalLoadViewer = loadViewerRecord;
   loadViewerRecord = async function () {
     stopCatalogAudio();
+    const incoming=viewerRecord();
+    const version=++catalogRequestVersion;
+    const cached=incoming?.catalogMusic?previewUrls.get(previewKey(incoming.catalogMusic)):null;
+    // Start while the viewer-opening tap still carries transient activation.
+    if(incoming?.remoteUrl && cached && incoming.catalogMusic?.provider==="apple") {
+      const audio=new Audio(cached);audio.preload="auto";audio.volume=.85;
+      viewerCatalogAudio=audio;
+      void audio.play().catch(error=>{
+        lastSoundBlocked=error?.name==="NotAllowedError";
+        console.info("[Why Now] Browser deferred catalog audio",error?.name||"unavailable");
+      });
+    }
     await originalLoadViewer();
     const current = viewerRecord();
     if (!current?.remoteUrl) return;
+    document.querySelectorAll("#viewer > .wn-repost-pill").forEach(button=>button.remove());
     const vid = document.querySelector("#view-video");
     const img = document.querySelector("#view-image");
     vid.pause(); vid.removeAttribute("src"); img.removeAttribute("src");
     if (current.type === "video") {
-      vid.src = current.remoteUrl; vid.muted = true; vid.playsInline = true;
+      vid.src = current.remoteUrl; vid.muted = false; vid.defaultMuted = false; vid.volume = 1; vid.playsInline = true;
       vid.classList.remove("hidden"); img.classList.add("hidden");
       vid.onended = nextViewer;
-      void vid.play().catch(() => {});
+      void vid.play().catch(error => {
+        if (error?.name==="NotAllowedError") {
+          lastSoundBlocked = true;
+          vid.muted=true;
+          void vid.play().catch(()=>{});
+          sound.textContent = "♫";
+          sound.title="Toque para ativar o áudio";
+        } else console.warn("[Why Now] Video playback",error);
+      });
       const sound = document.querySelector("#viewer-sound");
       sound.hidden = false; sound.textContent = "♫";
       sound.setAttribute("aria-label", "Ativar ou desativar áudio");
@@ -104,25 +159,34 @@
       document.querySelector("#viewer-sound").hidden = true;
     }
     if (current.catalogMusic?.provider === "apple") {
-      const sound = document.querySelector("#viewer-sound");
-      sound.hidden = false; sound.textContent = "♫";
-      sound.title = "Ouvir música do Why Now";
-      sound.setAttribute("aria-label", "Ouvir ou pausar música de fundo");
-      sound.onclick = async () => {
-        if (viewerCatalogAudio) {
-          if (viewerCatalogAudio.paused) void viewerCatalogAudio.play().catch(() => showToast("Toque novamente para ouvir"));
+      const sound=document.querySelector("#viewer-sound");
+      sound.hidden=false;sound.textContent="♫";
+      sound.setAttribute("aria-label","Pausar ou ativar a música");
+      sound.title="Música de fundo";
+      sound.onclick=async()=>{
+        if(viewerCatalogAudio){
+          if(viewerCatalogAudio.paused)void viewerCatalogAudio.play().catch(()=>{});
           else viewerCatalogAudio.pause();
-          return;
+        } else if(current.catalogMusic){
+          const preview=await catalogPreview(current.catalogMusic);
+          if(!preview||viewerRecord()?.id!==current.id)return;
+          viewerCatalogAudio=new Audio(preview);
+          void viewerCatalogAudio.play().catch(()=>{});
         }
-        try {
-          const catalog = await import("./story-music-catalog.js?v=story-music-official-widget-20261028");
-          const url = await catalog.resolveAppleStoryPreview(current.catalogMusic);
-          if (!url || viewerRecord()?.id !== current.id) return;
-          const audio = new Audio(url);
-          viewerCatalogAudio = audio; audio.preload = "auto";
-          void audio.play().catch(() => showToast("Toque novamente para ouvir"));
-        } catch (e) { console.warn("[Why Now] Apple preview unavailable", e); }
       };
+      if(!viewerCatalogAudio){
+        // Previews are the only Apple audio the current Looply search provides.
+        void catalogPreview(current.catalogMusic).then(url=>{
+          if(!url||version!==catalogRequestVersion||screen!=="viewer"||viewerRecord()?.id!==current.id)return;
+          const audio=new Audio(url);audio.preload="auto";audio.volume=.85;
+          viewerCatalogAudio=audio;
+          void audio.play().catch(error=>{
+            lastSoundBlocked=error?.name==="NotAllowedError";
+            sound.textContent="♫";
+            sound.title=lastSoundBlocked?"Toque para ativar o áudio":"Música indisponível";
+          });
+        });
+      }
     }
     const avatar = document.querySelector("#view-avatar");
     if (current.avatarUrl && /^https:\/\//i.test(current.avatarUrl)) {
@@ -131,13 +195,32 @@
       avatar.append(picture);
     }
     document.querySelector("#view-name").textContent = current.owner ? "Você" : current.name;
+    const options=document.querySelector("#btn-view-more");
+    options.onclick=()=>shareMoment();
     if (current.owner) {
-      document.querySelector("#own-viewers").onclick = () => void request("views", { storyId: current.id }).catch(messageError);
+      document.querySelector("#own-viewers").onclick = showOwnViewers;
+      const actions=document.querySelector(".own-bottom");
+      const mention=document.createElement("button");
+      mention.type="button";mention.className="wn-mention-button";
+      mention.textContent="@";mention.title="Mencionar usuários";mention.setAttribute("aria-label","Mencionar pessoas para poderem republicar");
+      mention.onclick=()=>mentionPeople();
+      actions.insertBefore(mention,document.querySelector("#own-remove"));
       document.querySelector("#own-remove").onclick = removeOwnMoment;
       document.querySelector("#own-share").onclick = shareMoment;
     } else {
       const reply = document.querySelector("#reply-input");
       reply.maxLength = 2000;
+      const repost=document.createElement("button");
+      repost.type="button";repost.className="wn-repost-pill hidden";
+      repost.textContent="↻ Republicar";
+      repost.setAttribute("aria-label","Republicar Why Now em que fui mencionado");
+      document.querySelector("#viewer").append(repost);
+      repost.onclick=()=>{repost.disabled=true;void request("repost",{storyId:current.id})
+        .then(()=>{showToast("Republicado no seu Why Now");closeViewer();})
+        .catch(messageError).finally(()=>{repost.disabled=false;});};
+      void request("permissions",{storyId:current.id}).then(({canRepost})=>{
+        if(viewerRecord()?.id===current.id)repost.classList.toggle("hidden",!canRepost);
+      }).catch(()=>{});
       document.querySelector("#quick-heart").onclick = () => void request("like", { storyId: current.id }).then(({ liked }) => {
         document.querySelector("#quick-heart").setAttribute("aria-pressed", liked ? "true" : "false");
         document.querySelector("#quick-heart").textContent = liked ? "♥" : "♡";
@@ -150,15 +233,116 @@
       }).catch(err => console.warn("[Why Now] view receipt failed", err));
     }
   };
-  shareMoment = async function () {
-    const item = viewerRecord();
-    if (!item?.remoteUrl) return;
-    const url = new URL("home.html", location.href);
-    url.search = ""; url.searchParams.set("storyId", item.id);
+  function storyShareUrl(item) {
+    const url=new URL("home.html",location.href);
+    url.search="";url.searchParams.set("storyId",item.id);
+    return url.href;
+  }
+  function createAction(label,action,kind="") {
+    const button=document.createElement("button");button.type="button";button.className="wn-sheet-action "+kind;
+    button.textContent=label;button.onclick=action;return button;
+  }
+  function openActionsSheet(title) {
+    pauseViewer(true);sheetOpen('<h2 class="sheet-title">'+escapeHtml(title)+'</h2><div class="wn-sheet-actions" id="wn-sheet-actions"></div>');
+    return document.querySelector("#wn-sheet-actions");
+  }
+  function closeActionsSheet() {
+    sheetClose();if(screen==="viewer")pauseViewer(false);
+  }
+  function personElement(person,onClick) {
+    const button=document.createElement("button");button.type="button";button.className="wn-person-option";
+    const avatar=document.createElement("span");avatar.className="wn-person-avatar";
+    if(person.avatarUrl && /^https:\/\//i.test(person.avatarUrl)){
+      const img=document.createElement("img");img.alt="";img.src=person.avatarUrl;img.referrerPolicy="no-referrer";avatar.append(img);
+    } else avatar.textContent=String(person.name||"?").charAt(0).toUpperCase();
+    const text=document.createElement("span");text.className="wn-person-text";
+    const name=document.createElement("strong");name.textContent=person.name||"Usuário";
+    const handle=document.createElement("small");handle.textContent=person.username?"@"+person.username:"";
+    text.append(name,handle);button.append(avatar,text);button.onclick=()=>onClick(button);
+    return button;
+  }
+  async function openPeopleSheet(title,handler) {
+    const area=openActionsSheet(title);
+    area.append(createAction("Voltar",closeActionsSheet,"wn-close"));
     try {
-      if (navigator.share) await navigator.share({ title: "Why Now", url: url.href });
-      else { await navigator.clipboard.writeText(url.href); showToast("Link copiado"); }
-    } catch (e) { if (e.name !== "AbortError") messageError(e); }
+      const {people}=await request("people",{});
+      if(!area.isConnected)return;
+      const list=document.createElement("div");list.className="wn-people-options";
+      for(const person of people||[])list.append(personElement(person,button=>handler(person,button)));
+      if(!list.childElementCount){const empty=document.createElement("p");empty.textContent="Nenhum usuário disponível.";list.append(empty);}
+      area.prepend(list);
+    }catch(error){messageError(error);closeActionsSheet();}
+  }
+  shareMoment = function () {
+    const item=viewerRecord();
+    if(!item?.remoteUrl)return;
+    const url=storyShareUrl(item);
+    const area=openActionsSheet("Compartilhar Why Now");
+    area.append(
+      createAction("↗ Compartilhar externamente",async()=>{
+        try{
+          if(!navigator.share){showToast("Compartilhamento nativo não disponível");return;}
+          await navigator.share({title:"Why Now no Looply",text:"Veja este instante no Looply",url});
+          closeActionsSheet();
+        }catch(e){if(e?.name!=="AbortError")messageError(e);}
+      }),
+      createAction("⧉ Copiar link",async()=>{
+        try{
+          if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);
+          else{const field=document.createElement("textarea");field.value=url;field.style.position="fixed";field.style.opacity="0";
+            document.body.append(field);field.select();if(!document.execCommand("copy"))throw Error("copy failed");field.remove();}
+          showToast("Link copiado");closeActionsSheet();
+        }catch(e){messageError(e);}
+      }),
+      createAction("➤ Enviar pelo Looply",()=>{
+        openPeopleSheet("Enviar Why Now",async(person,button)=>{
+          button.disabled=true;
+          try{await request("share-send",{storyId:item.id,personId:person.id});
+            showToast("Enviado para "+person.name);closeActionsSheet();
+          }catch(e){messageError(e);}finally{button.disabled=false;}
+        });
+      }),
+      createAction("Cancelar",closeActionsSheet,"wn-close")
+    );
+  };
+  async function mentionPeople() {
+    const item=viewerRecord();
+    if(!item?.remoteUrl||!item.owner)return;
+    await openPeopleSheet("Mencionar no Why Now",async(person,button)=>{
+      button.disabled=true;
+      try {
+        await request("mention",{storyId:item.id,userIds:[person.id]});
+        showToast("@"+person.username+" mencionado · republicação permitida");
+        closeActionsSheet();
+      } catch(e){messageError(e);}finally{button.disabled=false;}
+    });
+  }
+  showOwnViewers = function () {
+    const item=viewerRecord();
+    if(!item?.remoteUrl||!item.owner)return;
+    const area=openActionsSheet("Visualizações");
+    const status=document.createElement("p");status.className="wn-sheet-status";status.textContent="Carregando visualizações…";area.append(status);
+    area.append(createAction("Fechar",closeActionsSheet,"wn-close"));
+    void request("views",{storyId:item.id}).then(({people})=>{
+      if(!area.isConnected)return;
+      status.textContent=(people?.length||0)+" visualização"+(people?.length===1?"":"ões");
+      const list=document.createElement("div");list.className="wn-people-options";
+      for(const person of people||[]) {
+        const entry=personElement(person,()=>{});
+        entry.disabled=true;
+        const when=document.createElement("small");when.className="wn-viewed-at";
+        const timestamp=new Date(person.viewedAt);
+        when.textContent=Number.isNaN(timestamp.getTime())?"Horário não disponível":
+          "Viu em "+timestamp.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})+
+          " às "+timestamp.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+        entry.querySelector(".wn-person-text").append(when);
+        list.append(entry);
+      }
+      if(!list.childElementCount) {
+        const empty=document.createElement("p");empty.textContent="Nenhuma visualização registrada.";list.append(empty);
+      }
+      area.insertBefore(list,area.lastChild);
+    }).catch(messageError);
   };
   sendDemoReply = function () {
     const item = viewerRecord(), input = document.querySelector("#reply-input");
@@ -181,10 +365,6 @@
         sheetClose(); closeViewer(); showToast("Why Now apagado");
       }).catch(messageError).finally(() => { b.disabled = false; });
     };
-  };
-  showOwnViewers = function () {
-    const it = viewerRecord();
-    if (it?.remoteUrl && it.owner) void request("views", { storyId: it.id }).catch(messageError);
   };
   const publish = document.querySelector("#btn-publish");
   publish.onclick = async function () {
@@ -240,11 +420,21 @@
     if (!data || data.channel !== "looply-why-now-v1") return;
     if (data.type === "data") {
       me = data.me || me; groups = Array.isArray(data.groups) ? data.groups : [];
-      renderHome();
+      const theme=data.theme||{};
+      const allowed=value=>typeof value==="string" && /^#[0-9a-f]{3,8}$/i.test(value.trim());
+      for(const [key,value] of Object.entries({
+        "--violet":theme.primary,"--lilac":theme.lilac,
+        "--accent":theme.primaryDark,"--ink":theme.text,"--paper":theme.surface,
+        "--muted":theme.muted
+      }))if(allowed(value))document.documentElement.style.setProperty(key,value.trim());
+      renderHome();preparePreviews();
       if (screen === "viewer" && viewerRecord()?.remoteUrl) {
         const active = storyForId(viewerRecord().id);
         if (!active) closeViewer();
       }
+    }
+    if (data.type === "open-create") {
+      void openCamera();
     }
     if (data.type === "open-story" && data.storyId) {
       for (const group of groups) {
@@ -263,13 +453,17 @@
       if (data.error) task.reject(Error(data.error));
       else task.resolve(data.result || {});
     }
-    if (data.type === "views") {
-      const people = Array.isArray(data.people) ? data.people : [];
-      sheetOpen('<h2 class="sheet-title">Visualizações · ' + people.length + '</h2><div class="view-list">' +
-        (people.length ? people.map(p => '<div class="person">' + escapeHtml(p.name) + '</div>').join("") : '<p>Ninguém visualizou ainda.</p>') + '</div>');
-      pauseViewer(true);
-    }
+
   });
+  window.whyNowOpenCreate=()=>{void openCamera();};
+  window.whyNowOpenStory=storyId=>{
+    for(const group of groups){
+      const items=storiesOf(group).filter(st=>st.url);
+      const index=items.findIndex(st=>st.id===storyId);
+      if(index>=0){openViewer(items.map(st=>contentRecord(st,group)),index,"home");return true;}
+    }
+    return false;
+  };
   const style = document.createElement("style");
   style.textContent = [
     "html,body,#app{background:transparent!important}",
@@ -293,7 +487,38 @@
     "#sheet .studio-music-preview{margin:10px 0}",
     "#sheet .studio-music-preview button{padding:9px;border-radius:9px;background:#ede7fa}",
     "#sheet .studio-music-found{font-size:10px;color:#78698b}",
-    "#sheet .studio-music-preview audio{display:none}"
+    "#sheet .studio-music-preview audio{display:none}",
+    "#viewer .own-bottom{gap:6px}",
+    "#viewer .own-bottom .views-btn{flex:1;min-width:0;font-size:11px}",
+    "#viewer .own-bottom .btn{min-width:0;padding:10px 9px}",
+    "#viewer .wn-mention-button{border:1px solid #ffffff68;border-radius:13px;color:#fff;padding:10px 12px;min-width:38px;font-weight:800;font-size:16px}",
+    "#viewer .wn-repost-pill{position:absolute;z-index:9;right:18px;bottom:calc(87px + var(--safeBottom));padding:10px 16px;border-radius:99px;background:var(--violet,#8455f0);color:#fff;font-weight:800;font-size:12px;box-shadow:0 9px 25px #0005}",
+    "#sheet .wn-sheet-actions{display:grid;gap:9px}",
+    "#sheet .wn-sheet-action{width:100%;text-align:left;background:#f2eff7;color:#27202f;padding:15px 17px;border-radius:16px;font-size:13px;font-weight:700}",
+    "#sheet .wn-sheet-action:active{background:#e4dafa}",
+    "#sheet .wn-sheet-action.wn-close{background:transparent;color:#82798d;text-align:center;border:1px solid #e3dfeb}",
+    "#sheet .wn-sheet-status{font-size:12px;color:#786a85;margin:3px 0 9px}",
+    "#sheet .wn-people-options{display:grid;gap:6px;max-height:47dvh;overflow:auto;margin-bottom:12px}",
+    "#sheet .wn-person-option{width:100%;display:flex;align-items:center;text-align:left;gap:11px;background:#f8f5fb;border-radius:14px;padding:9px 10px;min-height:59px}",
+    "#sheet .wn-person-option:disabled{opacity:1;cursor:default}",
+    "#sheet .wn-person-avatar{width:41px;height:41px;border-radius:50%;overflow:hidden;display:grid;place-items:center;flex:none;background:#d3c2f4;color:#5c389f;font-weight:800}",
+    "#sheet .wn-person-avatar img{width:100%;height:100%;object-fit:cover}",
+    "#sheet .wn-person-text{display:grid;gap:3px;flex:1;min-width:0}",
+    "#sheet .wn-person-text strong{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    "#sheet .wn-person-text small{font-size:10px;color:#81768f}",
+    "#sheet .wn-person-text .wn-viewed-at{font-size:11px;color:var(--violet,#7952d5)}",
+    "#sheet{background:var(--paper,#fff)!important;color:var(--ink,#231e2c)!important}",
+    "#sheet .wn-sheet-action{color:var(--ink,#231e2c)}",
+    "#sheet .wn-sheet-action:not(.wn-close){background:color-mix(in srgb,var(--violet) 9%,white)}",
+    "#sheet .wn-person-option{background:color-mix(in srgb,var(--violet) 6%,white)}",
+    "#sheet .wn-person-avatar{background:var(--lilac,#d3c2f4)}",
+    "#viewer .wn-repost-pill{background:var(--violet,#7952d5)}",
+    "#editor .btn.purple{background:var(--violet,#7952d5)!important}",
+    "#editor .edit-reason{color:var(--ink,#231e2c)}",
+    "#wn-music-studio .wn-music-search{display:none!important}",
+    "body,button,input,textarea{font-family:'Plus Jakarta Sans','DM Sans',system-ui,sans-serif}"
+
+
   ].join("\n");
   document.head.append(style);
   renderHome();

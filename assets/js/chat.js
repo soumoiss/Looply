@@ -2,7 +2,8 @@ import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-2026
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?v=storage-safe-final-20261031";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-reconnect-20261031";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
-import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
+import { loadStories, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");
@@ -47,14 +48,13 @@ await mountAppPage({ page: "chat", render: async ({ root, client, user, profile 
       }, 450);
     });
   }
-  bindStories(root, client, user.id, stories, storiesError, profile);
-  setupStoriesRealtime(client, user.id, root);
+  const whyNow = mountWhyNowStories({ root, client, user, profile, initialStories: stories });
   root.__looplyRefreshData = async () => {
     const [chatOk, storyOk] = await Promise.all([
       refreshChatInPlace(root, client, user.id),
-      refreshStoriesInPlace(root)
+      whyNow.refresh()
     ]);
     return chatOk && storyOk;
   };
-  window.addEventListener("pagehide", () => { disposeChatRealtime(client); disposeStoriesRealtime(client, root); }, { once: true });
+  window.addEventListener("pagehide", () => { disposeChatRealtime(client); }, { once: true });
 } });

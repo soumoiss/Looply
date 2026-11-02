@@ -3,7 +3,7 @@ import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
-import { bindStories, disposeStoriesRealtime, loadStories, refreshStoriesInPlace, setupStoriesRealtime, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
+import { loadStories, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
 import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
@@ -75,8 +75,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   )}${socialMarkup(socialData, user.id, isAdmin)}`;
   void mountSecretMessages(client, user.id, isAdmin);
   // Only the Stories area is replaced; Feed, profile and all other modules remain unchanged.
-  mountWhyNowStories({ root, client, user, profile, initialStories: stories });
-  bindStories(root, client, user.id, stories, storiesError, profile, isAdmin);
+  const whyNow = mountWhyNowStories({ root, client, user, profile, initialStories: stories });
   bindSocialEvents(root, client, () => user.id, isAdmin);
   bindHomeProfilePreview({ root, client, user, profile });
   bindHomeCommentsSheet(root);
@@ -118,7 +117,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
   }
   root.__looplyRefreshData = async () => {
     const [storyOk,feedOk,settingsResult] = await Promise.all([
-      refreshStoriesInPlace(root),
+      whyNow.refresh(),
       refreshSocialFeed(root, client, user.id, isAdmin),
       client.from("app_settings").select("music_of_the_day_title,music_of_the_day_url,welcome_banner_text").eq("id", 1).maybeSingle()
     ]);
@@ -130,10 +129,8 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     }
     return storyOk && feedOk && !settingsResult.error;
   };
-  setupStoriesRealtime(client, user.id, root);
   setupSocialRealtime(client, user.id, root, isAdmin);
   window.addEventListener("pagehide", () => {
-    disposeStoriesRealtime(client, root);
     disposeSocialRealtime(client);
   }, { once: true });
 } });

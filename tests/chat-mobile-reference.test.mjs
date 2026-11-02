@@ -62,7 +62,8 @@ test("conversation list renders real authorized data without hard-coded sample c
 test("stories, real group creation and user search remain wired in Chat",async()=>{
   const [entry,markup]=await Promise.all([read("assets/js/chat.js"),read("src/chat.js")]);
   assert.match(entry,/loadStories\(client,\s*user\.id\)/);
-  assert.match(entry,/bindStories\(root, client/);
+  assert.match(entry,/mountWhyNowStories\(/);
+  assert.doesNotMatch(entry,/bindStories\(root, client/);
   assert.match(markup,/data-chat-group-create/);
   assert.match(markup,/data-chat-search/);
   assert.match(markup,/data-chat-start/);
