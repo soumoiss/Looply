@@ -190,6 +190,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
           '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
           '<button type="button" data-gartic-tool="eraser" title="Borracha" aria-label="Borracha">⌫</button>'+
+          '<button type="button" data-gartic-tool="pan" title="Mover quadro" aria-label="Mover quadro">✋</button>'+
           '<button type="button" data-gartic-tool="fill" title="Balde de tinta" aria-label="Preencher área">▰</button>'+
           '<button type="button" data-gartic-tool="line" title="Linha" aria-label="Linha">╱</button>'+
           '<button type="button" data-gartic-tool="circle" title="Círculo" aria-label="Círculo">◯</button>'+
