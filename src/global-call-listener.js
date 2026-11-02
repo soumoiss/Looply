@@ -79,16 +79,16 @@ export function setupGlobalCallListener(client, userId, profile) {
     try {
       if (call.channel) {
         const response = await call.channel.send({ type: "broadcast", event: "signal", payload: {
-          type, conversationId: call.conversationId, senderId: userId
+          type, conversationId: call.conversationId, senderId: userId, callId: call.payload?.callId || ""
         } });
         if (response === "ok" || response?.status === "ok") return;
       }
       // The quick incoming inbox may ring before individual room subscriptions
       // are ready. Replies still use authenticated Neon membership checks.
-      await fastInbox?.send({conversationId:call.conversationId,type});
+      await fastInbox?.send({conversationId:call.conversationId,type,callId:call.payload?.callId||""});
     } catch (error) {
       console.warn("Looply global call response failed", error);
-      await fastInbox?.send({conversationId:call.conversationId,type});
+      await fastInbox?.send({conversationId:call.conversationId,type,callId:call.payload?.callId||""});
     }
   };
   const showIncoming = (call, payload) => {
