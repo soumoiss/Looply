@@ -72,21 +72,39 @@ try{
   },{userId:users[i],room});
   await page.waitForSelector('[data-gartic-action="join-voice"]');
  }
- for(let i=0;i<2;i++){
+ for(let i=0;i<2;i++)
    await pages[i].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="join-voice"]')));
- }
+ // Only peer zero is allowed to open its microphone. Peer one must still hear.
+ await pages[0].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="mute"]')));
  for(const page of pages){
   await page.waitForFunction(()=>window.__testPeers.some(pc=>pc.connectionState==="connected"),null,{timeout:23000});
  }
- await pages[0].waitForTimeout(1600);
- for(let i=0;i<2;i++){
-  const results=await pages[i].evaluate(async()=>{
+ const incoming=async page=>page.evaluate(async()=>{
    const pc=window.__testPeers.find(x=>x.connectionState==="connected");
    const stats=[...(await pc.getStats()).values()];
    return {state:pc.connectionState,bytes:stats.filter(x=>x.type==="inbound-rtp"&&
-    (x.kind||x.mediaType)==="audio").reduce((n,x)=>n+(x.bytesReceived||0),0)};
-  });
-  if(results.state!=="connected"||results.bytes<=0)throw Error("Gartic peer "+i+" has no remote audio: "+JSON.stringify(results));
+     (x.kind||x.mediaType)==="audio").reduce((n,x)=>n+(x.bytesReceived||0),0)};
+ });
+ await pages[1].waitForFunction(async()=>{
+   const pc=window.__testPeers.find(x=>x.connectionState==="connected");
+   if(!pc)return false;
+   const stats=[...(await pc.getStats()).values()];
+   return stats.some(x=>x.type==="inbound-rtp"&&(x.kind||x.mediaType)==="audio"&&(x.bytesReceived||0)>0);
+ },null,{timeout:24000});
+ const listenResult=await incoming(pages[1]);
+ if(listenResult.bytes<=0)throw Error("Listen-only peer received no audio");
+ console.log("Gartic listen-only RTP",listenResult);
+ const wasMicRequested=await pages[1].evaluate(()=>Boolean(document.querySelector("[data-gartic-remote-audio]")));
+ // Now allow the listener to transmit; both peers must receive audio.
+ await pages[1].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="mute"]')));
+ for(let i=0;i<2;i++){
+  await pages[i].waitForFunction(async()=>{
+    const pc=window.__testPeers.find(x=>x.connectionState==="connected");
+    if(!pc)return false;
+    const stats=[...(await pc.getStats()).values()];
+    return stats.some(x=>x.type==="inbound-rtp"&&(x.kind||x.mediaType)==="audio"&&(x.bytesReceived||0)>0);
+  },null,{timeout:24000});
+  const results=await incoming(pages[i]);
   console.log("Gartic RTP peer "+i,results);
  }
 }finally{await context.close();await browser.close();}
