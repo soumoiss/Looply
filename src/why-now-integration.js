@@ -4,6 +4,7 @@ import { loadStories, groupActiveStories } from "./stories.js?v=visible-repost-s
 import { normalizePublicationMedia, uploadResumable } from "./social.js?v=smart-storage-20261031";
 import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?v=story-music-official-widget-20261028";
 import { decodeStoryBody } from "./story-text-style.js";
+import { cachedSignedUrls } from "./storage-url-cache.js";
 
 const CHANNEL = "looply-why-now-v1";
 const EXT = Object.freeze({
@@ -260,7 +261,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   async function reply(storyId, text) {
     const story = getOwned(storyId);
     if (story.author_id === user.id) throw Error("Não é possível responder ao próprio Why Now");
-    const body = String(text || "").trim().slice(0,2000);
+    const body = String(text?.text || "").trim().slice(0,2000);
     if (!body) throw Error("Resposta vazia");
     const result = await client.rpc("send_story_reply", { p_story_id: storyId, p_body: body });
     if (result.error) throw result.error;
@@ -278,24 +279,137 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if (mutation.error) throw mutation.error;
     return { liked };
   }
-  async function views(storyId) {
-    const story = getOwned(storyId);
-    if (story.author_id !== user.id) throw Error("Lista restrita ao autor");
-    const result = await client.from("story_views").select("viewer_id,viewed_at")
-      .eq("story_id",storyId).order("viewed_at",{ascending:false}).limit(5000);
-    if (result.error) throw result.error;
-    const ids = [...new Set((result.data || []).map(v => v.viewer_id).filter(Boolean))];
-    let profiles = [];
-    for (let index=0; index<ids.length; index+=100) {
-      const page = await client.from("profiles").select("id,username,display_name").in("id", ids.slice(index,index+100));
-      if (page.error) throw page.error;
-      profiles.push(...(page.data || []));
+  async function signedAvatars(profiles) {
+    const items=profiles.filter(p=>p.avatar_path);
+    if(!items.length)return new Map();
+    try{
+      const paths=[...new Set(items.map(p=>p.avatar_path))];
+      const {data,error}=await cachedSignedUrls(client,"looply-avatars",paths,1800);
+      if(error)throw error;
+      return new Map(paths.map((path,i)=>[path,data?.[i]?.signedUrl||""]));
+    }catch(error){
+      console.warn("[Why Now] Avatar preview unavailable",error);
+      return new Map();
     }
-    const names = new Map(profiles.map(p => [p.id, p.display_name || p.username]));
-    send("views",{people:(result.data || []).map(v => ({name:String(names.get(v.viewer_id)||"Usuário")}))});
-    return {};
   }
-  const actions = { publish, delete: remove, seen, reply, like, views };
+  async function getProfiles(ids) {
+    const profiles=[];
+    for(let index=0;index<ids.length;index+=80) {
+      const result=await client.from("profiles").select("id,username,display_name,avatar_path")
+        .in("id",ids.slice(index,index+80));
+      if(result.error)throw result.error;
+      profiles.push(...(result.data||[]));
+    }
+    return profiles;
+  }
+  function profileDto(person,avatars) {
+    return {id:person.id,name:String(person.display_name||person.username||"Usuário"),
+      username:String(person.username||""),avatarUrl:avatars.get(person.avatar_path)||""};
+  }
+  async function views(storyId) {
+    const story=getOwned(storyId);
+    if(story.author_id!==user.id)throw Error("Lista de visualizadores restrita ao autor");
+    const result=await client.from("story_views").select("viewer_id,viewed_at")
+      .eq("story_id",storyId).order("viewed_at",{ascending:false}).limit(5000);
+    if(result.error)throw result.error;
+    const ids=[...new Set((result.data||[]).map(v=>v.viewer_id).filter(Boolean))];
+    const profiles=ids.length?await getProfiles(ids):[];
+    const avatars=await signedAvatars(profiles);
+    const map=new Map(profiles.map(p=>[p.id,profileDto(p,avatars)]));
+    return {people:(result.data||[]).map(v=>({
+      ...(map.get(v.viewer_id)||{name:"Usuário",username:"",avatarUrl:""}),
+      viewedAt:v.viewed_at
+    }))};
+  }
+  async function listPeople() {
+    const result=await client.from("profiles")
+      .select("id,username,display_name,avatar_path").order("username").limit(150);
+    if(result.error)throw result.error;
+    const people=(result.data||[]).filter(p=>p.id!==user.id);
+    const avatars=await signedAvatars(people);
+    return {people:people.map(p=>profileDto(p,avatars))};
+  }
+  async function mention(storyId,payload) {
+    const story=getOwned(storyId);
+    if(story.author_id!==user.id||story.visibility!=="public")throw Error("Somente o autor pode mencionar usuários nesta publicação pública");
+    if(Date.parse(story.expires_at)<=Date.now())throw Error("Publicação expirada");
+    const ids=[...new Set(Array.isArray(payload.userIds)?payload.userIds:[])];
+    if(!ids.length||ids.length>20||ids.some(id=>!validStoryId(id)||id===user.id))throw Error("Seleção de perfis inválida");
+    const result=await client.rpc("v5_add_story_mentions",{p_story_id:storyId,p_user_ids:ids});
+    if(result.error)throw result.error;
+    return {count:ids.length};
+  }
+  async function permissions(storyId) {
+    const story=getOwned(storyId);
+    if(story.author_id===user.id||story.visibility!=="public")return {canRepost:false};
+    const result=await client.from("story_mentions").select("id")
+      .eq("story_id",storyId).eq("mentioned_user_id",user.id).maybeSingle();
+    if(result.error)throw result.error;
+    return {canRepost:Boolean(result.data?.id)};
+  }
+  async function repost(storyId) {
+    const story=getOwned(storyId);
+    if(story.author_id===user.id||story.visibility!=="public"||Date.parse(story.expires_at)<=Date.now())throw Error("Why Now indisponível");
+    const right=await permissions(storyId);
+    if(!right.canRepost)throw Error("O autor não mencionou este usuário");
+    const media=(story.media||[]).find(m=>m.signedUrl&&EXT[m.mime_type]&&["video","image"].includes(m.kind));
+    if(!media)throw Error("Mídia indisponível");
+    let createdId=null,storagePath=null;
+    try {
+      const response=await fetch(media.signedUrl,{credentials:"omit",cache:"no-store"});
+      if(!response.ok)throw Error("Mídia indisponível");
+      const blob=await response.blob();
+      if(!blob.size||blob.size>100*1024*1024)throw Error("Mídia fora do limite");
+      const type=String(media.mime_type||"").split(";")[0].toLowerCase();
+      if(!EXT[type])throw Error("Mídia inválida");
+      const author=String(story.author?.username||"").replace(/[^a-zA-Z0-9_.]/g,"");
+      const original=decodeStorySong(story.body||"");
+      const caption=(author?"Repost de @"+author:"Why Now republicado")+
+        (original.text?"\n"+decodeStoryBody(original.text).text:"");
+      const body=original.song?encodeStorySong(caption,original.song):caption.slice(0,700);
+      const created=await client.rpc("v5_create_story",{
+        p_body:body,p_visibility:"public",p_recipient_ids:[]
+      });
+      if(created.error||!validStoryId(created.data))throw created.error||Error("Criação não confirmada");
+      createdId=created.data;
+      storagePath="stories/"+createdId+"/"+crypto.randomUUID()+"."+EXT[type];
+      const file=new File([blob],"why-now-repost."+EXT[type],{type});
+      await uploadResumable(client,storagePath,file);
+      const attached=await client.rpc("v5_attach_story_media",{
+        p_story_id:createdId,p_storage_path:storagePath,p_kind:media.kind,
+        p_mime_type:type,p_byte_size:file.size
+      });
+      if(attached.error)throw attached.error;
+      const verified=await client.from("story_media").select("id").eq("story_id",createdId)
+        .eq("storage_path",storagePath).maybeSingle();
+      if(verified.error||!verified.data?.id)throw verified.error||Error("Repostagem não confirmada");
+      await refresh();
+      return {storyId:createdId};
+    }catch(error){
+      if(storagePath)try{await client.storage.from("looply-media").remove([storagePath]);}catch{}
+      if(createdId)try{await client.from("stories").delete().eq("id",createdId).eq("author_id",user.id);}catch{}
+      throw error;
+    }
+  }
+  function shareUrl(storyId) {
+    const url=new URL("home.html",location.href);
+    url.search="";url.searchParams.set("storyId",storyId);
+    return url.href;
+  }
+  async function sendShare(storyId,payload) {
+    const story=getOwned(storyId);
+    if(story.visibility!=="public"||Date.parse(story.expires_at)<=Date.now())throw Error("Compartilhamento indisponível");
+    const personId=String(payload.personId||"");
+    if(!validStoryId(personId)||personId===user.id)throw Error("Selecione outro usuário");
+    const created=await client.functions.invoke("looply-chat",{body:{action:"create_direct",targetId:personId}});
+    if(created.error||!created.data?.conversationId)throw created.error||Error("Conversa não confirmada");
+    const message=await client.from("chat_messages")
+      .insert({conversation_id:created.data.conversationId,sender_id:user.id,
+        body:"Why Now compartilhado: "+shareUrl(storyId)}).select("id").maybeSingle();
+    if(message.error||!message.data?.id)throw message.error||Error("Envio não confirmado");
+    return {sent:true};
+  }
+  const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,"share-send":sendShare};
   async function onMessage(event) {
     if (destroyed || event.origin !== location.origin || event.source !== frame.contentWindow) return;
     const message = event.data;
@@ -309,7 +423,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if (!Object.prototype.hasOwnProperty.call(actions,message.type)) return;
     if (!Number.isSafeInteger(message.requestId) || message.requestId < 1) return;
     try {
-      const result = await actions[message.type](message.storyId || message, message.text);
+      const result = await actions[message.type](message.storyId || message, message);
       send("ack",{requestId: message.requestId, result});
     } catch (error) {
       console.error("[Why Now] " + message.type + " failed", error);
