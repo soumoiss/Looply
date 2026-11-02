@@ -15,7 +15,7 @@ try{
  for(let i=0;i<2;i++){
   const page=pages[i];
   page.on("pageerror",e=>console.error("[peer "+i+"] "+e));
-  page.on("console",msg=>{if(msg.type()==="error")console.error("[peer "+i+"] "+msg.text());});
+  page.on("console",msg=>{if(["error","warning"].includes(msg.type()))console.error("[peer "+i+"] "+msg.text());});
   await page.route("**/src/*.js*",async route=>{
    const name=new URL(route.request().url()).pathname.split("/").at(-1);
    if(!["chat-gartic.js","gartic-paint.js","gartic-viewport.js"].includes(name))return route.abort();
@@ -111,12 +111,13 @@ try{
    }));
    return {state:peers[0]?.connectionState||"none",bytes:all.reduce((n,p)=>n+p.bytes,0),peers:all};
  });
- await pages[1].waitForFunction(async()=>{
-   const pc=window.__testPeers.find(x=>x.connectionState==="connected");
-   if(!pc)return false;
-   const stats=[...(await pc.getStats()).values()];
-   return stats.some(x=>x.type==="inbound-rtp"&&(x.kind||x.mediaType)==="audio"&&(x.bytesReceived||0)>0);
- },null,{timeout:24000});
+ let firstReceive=false;
+ for(let attempt=0;attempt<40;attempt++){
+   await pages[1].waitForTimeout(350);
+   if((await incoming(pages[1])).bytes>0){firstReceive=true;break;}
+ }
+ const senderState=await incoming(pages[0]);
+ console.log("Microphone sender diagnostics",JSON.stringify(senderState));
  const listenResult=await incoming(pages[1]);
  console.log("Listen-only RTP diagnostics",JSON.stringify(listenResult));
  if(listenResult.bytes<=0)throw Error("Listen-only peer received no audio");
