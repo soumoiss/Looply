@@ -384,7 +384,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   }
   function stopVoice(){
     if(voiceJoined)void sendPacket({kind:"voice-leave"});
-    for(const {pc,audio} of remotePeers.values()){try{pc.close();}catch{}audio?.remove();}
+    for(const {pc,audio,recoveryTimer} of remotePeers.values()){
+      clearTimeout(recoveryTimer);
+      try{pc.close();}catch{}
+      audio?.remove();
+    }
     remotePeers.clear();
     voiceStream?.getTracks().forEach(t=>t.stop());voiceStream=null;
     voiceJoined=false;voiceMuted=true;
@@ -399,7 +403,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     ]});
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
-    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,retried:false};remotePeers.set(id,record);
+    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,recoveryTimer:null,retries:0};remotePeers.set(id,record);
     // Receive audio even if THIS player has never granted microphone access.
     // A recvonly transceiver is upgraded to sendrecv only on explicit mic tap.
     record.transceiver=pc.addTransceiver("audio",{direction:voiceStream&&!voiceMuted?"sendrecv":"recvonly"});
@@ -427,15 +431,28 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(status && voiceJoined)status.textContent=pc.connectionState==="connected"?"Áudio conectado":
         pc.connectionState==="connecting"?"Conectando áudio…":
         pc.connectionState==="failed"?"Reconectando áudio…":"Áudio";
-      if(pc.connectionState==="failed"&&!record.retried){
-        record.retried=true;
-        setTimeout(()=>{
-          if(!voiceJoined||remotePeers.get(id)!==record)return;
-          audio.remove();remotePeers.delete(id);pc.close();
-          void sendPacket({kind:"voice-join"});
-        },1400);
+      if(pc.connectionState==="connected"){
+        clearTimeout(record.recoveryTimer);record.recoveryTimer=null;record.retries=0;
       }
-      if(pc.connectionState==="closed"){audio.remove();remotePeers.delete(id);}
+      if(["failed","disconnected"].includes(pc.connectionState) &&
+          record.recoveryTimer===null && record.retries<3){
+        record.recoveryTimer=setTimeout(()=>{
+          record.recoveryTimer=null;
+          if(!voiceJoined || remotePeers.get(id)!==record ||
+             !["failed","disconnected"].includes(pc.connectionState))return;
+          record.retries++;
+          // ICE restart retains the received stream and avoids a cascade of
+          // destroyed peers/failed offers on a brief mobile network handoff.
+          try{
+            if(typeof pc.restartIce==="function")pc.restartIce();
+            else void sendPacket({kind:"voice-join"});
+          }catch(error){console.warn("Gartic ICE recovery",error?.message);}
+        },pc.connectionState==="failed"?2500:5500);
+      }
+      if(pc.connectionState==="closed"){
+        clearTimeout(record.recoveryTimer);
+        audio.remove();remotePeers.delete(id);
+      }
     };
     return record;
   }
