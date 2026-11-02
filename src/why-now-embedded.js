@@ -407,6 +407,13 @@
     if (!data || data.channel !== "looply-why-now-v1") return;
     if (data.type === "data") {
       me = data.me || me; groups = Array.isArray(data.groups) ? data.groups : [];
+      const theme=data.theme||{};
+      const allowed=value=>typeof value==="string" && /^#[0-9a-f]{3,8}$/i.test(value.trim());
+      for(const [key,value] of Object.entries({
+        "--violet":theme.primary,"--lilac":theme.lilac,
+        "--accent":theme.primaryDark,"--ink":theme.text,"--paper":theme.surface,
+        "--muted":theme.muted
+      }))if(allowed(value))document.documentElement.style.setProperty(key,value.trim());
       renderHome();preparePreviews();
       if (screen === "viewer" && viewerRecord()?.remoteUrl) {
         const active = storyForId(viewerRecord().id);
@@ -486,7 +493,18 @@
     "#sheet .wn-person-text{display:grid;gap:3px;flex:1;min-width:0}",
     "#sheet .wn-person-text strong{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     "#sheet .wn-person-text small{font-size:10px;color:#81768f}",
-    "#sheet .wn-person-text .wn-viewed-at{font-size:11px;color:#6a5489}"
+    "#sheet .wn-person-text .wn-viewed-at{font-size:11px;color:var(--violet,#7952d5)}",
+    "#sheet{background:var(--paper,#fff)!important;color:var(--ink,#231e2c)!important}",
+    "#sheet .wn-sheet-action{color:var(--ink,#231e2c)}",
+    "#sheet .wn-sheet-action:not(.wn-close){background:color-mix(in srgb,var(--violet) 9%,white)}",
+    "#sheet .wn-person-option{background:color-mix(in srgb,var(--violet) 6%,white)}",
+    "#sheet .wn-person-avatar{background:var(--lilac,#d3c2f4)}",
+    "#viewer .wn-repost-pill{background:var(--violet,#7952d5)}",
+    "#editor .btn.purple{background:var(--violet,#7952d5)!important}",
+    "#editor .edit-reason{color:var(--ink,#231e2c)}",
+    "#wn-music-studio .wn-music-search{display:none!important}",
+    "body,button,input,textarea{font-family:'Plus Jakarta Sans','DM Sans',system-ui,sans-serif}"
+
 
   ].join("\n");
   document.head.append(style);
