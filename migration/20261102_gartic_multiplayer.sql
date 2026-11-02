@@ -145,7 +145,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.v26_gartic_action(p_conversation_id uuid,p_action text,p_value text DEFAULT NULL,p_number integer DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE actor uuid:=(SELECT public.looply_legacy_uid()); g public.looply_gartic_games%ROWTYPE;
- answer text; correct_guess boolean; count_players int; count_correct int; pos int; score_award int; total int;
+ answer text; correct_guess boolean; count_players int; count_correct int; pos int; score_award int; total int; last_id uuid;
 BEGIN
  IF actor IS NULL OR NOT EXISTS (
  SELECT 1 FROM public.conversation_participants WHERE conversation_id=p_conversation_id AND user_id=actor
@@ -162,7 +162,12 @@ BEGIN
    INSERT INTO public.looply_gartic_players(game_id,user_id) VALUES(g.id,actor);
   END IF;
  ELSIF g.id IS NULL THEN
-  IF p_action='state' THEN RETURN NULL; END IF;
+  IF p_action IN ('state','tick') THEN
+   SELECT id INTO last_id FROM public.looply_gartic_games
+    WHERE conversation_id=p_conversation_id ORDER BY created_at DESC LIMIT 1;
+   IF last_id IS NULL THEN RETURN NULL; END IF;
+   RETURN public.v26_gartic_view(last_id);
+  END IF;
   RAISE EXCEPTION 'No active game' USING ERRCODE='22023';
  ELSIF p_action='join' THEN
   IF g.status<>'waiting' THEN RAISE EXCEPTION 'Game already started' USING ERRCODE='22023'; END IF;
