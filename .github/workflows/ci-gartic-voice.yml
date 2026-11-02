@@ -1,0 +1,33 @@
+name: Gartic two-peer WebRTC audio test
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/chat-gartic.js"
+      - "src/gartic-paint.js"
+      - "tests/ci-gartic-voice-two-peer.mjs"
+      - ".github/workflows/ci-gartic-voice.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/chat-gartic.js"
+      - "src/gartic-paint.js"
+      - "tests/ci-gartic-voice-two-peer.mjs"
+      - ".github/workflows/ci-gartic-voice.yml"
+permissions:
+  contents: read
+jobs:
+  real-voice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Real two-peer Gartic audio
+        run: node tests/ci-gartic-voice-two-peer.mjs

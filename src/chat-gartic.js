@@ -1,3 +1,4 @@
+import { applyGarticStroke } from "./gartic-paint.js";
 // Looply Gartic: server-authoritative word game scoped to an authenticated conversation.
 // Shares the existing authenticated Cloudflare "ttt" room for ephemeral drawing/audio signals.
 // All words, turns, scores, chat messages and persisted strokes are verified by Neon RPCs.
@@ -30,7 +31,7 @@ export async function invokeGarticAction({client,conversationId,action,value=nul
   if(!/^[0-9a-f-]{36}$/i.test(String(conversationId||"")))
     throw Error("gartic_conversation_required");
   if(!["create","state","tick","invite","accept","decline","join","start","configure","duration","cycles","hint",
-       "guess","chat","stroke","finish"].includes(action))
+       "guess","chat","stroke","undo","clear","finish"].includes(action))
     throw Error("gartic_action_not_allowed");
   const sessionResult=await client.auth.getSession();
   const token=sessionResult?.data?.session?.access_token;
@@ -58,6 +59,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
+  let latestGuessFeedback = "", mediaBooting = false;
   let voiceStream = null, voiceJoined = false, voiceMuted = false, remotePeers = new Map();
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
   const avatarCache = new Map();
@@ -74,7 +76,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(!channel || !connected || !game?.gameId) return false;
     try {
       const reply = await channel.send({type:"broadcast",event:"ttt",
-        payload:{type:"gartic",gameId:game.gameId,conversationId,...packet}});
+        payload:{type:"gartic",gameId:game.gameId,conversationId,senderId:userId,...packet}});
       return reply !== "error";
     } catch {return false;}
   };
@@ -92,7 +94,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     const inviter=currentName(game.hostId);
     banner.innerHTML='<span class="gartic-invite-icon" aria-hidden="true">🎨</span>'+
-      '<div class="gartic-invite-copy"><strong>Convite para Desenhe &amp; Adivinhe</strong>'+
+      '<div class="gartic-invite-copy"><strong>Convite · Gartic</strong>'+
       '<small>'+escapeHtml(inviter)+' convidou você para jogar.</small></div>'+
       '<button type="button" data-gartic-action="accept">Aceitar</button>'+
       '<button type="button" data-gartic-action="decline">Recusar</button>';
@@ -102,30 +104,35 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const group = root.querySelector(".chat-thread-heading")?.dataset.chatKind==="group";
     openModal('<div data-looply-games-hub class="gartic-hub">'+
       '<div class="gartic-eyebrow">🎮 &nbsp; LOOPLY GAMES</div>'+
-      '<h2 id="chatV2ModalTitle">Jogos na conversa</h2>'+
-      '<p class="gartic-muted">Escolha um jogo e desafie seus amigos sem sair do chat.</p>'+
+      '<h2 id="chatV2ModalTitle">Jogos</h2>'+
+
       '<button type="button" data-gartic-action="ttt" class="gartic-game-card"'+(group?' disabled aria-disabled="true"':'')+'>'+
       '<span class="gartic-game-icon">✕○</span><span><strong>Jogo da Velha</strong><small>'+(group?'Disponível somente em conversas individuais.':'O clássico X e O, com placar salvo.')+'</small></span><span>›</span></button>'+
       '<button type="button" data-gartic-action="gartic" class="gartic-game-card">'+
-      '<span class="gartic-game-icon">🎨</span><span><strong>Desenhe &amp; Adivinhe</strong><small>Gartic com desenho, chat, dicas e áudio.</small></span><span>›</span></button></div>');
+      '<span class="gartic-game-icon">🎨</span><span><strong>Gartic</strong></span><span>›</span></button></div>');
   }
   function showEmpty() {
     screen="empty";open=true;
     openModal('<div data-looply-gartic class="gartic-shell gartic-intro">'+
-      '<div class="gartic-eyebrow">✦ &nbsp; DESENHE & ADIVINHE</div>'+
+      '<div class="gartic-eyebrow">🎮 &nbsp; LOOPLY GAMES</div>'+
       '<div class="gartic-intro-art"><span>✎</span><span>◌</span><span>✦</span></div>'+
-      '<h2 id="chatV2ModalTitle">Seu próximo desenho pode valer uma vitória.</h2>'+
-      '<p class="gartic-muted">Crie uma partida entre vocês dois ou com os participantes do grupo. Escolha o tema e descubra as palavras.</p>'+
+      '<h2 id="chatV2ModalTitle">Gartic</h2>'+
+
       makeButton("create","Criar nova partida",true)+
       '<button type="button" class="gartic-text-action" data-gartic-action="back">Voltar aos jogos</button></div>');
   }
   function renderGame(force=false) {
     if(!game) {showEmpty();return;}
+    const previousForm=root.querySelector(".gartic-chat-form input, .gartic-guess-form input");
+    const previousDrafts=[...root.querySelectorAll(".gartic-chat-form input, .gartic-guess-form input")].map(el=>({
+      cls:el.closest("form")?.className, value:el.value, focused:document.activeElement===el,
+      selection:el.selectionStart
+    }));
     screen=game.status;open=true;
     const me=inGame(), drawer=amDrawer(), waiting=game.status==="waiting", active=game.status==="active";
     const ended=game.status==="finished", players=game.players||[];
-    const safeWord=escapeHtml(drawer?game.word:game.masked||"");
-    const wordLabel=active?(drawer?'Sua palavra secreta:':'Descubra a palavra:'):'';
+    const safeWord=escapeHtml(drawer?game.word:displayGarticMask(game.masked||""));
+    const wordLabel=active?(drawer?'Sua palavra:':'Palavra:'):'';
     const people=players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>
       '<div class="gartic-player'+(p.id===game.drawerId?' is-drawing':'')+'">'+
       '<span class="gartic-player-rank">'+(i+1)+'</span>'+
@@ -137,71 +144,117 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const chat=(game.chat||[]).map(m=>'<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
     const answered=(game.correct||[]).filter(id=>id!==game.drawerId).length;
     const head='<header class="gartic-head"><div><span class="gartic-eyebrow">🎨 &nbsp; LOOPLY GAMES</span>'+
-      '<h2 id="chatV2ModalTitle">Desenhe &amp; Adivinhe</h2></div>'+
+      '<h2 id="chatV2ModalTitle">Gartic</h2></div>'+
       '<button type="button" data-gartic-action="back" class="gartic-back" aria-label="Voltar aos jogos">✕</button></header>';
     let body="";
     if(waiting){
       body='<div class="gartic-lobby"><div class="gartic-lobby-hero"><span>✦</span>'+
-        '<h3>Preparando a partida</h3><p>Convide os participantes desta conversa para desenhar e adivinhar.</p></div>'+
+        '<h3>Sala de espera</h3></div>'+
         '<label class="gartic-field">Tema<select data-gartic-category '+(game.hostId===userId?'':'disabled')+'>'+categories+'</select></label>'+
         '<div class="gartic-lobby-config"><label class="gartic-field">Tempo por desenho<select data-gartic-duration '+(game.hostId===userId?'':'disabled')+'>'+
         [45,60,75,90].map(n=>'<option value="'+n+'"'+(n===Number(game.duration)?' selected':'')+'>'+n+' segundos</option>').join('')+'</select></label>'+
         '<label class="gartic-field">Vezes para desenhar<select data-gartic-cycles '+(game.hostId===userId?'':'disabled')+'>'+
         [1,2,3,4,5].map(n=>'<option value="'+n+'"'+(n===Number(game.cycles)?' selected':'')+'>'+n+' vez(es)</option>').join('')+'</select></label></div>'+
         '<div class="gartic-lobby-people"><strong>Participantes · '+players.length+'/6</strong>'+people+'</div>'+
+        (game.hostId===userId?'<div class="gartic-candidates">'+(game.inviteCandidates||[]).map(p=>
+          '<div class="gartic-candidate"><span class="gartic-avatar" data-gartic-avatar="'+escapeHtml(p.userId)+'">'+escapeHtml((p.name||"?").slice(0,1))+'</span>'+
+          '<span class="gartic-candidate-name">'+escapeHtml(p.name||p.username)+'</span>'+
+          '<small>'+escapeHtml(p.status==="pending"?"Pendente":p.status==="accepted"?"Aceitou":p.status==="declined"?"Recusou":"")+'</small>'+
+          (p.status!=="accepted"?'<button type="button" class="gartic-invite-one" data-gartic-invite-user="'+escapeHtml(p.userId)+'">'+(p.status==="pending"?"Reenviar":"Convidar")+'</button>':'')+
+          '</div>').join('')+'</div>':'')+
         '<div class="gartic-invited-people">'+(game.invites||[]).map(p=>
           '<div class="gartic-invite-status"><span>'+escapeHtml(p.name)+'</span><small>'+
           escapeHtml(p.status==='pending'?'Aguardando resposta':p.status==='accepted'?'Aceitou':p.status==='declined'?'Recusou':'Expirou')+'</small></div>').join('')+'</div>'+
         '<div class="gartic-lobby-actions">'+(!me && game.inviteStatus==='pending'
           ?'<div class="gartic-invite-actions">'+makeButton("accept","Aceitar convite",true)+makeButton("decline","Recusar")+'</div>'
-          :!me?'<p class="gartic-muted">'+(game.inviteStatus==='declined'?'Você recusou o convite.':'Aguarde um convite do anfitrião.')+'</p>':'')+
-        (game.hostId===userId?makeButton("invite","Enviar ou reenviar convites")+makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
-        '<p class="gartic-muted">Cada pessoa desenha '+Number(game.cycles)+' vez(es), com '+Number(game.duration)+' segundos por desenho.</p></div></div>';
+          :!me?'<p class="gartic-muted">'+(game.inviteStatus==='declined'?'Você recusou o convite.':'')+'</p>':'')+
+        (game.hostId===userId?makeButton("invite","Convidar")+makeButton("start","Iniciar com "+players.length+" jogadores",true,players.length<2):'')+
+        '</div></div>';
     } else if(active){
       body='<div class="gartic-main"><div class="gartic-topline">'+
         '<span class="gartic-drawer">✏️ '+escapeHtml(currentName(game.drawerId))+' está desenhando</span>'+
         '<span>Rodada '+game.turn+'/'+(players.length*Number(game.cycles||2))+'</span>'+
         '<strong data-gartic-clock>--:--</strong></div>'+
         '<div class="gartic-word"><small>'+escapeHtml(wordLabel)+'</small><strong>'+safeWord+'</strong>'+
-        '<span>'+escapeHtml(game.category||"")+' · '+answered+' acerto(s)</span></div>'+
+        '<span>'+answered+' acerto(s)</span></div>'+
         '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
-          '<button type="button" data-gartic-tool="pen" aria-label="Pincel">✏️</button>'+
-          '<button type="button" data-gartic-tool="eraser" aria-label="Borracha">◻</button>'+
-          '<button type="button" data-gartic-action="hint" title="Revelar uma letra aleatória">💡 Dica</button>'+
+          '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
+          '<button type="button" data-gartic-tool="eraser" title="Borracha" aria-label="Borracha">⌫</button>'+
+          '<button type="button" data-gartic-tool="fill" title="Balde de tinta" aria-label="Preencher área">▰</button>'+
+          '<button type="button" data-gartic-tool="line" title="Linha" aria-label="Linha">╱</button>'+
+          '<button type="button" data-gartic-tool="circle" title="Círculo" aria-label="Círculo">◯</button>'+
+          '<button type="button" data-gartic-tool="rectangle" title="Retângulo" aria-label="Retângulo">▭</button>'+
+          '<button type="button" data-gartic-action="undo" title="Desfazer" aria-label="Desfazer">↶</button>'+
+          '<button type="button" data-gartic-action="clear" title="Limpar desenho" aria-label="Limpar">🗑</button>'+
+          '<button type="button" data-gartic-action="hint" title="Dica" aria-label="Dica">💡</button>'+
           '</div><div class="gartic-swatches">'+PALETTE.map(c=>'<button type="button" data-gartic-color="'+c+'" style="background:'+c+'" title="Cor '+c+'"></button>').join('')+
           '</div><label class="gartic-brush">Espessura <input type="range" min="1" max="26" value="'+width+'" data-gartic-width></label></div>':
           '<form data-gartic-guess class="gartic-guess-form"><input name="guess" maxlength="96" autocomplete="off" placeholder="'+(me?'O que está sendo desenhado?':'Entre na próxima partida para pontuar')+'" '+(me?'':'disabled')+' aria-label="Sua resposta"><button type="submit" '+(me?'':'disabled')+'>Enviar</button></form>')+
-        '<div class="gartic-status" role="status" data-gartic-feedback>Respostas e pontos validados pelo servidor.</div>'+
+        '<div class="gartic-status" role="status" data-gartic-feedback></div>'+
         '</div>';
     }else if(ended){
       body='<div class="gartic-results"><div class="gartic-winner-icon">🏆</div>'+
         '<h3>'+escapeHtml(currentName(game.winnerId))+' venceu!</h3><p>Partida finalizada · '+players.length+' jogadores</p>'+
         people+makeButton("create","Nova partida",true)+'</div>';
     }
-    const sidebar='<aside class="gartic-sidebar"><section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+
-      (active||ended?people:'<p class="gartic-muted">A classificação aparece quando o jogo começar.</p>')+'</section>'+
+    const sidebar='<aside class="gartic-sidebar">'+
+      ((active||ended)?'<section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+people+'</section>':'')+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
-      '<p class="gartic-muted">'+(voiceJoined?(voiceMuted?'Seu microfone está silenciado.':'Você está no chat de voz.'):'Entre para conversar ao vivo com os jogadores.')+'</p>'+
+      ''+
       (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
         makeButton("join-voice","Entrar no áudio",false,!me||!connected))+
-      '<div data-gartic-audio-status class="gartic-muted">'+(connected?'Sala conectada':'Conectando ao tempo real…')+'</div></section>'+
-      '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Conversa da sala</h3>'+
-      '<div class="gartic-chat-list" aria-live="polite">'+(chat||'<p class="gartic-muted">Comece a conversa.</p>')+'</div>'+
+      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceMuted?'Silenciado':'Conectado'):'')+'</div></section>'+
+      '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
+      '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
       '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" autocomplete="off" placeholder="Conversar…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
       '<button type="submit" aria-label="Enviar mensagem"'+(me?'':' disabled')+'>➤</button></form></section></aside>';
     const markup='<div data-looply-gartic class="gartic-shell">'+head+'<div class="gartic-grid">'+
       '<div class="gartic-primary">'+body+'</div>'+sidebar+'</div>'+
-      '<div class="gartic-footer">'+(game.lastWord?'<span>Palavra anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span>Conversa privada · Looply Games</span>')+
+      '<div class="gartic-footer">'+(game.lastWord?'<span>Anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span></span>')+
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
+    for(const draft of previousDrafts){
+      const input=draft.cls?.includes("gartic-chat-form")?
+        root.querySelector(".gartic-chat-form input"):root.querySelector(".gartic-guess-form input");
+      if(!input)continue;
+      input.value=draft.value;
+      if(draft.focused){input.focus({preventScroll:true});try{input.setSelectionRange(draft.selection,draft.selection);}catch{}}
+    }
     if(active) {setupCanvas();drawAll();updateClock();}
     void hydrateAvatars();
     const list=root.querySelector(".gartic-chat-list");if(list)list.scrollTop=list.scrollHeight;
   }
+  function syncLiveGame() {
+    // Patch only changing sections; never replace a focused input or canvas.
+    const chatList=root.querySelector(".gartic-chat-list");
+    if(chatList) {
+      const messages=game?.chat||[];
+      const incoming=messages.map(m=>String(m.id)).join(",");
+      if(chatList.dataset.messageIds!==incoming){
+        const nearBottom=chatList.scrollHeight-chatList.scrollTop-chatList.clientHeight<55;
+        chatList.innerHTML=messages.map(m=>'<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
+        chatList.dataset.messageIds=incoming;
+        if(nearBottom)chatList.scrollTop=chatList.scrollHeight;
+      }
+    }
+    const word=root.querySelector(".gartic-word strong");
+    if(word)word.textContent=amDrawer()?game.word||"":displayGarticMask(game.masked||"");
+    const matches=root.querySelector(".gartic-word span");
+    if(matches)matches.textContent=(game.correct||[]).filter(id=>id!==game.drawerId).length+" acerto(s)";
+    const feedback=root.querySelector("[data-gartic-feedback]");
+    if(feedback && latestGuessFeedback)feedback.textContent=latestGuessFeedback;
+    const audioStatus=root.querySelector("[data-gartic-audio-status]");
+    if(audioStatus) audioStatus.textContent=voiceJoined?(voiceMuted?"Silenciado":"Conectado"):"";
+    drawAll();
+    updateClock();
+  }
+  function displayGarticMask(mask){
+    return String(mask).replace(/•/g,"_").replace(/\s+/g,"  —  ").replace(/-/g," – ");
+  }
   async function hydrateAvatars(){
-    for(const p of game?.players || []){
+    for(const p of [...(game?.players || []),...(game?.inviteCandidates || []).map(x=>({...x,id:x.userId}))]){
       if(!p.avatarPath || !p.id)continue;
       let url=avatarCache.get(p.id);
       if(!url){
@@ -223,7 +276,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   function updateGameIndicator(){
     const button=root.querySelector("[data-v2-game]");
     if(!button)return;
-    const exists=game && ["waiting","active"].includes(game.status);
+    const exists=game && ["waiting","active"].includes(game.status) && (inGame() || game.inviteStatus==="pending");
     button.classList.toggle("has-gartic-game",Boolean(exists));
     button.title=exists?"Games · há uma partida nesta conversa":"Games";
     button.setAttribute("aria-label",button.title);
@@ -236,18 +289,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     clock.textContent=String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");
     clock.classList.toggle("is-urgent",remaining<=12);
   }
-  function drawStroke(ctx,stroke) {
-    if(!stroke||!Array.isArray(stroke.points)||stroke.points.length===0)return;
-    const points=stroke.points.filter(p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isFinite(v)&&v>=0&&v<=1000));
-    if(!points.length)return;
-    const col=stroke.tool==="eraser"?"#ffffff":/^#[0-9a-f]{6}$/i.test(stroke.color)?stroke.color:"#242432";
-    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.min(35,Math.max(1,Number(stroke.width)||4));
-    ctx.lineCap="round";ctx.lineJoin="round";
-    ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]*.65);
-    if(points.length===1){ctx.arc(points[0][0],points[0][1]*.65,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();return;}
-    for(const p of points.slice(1))ctx.lineTo(p[0],p[1]*.65);
-    ctx.stroke();
-  }
+  const drawStroke = applyGarticStroke;
   function drawAll(){
     const canvas=root.querySelector("[data-gartic-canvas]"); if(!canvas)return;
     const ctx=canvas.getContext("2d",{alpha:false});if(!ctx)return;
@@ -267,19 +309,21 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(!amDrawer()||e.button>0)return;
       e.preventDefault();canvas.setPointerCapture(e.pointerId);
       drawing={tool,color:tool==="eraser"?"#ffffff":color,width:tool==="eraser"?26:width,points:[position(e)]};
+      if(tool==="fill"){void canvas.onpointerup(e);return;}
       drawAll();drawStroke(canvas.getContext("2d"),drawing);
     };
     canvas.onpointermove=e=>{
       if(!drawing)return;e.preventDefault();
       const p=position(e),last=drawing.points.at(-1);
       if(last&&Math.hypot(last[0]-p[0],last[1]-p[1])<2)return;
-      if(drawing.points.length<140)drawing.points.push(p);
+      if(["line","circle","rectangle"].includes(drawing.tool))drawing.points=[drawing.points[0],p];
+      else if(drawing.points.length<140)drawing.points.push(p);
       drawAll();drawStroke(canvas.getContext("2d"),drawing);
     };
     canvas.onpointerup=async e=>{
       if(!drawing)return;
       const stroke=drawing;drawing=null;
-      if(stroke.points.length===1)stroke.points.push(stroke.points[0]);
+      if(stroke.points.length===1 && stroke.tool!=="fill")stroke.points.push(stroke.points[0]);
       localStrokes.push(stroke);drawAll();
       try{
         const next=await rpc("stroke",JSON.stringify(stroke));
@@ -298,17 +342,35 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(disposed||!conversationId||busy)return;
     try {
       const next=await rpc("tick");
-      if(!next){game=null;updateGameIndicator();renderInviteBanner();if(force)showEmpty();return;}
+      if(!next){
+        const wasVisible=gameVisible();
+        game=null;updateGameIndicator();renderInviteBanner();
+        if(force || wasVisible)showEmpty();
+        return;
+      }
       const key=[next.gameId,next.status,next.turn,next.updatedAt,next.players?.length,next.strokes?.length,next.chat?.length].join(":");
       const changed=key!==renderedKey;
       const wasInvited=game?.status==="waiting"&&game?.inviteStatus==="pending";
-      const priorTurn=game?.turn,priorGame=game?.gameId;
+      const priorTurn=game?.turn,priorGame=game?.gameId,priorStatus=game?.status;
+      const priorInviteStatus=game?.inviteStatus,priorPlayers=game?.players?.length;
       game=next;
       if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
         toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
       updateGameIndicator();renderInviteBanner();
-      if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
-      if(open&&screen!=="hub"&&(changed||force)){renderedKey=key;renderGame(true);}
+      if(priorGame!==next.gameId || priorTurn!==next.turn){
+        localStrokes=[];latestGuessFeedback="";
+      }
+      if(open&&screen!=="hub"&&(changed||force)){
+        renderedKey=key;
+        if(gameVisible() && next.status==="active" && priorStatus==="active" &&
+          priorTurn===next.turn && priorGame===next.gameId && priorPlayers===next.players?.length &&
+          !force) syncLiveGame();
+        else if(gameVisible() && next.status==="waiting" && priorStatus==="waiting" &&
+          priorInviteStatus===next.inviteStatus && priorPlayers===next.players?.length &&
+          !force && document.activeElement?.matches(".gartic-shell input,.gartic-shell select")) {
+          // Preserve text composition and focused selection while lobby updates.
+        } else renderGame(true);
+      }
       updateClock();
     }catch(error){
       if(force)toast("Não foi possível sincronizar a partida. Confira a conexão.");
@@ -323,17 +385,35 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   }
   function makePeer(id){
     if(remotePeers.has(id))return remotePeers.get(id);
-    const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+    const optionalTurn=(Array.isArray(globalThis.LOOPLY_CONFIG?.rtcIceServers)?globalThis.LOOPLY_CONFIG.rtcIceServers:[])
+      .filter(s=>s && s.urls && s.username && s.credential);
+    const pc=new RTCPeerConnection({iceServers:[
+      {urls:"stun:stun.l.google.com:19302"},
+      {urls:"stun:stun1.l.google.com:19302"},...optionalTurn
+    ]});
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
-    const record={pc,audio,pending:[]};remotePeers.set(id,record);
+    const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,polite:userId>id,retried:false};remotePeers.set(id,record);
     voiceStream?.getTracks().forEach(track=>pc.addTrack(track,voiceStream));
-    pc.ontrack=e=>{audio.srcObject=e.streams[0]||new MediaStream([e.track]);audio.play().catch(()=>{});};
+    pc.ontrack=e=>{
+      audio.srcObject=e.streams[0]||new MediaStream([e.track]);
+      audio.play().catch(()=>{const status=root.querySelector("[data-gartic-audio-status]");if(status)status.textContent="Toque em Áudio";});
+    };
     pc.onicecandidate=e=>{if(e.candidate)void sendPacket({kind:"voice-signal",target:id,signal:{type:"candidate",candidate:e.candidate.toJSON()}});};
     pc.onconnectionstatechange=()=>{
-      if(["failed","closed"].includes(pc.connectionState)){
-        audio.remove();remotePeers.delete(id);try{pc.close();}catch{}
+      const status=root.querySelector("[data-gartic-audio-status]");
+      if(status && voiceJoined)status.textContent=pc.connectionState==="connected"?"Áudio conectado":
+        pc.connectionState==="connecting"?"Conectando áudio…":
+        pc.connectionState==="failed"?"Reconectando áudio…":"Áudio";
+      if(pc.connectionState==="failed"&&!record.retried){
+        record.retried=true;
+        setTimeout(()=>{
+          if(!voiceJoined||remotePeers.get(id)!==record)return;
+          audio.remove();remotePeers.delete(id);pc.close();
+          void sendPacket({kind:"voice-join"});
+        },1400);
       }
+      if(pc.connectionState==="closed"){audio.remove();remotePeers.delete(id);}
     };
     return record;
   }
@@ -349,23 +429,29 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       if(packet.kind==="voice-ready"){
         const record=makePeer(sender);
-        if(record.pc.signalingState!=="stable")return;
-        const offer=await record.pc.createOffer();
-        await record.pc.setLocalDescription(offer);
-        void sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:offer.sdp}});
+        if(record.pc.signalingState!=="stable"||record.makingOffer)return;
+        record.makingOffer=true;
+        try{
+          await record.pc.setLocalDescription(await record.pc.createOffer());
+          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"offer",sdp:record.pc.localDescription.sdp}});
+        }finally{record.makingOffer=false;}
       }
       if(packet.kind==="voice-signal" && packet.signal){
         const data=packet.signal,record=makePeer(sender);
         if(data.type==="offer"){
+          const collision=record.makingOffer||record.pc.signalingState!=="stable";
+          record.ignoreOffer=!record.polite&&collision;
+          if(record.ignoreOffer)return;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
-          const answer=await record.pc.createAnswer();
-          await record.pc.setLocalDescription(answer);
-          void sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:answer.sdp}});
+          await record.pc.setLocalDescription(await record.pc.createAnswer());
+          await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
         }else if(data.type==="answer"){
-          await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
+          if(record.pc.signalingState==="have-local-offer")
+            await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
         }else if(data.type==="candidate"){
-          if(record.pc.remoteDescription)await record.pc.addIceCandidate(data.candidate);
-          else record.pending.push(data.candidate);
+          if(record.ignoreOffer)return;
+          if(record.pc.remoteDescription)await record.pc.addIceCandidate(data.candidate).catch(()=>{});
+          else if(record.pending.length<120)record.pending.push(data.candidate);
         }
         if(record.pc.remoteDescription && record.pending.length){
           const waiting=record.pending.splice(0);
@@ -380,11 +466,18 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       toast("Este navegador não permite áudio ao vivo.");return;
     }
     try{
-      voiceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      voiceStream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+        video:false
+      });
       voiceJoined=true;voiceMuted=false;
-      await sendPacket({kind:"voice-join"});
+      const announced=await sendPacket({kind:"voice-join"});
+      if(!announced)throw Error("audio_signaling_offline");
       renderGame(true);
-    }catch(error){toast("Não foi possível acessar o microfone.");}
+    }catch(error){
+      stopVoice();
+      toast(error?.name==="NotAllowedError"?"Permita o uso do microfone.":"Não foi possível conectar ao áudio.");
+    }
   }
   async function switchConversation(){
     const id=selectedConversation();
@@ -395,7 +488,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(pollTimer)clearInterval(pollTimer);pollTimer=null;
     if(!id||!client)return;
     const currentId=id;
-    const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false},disableFallback:true}});
+    const next=client.channel("looply-game-"+id,{config:{broadcast:{self:false}}});
     channel=next;
     next.on("broadcast",{event:"ttt"},({payload})=>{
       if(currentId!==conversationId||payload?.type!=="gartic"||payload.senderId===userId)return;
@@ -438,17 +531,34 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       const next=await rpc(action,value,number);
       if(next) {
-        if(action==="guess" && game && next.turn===game.turn && next.updatedAt===game.updatedAt){
-          const feedback=root.querySelector("[data-gartic-feedback]");
-          if(feedback)feedback.textContent="Ainda não! Tente outra resposta.";
-          game=next;return;
+        if(action==="guess" && game){
+          const changedTurn=next.turn!==game.turn;
+          latestGuessFeedback=changedTurn?"Acertou!":
+            next.guessFeedback==="correct"?"Acertou!":
+            next.guessFeedback==="near"?"Quase!":"Tente outra.";
+          game=next;
+          if(!changedTurn) {
+            syncLiveGame();
+            const feedback=root.querySelector("[data-gartic-feedback]");
+            if(feedback){
+              feedback.textContent=latestGuessFeedback;
+              feedback.classList.toggle("is-near",next.guessFeedback==="near");
+              feedback.classList.toggle("is-correct",next.guessFeedback==="correct");
+            }
+            return;
+          }
         }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
         renderInviteBanner();updateGameIndicator();
         if(before!==next.turn)localStrokes=[];
-        renderedKey="";renderGame(true);
-        void sendPacket({kind:"updated"});
-      }else if(action==="state")showEmpty();
+        renderedKey="";
+        if(action==="chat" && gameVisible())syncLiveGame();
+        else renderGame(true);
+        if(action!=="create")void sendPacket({kind:"updated"});
+      }else {
+        game=null;renderInviteBanner();updateGameIndicator();
+        if(open && screen!=="hub")showEmpty();
+      }
     }catch(error){
       console.warn("Looply Gartic action failed",action,error?.message||"unknown");
       toast(/at least two/i.test(error.message)?"Aguarde pelo menos dois participantes.":/not a member|forbidden|session/i.test(error.message)?"Sua sessão precisa ser renovada para jogar.":"Não foi possível concluir a ação. Tente novamente.");
@@ -467,9 +577,16 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       else if(action==="join-voice")await joinVoice();
       else if(action==="mute"){
         voiceMuted=!voiceMuted;voiceStream?.getAudioTracks().forEach(t=>{t.enabled=!voiceMuted});
-        renderGame(true);
+        const mute=root.querySelector('[data-gartic-action="mute"]');
+        if(mute)mute.textContent=voiceMuted?"Ativar microfone":"Silenciar microfone";
+        const status=root.querySelector("[data-gartic-audio-status]");
+        if(status)status.textContent=voiceMuted?"Silenciado":"Conectado";
       }else if(action==="leave-voice"){stopVoice();renderGame(true);}
-      else if(["create","invite","accept","decline","join","start","hint","finish"].includes(action))await perform(action);
+      else if(["create","invite","accept","decline","join","start","hint","undo","clear","finish"].includes(action))await perform(action);
+      return true;
+    }
+    if(button.hasAttribute("data-gartic-invite-user")){
+      await perform("invite",button.dataset.garticInviteUser);
       return true;
     }
     if(button.hasAttribute("data-gartic-color")){
@@ -508,8 +625,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     if(form.matches("[data-gartic-chat]")){
       event.preventDefault();const input=form.elements.message,text=input.value.trim();
-      if(!text)return true;input.value="";
-      await perform("chat",text);return true;
+      if(!text)return true;
+      input.value="";
+      await perform("chat",text);
+      return true;
     }
     return false;
   }

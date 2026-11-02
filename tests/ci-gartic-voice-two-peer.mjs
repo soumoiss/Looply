@@ -1,0 +1,92 @@
+// Real Chromium-to-Chromium audio test of the production Gartic controller.
+// Neon state is replaced by a deterministic mock; RTP and ICE are browser-real.
+import { chromium } from "playwright";
+import { readFile } from "node:fs/promises";
+const room="2f3e4d5c-1111-4111-8111-222233334444";
+const users=["ba38fc13-1234-4aaa-8123-1234567890ab","aa38fc13-1234-4aaa-8123-1234567890ac"];
+const gameId="2f3e4d5c-2222-4222-8222-222233334444";
+const browser=await chromium.launch({headless:true,args:[
+ "--no-sandbox","--use-fake-ui-for-media-stream",
+ "--use-fake-device-for-media-stream","--autoplay-policy=no-user-gesture-required"
+]});
+const context=await browser.newContext({permissions:["camera","microphone"]});
+const pages=[await context.newPage(),await context.newPage()];
+try{
+ for(let i=0;i<2;i++){
+  const page=pages[i];
+  page.on("pageerror",e=>console.error("[peer "+i+"] "+e));
+  page.on("console",msg=>{if(msg.type()==="error")console.error("[peer "+i+"] "+msg.text());});
+  await page.route("**/src/*.js*",async route=>{
+   const name=new URL(route.request().url()).pathname.split("/").at(-1);
+   if(!["chat-gartic.js","gartic-paint.js"].includes(name))return route.abort();
+   const body=await readFile(new URL("../src/"+name,import.meta.url),"utf8");
+   return route.fulfill({status:200,contentType:"text/javascript",body});
+  });
+  await page.route("**/g-fixture",route=>route.fulfill({status:200,contentType:"text/html",
+   body:'<!doctype html><meta charset=utf-8><div id="root"><header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="'+room+'">Game</header><button data-v2-game>Games</button><div data-chat-v2-modal></div></div>'
+  }));
+  await page.route("https://ep-test.apirest.c-13.us-east-1.aws.neon.tech/**",route=>{
+   const state={
+    gameId,conversationId:room,status:"waiting",hostId:users[0],
+    category:"animais",duration:75,cycles:2,turn:0,drawerId:null,masked:"",word:null,
+    serverNow:new Date().toISOString(),updatedAt:new Date().toISOString(),
+    players:users.map((id,j)=>({id,name:"Jogador "+j,username:"jogador"+j,avatarPath:null,score:0})),
+    invites:[],chat:[],strokes:[],correct:[],inviteStatus:"accepted"
+   };
+   route.fulfill({status:200,headers:{"access-control-allow-origin":"*","access-control-allow-methods":"POST, OPTIONS","access-control-allow-headers":"authorization,content-type","content-type":"application/json"},body:JSON.stringify(state)});
+  });
+  await page.exposeBinding("__relayGartic",async({page:source},packet)=>{
+   const target=pages.find(p=>p!==source);
+   if(!target)return "error";
+   await target.evaluate(msg=>window.__receiveGartic?.(msg),packet);
+   return "ok";
+  });
+  await page.goto("http://localhost:8765/g-fixture");
+  await page.evaluate(async ({userId,room})=>{
+   const RTC=window.RTCPeerConnection;
+   window.__testPeers=[];
+   window.RTCPeerConnection=class extends RTC{
+     constructor(...args){super(...args);window.__testPeers.push(this);}
+   };
+   let receive=null;
+   window.__receiveGartic=packet=>receive?.({payload:packet});
+   const client={
+    dataApiUrl:"https://ep-test.apirest.c-13.us-east-1.aws.neon.tech/neondb/rest/v1",
+    auth:{getSession:async()=>({data:{session:{access_token:"signed.mock.test.jwt"}}})},
+    channel:()=>({
+      on(_kind,filter,handler){if(filter?.event==="ttt")receive=handler;return this;},
+      subscribe(cb){queueMicrotask(()=>cb("SUBSCRIBED"));return this;},
+      async send(message){return window.__relayGartic({...message.payload,senderId:userId});},
+      async unsubscribe(){}
+    }),async removeChannel(){}
+   };
+   const {setupChatGartic}=await import("/src/chat-gartic.js");
+   window.__game=setupChatGartic({
+     root:document.querySelector("#root"),client,userId,selectedConversation:()=>room,
+     openModal:html=>{document.querySelector("[data-chat-v2-modal]").innerHTML=html;},
+     closeModal:()=>{},toast:message=>console.log("toast",message),
+     openTtt:async()=>{}
+   });
+   await window.__game.handleClick(document.querySelector("[data-v2-game]"));
+   await window.__game.handleClick(document.querySelector('[data-gartic-action="gartic"]'));
+  },{userId:users[i],room});
+  await page.waitForSelector('[data-gartic-action="join-voice"]');
+ }
+ for(let i=0;i<2;i++){
+   await pages[i].evaluate(async()=>window.__game.handleClick(document.querySelector('[data-gartic-action="join-voice"]')));
+ }
+ for(const page of pages){
+  await page.waitForFunction(()=>window.__testPeers.some(pc=>pc.connectionState==="connected"),null,{timeout:23000});
+ }
+ await pages[0].waitForTimeout(1600);
+ for(let i=0;i<2;i++){
+  const results=await pages[i].evaluate(async()=>{
+   const pc=window.__testPeers.find(x=>x.connectionState==="connected");
+   const stats=[...(await pc.getStats()).values()];
+   return {state:pc.connectionState,bytes:stats.filter(x=>x.type==="inbound-rtp"&&
+    (x.kind||x.mediaType)==="audio").reduce((n,x)=>n+(x.bytesReceived||0),0)};
+  });
+  if(results.state!=="connected"||results.bytes<=0)throw Error("Gartic peer "+i+" has no remote audio: "+JSON.stringify(results));
+  console.log("Gartic RTP peer "+i,results);
+ }
+}finally{await context.close();await browser.close();}
