@@ -118,6 +118,15 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   function open(type,payload) {
     screen(type==="open-create"?"camera":"viewer");
     if (!frameReady) {pendingOpen={type,payload};return;}
+    // Same-origin direct entry preserves the user's transient activation for media playback.
+    // postMessage is kept as a fallback for startup/deep links.
+    try {
+      if(type==="open-create"&&typeof frame.contentWindow?.whyNowOpenCreate==="function") {
+        frame.contentWindow.whyNowOpenCreate();return;
+      }
+      if(type==="open-story"&&typeof frame.contentWindow?.whyNowOpenStory==="function"&&
+         frame.contentWindow.whyNowOpenStory(payload?.storyId))return;
+    } catch(error) { console.warn("[Why Now] Direct entry unavailable",error); }
     send(type,payload||{});
   }
   function renderSurface() {
