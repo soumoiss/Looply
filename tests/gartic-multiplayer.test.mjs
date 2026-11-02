@@ -66,3 +66,12 @@ test("Audio is opt-in, room scoped, with negotiated WebRTC peers",async()=>{
  assert.match(game,/voice-leave/);
  assert.match(game,/voiceStream\?\.getTracks\(\)\.forEach\(t=>t\.stop\(\)\)/);
 });
+
+test("Production Neon client forwards Gartic actions through authenticated RPC",async()=>{
+ const client=await get("src/neon-production-client.js");
+ assert.match(client,/const garticRpcNames = new Set\(\["v26_gartic_action"\]\)/);
+ assert.match(client,/garticRpcNames\.has\(name\) \? garticRpc\(name,args\)/);
+ assert.match(client,/config\.data\+"\/rpc\/"\+name/);
+ assert.match(client,/authorization:"Bearer "\+session\.access_token/);
+ assert.match(client,/gartic_invalid_state/);
+});
