@@ -132,7 +132,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const me=inGame(), drawer=amDrawer(), waiting=game.status==="waiting", active=game.status==="active";
     const ended=game.status==="finished", players=game.players||[];
     const safeWord=escapeHtml(drawer?game.word:displayGarticMask(game.masked||""));
-    const wordLabel=active?(drawer?'Sua palavra secreta:':'Descubra a palavra:'):'';
+    const wordLabel=active?(drawer?'Sua palavra:':'Palavra:'):'';
     const people=players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>
       '<div class="gartic-player'+(p.id===game.drawerId?' is-drawing':'')+'">'+
       '<span class="gartic-player-rank">'+(i+1)+'</span>'+
@@ -352,7 +352,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(!wasInvited && next.status==="waiting" && next.inviteStatus==="pending")
         toast(currentName(next.hostId)+" convidou você para jogar Gartic.");serverDelta=Date.parse(next.serverNow)-Date.now();
       updateGameIndicator();renderInviteBanner();
-      if(priorGame!==next.gameId || priorTurn!==next.turn)localStrokes=[];
+      if(priorGame!==next.gameId || priorTurn!==next.turn){
+        localStrokes=[];latestGuessFeedback="";
+      }
       if(open&&screen!=="hub"&&(changed||force)){
         renderedKey=key;
         if(gameVisible() && next.status==="active" && priorStatus==="active" &&
@@ -524,10 +526,22 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     try{
       const next=await rpc(action,value,number);
       if(next) {
-        if(action==="guess" && game && next.turn===game.turn && next.updatedAt===game.updatedAt){
-          const feedback=root.querySelector("[data-gartic-feedback]");
-          if(feedback)feedback.textContent="Ainda não! Tente outra resposta.";
-          game=next;return;
+        if(action==="guess" && game){
+          const changedTurn=next.turn!==game.turn;
+          latestGuessFeedback=changedTurn?"Acertou!":
+            next.guessFeedback==="correct"?"Acertou!":
+            next.guessFeedback==="near"?"Quase!":"Tente outra.";
+          game=next;
+          if(!changedTurn) {
+            syncLiveGame();
+            const feedback=root.querySelector("[data-gartic-feedback]");
+            if(feedback){
+              feedback.textContent=latestGuessFeedback;
+              feedback.classList.toggle("is-near",next.guessFeedback==="near");
+              feedback.classList.toggle("is-correct",next.guessFeedback==="correct");
+            }
+            return;
+          }
         }
         game=next;serverDelta=Date.parse(next.serverNow)-Date.now();
         renderInviteBanner();updateGameIndicator();
