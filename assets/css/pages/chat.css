@@ -868,3 +868,23 @@
   .page-chat .chat-filter-tabs button { padding-inline: 10px; }
 }
 @media (prefers-reduced-motion:reduce) { .page-chat .chat-conversation { transition: none; } }
+
+
+/* Optional group photo at creation: exactly the same avatar language as the chat list. */
+.chat-group-cover-create {
+  display:flex;align-items:center;gap:12px;min-height:76px;padding:11px 13px;
+  border:1px dashed var(--line,#dcd1ea);border-radius:17px;
+  background:var(--surface-soft,#f8f5fc);cursor:pointer;
+}
+.chat-group-cover-create .chat-group-cover-placeholder,
+.chat-group-cover-create .chat-group-cover-preview{
+  width:55px;height:55px;min-width:55px;border-radius:50%;object-fit:cover;
+  background:var(--lilac,#e7d9fa);color:var(--primary,#744bc5);
+}
+.chat-group-cover-create .chat-group-cover-placeholder{display:grid;place-items:center}
+.chat-group-cover-create .chat-group-cover-placeholder[hidden],
+.chat-group-cover-create .chat-group-cover-preview[hidden]{display:none!important}
+.chat-group-cover-create>span:not(.chat-group-cover-placeholder){display:grid;gap:4px;min-width:0}
+.chat-group-cover-create strong{font-size:13px;font-weight:800;color:var(--text,#28202f)}
+.chat-group-cover-create small{font-size:11px;color:var(--muted,#837690)}
+.chat-group-cover-create:focus-within{outline:2px solid var(--primary,#744bc5);outline-offset:2px}
