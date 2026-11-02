@@ -313,7 +313,7 @@ export function chatMarkup(data, userId) {
   const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
     <form class="chat-group-form" data-chat-group-create>
       <div class="field"><label for="chatGroupSubject">Nome do grupo</label><input id="chatGroupSubject" name="subject" type="text" maxlength="120" required placeholder="Ex.: Amigos"></div>
-      <fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
+      <label class="chat-group-cover-pick" for="chatGroupCover"><span class="chat-group-cover-preview" data-chat-create-cover-preview aria-hidden="true">${icon("users")}</span><span><strong>Foto do grupo (opcional)</strong><small>Escolher imagem</small></span></label><input id="chatGroupCover" class="visually-hidden" name="groupCover" type="file" accept="image/jpeg,image/png,image/webp"><fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
       <button class="primary-button compact-button" type="submit"${groupProfiles.length < 2 ? " disabled" : ""}>Criar grupo</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
