@@ -102,6 +102,19 @@
   };
   const originalStopViewer = stopViewer;
   stopViewer = function () { stopCatalogAudio(); originalStopViewer(); };
+  const basePauseViewer=pauseViewer;
+  pauseViewer=function(mode){
+    basePauseViewer(mode);
+    if(viewerCatalogAudio){
+      if(viewerPaused)viewerCatalogAudio.pause();
+      else void viewerCatalogAudio.play().catch(()=>{});
+    }
+  };
+  const baseSheetClose=sheetClose;
+  sheetClose=function(){
+    baseSheetClose();
+    if(screen==="viewer"&&viewerPaused)pauseViewer(false);
+  };
   const originalLoadViewer = loadViewerRecord;
   loadViewerRecord = async function () {
     stopCatalogAudio();
