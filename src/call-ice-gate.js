@@ -1,35 +1,42 @@
-// The initial offer/answer is sent only after ICE gathering has populated its
-// SDP. Sending all of those same candidates as separate Neon RPCs beforehand
-// floods signaling, can hit server rate limits, and may bury the actual offer.
-// Trickle only candidates discovered *after* the initial SDP is published.
+// WebRTC ICE delivery: the SDP carries candidates gathered before snapshot.
+// Additional candidates discovered while Neon publishes the offer/answer must
+// be buffered, not discarded. This is essential on slower Android networks.
 export function createCallIceGate(sendCandidate) {
   if (typeof sendCandidate !== "function") throw new TypeError("call_ice_sender_required");
   let activePeer = null;
+  let snapshotTaken = false;
   let initialDescriptionSent = false;
+  let queued = [];
+  const publish = candidate => {
+    try {
+      Promise.resolve(sendCandidate(candidate)).catch(error => {
+        console.warn("Looply late ICE candidate signaling failed",error);
+      });
+    } catch(error) {console.warn("Looply late ICE candidate signaling failed",error);}
+  };
   return {
     bind(peer) {
       if (!peer || typeof peer !== "object") throw new TypeError("call_peer_required");
-      activePeer = peer;
-      initialDescriptionSent = false;
-      peer.onicecandidate = (event) => {
-        if (peer !== activePeer || !initialDescriptionSent || !event?.candidate) return;
-        const candidate = event.candidate;
-        if (typeof candidate.toJSON !== "function") return;
-        try {
-          Promise.resolve(sendCandidate(candidate.toJSON())).catch(error => {
-            console.warn("Looply late ICE candidate signaling failed", error);
-          });
-        } catch (error) {
-          console.warn("Looply late ICE candidate signaling failed", error);
-        }
+      activePeer=peer;snapshotTaken=false;initialDescriptionSent=false;queued=[];
+      peer.onicecandidate = event => {
+        if(peer!==activePeer||!event?.candidate)return;
+        const candidate=event.candidate.toJSON?.();
+        if(!candidate)return;
+        if(initialDescriptionSent){publish(candidate);return;}
+        if(snapshotTaken && queued.length<32)queued.push(candidate);
       };
     },
+    snapshotDescription(peer) {
+      if(peer===activePeer)snapshotTaken=true;
+    },
     markDescriptionSent(peer) {
-      if (peer === activePeer) initialDescriptionSent = true;
+      if(peer!==activePeer)return;
+      initialDescriptionSent=true;
+      const buffered=queued.splice(0);
+      for(const candidate of buffered)publish(candidate);
     },
     reset() {
-      activePeer = null;
-      initialDescriptionSent = false;
+      activePeer=null;snapshotTaken=false;initialDescriptionSent=false;queued=[];
     }
   };
 }
