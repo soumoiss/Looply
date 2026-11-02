@@ -53,3 +53,31 @@ test("production controller connects the gate to both negotiated offer and answe
   assert.match(source, /const releaseMedia = \(\) => \{\s*iceGate\.reset\(\)/);
   assert.match(source, /waitForIceGatheringComplete\(pc\)/);
 });
+
+test("ICE candidates discovered while publishing an offer are flushed afterward", async () => {
+ const sent=[];
+ const peer={};
+ const gate=createCallIceGate(value=>{sent.push(value);return "ok";});
+ gate.bind(peer);
+ peer.onicecandidate({candidate:candidate("in-sdp")});
+ gate.snapshotDescription(peer);
+ peer.onicecandidate({candidate:candidate("mobile-srflx")});
+ peer.onicecandidate({candidate:candidate("mobile-relay")});
+ assert.deepEqual(sent,[]);
+ gate.markDescriptionSent(peer);
+ await flush();
+ assert.deepEqual(sent,[
+  {candidate:"candidate:mobile-srflx"},
+  {candidate:"candidate:mobile-relay"}
+ ]);
+});
+test("reset prevents queued ICE from leaking into a different call", async () => {
+ const sent=[];
+ const gate=createCallIceGate(value=>sent.push(value));
+ const one={},two={};
+ gate.bind(one);gate.snapshotDescription(one);
+ one.onicecandidate({candidate:candidate("old")});
+ gate.reset();gate.bind(two);gate.snapshotDescription(two);
+ gate.markDescriptionSent(two);
+ await flush();assert.deepEqual(sent,[]);
+});
