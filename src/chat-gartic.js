@@ -408,9 +408,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       polite:userId>id,initialOfferer:userId<id,needsNegotiation:true,
       recoveryTimer:null,retries:0};
     remotePeers.set(id,record);
-    // Receive audio even if THIS player has never granted microphone access.
-    // A recvonly transceiver is upgraded to sendrecv only on explicit mic tap.
-    record.transceiver=pc.addTransceiver("audio",{direction:voiceStream&&!voiceMuted?"sendrecv":"recvonly"});
+    // Negotiate audio both ways without accessing anyone's microphone.
+    // The sender initially has no track, so no audio is transmitted by listeners.
+    record.transceiver=pc.addTransceiver("audio",{direction:"sendrecv"});
     if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
     // A stable, serialized offer queue prevents microphone enable/disable from
     // racing the first recvonly SDP exchange (the source of silent receivers).
@@ -504,7 +504,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           if(collision)record.needsNegotiation=true;
           // The non-initiator's initial recvonly transceiver is satisfied by
           // this answer; do not start a redundant offer unless a mic is active.
-          else if(!record.initialOfferer && !voiceStream)record.needsNegotiation=false;
+          else if(!record.initialOfferer)record.needsNegotiation=false;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
           await record.pc.setLocalDescription(await record.pc.createAnswer());
           await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
@@ -570,9 +570,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       for(const record of remotePeers.values()){
         if(!record.transceiver)continue;
         await record.transceiver.sender.replaceTrack(track);
-        record.transceiver.direction="sendrecv";
-        record.needsNegotiation=true;
-        void record.negotiate();
+        // Direction was negotiated at connection establishment, so no SDP update.
       }
       if(connected)void sendPacket({kind:"voice-join"});
       updateVoiceControls();
