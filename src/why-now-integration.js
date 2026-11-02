@@ -96,7 +96,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   host.append(mount);host.classList.add("why-now-live");
   const overlay=document.createElement("div");overlay.className="why-now-overlay";
   const frame=document.createElement("iframe");
-  frame.title="Why Now — câmera, edição e visualização";frame.src="why-now.html?embedded=1";
+  frame.title="Why Now — câmera, edição e visualização";frame.src="why-now.html?embedded=1&v=20261102-editor2";
   frame.allow="camera; microphone; autoplay";
   frame.referrerPolicy="same-origin";frame.loading="eager";
   overlay.append(frame);document.body.append(overlay);
