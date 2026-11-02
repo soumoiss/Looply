@@ -495,10 +495,12 @@
       try{
         const draft=buildDraft();
         const hasMusic=hasEditorMusic();
-        const duration=media.type==="image"&&hasMusic?editorDuration:15;
-        if(draft.music && media.type==="image"){
-          if(draft.music.duration-draft.music.start<duration-.1)throw Error("A música não possui este trecho.");
-          draft.music.length=duration;
+        const duration=media.type==="image"&&hasMusic?editorDuration:
+          media.type==="video"&&hasMusic?(draft.music?.length>15?30:15):15;
+        if(draft.music){
+          if(media.type==="image"&&draft.music.duration-draft.music.start<duration-.1)
+            throw Error("A música não possui este trecho.");
+          draft.music.length=Math.min(duration,draft.music.length,30);
         }
         const blob=draft.music?await wnExportWithMusic(draft):
           draft.type==="image"?await exportMomentImage(draft):await exportEditedVideo(draft);
@@ -520,7 +522,12 @@
   const oldViewerTick=viewerTick;
   viewerTick=function(now){
     const item=viewerRecord();
-    if(screen==="viewer"&&item?.remoteUrl&&item.type==="image"){
+    if(screen==="viewer"&&item?.remoteUrl&&item.type==="video"&&item.catalogMusic&&
+       Number.isFinite(item.duration)&&item.duration>0){
+      const video=document.querySelector("#view-video");
+      if(video&&video.currentTime>=item.duration){nextViewer();return;}
+    }
+    if(screen==="viewer"&&item?.type==="image"&&(item.remoteUrl||item.id==="draft")){
       if(!viewerPaused){
         const dt=Math.min(100,now-viewerLast);
         viewProgress+=dt/(Math.max(1,Number(item.duration)||15)*1000);
