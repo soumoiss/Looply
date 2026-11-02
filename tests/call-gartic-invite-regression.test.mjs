@@ -12,8 +12,8 @@ test("Call controller uses one ID for offer, answer, ICE, decline and hangup",as
  assert.match(calls,/activeCallId = payload\.callId \|\| ""/);
  assert.match(calls,/String\(payload\.callId \|\| ""\) !== activeCallId/);
  assert.match(calls,/activeCallId=offer\.callId\|\|""/);
- assert.match(global,/callId: call\.payload\?\.callId \|\| ""/);
- assert.match(fast,/p_payload:\{type,conversationId,callId\}/);
+ assert.match(global,/call\.payload\?\.callId/);
+ assert.match(fast,/p_payload:\{type,conversationId,\.\.\.\(callId/);
 });
 test("Calls cannot be dropped when a Service Worker activates during media capture",async()=>{
  const sw=await get("src/service-worker.js");
