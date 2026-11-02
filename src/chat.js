@@ -313,7 +313,7 @@ export function chatMarkup(data, userId) {
   const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
     <form class="chat-group-form" data-chat-group-create>
       <div class="field"><label for="chatGroupSubject">Nome do grupo</label><input id="chatGroupSubject" name="subject" type="text" maxlength="120" required placeholder="Ex.: Amigos"></div>
-      <fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
+      <label class="chat-group-cover-pick" for="chatGroupCover"><span class="chat-group-cover-preview" data-chat-create-cover-preview aria-hidden="true">${icon("users")}</span><span><strong>Foto do grupo (opcional)</strong><small>Escolher imagem</small></span></label><input id="chatGroupCover" class="visually-hidden" name="groupCover" type="file" accept="image/jpeg,image/png,image/webp"><fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
       <button class="primary-button compact-button" type="submit"${groupProfiles.length < 2 ? " disabled" : ""}>Criar grupo</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
@@ -1052,6 +1052,64 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
+  async function saveNewGroupCover(conversationId,userId,file,status){
+    let messageId=null,uploadedPath="",persisted=false;
+    try{
+      status("Preparando foto do grupo…");
+      const cropped=await editGroupCover(file);
+      if(!cropped){status("Grupo criado sem foto.");return false;}
+      const image=await normalizeGroupCover(cropped);
+      const message=await client.from("chat_messages").insert({
+        conversation_id:conversationId,sender_id:userId,body:"Atualizou a foto do grupo."
+      }).select("id").single();
+      if(message.error||!message.data?.id)throw message.error||Error("message_not_confirmed");
+      messageId=message.data.id;
+      uploadedPath="conversations/"+conversationId+"/"+messageId+"/"+crypto.randomUUID()+".webp";
+      await uploadResumable(client,uploadedPath,image);
+      const media=await client.from("chat_media").insert({
+        conversation_id:conversationId,message_id:messageId,created_by:userId,
+        storage_path:uploadedPath,mime_type:"image/webp",byte_size:image.size,file_name:"capa-grupo.webp"
+      }).select("id").maybeSingle();
+      if(media.error||!media.data?.id)throw media.error||Error("cover_media_unconfirmed");
+      const saved=await client.rpc("v10_set_group_cover",{
+        p_conversation_id:conversationId,p_storage_path:uploadedPath
+      });
+      if(saved.error||saved.data!==uploadedPath)throw saved.error||Error("cover_rpc_unconfirmed");
+      persisted=true;
+      const read=await client.from("group_covers").select("storage_path")
+        .eq("conversation_id",conversationId).maybeSingle();
+      if(read.error||read.data?.storage_path!==uploadedPath)throw read.error||Error("cover_read_unconfirmed");
+      status("Foto do grupo salva.");return true;
+    }catch(error){
+      console.error("Looply group cover during creation failed",error);
+      if(!persisted&&uploadedPath){
+        try{await client.storage.from("looply-chat").remove([uploadedPath]);}catch{}
+      }
+      if(!persisted&&messageId){
+        try{await client.from("chat_messages").delete()
+          .eq("id",messageId).eq("conversation_id",conversationId);}catch{}
+      }
+      status("Grupo criado, mas não foi possível adicionar a foto.");
+      return false;
+    }
+  }
+  root.addEventListener("change",event=>{
+    const input=event.target.closest('form[data-chat-group-create] input[name="groupCover"]');
+    if(!input)return;
+    const preview=input.form.querySelector("[data-chat-create-cover-preview]");
+    if(!preview)return;
+    preview.replaceChildren();
+    const file=input.files?.[0];
+    if(!file){preview.textContent="+";return;}
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){
+      input.value="";preview.textContent="+";return;
+    }
+    const url=URL.createObjectURL(file);
+    const img=document.createElement("img");img.alt="";img.src=url;
+    img.onload=()=>URL.revokeObjectURL(url);
+    img.onerror=()=>{URL.revokeObjectURL(url);preview.textContent="+";};
+    preview.append(img);
+  });
   // The group creator can replace the cover. The image is stored once in
   // the already-authorized chat-media bucket, and the cover points to it.
   root.addEventListener("click", event => {
@@ -1528,6 +1586,10 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_group", subject, targetIds } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "group unavailable");
+        const cover=values.get("groupCover");
+        if(cover instanceof File&&cover.size){
+          await saveNewGroupCover(data.conversationId,userId,cover,text=>setStatus(form,text));
+        }
         form.reset();
         activeConversationId = data.conversationId;
         setStatus(form, "Grupo criado.");

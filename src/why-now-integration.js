@@ -16,8 +16,12 @@ const validStoryId = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9
 function storyText(story) {
   const song = decodeStorySong(story.body || "");
   const plain = decodeStoryBody(song.text || "").text || "";
-  const match = plain.match(/^✳\s*([^\n]{1,100})\n?/);
-  return { caption: match ? plain.slice(match[0].length) : plain, reason: match?.[1] || "", music: song.song || null };
+  const durationMatch=plain.match(/^\[\[WN-DURATION:(15|30)\]\]/);
+  const cleaned=durationMatch?plain.slice(durationMatch[0].length):plain;
+  const match=cleaned.match(/^✳\s*([^\n]{1,100})\n?/);
+  return {caption:match?cleaned.slice(match[0].length):cleaned,
+    reason:match?.[1]||"",music:song.song||null,
+    duration:durationMatch?Number(durationMatch[1]):15};
 }
 function toGroup(storyGroup, userId) {
   const author = storyGroup.author || {};
@@ -32,7 +36,7 @@ function toGroup(storyGroup, userId) {
         id: story.id, url: media?.signedUrl || "",
         type: media?.kind === "video" ? "video" : "image",
         created: Date.parse(story.created_at) || Date.now(),
-        seen: Boolean(story.seen), caption: text.caption, reason: text.reason, music: text.music
+        seen: Boolean(story.seen), caption: text.caption, reason: text.reason, music: text.music, duration: text.duration
       };
     }).filter(story => story.url)
   };
@@ -218,19 +222,33 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if (!EXT[type] || (message.kind === "video") !== type.startsWith("video/")) throw Error("Tipo de arquivo não permitido");
     const file = normalizePublicationMedia(new File([original], "why-now." + EXT[type], { type }));
     if (!file) throw Error("Não foi possível validar a mídia");
-    const caption = String(message.caption || "").trim().slice(0,500);
-    const reason = String(message.reason || "").trim().slice(0,100);
-    const body = (reason ? "✳ " + reason + "\n" : "") + caption;
-    const catalog = message.catalogTrack;
-    const text = catalog?.kind === "catalog" && catalog.provider === "apple"
-      ? encodeStorySong(body, { kind:"catalog", provider:"apple", title: catalog.title,
-          artist: catalog.artist, id: catalog.id, trackId: catalog.trackId, previewUrl: catalog.previewUrl,
-          url: catalog.url, artwork: catalog.artwork })
+    const caption=String(message.caption||"").trim().slice(0,500);
+    const reason=String(message.reason||"").trim().slice(0,100);
+    const visibility=message.visibility==="selected"?"selected":"public";
+    const audience=visibility==="selected"?[...new Set(Array.isArray(message.recipientIds)?message.recipientIds:[])]:[];
+    if(visibility==="selected"&&(!audience.length||audience.length>20||
+       audience.some(id=>!validStoryId(id)||id===user.id)))
+       throw Error("Selecione entre 1 e 20 pessoas válidas");
+    const mentionIds=[...new Set(Array.isArray(message.mentionIds)?message.mentionIds:[])];
+    if(mentionIds.length>20||mentionIds.some(id=>!validStoryId(id)||id===user.id))
+      throw Error("Menções inválidas");
+    if(visibility==="selected"&&mentionIds.some(id=>!audience.includes(id)))
+      throw Error("Menções precisam estar dentro do público selecionado");
+    const isPhoto=message.originalKind==="image";
+    const duration=message.hasMusic&&Number(message.photoDuration)===30?30:15;
+    // Photo and music-backed video display duration travels in existing Story text.
+    const body=(isPhoto||message.hasMusic?"[[WN-DURATION:"+duration+"]]":"")+
+      (reason?"✳ "+reason+"\n":"")+caption;
+    const catalog=message.catalogTrack;
+    const text=catalog?.kind==="catalog"&&catalog.provider==="apple"
+      ? encodeStorySong(body,{kind:"catalog",provider:"apple",title:catalog.title,
+          artist:catalog.artist,id:catalog.id,trackId:catalog.trackId,
+          previewUrl:catalog.previewUrl,url:catalog.url,artwork:catalog.artwork})
       : body;
     let createdId = null, storagePath = null;
     try {
       const created = await client.rpc("v5_create_story", {
-        p_body: text, p_visibility: "public", p_recipient_ids: []
+        p_body: text, p_visibility: visibility, p_recipient_ids: audience
       });
       if (created.error || !validStoryId(created.data)) throw created.error || Error("Criação não confirmada");
       createdId = created.data;
@@ -242,6 +260,12 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
         p_mime_type: file.type, p_byte_size: file.size
       });
       if (attached.error) throw attached.error;
+      if (mentionIds.length) {
+        const result=await client.rpc("v5_add_story_mentions",{
+          p_story_id:createdId,p_user_ids:mentionIds
+        });
+        if(result.error)throw result.error;
+      }
       const checked = await client.from("story_media").select("id,kind,mime_type")
         .eq("story_id",createdId).eq("storage_path",storagePath).maybeSingle();
       if (checked.error || !checked.data?.id || checked.data.mime_type !== file.type) throw checked.error || Error("Publicação não confirmada");
