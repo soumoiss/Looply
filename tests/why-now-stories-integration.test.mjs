@@ -16,7 +16,8 @@ test("Why Now v3 ships as a complete source without replacing the Feed or profil
   assert.match(html,/src="src\/why-now-embedded\.js/);
   assert.match(home,/mountWhyNowStories/);
   assert.match(home,/bindSocialEvents\(root, client/);
-  assert.match(home,/bindStories\(root, client/);
+  assert.doesNotMatch(home,/bindStories\(root, client/);
+  assert.match(home,/whyNow\.refresh\(\)/);
   assert.match(build,/"why-now\.html"/);
 });
 
