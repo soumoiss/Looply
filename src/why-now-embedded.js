@@ -470,10 +470,16 @@
       if(editorAudience==="selected")for(const id of ids)editorRecipients.add(id);
     });
   };
+  const originalBuildDraft=buildDraft;
+  buildDraft=function(){
+    const draft=originalBuildDraft();
+    draft.duration=editorDuration();
+    return draft;
+  };
   const existingTick=viewerTick;
   viewerTick=function(now){
     const it=viewerRecord();
-    if(it?.remoteUrl && it.type==="image" && screen==="viewer"){
+    if((it?.remoteUrl || it?.id==="draft") && it.type==="image" && screen==="viewer"){
       if(!viewerPaused){
         const dt=Math.max(0,Math.min(100,now-viewerLast));
         const seconds=[15,30].includes(Number(it.duration))?Number(it.duration):15;
