@@ -4,7 +4,7 @@ import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { loadStories, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
-import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102-editor2";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 import { mountSecretMessages } from "../../src/secret-messages.js";
 
