@@ -708,11 +708,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           else syncLiveGame();
           void sendPacket({kind:"updated"});
           // Preserve anything typed while the request was in progress.
-          if(input.isConnected && input.value.trim()===text)input.value="";
+          const latestInput=root.querySelector('[data-gartic-chat] input[name="message"]');
+          if(latestInput?.value.trim()===text)latestInput.value="";
         }else throw Error("chat_no_confirmation");
       }catch(error){
         console.warn("Gartic chat send failed",error?.message);
-        if(input.isConnected && !input.value.trim())input.value=text;
+        const latestInput=root.querySelector('[data-gartic-chat] input[name="message"]');
+        if(latestInput && !latestInput.value.trim())latestInput.value=text;
         toast("Mensagem não enviada. Tente novamente.");
       }finally{
         chatBusy=false;
