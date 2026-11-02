@@ -47,12 +47,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   };
   function renderHub() {
     screen="hub";open=true;
+    const group = root.querySelector(".chat-thread-heading")?.dataset.chatKind==="group";
     openModal('<div data-looply-games-hub class="gartic-hub">'+
       '<div class="gartic-eyebrow">🎮 &nbsp; LOOPLY GAMES</div>'+
       '<h2 id="chatV2ModalTitle">Jogos na conversa</h2>'+
       '<p class="gartic-muted">Escolha um jogo e desafie seus amigos sem sair do chat.</p>'+
-      '<button type="button" data-gartic-action="ttt" class="gartic-game-card">'+
-      '<span class="gartic-game-icon">✕○</span><span><strong>Jogo da Velha</strong><small>O clássico X e O, com placar salvo.</small></span><span>›</span></button>'+
+      '<button type="button" data-gartic-action="ttt" class="gartic-game-card"'+(group?' disabled aria-disabled="true"':'')+'>'+
+      '<span class="gartic-game-icon">✕○</span><span><strong>Jogo da Velha</strong><small>'+(group?'Disponível somente em conversas individuais.':'O clássico X e O, com placar salvo.')+'</small></span><span>›</span></button>'+
       '<button type="button" data-gartic-action="gartic" class="gartic-game-card">'+
       '<span class="gartic-game-icon">🎨</span><span><strong>Desenhe &amp; Adivinhe</strong><small>Gartic com desenho, chat, dicas e áudio.</small></span><span>›</span></button></div>');
   }
