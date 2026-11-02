@@ -176,7 +176,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         '<span>Rodada '+game.turn+'/'+(players.length*Number(game.cycles||2))+'</span>'+
         '<strong data-gartic-clock>--:--</strong></div>'+
         '<div class="gartic-word"><small>'+escapeHtml(wordLabel)+'</small><strong>'+safeWord+'</strong>'+
-        '<span>'+escapeHtml(game.category||"")+' · '+answered+' acerto(s)</span></div>'+
+        '<span>'+answered+' acerto(s)</span></div>'+
         '<canvas width="1000" height="650" class="gartic-canvas" data-gartic-canvas role="img" aria-label="Quadro de desenho compartilhado"></canvas>'+
         (drawer?'<div class="gartic-tools"><div class="gartic-tool-group">'+
           '<button type="button" data-gartic-tool="pen" title="Pincel" aria-label="Pincel">✏️</button>'+
@@ -199,19 +199,19 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         people+makeButton("create","Nova partida",true)+'</div>';
     }
     const sidebar='<aside class="gartic-sidebar"><section class="gartic-sidebar-card"><h3>🏆 Classificação</h3>'+
-      (active||ended?people:'<p class="gartic-muted"></p>')+'</section>'+
+      (active||ended?people:'')+'</section>'+
       '<section class="gartic-sidebar-card gartic-voice"><h3>🎙️ Áudio ao vivo</h3>'+
-      '<p class="gartic-muted">'+(voiceJoined?(voiceMuted?'Seu microfone está silenciado.':'Você está no chat de voz.'):'')+'</p>'+
+      ''+
       (voiceJoined?makeButton("mute",voiceMuted?'Ativar microfone':'Silenciar microfone')+makeButton("leave-voice","Sair do áudio"):
         makeButton("join-voice","Entrar no áudio",false,!me||!connected))+
-      '<div data-gartic-audio-status class="gartic-muted">'+(connected?'Sala conectada':'Conectando ao tempo real…')+'</div></section>'+
+      '<div data-gartic-audio-status class="gartic-audio-status" role="status">'+(voiceJoined?(voiceMuted?'Silenciado':'Conectado'):'')+'</div></section>'+
       '<section class="gartic-sidebar-card gartic-chat"><h3>💬 Chat</h3>'+
       '<div class="gartic-chat-list" aria-live="polite">'+(chat||'')+'</div>'+
       '<form class="gartic-chat-form" data-gartic-chat><input name="message" maxlength="300" autocomplete="off" placeholder="Conversar…" aria-label="Mensagem para a sala"'+(me?'':' disabled')+'>'+
       '<button type="submit" aria-label="Enviar mensagem"'+(me?'':' disabled')+'>➤</button></form></section></aside>';
     const markup='<div data-looply-gartic class="gartic-shell">'+head+'<div class="gartic-grid">'+
       '<div class="gartic-primary">'+body+'</div>'+sidebar+'</div>'+
-      '<div class="gartic-footer">'+(game.lastWord?'<span>Palavra anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span></span>')+
+      '<div class="gartic-footer">'+(game.lastWord?'<span>Anterior: <b>'+escapeHtml(game.lastWord)+'</b></span>':'<span></span>')+
       (game.hostId===userId&&!ended?'<button type="button" data-gartic-action="finish">Encerrar partida</button>':'')+
       '</div></div>';
     openModal(markup);
