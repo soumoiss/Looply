@@ -405,22 +405,43 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
     const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,
-      polite:userId>id,recoveryTimer:null,retries:0};
+      polite:userId>id,initialOfferer:userId<id,needsNegotiation:true,
+      recoveryTimer:null,retries:0};
     remotePeers.set(id,record);
     // Receive audio even if THIS player has never granted microphone access.
     // A recvonly transceiver is upgraded to sendrecv only on explicit mic tap.
     record.transceiver=pc.addTransceiver("audio",{direction:voiceStream&&!voiceMuted?"sendrecv":"recvonly"});
     if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
-    pc.onnegotiationneeded=async()=>{
-      if(!voiceJoined || remotePeers.get(id)!==record || record.makingOffer)return;
-
+    // A stable, serialized offer queue prevents microphone enable/disable from
+    // racing the first recvonly SDP exchange (the source of silent receivers).
+    // Only one side sends the first offer; either side can renegotiate later.
+    record.negotiate=async()=>{
+      if(!record.needsNegotiation || record.makingOffer || !voiceJoined ||
+         !connected || remotePeers.get(id)!==record)return;
+      if(!record.initialOfferer && !pc.remoteDescription)return;
+      if(pc.signalingState!=="stable")return;
+      record.makingOffer=true;record.needsNegotiation=false;
       try{
-        record.makingOffer=true;
-        if(pc.signalingState!=="stable")return;
-        await pc.setLocalDescription();
-        await sendPacket({kind:"voice-signal",target:id,signal:{type:"offer",sdp:pc.localDescription.sdp}});
-      }catch(error){console.warn("Gartic audio renegotiation failed",error?.message);}
-      finally{record.makingOffer=false;}
+        await pc.setLocalDescription(await pc.createOffer());
+        if(pc.localDescription?.type!=="offer")return;
+        const sent=await sendPacket({kind:"voice-signal",target:id,
+          signal:{type:"offer",sdp:pc.localDescription.sdp}});
+        if(!sent)record.needsNegotiation=true;
+      }catch(error){
+        record.needsNegotiation=true;
+        console.warn("Gartic audio renegotiation failed",error?.message);
+      }finally{
+        record.makingOffer=false;
+        if(record.needsNegotiation && pc.signalingState==="stable" && connected)
+          queueMicrotask(()=>void record.negotiate());
+      }
+    };
+    pc.onnegotiationneeded=()=>{
+      record.needsNegotiation=true;void record.negotiate();
+    };
+    pc.onsignalingstatechange=()=>{
+      if(pc.signalingState==="stable" && record.needsNegotiation)
+        void record.negotiate();
     };
     pc.ontrack=e=>{
       audio.srcObject=e.streams[0]||new MediaStream([e.track]);
@@ -471,7 +492,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(!voiceJoined || packet.target!==userId)return;
     try{
       if(packet.kind==="voice-ready"){
-        makePeer(sender); // onnegotiationneeded handles listener-only and microphone offers.
+        const record=makePeer(sender);
+        void record.negotiate();
       }
       if(packet.kind==="voice-signal" && packet.signal){
         const data=packet.signal,record=makePeer(sender);
@@ -479,9 +501,11 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           const collision=record.makingOffer||record.pc.signalingState!=="stable";
           record.ignoreOffer=!record.polite&&collision;
           if(record.ignoreOffer)return;
+          if(collision)record.needsNegotiation=true;
           await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
           await record.pc.setLocalDescription(await record.pc.createAnswer());
           await sendPacket({kind:"voice-signal",target:sender,signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
+          if(record.needsNegotiation)void record.negotiate();
         }else if(data.type==="answer"){
           if(record.pc.signalingState==="have-local-offer")
             await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
@@ -544,6 +568,8 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         if(!record.transceiver)continue;
         await record.transceiver.sender.replaceTrack(track);
         record.transceiver.direction="sendrecv";
+        record.needsNegotiation=true;
+        void record.negotiate();
       }
       if(connected)void sendPacket({kind:"voice-join"});
       updateVoiceControls();
@@ -591,7 +617,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       connected=status==="SUBSCRIBED";
       const node=root.querySelector("[data-gartic-audio-status]");
       if(node)node.textContent=connected?"Sala conectada":"Conectando ao tempo real…";
-      if(connected&&voiceJoined)void sendPacket({kind:"voice-join"});
+      if(connected&&voiceJoined){
+        void sendPacket({kind:"voice-join"});
+        for(const record of remotePeers.values())void record.negotiate();
+      }
     });
     let backgroundPolls=0;
     pollTimer=setInterval(()=>{
