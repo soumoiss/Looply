@@ -132,14 +132,16 @@ export function createNeonRealtimeBridge({ endpoint, getSession, fetcher, Socket
     const start = () => {
       if (closed) return Promise.resolve(null);
       if (ready) return ready;
-      // Calls must use ONE transport on both ends. A caller on Cloudflare
-      // and a callee on the Neon fallback cannot exchange answers/ICE.
-      // Prefer the authenticated Neon RPC for all direct call signaling;
-      // retain WebSockets for chat invalidations and games.
-      if (roomKind === "call" && useFallback && options?.config?.preferNeon === true) {
+      // Games carrying WebRTC offers must use ONE authenticated transport
+      // on every client. A Cloudflare/WebSocket sender and Neon-only receiver
+      // cannot hear each other although each reports SUBSCRIBED.
+      // Opt-in game rooms use the same canonical Neon signaling as calls.
+      const canonicalNeon=(roomKind==="call"||roomKind==="game") &&
+        useFallback && options?.config?.preferNeon===true;
+      if (canonicalNeon) {
         ready = fallback.connect(conversationId, deliver, error => {
-          console.warn("Looply call signal polling interrupted", error?.message);
-        }, 700).then(backup => {
+          console.warn("Looply real-time signal polling interrupted", error?.message);
+        }, roomKind==="game"?750:700).then(backup => {
           if (closed) { backup.close(); return null; }
           ws = backup;
           report("SUBSCRIBED");
