@@ -1,3 +1,4 @@
+import { sendChatCard } from "./chat.js?v=premium-card-delivery";
 import { icon } from "./icons.js";
 import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
@@ -13,35 +14,25 @@ function closeAttachmentMenus(root){
 }
 function closePremiumModal(root){
   const modal=root.querySelector("[data-chat-premium-modal]");
-  if(modal)modal.remove();
+  if(modal?.open)modal.close();
+  modal?.remove();
 }
-function submitPremiumMessage(root,body){
-  const form=currentComposer(root),input=form?.querySelector('textarea[name="body"]');
-  if(!form||!input||!form.isConnected)throw Error("Abra uma conversa para compartilhar.");
-  const preserved=input.value;
-  input.value=body;
-  input.dispatchEvent(new Event("input",{bubbles:true}));
-  try{
-    form.requestSubmit(form.querySelector('button[type="submit"]'));
-  }catch(error){
-    input.value=preserved;input.dispatchEvent(new Event("input",{bubbles:true}));
-    throw error;
-  }
-}
-function createModal(root,{title,kind,content}){
+function createModal(root,{title,kind,content,submitLabel="Enviar"}){
   closePremiumModal(root);closeAttachmentMenus(root);
-  const modal=document.createElement("div");
+  const modal=document.createElement("dialog");
   modal.className="chat-premium-modal";
   modal.dataset.chatPremiumModal="";
-  modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");
+  modal.composer=currentComposer(root);
   modal.setAttribute("aria-label",title);
   modal.innerHTML='<section><header><h2>'+esc(title)+'</h2><button type="button" data-chat-premium-close aria-label="Fechar">'+icon("close")+
     '</button></header><form data-chat-premium-card-form="'+esc(kind)+'">'+content+
     '<div class="chat-premium-modal-actions"><button type="button" data-chat-premium-close>Cancelar</button>'+
-    '<button type="submit" data-chat-premium-confirm>Enviar</button></div>'+
+    '<button type="submit" data-chat-premium-confirm>'+esc(submitLabel)+'</button></div>'+
     '<p class="form-status" data-chat-premium-modal-status role="status" aria-live="polite"></p></form></section>';
   root.append(modal);
-  requestAnimationFrame(()=>modal.querySelector("input,textarea")?.focus({preventScroll:true}));
+  modal.addEventListener("close",()=>modal.remove(),{once:true});
+  modal.showModal();
+  modal.querySelector("input,textarea")?.focus({preventScroll:true});
   return modal;
 }
 function setModalError(modal,message){
@@ -49,7 +40,7 @@ function setModalError(modal,message){
   if(target)target.textContent=message;
 }
 function openNote(root){
-  createModal(root,{title:"💌 Escrever bilhete",kind:"note",content:
+  return createModal(root,{title:"💌 Escrever bilhete",kind:"note",content:
     '<label for="chatPremiumNote">Seu bilhete</label><textarea id="chatPremiumNote" name="note" maxlength="1200" rows="6" required placeholder="Algo especial para compartilhar…"></textarea>'+
     '<p class="chat-premium-note-hint">O bilhete ficará guardado na conversa, junto com as outras mensagens.</p>'});
 }
@@ -93,10 +84,46 @@ function openMusic(root){
   modal.querySelector("[data-chat-premium-confirm]").disabled=true;
   return modal;
 }
+function openThreadSearch(root){
+  createModal(root,{title:"Buscar nesta conversa",kind:"search",submitLabel:"Buscar",content:
+    '<label for="chatPremiumThreadQuery">Texto da mensagem</label>'+
+    '<input id="chatPremiumThreadQuery" name="query" type="search" maxlength="100" required>'+
+    '<ol class="chat-premium-search-results" data-chat-premium-search-results aria-label="Mensagens encontradas"></ol>'});
+}
+
+async function searchThread(client,modal,query){
+  const results=modal.querySelector("[data-chat-premium-search-results]");
+  results.replaceChildren();
+  if(!query){setModalError(modal,"Digite um texto para buscar.");return;}
+  setModalError(modal,"Buscando…");
+  const pattern=query.replace(/[\\%_*]/g,character=>"\\"+character);
+  const {data,error}=await client.from("chat_messages").select("body,created_at")
+    .eq("conversation_id",modal.composer.dataset.conversationId)
+    .ilike("body","%"+pattern+"%").order("created_at",{ascending:false}).limit(50);
+  if(error)throw error;
+  if(!modal.open)return;
+  const dateFormat=new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"});
+  for(const message of data||[]){
+    const item=document.createElement("li"),date=document.createElement("time");
+    date.dateTime=message.created_at;
+    date.textContent=dateFormat.format(new Date(message.created_at));
+    const body=document.createElement("p");
+    body.textContent=message.body;
+    item.append(date,body);
+    results.append(item);
+  }
+  const count=results.children.length;
+  setModalError(modal,count===50?"50 resultados mais recentes.":count?count+" resultado(s).":"Nenhuma mensagem encontrada.");
+}
+
 export function setupChatPremium(root,client,userId){
   if(!root||root.__looplyPremiumBound)return ()=>{};
   root.__looplyPremiumBound=true;
   let searchAbort=null,searchTimer=0;
+  const cancelSearch=()=>{
+    searchAbort?.abort();
+    clearTimeout(searchTimer);
+  };
   let activeAudio=null,activeButton=null;
   const stopAudio=()=>{
     if(activeAudio){try{activeAudio.pause();activeAudio.currentTime=0;}catch{}releaseMediaPlayback(root,activeAudio);}
@@ -139,19 +166,27 @@ export function setupChatPremium(root,client,userId){
       }
       return;
     }
-    if(target.closest("[data-chat-premium-share-game]")){
+    const invite=target.closest("[data-chat-premium-share-game]");
+    if(invite){
+      const composer=invite.closest("form[data-chat-send]");
+      const status=composer?.querySelector("[data-status]");
+      if(invite.disabled||!window.confirm("Enviar um convite para jogar nesta conversa?"))return;
+      invite.disabled=true;
       try{
-        const form=currentComposer(root),id=form?.dataset.conversationId;
-        if(!window.confirm("Enviar um convite para jogar nesta conversa?"))return;
-        submitPremiumMessage(root,makePremiumGameCard(id));
+        await sendChatCard(root,client,userId,composer,makePremiumGameCard(composer?.dataset.conversationId));
+        if(status)status.textContent="Convite enviado.";
       }catch(error){
-        const status=currentComposer(root)?.querySelector("[data-status]");
-        if(status)status.textContent=error.message||"Abra uma conversa.";
-      }
+        console.warn("Chat game card failed",error);
+        if(status)status.textContent="O convite não foi enviado. Tente novamente.";
+      }finally{invite.disabled=false;}
       return;
     }
+    if(target.closest("[data-chat-premium-search]")){openThreadSearch(root);return;}
     if(target.closest("[data-chat-premium-note]")){openNote(root);return;}
-    if(target.closest("[data-chat-premium-music]")){openMusic(root);return;}
+    if(target.closest("[data-chat-premium-music]")){
+      openMusic(root).addEventListener("close",cancelSearch,{once:true});
+      return;
+    }
     const pick=target.closest("[data-chat-premium-pick-music]");
     if(pick){
       const modal=pick.closest("[data-chat-premium-modal]");
@@ -208,7 +243,8 @@ export function setupChatPremium(root,client,userId){
           },{onConflict:"message_id,user_id"});
         if(response.error)throw response.error;
         root.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
-        root.dispatchEvent(new CustomEvent("looply:open-conversation",{detail:{conversationId}}));
+        if(currentComposer(root)?.dataset.conversationId===conversationId)
+          root.dispatchEvent(new CustomEvent("looply:open-conversation",{detail:{conversationId}}));
       }catch(error){
         console.warn("Chat reaction failed",error);
         const status=currentComposer(root)?.querySelector("[data-status]");
@@ -220,18 +256,7 @@ export function setupChatPremium(root,client,userId){
     if(play){
       if(activeButton===play){stopAudio();return;}
       stopAudio();
-      let source=play.dataset.chatPremiumPlayMusic||"";
-      if(!source){
-        play.disabled=true;play.textContent="…";
-        try{
-          const result=await searchStorySongs(decodeURIComponent(play.dataset.chatPremiumMusicQuery||""));
-          const playable=result.items?.find(song=>officialSongPreview(song)?.kind==="audio");
-          source=playable?.previewUrl||"";
-          if(source)play.dataset.chatPremiumPlayMusic=source;
-        }catch(error){console.warn("Music preview search",error);}
-        finally{play.disabled=false;play.textContent="▶";}
-      }
-      if(!source)return;
+      const source=play.dataset.chatPremiumPlayMusic;
       const song=normalizeStorySong({provider:"apple",title:"Prévia",artist:"Catálogo",url:"https://music.apple.com/br",previewUrl:source})
         ||normalizeStorySong({provider:"deezer",title:"Prévia",artist:"Catálogo",url:"https://www.deezer.com/br/track/123456",previewUrl:source});
       const preview=officialSongPreview(song);
@@ -253,8 +278,9 @@ export function setupChatPremium(root,client,userId){
     if(!field)return;
     const modal=field.closest("[data-chat-premium-modal]");
     if(!modal)return;
-    if(searchAbort)searchAbort.abort();
-    clearTimeout(searchTimer);
+    cancelSearch();
+    modal._premiumTracks=[];
+    modal.querySelector("[data-chat-premium-music-results]").replaceChildren();
     modal._premiumSelected=null;
     modal.querySelector("[data-chat-premium-confirm]").disabled=true;
     const value=field.value.trim();
@@ -276,22 +302,39 @@ export function setupChatPremium(root,client,userId){
       }
     },350);
   };
-  const onSubmit=event=>{
+  const onSubmit=async event=>{
     const form=event.target.closest("form[data-chat-premium-card-form]");
     if(!form)return;
     event.preventDefault();
     const modal=form.closest("[data-chat-premium-modal]");
+    if(modal.sending)return;
+    modal.sending=true;
+    const confirm=form.querySelector("[data-chat-premium-confirm]");
+    confirm.disabled=true;
     try{
       const kind=form.dataset.chatPremiumCardForm;
+      if(kind==="search"){
+        if(!modal.composer||modal.composer!==currentComposer(root))throw Error("conversation_changed");
+        await searchThread(client,modal,form.elements.query.value.trim());
+        return;
+      }
       const body=kind==="note"
         ? makePremiumNote(form.elements.note?.value)
         : makePremiumMusic(modal?._premiumSelected);
-      submitPremiumMessage(root,body);
-      closePremiumModal(root);
-    }catch(error){setModalError(modal,error.message||"Não foi possível enviar.");}
+      await sendChatCard(root,client,userId,modal.composer,body);
+      if(modal.open)modal.close();
+    }catch(error){
+      console.warn("Chat card failed",error);
+      setModalError(modal,form.dataset.chatPremiumCardForm==="search"
+        ?"A busca está indisponível. Tente novamente."
+        :"A mensagem não foi enviada. Confira a conexão ou reabra a conversa e tente novamente.");
+    }finally{
+      modal.sending=false;
+      confirm.disabled=form.dataset.chatPremiumCardForm==="music"&&!modal._premiumSelected;
+    }
   };
   const onKey=event=>{
-    if(event.key!=="Escape")return;
+    if(event.key!=="Escape"||event.target.closest("[data-chat-premium-modal]"))return;
     closeAttachmentMenus(root);
     closePremiumModal(root);
     root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
@@ -301,7 +344,7 @@ export function setupChatPremium(root,client,userId){
   root.addEventListener("submit",onSubmit,true);
   root.addEventListener("keydown",onKey);
   const cleanup=()=>{
-    searchAbort?.abort();clearTimeout(searchTimer);stopAudio();
+    cancelSearch();stopAudio();
     root.removeEventListener("click",onClick);
     root.removeEventListener("input",onInput);
     root.removeEventListener("submit",onSubmit,true);

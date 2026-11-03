@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {readFileSync} from "node:fs";
-import {chatMarkup,threadMarkup} from "../src/chat.js";
+import {chatMarkup,threadMarkup,sendChatCard} from "../src/chat.js";
 import {makePremiumNote,makePremiumMusic,makePremiumGameCard,parsePremiumChatBody,premiumChatCardMarkup} from "../src/chat-premium-cards.js";
 
 const read=name=>readFileSync(new URL("../"+name,import.meta.url),"utf8");
@@ -70,7 +70,7 @@ test("clip menu includes native attachment handlers, Games, Cards and Music",()=
     "data-chat-premium-share-game","data-chat-premium-note","data-chat-premium-music"]){
     assert.ok(source.includes(marker),marker);
   }
-  assert.match(controller,/form\.requestSubmit/);
+  assert.match(controller,/await sendChatCard/);
   assert.match(controller,/searchStorySongs/);
   assert.match(controller,/makePremiumGameCard/);
   assert.match(controller,/client\.from\("chat_message_reactions"\)/);
@@ -95,4 +95,40 @@ test("all modified JavaScript modules parse",()=>{
       {encoding:"utf8"});
     assert.equal(result.status,0,name+": "+result.stderr);
   }
+});
+
+test("cards use the saved-message pipeline and leave the composer's draft, reply and pending attachments alone",async()=>{
+  const composer={dataset:{conversationId:chatId},draft:"Meu rascunho",replyTo:"outra mensagem",files:["foto.jpg"]};
+  const saved=[];
+  const root=new EventTarget();
+  root.querySelector=()=>composer;
+  root.addEventListener("looply:chat-message-saved",event=>saved.push(event.detail.conversationId));
+  const body=makePremiumNote("Uma carta");
+  const client={from(table){
+    assert.equal(table,"chat_messages");
+    return {insert(record){
+      assert.deepEqual(record,{conversation_id:chatId,sender_id:uid,body,reply_to:null});
+      return {select(){return {async single(){return {data:{id:uid},error:null};}};}};
+    }};
+  }};
+  await sendChatCard(root,client,uid,composer,body);
+  assert.deepEqual(saved,[chatId]);
+  assert.deepEqual([composer.draft,composer.replyTo,composer.files],["Meu rascunho","outra mensagem",["foto.jpg"]]);
+  root.querySelector=()=>null;
+  await assert.rejects(sendChatCard(root,client,uid,composer,body),/Abra a conversa novamente/);
+  assert.deepEqual(saved,[chatId]);
+});
+
+test("a failed card insert does not announce a saved message",async()=>{
+  const composer={dataset:{conversationId:chatId}};
+  const root={querySelector:()=>composer,dispatchEvent:()=>assert.fail("Unexpected saved event")};
+  const failure=new Error("offline");
+  const client={from:()=>({insert:()=>({select:()=>({single:async()=>({error:failure})})})})};
+  await assert.rejects(sendChatCard(root,client,uid,composer,makePremiumNote("Uma carta")),failure);
+});
+
+test("tracks without a preview keep their official link without a misleading play button",()=>{
+  const html=premiumChatCardMarkup(makePremiumMusic({...song,previewUrl:""}));
+  assert.match(html,/chat-premium-music-provider/);
+  assert.doesNotMatch(html,/data-chat-premium-play-music/);
 });

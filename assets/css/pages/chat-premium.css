@@ -837,18 +837,22 @@
 }
 :is(.page-chat,.page-conversation) .chat-premium .chat-premium-reaction-palette button:hover{background:var(--pm-light)}
 .chat-premium-modal{
-  position:fixed;
-  z-index:22000;
-  inset:0;
-  display:grid;
-  place-items:center;
-  padding:15px;
+  width:min(calc(100% - 30px),460px);
+  max-width:none;
+  max-height:min(86dvh,750px);
+  margin:auto;
+  border:0;
+  padding:0;
+  overflow:visible;
+  background:transparent;
+}
+.chat-premium-modal::backdrop{
   background:rgba(20,10,35,.5);
   backdrop-filter:blur(6px);
 }
-.chat-premium-modal[hidden]{display:none!important}
 .chat-premium-modal>section{
-  width:min(100%,460px);
+  box-sizing:border-box;
+  width:100%;
   max-height:min(86dvh,750px);
   overflow-y:auto;
   border:1px solid var(--line,rgba(102,82,126,.14));
@@ -897,7 +901,7 @@
   background:var(--surface-soft);
   text-align:left;color:var(--text);
 }
-.chat-premium-modal .chat-premium-music-results button:hover{border-color:var(--primary)}
+.chat-premium-modal .chat-premium-music-results button:is(:hover,[aria-pressed="true"]){border-color:var(--primary)}
 .chat-premium-modal .chat-premium-music-results img{width:43px;height:43px;object-fit:cover;border-radius:9px}
 .chat-premium-modal .chat-premium-music-results button span{flex:1;min-width:0}
 .chat-premium-modal .chat-premium-music-results button strong,
@@ -1100,3 +1104,19 @@
 :is(.page-chat,.page-conversation) .chat-premium .chat-premium-music-card strong{
   font-size:calc(var(--pm-font-size) * .84)!important;
 }
+
+.chat-premium-search-results{
+  display:grid;
+  gap:8px;
+  max-height:40dvh;
+  overflow:auto;
+  padding:0;
+  list-style:none;
+}
+.chat-premium-search-results li{
+  padding:10px;
+  border-radius:12px;
+  background:var(--surface-soft);
+}
+.chat-premium-search-results time{color:var(--muted);font-size:.8em}
+.chat-premium-search-results p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}

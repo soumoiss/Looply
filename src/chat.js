@@ -770,8 +770,8 @@ function messageComposerMarkup(conversationId) {
       <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinha</span></button>
       <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Jogos</span></button>
       <button type="button" data-chat-premium-share-game><span class="chat-premium-tile indigo">${icon("share")}</span><span>Convidar para jogar</span></button>
-      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Bilhete</span></button>
-      <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Música</span></button>
+      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Cartas</span></button>
+      <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Músicas</span></button>
     </div>
     <input id="files-${escapeHtml(conversationId)}" name="files" class="chat-premium-file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf">
     <input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha">
@@ -782,6 +782,7 @@ function messageComposerMarkup(conversationId) {
 }
 
 function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
+  const search = '<button class="chat-v2-icon-button" type="button" data-chat-premium-search aria-label="Buscar nesta conversa">' + icon("search") + '</button>';
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
     const avatar = conversationInfo.coverUrl
@@ -790,7 +791,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     const editor = conversationInfo.created_by === userId
       ? `<button type="button" class="chat-cover-change" data-chat-group-cover-choose aria-label="Alterar foto do grupo">Foto do grupo</button><input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status"></span>`
       : "";
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}</header>`;
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}${search}</header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -801,7 +802,7 @@ function threadHeadingMarkup(root, participants, userId, conversationInfo = null
     ? `<img class="chat-thread-avatar" data-profile-avatar-id="${escapeHtml(peer?.id || "")}" src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="chat-thread-avatar" aria-hidden="true">${escapeHtml(fallback)}</span>`;
   const name = conversation?.querySelector(".chat-conversation-copy strong")?.textContent || peer?.display_name || peer?.username || "Conversa privada";
-  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<a class="chat-thread-identity" href="perfil.html?usuario=${encodeURIComponent(peer?.id || "")}"><strong data-profile-name-id="${escapeHtml(peer?.id || "")}">${escapeHtml(name)}</strong><small>Conversa em tempo real</small></a></header>`;
+  return `<header class="chat-thread-heading" data-chat-kind="direct" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<a class="chat-thread-identity" href="perfil.html?usuario=${encodeURIComponent(peer?.id || "")}"><strong data-profile-name-id="${escapeHtml(peer?.id || "")}">${escapeHtml(name)}</strong><small>Conversa em tempo real</small></a>${search}</header>`;
 }
 
 async function signThreadAvatar(client, participants) {
@@ -851,6 +852,30 @@ function scrollInitialThreadToLatest(thread) {
       if (container.scrollHeight-container.scrollTop-container.clientHeight < 140) scrollToLatest();
     }, { once: true });
   });
+}
+
+async function insertChatMessage(client, conversationId, userId, body, replyTo = null) {
+  const { data, error } = await client.from("chat_messages")
+    .insert({ conversation_id: conversationId, sender_id: userId, reply_to: replyTo, body })
+    .select("id").single();
+  if (error) throw error;
+  if (!data?.id) throw new Error("message_not_confirmed");
+  return data;
+}
+
+function publishChatMessage(root, client, conversationId, messageId) {
+  root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
+  void requestImmediateMessagePush(client, messageId);
+}
+
+export async function sendChatCard(root, client, userId, composer, body) {
+  const conversationId = composer?.dataset.conversationId;
+  if (!conversationId || !userId || root.querySelector("form[data-chat-send]") !== composer)
+    throw new Error("Abra a conversa novamente para compartilhar.");
+
+  const message = await insertChatMessage(client, conversationId, userId, body);
+  publishChatMessage(root, client, conversationId, message.id);
+  if (activeConversationId === conversationId) void openConversation(root, client, conversationId, userId);
 }
 
 async function openConversation(root, client, conversationId, userId) {
@@ -1684,10 +1709,7 @@ export function bindChatEvents(root, client, getUserId) {
         const files = selectedFiles(values);
         const body = String(values.get("body") || "").trim() || (files.length ? "Compartilhou arquivos." : "");
         if (!body) throw new Error("empty message");
-        const { data: message, error } = await client.from("chat_messages")
-          .insert({ conversation_id: conversationId, sender_id: userId, reply_to: String(values.get("replyTo") || "") || null, body })
-          .select("id").single();
-        if (error) throw error;
+        const message = await insertChatMessage(client, conversationId, userId, body, String(values.get("replyTo") || "") || null);
         const uploadedPaths = [];
         try {
           for (const [index, file] of files.entries()) {
@@ -1718,11 +1740,7 @@ export function bindChatEvents(root, client, getUserId) {
         form._looplyStickerFile = null;
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
-        // Notify the other authorized client only after Neon confirms the
-        // message and all attachments. Never send fake message bodies over WS.
-        root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
-        // Never delay the sender's UI; cron remains a deduplicated fallback.
-        void requestImmediateMessagePush(client,message.id);
+        publishChatMessage(root, client, conversationId, message.id);
         await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
