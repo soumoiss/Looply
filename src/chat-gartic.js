@@ -60,7 +60,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   let conversationId = "", game = null, channel = null, connected = false, pollTimer = null;
   let renderedKey = "", screen = "hub", open = false, busy = false, disposed = false;
   let tool = "pen", color = PALETTE[0], width = 5, drawing = null, localStrokes = [];
-  let latestGuessFeedback = "", mediaBooting = false, chatBusy = false;
+  let latestGuessFeedback = "", mediaBooting = false, chatBusy = false, lastPaintKey = "";
   let voiceStream = null, voiceJoined = false, voiceMuted = true, remotePeers = new Map();
   let voiceHeartbeat = null, voiceOutputContext = null;
   let serverDelta = 0, serverTimer = setInterval(updateClock,250);
@@ -234,23 +234,25 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       input.value=draft.value;
       if(draft.focused){input.focus({preventScroll:true});try{input.setSelectionRange(draft.selection,draft.selection);}catch{}}
     }
-    if(active) {setupCanvas();drawAll();updateClock();}
+    if(active) {setupCanvas();drawAll();lastPaintKey="";updateClock();}
     void hydrateAvatars();
     const list=root.querySelector(".gartic-chat-list");if(list)list.scrollTop=list.scrollHeight;
   }
-  function syncLiveGame() {
-    // Patch only changing sections; never replace a focused input or canvas.
+  function syncGameChat() {
     const chatList=root.querySelector(".gartic-chat-list");
-    if(chatList) {
-      const messages=game?.chat||[];
-      const incoming=messages.map(m=>String(m.id)).join(",");
-      if(chatList.dataset.messageIds!==incoming){
-        const nearBottom=chatList.scrollHeight-chatList.scrollTop-chatList.clientHeight<55;
-        chatList.innerHTML=messages.map(m=>'<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
-        chatList.dataset.messageIds=incoming;
-        if(nearBottom)chatList.scrollTop=chatList.scrollHeight;
-      }
-    }
+    if(!chatList)return;
+    const messages=game?.chat||[];
+    const incoming=messages.map(m=>String(m.id)).join(",");
+    if(chatList.dataset.messageIds===incoming)return;
+    const nearBottom=chatList.scrollHeight-chatList.scrollTop-chatList.clientHeight<55;
+    chatList.innerHTML=messages.map(m=>
+      '<div class="gartic-chat-line"><b>'+escapeHtml(m.name)+'</b> '+escapeHtml(m.body)+'</div>').join("");
+    chatList.dataset.messageIds=incoming;
+    if(nearBottom)chatList.scrollTop=chatList.scrollHeight;
+  }
+  function syncLiveGame() {
+    // Chat and voice controls must never trigger expensive canvas redraws.
+    syncGameChat();
     const word=root.querySelector(".gartic-word strong");
     if(word)word.textContent=amDrawer()?game.word||"":displayGarticMask(game.masked||"");
     const matches=root.querySelector(".gartic-word span");
@@ -259,7 +261,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(feedback && latestGuessFeedback)feedback.textContent=latestGuessFeedback;
     const audioStatus=root.querySelector("[data-gartic-audio-status]");
     if(audioStatus) audioStatus.textContent=voiceJoined?(voiceStream&&!voiceMuted?"Microfone ligado":"Ouvindo"):"";
-    drawAll();
+    // Only repaint when the authoritative drawing changed, not when someone
+    // sends a chat line or the timer advances.
+    const latest=game?.strokes?.at(-1);
+    const paintKey=[game?.gameId,game?.turn,game?.strokes?.length||0,
+      latest?JSON.stringify(latest):""].join(":");
+    if(lastPaintKey!==paintKey){lastPaintKey=paintKey;drawAll();}
     updateClock();
   }
   function displayGarticMask(mask){
@@ -392,8 +399,9 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
   function stopVoice(){
     clearInterval(voiceHeartbeat);voiceHeartbeat=null;
     if(voiceJoined)void sendPacket({kind:"voice-leave"});
-    for(const {pc,audio,recoveryTimer} of remotePeers.values()){
+    for(const {pc,audio,recoveryTimer,outputNode} of remotePeers.values()){
       clearTimeout(recoveryTimer);
+      try{outputNode?.disconnect();}catch{}
       try{pc.close();}catch{}
       audio?.remove();
     }
@@ -498,7 +506,12 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     if(packet.kind==="voice-leave"){
       const old=remotePeers.get(sender);
-      if(old){try{old.pc.close()}catch{}old.audio.remove();remotePeers.delete(sender);}return;
+      if(old){
+        clearTimeout(old.recoveryTimer);
+        try{old.outputNode?.disconnect();}catch{}
+        try{old.pc.close();}catch{}
+        old.audio.remove();remotePeers.delete(sender);
+      }return;
     }
     if(!voiceJoined || packet.target!==userId)return;
     try{
@@ -649,6 +662,24 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         return;
       }
       if(payload.kind?.startsWith("voice-")){void onVoicePacket(payload);return;}
+      if(payload.kind==="chat-committed"){
+        const m=payload.message;
+        // The sender is authenticated by the room, but game state is still
+        // revalidated from the authoritative DB on the next poll.
+        if(m && m.userId===payload.senderId &&
+           /^\\d+$/.test(String(m.id)) && typeof m.body==="string" &&
+           m.body.length>0 && m.body.length<=300 &&
+           typeof m.name==="string" && m.name.length<200){
+          game.chat ||= [];
+          if(!game.chat.some(row=>String(row.id)===String(m.id))){
+            game.chat=[...game.chat,m].slice(-40);
+            syncGameChat();
+          }
+        }
+        // Never use an unverified optimistic chat packet as stored history.
+        setTimeout(()=>void refresh(),200);
+        return;
+      }
       if(payload.kind==="stroke" && payload.senderId===game?.drawerId && payload.turn===game?.turn){
         const canvas=root.querySelector("[data-gartic-canvas]");
         if(canvas&&payload.stroke)drawStroke(canvas.getContext("2d"),payload.stroke);
@@ -669,7 +700,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       if(document.hidden)return;
       if(open&&screen!=="hub")void refresh();
       else if(++backgroundPolls%4===0)void refresh();
-    },2600);
+    },1450);
     void refresh();
   }
   async function openGartic(){
@@ -801,7 +832,13 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           game=next;
           if(turnChanged)renderGame(true);
           else syncLiveGame();
-          void sendPacket({kind:"updated"});
+          // Message is already committed and validated by Neon. Publish its
+          // authoritative row so the other player can display it immediately,
+          // rather than waiting for a full game-state query.
+          const confirmed=(next.chat||[]).slice().reverse().find(m=>
+            m.userId===userId && m.body===text && m.id!==undefined);
+          if(confirmed)void sendPacket({kind:"chat-committed",message:confirmed});
+          else void sendPacket({kind:"updated"});
           // Preserve anything typed while the request was in progress.
           const latestInput=root.querySelector('[data-gartic-chat] input[name="message"]');
           if(latestInput?.value.trim()===text)latestInput.value="";
