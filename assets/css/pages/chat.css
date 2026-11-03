@@ -877,3 +877,290 @@
 .page-chat .chat-group-cover-pick small{display:block;color:var(--muted,#827d87);font-size:11px;margin-top:3px}
 .page-chat .chat-group-cover-preview{display:grid;place-items:center;flex:none;width:55px;height:55px;overflow:hidden;border-radius:50%;background:var(--lilac,#dac5f6);color:var(--primary,#7952d5);border:2px solid var(--surface,#fff)}
 .page-chat .chat-group-cover-preview img{display:block;width:100%;height:100%;object-fit:cover}
+
+
+/* Looply Games · Jogo da Velha — quiet, tactile and theme-aware.
+   All styles below stay scoped to this single mini-game. */
+.page-chat .chat-v2-modal:has(.chat-ttt-game),
+.page-chat .chat-v2-modal:has(.chat-ttt-invite) {
+  box-sizing:border-box;
+  width:min(100%,452px);
+  max-height:min(92dvh,800px);
+  overflow-y:auto;
+  padding:clamp(18px,4vw,27px);
+  border:1px solid color-mix(in srgb,var(--primary,#7010b0) 13%,var(--line,#e5d9ed));
+  border-radius:27px;
+  background:var(--surface-strong,#fff);
+  box-shadow:0 26px 85px rgba(35,20,61,.22),0 2px 7px rgba(35,20,61,.045);
+}
+.page-chat .chat-v2-modal:has(.chat-ttt-game) .chat-v2-modal-close,
+.page-chat .chat-v2-modal:has(.chat-ttt-invite) .chat-v2-modal-close {
+  width:36px;height:36px;right:16px;top:16px;
+  color:var(--text,#322344);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 78%,var(--primary,#7010b0) 10%);
+  transition:background .18s ease,transform .18s ease;
+}
+.page-chat .chat-v2-modal:has(.chat-ttt-game) .chat-v2-modal-close:hover,
+.page-chat .chat-v2-modal:has(.chat-ttt-invite) .chat-v2-modal-close:hover {
+  transform:rotate(90deg);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 65%,var(--primary,#7010b0) 19%);
+}
+.page-chat .chat-ttt-game,
+.page-chat .chat-ttt-invite {
+  min-width:0;width:100%;color:var(--text,#30263e);
+  animation:ttt-appear .34s cubic-bezier(.16,1,.3,1) both;
+}
+.page-chat .chat-ttt-heading {
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding-right:35px;margin:0 0 20px;min-width:0;
+}
+.page-chat .chat-ttt-heading h2,
+.page-chat .chat-ttt-invite h2 {
+  margin:0;font-size:clamp(22px,5vw,26px);
+  line-height:1.15;font-weight:850;letter-spacing:-.04em;
+}
+.page-chat .chat-ttt-round {
+  flex:0 0 auto;padding:7px 11px;border-radius:999px;
+  background:color-mix(in srgb,var(--primary,#7010b0) 9%,var(--surface-strong,#fff));
+  color:var(--primary,#7010b0);
+  font-size:10px;font-weight:800;letter-spacing:.015em;
+  white-space:nowrap;
+}
+.page-chat .chat-ttt-players {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:0;
+}
+.page-chat .chat-ttt-player {
+  position:relative;display:flex;align-items:center;min-width:0;gap:9px;
+  padding:12px 11px;border-radius:17px;
+  border:1px solid color-mix(in srgb,var(--line,#e5d9ed) 85%,transparent);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 93%,var(--primary,#7010b0) 7%);
+  transition:border-color .22s ease,box-shadow .22s ease,background .22s ease,transform .22s ease;
+}
+.page-chat .chat-ttt-player.is-turn {
+  border-color:color-mix(in srgb,var(--primary,#7010b0) 66%,transparent);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 88%,var(--primary,#7010b0) 12%);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#7010b0) 8%,transparent);
+}
+.page-chat .chat-ttt-player.is-turn::before{
+  content:"";position:absolute;top:9px;right:9px;
+  width:5px;height:5px;border-radius:50%;background:var(--primary,#7010b0);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#7010b0) 14%,transparent);
+  animation:ttt-turn-pulse 2.4s ease-in-out infinite;
+}
+.page-chat .chat-ttt-player.is-winner {
+  border-color:color-mix(in srgb,#26a980 72%,transparent);
+  box-shadow:0 0 0 2px rgba(38,169,128,.12);
+}
+.page-chat .chat-ttt-avatar {
+  flex:0 0 39px;width:39px;height:39px;
+  display:grid;place-items:center;border-radius:50%;overflow:hidden;
+  color:var(--primary,#7010b0);
+  background:color-mix(in srgb,var(--primary,#7010b0) 14%,var(--surface-strong,#fff));
+  font-size:14px;font-weight:850;
+}
+.page-chat .chat-ttt-avatar img {display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.page-chat .chat-ttt-identity {
+  min-width:0;display:flex;flex:1;flex-direction:column;gap:3px;
+}
+.page-chat .chat-ttt-identity strong {
+  min-width:0;display:block;font-size:12px;font-weight:850;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.page-chat .chat-ttt-identity small {
+  display:block;font-size:10px;line-height:1.15;color:var(--muted,#877e95);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.page-chat .chat-ttt-win-count {
+  font-size:10px;font-weight:750;white-space:nowrap;
+  color:var(--primary,#7010b0);
+}
+.page-chat .chat-ttt-player-symbol {
+  align-self:flex-start;margin-left:auto;flex:0 0 auto;
+  font-size:15px;line-height:1;font-weight:850;
+  color:var(--primary,#7010b0);
+}
+.page-chat .chat-ttt-player-symbol.is-o{color:#d06b9a;}
+.page-chat .chat-ttt-match-meta {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:20px 2px 13px;min-width:0;
+}
+.page-chat .chat-ttt-game .chat-v2-game-status {
+  margin:0;min-height:20px;max-width:72%;text-align:left;
+  font-size:12px;font-weight:800;line-height:1.4;
+  color:var(--text,#322344);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;animation:ttt-status .24s ease both;
+}
+.page-chat .chat-ttt-game .chat-v2-game-status.is-finished{color:#168460;}
+.page-chat .chat-ttt-game .chat-v2-scoreboard{
+  margin:0;flex:0 0 auto;text-align:right;
+  font-size:11px;line-height:1.35;color:var(--muted,#877e95);
+}
+.page-chat .chat-ttt-game .chat-v2-scoreboard strong {color:var(--text,#322344);font-variant-numeric:tabular-nums;}
+.page-chat .chat-ttt-board-frame {
+  width:min(100%,350px);margin:0 auto;
+  padding:11px;box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--primary,#7010b0) 10%,var(--line,#e5d9ed));
+  border-radius:25px;
+  background:color-mix(in srgb,var(--surface-strong,#fff) 82%,var(--primary,#7010b0) 5%);
+}
+.page-chat .chat-ttt-game .chat-v2-board {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  position:relative;width:100%;gap:8px;margin:0;
+}
+.page-chat .chat-ttt-game .chat-v2-cell {
+  position:relative;display:grid;place-items:center;min-width:0;
+  width:100%;aspect-ratio:1;
+  padding:0;overflow:hidden;border:1px solid
+  color-mix(in srgb,var(--primary,#7010b0) 9%,var(--line,#e5d9ed));
+  border-radius:17px;
+  background:var(--surface-strong,#fff);
+  color:var(--primary,#7010b0);
+  font-family:inherit;font-size:clamp(35px,9vw,54px);
+  font-weight:850;line-height:1;cursor:pointer;
+  box-shadow:0 2px 6px rgba(40,25,64,.035);
+  transition:transform .16s cubic-bezier(.2,.8,.2,1),
+    background .18s ease,border-color .18s ease,box-shadow .18s ease;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.page-chat .chat-ttt-game .chat-v2-cell:not(:disabled):hover {
+  background:color-mix(in srgb,var(--primary,#7010b0) 7%,var(--surface-strong,#fff));
+  border-color:color-mix(in srgb,var(--primary,#7010b0) 34%,transparent);
+  box-shadow:0 4px 12px rgba(60,33,102,.10);
+  transform:translateY(-2px);
+}
+.page-chat .chat-ttt-game .chat-v2-cell:not(:disabled):active {transform:scale(.94);}
+.page-chat .chat-ttt-game .chat-v2-cell:disabled{opacity:1;cursor:default;}
+.page-chat .chat-ttt-game .chat-v2-cell.is-o {color:#c96696;}
+.page-chat .chat-ttt-game .chat-v2-cell.is-x {color:var(--primary,#7010b0);}
+.page-chat .chat-ttt-game .chat-v2-cell:focus-visible {
+  outline:3px solid var(--primary,#7010b0);outline-offset:2px;z-index:2;
+}
+.page-chat .chat-ttt-mark {display:inline-block;transform-origin:50% 50%;}
+.page-chat .chat-ttt-game .chat-v2-cell.is-new .chat-ttt-mark {
+  animation:ttt-pop .42s cubic-bezier(.14,1.55,.3,1) both;
+}
+.page-chat .chat-ttt-game .chat-v2-cell.is-winning {
+  border-color:rgba(33,169,124,.6);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 70%,#70e8b5 30%);
+  color:#147957;
+  animation:ttt-win-cell .56s ease both;
+}
+.page-chat .chat-ttt-game .chat-v2-cell.is-winning .chat-ttt-mark {color:#168764;}
+.page-chat .chat-ttt-win-line {
+  position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;
+  z-index:3;color:#1ea77d;
+  filter:drop-shadow(0 2px 5px rgba(26,159,116,.18));
+}
+.page-chat .chat-ttt-win-line line {
+  fill:none;stroke:currentColor;stroke-width:6;stroke-linecap:round;
+  stroke-dasharray:450;stroke-dashoffset:450;
+  animation:ttt-draw-line .8s .12s ease-out forwards;
+}
+.page-chat .chat-ttt-connection {margin:8px 0 0;min-height:0;text-align:center;font-size:11px;}
+.page-chat .chat-ttt-connection:not(.is-offline){display:none;}
+.page-chat .chat-ttt-connection.is-offline {color:#d34d67;font-weight:750;}
+.page-chat .chat-ttt-game .chat-v2-actions,
+.page-chat .chat-ttt-invite .chat-v2-actions {
+  display:flex;justify-content:center;gap:10px;flex-wrap:nowrap;
+  margin:18px 0 0;
+}
+.page-chat .chat-ttt-game .chat-v2-button,
+.page-chat .chat-ttt-invite .chat-v2-button {
+  flex:1;min-width:0;min-height:46px;padding:10px 13px;
+  border-radius:14px;font-size:12px;font-weight:800;
+  border:1px solid color-mix(in srgb,var(--primary,#7010b0) 17%,var(--line,#e5d9ed));
+  color:var(--text,#30263e);
+  background:color-mix(in srgb,var(--surface-strong,#fff) 92%,var(--primary,#7010b0) 8%);
+  box-shadow:none;
+  transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.page-chat .chat-ttt-game .chat-v2-button.is-primary,
+.page-chat .chat-ttt-invite .chat-v2-button.is-primary {
+  color:#fff;background:var(--primary,#7010b0);
+  border-color:var(--primary,#7010b0);
+  box-shadow:0 6px 17px color-mix(in srgb,var(--primary,#7010b0) 20%,transparent);
+}
+.page-chat .chat-ttt-game .chat-v2-button:not(:disabled):hover,
+.page-chat .chat-ttt-invite .chat-v2-button:not(:disabled):hover {
+  transform:translateY(-2px);filter:brightness(1.02);
+}
+.page-chat .chat-ttt-game .chat-v2-button:not(:disabled):active,
+.page-chat .chat-ttt-invite .chat-v2-button:not(:disabled):active{transform:scale(.98);}
+.page-chat .chat-ttt-game .chat-v2-button:focus-visible,
+.page-chat .chat-ttt-invite .chat-v2-button:focus-visible {
+  outline:3px solid var(--primary,#7010b0);outline-offset:3px;
+}
+.page-chat .chat-ttt-invite h2 {margin:0 42px 10px 0;}
+.page-chat .chat-ttt-invite-art {
+  position:relative;overflow:hidden;
+  width:min(68%,240px);aspect-ratio:1;
+  margin:18px auto 26px;
+  border:1px solid color-mix(in srgb,var(--primary,#7010b0) 15%,var(--line,#e5d9ed));
+  border-radius:25px;
+  background:
+    linear-gradient(to right,transparent 32.7%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 33%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 33.7%,transparent 34%,transparent 65.5%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 66%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 66.7%,transparent 67%),
+    linear-gradient(to bottom,transparent 32.7%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 33%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 33.7%,transparent 34%,transparent 65.5%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 66%,color-mix(in srgb,var(--primary,#7010b0) 14%,transparent) 66.7%,transparent 67%),
+    color-mix(in srgb,var(--surface-strong,#fff) 85%,var(--primary,#7010b0) 15%);
+  box-shadow:0 17px 44px rgba(40,22,65,.08);
+  animation:ttt-invite-float 4.8s ease-in-out infinite;
+}
+.page-chat .chat-ttt-invite-cross,
+.page-chat .chat-ttt-invite-ring {
+  position:absolute;display:grid;place-items:center;
+  width:33.333%;height:33.333%;
+  font-size:clamp(38px,10vw,55px);font-weight:750;line-height:1;
+}
+.page-chat .chat-ttt-invite-cross {
+  left:0;top:0;color:var(--primary,#7010b0);
+  animation:ttt-pop .6s .08s cubic-bezier(.2,1.4,.3,1) both;
+}
+.page-chat .chat-ttt-invite-cross.is-small{
+  top:66.666%;left:66.666%;font-size:39px;opacity:.7;
+  animation-delay:.28s;
+}
+.page-chat .chat-ttt-invite-ring {
+  left:33.333%;top:33.333%;border-radius:50%;
+}
+.page-chat .chat-ttt-invite-ring::after {
+  content:"";width:50%;height:50%;border-radius:50%;
+  border:7px solid #ca72aa;
+  animation:ttt-ring .6s .16s cubic-bezier(.2,1.3,.3,1) both;
+}
+@keyframes ttt-appear {
+  from{opacity:0;transform:translateY(9px) scale(.99);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+@keyframes ttt-pop {
+  0%{opacity:.2;transform:scale(.38) rotate(-10deg);}
+  65%{opacity:1;transform:scale(1.13) rotate(3deg);}
+  100%{opacity:1;transform:scale(1) rotate(0);}
+}
+@keyframes ttt-ring {from{opacity:.3;transform:scale(.4);}to{opacity:1;transform:scale(1);}}
+@keyframes ttt-draw-line {to{stroke-dashoffset:0;}}
+@keyframes ttt-turn-pulse {
+  0%,100%{opacity:.7;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#7010b0) 12%,transparent);}
+  50%{opacity:1;box-shadow:0 0 0 6px color-mix(in srgb,var(--primary,#7010b0) 6%,transparent);}
+}
+@keyframes ttt-win-cell{from{filter:saturate(.8);}to{filter:saturate(1.2);}}
+@keyframes ttt-status{from{opacity:.5;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@keyframes ttt-invite-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@media(max-width:360px){
+  .page-chat .chat-v2-modal:has(.chat-ttt-game),
+  .page-chat .chat-v2-modal:has(.chat-ttt-invite){padding:17px 12px;border-radius:22px;}
+  .page-chat .chat-ttt-player {padding:9px 7px;gap:6px;}
+  .page-chat .chat-ttt-avatar {flex-basis:31px;width:31px;height:31px;font-size:12px;}
+  .page-chat .chat-ttt-identity strong {font-size:11px;}
+  .page-chat .chat-ttt-win-count {font-size:9px;}
+  .page-chat .chat-ttt-game .chat-v2-board {gap:6px;}
+  .page-chat .chat-ttt-board-frame {padding:8px;border-radius:20px;}
+  .page-chat .chat-ttt-game .chat-v2-cell {border-radius:13px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .page-chat .chat-ttt-game *,
+  .page-chat .chat-ttt-invite *,
+  .page-chat .chat-v2-modal:has(.chat-ttt-game) .chat-v2-modal-close,
+  .page-chat .chat-v2-modal:has(.chat-ttt-invite) .chat-v2-modal-close {
+    animation:none!important;transition:none!important;
+  }
+  .page-chat .chat-ttt-win-line line {stroke-dashoffset:0;}
+}
