@@ -7,7 +7,7 @@ import {chromium} from "playwright";
 
 const ROOT=resolve(fileURLToPath(new URL("../",import.meta.url)));
 const OUTPUT=join(ROOT,"smoke-results/reels-immersive-20261103");
-const fixture=§<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
+const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
@@ -40,7 +40,7 @@ srcdoc="&lt;style&gt;html,body{margin:0;height:100%;background:linear-gradient(1
 <p data-reels-caption>Kkkkkksim</p><div class="looply-reels-audio">♫ <span>Áudio original · Instagram</span></div>
 </footer>
 </dialog>
-</body></html>§.replaceAll("§",String.fromCharCode(96));
+</body></html>`;
 
 const server=createServer(async(req,res)=>{
   try{
