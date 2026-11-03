@@ -617,7 +617,7 @@ function feedMarkup(posts, error, userId, isAdmin = false) {
   return posts.map((post) => postMarkup(post, userId, isAdmin)).join("");
 }
 
-export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false) {
+export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false, surface="all") {
   const eligiblePeople = (people || []).filter(person => person.id !== userId);
   const recipients = eligiblePeople.map((person) =>
     `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
@@ -628,21 +628,19 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       ? `<span class="field-hint">Escolha de 1 a 20 perfis visíveis. Só as pessoas selecionadas terão acesso.</span>`
       : `<span class="field-hint">Não há outros perfis visíveis para compartilhar ainda.</span>`;
 
-  return `<section class="social-area" aria-labelledby="socialTitle">
-    <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
+  return `<section class="social-area" data-social-stream="${escapeHtml(surface)}" aria-labelledby="socialTitle">
+    <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">${surface==="external"?"Reels":"Feed"}</h2></div>
       <span class="realtime-state" data-realtime-status role="status">Conectando atualizações...</span></div>
-    <form class="post-composer" data-social-post>
-      <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+    <form class="post-composer" data-social-post data-post-origin="${escapeHtml(surface)}">
+      <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>${surface==="external"?"Compartilhar link":"Nova publicação"}</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
       <div class="post-create-header"><button type="button" data-close-composer aria-label="Cancelar publicação">✕</button><strong>Nova publicação</strong><button type="submit">Compartilhar</button></div>
-      <div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>
-      <button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>
+      ${surface==="external"?"":`<div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>`}
+      ${surface==="external"?"":`<button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>`}
       <label for="postBody">Legenda</label>
       <textarea id="postBody" name="body" maxlength="2200" placeholder="Escreva uma legenda (opcional)"></textarea>
-      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>Até 8 arquivos, 100 MB por arquivo</span></label>
-      <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm">
-      <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
-      <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
+      ${surface==="external"?"":`<label class="media-picker-label" for="postFiles">Fotos e vídeos <span>Até 8 arquivos, 100 MB por arquivo</span></label><input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm">`}
+      ${surface==="native"?`<p class="feed-external-hint">Para compartilhar links do Instagram, TikTok ou YouTube, <a href="reels.html">acesse Reels</a>.</p>`:`<label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label><input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url" ${surface==="external"?"required":""}>`}
       <div class="composer-options">
         <label for="postVisibility">Quem pode ver?</label>
         <select id="postVisibility" name="visibility">
