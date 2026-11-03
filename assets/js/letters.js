@@ -498,6 +498,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     e.preventDefault();const form=e.currentTarget,button=$("#enviarCarta"),title=$("#tituloCarta").value.trim(),body=$("#textoCarta").value.trim(),privateCarta=$("#isPrivada").checked;
     if(!title||!body||!state.selectedRecipient){notify("Preencha o título, o texto e escolha uma pessoa.",true);return;}
     if(privateCarta && $("#senhaCarta").value.length<8){notify("Escolha uma senha com pelo menos 8 caracteres.",true);return;}
+    if (!composerAttachments.validate(privateCarta)) { notify("Revise os anexos antes de enviar.",true); return; }
     button.disabled=true; $("#enviarStatus").textContent="Salvando no Neon...";
     try {
       const sealed = privateCarta ? await sealLetter(body,$("#senhaCarta").value,title) : {body,password_salt:null,password_iv:null,password_ciphertext:null};
