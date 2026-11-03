@@ -602,6 +602,21 @@ async function loadThread(client, conversationId, before = null) {
   if (conversationResult.error) throw conversationResult.error;
   if (!conversationResult.data) throw new Error("Conversation unavailable");
   const messages = (messageResult.data || []).reverse();
+  if(messages.length){
+    const ids=messages.map(message=>message.id);
+    const {data:reactions,error:reactionsError}=await client.from("chat_message_reactions")
+      .select("message_id,user_id,emoji")
+      .eq("conversation_id",conversationId)
+      .in("message_id",ids)
+      .limit(1000);
+    if(reactionsError)console.warn("Chat premium reactions unavailable",reactionsError);
+    const reactionsById=new Map();
+    for(const item of reactions||[]){
+      const list=reactionsById.get(item.message_id)||[];
+      list.push(item);reactionsById.set(item.message_id,list);
+    }
+    for(const message of messages)message.reactions=reactionsById.get(message.id)||[];
+  }
   if (messages.length) {
     const {data:stickerMessages,error:stickersError} = await client.from("chat_sticker_messages")
       .select("message_id,sticker_id").eq("conversation_id",conversationId)
@@ -708,9 +723,23 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const groupReadText = readCount === readTotal && readTotal ? "Lida por todos" : readCount ? `Lida por ${readCount} de ${readTotal}` : "Enviada";
     const deliveryLabel = isGroup ? groupReadText : message.read_at ? "Lida" : message.delivered_at ? "Entregue" : "Enviada";
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
+    const reactionSummary=Array.isArray(message.reactions)&&message.reactions.length
+      ? '<div class="chat-premium-reactions" aria-label="Reações à mensagem">'+
+        [...new Set(message.reactions.map(r=>r.emoji))]
+          .filter(emoji=>["❤️","😂","😮","😢","🙏","👍"].includes(emoji))
+          .map(emoji=>{
+            const count=message.reactions.filter(r=>r.emoji===emoji).length;
+            const selected=message.reactions.some(r=>r.emoji===emoji&&r.user_id===userId);
+            return '<button class="chat-premium-reaction-pill'+(selected?' is-selected':'')+
+              '" type="button" data-chat-premium-reaction-existing="'+emoji+
+              '" data-chat-premium-message-id="'+escapeHtml(message.id)+
+              '" aria-pressed="'+String(selected)+'" aria-label="'+emoji+' '+count+
+              ' reação(ões)">'+emoji+' <span>'+count+'</span></button>';
+          }).join("")+'</div>' : "";
+
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
     <div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${reactionSummary}${delivery}
     <div class="chat-message-actions-inline"><button class="chat-premium-react-trigger" type="button" data-chat-premium-react="${escapeHtml(message.id)}" aria-label="Reagir à mensagem">♡</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
