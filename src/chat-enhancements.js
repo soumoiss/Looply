@@ -149,7 +149,9 @@ export function setupChatEnhancements(root, client, userId) {
     const container=root.querySelector("[data-chat-conversations]");
     if(container){
       const ordered=[...items].sort((x,y)=>Number(pinned.has(y.dataset.chatOpen))-Number(pinned.has(x.dataset.chatOpen)));
-      for(const item of ordered)container.append(item);
+      const current=[...container.querySelectorAll(":scope > [data-chat-open]")];
+      if(ordered.some((item,index)=>current[index]!==item))
+        for(const item of ordered)container.append(item);
     }
     const noMatches = root.querySelector("[data-chat-no-matches]");
     if (noMatches) {
