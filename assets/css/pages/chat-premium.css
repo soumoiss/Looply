@@ -983,3 +983,56 @@
   color:var(--pm-primary);
   background:var(--pm-light);
 }
+
+:is(.page-chat,.page-conversation) .chat-premium .chat-conversation.is-chat-premium-pinned::before{
+  content:"";position:absolute;top:12px;left:7px;width:6px;height:6px;
+  border-radius:50%;background:var(--pm-primary);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-conversation.is-chat-premium-muted .chat-conversation-copy small{opacity:.65}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-more{
+  display:grid;place-items:center;
+  flex:0 0 27px;
+  width:27px;height:27px;
+  padding:4px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--pm-muted);
+  opacity:.75;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-more svg{width:16px;height:16px}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-more:hover{background:var(--pm-light);color:var(--pm-primary);opacity:1}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-popover{
+  position:absolute;
+  z-index:18;
+  top:calc(100% - 5px);
+  right:7px;
+  display:grid;
+  gap:3px;
+  width:174px;
+  padding:7px;
+  border:1px solid var(--pm-line);
+  border-radius:14px;
+  background:var(--pm-surface);
+  box-shadow:0 12px 36px color-mix(in srgb,var(--pm-primary) 22%,transparent);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-popover button{
+  display:block;width:100%;min-height:36px;
+  padding:8px 9px;border:0;border-radius:9px;
+  color:var(--pm-ink);
+  background:transparent;
+  font-size:11px;
+  font-family:inherit;
+  font-weight:700;
+  text-align:left;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-row-popover button:hover{background:var(--pm-light)}
+.page-conversation .chat-premium .chat-layout{display:block!important;height:var(--chat-panel-px,calc(100dvh - 118px));padding:0 7px}
+.page-conversation .chat-premium .chat-sidebar{display:none!important}
+.page-conversation .chat-premium .chat-thread-panel{display:flex!important;max-width:1100px;margin-inline:auto!important}
+.page-conversation .chat-premium .chat-thread{display:flex!important}
+@media(max-width:760px){
+  .page-conversation .chat-premium .chat-layout{height:var(--chat-panel-px,calc(100dvh - 135px));padding:0}
+  .page-conversation .chat-premium .chat-sidebar{display:none!important}
+  .page-conversation .chat-premium .chat-thread-panel{display:flex!important}
+}
