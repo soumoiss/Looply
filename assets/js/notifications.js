@@ -20,7 +20,7 @@ async function loadNotifications(client,isAdmin=false) {
   const [appResult,chatResult,adminResult]=await Promise.all([
     client.from("notifications").select("id,kind,resource_id,event_id,preview,created_at,read_at,actor:profiles!notifications_actor_id_fkey(username,display_name)")
       .order("created_at",{ascending:false}).order("id",{ascending:false}).range(0,99),
-    client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at")
+    client.from("chat_notifications").select("id,message_id,conversation_id,kind,preview,created_at,read_at")
       .order("created_at",{ascending:false}).order("id",{ascending:false}).range(0,99),
     isAdmin
       ? client.from("looply_admin_activity_notifications")
@@ -31,9 +31,32 @@ async function loadNotifications(client,isAdmin=false) {
   if(appResult.error)throw appResult.error;
   if(chatResult.error)throw chatResult.error;
   if(adminResult.error)throw adminResult.error;
-  const appItems=(appResult.data||[]).map(item=>({...item,source:"app"}));
-  const chatItems=(chatResult.data||[]).map(item=>({...item,source:"chat",
-    kind:item.kind==="letter"?"letter":"message"}));
+  // Resolve external-post destinations without leaking any non-visible post:
+  // the reader's Neon RLS independently scopes this lookup.
+  const ids=[...new Set((appResult.data||[]).filter(item=>
+    ["post","comment","reply","post_like"].includes(item.kind)).map(item=>item.resource_id).filter(Boolean))];
+  const external=new Set();
+  for(let i=0;i<ids.length;i+=80){
+    const {data,error}=await client.from("posts").select("id,external_url").in("id",ids.slice(i,i+80));
+    if(!error)for(const post of data||[])if(typeof post.external_url==="string"&&post.external_url.trim())
+      external.add(post.id);
+  }
+  const appItems=(appResult.data||[]).map(item=>({
+    ...item,source:"app",externalPost:external.has(item.resource_id)
+  }));
+  const messages=[...new Set((chatResult.data||[]).map(item=>item.message_id).filter(Boolean))];
+  const chatActors=new Map();
+  for(let i=0;i<messages.length;i+=70){
+    const {data,error}=await client.from("chat_messages")
+      .select("id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+      .in("id",messages.slice(i,i+70));
+    if(error){console.warn("Notification sender lookup unavailable",error);break;}
+    for(const message of data||[])if(message.author)chatActors.set(message.id,message.author);
+  }
+  const chatItems=(chatResult.data||[]).map(item=>({
+    ...item,source:"chat",actor:chatActors.get(item.message_id)||null,
+    kind:item.kind==="letter"?"letter":"message"
+  }));
   const adminPreview=item=>{
     const label=String(item.resource_label||"").slice(0,120);
     if(item.kind==="admin_online")return "Entrou no aplicativo";
@@ -51,7 +74,7 @@ async function loadNotifications(client,isAdmin=false) {
 function notificationHref(item) {
   if (item.source === "admin") return item.kind === "admin_online" ? "usuarios.html" : "cartas.html";
   if (item.source === "chat") return `conversa.html?id=${encodeURIComponent(item.conversation_id)}`;
-  if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `home.html#post-${encodeURIComponent(item.resource_id)}`;
+  if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `${item.externalPost?"reels":"home"}.html#post-${encodeURIComponent(item.resource_id)}`;
   if (item.kind === "story_like") return "home.html#stories";
   if (item.kind === "story_mention") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "music_dedication") return `musicas.html#dedication-${encodeURIComponent(item.resource_id)}`;
@@ -62,9 +85,10 @@ function notificationHref(item) {
 function notificationMarkup(item) {
   const labels = { admin_online:"Usuário online", admin_letter_read:"Carta lida", admin_private_unlock:"Carta privada desbloqueada", post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", story_mention: "Menção em story", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
   const actor = item.actor ? (item.actor.display_name || item.actor.username) : "Looply";
+  const category=item.kind==="post_like"&&String(item.preview||"").includes("Curtiu seu comentário")?"Curtida em comentário":labels[item.kind]||"Atividade";
   return `<a class="notification-row ${item.read_at ? "is-read" : "is-unread"}" href="${notificationHref(item)}"
       data-notification-source="${item.source}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(notificationHref(item))}">
-    <span class="notification-dot" aria-hidden="true"></span><span class="notification-copy"><strong>${escapeHtml(labels[item.kind] || "Atividade")}</strong>
+    <span class="notification-dot" aria-hidden="true"></span><span class="notification-copy"><strong>${escapeHtml(category)}</strong>
     <span><b>${escapeHtml(actor)}</b> · ${escapeHtml(item.preview)}</span><time datetime="${escapeHtml(item.created_at)}">${escapeHtml(dateLabel(item.created_at))}</time></span>
   </a>`;
 }

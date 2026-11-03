@@ -40,7 +40,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 .looply-footer { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .page-notice { padding: 20px; }
 @media (max-width: 760px) {
-  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: min(calc(100% - 14px), 900px); max-width: 100%; flex: none; justify-content: stretch; gap: 3px; padding: 6px; overflow: visible; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 94%, transparent); box-shadow: 0 10px 30px rgba(35, 20, 50, .16); backdrop-filter: blur(18px); transform: translateX(-50%); box-sizing: border-box; }
+  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: min(calc(100% - 14px), 900px); max-width: 100%; flex: none; justify-content: stretch; gap: 3px; padding: 6px; overflow: visible; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 94%, transparent); box-shadow: 0 10px 30px rgba(35, 20, 50, .16); backdrop-filter: blur(18px); transform: translateX(-50%); box-sizing: border-box; }
   .looply-page .page-navigation::-webkit-scrollbar { display: none; }
   .looply-page .page-navigation .header-action { min-width: 0; width: 100%; min-height: 54px; flex: none; flex-direction: column; gap: 3px; padding: 6px 1px; border-color: transparent; border-radius: 13px; background: transparent; box-shadow: none; font-size: 10px; box-sizing: border-box; }
   .looply-page .page-navigation .page-navigation-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; font-weight: 700; }
@@ -306,7 +306,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 @media (max-width: 760px) {
   .looply-page .page-navigation {
     width: min(calc(100% - 14px), 900px);
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 3px;
     padding: 6px;
     box-sizing: border-box;
@@ -335,7 +335,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
     display: grid;
     width: min(calc(100% - 14px), 900px);
     max-width: 900px;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     justify-content: stretch;
     gap: 3px;
     overflow: visible;
@@ -458,3 +458,17 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
   color: inherit;
   pointer-events: none;
 }
+
+
+/* On-screen, recipient-scoped activity. Does not obscure bottom mobile navigation. */
+.looply-live-notices{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:13px;z-index:12000;display:grid;gap:8px;width:min(355px,calc(100vw - 26px));pointer-events:none}
+.looply-live-notice{pointer-events:auto;background:var(--surface-strong,#fff);color:var(--text,#292236);border:1px solid var(--line,#e8dbf0);border-left:4px solid var(--primary,#7952d5);border-radius:16px;padding:12px 14px;box-shadow:0 10px 36px #21142d34;animation:looply-live-notice-arrive .18s ease-out}
+.looply-live-notice-top{display:flex;justify-content:space-between;align-items:center;gap:9px}
+.looply-live-notice-top strong{font-size:12px;font-weight:850;color:var(--primary,#7952d5)}
+.looply-live-notice-top button{width:30px;height:30px;flex:0 0 30px;border:0;background:var(--surface-soft,#f5effa);color:var(--text,#292236);border-radius:50%;font-size:20px}
+.looply-live-notice p{font-size:13px;line-height:1.45;margin:5px 0 10px;overflow-wrap:anywhere;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.looply-live-notice a{font-size:11px;color:var(--primary,#7952d5);font-weight:800;text-decoration:none}
+.looply-live-notice a:focus-visible{outline:2px solid var(--primary,#7952d5);outline-offset:3px}
+@keyframes looply-live-notice-arrive{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.looply-live-notices{top:calc(env(safe-area-inset-top) + 9px);left:10px;right:10px;margin:0 auto;width:min(385px,calc(100vw - 20px))}}
+@media(prefers-reduced-motion:reduce){.looply-live-notice{animation:none}}

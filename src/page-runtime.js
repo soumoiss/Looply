@@ -9,6 +9,7 @@ import { startAdminPresenceTracking, clearAdminPresenceSession } from "./admin-p
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { mountPullToRefresh } from "./pull-to-refresh.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
+import { mountLiveNotificationToasts } from "./live-notification-toast.js";
 import { bindAdminModeSync } from "./admin-mode.js";
 
 function escapeHtml(value) {
@@ -295,6 +296,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   window.addEventListener("looply:avatar-updated",onLocalAvatar);
   if(avatarBus)avatarBus.onmessage=e=>applyAvatarChange(e.data);
 
+  const stopLiveNotices=mountLiveNotificationToasts(supabase,user.id);
   void refreshUnreadBadge(header, supabase).catch((error) => console.warn("Looply unread count refresh failed", error));
   const originalHeaderAvatarPath=profile.avatar_path;
   void loadProfileAvatar(profile).then((avatarUrl) => {
@@ -383,6 +385,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
 
   window.addEventListener("pagehide", () => {
+    stopLiveNotices();
     window.removeEventListener("looply:avatar-updated",onLocalAvatar);
     avatarBus?.close();
     clearTimeout(badgeTimer);

@@ -19,7 +19,7 @@ test("Chat CSS is loaded AFTER desktop legacy Chat CSS and conversation CSS", as
     if (path==="conversa.html") assert.ok(html.indexOf("chat-mobile-reference.css")>html.indexOf("pages/conversation.css"));
   }
 });
-test("only global page-runtime renders the six real bottom navigation links", async () => {
+test("only global page-runtime renders the seven real bottom navigation links", async () => {
   const [runtime,nav,html]=await Promise.all([
     read("src/page-runtime.js"),read("src/primary-navigation.js"),read("chat.html")
   ]);

@@ -51,11 +51,11 @@ test("real Story Studio controls use SVG without losing their labels or data hoo
   assert.match(html, /data-studio-friends[^>]*>.*★/);
 });
 
-test("original navigation still has six routes and visible icon markup", () => {
-  assert.equal(primaryDestinations.length,6);
+test("original navigation includes new Reels route and visible icon markup", () => {
+  assert.equal(primaryDestinations.length,7);
   const markup = primaryNavigationMarkup("home", 7);
-  assert.equal((markup.match(/<svg class="looply-icon/g)||[]).length, 6);
-  assert.equal((markup.match(/<a class="header-action"/g)||[]).length, 6);
+  assert.equal((markup.match(/<svg class="looply-icon/g)||[]).length, 7);
+  assert.equal((markup.match(/<a class="header-action"/g)||[]).length, 7);
   assert.match(markup,/aria-label="Navegação principal"/);
   assert.match(markup,/aria-label="7 não lidas"/);
   assert.match(read("assets/css/pages/shared.css"), /Prompt 003/);

@@ -369,3 +369,40 @@
     transition: none;
   }
 }
+
+
+/* Shared Instagram-like comments: Feed and external Reels use the same source. */
+.page-home .comment-thread{border-bottom:1px solid var(--line,#eee5f2);padding:3px 0 10px}
+.page-home .comment-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0 6px;border:0;min-width:0;max-width:100%;color:var(--text,#2d2637)}
+.page-home .comment-avatar{display:grid;place-items:center;flex:none;width:37px;height:37px;border-radius:50%;overflow:hidden;background:var(--lilac,#d8c5f5);border:1px solid color-mix(in srgb,var(--primary,#7550c8) 18%,var(--line,#eee));color:var(--primary,#7550c8);font-weight:850;font-size:16px;text-decoration:none}
+.page-home .comment-avatar img{width:100%;height:100%;display:block;object-fit:cover}
+.page-home .comment-content{display:grid;align-content:start;min-width:0;flex:1 1 auto;gap:5px}
+.page-home .comment-content>.comment-meta{display:flex;flex-wrap:wrap;align-items:center;gap:3px 9px;min-width:0;line-height:1.25}
+.page-home .comment-meta>a{color:var(--text,#2d2637);text-decoration:none;font-size:12px;overflow-wrap:anywhere}
+.page-home .comment-meta strong{font-size:12px;font-weight:850}
+.page-home .comment-meta a span{font-size:10px;color:var(--muted,#82798c);font-weight:500}
+.page-home .comment-meta time{font-size:10px;color:var(--muted,#82798c);white-space:nowrap}
+.page-home .comment-content>p[data-comment-body]{font-size:12px;line-height:1.5;margin:1px 0 4px;color:var(--text,#2d2637);overflow-wrap:anywhere;white-space:pre-wrap}
+.page-home .comment-action-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px 15px;min-height:29px}
+.page-home .comment-like-button,.page-home .comment-action-row .reply-details>summary,
+.page-home .comment-owner-actions .text-button{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:2px;border:0;background:transparent;color:var(--muted,#82798c);font-family:inherit;font-weight:750;font-size:11px;cursor:pointer}
+.page-home .comment-like-button svg{width:16px;height:16px}
+.page-home .comment-like-button.is-liked{color:#e5447c}
+.page-home .comment-like-button.is-liked svg path{fill:currentColor}
+.page-home .comment-like-button:disabled{opacity:.45;cursor:default}
+.page-home .comment-action-row .reply-details>summary{list-style:none}
+.page-home .comment-action-row .reply-details>summary::-webkit-details-marker{display:none}
+.page-home .comment-action-row .reply-details[open]{flex:1 0 100%;order:5}
+.page-home .comment-action-row .reply-details[open]>summary{color:var(--primary,#7952d5)}
+.page-home .comment-action-row .reply-form{margin-top:8px;width:100%;min-width:0}
+.page-home .comment-owner-actions{display:flex;align-items:center;gap:8px;margin:0}
+.page-home .comment-nested{margin-left:43px;padding-left:9px;border-left:2px solid color-mix(in srgb,var(--primary,#7952d5) 13%,var(--line,#eee))}
+.page-home .comment-nested .comment-avatar{width:31px;height:31px;font-size:13px}
+.page-home .comment-nested .comment-item{gap:8px}
+.page-home .comment-like-button:focus-visible,.page-home .comment-action-row summary:focus-visible,
+.page-home .comment-avatar:focus-visible{outline:2px solid var(--primary,#7952d5);outline-offset:3px}
+@media(max-width:390px){
+  .page-home .comment-item{gap:8px}
+  .page-home .comment-nested{margin-left:17px;padding-left:7px}
+  .page-home .comment-action-row{gap:2px 11px}
+}

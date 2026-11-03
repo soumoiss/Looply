@@ -121,6 +121,8 @@ SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.actor_name,events.call_mode,
        CASE WHEN events.source='chat'
          THEN public.v27_fcm_safe_chat_preview(events.event_id,events.token_id)
+         WHEN events.source='feed-comment'
+         THEN public.v35_fcm_safe_comment_preview(events.event_id,events.token_id)
          ELSE NULL END AS message_preview
 FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
@@ -202,8 +204,8 @@ export async function deliverNotifications(env,{
     }).format(happened);
     if(!Number.isNaN(happened.valueOf()))data.occurredAt=happened.toISOString();
     const callMode=item.call_mode==="video"?"video":"audio";
-    // Every notification identifies the verified actor and the specific
-    // event type; never put private message, letter, or comment text in FCM.
+    // Only show actual text when a server-side RPC independently authorizes
+    // the preview for this recipient's FCM device token.
     const actionBySource={
       "admin_event":kind==="admin_online"?"Entrou no aplicativo":
         kind==="admin_letter_read"?"Leu uma carta enviada por você":
@@ -245,14 +247,14 @@ export async function deliverNotifications(env,{
       actionBySource[String(item.source)]||genericByKind[String(item.kind)]||"Interagiu com você";
     data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
     if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
-    // Only previews belonging to the verified recipient token can be returned
-    // by v27_fcm_safe_chat_preview. No text is taken from client payload.
-    const preview=kind==="message" && item.source==="chat"
+    // V27 chat and V35 comment previews are both token scoped and server verified.
+    // Do not trust client-supplied preview bodies.
+    const preview=((kind==="message"&&item.source==="chat")||
+      (kind==="comment"&&item.source==="feed-comment"))
       ? String(item.message_preview||"").replace(/\s+/g," ").trim().slice(0,120):"";
     data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):
       preview|| (item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action);
-    // For stories, replies and comments we keep only a short generic
-    // action and no private excerpt, password or attachment in FCM.
+    // All other notification kinds retain generic actions without private text.
     const message={token:item.fcm_token,data,
       android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",
         ttl:kind==="call"?"30s":"86400s"}};

@@ -12,6 +12,7 @@ const WRITABLE = Object.freeze({
   story_views: ["story_id","viewer_id","viewed_at"],
   story_likes: ["story_id","user_id"],
   post_likes: ["post_id","user_id"],
+  comment_likes: ["comment_id","user_id"],
   chat_messages: ["conversation_id","sender_id","reply_to","body","delivered_at","read_at"],
   group_covers: [], // Read-only: only v10_set_group_cover RPC may update it.
   sticker_catalog: ["slug","title","owner_id","storage_path","byte_size","source_name","content_sha256"], // RLS restricts owner uploads to verified storage paths; no external URLs.

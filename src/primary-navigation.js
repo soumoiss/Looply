@@ -3,6 +3,7 @@ import { icon } from "./icons.js";
 /** Canonical Looply primary navigation. Do not reproduce this inside page content. */
 export const primaryDestinations = Object.freeze([
   ["home","Início","home.html","home"],
+  ["reels","Reels","reels.html","video"],
   ["letters","Cartas","cartas.html","mail"],
   ["music","Músicas","musicas.html","music"],
   ["gallery","Galeria","galeria.html","camera"],

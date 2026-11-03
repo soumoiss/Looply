@@ -256,6 +256,12 @@ export function instagramEmbedDetails(value) {
   }
 }
 
+
+export function isExternalPost(post){return Boolean(normalizeExternalUrl(post?.external_url));}
+export function postsForSurface(posts,surface="all"){
+  return surface==="external"?(posts||[]).filter(isExternalPost):
+    surface==="native"?(posts||[]).filter(post=>!isExternalPost(post)):(posts||[]);
+}
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "agora há pouco";
@@ -287,25 +293,51 @@ function commentAttachmentField(commentId, postId) {
     <input class="visually-hidden" id="${escapeHtml(id)}" name="commentMedia" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">`;
 }
 
-function commentMarkup(comment, canReply, userId) {
-  const replyForm = canReply
-    ? `<details class="reply-details"><summary>Responder</summary>
-        <form class="comment-form reply-form" data-social-comment data-post-id="${escapeHtml(comment.post_id)}" data-parent-comment-id="${escapeHtml(comment.id)}">
-          <label class="visually-hidden" for="reply-${escapeHtml(comment.id)}">Sua resposta</label>
-          <textarea id="reply-${escapeHtml(comment.id)}" name="body" maxlength="2000" required placeholder="Escreva uma resposta..."></textarea>
-          ${commentAttachmentField(comment.id, comment.post_id)}
-          <button class="text-button" type="submit">Enviar resposta</button>
-          <span class="form-status" data-status role="status" aria-live="polite"></span>
-        </form>
-      </details>`
-    : "";
-
-  const ownerActions = comment.author_id === userId
-    ? `<div class="comment-owner-actions"><button class="text-button" type="button" data-edit-comment="${escapeHtml(comment.id)}">Editar</button><button class="text-button" type="button" data-delete-comment="${escapeHtml(comment.id)}">Excluir</button></div>`
-    : "";
-  return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
-    <div class="comment-meta"><a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}" data-profile-name-id="${escapeHtml(comment.author_id)}"><strong>${profileLabel(comment.author)}</strong></a><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>${ownerActions}</div>
-    <p data-comment-body>${escapeHtml(comment.body)}</p><form class="comment-edit-form" data-comment-edit-form hidden><label class="visually-hidden" for="edit-comment-${escapeHtml(comment.id)}">Editar comentário</label><textarea id="edit-comment-${escapeHtml(comment.id)}" name="body" maxlength="2000" required></textarea><div><button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-comment-edit>Cancelar</button></div></form>${commentMediaMarkup(comment.media)}<span class="form-status" data-comment-status role="status" aria-live="polite"></span>${replyForm}
+function commentMarkup(comment,canReply,userId){
+  const name=comment.author?.display_name||comment.author?.username||"Membro";
+  const initial=Array.from(name)[0]?.toLocaleUpperCase("pt-BR")||"?";
+  const signed=String(comment.author?.avatarUrl||"");
+  const avatar=/^https:\/\//i.test(signed)
+    ? '<img src="'+escapeHtml(signed)+'" alt="" loading="lazy" referrerpolicy="no-referrer">'
+    : '<span aria-hidden="true">'+escapeHtml(initial)+'</span>';
+  const liked=Boolean(comment.likedByMe);
+  const likes=Number(comment.likeCount)||0;
+  const replyForm=canReply?`<details class="reply-details"><summary>Responder</summary>
+    <form class="comment-form reply-form" data-social-comment data-post-id="${escapeHtml(comment.post_id)}"
+      data-parent-comment-id="${escapeHtml(comment.id)}">
+      <label class="visually-hidden" for="reply-${escapeHtml(comment.id)}">Sua resposta</label>
+      <textarea id="reply-${escapeHtml(comment.id)}" name="body" maxlength="2000" required placeholder="Escreva uma resposta..."></textarea>
+      ${commentAttachmentField(comment.id,comment.post_id)}
+      <button class="text-button" type="submit">Enviar resposta</button>
+      <span class="form-status" data-status role="status" aria-live="polite"></span>
+    </form></details>`:"";
+  const ownerActions=comment.author_id===userId
+    ? `<div class="comment-owner-actions"><button class="text-button" type="button" data-edit-comment="${escapeHtml(comment.id)}">Editar</button><button class="text-button" type="button" data-delete-comment="${escapeHtml(comment.id)}">Excluir</button></div>` : "";
+  return `<article class="comment-item${comment.parent_comment_id?" comment-reply":""}"
+     id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
+    <a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}" class="comment-avatar"
+      aria-label="Ver perfil de ${escapeHtml(name)}">${avatar}</a>
+    <div class="comment-content">
+      <div class="comment-meta"><a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}"
+        data-profile-name-id="${escapeHtml(comment.author_id)}"><strong>${profileLabel(comment.author)}</strong></a>
+        <time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>
+      </div>
+      <p data-comment-body>${escapeHtml(comment.body)}</p>
+      ${commentMediaMarkup(comment.media)}
+      <div class="comment-action-row">
+        <button type="button" class="comment-like-button${liked?" is-liked":""}"
+          data-toggle-comment-like="${escapeHtml(comment.id)}" aria-pressed="${liked}" aria-label="${liked?"Descurtir":"Curtir"} comentário"
+          ${comment.likesAvailable===false?"disabled":""}>${icon("heart")} <span data-comment-like-count>${likes}</span> <span>${likes===1?"curtida":"curtidas"}</span></button>
+        ${replyForm}${ownerActions}
+      </div>
+      <form class="comment-edit-form" data-comment-edit-form hidden>
+        <label class="visually-hidden" for="edit-comment-${escapeHtml(comment.id)}">Editar comentário</label>
+        <textarea id="edit-comment-${escapeHtml(comment.id)}" name="body" maxlength="2000" required></textarea>
+        <div><button class="text-button" type="submit">Salvar edição</button>
+        <button class="text-button" type="button" data-cancel-comment-edit>Cancelar</button></div>
+      </form>
+      <span class="form-status" data-comment-status role="status" aria-live="polite"></span>
+    </div>
   </article>`;
 }
 
@@ -320,10 +352,18 @@ function postMarkup(post, userId, isAdmin = false) {
       replies.set(comment.parent_comment_id, siblings);
     }
   }
-  const roots = comments.filter((comment) => !comment.parent_comment_id);
-  const commentList = roots.length
-    ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true, userId)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false, userId)).join("")}</div>`).join("")
-    : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
+  const byId=new Map(comments.map(comment=>[comment.id,comment]));
+  const roots=comments.filter(comment=>!comment.parent_comment_id||!byId.has(comment.parent_comment_id));
+  const tree=(comment,depth=0,visited=new Set())=>{
+    if(visited.has(comment.id))return "";
+    const ancestry=new Set(visited);ancestry.add(comment.id);
+    const nested=depth>=8?"":(replies.get(comment.id)||[])
+      .map(child=>tree(child,depth+1,ancestry)).join("");
+    return commentMarkup(comment,true,userId)+(nested?'<div class="comment-nested">'+nested+"</div>":"");
+  };
+  const commentList=roots.length
+    ? roots.map(comment=>'<div class="comment-thread">'+tree(comment)+"</div>").join("")
+    : '<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>';
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
   const likeCount = Number(post.likeCount || 0);
@@ -402,17 +442,20 @@ function postMarkup(post, userId, isAdmin = false) {
   </article>`;
 }
 
-async function loadPosts(client) {
-  const { data, error } = await client
-    .from("posts")
-    .select("id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    // Preserve the first October publications in the existing feed as well.
-    // 50 covers the historical data without altering ownership or chronology.
-    .range(0, 49);
-  if (error) throw error;
-  const posts = data || [];
+async function loadPosts(client,surface="all") {
+  // Scan pages before filtering so a large collection of external links
+  // cannot hide native posts (or vice versa) behind an arbitrary first page.
+  const posts=[];
+  const selection="id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)";
+  for(let offset=0;offset<1000&&posts.length<80;offset+=100){
+    const {data,error}=await client.from("posts").select(selection)
+      .order("created_at",{ascending:false}).order("id",{ascending:false})
+      .range(offset,offset+99);
+    if(error)throw error;
+    const batch=data||[];
+    posts.push(...postsForSurface(batch,surface).slice(0,80-posts.length));
+    if(batch.length<100)break;
+  }
   if (posts.length) {
     const { data: currentUserData } = await client.auth.getUser();
     const currentUserId = currentUserData?.user?.id;
@@ -429,6 +472,32 @@ async function loadPosts(client) {
     for (const post of posts) {
       post.likeCount = counts.get(post.id) || 0;
       post.likedByMe = mineIds.has(post.id);
+    }
+  }
+  const commentIds=[...new Set(posts.flatMap(post=>(post.comments||[]).map(comment=>comment.id)))];
+  if(commentIds.length){
+    const {data:currentUser}=await client.auth.getUser();
+    const userId=currentUser?.user?.id;
+    const totals=new Map(),mine=new Set();
+    let available=true;
+    for(let i=0;i<commentIds.length;i+=90){
+      const batch=commentIds.slice(i,i+90);
+      const [all,own]=await Promise.all([
+        client.from("comment_likes").select("comment_id").in("comment_id",batch),
+        userId?client.from("comment_likes").select("comment_id").in("comment_id",batch).eq("user_id",userId):
+          Promise.resolve({data:[],error:null})
+      ]);
+      if(all.error||own.error){
+        // Keep existing posts/comments usable during additive database rollout.
+        console.warn("Comment likes unavailable",all.error||own.error);available=false;break;
+      }
+      for(const item of all.data||[])totals.set(item.comment_id,(totals.get(item.comment_id)||0)+1);
+      for(const item of own.data||[])mine.add(item.comment_id);
+    }
+    for(const post of posts)for(const comment of post.comments||[]){
+      comment.likeCount=totals.get(comment.id)||0;
+      comment.likedByMe=mine.has(comment.id);
+      comment.likesAvailable=available;
     }
   }
   const profileRows = [];
@@ -557,10 +626,10 @@ export async function uploadResumable(client, path, file, onProgress) {
   onProgress?.(100);
 }
 
-export async function loadSocialData(client) {
+export async function loadSocialData(client,surface="all") {
   const [peopleResult, postsResult] = await Promise.all([
     client.from("profiles").select("id,username,display_name,profile_visibility,avatar_path").order("username").limit(100),
-    loadPosts(client).then((posts) => ({ posts }), (error) => ({ error }))
+    loadPosts(client,surface).then((posts) => ({ posts }), (error) => ({ error }))
   ]);
   const people = await signProfileAvatars(client, peopleResult.data || []);
   return {
@@ -582,7 +651,7 @@ function feedMarkup(posts, error, userId, isAdmin = false) {
   return posts.map((post) => postMarkup(post, userId, isAdmin)).join("");
 }
 
-export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false) {
+export function socialMarkup({ people, peopleError, posts, postsError }, userId, isAdmin = false, surface="all") {
   const eligiblePeople = (people || []).filter(person => person.id !== userId);
   const recipients = eligiblePeople.map((person) =>
     `<option value="${escapeHtml(person.id)}">${escapeHtml(person.display_name || person.username)} · @${escapeHtml(person.username)}</option>`
@@ -593,21 +662,19 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
       ? `<span class="field-hint">Escolha de 1 a 20 perfis visíveis. Só as pessoas selecionadas terão acesso.</span>`
       : `<span class="field-hint">Não há outros perfis visíveis para compartilhar ainda.</span>`;
 
-  return `<section class="social-area" aria-labelledby="socialTitle">
-    <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">Feed</h2></div>
+  return `<section class="social-area" data-social-stream="${escapeHtml(surface)}" aria-labelledby="socialTitle">
+    <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">${surface==="external"?"Reels":"Feed"}</h2></div>
       <span class="realtime-state" data-realtime-status role="status">Conectando atualizações...</span></div>
     <form class="post-composer" data-social-post>
-      <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>Nova publicação</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
+      <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>${surface==="external"?"Compartilhar link":"Nova publicação"}</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
       <div class="post-create-header"><button type="button" data-close-composer aria-label="Cancelar publicação">✕</button><strong>Nova publicação</strong><button type="submit">Compartilhar</button></div>
-      <div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>
-      <button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>
+      ${surface==="external"?"":`<div class="post-create-preview" data-post-preview aria-live="polite"><p class="post-preview-empty">Sua foto ou vídeo aparecerá aqui antes de publicar.</p></div>`}
+      ${surface==="external"?"":`<button class="post-select-media" data-select-post-media type="button">${icon("image")} Selecionar fotos e vídeos</button>`}
       <label for="postBody">Legenda</label>
       <textarea id="postBody" name="body" maxlength="2200" placeholder="Escreva uma legenda (opcional)"></textarea>
-      <label class="media-picker-label" for="postFiles">Fotos e vídeos <span>Até 8 arquivos, 100 MB por arquivo</span></label>
-      <input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm">
-      <label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label>
-      <input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url">
+      ${surface==="external"?"":`<label class="media-picker-label" for="postFiles">Fotos e vídeos <span>Até 8 arquivos, 100 MB por arquivo</span></label><input id="postFiles" name="media" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm">`}
+      ${surface==="native"?`<p class="feed-external-hint">Para compartilhar links do Instagram, TikTok ou YouTube, <a href="reels.html">acesse Reels</a>.</p>`:`<label for="postExternalUrl">Link externo (Instagram, TikTok ou YouTube)</label><input id="postExternalUrl" name="externalUrl" type="url" inputmode="url" maxlength="2048" placeholder="https://..." autocomplete="url" ${surface==="external"?"required":""}>`}
       <div class="composer-options">
         <label for="postVisibility">Quem pode ver?</label>
         <select id="postVisibility" name="visibility">
@@ -690,9 +757,10 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   if (!feed || !client) return;
   feed.setAttribute("aria-busy", "true");
   try {
-    const posts = await loadPosts(client);
+    const posts = await loadPosts(client,root.dataset.socialStream||"all");
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
+    root.__looplyRefreshCommentsSheet?.();
     classifyFeedImages(feed);
     if (root.querySelector("[data-reels-viewer]")?.open || root.querySelector("[data-reels-scroll]")) {
       root.__looplyVideoAutoplayDispose?.();
@@ -1057,6 +1125,34 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       form.querySelectorAll("button").forEach(button => button.disabled = false);
     }
   });
+  root.addEventListener("click",async event=>{
+    const button=event.target.closest("[data-toggle-comment-like]");
+    if(!button||!client||button.disabled)return;
+    const commentId=button.dataset.toggleCommentLike,userId=getUserId?.();
+    if(!commentId||!userId)return;
+    button.disabled=true;
+    const wasLiked=button.getAttribute("aria-pressed")==="true";
+    try{
+      const query=wasLiked
+        ? client.from("comment_likes").delete().eq("comment_id",commentId).eq("user_id",userId)
+        : client.from("comment_likes").upsert({comment_id:commentId,user_id:userId},
+          {onConflict:"comment_id,user_id",ignoreDuplicates:true});
+      const {error}=await query;
+      if(error)throw error;
+      const countNode=button.querySelector("[data-comment-like-count]");
+      const count=Math.max(0,(Number(countNode?.textContent)||0)+(wasLiked?-1:1));
+      button.setAttribute("aria-pressed",String(!wasLiked));
+      button.setAttribute("aria-label",!wasLiked?"Descurtir comentário":"Curtir comentário");
+      button.classList.toggle("is-liked",!wasLiked);
+      if(countNode)countNode.textContent=String(count);
+      const suffix=countNode?.nextElementSibling;
+      if(suffix)suffix.textContent=count===1?"curtida":"curtidas";
+    }catch(error){
+      console.warn("Comment like unavailable",error);
+      const status=button.closest(".comment-item")?.querySelector("[data-comment-status]");
+      if(status)status.textContent="Não foi possível atualizar a curtida.";
+    }finally{button.disabled=false;}
+  });
   root.addEventListener("click", async (event) => {
     const editCommentButton = event.target.closest("[data-edit-comment]");
     if (editCommentButton && client) {
@@ -1222,7 +1318,8 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     const shareButton = event.target.closest("[data-share-post]");
     if (shareButton) {
       const postId = shareButton.dataset.sharePost;
-      const url = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+      const external=root.dataset.socialStream==="external" || Boolean(shareButton.closest("[data-post-card]")?.querySelector(".post-external"));
+      const url = new URL((external?"reels.html":"home.html")+"#post-" + encodeURIComponent(postId), window.location.href).href;
       try {
         if (navigator.share) await navigator.share({ title: "Publicação no Looply", url });
         else if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
@@ -1315,7 +1412,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     form.dataset.submitting = "true";
     form.querySelectorAll('button[type="submit"]').forEach(control => control.disabled = true);
     let createdPostId = null;
-    let published = false;
+    let published = false, publishedExternal = false;
     let createdCommentId = null;
     const uploadedPaths = [];
     try {
@@ -1329,6 +1426,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         if (!body && !externalUrl && !files.length) throw new Error("empty body");
         const parsedShare = !externalUrl ? extractExternalLinkFromText(body) : null;
         if (parsedShare?.url) externalUrl = parsedShare.url;
+        if(root.dataset.socialStream==="external"&&!externalUrl)
+          throw Error("Compartilhe um link válido do Instagram, TikTok ou YouTube");
+        publishedExternal=Boolean(externalUrl);
         // Preserve the entire caption, including hyperlinks, spaces, newlines
         // and emoji. Link detection may add an embed, but cannot rewrite text.
         const postBody = body ? String(formData.get("body") ?? "") : null;
@@ -1431,13 +1531,14 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       }
       const refreshed = await refreshSocialFeed(root, client, getUserId?.(), isAdmin);
       if (published) {
-        setStatus(form, refreshed ? "Sua publicação foi salva e aparece no Feed." :
-          "Publicação salva, mas o Feed não atualizou. Atualize a página para consultar.", !refreshed);
+        const destination=publishedExternal?"Reels":"Feed";
+        setStatus(form,refreshed?"Sua publicação foi salva e aparece em "+destination+".":
+          "Publicação salva em "+destination+". Atualize a página para consultar.",!refreshed);
         if (refreshed) {
           const toast = document.createElement("p");
           toast.className = "looply-publish-toast";
           toast.setAttribute("role", "status");
-          toast.textContent = "Publicado no Looply!";
+          toast.textContent = publishedExternal?"Publicado em Reels!":"Publicado no Feed!";
           root.append(toast);
           setTimeout(() => toast.remove(), 3500);
         }
@@ -1484,6 +1585,7 @@ export function setupSocialRealtime(client, userId, root, isAdmin = false) {
     .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .subscribe((state) => {
       const currentStatus = root.querySelector("[data-realtime-status]");
