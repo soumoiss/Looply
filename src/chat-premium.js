@@ -1,5 +1,5 @@
 import { icon } from "./icons.js";
-import { makePremiumNote, makePremiumMusic } from "./chat-premium-cards.js";
+import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
 import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js";
 
@@ -134,6 +134,17 @@ export function setupChatPremium(root,client,userId){
           files.setAttribute("accept","image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf");
         },{once:true});
         files.click();
+      }
+      return;
+    }
+    if(target.closest("[data-chat-premium-share-game]")){
+      try{
+        const form=currentComposer(root),id=form?.dataset.conversationId;
+        if(!window.confirm("Enviar um convite para jogar nesta conversa?"))return;
+        submitPremiumMessage(root,makePremiumGameCard(id));
+      }catch(error){
+        const status=currentComposer(root)?.querySelector("[data-status]");
+        if(status)status.textContent=error.message||"Abra uma conversa.";
       }
       return;
     }
