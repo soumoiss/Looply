@@ -769,6 +769,7 @@ function messageComposerMarkup(conversationId) {
       <button type="button" data-chat-premium-camera><span class="chat-premium-tile rose">${icon("camera")}</span><span>Câmera</span></button>
       <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinha</span></button>
       <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Jogos</span></button>
+      <button type="button" data-chat-premium-share-game><span class="chat-premium-tile indigo">${icon("share")}</span><span>Convidar para jogar</span></button>
       <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Bilhete</span></button>
       <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Música</span></button>
     </div>
