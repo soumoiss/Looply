@@ -12,7 +12,7 @@ export function makePremiumNote(text){
 export function makePremiumGameCard(conversationId){
   const id=String(conversationId||"").trim();
   if(!/^[0-9a-f-]{36}$/i.test(id))throw Error("Abra uma conversa válida para convidar alguém.");
-  return "🎮 Convite para jogar no Looply\\n"+id;
+  return "🎮 Convite para jogar no Looply\n"+id;
 }
 export function makePremiumMusic(track){
   const song=normalizeStorySong(track);
@@ -21,8 +21,8 @@ export function makePremiumMusic(track){
 }
 export function parsePremiumChatBody(value){
   const text=String(value||"");
-  if(text.startsWith("🎮 Convite para jogar no Looply\\n")){
-    const conversationId=text.split("\\n")[1];
+  if(text.startsWith("🎮 Convite para jogar no Looply\n")){
+    const conversationId=text.split("\n")[1];
     if(/^[0-9a-f-]{36}$/i.test(conversationId))return {type:"game",conversationId};
   }
   if(text.startsWith(NOTE)){
