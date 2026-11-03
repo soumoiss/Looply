@@ -204,6 +204,12 @@ export function createLetterAttachmentComposer(root, notify) {
   window.addEventListener("pagehide", () => stop(true));
   return {
     get count() { return selected.length; },
+    validate(isProtected = false) {
+      if (isProtected && selected.some(item => item.file.size > PRIVATE_MAX_BYTES)) {
+        say("Anexos com senha devem ter até 15 MB."); return false;
+      }
+      return true;
+    },
     clear() { stop(true); selected.length = 0; render(); say(""); },
     stop,
     async upload(letterId, options = {}) {
