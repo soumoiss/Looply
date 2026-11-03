@@ -41,7 +41,7 @@ async function privateKey(password, salt) {
 function aad(letterId, name) {
   return enc.encode("looply:letter-file:v1:" + letterId + ":" + name);
 }
-async function encryptAttachment(file, letterId, password, salt) {
+export async function encryptAttachment(file, letterId, password, salt) {
   const key = await privateKey(password, salt);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const bytes = await crypto.subtle.encrypt(
@@ -53,7 +53,7 @@ async function encryptAttachment(file, letterId, password, salt) {
   const blob = new File([envelope], "protected-" + crypto.randomUUID() + ".txt", {type:"text/plain"});
   return {blob, iv:b64(iv)};
 }
-async function decryptAttachment(content, attachment, letter, password) {
+export async function decryptAttachment(content, attachment, letter, password) {
   const text = await content.text();
   if (!text.startsWith("LOOPLY-LETTER-ENC-V1\n")) throw Error("Formato de anexo protegido inválido.");
   const key = await privateKey(password, letter.password_salt);
