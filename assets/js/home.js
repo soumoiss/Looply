@@ -62,6 +62,16 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     if (error) throw error;
     globalSettings = data || {};
   } catch (error) { console.warn("Looply home global settings unavailable", error); }
+  // Existing post links created before the Reels split still resolve.
+  // Only redirect after a readable Neon row proves the post is external.
+  const postHash=location.hash.match(/^#post-([0-9a-f-]{36})$/i);
+  if(postHash){
+    const {data:target}=await client.from("posts").select("id,external_url").eq("id",postHash[1]).maybeSingle();
+    if(target?.external_url){
+      window.location.replace("reels.html#post-"+encodeURIComponent(target.id));
+      return;
+    }
+  }
   const [socialResult, storiesResult] = await Promise.allSettled([
     loadSocialData(client,"native"), loadStories(client,user.id)
   ]);
