@@ -22,9 +22,15 @@ export function setupChatEnhancements(root, client, userId) {
   root.dataset.chatEnhancements = "true";
   let settingsScope = "*";
   const favoritesKey = key(userId, "favorites");
+  const archivedKey = key(userId, "archived");
+  const pinnedKey = key(userId, "pinned");
+  const mutedKey = key(userId, "muted");
   const nicknameKey = key(userId, "nicknames");
   const wallpaperKey = key(userId, "wallpapers");
   const favorites = new Set(read(favoritesKey, []));
+  const archived = new Set(read(archivedKey, []));
+  const pinned = new Set(read(pinnedKey, []));
+  const muted = new Set(read(mutedKey, []));
   const nicknames = read(nicknameKey, {});
   const wallpapers = read(wallpaperKey, {});
   const selectedConversation = () => root.querySelector("[data-chat-send]")?.dataset.conversationId || root.querySelector(".chat-thread-heading")?.dataset.conversationId || "";
@@ -74,11 +80,11 @@ export function setupChatEnhancements(root, client, userId) {
       topHeading.prepend(button);
     }
     const filters = root.querySelector(".chat-filter-tabs");
-    filters?.querySelectorAll('[data-chat-filter]:not([data-chat-filter="all"])').forEach(button => button.remove());
+    // Premium filters are real controls; do not remove them on refresh.
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
       heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">' + icon("more") + '</button>');
-      if (!heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Abrir Games" title="Games">' + icon("gamepad") + '</button>');
+      if (!root.querySelector("[data-chat-premium-game]") && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Abrir Games" title="Games">' + icon("gamepad") + '</button>');
       heading.dataset.conversationId = selectedConversation();
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
@@ -86,6 +92,17 @@ export function setupChatEnhancements(root, client, userId) {
       const label = item.querySelector(".chat-conversation-copy strong");
       if (label && !label.dataset.originalName) label.dataset.originalName = label.textContent;
       if (label && nicknames[id] && label.textContent !== nicknames[id]) label.textContent = nicknames[id];
+      item.classList.toggle("is-chat-premium-pinned",pinned.has(id));
+      item.classList.toggle("is-chat-premium-muted",muted.has(id));
+      const more=item.querySelector("[data-chat-premium-rowmenu]");
+      if(!more){
+        const menuButton=document.createElement("button");
+        menuButton.type="button";menuButton.className="chat-premium-row-more";
+        menuButton.dataset.chatPremiumRowmenu=id;
+        menuButton.setAttribute("aria-label","Opções da conversa");
+        menuButton.innerHTML=icon("more");
+        item.append(menuButton);
+      }
       const star = item.querySelector("[data-v2-favorite]");
       if (!star) {
         const button = document.createElement("button");
@@ -115,23 +132,28 @@ export function setupChatEnhancements(root, client, userId) {
     if (heading && id === selectedConversation()) { if (!heading.dataset.v2OriginalName) heading.dataset.v2OriginalName = heading.textContent; const text = name || heading.dataset.v2OriginalName; if (heading.textContent !== text) heading.textContent = text; }
   };
   const applyFilters = () => {
-    const activeFilter = "all";
+    const activeFilter = root.querySelector('[data-chat-filter][aria-pressed="true"]')?.dataset.chatFilter||"all";
     const search = (root.querySelector("[data-chat-conversation-search]")?.value || "").toLocaleLowerCase("pt-BR").trim();
     const items = root.querySelectorAll("[data-chat-conversations] [data-chat-open]");
     let visible = 0;
     items.forEach((item) => {
       const id = item.dataset.chatOpen;
-      const matches = matchesConversationFilter({
-        id,
-        kind: item.dataset.chatKind,
-        unreadCount: item.dataset.chatUnreadCount
-      }, activeFilter, favorites) && (!search || item.textContent.toLocaleLowerCase("pt-BR").includes(search));
+      const archivedMatch=activeFilter==="archived"?archived.has(id):!archived.has(id);
+      const filter=activeFilter==="archived"?"all":activeFilter;
+      const matches = archivedMatch && matchesConversationFilter({
+        id,kind:item.dataset.chatKind,unreadCount:item.dataset.chatUnreadCount
+      },filter,favorites) && (!search || item.textContent.toLocaleLowerCase("pt-BR").includes(search));
       item.hidden = !matches;
       if (matches) visible += 1;
     });
+    const container=root.querySelector("[data-chat-conversations]");
+    if(container){
+      const ordered=[...items].sort((x,y)=>Number(pinned.has(y.dataset.chatOpen))-Number(pinned.has(x.dataset.chatOpen)));
+      for(const item of ordered)container.append(item);
+    }
     const noMatches = root.querySelector("[data-chat-no-matches]");
     if (noMatches) {
-      const emptyMessage = activeFilter === "favorites"
+      const emptyMessage = activeFilter === "archived" ? "Nenhuma conversa arquivada." : activeFilter === "favorites"
         ? "Nenhuma conversa favorita. Toque na estrela de uma conversa para favoritar."
         : activeFilter === "groups"
           ? "Nenhum grupo encontrado."
@@ -143,6 +165,36 @@ export function setupChatEnhancements(root, client, userId) {
     }
   };
   root.addEventListener("click", (event) => {
+    const menuButton=event.target.closest("[data-chat-premium-rowmenu]");
+    if(menuButton){
+      event.preventDefault();event.stopPropagation();
+      root.querySelector("[data-chat-premium-row-popover]")?.remove();
+      const id=menuButton.dataset.chatPremiumRowmenu;
+      const pop=document.createElement("div");
+      pop.className="chat-premium-row-popover";
+      pop.dataset.chatPremiumRowPopover="";
+      pop.innerHTML='<button type="button" data-chat-premium-row-action="pin" data-chat-premium-row-id="'+esc(id)+'">'+
+        (pinned.has(id)?"Desafixar":"Fixar conversa")+'</button>'+
+        '<button type="button" data-chat-premium-row-action="mute" data-chat-premium-row-id="'+esc(id)+'">'+
+        (muted.has(id)?"Ativar avisos":"Silenciar")+'</button>'+
+        '<button type="button" data-chat-premium-row-action="archive" data-chat-premium-row-id="'+esc(id)+'">'+
+        (archived.has(id)?"Desarquivar":"Arquivar")+'</button>';
+      menuButton.closest(".chat-conversation")?.append(pop);
+      return;
+    }
+    const rowAction=event.target.closest("[data-chat-premium-row-action]");
+    if(rowAction){
+      event.preventDefault();event.stopPropagation();
+      const id=rowAction.dataset.chatPremiumRowId,action=rowAction.dataset.chatPremiumRowAction;
+      const scope=action==="pin"?pinned:action==="mute"?muted:archived;
+      if(scope.has(id))scope.delete(id);else scope.add(id);
+      const storage=action==="pin"?pinnedKey:action==="mute"?mutedKey:archivedKey;
+      write(storage,[...scope]);
+      root.querySelector("[data-chat-premium-row-popover]")?.remove();
+      renderTools();applyFilters();
+      toast(action==="pin"?"Preferência de fixação atualizada.":action==="mute"?"Preferência de avisos atualizada.":"Conversa arquivada ou restaurada.");
+      return;
+    }
     const favorite = event.target.closest("[data-v2-favorite]");
     if (!favorite) return;
     event.preventDefault();
@@ -212,12 +264,11 @@ export function setupChatEnhancements(root, client, userId) {
     reader.readAsDataURL(file);
   });
   root.addEventListener("click", (event) => {
+    if(!event.target.closest("[data-chat-premium-row-popover],[data-chat-premium-rowmenu]"))root.querySelector("[data-chat-premium-row-popover]")?.remove();
     const filter = event.target.closest("[data-chat-filter]");
     if (!filter) return;
-    if (filter.dataset.chatFilter === "all") {
-      root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === filter)));
-      queueMicrotask(applyFilters);
-    }
+    root.querySelectorAll("[data-chat-filter]").forEach((button) => button.setAttribute("aria-pressed", String(button === filter)));
+    queueMicrotask(applyFilters);
   });
   root.addEventListener("submit", event => { if (event.target.matches("[data-gartic-guess],[data-gartic-chat]")) void gartic.handleSubmit(event); }, true);
   root.addEventListener("looply:chat-rendered", () => { renderTools(); applyFilters(); void game.onConversation(); gartic.onConversation(); });
