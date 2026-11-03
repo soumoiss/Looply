@@ -1,0 +1,56 @@
+import { normalizeStorySong } from "./story-music-catalog.js";
+
+const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const NOTE="💌 Bilhete\n";
+const MUSIC="🎵 Música: ";
+
+export function makePremiumNote(text){
+  const value=String(text||"").trim().slice(0,1200);
+  if(!value)throw Error("Escreva um bilhete antes de enviar.");
+  return NOTE+value;
+}
+export function makePremiumMusic(track){
+  const song=normalizeStorySong(track);
+  if(!song)throw Error("Selecione uma música de um catálogo oficial.");
+  return MUSIC+song.title+" — "+song.artist+"\n"+song.url;
+}
+export function parsePremiumChatBody(value){
+  const text=String(value||"");
+  if(text.startsWith(NOTE)){
+    const body=text.slice(NOTE.length).trim();
+    if(body&&body.length<=1200)return {type:"note",body};
+  }
+  if(text.startsWith(MUSIC)){
+    const separator=text.lastIndexOf("\n");
+    if(separator<0)return null;
+    const subtitle=text.slice(MUSIC.length,separator);
+    const split=subtitle.lastIndexOf(" — ");
+    if(split<1)return null;
+    const title=subtitle.slice(0,split).trim(),artist=subtitle.slice(split+3).trim();
+    const url=text.slice(separator+1).trim();
+    if(title.length>110||artist.length>100||!title||!artist)return null;
+    for(const provider of ["apple","deezer","spotify"]){
+      const song=normalizeStorySong({provider,title,artist,url});
+      if(song)return {type:"music",...song};
+    }
+  }
+  return null;
+}
+export function premiumChatCardMarkup(body){
+  const card=parsePremiumChatBody(body);
+  if(!card)return "";
+  if(card.type==="note")
+    return '<section class="chat-premium-note-card" aria-label="Bilhete enviado">' +
+      '<span class="chat-premium-card-kicker">💌 &nbsp; Um bilhete para você</span>' +
+      '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p>' +
+      '<span class="chat-premium-note-seal" aria-hidden="true">✉</span></section>';
+  const query=encodeURIComponent(card.title+" "+card.artist);
+  return '<section class="chat-premium-music-card" aria-label="Música compartilhada">' +
+    '<span class="chat-premium-music-cover" aria-hidden="true">♫</span>' +
+    '<div class="chat-premium-music-info"><small>Música · '+escapeHtml(card.provider.toUpperCase())+'</small>' +
+    '<strong>'+escapeHtml(card.title)+'</strong><span>'+escapeHtml(card.artist)+'</span></div>' +
+    '<button type="button" class="chat-premium-music-play" data-chat-premium-play-music="'+escapeHtml(query)+'" ' +
+    'aria-label="Ouvir prévia da música '+escapeHtml(card.title)+'">▶</button>' +
+    '<a class="chat-premium-music-provider" href="'+escapeHtml(card.url)+'" target="_blank" rel="noopener noreferrer">Abrir no serviço ↗</a>' +
+    '</section>';
+}
