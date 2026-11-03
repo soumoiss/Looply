@@ -1036,3 +1036,40 @@
   .page-conversation .chat-premium .chat-sidebar{display:none!important}
   .page-conversation .chat-premium .chat-thread-panel{display:flex!important}
 }
+
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card{
+  display:flex;align-items:center;gap:11px;
+  min-width:min(285px,74vw);max-width:100%;
+  padding:12px;
+  border:1px solid var(--pm-line);
+  border-radius:16px;
+  background:var(--pm-surface);
+  color:var(--pm-ink);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-icon{
+  display:grid;place-items:center;flex:none;width:43px;height:43px;border-radius:13px;
+  background:var(--pm-light);color:var(--pm-primary);font-size:25px;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card>div{
+  display:grid;gap:2px;flex:1;min-width:0;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card :is(small,strong,span){
+  color:var(--pm-ink);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card small{
+  color:var(--pm-primary);font-weight:850;font-size:10px;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card strong{font-size:12px}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card>div>span{
+  font-size:10px;color:var(--pm-muted);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card>button{
+  flex:none;min-height:36px;padding:6px 10px;border:0;border-radius:12px;
+  background:var(--pm-primary);color:#fff;font-family:inherit;font-size:11px;font-weight:850;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-card-kicker,
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-note-body,
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-music-card,
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card{
+  text-shadow:none;
+}
