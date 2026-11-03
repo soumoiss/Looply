@@ -256,6 +256,12 @@ export function instagramEmbedDetails(value) {
   }
 }
 
+
+export function isExternalPost(post){return Boolean(normalizeExternalUrl(post?.external_url));}
+export function postsForSurface(posts,surface="all"){
+  return surface==="external"?(posts||[]).filter(isExternalPost):
+    surface==="native"?(posts||[]).filter(post=>!isExternalPost(post)):(posts||[]);
+}
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "agora há pouco";
@@ -402,17 +408,20 @@ function postMarkup(post, userId, isAdmin = false) {
   </article>`;
 }
 
-async function loadPosts(client) {
-  const { data, error } = await client
-    .from("posts")
-    .select("id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    // Preserve the first October publications in the existing feed as well.
-    // 50 covers the historical data without altering ownership or chronology.
-    .range(0, 49);
-  if (error) throw error;
-  const posts = data || [];
+async function loadPosts(client,surface="all") {
+  // Scan pages before filtering so a large collection of external links
+  // cannot hide native posts (or vice versa) behind an arbitrary first page.
+  const posts=[];
+  const selection="id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)";
+  for(let offset=0;offset<1000&&posts.length<80;offset+=100){
+    const {data,error}=await client.from("posts").select(selection)
+      .order("created_at",{ascending:false}).order("id",{ascending:false})
+      .range(offset,offset+99);
+    if(error)throw error;
+    const batch=data||[];
+    posts.push(...postsForSurface(batch,surface).slice(0,80-posts.length));
+    if(batch.length<100)break;
+  }
   if (posts.length) {
     const { data: currentUserData } = await client.auth.getUser();
     const currentUserId = currentUserData?.user?.id;
@@ -429,6 +438,32 @@ async function loadPosts(client) {
     for (const post of posts) {
       post.likeCount = counts.get(post.id) || 0;
       post.likedByMe = mineIds.has(post.id);
+    }
+  }
+  const commentIds=[...new Set(posts.flatMap(post=>(post.comments||[]).map(comment=>comment.id)))];
+  if(commentIds.length){
+    const {data:currentUser}=await client.auth.getUser();
+    const userId=currentUser?.user?.id;
+    const totals=new Map(),mine=new Set();
+    let available=true;
+    for(let i=0;i<commentIds.length;i+=90){
+      const batch=commentIds.slice(i,i+90);
+      const [all,own]=await Promise.all([
+        client.from("comment_likes").select("comment_id").in("comment_id",batch),
+        userId?client.from("comment_likes").select("comment_id").in("comment_id",batch).eq("user_id",userId):
+          Promise.resolve({data:[],error:null})
+      ]);
+      if(all.error||own.error){
+        // Keep existing posts/comments usable during additive database rollout.
+        console.warn("Comment likes unavailable",all.error||own.error);available=false;break;
+      }
+      for(const item of all.data||[])totals.set(item.comment_id,(totals.get(item.comment_id)||0)+1);
+      for(const item of own.data||[])mine.add(item.comment_id);
+    }
+    for(const post of posts)for(const comment of post.comments||[]){
+      comment.likeCount=totals.get(comment.id)||0;
+      comment.likedByMe=mine.has(comment.id);
+      comment.likesAvailable=available;
     }
   }
   const profileRows = [];
@@ -557,10 +592,10 @@ export async function uploadResumable(client, path, file, onProgress) {
   onProgress?.(100);
 }
 
-export async function loadSocialData(client) {
+export async function loadSocialData(client,surface="all") {
   const [peopleResult, postsResult] = await Promise.all([
     client.from("profiles").select("id,username,display_name,profile_visibility,avatar_path").order("username").limit(100),
-    loadPosts(client).then((posts) => ({ posts }), (error) => ({ error }))
+    loadPosts(client,surface).then((posts) => ({ posts }), (error) => ({ error }))
   ]);
   const people = await signProfileAvatars(client, peopleResult.data || []);
   return {
@@ -690,9 +725,10 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   if (!feed || !client) return;
   feed.setAttribute("aria-busy", "true");
   try {
-    const posts = await loadPosts(client);
+    const posts = await loadPosts(client,root.dataset.socialStream||"all");
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
+    root.__looplyRefreshCommentsSheet?.();
     classifyFeedImages(feed);
     if (root.querySelector("[data-reels-viewer]")?.open || root.querySelector("[data-reels-scroll]")) {
       root.__looplyVideoAutoplayDispose?.();
