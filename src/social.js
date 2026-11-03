@@ -293,25 +293,51 @@ function commentAttachmentField(commentId, postId) {
     <input class="visually-hidden" id="${escapeHtml(id)}" name="commentMedia" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm">`;
 }
 
-function commentMarkup(comment, canReply, userId) {
-  const replyForm = canReply
-    ? `<details class="reply-details"><summary>Responder</summary>
-        <form class="comment-form reply-form" data-social-comment data-post-id="${escapeHtml(comment.post_id)}" data-parent-comment-id="${escapeHtml(comment.id)}">
-          <label class="visually-hidden" for="reply-${escapeHtml(comment.id)}">Sua resposta</label>
-          <textarea id="reply-${escapeHtml(comment.id)}" name="body" maxlength="2000" required placeholder="Escreva uma resposta..."></textarea>
-          ${commentAttachmentField(comment.id, comment.post_id)}
-          <button class="text-button" type="submit">Enviar resposta</button>
-          <span class="form-status" data-status role="status" aria-live="polite"></span>
-        </form>
-      </details>`
-    : "";
-
-  const ownerActions = comment.author_id === userId
-    ? `<div class="comment-owner-actions"><button class="text-button" type="button" data-edit-comment="${escapeHtml(comment.id)}">Editar</button><button class="text-button" type="button" data-delete-comment="${escapeHtml(comment.id)}">Excluir</button></div>`
-    : "";
-  return `<article class="comment-item${canReply ? "" : " comment-reply"}" id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
-    <div class="comment-meta"><a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}" data-profile-name-id="${escapeHtml(comment.author_id)}"><strong>${profileLabel(comment.author)}</strong></a><time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>${ownerActions}</div>
-    <p data-comment-body>${escapeHtml(comment.body)}</p><form class="comment-edit-form" data-comment-edit-form hidden><label class="visually-hidden" for="edit-comment-${escapeHtml(comment.id)}">Editar comentário</label><textarea id="edit-comment-${escapeHtml(comment.id)}" name="body" maxlength="2000" required></textarea><div><button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-comment-edit>Cancelar</button></div></form>${commentMediaMarkup(comment.media)}<span class="form-status" data-comment-status role="status" aria-live="polite"></span>${replyForm}
+function commentMarkup(comment,canReply,userId){
+  const name=comment.author?.display_name||comment.author?.username||"Membro";
+  const initial=Array.from(name)[0]?.toLocaleUpperCase("pt-BR")||"?";
+  const signed=String(comment.author?.avatarUrl||"");
+  const avatar=/^https:\/\//i.test(signed)
+    ? '<img src="'+escapeHtml(signed)+'" alt="" loading="lazy" referrerpolicy="no-referrer">'
+    : '<span aria-hidden="true">'+escapeHtml(initial)+'</span>';
+  const liked=Boolean(comment.likedByMe);
+  const likes=Number(comment.likeCount)||0;
+  const replyForm=canReply?`<details class="reply-details"><summary>Responder</summary>
+    <form class="comment-form reply-form" data-social-comment data-post-id="${escapeHtml(comment.post_id)}"
+      data-parent-comment-id="${escapeHtml(comment.id)}">
+      <label class="visually-hidden" for="reply-${escapeHtml(comment.id)}">Sua resposta</label>
+      <textarea id="reply-${escapeHtml(comment.id)}" name="body" maxlength="2000" required placeholder="Escreva uma resposta..."></textarea>
+      ${commentAttachmentField(comment.id,comment.post_id)}
+      <button class="text-button" type="submit">Enviar resposta</button>
+      <span class="form-status" data-status role="status" aria-live="polite"></span>
+    </form></details>`:"";
+  const ownerActions=comment.author_id===userId
+    ? `<div class="comment-owner-actions"><button class="text-button" type="button" data-edit-comment="${escapeHtml(comment.id)}">Editar</button><button class="text-button" type="button" data-delete-comment="${escapeHtml(comment.id)}">Excluir</button></div>` : "";
+  return `<article class="comment-item${comment.parent_comment_id?" comment-reply":""}"
+     id="comment-${escapeHtml(comment.id)}" data-comment-post-id="${escapeHtml(comment.post_id)}">
+    <a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}" class="comment-avatar"
+      aria-label="Ver perfil de ${escapeHtml(name)}">${avatar}</a>
+    <div class="comment-content">
+      <div class="comment-meta"><a href="perfil.html?usuario=${encodeURIComponent(comment.author_id)}"
+        data-profile-name-id="${escapeHtml(comment.author_id)}"><strong>${profileLabel(comment.author)}</strong></a>
+        <time datetime="${escapeHtml(comment.created_at)}">${escapeHtml(formatDate(comment.created_at))}</time>
+      </div>
+      <p data-comment-body>${escapeHtml(comment.body)}</p>
+      ${commentMediaMarkup(comment.media)}
+      <div class="comment-action-row">
+        <button type="button" class="comment-like-button${liked?" is-liked":""}"
+          data-toggle-comment-like="${escapeHtml(comment.id)}" aria-pressed="${liked}" aria-label="${liked?"Descurtir":"Curtir"} comentário"
+          ${comment.likesAvailable===false?"disabled":""}>${icon("heart")} <span data-comment-like-count>${likes}</span> <span>${likes===1?"curtida":"curtidas"}</span></button>
+        ${replyForm}${ownerActions}
+      </div>
+      <form class="comment-edit-form" data-comment-edit-form hidden>
+        <label class="visually-hidden" for="edit-comment-${escapeHtml(comment.id)}">Editar comentário</label>
+        <textarea id="edit-comment-${escapeHtml(comment.id)}" name="body" maxlength="2000" required></textarea>
+        <div><button class="text-button" type="submit">Salvar edição</button>
+        <button class="text-button" type="button" data-cancel-comment-edit>Cancelar</button></div>
+      </form>
+      <span class="form-status" data-comment-status role="status" aria-live="polite"></span>
+    </div>
   </article>`;
 }
 
@@ -326,10 +352,18 @@ function postMarkup(post, userId, isAdmin = false) {
       replies.set(comment.parent_comment_id, siblings);
     }
   }
-  const roots = comments.filter((comment) => !comment.parent_comment_id);
-  const commentList = roots.length
-    ? roots.map((comment) => `<div class="comment-thread">${commentMarkup(comment, true, userId)}${(replies.get(comment.id) || []).map((reply) => commentMarkup(reply, false, userId)).join("")}</div>`).join("")
-    : `<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>`;
+  const byId=new Map(comments.map(comment=>[comment.id,comment]));
+  const roots=comments.filter(comment=>!comment.parent_comment_id||!byId.has(comment.parent_comment_id));
+  const tree=(comment,depth=0,visited=new Set())=>{
+    if(visited.has(comment.id))return "";
+    const ancestry=new Set(visited);ancestry.add(comment.id);
+    const nested=depth>=8?"":(replies.get(comment.id)||[])
+      .map(child=>tree(child,depth+1,ancestry)).join("");
+    return commentMarkup(comment,true,userId)+(nested?'<div class="comment-nested">'+nested+"</div>":"");
+  };
+  const commentList=roots.length
+    ? roots.map(comment=>'<div class="comment-thread">'+tree(comment)+"</div>").join("")
+    : '<p class="empty-comments">Ainda não há comentários. Você pode começar a conversa.</p>';
   const labels = { public: "Público", private: "Só você", selected: "Pessoas escolhidas" };
   const liked = Boolean(post.likedByMe);
   const likeCount = Number(post.likeCount || 0);
