@@ -76,6 +76,51 @@ test("password protected attachments: only ciphertext leaves browser; correct pa
   await assert.rejects(()=>decryptAttachment(sealed.blob,metadata,letter,"senha-errada"));
 });
 
+
+test("voice recording starts, stops, attaches audio and releases microphone; cancel discards",async()=>{
+  await withFakeDom(async()=>{
+    const originalNavigator=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+    const originalMediaRecorder=globalThis.MediaRecorder;
+    let stopped=0;
+    const mic=()=>({getTracks:()=>[{stop:()=>{stopped++;}}]});
+    Object.defineProperty(globalThis,"navigator",{
+      configurable:true,value:{mediaDevices:{getUserMedia:async()=>mic()}}
+    });
+    class Recorder {
+      static isTypeSupported(type) { return type==="audio/webm;codecs=opus"; }
+      constructor(stream,options) { this.stream=stream;this.mimeType=options.mimeType;this.state="inactive";this.listeners=new Map(); }
+      addEventListener(name,fn) { this.listeners.set(name,fn); }
+      start() { this.state="recording"; }
+      stop() {
+        this.state="inactive";
+        this.listeners.get("dataavailable")?.({data:new Blob(["OPUS"],{type:"audio/webm"})});
+        this.listeners.get("stop")?.();
+      }
+    }
+    globalThis.MediaRecorder=Recorder;
+    try {
+      const {nodes,root}=createDom();
+      const composer=createLetterAttachmentComposer(root,()=>{});
+      await nodes.get("#letterRecord").trigger("click");
+      assert.equal(nodes.get("#letterRecord").disabled,true);
+      await nodes.get("#letterStopRecord").trigger("click");
+      assert.equal(composer.count,1);
+      assert.equal(nodes.get("#letterRecord").disabled,false);
+      assert.equal(nodes.get("#letterStopRecord").hidden,true);
+      assert.equal(stopped,1);
+      await nodes.get("#letterRecord").trigger("click");
+      composer.clear();
+      assert.equal(composer.count,0);
+      assert.equal(stopped,2);
+    } finally {
+      if(originalNavigator)Object.defineProperty(globalThis,"navigator",originalNavigator);
+      else delete globalThis.navigator;
+      if(originalMediaRecorder===undefined)delete globalThis.MediaRecorder;
+      else globalThis.MediaRecorder=originalMediaRecorder;
+    }
+  });
+});
+
 test("visible card editor binds native file chooser, voice recorder and secure upload before send",async()=>{
   const page=await readFile(new URL("../assets/js/letters.js",import.meta.url),"utf8");
   const style=await readFile(new URL("../assets/css/pages/letters.css",import.meta.url),"utf8");
