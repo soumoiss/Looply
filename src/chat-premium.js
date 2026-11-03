@@ -115,11 +115,13 @@ export function setupChatPremium(root,client,userId){
     const attachmentAction=target.closest("[data-chat-premium-menu] button");
     if(attachmentAction)closeAttachmentMenus(root);
     if(target.closest("[data-chat-premium-new]")){
+      if(root.dataset.conversationPage==="true"){window.location.assign("chat.html");return;}
       const panel=root.querySelector(".chat-search-panel");
       if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"nearest"});panel.querySelector('input[name="query"]')?.focus({preventScroll:true});}
       return;
     }
     if(target.closest("[data-chat-premium-new-group]")){
+      if(root.dataset.conversationPage==="true"){window.location.assign("chat.html");return;}
       const panel=root.querySelector(".group-compose-panel");
       if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"nearest"});panel.querySelector('input[name="subject"]')?.focus({preventScroll:true});}
       return;
