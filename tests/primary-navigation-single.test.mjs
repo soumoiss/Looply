@@ -5,17 +5,17 @@ import { primaryDestinations, primaryNavigationMarkup } from "../src/primary-nav
 import { socialMarkup } from "../src/social.js";
 
 const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
-const routes=["home.html","cartas.html","musicas.html","galeria.html","chat.html","notificacoes.html"];
-const pages=["home","letters","music","gallery","chat","conversation","notifications","profile","settings","admin"];
+const routes=["home.html","reels.html","cartas.html","musicas.html","galeria.html","chat.html","notificacoes.html"];
+const pages=["home","reels","letters","music","gallery","chat","conversation","notifications","profile","settings","admin"];
 const escape=val=>val.replace(/[.*+?^\\${}()|[\]\\]/g,"\\$&");
 
-test("a single accessible primary navigation provides exactly six stable local SVG icons",()=>{
-  assert.equal(primaryDestinations.length,6);
+test("a single accessible primary navigation provides exactly seven stable local SVG icons",()=>{
+  assert.equal(primaryDestinations.length,7);
   assert.deepEqual(primaryDestinations.map(([, ,href])=>href),routes);
   for(const page of pages) {
     const nav=primaryNavigationMarkup(page,15);
     assert.equal((nav.match(/<nav /g)||[]).length,1,page);
-    assert.equal((nav.match(/<a class="header-action"/g)||[]).length,6,page);
+    assert.equal((nav.match(/<a class="header-action"/g)||[]).length,7,page);
     assert.equal((nav.match(/<svg /g)||[]).length,6,page);
     assert.doesNotMatch(nav,/<img|<iframe|https?:\/\/|<script|\p{Extended_Pictographic}/u);
     for(const route of routes)assert.equal((nav.match(new RegExp('href="'+escape(route)+'"','g'))||[]).length,1,route);
@@ -43,7 +43,7 @@ test("the feed never inserts its own bottom bar even after fresh render",()=>{
 });
 
 test("no HTML page includes a second hardcoded primary navigation",async()=>{
-  const files=["home.html","cartas.html","musicas.html","galeria.html","chat.html",
+  const files=["home.html","reels.html","cartas.html","musicas.html","galeria.html","chat.html",
     "conversa.html","notificacoes.html","perfil.html","usuarios.html","configuracoes.html",
     "admin.html"];
   for(const path of files){
@@ -63,7 +63,7 @@ test("canonical renderer is the only runtime route source and badge stays intact
   assert.doesNotMatch(runtime,/<nav class="header-actions page-navigation"/);
 });
 
-test("mobile layout fits all six links within 320px without horizontal scroll",async()=>{
+test("mobile layout fits all seven links within 320px without horizontal scroll",async()=>{
   const [shared,hybrid,reels]=await Promise.all([
     read("assets/css/pages/shared.css"),read("assets/css/pages/home-hybrid.css"),
     read("assets/css/pages/feed-reels-experience.css")
