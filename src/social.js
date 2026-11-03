@@ -665,7 +665,7 @@ export function socialMarkup({ people, peopleError, posts, postsError }, userId,
   return `<section class="social-area" data-social-stream="${escapeHtml(surface)}" aria-labelledby="socialTitle">
     <div class="social-heading"><div><span class="section-kicker">Publicações</span><h2 id="socialTitle">${surface==="external"?"Reels":"Feed"}</h2></div>
       <span class="realtime-state" data-realtime-status role="status">Conectando atualizações...</span></div>
-    <form class="post-composer" data-social-post data-post-origin="${escapeHtml(surface)}">
+    <form class="post-composer" data-social-post>
       <header class="post-composer-heading"><span class="post-compose-pen" aria-hidden="true">✒</span><strong>${surface==="external"?"Compartilhar link":"Nova publicação"}</strong><button class="post-add-button" type="button" data-toggle-composer aria-expanded="false" aria-controls="postComposerFields" aria-label="Abrir formulário de nova publicação" title="Nova publicação"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></header>
       <div class="post-composer-fields" id="postComposerFields" data-composer-fields hidden>
       <div class="post-create-header"><button type="button" data-close-composer aria-label="Cancelar publicação">✕</button><strong>Nova publicação</strong><button type="submit">Compartilhar</button></div>
