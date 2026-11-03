@@ -667,7 +667,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         // The sender is authenticated by the room, but game state is still
         // revalidated from the authoritative DB on the next poll.
         if(m && m.userId===payload.senderId &&
-           /^\\d+$/.test(String(m.id)) && typeof m.body==="string" &&
+           Number.isSafeInteger(Number(m.id)) && Number(m.id)>0 && typeof m.body==="string" &&
            m.body.length>0 && m.body.length<=300 &&
            typeof m.name==="string" && m.name.length<200){
           game.chat ||= [];
