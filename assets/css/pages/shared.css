@@ -40,7 +40,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 .looply-footer { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .page-notice { padding: 20px; }
 @media (max-width: 760px) {
-  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: min(calc(100% - 14px), 900px); max-width: 100%; flex: none; justify-content: stretch; gap: 3px; padding: 6px; overflow: visible; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 94%, transparent); box-shadow: 0 10px 30px rgba(35, 20, 50, .16); backdrop-filter: blur(18px); transform: translateX(-50%); box-sizing: border-box; }
+  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: min(calc(100% - 14px), 900px); max-width: 100%; flex: none; justify-content: stretch; gap: 3px; padding: 6px; overflow: visible; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 94%, transparent); box-shadow: 0 10px 30px rgba(35, 20, 50, .16); backdrop-filter: blur(18px); transform: translateX(-50%); box-sizing: border-box; }
   .looply-page .page-navigation::-webkit-scrollbar { display: none; }
   .looply-page .page-navigation .header-action { min-width: 0; width: 100%; min-height: 54px; flex: none; flex-direction: column; gap: 3px; padding: 6px 1px; border-color: transparent; border-radius: 13px; background: transparent; box-shadow: none; font-size: 10px; box-sizing: border-box; }
   .looply-page .page-navigation .page-navigation-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; font-weight: 700; }
@@ -306,7 +306,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 @media (max-width: 760px) {
   .looply-page .page-navigation {
     width: min(calc(100% - 14px), 900px);
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 3px;
     padding: 6px;
     box-sizing: border-box;
@@ -335,7 +335,7 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
     display: grid;
     width: min(calc(100% - 14px), 900px);
     max-width: 900px;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     justify-content: stretch;
     gap: 3px;
     overflow: visible;
