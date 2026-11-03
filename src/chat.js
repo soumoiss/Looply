@@ -694,6 +694,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const sticker = stickerSource
       ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(bundledSticker?.title || message.sticker?.title || "Looply")}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
       : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
+    const premiumCard = premiumChatCardMarkup(message.body);
     const visualOnly = isVisualOnlyChatMessage(message, Boolean(sticker));
     const hideVisualPlaceholder = Boolean(sticker) || (visualOnly && isAttachmentPlaceholder(message.body));
     const isMine = message.sender_id === userId;
@@ -709,8 +710,8 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
     return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
     <div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}${storyContext}${sticker}<p data-chat-message-body${hideVisualPlaceholder ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
-    <div class="chat-message-actions-inline">${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
+    ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}
+    <div class="chat-message-actions-inline"><button class="chat-premium-react-trigger" type="button" data-chat-premium-react="${escapeHtml(message.id)}" aria-label="Reagir à mensagem">♡</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
 }
@@ -789,7 +790,8 @@ function updateThreadMarkup(thread, markup, conversationId) {
     return;
   }
 
-  const wasNearBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 120;
+  const history=thread.querySelector("[data-chat-premium-history]")||thread;
+  const wasNearBottom = history.scrollHeight-history.scrollTop-history.clientHeight < 120;
   const parsed = document.createElement("div");
   parsed.innerHTML = markup;
   parsed.querySelector("[data-chat-send]")?.remove();
@@ -800,12 +802,12 @@ function updateThreadMarkup(thread, markup, conversationId) {
     if (child !== currentForm) child.remove();
   }
   for (const child of [...parsed.childNodes]) thread.insertBefore(child, currentForm);
-  if (wasNearBottom) thread.scrollTop = thread.scrollHeight;
+  if (wasNearBottom) {const nextHistory=thread.querySelector("[data-chat-premium-history]")||thread;nextHistory.scrollTop=nextHistory.scrollHeight;}
 }
 
 function scrollInitialThreadToLatest(thread) {
   if (!thread) return;
-  const scrollToLatest = () => { if (thread.isConnected) thread.scrollTop = thread.scrollHeight; };
+  const scrollToLatest = () => {if(thread.isConnected){const container=thread.querySelector("[data-chat-premium-history]")||thread;container.scrollTop=container.scrollHeight;}};
   // The second frame runs after layout has incorporated the inserted messages.
   // Media can still resize later, so each initial load gets one extra correction.
   requestAnimationFrame(() => {
@@ -815,7 +817,8 @@ function scrollInitialThreadToLatest(thread) {
   thread.querySelectorAll("img, video").forEach((media) => {
     const eventName = media instanceof HTMLVideoElement ? "loadedmetadata" : "load";
     media.addEventListener(eventName, () => {
-      if (thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140) scrollToLatest();
+      const container=thread.querySelector("[data-chat-premium-history]")||thread;
+      if (container.scrollHeight-container.scrollTop-container.clientHeight < 140) scrollToLatest();
     }, { once: true });
   });
 }
@@ -838,7 +841,7 @@ async function openConversation(root, client, conversationId, userId) {
     if (requestId !== activeThreadRequest || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
+    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
     if (hasSameComposer) updateThreadMarkup(thread, markup, conversationId);
     else {
       thread.innerHTML = markup;
@@ -894,7 +897,7 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     if (requestId !== refreshSequence || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}${messageComposerMarkup(conversationId)}`;
+    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
     updateThreadMarkup(root.querySelector("[data-chat-thread]"), markup, conversationId);
     root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
     return true;
@@ -1439,12 +1442,13 @@ export function bindChatEvents(root, client, getUserId) {
         await signThreadAvatar(client, participants);
         const thread = root.querySelector("[data-chat-thread]");
         if (!thread || activeConversationId !== conversationId) return;
-        const scrollHeight = thread.scrollHeight;
+        const history=thread.querySelector("[data-chat-premium-history]")||thread;
+        const scrollHeight=history.scrollHeight;
         olderButton.remove();
         const nextButton = messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : "";
         const peer = peerParticipantFor(participants, userId);
-        thread.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
-        thread.scrollTop += thread.scrollHeight - scrollHeight;
+        history.insertAdjacentHTML("afterbegin", `${nextButton}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, conversation?.kind === "group")}`);
+        history.scrollTop += history.scrollHeight-scrollHeight;
       } catch (error) {
         console.error("Looply older messages failed", error);
         olderButton.disabled = false;
