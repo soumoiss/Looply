@@ -63,16 +63,17 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     globalSettings = data || {};
   } catch (error) { console.warn("Looply home global settings unavailable", error); }
   const [socialResult, storiesResult] = await Promise.allSettled([
-    loadSocialData(client), loadStories(client,user.id)
+    loadSocialData(client,"native"), loadStories(client,user.id)
   ]);
   const socialData = socialResult.status === "fulfilled"
     ? socialResult.value
     : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
   const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
   const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
+  root.dataset.socialStream="native";
   root.innerHTML = `${renderWelcome(profile)}${renderGlobalHomeSettings(globalSettings)}${storiesMarkup(
     stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
-  )}${socialMarkup(socialData, user.id, isAdmin)}`;
+  )}${socialMarkup(socialData, user.id, isAdmin,"native")}`;
   void mountSecretMessages(client, user.id, isAdmin);
   // Only the Stories area is replaced; Feed, profile and all other modules remain unchanged.
   const whyNow = mountWhyNowStories({ root, client, user, profile, initialStories: stories });
@@ -92,28 +93,9 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
 
   // Expand and prefill the existing Feed composer. Never submit automatically.
   const sharedUrl = takeIncomingSharedLink();
-  if (sharedUrl) {
-    const fields = root.querySelector("[data-composer-fields]");
-    const toggle = root.querySelector("[data-toggle-composer]");
-    const composer = root.querySelector("form[data-social-post]");
-    const externalUrl = root.querySelector("#postExternalUrl");
-    const status = composer?.querySelector("[data-status]");
-    if (fields && externalUrl) {
-      fields.hidden = false;
-      if (toggle) {
-        toggle.setAttribute("aria-expanded", "true");
-        toggle.setAttribute("aria-label", "Fechar formulário de nova publicação");
-      }
-      externalUrl.value = sharedUrl;
-      if (status) {
-        status.textContent = "Link recebido do compartilhamento. Revise a publicação e toque em Publicar para confirmar.";
-        status.dataset.kind = "success";
-      }
-      requestAnimationFrame(() => {
-        composer?.scrollIntoView({ behavior: "smooth", block: "center" });
-        externalUrl.focus({ preventScroll: true });
-      });
-    }
+  if(sharedUrl){
+    window.location.replace("reels.html?share_url="+encodeURIComponent(sharedUrl));
+    return;
   }
   root.__looplyRefreshData = async () => {
     const [storyOk,feedOk,settingsResult] = await Promise.all([
