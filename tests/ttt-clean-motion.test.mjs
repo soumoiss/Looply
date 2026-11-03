@@ -26,7 +26,7 @@ test("Invites, acceptance, declines and rematches preserve the server-authoritat
 test("Victory is drawn over three server-confirmed cells, and new moves animate locally",async()=>{
   const src=await read("src/chat-ttt.js");
   const css=await read("assets/css/pages/chat.css");
-  assert.match(src,/const line=winningLine\(game\.board\|\|\[\]\)/);
+  assert.match(src,/line=winningLine\(game\.board\|\|\[\]\)/);
   assert.match(src,/const changedCell=paintedGameId===game\.gameId/);
   assert.match(src,/class="chat-ttt-win-line"/);
   assert.match(src,/viewBox="0 0 300 300"/);
