@@ -16,8 +16,8 @@ const enc = new TextEncoder();
 function mimeOf(file) {
   const declared = String(file.type || "").split(";")[0].trim().toLowerCase();
   const extension = String(file.name || "").split(".").pop().toLowerCase();
-  if (declared && declared !== "application/octet-stream") return APPROVED.has(declared) ? declared : "";
-  return MIME.get(extension) || "";
+  if (declared && declared !== "application/octet-stream") return declared;
+  return MIME.get(extension) || "application/octet-stream";
 }
 function b64(bytes) {
   let value = "";
@@ -40,6 +40,16 @@ async function privateKey(password, salt) {
 }
 function aad(letterId, name) {
   return enc.encode("looply:letter-file:v1:" + letterId + ":" + name);
+}
+export async function encodeAttachment(file) {
+  const text = "LOOPLY-LETTER-BINARY-V1\n" + b64(new Uint8Array(await file.arrayBuffer()));
+  return new File([text], "file-" + crypto.randomUUID() + ".txt", {type:"text/plain"});
+}
+export async function decodeAttachment(blob, attachment) {
+  const text = await blob.text();
+  if (!text.startsWith("LOOPLY-LETTER-BINARY-V1\n")) throw Error("Anexo não reconhecido.");
+  return new Blob([unb64(text.slice("LOOPLY-LETTER-BINARY-V1\n".length).trim())],
+    {type:attachment.type || "application/octet-stream"});
 }
 export async function encryptAttachment(file, letterId, password, salt) {
   const key = await privateKey(password, salt);
@@ -121,7 +131,7 @@ export function createLetterAttachmentComposer(root, notify) {
     if (selected.length >= MAX_FILES) { say("Máximo de 8 anexos por carta."); return; }
     if (file.size > MAX_BYTES) { say(file.name + ": limite de 25 MB por anexo."); return; }
     const mime = mimeOf(file);
-    if (!mime) { say(file.name + ": formato não permitido pelo armazenamento."); return; }
+    if (!APPROVED.has(mime) && file.size > PRIVATE_MAX_BYTES) { say(file.name + ": formatos adicionais até 15 MB."); return; }
     if (selected.some(item => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) return;
     selected.push({file, mime});
     say("");
@@ -205,17 +215,19 @@ export function createLetterAttachmentComposer(root, notify) {
           const sealed = options.password
             ? await encryptAttachment(item.file, letterId, options.password, options.salt)
             : null;
-          const blob = sealed ? sealed.blob : item.file;
+          const encoded = !sealed && !APPROVED.has(item.mime) ? await encodeAttachment(item.file) : null;
+          const blob = sealed ? sealed.blob : encoded || item.file;
           if (blob.size > MAX_BYTES) throw Error("Arquivo excede o limite após proteção.");
           const path = letterId + "/" + crypto.randomUUID() + "-" + safeName(blob.name);
           const {error} = await options.client.storage.from("looply-letters").upload(path, blob, {
-            contentType:sealed ? "text/plain" : item.mime, upsert:false
+            contentType:sealed || encoded ? "text/plain" : item.mime, upsert:false
           });
           if (error) throw Error("Falha ao enviar " + item.file.name + ": " + (error.message || "armazenamento indisponível"));
           uploaded.push(path);
           metadata.push({
             path, name:item.file.name, type:item.mime, size:item.file.size,
-            ...(sealed ? {encrypted:true,iv:sealed.iv} : {})
+            ...(sealed ? {encrypted:true,iv:sealed.iv} : {}),
+            ...(encoded ? {encoded:true} : {})
           });
         }
         say("");
@@ -267,11 +279,14 @@ export function createLetterAttachmentReader(root, client) {
           if (error || !data?.signedUrl) throw Error("Não foi possível acessar este anexo.");
           if (current !== version) return;
           let url = data.signedUrl;
-          if (item.encrypted) {
-            if (!password) throw Error("Desbloqueie a carta.");
+          if (item.encrypted || item.encoded) {
+            if (item.encrypted && !password) throw Error("Desbloqueie a carta.");
             const response = await fetch(url, {credentials:"omit"});
             if (!response.ok) throw Error("Falha ao recuperar o arquivo.");
-            const blob = await decryptAttachment(await response.blob(), item, letter, password);
+            const source = await response.blob();
+            const blob = item.encrypted
+              ? await decryptAttachment(source, item, letter, password)
+              : await decodeAttachment(source, item);
             if (current !== version) return;
             url = URL.createObjectURL(blob);
             urls.add(url);
