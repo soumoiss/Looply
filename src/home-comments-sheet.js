@@ -19,6 +19,18 @@ export function bindHomeCommentsSheet(root) {
     section = null; postId = "";
     dialog.querySelector("[data-hybrid-comments-content]").replaceChildren();
   }
+  // Re-attach the newest server-rendered comments after any Feed/Reels refresh.
+  // Do not leave an old, detached section in an open sheet after a new reply.
+  root.__looplyRefreshCommentsSheet=()=>{
+    if(!dialog.open||!postId)return;
+    const card=[...root.querySelectorAll("[data-post-card]")]
+      .find(node=>node.dataset.postCard===postId);
+    const next=card?.querySelector(".post-comments");
+    if(!next||next===section)return;
+    if(section?.parentNode) section.remove();
+    section=next;section.dataset.commentsExpanded="true";
+    dialog.querySelector("[data-hybrid-comments-content]").replaceChildren(section);
+  };
   dialog.querySelector("[data-hybrid-comments-close]").addEventListener("click", close);
   dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
   dialog.addEventListener("click", event => { if (event.target === dialog) close(); });
