@@ -722,8 +722,28 @@ function peerParticipantFor(participants, userId) {
 function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
-    <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label><textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="2" placeholder="Escreva uma mensagem..."></textarea>
-    <div class="chat-message-actions"><button class="chat-attachment-label" type="button" data-chat-choose-files aria-label="Anexar mídia" title="Anexar mídia">${icon("paperclip")}</button><button class="chat-sticker-button" type="button" data-chat-choose-sticker aria-label="Escolher figurinha" title="Escolher figurinha">▧</button><input id="files-${escapeHtml(conversationId)}" name="files" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"><input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha"><button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji" title="Inserir emoji">${icon("smile")}</button><button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button><button class="primary-button compact-button" type="submit">Enviar ${icon("send")}</button></div>
+    <div class="chat-premium-compose-row">
+      <div class="chat-premium-compose-box">
+        <button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji">${icon("smile")}</button>
+        <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label>
+        <textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="1" placeholder="Mensagem" enterkeyhint="send" aria-label="Escreva sua mensagem"></textarea>
+        <button class="chat-attachment-label" type="button" data-chat-premium-menu-toggle aria-expanded="false" aria-label="Abrir opções de anexos" aria-controls="premium-attachments-${escapeHtml(conversationId)}">${icon("paperclip")}</button>
+      </div>
+      <div class="chat-message-actions">
+        <button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button>
+        <button class="primary-button compact-button chat-premium-send" type="submit" aria-label="Enviar mensagem">Enviar ${icon("send")}</button>
+      </div>
+    </div>
+    <div id="premium-attachments-${escapeHtml(conversationId)}" class="chat-premium-attach-menu" data-chat-premium-menu hidden role="group" aria-label="Compartilhar na conversa">
+      <button type="button" data-chat-choose-files><span class="chat-premium-tile purple">${icon("image")}</span><span>Fotos e arquivos</span></button>
+      <button type="button" data-chat-premium-camera><span class="chat-premium-tile rose">${icon("camera")}</span><span>Câmera</span></button>
+      <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinha</span></button>
+      <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Jogos</span></button>
+      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Bilhete</span></button>
+      <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Música</span></button>
+    </div>
+    <input id="files-${escapeHtml(conversationId)}" name="files" class="chat-premium-file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf">
+    <input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha">
     <dialog class="chat-sticker-dialog" data-chat-sticker-picker aria-labelledby="chatStickerTitle-${escapeHtml(conversationId)}"><div class="chat-sticker-dialog-heading"><div><span class="section-kicker">Figurinhas</span><h3 id="chatStickerTitle-${escapeHtml(conversationId)}">Escolher figurinha</h3></div><button class="chat-sticker-close" type="button" data-chat-sticker-close aria-label="Fechar figurinhas">${icon("close")}</button></div>${stickerCatalogMarkup()}<button class="chat-sticker-browse" type="button" data-chat-sticker-browse>Usar imagem do aparelho</button><div class="chat-sticker-preview" data-chat-sticker-preview hidden></div><div class="chat-sticker-dialog-actions"><button class="text-button" type="button" data-chat-sticker-close>Cancelar</button><button class="primary-button compact-button" type="button" data-chat-sticker-confirm disabled>Usar figurinha</button></div></dialog>
     <div class="chat-recorder" data-chat-recording hidden><span class="chat-recording-indicator" aria-hidden="true"></span><span data-chat-record-time>00:00</span><button class="text-button" type="button" data-chat-record-pause aria-pressed="false">Pausar</button><button class="text-button" type="button" data-chat-record-stop>Finalizar áudio</button><button class="text-button" type="button" data-chat-record-cancel>Cancelar</button></div>
     <div class="chat-record-ready" data-chat-record-ready hidden><audio controls data-chat-record-preview></audio><button class="text-button" type="button" data-chat-record-cancel>Remover áudio</button></div>
