@@ -175,3 +175,29 @@ test("Cloudflare calls also mirror offers to Neon so the cross-page incoming-cal
   assert.equal(mirrored.length,1,"only offers require global inbox mirroring");
   await channel.unsubscribe();
 });
+
+test("Gartic canonical Neon transport prevents Cloudflare/fallback split-brain",async()=>{
+  const rooms=[];
+  const socketsBefore=MockSocket.instances.length;
+  const bridge=createNeonRealtimeBridge({
+    endpoint:"https://looply-original-realtime-staging.s0upoetamoiss.workers.dev",
+    getSession:async()=>({access_token:"sample.neon.auth.token"}),
+    fetcher:async()=>{throw Error("WebSocket ticket should not be requested");},
+    Socket:MockSocket,
+    fallback:{
+      async connect(id,onWire,onError,pollDelay){
+        rooms.push({id,pollDelay,onWire});
+        return {kind:"neon",readyState:1,send:async()=> "ok",close(){}};
+      }
+    }
+  });
+  const channel=bridge.channel("looply-game-"+conv,{config:{preferNeon:true}});
+  await new Promise((resolve,reject)=>channel.subscribe((status,error)=>
+    status==="SUBSCRIBED"?resolve():status==="CHANNEL_ERROR"?reject(error):null));
+  assert.equal(rooms.length,1);
+  assert.equal(rooms[0].id,conv);
+  assert.equal(rooms[0].pollDelay,750);
+  assert.equal(MockSocket.instances.length,socketsBefore);
+  assert.equal(await channel.send({type:"broadcast",event:"ttt",payload:{type:"gartic",kind:"voice-join"}}),"ok");
+  await channel.unsubscribe();
+});
