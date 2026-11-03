@@ -16,7 +16,7 @@ test("a single accessible primary navigation provides exactly seven stable local
     const nav=primaryNavigationMarkup(page,15);
     assert.equal((nav.match(/<nav /g)||[]).length,1,page);
     assert.equal((nav.match(/<a class="header-action"/g)||[]).length,7,page);
-    assert.equal((nav.match(/<svg /g)||[]).length,6,page);
+    assert.equal((nav.match(/<svg /g)||[]).length,7,page);
     assert.doesNotMatch(nav,/<img|<iframe|https?:\/\/|<script|\p{Extended_Pictographic}/u);
     for(const route of routes)assert.equal((nav.match(new RegExp('href="'+escape(route)+'"','g'))||[]).length,1,route);
     const expected=page==="conversation"?"chat":page;
@@ -68,7 +68,7 @@ test("mobile layout fits all seven links within 320px without horizontal scroll"
     read("assets/css/pages/shared.css"),read("assets/css/pages/home-hybrid.css"),
     read("assets/css/pages/feed-reels-experience.css")
   ]);
-  assert.match(shared,/grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
+  assert.match(shared,/grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
   assert.match(shared,/\.page-navigation \{ position: fixed/);
   assert.match(shared,/bottom: calc\(7px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(shared,/\.page-navigation \.header-action \{ min-width: 0; width: 100%; min-height: 54px/);
