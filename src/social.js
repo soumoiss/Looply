@@ -1318,7 +1318,8 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     const shareButton = event.target.closest("[data-share-post]");
     if (shareButton) {
       const postId = shareButton.dataset.sharePost;
-      const url = new URL("home.html#post-" + encodeURIComponent(postId), window.location.href).href;
+      const external=root.dataset.socialStream==="external" || Boolean(shareButton.closest("[data-post-card]")?.querySelector(".post-external"));
+      const url = new URL((external?"reels.html":"home.html")+"#post-" + encodeURIComponent(postId), window.location.href).href;
       try {
         if (navigator.share) await navigator.share({ title: "Publicação no Looply", url });
         else if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
@@ -1411,7 +1412,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
     form.dataset.submitting = "true";
     form.querySelectorAll('button[type="submit"]').forEach(control => control.disabled = true);
     let createdPostId = null;
-    let published = false;
+    let published = false, publishedExternal = false;
     let createdCommentId = null;
     const uploadedPaths = [];
     try {
@@ -1425,6 +1426,9 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
         if (!body && !externalUrl && !files.length) throw new Error("empty body");
         const parsedShare = !externalUrl ? extractExternalLinkFromText(body) : null;
         if (parsedShare?.url) externalUrl = parsedShare.url;
+        if(root.dataset.socialStream==="external"&&!externalUrl)
+          throw Error("Compartilhe um link válido do Instagram, TikTok ou YouTube");
+        publishedExternal=Boolean(externalUrl);
         // Preserve the entire caption, including hyperlinks, spaces, newlines
         // and emoji. Link detection may add an embed, but cannot rewrite text.
         const postBody = body ? String(formData.get("body") ?? "") : null;
@@ -1527,13 +1531,14 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       }
       const refreshed = await refreshSocialFeed(root, client, getUserId?.(), isAdmin);
       if (published) {
-        setStatus(form, refreshed ? "Sua publicação foi salva e aparece no Feed." :
-          "Publicação salva, mas o Feed não atualizou. Atualize a página para consultar.", !refreshed);
+        const destination=publishedExternal?"Reels":"Feed";
+        setStatus(form,refreshed?"Sua publicação foi salva e aparece em "+destination+".":
+          "Publicação salva em "+destination+". Atualize a página para consultar.",!refreshed);
         if (refreshed) {
           const toast = document.createElement("p");
           toast.className = "looply-publish-toast";
           toast.setAttribute("role", "status");
-          toast.textContent = "Publicado no Looply!";
+          toast.textContent = publishedExternal?"Publicado em Reels!":"Publicado no Feed!";
           root.append(toast);
           setTimeout(() => toast.remove(), 3500);
         }
