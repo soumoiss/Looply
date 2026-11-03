@@ -1,0 +1,19 @@
+/* Reels: same native Looply Feed cards, theme variables and comment sheet. */
+.page-reels .page-content{max-width:900px;margin-inline:auto}
+.page-reels .reels-destination-heading{display:flex;align-items:center;gap:15px;padding:19px 20px;margin-bottom:15px;background:var(--surface-strong,#fff);color:var(--text,#292233);border:1px solid var(--line,#ece0f3);border-radius:22px}
+.page-reels .reels-destination-symbol{display:grid;place-items:center;flex:none;width:51px;height:51px;border-radius:17px;background:var(--primary,#7952d5);color:#fff;font-size:24px;box-shadow:0 7px 19px color-mix(in srgb,var(--primary) 20%,transparent)}
+.page-reels .reels-destination-heading h1{font-size:22px;font-weight:850;letter-spacing:-.5px;margin:2px 0 3px}
+.page-reels .reels-destination-heading p{font-size:12px;line-height:1.5;color:var(--muted,#847b91);margin:0}
+.page-reels .social-area{width:100%}
+.page-reels .social-heading h2{font-size:17px}
+.page-reels .post-composer{margin-inline:auto;max-width:var(--feed-width,520px)}
+.page-reels .post-external .hybrid-external-watch{display:inline-flex}
+.page-reels .post-card .post-comments{margin-bottom:2px}
+.page-reels .post-create-header strong{font-size:14px}
+.page-home .feed-external-hint{padding:9px 12px;border-radius:12px;color:var(--muted,#847b91);background:var(--surface-soft,#faf6ff);font-size:12px}
+.page-home .feed-external-hint a{color:var(--primary,#7952d5);font-weight:800}
+@media(max-width:560px){
+  .page-reels .reels-destination-heading{padding:14px;gap:11px;border-radius:16px}
+  .page-reels .reels-destination-symbol{width:44px;height:44px;border-radius:13px}
+  .page-reels .reels-destination-heading h1{font-size:19px}
+}
