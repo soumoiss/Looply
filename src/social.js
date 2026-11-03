@@ -1125,6 +1125,34 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       form.querySelectorAll("button").forEach(button => button.disabled = false);
     }
   });
+  root.addEventListener("click",async event=>{
+    const button=event.target.closest("[data-toggle-comment-like]");
+    if(!button||!client||button.disabled)return;
+    const commentId=button.dataset.toggleCommentLike,userId=getUserId?.();
+    if(!commentId||!userId)return;
+    button.disabled=true;
+    const wasLiked=button.getAttribute("aria-pressed")==="true";
+    try{
+      const query=wasLiked
+        ? client.from("comment_likes").delete().eq("comment_id",commentId).eq("user_id",userId)
+        : client.from("comment_likes").upsert({comment_id:commentId,user_id:userId},
+          {onConflict:"comment_id,user_id",ignoreDuplicates:true});
+      const {error}=await query;
+      if(error)throw error;
+      const countNode=button.querySelector("[data-comment-like-count]");
+      const count=Math.max(0,(Number(countNode?.textContent)||0)+(wasLiked?-1:1));
+      button.setAttribute("aria-pressed",String(!wasLiked));
+      button.setAttribute("aria-label",!wasLiked?"Descurtir comentário":"Curtir comentário");
+      button.classList.toggle("is-liked",!wasLiked);
+      if(countNode)countNode.textContent=String(count);
+      const suffix=countNode?.nextElementSibling;
+      if(suffix)suffix.textContent=count===1?"curtida":"curtidas";
+    }catch(error){
+      console.warn("Comment like unavailable",error);
+      const status=button.closest(".comment-item")?.querySelector("[data-comment-status]");
+      if(status)status.textContent="Não foi possível atualizar a curtida.";
+    }finally{button.disabled=false;}
+  });
   root.addEventListener("click", async (event) => {
     const editCommentButton = event.target.closest("[data-edit-comment]");
     if (editCommentButton && client) {
@@ -1552,6 +1580,7 @@ export function setupSocialRealtime(client, userId, root, isAdmin = false) {
     .on("postgres_changes", { event: "*", schema: "public", table: "post_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => scheduleRefresh(root, client, userId, isAdmin))
+    .on("postgres_changes", { event: "*", schema: "public", table: "comment_likes" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .on("postgres_changes", { event: "*", schema: "public", table: "comment_media" }, () => scheduleRefresh(root, client, userId, isAdmin))
     .subscribe((state) => {
       const currentStatus = root.querySelector("[data-realtime-status]");
