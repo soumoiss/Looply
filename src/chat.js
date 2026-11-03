@@ -909,7 +909,7 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     // and never replace the thread, composer, textarea or recorder on sync.
     if (currentSidebar && freshSidebar) {
       currentSidebar.replaceWith(freshSidebar);
-      if (currentStories) freshSidebar.prepend(currentStories);
+      if (currentStories) (freshSidebar.querySelector("[data-chat-premium-stories]")||freshSidebar).prepend(currentStories);
     }
     applyConversationFilter(root);
 
