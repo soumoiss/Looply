@@ -1073,3 +1073,30 @@
 :is(.page-chat,.page-conversation) .chat-premium .chat-premium-game-card{
   text-shadow:none;
 }
+
+/* The account-wide font size preference scales the premium interface as well as
+   message content; no independent chat font settings are ever persisted. */
+:is(.page-chat,.page-conversation) .chat-premium {
+  --pm-font-size:var(--looply-root-font-size,16px);
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-heading h2 {
+  font-size:calc(var(--pm-font-size) * 1.34)!important;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-conversation-copy strong,
+:is(.page-chat,.page-conversation) .chat-premium .chat-thread-identity strong{
+  font-size:calc(var(--pm-font-size) * .88)!important;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-conversation-copy small,
+:is(.page-chat,.page-conversation) .chat-premium .chat-message>p[data-chat-message-body],
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-compose-box textarea{
+  font-size:calc(var(--pm-font-size) * .84)!important;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-message-meta :is(strong,time,a),
+:is(.page-chat,.page-conversation) .chat-premium .chat-conversation-copy time,
+:is(.page-chat,.page-conversation) .chat-premium .chat-delivery{
+  font-size:calc(var(--pm-font-size) * .66)!important;
+}
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-note-body,
+:is(.page-chat,.page-conversation) .chat-premium .chat-premium-music-card strong{
+  font-size:calc(var(--pm-font-size) * .84)!important;
+}
