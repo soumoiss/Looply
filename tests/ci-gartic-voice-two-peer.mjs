@@ -12,10 +12,14 @@ const browser=await chromium.launch({headless:true,args:[
 ]});
 const context=await browser.newContext({permissions:["camera","microphone"]});
 const pages=[await context.newPage(),await context.newPage()];
+const pageErrors=[];
 try{
  for(let i=0;i<2;i++){
   const page=pages[i];
-  page.on("pageerror",e=>console.error("[peer "+i+"] "+e));
+  page.on("pageerror",e=>{
+    pageErrors.push("[peer "+i+"] "+e.message);
+    console.error("[peer "+i+"] "+e);
+  });
   page.on("console",msg=>{if(["error","warning"].includes(msg.type()))console.error("[peer "+i+"] "+msg.text());});
   await page.route("**/src/*.js*",async route=>{
    const name=new URL(route.request().url()).pathname.split("/").at(-1);
@@ -181,4 +185,5 @@ try{
   const results=await incoming(pages[i]);
   console.log("Gartic RTP peer "+i,results);
  }
+ if(pageErrors.length)throw Error("Unhandled Gartic browser exceptions: "+pageErrors.join("; "));
 }finally{await context.close();await browser.close();}
