@@ -480,12 +480,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     if(!sender||sender===userId||!(game?.players||[]).some(x=>x.id===sender))return;
     if(packet.kind==="voice-join"){
       if(voiceJoined){
-        const peer=makePeer(sender);
-        // A late joiner must be discovered by BOTH participants, not only by
-        // the newest arrival. Previously the existing player never made a
-        // peer, so the deterministic initiator sometimes could not offer.
+        makePeer(sender);
+        // Both sides discover one another. onnegotiationneeded initiates the
+        // offer; manually creating a second offer caused silent duplicate SDP.
         void sendPacket({kind:"voice-ready",target:sender});
-        void peer.negotiate();
       }
       return;
     }
@@ -500,15 +498,6 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     }
     if(!voiceJoined || packet.target!==userId)return;
     try{
-      if(packet.kind==="voice-restart"){
-        const record=makePeer(sender);
-        if(record.initialOfferer && record.pc.signalingState==="stable"){
-          record.pc.restartIce?.();
-          record.needsNegotiation=true;
-          void record.negotiate();
-        }
-        return;
-      }
       if(packet.kind==="voice-restart"){
         const record=makePeer(sender);
         record.pc.restartIce?.();
@@ -699,10 +688,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       connected=status==="SUBSCRIBED";
       const node=root.querySelector("[data-gartic-audio-status]");
       if(node)node.textContent=connected?"Sala conectada":"Conectando ao tempo real…";
-      if(connected&&voiceJoined){
-        void sendPacket({kind:"voice-join"});
-        for(const record of remotePeers.values())void record.negotiate();
-      }
+      if(connected&&voiceJoined)void sendPacket({kind:"voice-join"});
     });
     let backgroundPolls=0;
     pollTimer=setInterval(()=>{
