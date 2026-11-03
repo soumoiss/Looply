@@ -31,7 +31,19 @@ async function loadNotifications(client,isAdmin=false) {
   if(appResult.error)throw appResult.error;
   if(chatResult.error)throw chatResult.error;
   if(adminResult.error)throw adminResult.error;
-  const appItems=(appResult.data||[]).map(item=>({...item,source:"app"}));
+  // Resolve external-post destinations without leaking any non-visible post:
+  // the reader's Neon RLS independently scopes this lookup.
+  const ids=[...new Set((appResult.data||[]).filter(item=>
+    ["post","comment","reply","post_like"].includes(item.kind)).map(item=>item.resource_id).filter(Boolean))];
+  const external=new Set();
+  for(let i=0;i<ids.length;i+=80){
+    const {data,error}=await client.from("posts").select("id,external_url").in("id",ids.slice(i,i+80));
+    if(!error)for(const post of data||[])if(typeof post.external_url==="string"&&post.external_url.trim())
+      external.add(post.id);
+  }
+  const appItems=(appResult.data||[]).map(item=>({
+    ...item,source:"app",externalPost:external.has(item.resource_id)
+  }));
   const chatItems=(chatResult.data||[]).map(item=>({...item,source:"chat",
     kind:item.kind==="letter"?"letter":"message"}));
   const adminPreview=item=>{
@@ -51,7 +63,7 @@ async function loadNotifications(client,isAdmin=false) {
 function notificationHref(item) {
   if (item.source === "admin") return item.kind === "admin_online" ? "usuarios.html" : "cartas.html";
   if (item.source === "chat") return `conversa.html?id=${encodeURIComponent(item.conversation_id)}`;
-  if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `home.html#post-${encodeURIComponent(item.resource_id)}`;
+  if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `${item.externalPost?"reels":"home"}.html#post-${encodeURIComponent(item.resource_id)}`;
   if (item.kind === "story_like") return "home.html#stories";
   if (item.kind === "story_mention") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "music_dedication") return `musicas.html#dedication-${encodeURIComponent(item.resource_id)}`;
@@ -62,9 +74,10 @@ function notificationHref(item) {
 function notificationMarkup(item) {
   const labels = { admin_online:"Usuário online", admin_letter_read:"Carta lida", admin_private_unlock:"Carta privada desbloqueada", post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", story_mention: "Menção em story", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
   const actor = item.actor ? (item.actor.display_name || item.actor.username) : "Looply";
+  const category=item.kind==="post_like"&&String(item.preview||"").includes("Curtiu seu comentário")?"Curtida em comentário":labels[item.kind]||"Atividade";
   return `<a class="notification-row ${item.read_at ? "is-read" : "is-unread"}" href="${notificationHref(item)}"
       data-notification-source="${item.source}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(notificationHref(item))}">
-    <span class="notification-dot" aria-hidden="true"></span><span class="notification-copy"><strong>${escapeHtml(labels[item.kind] || "Atividade")}</strong>
+    <span class="notification-dot" aria-hidden="true"></span><span class="notification-copy"><strong>${escapeHtml(category)}</strong>
     <span><b>${escapeHtml(actor)}</b> · ${escapeHtml(item.preview)}</span><time datetime="${escapeHtml(item.created_at)}">${escapeHtml(dateLabel(item.created_at))}</time></span>
   </a>`;
 }
