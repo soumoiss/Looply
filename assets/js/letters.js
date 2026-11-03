@@ -3,6 +3,7 @@ import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../..
 import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?v=sent-letter-hints-modal-20261023";
 import { signProfileAvatars } from "../../src/profiles.js";
 import { installScheduledLetters } from "../../src/scheduled-letters.js?v=scheduled-inbox-20261031";
+import { createLetterAttachmentComposer, createLetterAttachmentReader } from "../../src/letter-attachments.js?v=letter-native-attachments-20261103";
 import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?v=sender-editor-20261030";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -75,8 +76,8 @@ function visual() {
     '<section class="filtros" aria-label="Filtros"><div class="row date-buttons"><button type="button" id="filtrarData">Filtrar por data</button><button type="button" id="limparData">Limpar data</button></div><label class="date-input-label" id="dataWrap" hidden>Selecionar dia<input type="date" id="dataCartas" /></label><div class="row types"><button type="button" class="filter-btn active" data-filter="recebidas" aria-pressed="true">Cartas recebidas</button><button type="button" class="filter-btn" data-filter="enviadas" aria-pressed="false">Cartas enviadas</button><button type="button" class="filter-btn" data-filter="originais" aria-pressed="false">Cartas originais</button></div></section>' +
     '<section class="colecao-container" aria-label="Coleção de cartas"><div class="colecao-header"><div><span>COLEÇÃO</span><h2 id="colecaoTitulo">Minhas Cartas</h2></div><small id="colecaoCount">Carregando...</small></div><div class="progress-badge"><span id="lidasCount">Carregando leituras...</span></div><div class="subfiltros"><button type="button" data-sub="todas" class="sub active" aria-pressed="true">Todas</button><button type="button" data-sub="semdata" class="sub" aria-pressed="false">Sem data</button></div><p id="cartasStatus" role="status" aria-live="polite"></p><div id="cartasList" class="cartas-list" aria-live="polite"></div></section>' +
     '<section class="cartas-admin" id="cartasAdmin" hidden><div class="admin-title"><span>ADMINISTRAÇÃO</span><h2>Gerenciar cartas de usuários</h2></div><label>Consultar coleção de <select id="adminUserFilter"></select></label><div id="adminCartasCount" role="status"></div></section></section>' +
-    '<dialog class="modal-carta" id="modalEscrever" aria-labelledby="modalEscreverTitle"><div class="modal-header"><button type="button" id="fecharModal" aria-label="Fechar editor">✕</button><strong id="modalEscreverTitle">Escrever carta</strong><button type="submit" form="cartaComposeForm" id="enviarCarta" class="btn-enviar">Enviar</button></div><form id="cartaComposeForm" class="modal-body"><label>Título da carta<input id="tituloCarta" name="subject" placeholder="Ex.: Estou feliz! De Moisés" maxlength="80" required /></label><div class="destinatario-picker" id="destPicker"><label>Destinatário<input type="search" id="buscarDestinatario" placeholder="Pesquisar pessoa..." autocomplete="off" /></label><div id="listaUsuarios" role="group" aria-label="Escolher destinatário"></div></div><label>Mensagem<textarea id="textoCarta" name="body" placeholder="Escreva sua carta..." maxlength="5000" required></textarea></label><div class="privada-section"><label><input type="checkbox" id="isPrivada" /> Carta privada com senha</label><div id="privadaFields" hidden><label>Senha<input id="senhaCarta" type="password" minlength="8" maxlength="256" autocomplete="new-password" /></label><label>Dica (opcional)<input id="dicaCarta" maxlength="240" placeholder="Dica para a senha" /></label></div></div><p id="enviarStatus" role="alert"></p></form></dialog>' +
-    "<dialog class=\"modal-carta modal-read\" id=\"modalLeituraNova\" aria-labelledby=\"readCartaTitulo\"><div class=\"modal-header\"><button type=\"button\" id=\"fecharLeituraNova\" aria-label=\"Fechar carta\">✕</button><strong>Leitura da carta</strong><span aria-hidden=\"true\">✉</span></div><div class=\"modal-body\"><h2 id=\"readCartaTitulo\"></h2><p id=\"readCartaAutor\"></p><p id=\"readCartaData\"></p><div id=\"readCartaDicas\" class=\"letter-read-hints\"></div><form id=\"desbloquearNova\" hidden><label>Senha da carta<input id=\"senhaLeituraNova\" type=\"password\" autocomplete=\"current-password\" required></label><button class=\"btn-enviar\" type=\"submit\">Desbloquear</button></form><div id=\"readCartaTexto\" class=\"carta-texto\"></div><div class=\"letter-reader-actions\"><button id=\"editarCartaLida\" class=\"btn-enviar\" type=\"button\" hidden>Editar carta</button><button id=\"mostrarDicaNova\" class=\"letter-aux-button\" type=\"button\" hidden aria-expanded=\"false\" aria-controls=\"formDicaNova\">Adicionar dica</button></div><form id=\"formDicaNova\" class=\"letter-hint-compact\" hidden><label>Nova dica<input name=\"password_hint\" maxlength=\"240\" placeholder=\"Uma pista para a senha\"></label><button class=\"btn-enviar\" type=\"submit\">Salvar dica</button><p id=\"novaDicaStatus\" role=\"status\" aria-live=\"polite\"></p></form><p id=\"readCartaStatus\" role=\"status\"></p></div></dialog>" +
+    '<dialog class="modal-carta" id="modalEscrever" aria-labelledby="modalEscreverTitle"><div class="modal-header"><button type="button" id="fecharModal" aria-label="Fechar editor">✕</button><strong id="modalEscreverTitle">Escrever carta</strong><button type="submit" form="cartaComposeForm" id="enviarCarta" class="btn-enviar">Enviar</button></div><form id="cartaComposeForm" class="modal-body"><label>Título da carta<input id="tituloCarta" name="subject" placeholder="Ex.: Estou feliz! De Moisés" maxlength="80" required /></label><div class="destinatario-picker" id="destPicker"><label>Destinatário<input type="search" id="buscarDestinatario" placeholder="Pesquisar pessoa..." autocomplete="off" /></label><div id="listaUsuarios" role="group" aria-label="Escolher destinatário"></div></div><label>Mensagem<textarea id="textoCarta" name="body" placeholder="Escreva sua carta..." maxlength="5000" required></textarea></label><div class="privada-section"><label><input type="checkbox" id="isPrivada" /> Carta privada com senha</label><div id="privadaFields" hidden><label>Senha<input id="senhaCarta" type="password" minlength="8" maxlength="256" autocomplete="new-password" /></label><label>Dica (opcional)<input id="dicaCarta" maxlength="240" placeholder="Dica para a senha" /></label></div></div><div class="letter-compose-files" aria-label="Anexos da carta"><div class="letter-compose-file-actions"><button type="button" id="letterImport" class="letter-file-action" aria-label="Selecionar arquivos do celular">📎 Arquivo</button><input id="letterFileInput" type="file" multiple hidden aria-label="Escolher arquivos"><button type="button" id="letterRecord" class="letter-file-action" aria-label="Gravar áudio">🎙 Gravar áudio</button><button type="button" id="letterStopRecord" class="letter-file-action is-recording" hidden>■ Parar</button></div><span id="letterFileStatus" class="letter-file-status" role="status" aria-live="polite"></span><ul id="letterFileList" class="letter-file-list" aria-label="Anexos selecionados"></ul></div><p id="enviarStatus" role="alert"></p></form></dialog>' +
+    "<dialog class=\"modal-carta modal-read\" id=\"modalLeituraNova\" aria-labelledby=\"readCartaTitulo\"><div class=\"modal-header\"><button type=\"button\" id=\"fecharLeituraNova\" aria-label=\"Fechar carta\">✕</button><strong>Leitura da carta</strong><span aria-hidden=\"true\">✉</span></div><div class=\"modal-body\"><h2 id=\"readCartaTitulo\"></h2><p id=\"readCartaAutor\"></p><p id=\"readCartaData\"></p><div id=\"readCartaDicas\" class=\"letter-read-hints\"></div><form id=\"desbloquearNova\" hidden><label>Senha da carta<input id=\"senhaLeituraNova\" type=\"password\" autocomplete=\"current-password\" required></label><button class=\"btn-enviar\" type=\"submit\">Desbloquear</button></form><div id=\"readCartaTexto\" class=\"carta-texto\"></div><div class=\"letter-reader-actions\"><button id=\"editarCartaLida\" class=\"btn-enviar\" type=\"button\" hidden>Editar carta</button><button id=\"mostrarDicaNova\" class=\"letter-aux-button\" type=\"button\" hidden aria-expanded=\"false\" aria-controls=\"formDicaNova\">Adicionar dica</button></div><form id=\"formDicaNova\" class=\"letter-hint-compact\" hidden><label>Nova dica<input name=\"password_hint\" maxlength=\"240\" placeholder=\"Uma pista para a senha\"></label><button class=\"btn-enviar\" type=\"submit\">Salvar dica</button><p id=\"novaDicaStatus\" role=\"status\" aria-live=\"polite\"></p></form><div id=\"readCartaAttachments\" class=\"letter-read-attachments\" aria-label=\"Anexos da carta\"></div><p id=\"readCartaStatus\" role=\"status\"></p></div></dialog>" +
     editorMarkup +
     '<div id="cartasToast" role="status" aria-live="polite" class="cartas-toast" hidden></div>';
 }
@@ -104,6 +105,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     notice.classList.toggle("error", error);
     clearTimeout(notify.timer); notify.timer = setTimeout(() => { notice.hidden = true; }, 3500);
   };
+  const composerAttachments = createLetterAttachmentComposer(root, notify);
+  const readerAttachments = createLetterAttachmentReader(root, client);
   const fullName = (id) => { const p = people.find(x => x.id === id); return p?.display_name || p?.username || "Perfil"; };
   const ownerTarget = () => isAdmin ? state.adminUser : user.id;
   const filtered = () => {
@@ -194,8 +197,10 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#listaUsuarios").innerHTML = matches.length ? matches.map(p => '<button type="button" class="recipient'+(p.id===state.selectedRecipient?' selected':'')+'" data-recipient="'+h(p.id)+'" aria-pressed="'+(p.id===state.selectedRecipient)+'">'+
       '<span class="recipient-avatar">'+(p.avatarUrl ? '<img src="'+h(p.avatarUrl)+'" alt="" loading="lazy"/>' : h((p.display_name||p.username||"?")[0].toUpperCase()))+'</span><span class="recipient-meta"><strong>'+h(p.display_name||p.username)+'</strong><small>@'+h(p.username)+'</small></span><span class="recipient-select">'+(p.id===state.selectedRecipient?'Selecionado':'Selecionar')+'</span></button>').join("") : '<p class="cartas-empty">Nenhum destinatário encontrado.</p>';
   };
-  const close = (id) => { const dialog=$("#"+id); if (dialog?.open) dialog.close(); };
-  $("#btnEscrever").addEventListener("click", () => { state.selectedRecipient = null; $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#enviarStatus").textContent=""; renderRecipients(); $("#modalEscrever").showModal(); });
+  const close = (id) => { if (id === "modalEscrever") composerAttachments.stop(true); if (id === "modalLeituraNova") readerAttachments.clear(); const dialog=$("#"+id); if (dialog?.open) dialog.close(); };
+  $("#modalEscrever").addEventListener("close", () => composerAttachments.clear());
+  $("#modalLeituraNova").addEventListener("close", () => readerAttachments.clear());
+  $("#btnEscrever").addEventListener("click", () => { composerAttachments.clear(); state.selectedRecipient = null; $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#enviarStatus").textContent=""; renderRecipients(); $("#modalEscrever").showModal(); });
   scheduledController = installScheduledLetters({
     root,client,user,people,sealLetter,openProtectedLetter,notify,
     getRecipient:()=>state.selectedRecipient,
@@ -502,6 +507,35 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
       const {data,error}=await client.from("community_letters").insert(payload).select("id,subject,recipient_id,created_at");
       if(error) throw error;
       if(!Array.isArray(data)||!data.length) throw new Error("O banco não confirmou a carta.");
+      const createdId = data[0].id;
+      let uploadedPaths = [];
+      if (composerAttachments.count) {
+        $("#enviarStatus").textContent = "Enviando anexos...";
+        try {
+          const sent = await composerAttachments.upload(createdId, {
+            client, password:privateCarta ? $("#senhaCarta").value : "",
+            salt:sealed.password_salt
+          });
+          uploadedPaths = sent.uploaded;
+          if (sent.metadata.length !== composerAttachments.count) throw Error("Nem todos os anexos foram enviados.");
+          const {error:metadataError} = await client.from("community_letters")
+            .update({attachments:sent.metadata}).eq("id",createdId).eq("sender_id",user.id);
+          if (metadataError) throw metadataError;
+        } catch (uploadError) {
+          const cleanupPaths = uploadError.uploaded || uploadedPaths;
+          if (cleanupPaths.length) {
+            const removal = await client.storage.from("looply-letters").remove(cleanupPaths);
+            if (removal.error) console.warn("Could not roll back failed letter upload",removal.error);
+          }
+          // Roll back this newly inserted letter only; never delete pre-existing data.
+          const rollback = await client.from("community_letters").delete().eq("id",createdId).eq("sender_id",user.id);
+          if (rollback.error) {
+            await loadCurrent();
+            throw Error("A carta foi criada, mas alguns anexos não foram salvos. Confira Enviadas antes de tentar novamente.");
+          }
+          throw uploadError;
+        }
+      }
       close("modalEscrever");form.reset();state.selectedRecipient=null;state.filter="enviadas";state.sub="todas";state.date="";
       root.querySelectorAll("[data-filter]").forEach(b=>{const yes=b.dataset.filter===state.filter;b.classList.toggle("active",yes);b.setAttribute("aria-pressed",String(yes));});
       root.querySelectorAll("[data-sub]").forEach(b=>{const yes=b.dataset.sub==="todas";b.classList.toggle("active",yes);b.setAttribute("aria-pressed",String(yes));});
@@ -561,6 +595,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
      $("#mostrarDicaNova").hidden = !(senderControls && letter.is_protected);
      $("#mostrarDicaNova").setAttribute("aria-expanded","false");
      $("#formDicaNova").hidden = true; $("#formDicaNova").reset(); $("#novaDicaStatus").textContent = "";
+    readerAttachments.clear();
     $("#readCartaTitulo").textContent=letter.subject;
     $("#readCartaAutor").textContent="De "+fullName(letter.sender_id)+" · Para "+fullName(letter.recipient_id);
     $("#readCartaData").textContent=day(letter.created_at);
@@ -568,6 +603,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     $("#desbloquearNova").hidden=!letter.is_protected;$("#readCartaTexto").hidden=Boolean(letter.is_protected);
     $("#readCartaTexto").textContent=letter.is_protected?"":letter.body||"";$("#readCartaStatus").textContent="";$("#senhaLeituraNova").value="";
     $("#modalLeituraNova").showModal();
+    if (!letter.is_protected) void readerAttachments.render(letter);
     if(!letter.is_protected && letter.recipient_id===user.id && letter.sender_id!==user.id) {
       void client.rpc("v23_mark_community_letter_read",{p_letter_id:letter.id})
         .then(({error})=>{if(error)console.warn("Could not record letter read",error);});
@@ -578,6 +614,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, isAdm
     try{
       const opened=await openProtectedLetter(letter,$("#senhaLeituraNova").value);
       $("#readCartaTexto").textContent=opened;$("#readCartaTexto").hidden=false;
+      void readerAttachments.render(letter,$("#senhaLeituraNova").value);
       $("#desbloquearNova").hidden=true;$("#readCartaStatus").textContent="Carta desbloqueada.";
       if(letter.recipient_id===user.id && letter.sender_id!==user.id){
         const [{error:unlockError},{error:readError}]=await Promise.all([
