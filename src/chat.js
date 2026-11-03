@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { requestImmediateMessagePush } from "./chat-push-alert.js";
+import { premiumChatCardMarkup } from "./chat-premium-cards.js";
 import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
@@ -290,7 +291,7 @@ export function chatMarkup(data, userId) {
     <label class="visually-hidden" for="chatConversationSearch">Buscar conversa</label>
     <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
     <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
-      <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button>
+      <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button><button type="button" data-chat-filter="unread" aria-pressed="false">Não lidas</button><button type="button" data-chat-filter="groups" aria-pressed="false">Grupos</button><button type="button" data-chat-filter="favorites" aria-pressed="false">Favoritas</button><button type="button" data-chat-filter="archived" aria-pressed="false">Arquivadas</button>
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
@@ -318,11 +319,11 @@ export function chatMarkup(data, userId) {
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
   </details>`;
-  return `<section class="chat-area" data-chat-area aria-labelledby="chatTitle">
-    <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live" data-chat-live role="status">Atualizações ao vivo</span></div>
+  return `<section class="chat-area chat-premium" data-chat-area aria-labelledby="chatTitle">
     <div class="chat-layout">
       <aside class="chat-sidebar">
-        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
+        <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live" data-chat-live role="status">Ao vivo</span><button class="chat-premium-head-action" type="button" data-chat-premium-new aria-label="Nova conversa">${icon("plus")}</button><button class="chat-premium-head-action" type="button" data-chat-premium-new-group aria-label="Criar grupo">${icon("users")}</button></div>
+        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-premium-stories-slot" data-chat-premium-stories></div><div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
         <details class="chat-panel chat-search-panel"><summary>Encontrar uma pessoa</summary>
           <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Username</label><input id="chatSearch" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar pelo username"><button class="text-button" type="submit">Buscar</button></form>
           ${searchMessage}
@@ -337,7 +338,7 @@ export function chatMarkup(data, userId) {
         </details>
         <details class="chat-panel chat-notifications-panel"><summary>Notificações <span class="chat-summary-unread">${data.notifications.filter((item) => !item.read_at).length}</span></summary>${notificationsMarkup(data.notifications)}</details>
       </aside>
-      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div></div></section>
+      <section class="chat-thread-panel" aria-label="Mensagens da conversa"><div class="chat-thread" data-chat-thread><div class="chat-premium-placeholder"><div class="chat-premium-placeholder-icon">${icon("chat")}</div><strong>Suas mensagens</strong><span>Selecione uma conversa para compartilhar momentos.</span><button type="button" data-chat-premium-new>Nova conversa</button></div></div></section>
     </div>
   </section>`;
 }
