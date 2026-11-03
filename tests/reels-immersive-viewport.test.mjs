@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const contains=(content,fragment)=>assert.ok(content.includes(fragment),"Expected: "+fragment);
 
@@ -44,7 +45,7 @@ test("Original Reel actions and both entrypoints remain wired to the same viewer
     contains(src,anchor);
   }
   const checked=spawnSync(process.execPath,
-    ["--check",new URL("../src/home-hybrid-reels.js",import.meta.url).pathname],
+    ["--check",fileURLToPath(new URL("../src/home-hybrid-reels.js",import.meta.url))],
     {encoding:"utf8"});
   assert.equal(checked.status,0,checked.stderr);
 });
