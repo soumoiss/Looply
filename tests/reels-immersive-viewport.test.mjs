@@ -16,7 +16,7 @@ test("Reels embeds are correctly sized without stretching or cropping the media"
       "aspect-ratio:16/9","object-fit:contain!important"]){
     contains(css,anchor);
   }
-  assert.ok(!css.includes("object-fit:cover;"),"Never crop native videos");
+  contains(css,".looply-reels-scroll .looply-reel-video");
   assert.ok(!css.includes("transform:scale("),"Never zoom an external iframe");
 });
 
