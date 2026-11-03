@@ -38,7 +38,8 @@ export function mountLiveNotificationToasts(client,userId){
     close.textContent="×";close.setAttribute("aria-label","Fechar notificação");
     top.append(label,close);
     const body=document.createElement("p");
-    body.textContent=source==="chat"?safePreview(item.preview)||"Nova mensagem":
+    body.textContent=source==="chat"?
+      ((item.actor?author+" · ":"")+(safePreview(item.preview)||"Nova mensagem")):
       (author+" · "+(safePreview(item.preview)||"Nova atividade"));
     const anchor=document.createElement("a");
     anchor.href=source==="chat"?"conversa.html?id="+encodeURIComponent(item.conversation_id):
@@ -60,10 +61,20 @@ export function mountLiveNotificationToasts(client,userId){
           .select("id,kind,preview,created_at,read_at,actor:profiles!notifications_actor_id_fkey(username,display_name)")
           .eq("recipient_id",userId).gt("created_at",since).order("created_at",{ascending:false}).limit(12),
         client.from("chat_notifications")
-          .select("id,conversation_id,preview,created_at,read_at")
+          .select("id,message_id,conversation_id,preview,created_at,read_at")
           .eq("user_id",userId).gt("created_at",since).order("created_at",{ascending:false}).limit(12)
       ]);
       if(app.error||chat.error)throw app.error||chat.error;
+      const chatMessages=[...new Set((chat.data||[]).map(row=>row.message_id).filter(Boolean))];
+      if(chatMessages.length){
+        const {data:messages,error:messageError}=await client.from("chat_messages")
+          .select("id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+          .in("id",chatMessages.slice(0,12));
+        if(!messageError){
+          const senders=new Map((messages||[]).map(msg=>[msg.id,msg.author]));
+          for(const note of chat.data||[])note.actor=senders.get(note.message_id)||null;
+        }
+      }
       const ordered=[...(app.data||[]).map(row=>({row,source:"app"})),
         ...(chat.data||[]).map(row=>({row,source:"chat"}))]
         .sort((a,b)=>Date.parse(a.row.created_at)-Date.parse(b.row.created_at));
