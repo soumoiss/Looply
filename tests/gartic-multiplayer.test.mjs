@@ -43,13 +43,13 @@ test("Neon alone validates secrets, guesses, manual hint positions and winning s
  assert.match(sql,/IF count_correct>=count_players-1 THEN/);
 });
 
-test("Games icon appears for both group and direct chats, preserving tic tac toe",async()=>{
- const [enh,icons,ttt,chat,conversation]=await Promise.all([
+test("Games is available in the shared composer attachment menu, preserving tic tac toe",async()=>{
+ const [enh,icons,ttt,chat,conversation,composer]=await Promise.all([
   get("src/chat-enhancements.js"),get("src/icons.js"),get("src/chat-ttt.js"),
-  get("chat.html"),get("conversa.html")
+  get("chat.html"),get("conversa.html"),get("src/chat.js")
  ]);
- assert.match(enh,/icon\("gamepad"\)/);
- assert.doesNotMatch(enh,/if \(!isGroup\(\) && !heading\.querySelector\("\[data-v2-game\]"\)\)/);
+ assert.match(composer,/data-chat-premium-menu hidden[\s\S]*data-v2-game data-chat-premium-game[^\n]*icon\("gamepad"\)/);
+ assert.doesNotMatch(enh,/heading\.insertAdjacentHTML[^\n]*data-v2-game/);
  assert.match(enh,/setupChatGartic/);
  assert.match(icons,/gamepad:/);
  assert.match(ttt,/v25_ttt_move/);

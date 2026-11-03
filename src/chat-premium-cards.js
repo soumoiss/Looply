@@ -59,13 +59,13 @@ export function premiumChatCardMarkup(body){
       '<span class="chat-premium-card-kicker">💌 &nbsp; Um bilhete para você</span>' +
       '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p>' +
       '<span class="chat-premium-note-seal" aria-hidden="true">✉</span></section>';
-  const query=encodeURIComponent(card.title+" "+card.artist);
+
   return '<section class="chat-premium-music-card" aria-label="Música compartilhada">' +
     '<span class="chat-premium-music-cover" aria-hidden="true">♫</span>' +
     '<div class="chat-premium-music-info"><small>Música · '+escapeHtml(card.provider.toUpperCase())+'</small>' +
     '<strong>'+escapeHtml(card.title)+'</strong><span>'+escapeHtml(card.artist)+'</span></div>' +
-    '<button type="button" class="chat-premium-music-play" data-chat-premium-play-music="'+escapeHtml(card.previewUrl||"")+'" data-chat-premium-music-query="'+escapeHtml(query)+'" ' +
-    'aria-label="Ouvir prévia da música '+escapeHtml(card.title)+'">▶</button>' +
+    (card.previewUrl ? '<button type="button" class="chat-premium-music-play" data-chat-premium-play-music="'+escapeHtml(card.previewUrl)+'" ' +
+    'aria-label="Ouvir prévia da música '+escapeHtml(card.title)+'">▶</button>' : '') +
     '<a class="chat-premium-music-provider" href="'+escapeHtml(card.url)+'" target="_blank" rel="noopener noreferrer">Abrir no serviço ↗</a>' +
     '</section>';
 }

@@ -84,7 +84,6 @@ export function setupChatEnhancements(root, client, userId) {
     const heading = root.querySelector(".chat-thread-heading");
     if (heading && !heading.querySelector("[data-v2-thread-settings]")) {
       heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-thread-settings aria-label="Configurações da conversa">' + icon("more") + '</button>');
-      if (!root.querySelector("[data-chat-premium-game]") && !heading.querySelector("[data-v2-game]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-v2-game aria-label="Abrir Games" title="Games">' + icon("gamepad") + '</button>');
       heading.dataset.conversationId = selectedConversation();
     }
     root.querySelectorAll("[data-chat-open]").forEach((item) => {
