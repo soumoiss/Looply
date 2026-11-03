@@ -14,13 +14,15 @@ export const tttScore=(game,userId)=>{
 export function setupChatTtt({root,client,userId,selectedConversation,isGroup,openModal,closeModal,toast}){
   let conversationId="",channel=null,timer=null,current=null,busy=false;
   let dismissedId="",hydration=null,hydrationConversation="",disposed=false,offline=false;
+  let paintedGameId="",paintedBoard=null;
   const avatars=new Map();
   const gameIsOpen=()=>Boolean(root.querySelector("[data-chat-v2-modal]:not([hidden]) [data-v2-game-board]"));
   function showConnectionState(){
     const notice=root.querySelector("[data-v2-game-board] .chat-ttt-connection");
-    if(notice)notice.textContent=offline
-      ?"Sem conexão. A partida será sincronizada automaticamente."
-      :"Jogadas validadas pelo servidor";
+    if(notice){
+      notice.textContent=offline?"Sem conexão":"";
+      notice.classList.toggle("is-offline",offline);
+    }
     if(offline)root.querySelectorAll("[data-v2-game-board] [data-v2-cell]")
       .forEach(button=>button.disabled=true);
   }
@@ -40,12 +42,14 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
   function playerCard(player,mark,score,isTurn,isWinner){
     const name=tttDisplayName(player),handle=player?.username?"@"+player.username:"";
     return '<article class="chat-ttt-player'+(isTurn?' is-turn':'')+(isWinner?' is-winner':'')+
-      '" aria-label="Jogador '+mark+': '+escapeHtml(name)+'">'+
-      '<div class="chat-ttt-avatar" data-ttt-avatar="'+escapeHtml(player?.id)+'" aria-hidden="true">'+escapeHtml(name[0]?.toUpperCase()||"?")+'</div>'+
-      '<div class="chat-ttt-identity"><span class="chat-ttt-player-symbol">'+mark+' · Jogador '+mark+'</span>'+
-      '<strong title="'+escapeHtml(name)+'">'+escapeHtml(name)+'</strong>'+
+      '" aria-label="Jogador '+mark+': '+escapeHtml(name)+(isTurn?', sua vez':'')+'">'+
+      '<span class="chat-ttt-avatar" data-ttt-avatar="'+escapeHtml(player?.id)+'" aria-hidden="true">'+
+      escapeHtml(name[0]?.toUpperCase()||"?")+'</span>'+
+      '<div class="chat-ttt-identity"><strong title="'+escapeHtml(name)+'">'+escapeHtml(name)+'</strong>'+
       '<small title="'+escapeHtml(handle)+'">'+escapeHtml(handle)+'</small>'+
-      '<span class="chat-ttt-win-count">'+score+' '+(score===1?'vitória':'vitórias')+'</span></div></article>';
+      '<span class="chat-ttt-win-count">'+score+' '+(score===1?'vitória':'vitórias')+'</span></div>'+
+      '<span class="chat-ttt-player-symbol is-'+mark.toLowerCase()+'" aria-label="'+mark+'">'+mark+'</span>'+
+      '</article>';
   }
   async function setAvatars(game){
     for(const person of [game.x,game.o]){
@@ -75,40 +79,66 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     const finished=game.status==="finished",invited=game.status==="invited";
     const active=game.status==="active",me=game.turn===userId,mine=game.invitedBy===userId;
     const status=invited
-      ?(mine?"Convite enviado. Aguardando resposta…":tttDisplayName(game.x.id===game.invitedBy?game.x:game.o)+" convidou você para jogar.")
-      :finished?(game.isDraw?"Partida empatada!":"🏆 "+nameForId(game.winnerId)+" venceu a partida!")
-      :me?"É a sua vez, "+nameForId(userId)+"!":"É a vez de "+nameForId(game.turn)+".";
+      ?(mine?"Convite enviado":"Convite recebido")
+      :finished?(game.isDraw?"Empate":game.winnerId===userId?"Você venceu!":
+        nameForId(game.winnerId)+" venceu!")
+      :me?"Sua vez":"Vez de "+nameForId(game.turn);
     const scores=tttScore(game,userId),line=winningLine(game.board||[]);
-    const board=(game.board||Array(9).fill("")).map((cell,index)=>{
+    const cells=Array.isArray(game.board)&&game.board.length===9?game.board:Array(9).fill("");
+    const changedCell=paintedGameId===game.gameId&&paintedBoard
+      ?cells.findIndex((mark,i)=>mark&&!paintedBoard[i]&&paintedBoard[i]!==mark):-1;
+    paintedGameId=game.gameId;paintedBoard=cells.slice();
+    const board=cells.map((cell,index)=>{
       const won=line.includes(index)&&finished;
-      return '<button type="button" class="chat-v2-cell'+(won?' is-winning':'')+(cell?' is-played':'')+
+      return '<button type="button" class="chat-v2-cell'+(won?' is-winning':'')+
+        (cell?' is-played':'')+(index===changedCell?' is-new':'')+
+        (cell==="O"?' is-o':cell==="X"?' is-x':'')+
         '" data-v2-cell="'+index+'" aria-label="Casa '+(index+1)+(cell?': '+cell:'')+'"'+
-        (busy||!active||!me||cell?' disabled':'')+'>'+escapeHtml(cell||"")+'</button>';
+        (busy||offline||!active||!me||cell?' disabled':'')+'>'+
+        (cell?'<span class="chat-ttt-mark">'+escapeHtml(cell)+'</span>':'')+
+        '</button>';
     }).join("");
+    const winSvg=line.length&&finished&&!game.isDraw
+      ?'<svg class="chat-ttt-win-line" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">'+
+        '<line x1="'+((line[0]%3)*100+50)+'" y1="'+(Math.floor(line[0]/3)*100+50)+
+        '" x2="'+((line[2]%3)*100+50)+'" y2="'+(Math.floor(line[2]/3)*100+50)+'"/></svg>'
+      :'';
     const actions=invited
       ?(mine?'<button type="button" class="chat-v2-button" data-v2-decline>Cancelar convite</button>'
-        :'<button type="button" class="chat-v2-button" data-v2-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-v2-accept>Aceitar convite</button>')
-      :finished?'<button type="button" class="chat-v2-button" data-v2-close-game>Fechar</button><button type="button" class="chat-v2-button is-primary" data-v2-rematch>Jogar novamente</button>'
-      :'<button type="button" class="chat-v2-button" data-v2-close-game>Fechar por enquanto</button>';
-    openModal('<div data-v2-game-board class="chat-ttt-game">'+
-      '<span class="chat-v2-kicker">Jogo da velha · Rodada '+(Number(game.round)||1)+'</span>'+
-      '<h2 id="chatV2ModalTitle">Partida no Looply</h2>'+
+        :'<button type="button" class="chat-v2-button" data-v2-decline>Recusar</button>'+
+         '<button type="button" class="chat-v2-button is-primary" data-v2-accept>Aceitar</button>')
+      :finished?'<button type="button" class="chat-v2-button" data-v2-close-game>Fechar</button>'+
+        '<button type="button" class="chat-v2-button is-primary" data-v2-rematch>Jogar novamente</button>'
+      :'<button type="button" class="chat-v2-button" data-v2-close-game>Fechar</button>';
+    openModal('<div data-v2-game-board class="chat-ttt-game'+(finished?' is-finished':'')+
+      (invited?' is-invited':'')+'">'+
+      '<header class="chat-ttt-heading"><h2 id="chatV2ModalTitle">Jogo da Velha</h2>'+
+      '<span class="chat-ttt-round">Rodada '+(Number(game.round)||1)+'</span></header>'+
       '<div class="chat-ttt-players">'+playerCard(game.x,"X",scores.x,game.turn===game.xPlayer,game.winnerId===game.xPlayer)+
       playerCard(game.o,"O",scores.o,game.turn===game.oPlayer,game.winnerId===game.oPlayer)+'</div>'+
-      '<p class="chat-v2-game-status" role="status" aria-live="polite">'+escapeHtml(status)+'</p>'+
-      '<p class="chat-v2-scoreboard" data-v2-scoreboard>Empates: <strong>'+scores.draws+'</strong> · Placar salvo no Neon</p>'+
-      '<div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">'+board+'</div>'+
-      '<p class="chat-ttt-connection">Jogadas validadas pelo servidor</p>'+
+      '<div class="chat-ttt-match-meta"><span class="chat-v2-game-status'+(finished?' is-finished':'')+
+        '" role="status" aria-live="polite">'+escapeHtml(status)+'</span>'+
+      '<span class="chat-v2-scoreboard" data-v2-scoreboard>Empates: <strong>'+scores.draws+'</strong></span></div>'+
+      '<div class="chat-ttt-board-frame"><div class="chat-v2-board" role="group" aria-label="Tabuleiro do jogo da velha">'+
+      board+winSvg+'</div></div>'+
+      '<p class="chat-ttt-connection" role="status" aria-live="polite"></p>'+
       '<div class="chat-v2-actions">'+actions+'</div></div>');
     showConnectionState();
     void setAvatars(game);
   }
   function showInvitePrompt(){
-    openModal('<span class="chat-v2-kicker">Jogo da velha</span>'+
-      '<h2 id="chatV2ModalTitle">Convidar para jogar?</h2>'+
-      '<p>Uma partida privada nesta conversa. Nomes, turnos e vitórias são verificados pelo Neon.</p>'+
-      '<div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-v2-close>Cancelar</button>'+
-      '<button type="button" class="chat-v2-button is-primary" data-v2-send-invite>Enviar convite</button></div>');
+    paintedGameId="";paintedBoard=null;
+    openModal('<div data-v2-game-board class="chat-ttt-invite">'+
+      '<h2 id="chatV2ModalTitle">Jogo da Velha</h2>'+
+      '<div class="chat-ttt-invite-art" aria-hidden="true">'+
+      '<span class="chat-ttt-invite-cross">×</span>'+
+      '<span class="chat-ttt-invite-ring"></span>'+
+      '<span class="chat-ttt-invite-cross is-small">×</span>'+
+      '</div>'+
+      '<div class="chat-v2-actions">'+
+      '<button type="button" class="chat-v2-button" data-v2-close>Cancelar</button>'+
+      '<button type="button" class="chat-v2-button is-primary" data-v2-send-invite>Enviar convite</button>'+
+      '</div></div>');
   }
   function reconcile(game,{show=false}={}){
     if(!game)return;
@@ -154,6 +184,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     if(id===conversationId)return;
     if(timer){clearInterval(timer);timer=null;}
     const old=channel;channel=null;conversationId=id;current=null;dismissedId="";
+    paintedGameId="";paintedBoard=null;
     offline=false;
     if(old)void client.removeChannel(old).catch(()=>{});
     if(!id)return;
@@ -166,7 +197,7 @@ export function setupChatTtt({root,client,userId,selectedConversation,isGroup,op
     nextChannel.subscribe();
     timer=setInterval(()=>{
       if(!document.hidden&&id===conversationId)void refresh();
-    },3500);
+    },1900);
     await refresh();
   }
   async function withAction(task,operation="jogada"){
