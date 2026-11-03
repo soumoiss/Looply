@@ -757,7 +757,7 @@ function messageComposerMarkup(conversationId) {
         <button class="chat-emoji-button" type="button" data-chat-emoji aria-label="Inserir emoji">${icon("smile")}</button>
         <label class="visually-hidden" for="message-${escapeHtml(conversationId)}">Mensagem</label>
         <textarea id="message-${escapeHtml(conversationId)}" name="body" maxlength="5000" rows="1" placeholder="Mensagem" enterkeyhint="send" aria-label="Escreva sua mensagem"></textarea>
-        <button class="chat-attachment-label" type="button" data-chat-premium-menu-toggle aria-expanded="false" aria-label="Abrir opções de anexos" aria-controls="premium-attachments-${escapeHtml(conversationId)}">${icon("paperclip")}</button>
+        <button class="chat-attachment-label" type="button" data-chat-premium-menu-toggle aria-expanded="false" aria-label="Anexar mídia e abrir opções" aria-controls="premium-attachments-${escapeHtml(conversationId)}">${icon("paperclip")}</button>
       </div>
       <div class="chat-message-actions">
         <button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button>
