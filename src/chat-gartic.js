@@ -579,8 +579,14 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     // Periodic membership greeting repairs missed handshakes after an
     // Android WebView sleep, ICE restart or fast conversation transition.
     voiceHeartbeat=setInterval(()=>{
-      if(voiceJoined && connected && gameVisible() && !document.hidden)
-        void sendPacket({kind:"voice-join"});
+      if(!voiceJoined || !connected || !gameVisible() || document.hidden)return;
+      const otherPlayers=(game?.players||[]).filter(p=>p.id!==userId);
+      // Only an absent/disconnected peer needs re-announcement; keep the
+      // authenticated Neon signal table small during long games.
+      if(otherPlayers.some(p=>{
+        const peer=remotePeers.get(p.id);
+        return !peer || peer.pc.connectionState!=="connected";
+      }))void sendPacket({kind:"voice-join"});
     },9500);
   }
   async function toggleMicrophone(){
