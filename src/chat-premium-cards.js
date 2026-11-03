@@ -9,6 +9,11 @@ export function makePremiumNote(text){
   if(!value)throw Error("Escreva um bilhete antes de enviar.");
   return NOTE+value;
 }
+export function makePremiumGameCard(conversationId){
+  const id=String(conversationId||"").trim();
+  if(!/^[0-9a-f-]{36}$/i.test(id))throw Error("Abra uma conversa válida para convidar alguém.");
+  return "🎮 Convite para jogar no Looply\\n"+id;
+}
 export function makePremiumMusic(track){
   const song=normalizeStorySong(track);
   if(!song)throw Error("Selecione uma música de um catálogo oficial.");
@@ -16,6 +21,10 @@ export function makePremiumMusic(track){
 }
 export function parsePremiumChatBody(value){
   const text=String(value||"");
+  if(text.startsWith("🎮 Convite para jogar no Looply\\n")){
+    const conversationId=text.split("\\n")[1];
+    if(/^[0-9a-f-]{36}$/i.test(conversationId))return {type:"game",conversationId};
+  }
   if(text.startsWith(NOTE)){
     const body=text.slice(NOTE.length).trim();
     if(body&&body.length<=1200)return {type:"note",body};
@@ -40,6 +49,11 @@ export function parsePremiumChatBody(value){
 export function premiumChatCardMarkup(body){
   const card=parsePremiumChatBody(body);
   if(!card)return "";
+  if(card.type==="game")
+    return '<section class="chat-premium-game-card" aria-label="Convite para jogar">'+
+      '<span class="chat-premium-game-icon" aria-hidden="true">🎮</span>'+
+      '<div><small>Looply Games</small><strong>Vamos jogar?</strong><span>Jogo da Velha e Gartic</span></div>'+
+      '<button type="button" data-v2-game data-chat-premium-game aria-label="Abrir jogos desta conversa">Jogar</button></section>';
   if(card.type==="note")
     return '<section class="chat-premium-note-card" aria-label="Bilhete enviado">' +
       '<span class="chat-premium-card-kicker">💌 &nbsp; Um bilhete para você</span>' +
