@@ -94,8 +94,8 @@ try {
       },screen);
       console.log("ICON_003_LAYOUT",JSON.stringify({screen,theme,width,actual}));
       assert.equal(actual.vw,width,"viewport mismatch "+width);
-      assert.equal(actual.navLinks,6,"navigation destinations");
-      assert.equal(actual.navIcons,6,"navigation icons");
+      assert.equal(actual.navLinks,7,"navigation destinations");
+      assert.equal(actual.navIcons,7,"navigation icons");
       assert.ok(actual.scroll <= width + 2,"horizontal overflow "+screen+" "+width+": "+actual.scroll);
       if(screen!=="nav") {
         assert.ok(actual.dialogOpen && actual.svgCount>=12,"studio icons missing");
