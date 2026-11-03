@@ -1,0 +1,128 @@
+import assert from "node:assert/strict";
+import {createServer} from "node:http";
+import {readFile,mkdir} from "node:fs/promises";
+import {resolve,join,extname} from "node:path";
+import {fileURLToPath} from "node:url";
+import {chromium} from "playwright";
+import {chatMarkup,threadMarkup} from "../src/chat.js";
+
+const ROOT=resolve(fileURLToPath(new URL("../",import.meta.url)));
+const OUTPUT=join(ROOT,"smoke-results/chat-premium-20261103");
+const uid="11111111-1111-4111-8111-111111111111",pid="22222222-2222-4222-8222-222222222222";
+const cid="33333333-3333-4333-8333-333333333333";
+const conversations=[{id:cid,kind:"direct",updated_at:"2026-11-03T11:08:00Z",
+  lastMessage:{body:"Mensagem de teste",sender_id:pid,created_at:"2026-11-03T11:08:00Z"},
+  unreadCount:2,participants:[{user_id:uid,profile:{id:uid,username:"me"}},
+  {user_id:pid,profile:{id:pid,username:"contatoteste",display_name:"Contato de teste"}}]}];
+const note="💌 Bilhete\nUm momento especial para você.";
+const messages=Array.from({length:12},(_,i)=>({
+  id:"44444444-4444-4444-8444-"+String(i).padStart(12,"0"),conversation_id:cid,
+  sender_id:i%3===0?uid:pid,created_at:new Date(Date.UTC(2026,10,3,10,i*4)).toISOString(),
+  body:i===5?note:i%3===0?"Mensagem que eu enviei "+i:"Mensagem que recebi "+i,
+  author:{id:i%3===0?uid:pid,username:"contatoteste",display_name:i%3===0?"Você":"Contato de teste"},
+  media:[],reactions:[]
+}));
+const content=chatMarkup({error:false,conversations,profiles:[],notifications:[],profilesError:null},uid);
+const chatBody=threadMarkup(messages,uid,null,{id:pid,username:"contatoteste",display_name:"Contato de teste"},[],false);
+const mockedThread='<header class="chat-thread-heading" data-conversation-id="'+cid+'">'+
+  '<button class="chat-back-button" type="button" aria-label="Voltar">←</button>'+
+  '<span class="chat-thread-avatar">C</span><div class="chat-thread-identity"><strong>Contato de teste</strong><small>Conversa privada</small></div>'+
+  '<button class="chat-v2-icon-button" aria-label="Áudio">☎</button>'+
+  '<button class="chat-v2-icon-button" aria-label="Vídeo">▹</button></header>'+
+  '<div class="chat-premium-history" data-chat-premium-history>'+chatBody+'</div>'+
+  '<form class="chat-message-form" data-chat-send data-conversation-id="'+cid+'">'+
+  '<div class="chat-premium-compose-row"><div class="chat-premium-compose-box">'+
+  '<button class="chat-emoji-button" type="button">☺</button>'+
+  '<textarea name="body" rows="1" aria-label="Mensagem" placeholder="Mensagem"></textarea>'+
+  '<button class="chat-attachment-label" type="button" data-chat-premium-menu-toggle>📎</button></div>'+
+  '<div class="chat-message-actions"><button class="chat-record-start" type="button">🎙</button>'+
+  '<button class="primary-button compact-button chat-premium-send" type="submit">Enviar ➤</button></div></div>'+
+  '<div class="chat-premium-attach-menu" data-chat-premium-menu hidden></div></form>';
+const fixture='<!doctype html><html lang="pt-BR" data-theme="lilas"><head>'+
+  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'+
+  '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/assets/css/app.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/shared.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">'+
+  '<link rel="stylesheet" href="/assets/css/theme-complete.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-gartic.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-premium.css">'+
+  '</head><body class="looply-page page-chat">'+
+  '<div class="container-page"><header class="page-header"><strong>Looply</strong></header>'+
+  '<main><div class="page-content" id="pageContent">'+content+
+  '</div></main></div></body></html>';
+
+const server=createServer(async(req,res)=>{
+  try{
+    const path=new URL(req.url,"http://localhost").pathname;
+    if(path==="/__chat_fixture__"){
+      res.writeHead(200,{"content-type":"text/html; charset=utf-8"});
+      res.end(fixture);return;
+    }
+    if(!/^\/(?:assets\/css\/(?:pages\/)?[a-zA-Z0-9-]+\.css|styles\.css)$/.test(path)){
+      res.writeHead(404);res.end();return;
+    }
+    const buf=await readFile(join(ROOT,path.slice(1)));
+    res.writeHead(200,{"content-type":"text/css"});res.end(buf);
+  }catch(error){res.writeHead(404);res.end();}
+});
+await mkdir(OUTPUT,{recursive:true});
+await new Promise(done=>server.listen(0,"127.0.0.1",done));
+const url="http://127.0.0.1:"+server.address().port+"/__chat_fixture__";
+let browser;
+try{
+  browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+  for(const [width,height] of [[320,712],[360,800],[390,844],[428,926],[768,1024],[1100,800],[1440,900]]){
+    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+    const page=await context.newPage();
+    const errors=[];page.on("pageerror",error=>errors.push(error.message));
+    await page.goto(url,{waitUntil:"load"});
+    const cases=width<=760?["list","thread"]:["thread"];
+    for(const mode of cases){
+      await page.evaluate(({mode,markup})=>{
+        const root=document.querySelector("[data-chat-area]");
+        if(mode==="thread"){
+          root.classList.add("is-conversation-open");
+          root.querySelector("[data-chat-thread]").innerHTML=markup;
+        } else root.classList.remove("is-conversation-open");
+      },{mode,markup:mockedThread});
+      const geometry=await page.evaluate(()=>{
+        const el=selector=>document.querySelector(selector);
+        const rect=selector=>{
+          const node=el(selector);if(!node)return null;
+          const b=node.getBoundingClientRect();
+          return {x:b.x,y:b.y,w:b.width,h:b.height,bottom:b.bottom,right:b.right};
+        };
+        const visible=selector=>{const node=el(selector);return Boolean(node&&
+          getComputedStyle(node).display!=="none"&&node.getBoundingClientRect().height>0);};
+        return {vw:innerWidth,vh:innerHeight,scrollWidth:document.documentElement.scrollWidth,
+          root:rect("[data-chat-area]"),sidebar:rect(".chat-sidebar"),
+          thread:rect(".chat-thread-panel"),history:rect("[data-chat-premium-history]"),
+          composer:rect(".chat-premium-compose-row"),textarea:rect(".chat-premium-compose-row textarea"),
+          listVisible:visible(".chat-sidebar"),threadVisible:visible(".chat-thread-panel"),
+          composeVisible:visible(".chat-premium-compose-row"),
+          noteVisible:visible(".chat-premium-note-card"),
+          themeColor:getComputedStyle(el(".chat-premium")).getPropertyValue("--pm-primary").trim()};
+      });
+      console.log("CHAT_PREMIUM_VIEWPORT",JSON.stringify({width,height,mode,geometry}));
+      assert.ok(geometry.root.w>0,"root not rendered");
+      assert.ok(geometry.scrollWidth<=width+2,"horizontal overflow at "+width);
+      if(mode==="list"){assert.ok(geometry.listVisible,"list missing on mobile");assert.ok(!geometry.threadVisible,"thread leaked into list");}
+      if(mode==="thread"){
+        assert.ok(geometry.threadVisible,"thread missing");
+        assert.ok(geometry.composeVisible,"composer hidden");
+        assert.ok(geometry.history.h>65,"message history too small");
+        assert.ok(geometry.composer.bottom<=height+5,"composer below phone viewport");
+        assert.ok(geometry.composer.w>200,"composer collapsed");
+        assert.ok(geometry.noteVisible,"premium note absent");
+      }
+      assert.deepEqual(errors,[],"browser error");
+      await page.screenshot({path:join(OUTPUT,mode+"-"+width+"x"+height+".png"),animations:"disabled"});
+    }
+    await context.close();
+  }
+}finally{
+  await browser?.close();
+  await new Promise(done=>server.close(done));
+}
+console.log("Premium chat visual regression checks passed.");

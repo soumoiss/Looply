@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=storage-safe-final-20261031";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js";
+import { setupChatPremium } from "../../src/chat-premium.js?v=20261103";
 import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {
@@ -9,6 +10,7 @@ await mountAppPage({ page: "conversation", render: async ({ root, client, user }
   root.innerHTML = chatMarkup(data, user.id);
   bindChatEvents(root, client, () => user.id);
   setupChatEnhancements(root, client, user.id);
+  setupChatPremium(root, client, user.id);
   setupChatCalls(root, client, user.id);
   setupChatRealtime(client, user.id, root);
   const conversationId = new URLSearchParams(window.location.search).get("id");

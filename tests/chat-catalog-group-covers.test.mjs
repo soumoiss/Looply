@@ -7,10 +7,10 @@ import { chatMarkup } from "../src/chat.js";
 
 const read = path => readFile(new URL("../"+path,import.meta.url),"utf8");
 
-test("only Todas stays in conversation tabs; search and group/user selection remain", () => {
+test("premium filters coexist with conversation search and group creation", () => {
   const markup = chatMarkup({conversations:[],profiles:[],notifications:[]},"profile-id");
   assert.match(markup,/data-chat-filter="all"/);
-  assert.doesNotMatch(markup,/data-chat-filter="unread"|data-chat-filter="groups"|data-chat-filter="favorites"/);
+  for(const filter of ["unread","groups","favorites","archived"]) assert.ok(markup.includes(`data-chat-filter="${filter}"`));
   assert.match(markup,/data-chat-conversation-search/);
   assert.match(markup,/data-chat-group-create/);
   assert.match(markup,/data-chat-search/);

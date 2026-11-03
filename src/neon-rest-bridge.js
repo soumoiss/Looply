@@ -14,6 +14,7 @@ const WRITABLE = Object.freeze({
   post_likes: ["post_id","user_id"],
   comment_likes: ["comment_id","user_id"],
   chat_messages: ["conversation_id","sender_id","reply_to","body","delivered_at","read_at"],
+  chat_message_reactions: ["message_id","conversation_id","user_id","emoji"],
   group_covers: [], // Read-only: only v10_set_group_cover RPC may update it.
   sticker_catalog: ["slug","title","owner_id","storage_path","byte_size","source_name","content_sha256"], // RLS restricts owner uploads to verified storage paths; no external URLs.
   sticker_favorites: ["user_id","sticker_id"],
