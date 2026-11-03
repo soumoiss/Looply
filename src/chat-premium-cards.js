@@ -12,7 +12,7 @@ export function makePremiumNote(text){
 export function makePremiumMusic(track){
   const song=normalizeStorySong(track);
   if(!song)throw Error("Selecione uma música de um catálogo oficial.");
-  return MUSIC+song.title+" — "+song.artist+"\n"+song.url;
+  return MUSIC+song.title+" — "+song.artist+"\n"+song.url+(song.previewUrl?"\n▶ "+song.previewUrl:"");
 }
 export function parsePremiumChatBody(value){
   const text=String(value||"");
@@ -21,16 +21,17 @@ export function parsePremiumChatBody(value){
     if(body&&body.length<=1200)return {type:"note",body};
   }
   if(text.startsWith(MUSIC)){
-    const separator=text.lastIndexOf("\n");
-    if(separator<0)return null;
-    const subtitle=text.slice(MUSIC.length,separator);
+    const lines=text.slice(MUSIC.length).split("\n");
+    if(lines.length<2||lines.length>3)return null;
+    const subtitle=lines[0];
     const split=subtitle.lastIndexOf(" — ");
     if(split<1)return null;
     const title=subtitle.slice(0,split).trim(),artist=subtitle.slice(split+3).trim();
-    const url=text.slice(separator+1).trim();
+    const url=lines[1].trim();
+    const previewUrl=lines[2]?.startsWith("▶ ")?lines[2].slice(2).trim():"";
     if(title.length>110||artist.length>100||!title||!artist)return null;
     for(const provider of ["apple","deezer","spotify"]){
-      const song=normalizeStorySong({provider,title,artist,url});
+      const song=normalizeStorySong({provider,title,artist,url,previewUrl});
       if(song)return {type:"music",...song};
     }
   }
@@ -49,7 +50,7 @@ export function premiumChatCardMarkup(body){
     '<span class="chat-premium-music-cover" aria-hidden="true">♫</span>' +
     '<div class="chat-premium-music-info"><small>Música · '+escapeHtml(card.provider.toUpperCase())+'</small>' +
     '<strong>'+escapeHtml(card.title)+'</strong><span>'+escapeHtml(card.artist)+'</span></div>' +
-    '<button type="button" class="chat-premium-music-play" data-chat-premium-play-music="'+escapeHtml(query)+'" ' +
+    '<button type="button" class="chat-premium-music-play" data-chat-premium-play-music="'+escapeHtml(card.previewUrl||"")+'" data-chat-premium-music-query="'+escapeHtml(query)+'" ' +
     'aria-label="Ouvir prévia da música '+escapeHtml(card.title)+'">▶</button>' +
     '<a class="chat-premium-music-provider" href="'+escapeHtml(card.url)+'" target="_blank" rel="noopener noreferrer">Abrir no serviço ↗</a>' +
     '</section>';
