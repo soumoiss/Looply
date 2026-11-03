@@ -86,7 +86,7 @@ try{
    assert.equal(errors.length,0,errors.join(" | "));
    assert.equal(data.navs,1,"exactly one nav at "+width);
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
-   assert.equal(data.links.length,6,"exactly six tabs at "+width);
+   assert.equal(data.links.length,7,"exactly seven tabs at "+width);
    assert.deepEqual(data.active,["home.html"]);
    assert.ok(data.overflow<=1,"no horizontal scroll at "+width+": "+data.overflow);
    assert.ok(data.rect.x>=-1 && data.rect.right<=width+1,"nav within viewport at "+width);
