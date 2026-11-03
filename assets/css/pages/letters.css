@@ -468,7 +468,7 @@
 .page-letters #modalLeituraNova .letter-read-file-open {
   min-height:44px; padding:9px 12px; border:2px solid #111;
   border-radius:11px; background:#f7f1e6; color:#111;
-  font:800 12px/1.25 inherit; cursor:pointer; box-shadow:1px 2px 0 #111;
+  font-family:inherit; font-weight:800; font-size:12px; line-height:1.25; cursor:pointer; box-shadow:1px 2px 0 #111;
 }
 .page-letters #modalEscrever .letter-file-action:active,
 .page-letters #modalLeituraNova .letter-read-file-open:active { box-shadow:none; transform:translateY(2px); }
