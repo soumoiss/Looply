@@ -62,7 +62,10 @@ test("Gartic one-way voice never requests microphone just to listen",async()=>{
  assert.match(src,/function startVoiceListening\(\)/);
  const listenSection=src.split("function startVoiceListening(){")[1].split("async function toggleMicrophone()")[0];
  assert.doesNotMatch(listenSection,/getUserMedia/);
- assert.match(src,/addTransceiver\("audio",\{direction:"sendrecv"\}\)/);
+ assert.match(src,/pc\.addTransceiver\("audio",\{/);
+ assert.match(src,/direction:voiceStream&&!voiceMuted\?"sendrecv":"recvonly"/);
+ assert.match(src,/record\.transceiver\.direction="sendrecv"/);
+ assert.match(src,/record\.transceiver\.direction="recvonly"/);
  assert.match(src,/async function toggleMicrophone\(\)/);
  assert.match(src,/replaceTrack\(track\)/);
  assert.doesNotMatch(src,/data-gartic-action="join-voice"/);
