@@ -1,0 +1,365 @@
+/* Looply immersive Reels, 2026-11-03.
+   Never use object-fit:cover, forced zoom or iframe cropping to hide empty space.
+   Only videos under Looply control receive object-fit:contain; provider iframes
+   are framed by their expected aspect ratio (cross-origin inner UI is opaque). */
+.page-home .looply-reels-scroll {
+  position:fixed;
+  inset:0;
+  margin:0;
+  padding:0;
+  width:100vw;
+  height:100vh;
+  height:100dvh;
+  max-width:100vw;
+  max-height:100dvh;
+  box-sizing:border-box;
+  border:0;
+  border-radius:0;
+  overflow:hidden;
+  background:#16101c;
+  color:#fff;
+  isolation:isolate;
+  color-scheme:dark;
+  --reel-text:#fff;
+  --reel-subtext:rgba(255,255,255,.85);
+}
+.page-home .looply-reels-scroll::backdrop { background:#120d17; }
+.page-home .looply-reels-scroll .looply-reels-track {
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  min-height:0;
+  background:#16101c;
+  overflow-x:hidden;
+  overflow-y:auto;
+  scroll-snap-type:y mandatory;
+}
+.page-home .looply-reels-scroll .looply-reel-slide {
+  position:relative;
+  isolation:isolate;
+  width:100%;
+  height:100%;
+  height:100dvh;
+  min-height:100%;
+  max-height:100dvh;
+  overflow:hidden;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(ellipse 76% 75% at 52% 37%,rgba(109,66,123,.42),transparent 88%),
+    linear-gradient(175deg,#261b32 0%,#17121c 56%,#261828 100%);
+}
+.page-home .looply-reels-scroll .looply-reel-slide.is-external-embed::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse 86% 66% at 50% 46%,rgba(172,102,159,.12),transparent 87%),
+    linear-gradient(180deg,rgba(14,8,18,.1),rgba(14,8,18,.16));
+}
+.page-home .looply-reels-scroll .looply-reel-media-stage {
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  pointer-events:none;
+}
+/* A portrait player has an uncropped, vertically centered 9:16 viewport.
+   The container does not impose crop, scale or zoom on the embedded content. */
+.page-home .looply-reels-scroll .looply-reel-embed {
+  display:block;
+  flex:none;
+  position:relative;
+  z-index:1;
+  box-sizing:border-box;
+  border:0!important;
+  border-radius:0;
+  padding:0!important;
+  margin:0!important;
+  background:#18121d;
+  box-shadow:none;
+  max-width:none!important;
+  max-height:none!important;
+  min-width:0;
+  min-height:0;
+  width:min(100vw,calc(100dvh * 9 / 16));
+  height:min(100dvh,calc(100vw * 16 / 9));
+  aspect-ratio:9/16;
+  pointer-events:auto;
+  transform:none!important;
+  object-fit:initial;
+}
+.page-home .looply-reels-scroll .is-landscape-player .looply-reel-embed {
+  width:min(100vw,calc(100dvh * 16 / 9));
+  height:min(100dvh,calc(100vw * 9 / 16));
+  aspect-ratio:16/9;
+}
+.page-home .looply-reels-scroll .looply-reel-video {
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain!important;
+  object-position:center center;
+  background:transparent!important;
+  transform:none!important;
+}
+/* UI chrome is independent of the external iframe viewport. */
+.page-home .looply-reels-scroll .looply-reels-top {
+  position:absolute;
+  top:0;left:0;right:0;
+  z-index:6;
+  padding:calc(env(safe-area-inset-top,0px) + 13px) 14px 20px;
+  min-height:60px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  pointer-events:none;
+  color:#fff;
+  background:linear-gradient(180deg,rgba(11,8,15,.61),rgba(11,8,15,0));
+}
+.page-home .looply-reels-scroll .looply-reels-top > * {pointer-events:auto}
+.page-home .looply-reels-scroll .looply-reels-top [data-reels-close] {
+  display:grid;place-items:center;
+  flex:0 0 42px;
+  width:42px;height:42px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:50%;
+  padding:0;
+  background:rgba(15,11,20,.38);
+  color:#fff;
+  font-size:25px;
+  line-height:1;
+  box-shadow:0 2px 12px #0003;
+}
+.page-home .looply-reels-scroll .looply-reels-original {
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:38px;
+  padding:7px 11px;
+  border:1px solid rgba(255,255,255,.3);
+  border-radius:999px;
+  background:rgba(15,11,20,.44);
+  color:#fff;
+  font-size:11px;
+  line-height:1.2;
+  text-shadow:0 1px 4px #000;
+  text-decoration:none;
+  font-weight:750;
+  backdrop-filter:blur(8px);
+}
+.page-home .looply-reels-scroll .looply-reels-original[hidden] {display:none!important}
+.page-home .looply-reels-scroll .looply-reels-rail {
+  position:absolute;
+  z-index:6;
+  right:7px;
+  bottom:calc(142px + env(safe-area-inset-bottom,0px));
+  width:55px;
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  align-items:center;
+  color:#fff;
+  pointer-events:auto;
+}
+.page-home .looply-reels-scroll .looply-reel-action {
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  gap:5px;
+  width:52px;min-height:56px;
+  padding:5px 2px;
+  border:0;
+  border-radius:14px;
+  background:none!important;
+  color:#fff!important;
+  font-family:inherit;
+  filter:drop-shadow(0 1px 3px #0008);
+}
+.page-home .looply-reels-scroll .looply-reel-action .looply-reel-glyph {
+  display:grid;place-items:center;
+  flex:none;
+  width:42px;height:42px;
+  border:0;
+  border-radius:50%;
+  background:rgba(10,7,14,.22);
+  color:#fff;
+  font-size:30px;
+  line-height:1;
+  backdrop-filter:blur(2px);
+}
+.page-home .looply-reels-scroll .looply-reel-action .looply-reel-glyph svg {
+  width:28px;height:28px;stroke:currentColor;
+}
+.page-home .looply-reels-scroll .looply-reel-action[aria-pressed="true"] .looply-reel-glyph {
+  color:#ff507c!important;
+}
+.page-home .looply-reels-scroll .looply-reel-count {
+  margin:0;
+  color:#fff;
+  font-size:11px;
+  font-weight:750;
+  line-height:1;
+  text-shadow:0 1px 4px #000;
+}
+/* Critical regression: cloned Feed author must NOT inherit white card surfaces.
+   Its entire text and timestamp must stay visible against a dark video. */
+.page-home .looply-reels-scroll .looply-reels-bottom {
+  position:absolute;
+  z-index:6;
+  left:14px;
+  right:75px;
+  bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  width:auto;
+  max-width:calc(100% - 88px);
+  box-sizing:border-box;
+  min-width:0;
+  display:flex;flex-direction:column;align-items:flex-start;
+  gap:9px;
+  padding:0;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  background-color:transparent!important;
+  box-shadow:none!important;
+  color:#fff!important;
+  text-align:left;
+  text-shadow:0 1px 6px #000,0 2px 15px #000b;
+  pointer-events:none;
+}
+.page-home .looply-reels-scroll [data-reels-creator],
+.page-home .looply-reels-scroll [data-reels-creator] .post-author,
+.page-home .looply-reels-scroll [data-reels-creator] .post-author-profile,
+.page-home .looply-reels-scroll [data-reels-creator] .post-author-profile>div,
+.page-home .looply-reels-scroll [data-reels-creator] button {
+  width:auto;
+  max-width:100%;
+  min-width:0;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:none!important;
+  background-color:transparent!important;
+  color:#fff!important;
+  opacity:1!important;
+  text-align:left;
+}
+.page-home .looply-reels-scroll [data-reels-creator] {
+  display:flex;
+  align-items:center;
+  align-self:stretch;
+  gap:10px;
+  pointer-events:auto;
+}
+.page-home .looply-reels-scroll [data-reels-creator] .post-author,
+.page-home .looply-reels-scroll [data-reels-creator] .post-author-profile {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex:1;
+}
+.page-home .looply-reels-scroll [data-reels-creator] .post-avatar {
+  display:grid;
+  place-items:center;
+  flex:none;
+  width:38px;height:38px;
+  overflow:hidden;
+  border-radius:50%!important;
+  border:1px solid rgba(255,255,255,.63)!important;
+  background:#463457!important;
+  color:#fff!important;
+  font-size:16px;
+  text-shadow:none;
+  box-shadow:0 2px 9px #0003;
+}
+.page-home .looply-reels-scroll [data-reels-creator] .post-avatar img {
+  display:block;width:100%;height:100%;
+  border-radius:50%;
+  object-fit:cover;
+}
+.page-home .looply-reels-scroll [data-reels-creator] :is(strong,span,time,small,[data-profile-name-id]) {
+  color:#fff!important;
+  background:transparent!important;
+  opacity:1!important;
+}
+.page-home .looply-reels-scroll [data-reels-creator] strong {
+  display:block;
+  max-width:100%;
+  font-size:13px;
+  font-weight:850;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.page-home .looply-reels-scroll [data-reels-creator] strong span {
+  display:inline;
+  font-size:11px;
+  font-weight:550;
+  color:rgba(255,255,255,.89)!important;
+}
+.page-home .looply-reels-scroll [data-reels-creator] time {
+  display:block;
+  font-size:11px;
+  line-height:1.55;
+  color:rgba(255,255,255,.83)!important;
+}
+.page-home .looply-reels-scroll [data-reels-caption] {
+  display:-webkit-box;
+  max-width:100%;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  font-size:13px;
+  line-height:1.4;
+  font-weight:500;
+  overflow-wrap:anywhere;
+}
+.page-home .looply-reels-scroll .looply-reels-audio {
+  display:flex;align-items:center;
+  gap:5px;
+  max-width:100%;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  color:rgba(255,255,255,.87)!important;
+  font-size:11px;
+  white-space:normal;
+}
+.page-home .looply-reels-scroll .looply-reels-mute {
+  position:absolute;
+  z-index:7;
+  top:calc(env(safe-area-inset-top,0px) + 14px);
+  right:14px;
+  max-width:135px;
+  border-radius:999px;
+  background:rgba(16,11,22,.52);
+  color:#fff;
+}
+.page-home .looply-reels-scroll .looply-reels-mute[hidden] {display:none!important}
+.page-home .looply-reels-scroll .looply-embed-swipe-lane {
+  z-index:4;
+  background:transparent;
+}
+@media (max-width:390px) {
+  .page-home .looply-reels-scroll .looply-reels-bottom {
+    left:12px;right:64px;max-width:calc(100% - 75px);bottom:calc(17px + env(safe-area-inset-bottom,0px));
+  }
+  .page-home .looply-reels-scroll .looply-reels-rail {
+    right:3px;bottom:calc(131px + env(safe-area-inset-bottom,0px));width:50px;gap:8px;
+  }
+  .page-home .looply-reels-scroll .looply-reel-action{width:48px;min-height:51px}
+  .page-home .looply-reels-scroll .looply-reel-action .looply-reel-glyph{width:39px;height:39px}
+}
+@media (prefers-reduced-motion:reduce) {
+  .page-home .looply-reels-scroll * {scroll-behavior:auto!important;transition:none!important}
+}
