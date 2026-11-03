@@ -6,6 +6,7 @@ on:
       - "src/chat-gartic.js"
       - "src/gartic-paint.js"
       - "tests/ci-gartic-voice-two-peer.mjs"
+      - "tests/ci-gartic-neon-transport.mjs"
       - ".github/workflows/ci-gartic-voice.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "src/chat-gartic.js"
       - "src/gartic-paint.js"
       - "tests/ci-gartic-voice-two-peer.mjs"
+      - "tests/ci-gartic-neon-transport.mjs"
       - ".github/workflows/ci-gartic-voice.yml"
 permissions:
   contents: read
@@ -31,3 +33,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Real two-peer Gartic audio
         run: node tests/ci-gartic-voice-two-peer.mjs
+      - name: Authenticated Neon fallback voice and instant chat integration
+        run: node tests/ci-gartic-neon-transport.mjs
