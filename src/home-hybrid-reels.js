@@ -53,7 +53,7 @@ export function openHybridReels(root, startKey) {
   const dialog = make("dialog", "looply-reels-scroll");
   dialog.dataset.reelsScroll = "";
   dialog.setAttribute("aria-label", "Reels do Looply");
-  dialog.innerHTML = '<div class="looply-reels-track" data-reels-track aria-label="Deslize para assistir aos próximos vídeos"></div><header class="looply-reels-top"><button type="button" data-reels-close aria-label="Voltar ao feed">←</button><strong class="visually-hidden">Reels</strong></header><aside class="looply-reels-rail" data-reels-rail></aside><footer class="looply-reels-bottom"><div data-reels-creator></div><p data-reels-caption></p><div class="looply-reels-audio">♫ <span data-reels-audio>Áudio da publicação</span></div></footer><button type="button" class="looply-reels-mute" data-reels-sound aria-label="Ativar som">♪ Som</button><p class="looply-reels-message" data-reels-message role="status" aria-live="polite"></p><section class="looply-reels-comments" data-reels-comments hidden><header><strong>Comentários</strong><button type="button" data-close-reels-comments aria-label="Fechar comentários">×</button></header><div data-reels-comments-body></div></section>';
+  dialog.innerHTML = '<div class="looply-reels-track" data-reels-track aria-label="Deslize para assistir aos próximos vídeos"></div><header class="looply-reels-top"><button type="button" data-reels-close aria-label="Voltar aos Reels">←</button><strong class="visually-hidden">Reels</strong><a class="looply-reels-original" data-reels-provider-original target="_blank" rel="noopener noreferrer" hidden>Abrir original ↗</a></header><aside class="looply-reels-rail" data-reels-rail></aside><footer class="looply-reels-bottom"><div data-reels-creator></div><p data-reels-caption></p><div class="looply-reels-audio">♫ <span data-reels-audio>Áudio da publicação</span></div></footer><button type="button" class="looply-reels-mute" data-reels-sound aria-label="Ativar som">♪ Som</button><p class="looply-reels-message" data-reels-message role="status" aria-live="polite"></p><section class="looply-reels-comments" data-reels-comments hidden><header><strong>Comentários</strong><button type="button" data-close-reels-comments aria-label="Fechar comentários">×</button></header><div data-reels-comments-body></div></section>';
   const track = by(dialog, "[data-reels-track]");
   const rail = by(dialog, "[data-reels-rail]");
   // Four real actions only: like, comment, external share, and Looply chat.
@@ -67,7 +67,13 @@ export function openHybridReels(root, startKey) {
     const providerClass = embedHost.endsWith("instagram.com") ? " is-instagram-embed"
       : embedHost.endsWith("tiktok.com") ? " is-tiktok-embed"
       : embedHost.endsWith("youtube-nocookie.com") ? " is-youtube-embed" : "";
-    const slide = make("section", "looply-reel-slide" + (source.kind === "embed" ? " is-external-embed" + providerClass : ""));
+    const sourceCard = root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
+    const originalUrl = sourceCard?.querySelector(".hybrid-provider-tools a[href]")?.href || "";
+    const isShort = providerClass.includes("youtube") && /\/shorts\//i.test(originalUrl);
+    const orientation = providerClass.includes("instagram") || providerClass.includes("tiktok") || isShort
+      ? " is-portrait-player" : providerClass.includes("youtube") ? " is-landscape-player" : "";
+    const slide = make("section", "looply-reel-slide" +
+      (source.kind === "embed" ? " is-external-embed" + providerClass + orientation : ""));
     slide.dataset.reelsKey = source.key;
     slide.setAttribute("aria-label", "Vídeo " + (index + 1) + " de " + sources.length);
     const media = source.kind === "video" ? make("video", "looply-reel-video") : make("iframe", "looply-reel-embed");
@@ -81,10 +87,20 @@ export function openHybridReels(root, startKey) {
     } else {
       media.title = "Publicação externa no player oficial";
       media.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+      media.setAttribute("scrolling","no");
       media.referrerPolicy = "strict-origin-when-cross-origin";
       media.allowFullscreen = true;
     }
-    slide.append(media);
+    if (source.kind === "embed") {
+      // A cross-origin iframe does not support object-fit. Give the official
+      // document its own correctly proportioned stage instead of stretching
+      // the document across the entire phone height.
+      const stage = make("div", "looply-reel-media-stage");
+      stage.append(media);
+      slide.append(stage);
+    } else {
+      slide.append(media);
+    }
     if (source.kind === "embed") {
       // Third-party cross-origin iframes swallow swipe events. Keep their player
       // clickable in the center, and offer transparent gesture strips on either
@@ -121,9 +137,25 @@ export function openHybridReels(root, startKey) {
     const creator = by(dialog, "[data-reels-creator]");
     creator.replaceChildren();
     if (author) creator.append(author.cloneNode(true));
+    const original = by(dialog, "[data-reels-provider-original]");
+    const providerSource = card.querySelector(".hybrid-provider-tools a[href]");
+    if (original) {
+      const href = providerSource?.href || "";
+      let valid = false;
+      try { valid = new URL(href).protocol === "https:"; } catch {}
+      original.hidden = source.kind !== "embed" || !valid;
+      if (valid) original.href = href;
+      else original.removeAttribute("href");
+    }
     const caption = by(card, ".post-body");
     by(dialog, "[data-reels-caption]").textContent = caption?.textContent || "";
-    by(dialog, "[data-reels-audio]").textContent = source.kind === "embed" ? "Player oficial · áudio controlado pelo provedor" : "Áudio da publicação";
+    const providerName = source.kind === "embed"
+      ? source.source.includes("instagram.com") ? "Instagram"
+        : source.source.includes("tiktok.com") ? "TikTok"
+        : source.source.includes("youtube-nocookie.com") ? "YouTube"
+        : "Vídeo externo"
+      : "Looply";
+    by(dialog, "[data-reels-audio]").textContent = "Áudio original · " + providerName;
     const like = by(card, "[data-toggle-like]");
     const externalShare = by(card, "[data-share-post]");
     const chatShare = by(card, "[data-share-in-app]");

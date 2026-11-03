@@ -1,0 +1,37 @@
+name: Looply Reels fullscreen aspect and contrast regression
+on:
+  pull_request:
+    paths:
+      - "src/home-hybrid-reels.js"
+      - "assets/css/pages/reels-immersive-fix.css"
+      - "home.html"
+      - "reels.html"
+      - "scripts/check-reels-immersive-visual.mjs"
+      - "tests/reels-immersive-viewport.test.mjs"
+      - ".github/workflows/reels-immersive-visual.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  viewport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install headless Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Check fullscreen Reel in Android-sized real Chromium layouts
+        run: node scripts/check-reels-immersive-visual.mjs
+      - name: Preserve sanitized UI viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: looply-reels-aspect-and-contrast
+          path: smoke-results/reels-immersive-20261103/
+          retention-days: 14
+          if-no-files-found: warn
