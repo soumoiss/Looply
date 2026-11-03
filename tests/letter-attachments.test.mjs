@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createLetterAttachmentComposer, encryptAttachment, decryptAttachment } from "../src/letter-attachments.js";
+import { createLetterAttachmentComposer, encodeAttachment, decodeAttachment, encryptAttachment, decryptAttachment } from "../src/letter-attachments.js";
 
 const actor="11111111-1111-4111-8111-111111111111";
 const salt = Buffer.from(new Uint8Array(16).fill(7)).toString("base64url");
@@ -27,7 +27,7 @@ function createDom() {
   return {nodes,root};
 }
 
-test("letter files: system picker accepts images and documents, rejects dangerous formats, uploads and clears",async()=>{
+test("letter files: system picker accepts images and documents, wraps arbitrary formats safely, uploads and clears",async()=>{
   await withFakeDom(async()=>{
     const {nodes,root}=createDom();
     const picker=createLetterAttachmentComposer(root,()=>{});
@@ -36,19 +36,25 @@ test("letter files: system picker accepts images and documents, rejects dangerou
       new File(["%PDF-1.7"],"arquivo.pdf",{type:"application/pdf"}),
       new File(["<script>"],"ataque.html",{type:"text/html"})];
     await input.trigger("change");
-    assert.equal(picker.count,2);
+    assert.equal(picker.count,3);
     assert.equal(input.value,"");
-    assert.equal(nodes.get("#letterFileList").children.length,2);
+    assert.equal(nodes.get("#letterFileList").children.length,3);
     const uploads=[];
     const client={storage:{from:bucket=>{
       assert.equal(bucket,"looply-letters");
       return {upload:async(path,file,options)=>{ uploads.push({path,file,options});return {error:null,data:{path}}; }};
     }}};
     const result=await picker.upload(actor,{client});
-    assert.equal(result.metadata.length,2);
-    assert.equal(uploads.length,2);
+    assert.equal(result.metadata.length,3);
+    assert.equal(uploads.length,3);
     assert.ok(result.metadata.every(item=>item.path.startsWith(actor+"/")));
-    assert.deepEqual(result.metadata.map(item=>item.type),["image/png","application/pdf"]);
+    assert.deepEqual(result.metadata.map(item=>item.type),["image/png","application/pdf","text/html"]);
+    assert.equal(result.metadata[2].encoded,true);
+    assert.equal(uploads[2].options.contentType,"text/plain");
+    assert.ok(!(await uploads[2].file.text()).includes("<script>"));
+    const roundtrip=await decodeAttachment(uploads[2].file,result.metadata[2]);
+    assert.equal(await roundtrip.text(),"<script>");
+    assert.equal(roundtrip.type,"application/octet-stream");
     assert.ok(uploads.every(item=>item.options.upsert===false));
     picker.clear();
     assert.equal(picker.count,0);
