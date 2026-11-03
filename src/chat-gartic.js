@@ -420,47 +420,28 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
     const audio=document.createElement("audio");audio.autoplay=true;audio.playsInline=true;audio.hidden=true;audio.muted=false;audio.volume=1;
     audio.dataset.garticRemoteAudio=id;document.body.append(audio);
     const record={pc,audio,pending:[],makingOffer:false,ignoreOffer:false,
-      polite:userId>id,initialOfferer:userId<id,needsNegotiation:true,
+      polite:userId>id,isSettingRemoteAnswerPending:false,
       recoveryTimer:null,retries:0};
     remotePeers.set(id,record);
-    // Negotiate audio both ways without accessing anyone's microphone.
-    // The sender initially has no track, so no audio is transmitted by listeners.
-    record.transceiver=pc.addTransceiver("audio",{direction:"sendrecv"});
-    if(voiceStream&&!voiceMuted)void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
-    // A stable, serialized offer queue prevents microphone enable/disable from
-    // racing the first recvonly SDP exchange (the source of silent receivers).
-    // Only one side sends the first offer; either side can renegotiate later.
-    record.negotiate=async()=>{
-      // Only the deterministic initiator creates offers. Microphone changes
-      // are replaceTrack operations and never require the answerer to offer.
-      if(!record.initialOfferer || !record.needsNegotiation ||
-         record.makingOffer || !voiceJoined || !connected ||
-         remotePeers.get(id)!==record)return;
-      if(pc.signalingState!=="stable")return;
-      record.makingOffer=true;record.needsNegotiation=false;
+    // Passive players do not access the microphone. Enabling it upgrades
+    // direction and triggers the standard WebRTC perfect-negotiation flow.
+    record.transceiver=pc.addTransceiver("audio",{
+      direction:voiceStream&&!voiceMuted?"sendrecv":"recvonly"
+    });
+    if(voiceStream&&!voiceMuted)
+      void record.transceiver.sender.replaceTrack(voiceStream.getAudioTracks()[0]);
+    pc.onnegotiationneeded=async()=>{
+      if(!voiceJoined||!connected||remotePeers.get(id)!==record)return;
       try{
-        await pc.setLocalDescription(await pc.createOffer());
-        if(pc.localDescription?.type!=="offer")return;
-        const sent=await sendPacket({kind:"voice-signal",target:id,
-          signal:{type:"offer",sdp:pc.localDescription.sdp}});
-        if(!sent)record.needsNegotiation=true;
+        record.makingOffer=true;
+        await pc.setLocalDescription();
+        const description=pc.localDescription;
+        if(description?.type!=="offer")return;
+        await sendPacket({kind:"voice-signal",target:id,
+          signal:{type:"offer",sdp:description.sdp}});
       }catch(error){
-        record.needsNegotiation=true;
-        console.warn("Gartic audio renegotiation failed",error?.message);
-      }finally{
-        record.makingOffer=false;
-        if(record.needsNegotiation && pc.signalingState==="stable" && connected)
-          queueMicrotask(()=>void record.negotiate());
-      }
-    };
-    pc.onnegotiationneeded=()=>{
-      if(!record.initialOfferer)return;
-      record.needsNegotiation=true;
-      void record.negotiate();
-    };
-    pc.onsignalingstatechange=()=>{
-      if(record.initialOfferer && pc.signalingState==="stable" &&
-         record.needsNegotiation)void record.negotiate();
+        console.warn("Gartic microphone negotiation",error?.message);
+      }finally{record.makingOffer=false;}
     };
     pc.ontrack=e=>enableReceivedAudio(record,e.streams[0]||new MediaStream([e.track]));
     pc.onicecandidate=e=>{if(e.candidate)void sendPacket({kind:"voice-signal",target:id,signal:{type:"candidate",candidate:e.candidate.toJSON()}});};
@@ -482,8 +463,7 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
           // ICE restart retains the received stream and avoids a cascade of
           // destroyed peers/failed offers on a brief mobile network handoff.
           try{
-            if(record.initialOfferer && typeof pc.restartIce==="function")
-              pc.restartIce();
+            if(typeof pc.restartIce==="function")pc.restartIce();
             else void sendPacket({kind:"voice-restart",target:id});
           }catch(error){console.warn("Gartic ICE recovery",error?.message);}
         },pc.connectionState==="failed"?2500:5500);
@@ -529,40 +509,46 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
         }
         return;
       }
+      if(packet.kind==="voice-restart"){
+        const record=makePeer(sender);
+        record.pc.restartIce?.();
+        return;
+      }
       if(packet.kind==="voice-ready"){
         const record=makePeer(sender);
-        if(record.initialOfferer && record.pc.signalingState==="have-local-offer" &&
+        if(record.pc.signalingState==="have-local-offer" &&
            record.pc.localDescription){
-          // Re-send a potentially lost initial offer without creating another
-          // audio transceiver or colliding with an answer.
           void sendPacket({kind:"voice-signal",target:sender,
             signal:{type:"offer",sdp:record.pc.localDescription.sdp}});
-        }else if(record.initialOfferer)void record.negotiate();
+        }
       }
       if(packet.kind==="voice-signal" && packet.signal){
-        const data=packet.signal,record=makePeer(sender);
-        if(data.type==="offer"){
-          // Every pair has exactly one offerer. If both create an offer, the
-          // browser can create inactive duplicate m-lines and lose all audio.
-          if(record.initialOfferer)return;
-          if(record.pc.signalingState!=="stable" &&
-             record.pc.signalingState!=="have-remote-offer")return;
-          await record.pc.setRemoteDescription({type:"offer",sdp:data.sdp});
-          await record.pc.setLocalDescription(await record.pc.createAnswer());
-          record.needsNegotiation=false;
-          await sendPacket({kind:"voice-signal",target:sender,
-            signal:{type:"answer",sdp:record.pc.localDescription.sdp}});
-        }else if(data.type==="answer"){
-          if(record.pc.signalingState==="have-local-offer")
-            await record.pc.setRemoteDescription({type:"answer",sdp:data.sdp});
+        const data=packet.signal,record=makePeer(sender),peer=record.pc;
+        if(data.type==="offer"||data.type==="answer"){
+          const readyForOffer=!record.makingOffer &&
+            (peer.signalingState==="stable"||record.isSettingRemoteAnswerPending);
+          const collision=data.type==="offer"&&!readyForOffer;
+          record.ignoreOffer=!record.polite&&collision;
+          if(record.ignoreOffer)return;
+          record.isSettingRemoteAnswerPending=data.type==="answer";
+          try{
+            // Browser's implicit rollback handles polite glare, unlike
+            // manually setting a competing local offer in have-remote-offer.
+            await peer.setRemoteDescription({type:data.type,sdp:data.sdp});
+          }finally{record.isSettingRemoteAnswerPending=false;}
+          if(data.type==="offer"){
+            await peer.setLocalDescription();
+            await sendPacket({kind:"voice-signal",target:sender,
+              signal:{type:"answer",sdp:peer.localDescription.sdp}});
+          }
         }else if(data.type==="candidate"){
           if(record.ignoreOffer)return;
-          if(record.pc.remoteDescription)await record.pc.addIceCandidate(data.candidate).catch(()=>{});
+          if(peer.remoteDescription)await peer.addIceCandidate(data.candidate).catch(()=>{});
           else if(record.pending.length<120)record.pending.push(data.candidate);
         }
-        if(record.pc.remoteDescription && record.pending.length){
-          const waiting=record.pending.splice(0);
-          for(const candidate of waiting)await record.pc.addIceCandidate(candidate).catch(()=>{});
+        if(peer.remoteDescription&&record.pending.length){
+          const queued=record.pending.splice(0);
+          for(const candidate of queued)await peer.addIceCandidate(candidate).catch(()=>{});
         }
       }
     }catch(error){console.warn("Gartic voice negotiation failed",error?.message);}
@@ -617,7 +603,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       try{
         // Null audio tracks stop RTP without closing receive-only listening.
         await Promise.allSettled([...remotePeers.values()]
-          .map(record=>record.transceiver?.sender.replaceTrack(null)));
+          .map(async record=>{
+            await record.transceiver?.sender.replaceTrack(null);
+            if(record.transceiver)record.transceiver.direction="recvonly";
+          }));
         voiceStream.getTracks().forEach(track=>track.stop());
         voiceStream=null;voiceMuted=true;
         updateVoiceControls();
@@ -635,9 +624,10 @@ export function setupChatGartic({root,client,userId,selectedConversation,openMod
       });
       const track=stream.getAudioTracks()[0];
       if(!track)throw Error("gartic_microphone_track_missing");
-      const results=await Promise.allSettled([...remotePeers.values()].map(
-        record=>record.transceiver?.sender.replaceTrack(track)
-      ));
+      const results=await Promise.allSettled([...remotePeers.values()].map(async record=>{
+        if(record.transceiver)record.transceiver.direction="sendrecv";
+        await record.transceiver?.sender.replaceTrack(track);
+      }));
       const failures=results.filter(x=>x.status==="rejected");
       if(failures.length)console.warn("Gartic microphone tracks not attached",failures.length);
       voiceStream=stream;voiceMuted=false;
