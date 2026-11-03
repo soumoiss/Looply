@@ -458,3 +458,17 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
   color: inherit;
   pointer-events: none;
 }
+
+
+/* On-screen, recipient-scoped activity. Does not obscure bottom mobile navigation. */
+.looply-live-notices{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:13px;z-index:12000;display:grid;gap:8px;width:min(355px,calc(100vw - 26px));pointer-events:none}
+.looply-live-notice{pointer-events:auto;background:var(--surface-strong,#fff);color:var(--text,#292236);border:1px solid var(--line,#e8dbf0);border-left:4px solid var(--primary,#7952d5);border-radius:16px;padding:12px 14px;box-shadow:0 10px 36px #21142d34;animation:looply-live-notice-arrive .18s ease-out}
+.looply-live-notice-top{display:flex;justify-content:space-between;align-items:center;gap:9px}
+.looply-live-notice-top strong{font-size:12px;font-weight:850;color:var(--primary,#7952d5)}
+.looply-live-notice-top button{width:30px;height:30px;flex:0 0 30px;border:0;background:var(--surface-soft,#f5effa);color:var(--text,#292236);border-radius:50%;font-size:20px}
+.looply-live-notice p{font-size:13px;line-height:1.45;margin:5px 0 10px;overflow-wrap:anywhere;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.looply-live-notice a{font-size:11px;color:var(--primary,#7952d5);font-weight:800;text-decoration:none}
+.looply-live-notice a:focus-visible{outline:2px solid var(--primary,#7952d5);outline-offset:3px}
+@keyframes looply-live-notice-arrive{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.looply-live-notices{top:calc(env(safe-area-inset-top) + 9px);left:10px;right:10px;margin:0 auto;width:min(385px,calc(100vw - 20px))}}
+@media(prefers-reduced-motion:reduce){.looply-live-notice{animation:none}}
