@@ -20,7 +20,7 @@ async function loadNotifications(client,isAdmin=false) {
   const [appResult,chatResult,adminResult]=await Promise.all([
     client.from("notifications").select("id,kind,resource_id,event_id,preview,created_at,read_at,actor:profiles!notifications_actor_id_fkey(username,display_name)")
       .order("created_at",{ascending:false}).order("id",{ascending:false}).range(0,99),
-    client.from("chat_notifications").select("id,conversation_id,kind,preview,created_at,read_at")
+    client.from("chat_notifications").select("id,message_id,conversation_id,kind,preview,created_at,read_at")
       .order("created_at",{ascending:false}).order("id",{ascending:false}).range(0,99),
     isAdmin
       ? client.from("looply_admin_activity_notifications")
@@ -44,8 +44,19 @@ async function loadNotifications(client,isAdmin=false) {
   const appItems=(appResult.data||[]).map(item=>({
     ...item,source:"app",externalPost:external.has(item.resource_id)
   }));
-  const chatItems=(chatResult.data||[]).map(item=>({...item,source:"chat",
-    kind:item.kind==="letter"?"letter":"message"}));
+  const messages=[...new Set((chatResult.data||[]).map(item=>item.message_id).filter(Boolean))];
+  const chatActors=new Map();
+  for(let i=0;i<messages.length;i+=70){
+    const {data,error}=await client.from("chat_messages")
+      .select("id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+      .in("id",messages.slice(i,i+70));
+    if(error){console.warn("Notification sender lookup unavailable",error);break;}
+    for(const message of data||[])if(message.author)chatActors.set(message.id,message.author);
+  }
+  const chatItems=(chatResult.data||[]).map(item=>({
+    ...item,source:"chat",actor:chatActors.get(item.message_id)||null,
+    kind:item.kind==="letter"?"letter":"message"
+  }));
   const adminPreview=item=>{
     const label=String(item.resource_label||"").slice(0,120);
     if(item.kind==="admin_online")return "Entrou no aplicativo";
