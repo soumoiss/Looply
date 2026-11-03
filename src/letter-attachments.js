@@ -48,8 +48,10 @@ export async function encodeAttachment(file) {
 export async function decodeAttachment(blob, attachment) {
   const text = await blob.text();
   if (!text.startsWith("LOOPLY-LETTER-BINARY-V1\n")) throw Error("Anexo não reconhecido.");
+  const declared = String(attachment.type || "").toLowerCase();
+  const safe = /^(image\/(jpeg|png|gif|webp|heic)|audio\/(wav|mpeg|mp4|ogg|webm)|video\/(mp4|webm|quicktime)|application\/pdf|text\/plain)$/.test(declared);
   return new Blob([unb64(text.slice("LOOPLY-LETTER-BINARY-V1\n".length).trim())],
-    {type:attachment.type || "application/octet-stream"});
+    {type:safe ? declared : "application/octet-stream"});
 }
 export async function encryptAttachment(file, letterId, password, salt) {
   const key = await privateKey(password, salt);
@@ -86,7 +88,8 @@ export function createLetterAttachmentComposer(root, notify) {
   const status = root.querySelector("#letterFileStatus");
   const selected = [];
   const previews = new Set();
-  let recorder = null, stream = null, timer = null, started = 0, discard = false;
+  let recorder = null, stream = null, timer = null, started = 0;
+  const cancelledRecorders = new WeakSet();
 
   const say = value => { if (status) status.textContent = value; };
   function revoke() {
@@ -143,7 +146,7 @@ export function createLetterAttachmentComposer(root, notify) {
     render();
   });
   function stop(discardAudio = false) {
-    discard = discardAudio;
+    if (discardAudio && recorder) cancelledRecorders.add(recorder);
     if (recorder && recorder.state === "recording") recorder.stop();
     else if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     clearInterval(timer); timer = null;
@@ -166,7 +169,7 @@ export function createLetterAttachmentComposer(root, notify) {
       const type = codec.split(";")[0];
       current.addEventListener("dataavailable", event => { if (event.data?.size) chunks.push(event.data); });
       current.addEventListener("stop", () => {
-        const ignored = discard;
+        const ignored = cancelledRecorders.has(current);
         clearInterval(timer); timer = null;
         stream?.getTracks().forEach(t => t.stop()); stream = null;
         recorder = null;
@@ -176,12 +179,12 @@ export function createLetterAttachmentComposer(root, notify) {
         const blob = new Blob(chunks, {type});
         if (!blob.size) { say("A gravação não produziu áudio."); return; }
         const extension = type === "audio/mp4" ? "m4a" : type === "audio/ogg" ? "ogg" : "webm";
+        const before = selected.length;
         add(new File([blob], "audio-" + Date.now() + "." + extension, {type}));
         render();
-        if (selected.some(v => v.file.size === blob.size)) say("Áudio anexado.");
+        if (selected.length > before) say("Áudio anexado.");
       }, {once:true});
       current.addEventListener("error", () => say("Erro na gravação. Tente novamente."));
-      discard = false;
       current.start(250);
       stopButton.hidden = false;
       started = Date.now();
