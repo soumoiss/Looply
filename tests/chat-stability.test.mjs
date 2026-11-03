@@ -19,7 +19,7 @@ test("chat filters use explicit conversation data and keep required empty states
     read("src/chat.js"), read("src/chat-filter-logic.js")
   ]);
   assert.match(source, /data-chat-filter="all"/);
-  assert.doesNotMatch(source, /data-chat-filter="groups"|data-chat-filter="unread"/);
+  assert.match(source,/data-chat-filter="groups"/);assert.match(source,/data-chat-filter="unread"/);
   assert.match(source, /data-chat-kind=/);
   assert.match(source, /data-chat-unread-count=/);
   assert.match(source, /matchesConversationFilter\(/);
@@ -83,9 +83,9 @@ test("a newly opened conversation scrolls to the latest rendered message without
   assert.match(source, /function scrollInitialThreadToLatest\(thread\)/);
   assert.match(source, /requestAnimationFrame\(\(\) => \{\s*scrollToLatest\(\);\s*requestAnimationFrame\(scrollToLatest\)/);
   assert.match(source, /media\.addEventListener\(eventName, \(\) => \{/);
-  assert.match(source, /thread\.scrollHeight - thread\.scrollTop - thread\.clientHeight < 140/);
+  assert.match(source, /container\.scrollHeight-container\.scrollTop-container\.clientHeight < 140/);
   assert.match(source, /scrollInitialThreadToLatest\(thread\)/);
-  assert.match(source, /if \(wasNearBottom\) thread\.scrollTop = thread\.scrollHeight/);
+  assert.match(source, /if \(wasNearBottom\) \{const nextHistory=.*nextHistory\.scrollTop=nextHistory\.scrollHeight/);
 });
 
 test("mobile chat uses list-first navigation and keeps the composer controls available", async () => {
@@ -118,9 +118,9 @@ test("Stories remain in the conversation list and survive Realtime sidebar refre
     read("assets/js/chat.js"),
     read("src/chat.js")
   ]);
-  assert.match(page, /storyArea && chatSidebar\) chatSidebar\.prepend\(storyArea\)/);
+  assert.match(page,/storyArea && chatSidebar\) \(chatSidebar\.querySelector\("\[data-chat-premium-stories\]"\)/);
   assert.match(controller, /const currentStories = currentSidebar\?\.querySelector\("\.story-area"\)/);
-  assert.match(controller, /if \(currentStories\) freshSidebar\.prepend\(currentStories\)/);
+  assert.match(controller,/if \(currentStories\) \(freshSidebar\.querySelector\("\[data-chat-premium-stories\]"\)/);
 });
 
 
