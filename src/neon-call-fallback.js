@@ -1,7 +1,8 @@
 // Neon Postgres-only signaling fallback for voice/video calls, chat invalidations,
 // and live game invitations. The DB functions validate auth.uid() and conversation
 // membership independently of Cloudflare; clients cannot choose the sender ID.
-// This code sends only ephemeral signals (never message text or stored media).
+// Calls send ephemeral signals. Game broadcasts may carry a chat message only
+// after the authoritative game RPC has persisted it for room participants.
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const EVENTS = new Set(["signal","ttt","invalidate"]);
 const CALLS = new Set(["offer","answer","ice","hangup","decline","failed"]);

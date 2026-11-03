@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("Why Now v3 ships as a complete source without replacing the Feed or profile controller", () => {
@@ -50,7 +51,7 @@ test("Music selector reuses Looply music discovery, not local iTunes-only search
 
 test("Bridge scripts and each original inline Why Now script are syntactically valid", () => {
   for (const path of ["src/why-now-embedded.js","src/why-now-integration.js","assets/js/home.js"]) {
-    const result = spawnSync(process.execPath, ["--check", new URL("../" + path, import.meta.url).pathname], { encoding:"utf8" });
+    const result = spawnSync(process.execPath, ["--check", fileURLToPath(new URL("../" + path, import.meta.url))], { encoding:"utf8" });
     assert.equal(result.status,0,path + ": " + result.stderr);
   }
   const html = read("why-now.html");

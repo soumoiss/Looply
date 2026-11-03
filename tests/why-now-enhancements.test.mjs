@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("Why Now creation entry is first-class Looply UI, even with existing own moments",()=>{
@@ -44,7 +45,7 @@ test("Why Now uses a click-bound same-origin entry to attempt audible autoplay",
 });
 test("Why Now updated controller source parses correctly",()=>{
   for(const file of ["src/why-now-embedded.js","src/why-now-integration.js","assets/js/home.js"]){
-    const x=spawnSync(process.execPath,["--check",new URL("../"+file,import.meta.url).pathname],{encoding:"utf8"});
+    const x=spawnSync(process.execPath,["--check",fileURLToPath(new URL("../"+file,import.meta.url))],{encoding:"utf8"});
     assert.equal(x.status,0,file+": "+x.stderr);
   }
 });

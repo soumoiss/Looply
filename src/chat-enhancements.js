@@ -1,7 +1,7 @@
 import { icon } from "./icons.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { setupChatTtt } from "./chat-ttt.js?v=ttt-invite-sql-20261031";
-import { setupChatGartic } from "./chat-gartic.js?v=gartic-20261102";
+import { setupChatGartic } from "./chat-gartic.js?v=gartic-20261103-voice-chat";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },

@@ -60,11 +60,12 @@ test("Two-finger pinch must cancel painting, allow pan and preserve draw coordin
 test("Gartic one-way voice never requests microphone just to listen",async()=>{
  const src=await read("src/chat-gartic.js");
  assert.match(src,/function startVoiceListening\(\)/);
- const listenSection=src.split("function startVoiceListening(){")[1].split("async function joinVoice()")[0];
+ const listenSection=src.split("function startVoiceListening(){")[1].split("function resumeRemoteAudio()")[0];
  assert.doesNotMatch(listenSection,/getUserMedia/);
  assert.match(src,/addTransceiver\("audio",\{direction:"sendrecv"\}\)/);
  assert.match(src,/async function toggleMicrophone\(\)/);
  assert.match(src,/replaceTrack\(track\)/);
+ assert.doesNotMatch(src,/data-gartic-action=\\?"(?:join-voice|leave-voice)/);
 });
 test("Chat sends without perform() global lock and does not drop drafts",async()=>{
  const src=await read("src/chat-gartic.js");

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 import {primaryDestinations} from "../src/primary-navigation.js";
 import {isExternalPost,postsForSurface,socialMarkup} from "../src/social.js";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -79,7 +80,7 @@ test("All new and changed web modules parse",()=>{
   for(const path of ["src/social.js","src/live-notification-toast.js","src/page-runtime.js",
       "assets/js/reels.js","assets/js/notifications.js","assets/js/home.js",
       "src/home-comments-sheet.js","backend/cloudflare/android-push-worker.mjs"]){
-    const result=spawnSync(process.execPath,["--check",new URL("../"+path,import.meta.url).pathname],{encoding:"utf8"});
+    const result=spawnSync(process.execPath,["--check",fileURLToPath(new URL("../"+path,import.meta.url))],{encoding:"utf8"});
     assert.equal(result.status,0,path+"\n"+result.stderr);
   }
 });

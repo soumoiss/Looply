@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 const source=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("Why Now camera captures microphone audio up to ninety seconds",()=>{
@@ -62,7 +63,7 @@ test("group images can be selected at creation, cropped and bound to authorized 
 });
 test("modified modules pass syntax checks",()=>{
   for(const path of ["src/why-now-integration.js","src/why-now-embedded.js","src/chat.js"]){
-    const result=spawnSync(process.execPath,["--check",new URL("../"+path,import.meta.url).pathname],{encoding:"utf8"});
+    const result=spawnSync(process.execPath,["--check",fileURLToPath(new URL("../"+path,import.meta.url))],{encoding:"utf8"});
     assert.equal(result.status,0,path+": "+result.stderr);
   }
 });

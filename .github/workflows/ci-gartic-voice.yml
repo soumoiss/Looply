@@ -31,3 +31,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Real two-peer Gartic audio
         run: node tests/ci-gartic-voice-two-peer.mjs
+      - name: Real two-peer Gartic audio with reversed join order
+        run: GARTIC_REVERSE_PEERS=1 node tests/ci-gartic-voice-two-peer.mjs
+      - name: Recover a lost initial WebRTC offer
+        run: GARTIC_DROP_FIRST_OFFER=1 node tests/ci-gartic-voice-two-peer.mjs

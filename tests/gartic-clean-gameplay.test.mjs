@@ -36,7 +36,7 @@ test("Private rooms are not advertised or auto-invited on creation",async()=>{
 });
 test("Gartic controller preserves typed chat during drawings",async()=>{
  const src=await load("src/chat-gartic.js");
- assert.match(src,/function syncLiveGame\(\)/);
+ assert.match(src,/function syncLiveGame\(\{paint=true\}=\{\}\)/);
  assert.match(src,/chatList\.dataset\.messageIds/);
  assert.match(src,/previousDrafts/);
  assert.match(src,/if\(gameVisible\(\) && next\.status==="active"/);
