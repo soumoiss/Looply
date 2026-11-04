@@ -387,7 +387,7 @@ export function setupChatPremium(root,client,userId){
     },500);
   };
   const onMove=event=>{if(pressOrigin&&Math.hypot(event.clientX-pressOrigin.x,event.clientY-pressOrigin.y)>10)cancelPress();};
-  const onPressClick=event=>{if(suppressClick){suppressClick=false;event.preventDefault();event.stopImmediatePropagation();}};
+  const onPressClick=event=>{if(suppressClick){suppressClick=false;if(!event.target.closest("[data-chat-premium-reaction-palette]")){event.preventDefault();event.stopImmediatePropagation();}}};
   const onContext=event=>{if(event.target.closest(".chat-message")){event.preventDefault();}};
   root.addEventListener("pointerdown",onPress);
   root.addEventListener("pointermove",onMove,{passive:true});
