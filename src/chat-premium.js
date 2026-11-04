@@ -1,4 +1,4 @@
-import { sendChatCard } from "./chat.js?v=premium-card-delivery";
+import { sendChatCard } from "./chat.js?v=premium-fixes-20261104";
 import { icon } from "./icons.js";
 import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
@@ -6,6 +6,10 @@ import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coo
 
 const REACTIONS=["❤️","😂","😮","😢","🙏","👍"];
 const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtTime=seconds=>{
+  const total=Math.max(0,Math.floor(Number.isFinite(seconds)?seconds:0));
+  return Math.floor(total/60)+":"+String(total%60).padStart(2,"0");
+};
 function currentComposer(root){return root.querySelector("form[data-chat-send]");}
 function closeAttachmentMenus(root){
   for(const menu of root.querySelectorAll("[data-chat-premium-menu]"))menu.hidden=true;
@@ -126,6 +130,55 @@ export function setupChatPremium(root,client,userId){
     searchAbort?.abort();
     clearTimeout(searchTimer);
   };
+  const closePalette=()=>{
+    root.querySelectorAll("[data-chat-premium-reaction-palette],.chat-react-backdrop").forEach(node=>node.remove());
+    root.querySelectorAll(".chat-message.is-reacting").forEach(node=>node.classList.remove("is-reacting"));
+  };
+  const showPalette=(message,messageId)=>{
+    if(!message||!messageId)return;
+    closePalette();
+    const mine=message.classList.contains("is-mine");
+    const current=message.querySelector('[data-chat-premium-reaction-existing][aria-pressed="true"]')?.dataset.chatPremiumReactionExisting;
+    const backdrop=document.createElement("div");backdrop.className="chat-react-backdrop";
+    const wrap=document.createElement("div");
+    wrap.className="chat-premium-reaction-palette"+(mine?" is-mine":"");
+    wrap.dataset.chatPremiumReactionPalette="";
+    wrap.setAttribute("role","group");wrap.setAttribute("aria-label","Reagir à mensagem");
+    const bar=document.createElement("div");bar.className="chat-react-bar";
+    REACTIONS.forEach((emoji,index)=>{
+      const button=document.createElement("button");
+      button.type="button";button.textContent=emoji;
+      button.dataset.chatPremiumReactionChoice=emoji;button.dataset.chatPremiumMessageId=messageId;
+      button.style.setProperty("--i",String(index));
+      if(emoji===current)button.classList.add("is-current");
+      button.setAttribute("aria-label","Reagir com "+emoji);
+      bar.append(button);
+    });
+    const actions=document.createElement("div");actions.className="chat-react-actions";
+    [["[data-chat-reply]","Responder"],["[data-chat-copy]","Copiar"],["[data-chat-edit-open]","Editar"],["[data-chat-delete]","Excluir"]].forEach(([selector,label])=>{
+      const source=message.querySelector(selector);
+      if(!source)return;
+      const button=document.createElement("button");
+      button.type="button";button.textContent=label;
+      if(selector==="[data-chat-delete]")button.classList.add("is-danger");
+      button.addEventListener("click",event=>{event.stopPropagation();closePalette();source.click();});
+      actions.append(button);
+    });
+    wrap.append(bar,actions);
+    root.append(backdrop,wrap);
+    message.classList.add("is-reacting");
+    const anchor=(message.querySelector(".chat-bubble")||message).getBoundingClientRect();
+    const width=wrap.offsetWidth,height=wrap.offsetHeight,margin=10;
+    const visual=window.visualViewport;
+    const visibleLeft=visual?.offsetLeft||0,visibleTop=visual?.offsetTop||0;
+    const visibleWidth=visual?.width||window.innerWidth,visibleHeight=visual?.height||window.innerHeight;
+    let left=mine?anchor.right-width:anchor.left;
+    left=Math.max(visibleLeft+margin,Math.min(visibleLeft+visibleWidth-width-margin,left));
+    let top=anchor.top-height-8;
+    if(top<visibleTop+margin)top=Math.min(visibleTop+visibleHeight-height-margin,anchor.bottom+8);
+    wrap.style.left=left+"px";wrap.style.top=Math.max(visibleTop+margin,top)+"px";
+    try{navigator.vibrate?.(12);}catch{}
+  };
   let activeAudio=null,activeButton=null;
   const stopAudio=()=>{
     if(activeAudio){try{activeAudio.pause();activeAudio.currentTime=0;}catch{}releaseMediaPlayback(root,activeAudio);}
@@ -228,32 +281,20 @@ export function setupChatPremium(root,client,userId){
     if(modal&&target===modal){closePremiumModal(root);return;}
     const openReactions=target.closest("[data-chat-premium-react]");
     if(openReactions){
-      root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
-      const palette=document.createElement("div");
-      palette.className="chat-premium-reaction-palette";
-      palette.dataset.chatPremiumReactionPalette="";
-      palette.setAttribute("role","group");palette.setAttribute("aria-label","Reagir à mensagem");
-      const rect=openReactions.closest(".chat-message").getBoundingClientRect();
-      palette.style.left=Math.max(10,Math.min(window.innerWidth-272,rect.left))+"px";
-      palette.style.top=Math.max(9,Math.min(window.innerHeight-65,rect.bottom+5))+"px";
-      for(const emoji of REACTIONS){
-        const button=document.createElement("button");
-        button.type="button";
-        button.dataset.chatPremiumReactionChoice=emoji;
-        button.dataset.chatPremiumMessageId=openReactions.dataset.chatPremiumReact;
-        button.textContent=emoji;
-        button.setAttribute("aria-label","Reagir com "+emoji);
-        palette.append(button);
-      }
-      root.append(palette);
+      root.querySelectorAll("[data-chat-message-menu]").forEach(button=>{
+        button.setAttribute("aria-expanded","false");
+        const inline=button.parentElement.querySelector(".chat-message-actions-inline");if(inline)inline.hidden=true;
+      });
+      showPalette(openReactions.closest(".chat-message"),openReactions.dataset.chatPremiumReact);
       return;
     }
+    if(target.closest(".chat-react-backdrop")){closePalette();return;}
     const choice=target.closest("[data-chat-premium-reaction-choice],[data-chat-premium-reaction-existing]");
     if(choice){
       const emoji=choice.dataset.chatPremiumReactionChoice||choice.dataset.chatPremiumReactionExisting;
       const messageId=choice.dataset.chatPremiumMessageId;
       const conversationId=currentComposer(root)?.dataset.conversationId;
-      root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
+      closePalette();
       if(!REACTIONS.includes(emoji)||!messageId||!conversationId||!userId)return;
       choice.disabled=true;
       try{
@@ -295,7 +336,7 @@ export function setupChatPremium(root,client,userId){
       return;
     }
     if(!target.closest("[data-chat-premium-menu], [data-chat-premium-menu-toggle]"))closeAttachmentMenus(root);
-    if(!target.closest("[data-chat-premium-reaction-palette]"))root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
+    if(!target.closest("[data-chat-premium-reaction-palette]"))closePalette();
   };
   const onInput=event=>{
     const field=event.target.closest("#chatPremiumMusicQuery");
@@ -366,7 +407,7 @@ export function setupChatPremium(root,client,userId){
       button.setAttribute("aria-expanded","false");
       button.parentElement.querySelector(".chat-message-actions-inline").hidden=true;
     });
-    root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
+    closePalette();
   };
   const syncComposer=()=>{
     const form=currentComposer(root);if(!form)return;
@@ -374,33 +415,152 @@ export function setupChatPremium(root,client,userId){
     if(form.dataset.hasContent!==String(hasContent))form.dataset.hasContent=String(hasContent);
   };
   let pressTimer=null,pressOrigin=null,suppressClick=false;
+  const PRESS_SKIP="input,textarea,select,audio,video,[data-chat-voice-seek],[data-chat-voice-rate],.chat-message-edit,[data-chat-premium-reaction-existing],[data-chat-message-menu],.chat-message-actions-inline,[data-chat-premium-reaction-palette]";
+  const messageFrom=event=>{
+    if(event.target.closest(PRESS_SKIP))return null;
+    const message=event.target.closest(".chat-message");
+    return message&&message.querySelector("[data-chat-premium-react]")?message:null;
+  };
   const cancelPress=()=>{clearTimeout(pressTimer);pressTimer=null;};
   const onPress=event=>{
-    if(event.button!==0||event.target.closest("button,a,input,textarea,audio,video,summary"))return;
-    const message=event.target.closest(".chat-message");
+    if(event.pointerType==="mouse"&&event.button!==0)return;
+    const message=messageFrom(event);
     if(!message)return;
     pressOrigin={x:event.clientX,y:event.clientY};
     cancelPress();
     pressTimer=setTimeout(()=>{
-      message.querySelector("[data-chat-premium-react]")?.click();
-      suppressClick=true;
-    },500);
+      pressTimer=null;suppressClick=true;
+      showPalette(message,message.querySelector("[data-chat-premium-react]").dataset.chatPremiumReact);
+    },420);
   };
   const onMove=event=>{if(pressOrigin&&Math.hypot(event.clientX-pressOrigin.x,event.clientY-pressOrigin.y)>10)cancelPress();};
-  const onPressClick=event=>{if(suppressClick){suppressClick=false;if(!event.target.closest("[data-chat-premium-reaction-palette]")){event.preventDefault();event.stopImmediatePropagation();}}};
-  const onContext=event=>{if(event.target.closest(".chat-message")){event.preventDefault();}};
+  const onRelease=()=>{cancelPress();if(suppressClick)setTimeout(()=>{suppressClick=false;},400);};
+  const onPressClick=event=>{
+    if(!suppressClick)return;
+    suppressClick=false;
+    if(!event.target.closest("[data-chat-premium-reaction-palette]")){event.preventDefault();event.stopImmediatePropagation();}
+  };
+  const onContext=event=>{
+    const message=event.target.closest(".chat-message");
+    if(!message)return;
+    event.preventDefault();
+    if(root.querySelector("[data-chat-premium-reaction-palette]")||event.target.closest(PRESS_SKIP))return;
+    const id=message.querySelector("[data-chat-premium-react]")?.dataset.chatPremiumReact;
+    if(id){suppressClick=true;showPalette(message,id);}
+  };
+  const onDouble=event=>{
+    const message=messageFrom(event);
+    const id=message?.querySelector("[data-chat-premium-react]")?.dataset.chatPremiumReact;
+    if(!id)return;
+    const quick=document.createElement("button");
+    quick.dataset.chatPremiumReactionChoice="❤️";quick.dataset.chatPremiumMessageId=id;
+    onClick({target:quick});
+  };
   root.addEventListener("pointerdown",onPress);
   root.addEventListener("pointermove",onMove,{passive:true});
-  root.addEventListener("pointerup",cancelPress);
+  root.addEventListener("pointerup",onRelease);
   root.addEventListener("pointercancel",cancelPress);
   root.addEventListener("click",onPressClick,true);
   root.addEventListener("contextmenu",onContext);
-  const syncObserver=new MutationObserver(syncComposer);
+  root.addEventListener("dblclick",onDouble);
+  root.addEventListener("scroll",closePalette,true);
+
+  /* Áudio estilo Instagram: forma de onda que preenche enquanto toca. */
+  const voiceOf=node=>node?.closest?.("[data-chat-voice]");
+  const voiceAudio=box=>box?.querySelector("audio");
+  const paintVoice=box=>{
+    const audio=voiceAudio(box);if(!audio)return;
+    const duration=Number.isFinite(audio.duration)?audio.duration:0;
+    const ratio=duration?Math.min(1,audio.currentTime/duration):0;
+    box.style.setProperty("--prog",(ratio*100).toFixed(2)+"%");
+    box.querySelector("[data-chat-voice-seek]")?.setAttribute("aria-valuenow",String(Math.round(ratio*100)));
+    const label=box.querySelector("[data-chat-voice-time]");
+    if(label)label.textContent=fmtTime(!audio.paused||audio.currentTime>0?audio.currentTime:duration);
+  };
+  let voiceFrame=0;
+  const voiceLoop=()=>{
+    cancelAnimationFrame(voiceFrame);
+    const playing=[...root.querySelectorAll("[data-chat-voice].is-playing")];
+    playing.forEach(paintVoice);
+    if(playing.length)voiceFrame=requestAnimationFrame(voiceLoop);
+  };
+  const setVoiceState=(box,playing)=>{
+    box.classList.toggle("is-playing",playing);
+    const button=box.querySelector("[data-chat-voice-toggle]");
+    button?.setAttribute("aria-pressed",String(playing));
+    button?.setAttribute("aria-label",playing?"Pausar áudio":"Ouvir áudio");
+  };
+  const pauseOtherVoices=current=>{
+    root.querySelectorAll("[data-chat-voice] audio").forEach(audio=>{if(audio!==current&&!audio.paused)audio.pause();});
+    stopAudio();
+  };
+  const onVoiceClick=async event=>{
+    const toggle=event.target.closest("[data-chat-voice-toggle]");
+    const rate=event.target.closest("[data-chat-voice-rate]");
+    const box=voiceOf(toggle||rate);
+    const audio=voiceAudio(box);
+    if(!box||!audio)return;
+    event.preventDefault();
+    if(rate){
+      const steps=[1,1.5,2],next=steps[(steps.indexOf(audio.playbackRate)+1)%steps.length]||1;
+      audio.playbackRate=next;rate.textContent=String(next).replace(".",",")+"×";return;
+    }
+    if(!audio.paused){audio.pause();return;}
+    pauseOtherVoices(audio);
+    if(!requestMediaPlayback("music",root,audio))return;
+    try{await audio.play();}catch(error){console.warn("Voice playback requires a tap",error);setVoiceState(box,false);}
+  };
+  const seekTo=(box,clientX)=>{
+    const audio=voiceAudio(box),track=box.querySelector("[data-chat-voice-seek]");
+    if(!audio||!track||!Number.isFinite(audio.duration)||!audio.duration)return;
+    const rect=track.getBoundingClientRect();
+    audio.currentTime=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width))*audio.duration;
+    paintVoice(box);
+  };
+  let seeking=null;
+  const onSeekDown=event=>{
+    const track=event.target.closest("[data-chat-voice-seek]");
+    if(!track)return;
+    seeking=voiceOf(track);seekTo(seeking,event.clientX);
+    try{track.setPointerCapture(event.pointerId);}catch{}
+  };
+  const onSeekMove=event=>{if(seeking)seekTo(seeking,event.clientX);};
+  const onSeekUp=()=>{seeking=null;};
+  const onSeekKey=event=>{
+    const track=event.target.closest("[data-chat-voice-seek]");
+    const audio=voiceAudio(voiceOf(track));
+    if(!track||!audio||!["ArrowLeft","ArrowRight"].includes(event.key))return;
+    event.preventDefault();
+    audio.currentTime=Math.max(0,Math.min(audio.duration||0,audio.currentTime+(event.key==="ArrowRight"?3:-3)));
+    paintVoice(voiceOf(track));
+  };
+  const onMedia=event=>{
+    const audio=event.target;
+    if(!(audio instanceof HTMLAudioElement))return;
+    const box=voiceOf(audio);if(!box)return;
+    if(event.type==="loadedmetadata"&&audio.duration===Infinity){
+      // Gravações do navegador chegam sem duração; forçar o cálculo uma vez.
+      const restore=()=>{audio.removeEventListener("timeupdate",restore);audio.currentTime=0;paintVoice(box);};
+      audio.addEventListener("timeupdate",restore);audio.currentTime=1e7;return;
+    }
+    if(event.type==="play"){setVoiceState(box,true);voiceLoop();}
+    if(event.type==="pause"){setVoiceState(box,false);releaseMediaPlayback(root,audio);}
+    if(event.type==="ended"){setVoiceState(box,false);audio.currentTime=0;releaseMediaPlayback(root,audio);}
+    paintVoice(box);
+  };
+  ["loadedmetadata","durationchange","timeupdate","play","pause","ended"].forEach(type=>root.addEventListener(type,onMedia,true));
+  root.addEventListener("click",onVoiceClick);
+  root.addEventListener("pointerdown",onSeekDown);
+  root.addEventListener("pointermove",onSeekMove,{passive:true});
+  root.addEventListener("pointerup",onSeekUp);
+  root.addEventListener("keydown",onSeekKey);
+  const initVoices=()=>root.querySelectorAll("[data-chat-voice]").forEach(box=>{if(!box.dataset.voiceReady){box.dataset.voiceReady="1";paintVoice(box);}});
+  const syncObserver=new MutationObserver(()=>{syncComposer();initVoices();});
   syncObserver.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["hidden"]});
   root.addEventListener("input",syncComposer);
   root.addEventListener("change",syncComposer);
   root.addEventListener("reset",()=>queueMicrotask(syncComposer));
-  const stopOnNavigation=()=>{stopAudio();closeAttachmentMenus(root);};
+  const stopOnNavigation=()=>{stopAudio();closeAttachmentMenus(root);closePalette();root.querySelectorAll("[data-chat-voice] audio").forEach(audio=>audio.pause());};
   root.addEventListener("looply:conversation-activated",stopOnNavigation);
   root.addEventListener("click",onClick);
   root.addEventListener("input",onInput);
@@ -409,7 +569,12 @@ export function setupChatPremium(root,client,userId){
   const cleanup=()=>{
     cancelPress();
     root.removeEventListener("pointerdown",onPress);root.removeEventListener("pointermove",onMove);
-    root.removeEventListener("pointerup",cancelPress);root.removeEventListener("pointercancel",cancelPress);
+    root.removeEventListener("pointerup",onRelease);root.removeEventListener("pointercancel",cancelPress);
+    root.removeEventListener("dblclick",onDouble);root.removeEventListener("scroll",closePalette,true);
+    ["loadedmetadata","durationchange","timeupdate","play","pause","ended"].forEach(type=>root.removeEventListener(type,onMedia,true));
+    root.removeEventListener("click",onVoiceClick);root.removeEventListener("pointerdown",onSeekDown);
+    root.removeEventListener("pointermove",onSeekMove);root.removeEventListener("pointerup",onSeekUp);root.removeEventListener("keydown",onSeekKey);
+    cancelAnimationFrame(voiceFrame);
     root.removeEventListener("click",onPressClick,true);root.removeEventListener("contextmenu",onContext);
     cancelSearch();stopAudio();syncObserver.disconnect();
     root.removeEventListener("input",syncComposer);root.removeEventListener("change",syncComposer);
@@ -422,6 +587,6 @@ export function setupChatPremium(root,client,userId){
     closePremiumModal(root);
   };
   window.addEventListener("pagehide",cleanup,{once:true});
-  syncComposer();
+  syncComposer();initVoices();
   return cleanup;
 }

@@ -585,6 +585,22 @@ async function normalizeGroupCover(file) {
   }
 }
 
+function voiceWaveBars(seed) {
+  let h = 2166136261;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const bars = [];
+  for (let i = 0; i < 38; i++) {
+    h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0;
+    const envelope = .5 + .5 * Math.sin(Math.PI * (i + 1) / 39);
+    bars.push(Math.round(16 + 84 * ((h % 1000) / 1000) * envelope));
+  }
+  return bars.map((value) => `<i style="--h:${value}%"></i>`).join("");
+}
+function voiceMessageMarkup(url, fileName, media) {
+  const bars = voiceWaveBars(String(media.storage_path || media.id || fileName));
+  return `<div class="chat-audio-player chat-voice" data-chat-voice><audio src="${url}" preload="metadata" aria-label="${fileName}"></audio><button type="button" class="chat-voice-play" data-chat-voice-toggle aria-label="Ouvir áudio" aria-pressed="false"><span class="chat-voice-icon-play">${icon("play")}</span><span class="chat-voice-icon-pause">${icon("pause")}</span></button><div class="chat-voice-track" data-chat-voice-seek role="slider" tabindex="0" aria-label="Posição do áudio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="chat-voice-wave" aria-hidden="true">${bars}</span><span class="chat-voice-wave is-fill" aria-hidden="true">${bars}</span><span class="chat-voice-knob" aria-hidden="true"></span></div><span class="chat-voice-time" data-chat-voice-time>0:00</span><button type="button" class="chat-voice-rate" data-chat-voice-rate aria-label="Velocidade do áudio">1×</button></div>`;
+}
+
 function renderMedia(media) {
   if (!media.signedUrl) return `<span class="chat-media-unavailable">Anexo temporariamente indisponível.</span>`;
   const url = escapeHtml(media.signedUrl);
@@ -594,7 +610,7 @@ function renderMedia(media) {
     return `<a class="chat-image-link${sticker ? " chat-sticker-link" : ""}" href="${url}" target="_blank" rel="noopener noreferrer"${sticker ? ' aria-label="Figurinha"' : ""}><img${sticker ? ' class="chat-sticker"' : ""} src="${url}" alt="${sticker ? "Figurinha" : fileName}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>`;
   }
   if (media.mime_type.startsWith("video/")) return `<video src="${url}" controls preload="metadata" aria-label="${fileName}"></video>`;
-  if (media.mime_type.startsWith("audio/")) return `<div class="chat-audio-player"><audio src="${url}" controls preload="metadata" aria-label="${fileName}"></audio><label>Velocidade <select data-chat-audio-rate aria-label="Velocidade do áudio"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label></div>`;
+  if (media.mime_type.startsWith("audio/")) return voiceMessageMarkup(url, fileName, media);
   return `<a class="chat-file-link" href="${url}" target="_blank" rel="noopener noreferrer">${icon("external")} ${fileName}</a>`;
 }
 
@@ -693,7 +709,7 @@ export function isVisualOnlyChatMessage(message, hasSticker = false) {
     media.every(item => typeof item?.mime_type === "string" && item.mime_type.startsWith("image/")));
 }
 function isAttachmentPlaceholder(body) {
-  return ["", "Compartilhou arquivos.", "Figurinha"].includes(String(body ?? "").trim());
+  return ["", "Compartilhou arquivos.", "Figurinha", "Mensagem de voz", "Mensagem de voz.", "Enviou um áudio", "Enviou um áudio.", "Áudio", "Áudio enviado"].includes(String(body ?? "").trim());
 }
 
 export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = null, participants = [], isGroup = false) {
@@ -722,7 +738,11 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
       : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
     const premiumCard = premiumChatCardMarkup(message.body);
     const visualOnly = isVisualOnlyChatMessage(message, Boolean(sticker));
-    const hideVisualPlaceholder = Boolean(sticker) || (visualOnly && isAttachmentPlaceholder(message.body));
+    const mediaList = Array.isArray(message.media) ? message.media : [];
+    const audioOnly = mediaList.length > 0 && mediaList.every((item) => String(item?.mime_type || "").startsWith("audio/"));
+    const noteCard = String(premiumCard || "").includes("chat-premium-note-card");
+    const bare = visualOnly || audioOnly || noteCard;
+    const hideVisualPlaceholder = Boolean(sticker) || ((visualOnly || audioOnly) && isAttachmentPlaceholder(message.body));
     const isMine = message.sender_id === userId;
     const authorProfile = participants.find((participant) => participant.user_id === message.sender_id)?.profile || message.author || peerProfile;
     const avatarLabel = (authorProfile?.display_name || authorProfile?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -748,7 +768,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
               ' reação(ões)">'+emoji+' <span>'+count+'</span></button>';
           }).join("")+'</div>' : "";
 
-    return `${daySeparator}<div data-message-row-id="${escapeHtml(message.id)}" class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
+    return `${daySeparator}<div data-message-row-id="${escapeHtml(message.id)}" class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}${bare ? " is-bare" : ""}${audioOnly ? " is-audio-only" : ""}${sticker ? " is-sticker" : ""}${noteCard ? " is-note" : ""}">
     <div class="chat-bubble"><div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time datetime="${escapeHtml(message.created_at)}" title="${escapeHtml(formatDate(message.created_at))}">${escapeHtml(messageTime(message.created_at))}</time></div>
     ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}</div>${reactionSummary}
     <button type="button" class="chat-message-menu chat-icon" data-chat-message-menu aria-label="Opções da mensagem" aria-expanded="false">${icon("more")}</button><div class="chat-message-actions-inline" hidden><button class="chat-premium-react-trigger" type="button" data-chat-premium-react="${escapeHtml(message.id)}" aria-label="Reagir à mensagem">♡</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
@@ -799,10 +819,9 @@ export function threadHeadingMarkup(root, participants, userId, conversationInfo
     const avatar = conversationInfo.coverUrl
       ? `<img class="chat-thread-avatar chat-group-avatar" data-group-cover-id="${escapeHtml(conversationInfo.id)}" src="${escapeHtml(conversationInfo.coverUrl)}" alt="Foto do grupo" referrerpolicy="no-referrer">`
       : `<span class="chat-thread-avatar chat-group-avatar" role="img" aria-label="Conversa em grupo">${icon("users")}</span>`;
-    const editor = conversationInfo.created_by === userId
-      ? `<button type="button" class="chat-cover-change" data-chat-group-cover-choose aria-label="Alterar foto do grupo">Foto do grupo</button><input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status"></span>`
-      : "";
-    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatar}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}${search}</header>`;
+    const avatarWrap = `<span class="chat-group-avatar-wrap">${avatar}<button type="button" class="chat-cover-badge" data-chat-group-cover-choose aria-label="Trocar foto do grupo" title="Trocar foto do grupo">${icon("camera")}</button></span>`;
+    const editor = `<input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-chat-group-cover-input aria-label="Escolher foto do grupo"><span class="chat-cover-status" data-chat-cover-status role="status" aria-live="polite"></span>`;
+    return `<header class="chat-thread-heading" data-chat-kind="group" data-conversation-id="${escapeHtml(activeConversationId)}"><button class="chat-back-button" type="button" data-chat-back aria-label="Voltar às conversas">${icon("back")}</button>${avatarWrap}<div class="chat-thread-identity"><strong>${escapeHtml(conversationInfo.subject || "Grupo")}</strong><small>${memberCount} participantes</small></div>${editor}${search}</header>`;
   }
   const peer = participants.find((participant) => participant.user_id !== userId)?.profile;
   const fallback = (peer?.display_name || peer?.username || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
@@ -821,6 +840,22 @@ async function signThreadAvatar(client, participants) {
   if (!profiles.length) return;
   const { data } = await cachedSignedUrls(client, "looply-avatars", profiles.map((profile) => profile.avatar_path), 1800);
   if (data) profiles.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
+}
+
+/** URLs assinadas e estado do player mudam a cada leitura; ignorar isso evita reconstruir a mensagem (piscar). */
+function stableMessageSignature(node) {
+  const copy = node.cloneNode(true);
+  copy.querySelectorAll("details[open]").forEach((el) => el.removeAttribute("open"));
+  copy.querySelectorAll("[src],[href]").forEach((el) => {
+    for (const attr of ["src", "href"]) {
+      const value = el.getAttribute(attr);
+      if (value && /^https?:/i.test(value)) el.setAttribute(attr, value.split("?")[0]);
+    }
+  });
+  copy.querySelectorAll("[data-chat-voice]").forEach((el) => { el.removeAttribute("style"); el.classList.remove("is-playing"); });
+  copy.querySelectorAll("[data-chat-voice-time],[data-chat-voice-rate]").forEach((el) => { el.textContent = ""; });
+  copy.querySelectorAll("[aria-valuenow],[aria-pressed][data-chat-voice-toggle]").forEach((el) => { el.removeAttribute("aria-valuenow"); el.removeAttribute("aria-pressed"); });
+  return copy.outerHTML;
 }
 
 export function updateThreadMarkup(thread, markup, conversationId) {
@@ -849,7 +884,9 @@ export function updateThreadMarkup(thread, markup, conversationId) {
   const firstIncoming=incomingHistory.querySelector("[data-message-row-id]")?.dataset.messageRowId;
   const firstExisting=existing.get(firstIncoming);
   const nextNodes=[];
-  if(firstExisting && history.querySelector("[data-chat-load-older]")){
+  // Mensagens antigas já carregadas ficam sempre no lugar: antes elas eram
+  // removidas quando o botão "mais antigas" sumia, e a tela pulava.
+  if(firstExisting){
     for(const node of [...history.children]){if(node===firstExisting)break;nextNodes.push(node);}
   }
   const keepOlder=nextNodes.some(node=>node.dataset.messageRowId);
@@ -858,9 +895,11 @@ export function updateThreadMarkup(thread, markup, conversationId) {
     if(keepOlder && next.matches("[data-chat-load-older]"))continue;
     const old=existing.get(next.dataset.messageRowId);
     if(old){
-      const comparison=old.cloneNode(true);
-      comparison.querySelectorAll("details[open]").forEach(el=>el.removeAttribute("open"));
-      if(comparison.outerHTML===next.outerHTML){nextNodes.push(old);continue;}
+      if(stableMessageSignature(old)===stableMessageSignature(next)){nextNodes.push(old);continue;}
+    }
+    if(!next.dataset.messageRowId&&next.matches(".chat-date-separator")){
+      const prev=nextNodes[nextNodes.length-1];
+      if(prev?.matches?.(".chat-date-separator")&&prev.textContent===next.textContent)continue;
     }
     nextNodes.push(next);
   }
@@ -873,7 +912,15 @@ export function updateThreadMarkup(thread, markup, conversationId) {
   for(const node of [...history.childNodes])if(!retained.has(node))node.remove();
   const oldHeading=thread.querySelector(".chat-thread-heading");
   const newHeading=parsed.querySelector(".chat-thread-heading");
-  if(oldHeading&&newHeading&&oldHeading.outerHTML!==newHeading.outerHTML)oldHeading.replaceWith(newHeading);
+  if(oldHeading&&newHeading&&stableMessageSignature(oldHeading)!==stableMessageSignature(newHeading)){
+    // The header contains buttons and a native group-cover picker; refresh only
+    // on a semantic change, not on each signed-URL renewal.
+    const oldAvatar=oldHeading.querySelector("[src]"),nextAvatar=newHeading.querySelector("[src]");
+    const sameIdentity=oldHeading.dataset.conversationId===newHeading.dataset.conversationId;
+    const sameTitle=oldHeading.querySelector(".chat-thread-identity")?.textContent===newHeading.querySelector(".chat-thread-identity")?.textContent;
+    const sameCover=oldAvatar?.getAttribute("src")?.split("?")[0]===nextAvatar?.getAttribute("src")?.split("?")[0];
+    if(!sameIdentity||!sameTitle||!sameCover)oldHeading.replaceWith(newHeading);
+  }
   const updatedHistory=history;
   for(const note of updatedHistory.querySelectorAll(".chat-premium-note-card")){
     if(openedNotes.has(note.closest("[data-message-row-id]")?.dataset.messageRowId))note.open=true;
@@ -882,7 +929,7 @@ export function updateThreadMarkup(thread, markup, conversationId) {
     updatedHistory.scrollTop=previousScrollTop;
     if(anchor?.isConnected)updatedHistory.scrollTop+=anchor.getBoundingClientRect().top-historyTop-anchorOffset;
   }
-  if (wasNearBottom) {const nextHistory=thread.querySelector("[data-chat-premium-history]")||thread;nextHistory.scrollTop=nextHistory.scrollHeight;}
+  if (wasNearBottom && nextNodes.some(node=>node.dataset.messageRowId&&!existing.has(node.dataset.messageRowId))) {const nextHistory=thread.querySelector("[data-chat-premium-history]")||thread;nextHistory.scrollTop=nextHistory.scrollHeight;}
 }
 
 function scrollInitialThreadToLatest(thread) {
@@ -929,8 +976,8 @@ export async function sendChatCard(root, client, userId, composer, body) {
 
 async function openConversation(root, client, conversationId, userId) {
   if (!conversationId || !client || !userId) return;
-  if(!root.querySelector("[data-chat-area]")?.classList.contains("is-conversation-open") && root.dataset.conversationPage !== "true"){
-    window.history.pushState({...window.history.state,looplyChatThread:true},"",window.location.href);
+  if(root.dataset.conversationPage !== "true" && !window.history.state?.looplyChatThread){
+    window.history.pushState({...window.history.state,looplyChatThread:conversationId},"",window.location.href);
   }
   activeConversationId = conversationId;
   refreshSequence += 1;
@@ -968,6 +1015,79 @@ async function openConversation(root, client, conversationId, userId) {
   }
 }
 
+/** Update real Neon conversation rows in place; do not throw away Stories, search, scroll, nicknames or action buttons. */
+function reconcileChatSidebar(currentSidebar, freshSidebar) {
+  if (!currentSidebar || !freshSidebar) return;
+  const currentList=currentSidebar.querySelector("[data-chat-conversations]");
+  const freshList=freshSidebar.querySelector("[data-chat-conversations]");
+  if (!currentList || !freshList) return;
+  const scrollTop=currentSidebar.scrollTop;
+  const saved=new Map([...currentList.querySelectorAll(":scope > [data-chat-open]")]
+    .map(card=>[card.dataset.chatOpen,card]));
+  const desired=[];
+  for (const next of [...freshList.children]) {
+    const id=next.dataset.chatOpen;
+    if (!id) {
+      const old=currentList.querySelector("[data-chat-no-matches]");
+      desired.push(old||next);
+      continue;
+    }
+    const old=saved.get(id);
+    if (!old) {desired.push(next);continue;}
+    // Signed avatar URLs and locally decorated cards are deliberately preserved.
+    // Only the server-owned fields change when a new message/receipt arrives.
+    old.dataset.chatKind=next.dataset.chatKind;
+    old.dataset.chatUnreadCount=next.dataset.chatUnreadCount;
+    old.classList.toggle("is-active",next.classList.contains("is-active"));
+    const currentName=old.querySelector(".chat-conversation-copy strong");
+    const freshName=next.querySelector(".chat-conversation-copy strong");
+    if(currentName&&freshName){
+      // Keep a user-specific nickname, but update genuine server-side renames.
+      const previousOriginal=currentName.dataset.originalName||currentName.textContent;
+      const customName=currentName.textContent!==previousOriginal;
+      if(!customName&&currentName.textContent!==freshName.textContent)currentName.textContent=freshName.textContent;
+      currentName.dataset.originalName=freshName.textContent;
+    }
+    const pairs=[
+      [".chat-conversation-avatar", ".chat-conversation-avatar"],
+      [".chat-model-row-title time", ".chat-model-row-title time"],
+      [".chat-model-row-preview small", ".chat-model-row-preview small"],
+      [".chat-unread", ".chat-unread"]
+    ];
+    // A cover or avatar changes only when its storage path changes. Query-token
+    // rotations are not content changes and must not restart image downloads.
+    const oldAvatar=old.querySelector(".chat-conversation-avatar");
+    const nextAvatar=next.querySelector(".chat-conversation-avatar");
+    if(oldAvatar&&nextAvatar){
+      const oldUrl=oldAvatar.getAttribute("src")?.split("?")[0];
+      const nextUrl=nextAvatar.getAttribute("src")?.split("?")[0];
+      if(oldAvatar.tagName!==nextAvatar.tagName || (oldUrl&&nextUrl&&oldUrl!==nextUrl))oldAvatar.replaceWith(nextAvatar);
+    }
+    for(const [before,after] of pairs.slice(1)){
+      const previous=old.querySelector(before),latest=next.querySelector(after);
+      if(previous&&latest){if(previous.textContent!==latest.textContent)previous.textContent=latest.textContent;}
+      else if(previous&&!latest)previous.remove();
+      else if(!previous&&latest)old.append(latest);
+    }
+    desired.push(old);
+  }
+  // Preserve locally pinned ordering when Neon summaries refresh.
+  desired.sort((left,right)=>Number(right.classList.contains("is-chat-premium-pinned"))-
+    Number(left.classList.contains("is-chat-premium-pinned")));
+  // Reordering existing nodes does not recreate their images or animations.
+  const existing=[...currentList.children];
+  if(desired.length!==existing.length||desired.some((card,i)=>card!==existing[i]))
+    currentList.replaceChildren(...desired);
+  const count=currentSidebar.querySelector(".chat-panel-heading span");
+  const nextCount=freshSidebar.querySelector(".chat-panel-heading span");
+  if(count&&nextCount&&count.textContent!==nextCount.textContent)count.textContent=nextCount.textContent;
+  const notices=currentSidebar.querySelector(".chat-notifications-panel");
+  const newNotices=freshSidebar.querySelector(".chat-notifications-panel");
+  if(notices&&newNotices&&!notices.open&&notices.innerHTML!==newNotices.innerHTML)
+    notices.innerHTML=newNotices.innerHTML;
+  currentSidebar.scrollTop=scrollTop;
+}
+
 async function refreshChat(root, client, userId, { keepThread = false } = {}) {
   const area = root.querySelector("[data-chat-area]");
   if (!area) return;
@@ -983,11 +1103,12 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     const currentSidebar = currentArea?.querySelector(".chat-sidebar");
     const freshSidebar = freshArea?.querySelector(".chat-sidebar");
     const currentStories = currentSidebar?.querySelector(".story-area");
-    // Refresh only the conversation list/sidebar. Keep the live Stories node
-    // and never replace the thread, composer, textarea or recorder on sync.
+    // Keep the same sidebar and its real Stories/filters/inputs across every
+    // Neon sync. Replacing it caused visible flashes and reset native scrolling.
     if (currentSidebar && freshSidebar) {
-      currentSidebar.replaceWith(freshSidebar);
-      if (currentStories) (freshSidebar.querySelector("[data-chat-premium-stories]")||freshSidebar).prepend(currentStories);
+      reconcileChatSidebar(currentSidebar,freshSidebar);
+      if (currentStories && !currentSidebar.contains(currentStories))
+        (currentSidebar.querySelector("[data-chat-premium-stories]")||currentSidebar).prepend(currentStories);
     }
     applyConversationFilter(root);
 
@@ -1089,6 +1210,14 @@ export function disposeChatRealtime(client) {
   for (const form of voiceRecordings.keys()) cancelVoiceRecording(form);
 }
 
+/** Coordinates for an Android visualViewport with a resizing or overlay keyboard. */
+export function measureChatVisualViewport({height,top=0,layoutHeight,baseline,typing=false}) {
+  const safeHeight=Math.max(170,Math.round(Number(height)||Number(layoutHeight)||170));
+  const safeTop=Math.max(0,Math.round(Number(top)||0));
+  const obscured=Boolean(typing && (Number(baseline)-safeHeight>110 || Number(layoutHeight)-safeHeight-safeTop>90));
+  return {height:safeHeight,top:safeTop,keyboardOpen:obscured};
+}
+
 export function bindChatEvents(root, client, getUserId) {
   bindStickerCatalog(root,client,getUserId);
   root.dataset.chatUserId = getUserId?.() || "";
@@ -1139,45 +1268,50 @@ export function bindChatEvents(root, client, getUserId) {
   }, true);
   if (window.visualViewport) {
     const viewport = window.visualViewport;
+    let viewportBaseline = Math.max(window.innerHeight,viewport.height);
+    let frame = 0;
     const updateViewport = () => {
-      root.style.setProperty("--looply-visible-height", viewport.height + "px");
-      const area = root.querySelector("[data-chat-area]");
-      const areaTop = Math.max(0,area?.getBoundingClientRect().top || 0);
-      const screenBottom = viewport.height + viewport.offsetTop;
-      const obscured = window.innerHeight - screenBottom > 96;
+      frame = 0;
       const typing = Boolean(document.activeElement?.closest(".chat-message-form"));
-      const nav = document.querySelector(".page-navigation");
-      const mobile = window.matchMedia("(max-width:860px)").matches;
-      const inThread = area?.classList.contains("is-conversation-open") || root.dataset.conversationPage === "true";
-      const navSpace = mobile && !inThread && !(obscured && typing) ? (nav?.getBoundingClientRect().height || 0) : 0;
-      root.style.setProperty("--chat-panel-px",Math.max(170,Math.round(screenBottom-areaTop-navSpace))+"px");
-      root.classList.toggle("chat-keyboard-open",obscured && typing);
+      if(!typing)viewportBaseline=Math.max(viewportBaseline,window.innerHeight,viewport.height);
+      const geometry=measureChatVisualViewport({height:viewport.height,top:viewport.offsetTop,
+        layoutHeight:window.innerHeight,baseline:viewportBaseline,typing});
+      root.style.setProperty("--looply-visible-height", geometry.height+"px");
+      root.style.setProperty("--looply-visible-top", geometry.top+"px");
+      root.classList.toggle("chat-keyboard-open",geometry.keyboardOpen);
+      document.documentElement.classList.toggle("chat-keyboard-open",geometry.keyboardOpen);
     };
-    viewport.addEventListener("resize", updateViewport);
-    viewport.addEventListener("scroll", updateViewport);
-    window.addEventListener("orientationchange", updateViewport);
+    const queueViewport = () => {if(!frame)frame=requestAnimationFrame(updateViewport);};
+    viewport.addEventListener("resize", queueViewport);
+    viewport.addEventListener("scroll", queueViewport);
+    window.addEventListener("resize",queueViewport);
+    window.addEventListener("orientationchange",()=>{
+      viewportBaseline=Math.max(window.innerHeight,viewport.height);
+      queueViewport();
+    });
     updateViewport();
     window.addEventListener("pagehide", () => {
-      viewport.removeEventListener("resize", updateViewport);
-      viewport.removeEventListener("scroll", updateViewport);
-      window.removeEventListener("orientationchange", updateViewport);
+      viewport.removeEventListener("resize", queueViewport);
+      viewport.removeEventListener("scroll", queueViewport);
+      window.removeEventListener("resize",queueViewport);
+      cancelAnimationFrame(frame);
+      document.documentElement.classList.remove("chat-keyboard-open");
     }, { once: true });
     root.addEventListener("input", event => {
       const textarea = event.target.closest(".chat-message-form textarea");
       if (!textarea) return;
       textarea.style.height = "44px";
       textarea.style.height = Math.min(150,Math.max(44,textarea.scrollHeight)) + "px";
-      requestAnimationFrame(updateViewport);
+      queueViewport();
     });
     root.addEventListener("focusin", (event) => {
-      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
+      if (event.target.matches(".chat-message-form textarea")) queueViewport();
     });
     root.addEventListener("focusout", (event) => {
-      if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
+      if (event.target.matches(".chat-message-form textarea")) queueViewport();
     });
-    root.addEventListener("looply:conversation-activated",updateViewport);
-    root.addEventListener("looply:chat-rendered",()=>requestAnimationFrame(updateViewport));
-    window.addEventListener("resize",updateViewport);
+    root.addEventListener("looply:conversation-activated",queueViewport);
+    root.addEventListener("looply:chat-rendered",queueViewport);
   }
   root.addEventListener("looply:open-conversation", async (event) => {
     const conversationId = event.detail?.conversationId;
@@ -1613,7 +1747,7 @@ export function bindChatEvents(root, client, getUserId) {
     const back = event.target.closest("[data-chat-back]");
     if (!back) return;
     if (root.dataset.conversationPage === "true") {
-      window.location.assign("chat.html");
+      window.location.replace("chat.html");
       return;
     }
     if(window.history.state?.looplyChatThread){window.history.back();return;}
@@ -1626,8 +1760,17 @@ export function bindChatEvents(root, client, getUserId) {
     if (thread) thread.innerHTML = `<div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div>`;
   });
 
-  const onChatBack=()=>{
+  // Pilha de voltar previsível: [anterior] > RAIZ > LISTA > CONVERSA.
+  // Voltar na conversa fecha a conversa; voltar na lista leva ao início.
+  const inConversationPage = root.dataset.conversationPage === "true";
+  try {
+    window.history.replaceState({...window.history.state,looplyChatRoot:true,looplyChatThread:false},"",window.location.href);
+    window.history.pushState({...window.history.state,looplyChatRoot:false,looplyChatList:true,looplyChatThread:false},"",window.location.href);
+  } catch (error) { console.warn("Looply chat history unavailable", error); }
+  const onChatBack=(event)=>{
+    if(event?.state?.looplyChatRoot){window.location.replace(inConversationPage?"chat.html":"home.html");return;}
     if(root.dataset.conversationPage === "true")return;
+    if(event?.state?.looplyChatThread)return;
     activeConversationId=null;
     activeThreadRequest+=1;
     refreshSequence+=1;

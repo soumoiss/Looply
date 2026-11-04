@@ -1,7 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=premium-card-delivery";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=mobile-stable-20261104";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
-import { setupChatPremium } from "../../src/chat-premium.js?v=premium-card-delivery";
+import { setupChatPremium } from "../../src/chat-premium.js?v=mobile-stable-20261104";
 import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {

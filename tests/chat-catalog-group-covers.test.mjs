@@ -102,9 +102,9 @@ test("Neon REST pagination requests 36 of 1200 catalog items, not the full colle
 test("keyboard panel follows real viewport without forced scrolling on focus",async()=>{
   const [chat,css]=await Promise.all([
     read("src/chat.js"),read("assets/css/pages/chat-viewport-catalog.css")]);
-  assert.match(chat,/viewport\.height \+ viewport\.offsetTop/);
-  assert.match(chat,/area\?\.getBoundingClientRect\(\)\.top/);
-  assert.match(chat,/--chat-panel-px/);
+  assert.match(chat,/measureChatVisualViewport\(\{height:viewport\.height,top:viewport\.offsetTop/);
+  assert.match(chat,/measureChatVisualViewport/);
+  assert.match(chat,/--looply-visible-height/);
   assert.doesNotMatch(chat,/document\.activeElement\?\.matches\("\.chat-message-form textarea"\) && thread\) requestAnimationFrame\(\(\) => \{ thread\.scrollTop/);
   assert.match(css,/height:var\(--chat-panel-px/);
   assert.match(css,/padding-bottom:0!important/);

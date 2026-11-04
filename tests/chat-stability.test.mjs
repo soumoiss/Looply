@@ -61,7 +61,8 @@ test("background refresh updates the sidebar instead of replacing the whole chat
   const end = source.indexOf("\nfunction scheduleRefresh", start);
   assert.ok(start >= 0 && end > start, "refreshChat function must exist");
   const refresh = source.slice(start, end);
-  assert.match(refresh, /currentSidebar\.replaceWith\(freshSidebar\)/);
+  assert.match(refresh, /reconcileChatSidebar\(currentSidebar,freshSidebar\)/);
+  assert.doesNotMatch(refresh, /currentSidebar\.replaceWith\(freshSidebar\)/);
   assert.doesNotMatch(refresh, /area\.replaceWith\(freshArea\)/);
   assert.doesNotMatch(refresh, /area\.innerHTML\s*=/);
   assert.match(refresh, /requestId !== refreshSequence/);
@@ -85,7 +86,7 @@ test("a newly opened conversation scrolls to the latest rendered message without
   assert.match(source, /media\.addEventListener\(eventName, \(\) => \{/);
   assert.match(source, /container\.scrollHeight-container\.scrollTop-container\.clientHeight < 140/);
   assert.match(source, /scrollInitialThreadToLatest\(thread\)/);
-  assert.match(source, /if \(wasNearBottom\) \{const nextHistory=.*nextHistory\.scrollTop=nextHistory\.scrollHeight/);
+  assert.match(source, /if \(wasNearBottom && nextNodes\.some\(node=>node\.dataset\.messageRowId/);
 });
 
 test("mobile chat uses list-first navigation and keeps the composer controls available", async () => {
@@ -120,7 +121,7 @@ test("Stories remain in the conversation list and survive Realtime sidebar refre
   ]);
   assert.match(page,/storyArea && chatSidebar\) \(chatSidebar\.querySelector\("\[data-chat-premium-stories\]"\)/);
   assert.match(controller, /const currentStories = currentSidebar\?\.querySelector\("\.story-area"\)/);
-  assert.match(controller,/if \(currentStories\) \(freshSidebar\.querySelector\("\[data-chat-premium-stories\]"\)/);
+  assert.match(controller,/if \(currentStories && !currentSidebar\.contains\(currentStories\)\)/);
 });
 
 

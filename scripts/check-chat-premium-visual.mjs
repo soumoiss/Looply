@@ -37,6 +37,7 @@ const fixture='<!doctype html><html lang="pt-BR" data-theme="lilas"><head>'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-features.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-gartic.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-premium.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-fixes.css">'+
   '</head><body class="looply-page page-chat">'+
   '<div class="container-page"><header class="page-header"><strong>Looply</strong></header>'+
   '<main><div class="page-content" id="pageContent">'+content+
@@ -125,10 +126,14 @@ try{
           for(let i=0;i<30;i++)list.append(item.cloneNode(true));
           const title=sidebar.querySelector(".chat-heading");
           const before=title.getBoundingClientRect().top;
-          sidebar.scrollTop=200;
-          return {moved:before-title.getBoundingClientRect().top,listScroll:getComputedStyle(list).overflowY};
+          document.scrollingElement.scrollTop=200;
+          return {moved:before-title.getBoundingClientRect().top,
+            documentScroll:document.scrollingElement.scrollTop,
+            bodyScroll:getComputedStyle(document.body).overflowY,
+            listScroll:getComputedStyle(list).overflowY};
         });
-        assert.ok(scroll.moved>100,"entire picker must scroll including its heading");
+        assert.ok(scroll.moved>100&&scroll.documentScroll>100,"entire picker must scroll including its heading");
+        assert.equal(scroll.bodyScroll,"auto","document is the scrolling surface on phones");
         assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");
       }
       if(width<=860 && mode==="thread"){
