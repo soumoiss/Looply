@@ -4,13 +4,14 @@ on:
     branches: [main]
     paths:
       - ".github/chat-premium-payload/**"
+      - ".github/workflows/apply-chat-premium.yml"
   workflow_dispatch:
 permissions:
   contents: write
   actions: write
 jobs:
   integrate:
-    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'chore(chat): stage verified premium mobile package'
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'stage verified premium mobile package') || contains(github.event.head_commit.message, 'reactivate verified premium mobile package')
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
