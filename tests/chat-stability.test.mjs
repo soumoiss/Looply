@@ -10,8 +10,8 @@ test("Realtime refresh preserves the existing composer DOM node", async () => {
   const source = await read("src/chat.js");
   assert.match(source, /function updateThreadMarkup\(thread, markup, conversationId\)/);
   assert.match(source, /const currentForm = thread\.querySelector\("\[data-chat-send\]"\)/);
-  assert.match(source, /child !== currentForm/);
-  assert.match(source, /thread\.insertBefore\(child, currentForm\)/);
+  assert.match(source, /const updatedHistory=history/);
+  assert.match(source, /history\.insertBefore\(node,cursor\)/);
 });
 
 test("chat filters use explicit conversation data and keep required empty states", async () => {

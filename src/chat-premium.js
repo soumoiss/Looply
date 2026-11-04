@@ -233,7 +233,7 @@ export function setupChatPremium(root,client,userId){
       palette.className="chat-premium-reaction-palette";
       palette.dataset.chatPremiumReactionPalette="";
       palette.setAttribute("role","group");palette.setAttribute("aria-label","Reagir à mensagem");
-      const rect=openReactions.getBoundingClientRect();
+      const rect=openReactions.closest(".chat-message").getBoundingClientRect();
       palette.style.left=Math.max(10,Math.min(window.innerWidth-272,rect.left))+"px";
       palette.style.top=Math.max(9,Math.min(window.innerHeight-65,rect.bottom+5))+"px";
       for(const emoji of REACTIONS){
@@ -373,6 +373,28 @@ export function setupChatPremium(root,client,userId){
     const hasContent=Boolean(form.elements.body?.value.trim()||form.elements.files?.files.length||form._looplyRecordedFile||form._looplyStickerFile);
     if(form.dataset.hasContent!==String(hasContent))form.dataset.hasContent=String(hasContent);
   };
+  let pressTimer=null,pressOrigin=null,suppressClick=false;
+  const cancelPress=()=>{clearTimeout(pressTimer);pressTimer=null;};
+  const onPress=event=>{
+    if(event.button!==0||event.target.closest("button,a,input,textarea,audio,video,summary"))return;
+    const message=event.target.closest(".chat-message");
+    if(!message)return;
+    pressOrigin={x:event.clientX,y:event.clientY};
+    cancelPress();
+    pressTimer=setTimeout(()=>{
+      message.querySelector("[data-chat-premium-react]")?.click();
+      suppressClick=true;
+    },500);
+  };
+  const onMove=event=>{if(pressOrigin&&Math.hypot(event.clientX-pressOrigin.x,event.clientY-pressOrigin.y)>10)cancelPress();};
+  const onPressClick=event=>{if(suppressClick){suppressClick=false;event.preventDefault();event.stopImmediatePropagation();}};
+  const onContext=event=>{if(event.target.closest(".chat-message")){event.preventDefault();}};
+  root.addEventListener("pointerdown",onPress);
+  root.addEventListener("pointermove",onMove,{passive:true});
+  root.addEventListener("pointerup",cancelPress);
+  root.addEventListener("pointercancel",cancelPress);
+  root.addEventListener("click",onPressClick,true);
+  root.addEventListener("contextmenu",onContext);
   const syncObserver=new MutationObserver(syncComposer);
   syncObserver.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["hidden"]});
   root.addEventListener("input",syncComposer);
@@ -385,6 +407,10 @@ export function setupChatPremium(root,client,userId){
   root.addEventListener("submit",onSubmit,true);
   root.addEventListener("keydown",onKey);
   const cleanup=()=>{
+    cancelPress();
+    root.removeEventListener("pointerdown",onPress);root.removeEventListener("pointermove",onMove);
+    root.removeEventListener("pointerup",cancelPress);root.removeEventListener("pointercancel",cancelPress);
+    root.removeEventListener("click",onPressClick,true);root.removeEventListener("contextmenu",onContext);
     cancelSearch();stopAudio();syncObserver.disconnect();
     root.removeEventListener("input",syncComposer);root.removeEventListener("change",syncComposer);
     root.removeEventListener("looply:conversation-activated",stopOnNavigation);

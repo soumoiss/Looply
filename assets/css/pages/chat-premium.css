@@ -387,3 +387,18 @@ html[data-theme="grafite"] .page-chat{--on:#1b1230}
 .page-chat .chat-premium .chat-premium-game-card,.page-chat .chat-premium .chat-premium-music-card{min-width:0;width:100%}
 .page-chat .chat-premium .chat-premium-music-info{min-width:0}
 .page-chat .chat-premium .chat-premium-music-info strong{white-space:normal;overflow-wrap:anywhere}
+
+/* One scroll surface for the conversation picker; stable history while reading. */
+.page-chat .chat-sidebar{overflow-y:auto;overscroll-behavior:contain}
+.page-chat .chat-sidebar>.chat-panel{flex:none;overflow:visible}
+.page-chat .chat-conversation-list{flex:none;overflow:visible;max-height:none}
+.page-chat .chat-premium-history{overflow-anchor:none;scroll-behavior:auto}
+.page-chat .chat-message:has(.chat-premium-note-card) .chat-bubble{background:transparent;box-shadow:none;border:0;color:var(--t);padding:0}
+.page-chat .chat-message:has(.chat-premium-note-card) p[data-chat-message-body]{display:none}
+.page-chat .chat-cover-change{opacity:1;position:static;width:auto;min-width:44px;font-size:11px}
+@media(max-width:860px){
+  .page-chat:has(.chat-area.is-conversation-open) .chat-layout{position:fixed;inset:0 0 auto;height:var(--looply-visible-height,100dvh);margin:0;max-height:none}
+  .page-chat .chat-area.is-conversation-open .chat-thread-panel{height:100%!important;min-height:0;max-height:none}
+  .page-chat .chat-area.is-conversation-open .chat-message-form{position:relative!important;bottom:auto!important;transform:none!important;margin:0!important;padding-bottom:8px}
+  .page-chat .chat-cover-change{position:static;opacity:1;width:auto}
+}
