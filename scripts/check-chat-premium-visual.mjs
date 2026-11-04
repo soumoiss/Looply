@@ -4,7 +4,7 @@ import {readFile,mkdir} from "node:fs/promises";
 import {resolve,join,extname} from "node:path";
 import {fileURLToPath} from "node:url";
 import {chromium} from "playwright";
-import {chatMarkup,threadMarkup} from "../src/chat.js";
+import {chatMarkup,threadMarkup,messageComposerMarkup} from "../src/chat.js";
 
 const ROOT=resolve(fileURLToPath(new URL("../",import.meta.url)));
 const OUTPUT=join(ROOT,"smoke-results/chat-premium-20261103");
@@ -30,21 +30,11 @@ const mockedThread='<header class="chat-thread-heading" data-conversation-id="'+
   '<button class="chat-v2-icon-button" aria-label="Áudio">☎</button>'+
   '<button class="chat-v2-icon-button" aria-label="Vídeo">▹</button></header>'+
   '<div class="chat-premium-history" data-chat-premium-history>'+chatBody+'</div>'+
-  '<form class="chat-message-form" data-chat-send data-conversation-id="'+cid+'">'+
-  '<div class="chat-premium-compose-row"><div class="chat-premium-compose-box">'+
-  '<button class="chat-emoji-button" type="button">☺</button>'+
-  '<textarea name="body" rows="1" aria-label="Mensagem" placeholder="Mensagem"></textarea>'+
-  '<button class="chat-attachment-label" type="button" data-chat-premium-menu-toggle>📎</button></div>'+
-  '<div class="chat-message-actions"><button class="chat-record-start" type="button">🎙</button>'+
-  '<button class="primary-button compact-button chat-premium-send" type="submit">Enviar ➤</button></div></div>'+
-  '<div class="chat-premium-attach-menu" data-chat-premium-menu hidden></div></form>';
+  messageComposerMarkup(cid);
 const fixture='<!doctype html><html lang="pt-BR" data-theme="lilas"><head>'+
   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'+
-  '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/assets/css/app.css">'+
-  '<link rel="stylesheet" href="/assets/css/pages/shared.css">'+
-  '<link rel="stylesheet" href="/assets/css/pages/chat.css">'+
-  '<link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">'+
-  '<link rel="stylesheet" href="/assets/css/theme-complete.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-foundation.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-features.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-gartic.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-premium.css">'+
   '</head><body class="looply-page page-chat">'+
@@ -77,7 +67,7 @@ try{
     const page=await context.newPage();
     const errors=[];page.on("pageerror",error=>errors.push(error.message));
     await page.goto(url,{waitUntil:"load"});
-    const cases=width<=760?["list","thread"]:["thread"];
+    const cases=width<=860?["list","thread"]:["thread"];
     for(const mode of cases){
       await page.evaluate(({mode,markup})=>{
         const root=document.querySelector("[data-chat-area]");
@@ -102,11 +92,13 @@ try{
           listVisible:visible(".chat-sidebar"),threadVisible:visible(".chat-thread-panel"),
           composeVisible:visible(".chat-premium-compose-row"),
           noteVisible:visible(".chat-premium-note-card"),
+          bodyWidth:document.body.scrollWidth,
           themeColor:getComputedStyle(el(".chat-premium")).getPropertyValue("--pm-primary").trim()};
       });
       console.log("CHAT_PREMIUM_VIEWPORT",JSON.stringify({width,height,mode,geometry}));
       assert.ok(geometry.root.w>0,"root not rendered");
       assert.ok(geometry.scrollWidth<=width+2,"horizontal overflow at "+width);
+      assert.ok(geometry.bodyWidth<=width+2,"body overflow at "+width);
       if(mode==="list"){assert.ok(geometry.listVisible,"list missing on mobile");assert.ok(!geometry.threadVisible,"thread leaked into list");}
       if(mode==="thread"){
         assert.ok(geometry.threadVisible,"thread missing");
@@ -117,6 +109,14 @@ try{
         assert.ok(geometry.noteVisible,"premium note absent");
       }
       assert.deepEqual(errors,[],"browser error");
+      if(mode==="thread"){
+        const note=page.locator(".chat-premium-note-card").first();
+        await note.locator("summary").click();
+        await note.locator(".chat-letter-paper").waitFor({state:"visible"});
+        assert.equal(await note.getAttribute("open"),"");
+        await note.locator("summary").press("Enter");
+        assert.equal(await note.getAttribute("open"),null);
+      }
       await page.screenshot({path:join(OUTPUT,mode+"-"+width+"x"+height+".png"),animations:"disabled"});
     }
     await context.close();

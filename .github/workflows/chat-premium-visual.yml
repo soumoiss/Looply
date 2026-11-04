@@ -7,6 +7,10 @@ on:
       - "src/chat-premium-cards.js"
       - "src/chat-enhancements.js"
       - "assets/css/pages/chat-premium.css"
+      - "assets/css/pages/chat-features.css"
+      - "assets/css/pages/chat-foundation.css"
+      - "chat.html"
+      - "conversa.html"
       - "scripts/check-chat-premium-visual.mjs"
       - ".github/workflows/chat-premium-visual.yml"
   workflow_dispatch:

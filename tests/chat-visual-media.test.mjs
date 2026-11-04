@@ -36,14 +36,14 @@ test("photos and stickers render without text bubble while ordinary messages ret
 });
 test("CSS removes purple media surfaces and global header only in open threads", async () => {
   const [css, chat, conversation] = await Promise.all([
-    read("assets/css/pages/chat-viewport-catalog.css"),
+    read("assets/css/pages/chat-premium.css"),
     read("chat.html"),
     read("conversa.html")
   ]);
   assert.ok(css.includes(".chat-message.is-visual-only"));
-  assert.match(css, /background:transparent!important/);
-  assert.ok(css.includes(":has(.chat-area.is-conversation-open) > .container-page > .page-header"));
-  assert.ok(css.includes(".chat-message.is-visual-only .chat-image-link"));
-  assert.ok(chat.includes("chat-viewport-catalog.css"));
-  assert.ok(conversation.includes("chat-viewport-catalog.css"));
+  assert.match(css, /background:transparent/);
+  assert.ok(css.includes(":has(.chat-area.is-conversation-open) .page-header"));
+  assert.ok(css.includes(".chat-message.is-visual-only .chat-bubble"));
+  assert.ok(chat.includes("chat-premium.css"));
+  assert.ok(conversation.includes("chat-premium.css"));
 });

@@ -7,10 +7,10 @@ const sheet = read("assets/css/pages/stories-premium-polish.css");
 
 test("Stories premium visual layer loads last on home and chat", () => {
   for (const page of ["home.html", "chat.html"]) {
-    const html = read(page);
-    const file = "assets/css/pages/stories-premium-polish.css";
+    const html = page==="chat.html" ? read("assets/css/pages/chat-foundation.css") : read(page);
+    const file = page==="chat.html" ? "stories-premium-polish.css" : "assets/css/pages/stories-premium-polish.css";
     assert.equal(html.split(file).length, 2, page + " must load the layer once");
-    assert.ok(html.indexOf(file) > html.indexOf("assets/css/theme-complete.css"), page + " must load last");
+    assert.ok(html.indexOf(file) > html.indexOf("theme-complete.css"), page + " must load last");
   }
 });
 
