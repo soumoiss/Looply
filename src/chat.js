@@ -852,7 +852,10 @@ function updateThreadMarkup(thread, markup, conversationId) {
   if(firstExisting && history.querySelector("[data-chat-load-older]")){
     for(const node of [...history.children]){if(node===firstExisting)break;nextNodes.push(node);}
   }
+  const keepOlder=nextNodes.some(node=>node.dataset.messageRowId);
+  if(!keepOlder)nextNodes.length=0;
   for(const next of [...incomingHistory.children]){
+    if(keepOlder && next.matches("[data-chat-load-older]"))continue;
     const old=existing.get(next.dataset.messageRowId);
     if(old){
       const comparison=old.cloneNode(true);

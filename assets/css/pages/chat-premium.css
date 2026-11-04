@@ -402,3 +402,6 @@ html[data-theme="grafite"] .page-chat{--on:#1b1230}
   .page-chat .chat-area.is-conversation-open .chat-message-form{position:relative!important;bottom:auto!important;transform:none!important;margin:0!important;padding-bottom:8px}
   .page-chat .chat-cover-change{position:static;opacity:1;width:auto}
 }
+
+.page-chat .chat-message{animation:none}
+@media(pointer:coarse){.page-chat .chat-message{ -webkit-touch-callout:none;user-select:none }}

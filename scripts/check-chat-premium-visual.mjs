@@ -63,7 +63,7 @@ let browser;
 try{
   browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
   for(const [width,height] of [[320,712],[360,800],[390,844],[428,926],[768,1024],[1100,800],[1440,900]]){
-    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,isMobile:width<=860,hasTouch:width<=860});
     const page=await context.newPage();
     const errors=[];page.on("pageerror",error=>errors.push(error.message));
     await page.goto(url,{waitUntil:"load"});
@@ -116,6 +116,28 @@ try{
         assert.equal(await note.getAttribute("open"),"");
         await note.locator("summary").press("Enter");
         assert.equal(await note.getAttribute("open"),null);
+      }
+      if(width<=860 && mode==="list"){
+        const scroll=await page.evaluate(()=>{
+          const sidebar=document.querySelector(".chat-sidebar");
+          const list=document.querySelector(".chat-conversation-list");
+          const item=list.querySelector("[data-chat-open]");
+          for(let i=0;i<30;i++)list.append(item.cloneNode(true));
+          const title=sidebar.querySelector(".chat-heading");
+          const before=title.getBoundingClientRect().top;
+          sidebar.scrollTop=200;
+          return {moved:before-title.getBoundingClientRect().top,listScroll:getComputedStyle(list).overflowY};
+        });
+        assert.ok(scroll.moved>100,"entire picker must scroll including its heading");
+        assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");
+      }
+      if(width<=860 && mode==="thread"){
+        await page.evaluate(()=>document.querySelector("#pageContent").style.setProperty("--looply-visible-height","400px"));
+        const bottom=await page.locator(".chat-message-form").evaluate(el=>el.getBoundingClientRect().bottom);
+        assert.ok(Math.abs(bottom-400)<2,"composer must sit at visual viewport bottom");
+        const bubble=await page.locator(".chat-message:has(.chat-premium-note-card) .chat-bubble").evaluate(el=>getComputedStyle(el).backgroundColor);
+        assert.equal(bubble,"rgba(0, 0, 0, 0)","envelope must have no colored bubble");
+        await page.evaluate(()=>document.querySelector("#pageContent").style.removeProperty("--looply-visible-height"));
       }
       await page.screenshot({path:join(OUTPUT,mode+"-"+width+"x"+height+".png"),animations:"disabled"});
     }
