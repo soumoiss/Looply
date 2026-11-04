@@ -164,6 +164,19 @@ export function setupChatPremium(root,client,userId){
       button.addEventListener("click",event=>{event.stopPropagation();closePalette();source.click();});
       actions.append(button);
     });
+    // Same actions and reaction order as the official Premium HTML model.
+    // Real messages retain the existing reply/copy/edit/delete server handlers.
+    const extra=[
+      ["star","Favoritar mensagem","data-model-message-star"],
+      ["pin","Fixar mensagem","data-model-message-pin"],
+      ["forward","Encaminhar","data-model-message-forward"]
+    ];
+    extra.forEach(([,label,attribute])=>{
+      const button=document.createElement("button");
+      button.type="button";button.textContent=label;
+      button.setAttribute(attribute,messageId);
+      actions.append(button);
+    });
     wrap.append(bar,actions);
     root.append(backdrop,wrap);
     message.classList.add("is-reacting");
