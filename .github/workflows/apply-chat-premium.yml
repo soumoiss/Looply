@@ -1,0 +1,73 @@
+name: Apply verified Looply premium chat package
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/chat-premium-payload/**"
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  integrate:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'chore(chat): stage verified premium mobile package'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout production main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Restore authenticated correction archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find .github/chat-premium-payload -maxdepth 1 -name 'part-*.txt' -type f | wc -l)" -eq 7
+          cat .github/chat-premium-payload/part-*.txt | base64 --decode > "$RUNNER_TEMP/chat-premium.tar.xz"
+          printf '%s  %s\n' '5eee2ab7c2de3ec826021984e0f32c59f1a7024ec3e636bd76c0d01defa5030f' "$RUNNER_TEMP/chat-premium.tar.xz" | sha256sum -c -
+          cat > "$RUNNER_TEMP/expected-files.txt" <<'FILES'
+          .github/workflows/chat-premium-visual.yml
+          QA_REPORT_MENSAGENS_PREMIUM_FINAL.md
+          assets/css/pages/chat-fixes.css
+          assets/js/chat.js
+          assets/js/conversation.js
+          chat.html
+          conversa.html
+          scripts/check-chat-premium-visual.mjs
+          src/chat-premium.js
+          src/chat.js
+          sw.js
+          tests/chat-catalog-group-covers.test.mjs
+          tests/chat-mobile-premium-final.test.mjs
+          tests/chat-stability.test.mjs
+          tests/index.js
+          FILES
+          LC_ALL=C sort -o "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/expected-files.txt"
+          tar -tJf "$RUNNER_TEMP/chat-premium.tar.xz" | LC_ALL=C sort > "$RUNNER_TEMP/actual-files.txt"
+          diff -u "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/actual-files.txt"
+          tar -xJf "$RUNNER_TEMP/chat-premium.tar.xz" -C .
+          test -s src/chat.js && test -s src/chat-premium.js && test -s assets/css/pages/chat-fixes.css
+          git diff --check
+      - name: Prepare Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check production build
+        run: npm run build
+      - name: Run complete node directory suite
+        run: node --test tests/ > "$RUNNER_TEMP/looply-tests.log" 2>&1 || { tail -100 "$RUNNER_TEMP/looply-tests.log"; exit 1; }
+      - name: Run production CI suite
+        run: npm test > "$RUNNER_TEMP/looply-npm-test.log" 2>&1 || { tail -100 "$RUNNER_TEMP/looply-npm-test.log"; exit 1; }
+      - name: Commit only the tested application files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- .github/workflows/chat-premium-visual.yml QA_REPORT_MENSAGENS_PREMIUM_FINAL.md assets/css/pages/chat-fixes.css assets/js/chat.js assets/js/conversation.js chat.html conversa.html scripts/check-chat-premium-visual.mjs src/chat-premium.js src/chat.js sw.js tests/chat-catalog-group-covers.test.mjs tests/chat-mobile-premium-final.test.mjs tests/chat-stability.test.mjs tests/index.js
+          git rm -r -- .github/chat-premium-payload
+          git -c user.name='Looply CI' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m 'fix(chat): publish premium mobile conversations with validated build and tests'
+          git push origin HEAD:main
+      - name: Dispatch production Pages deploy for tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
