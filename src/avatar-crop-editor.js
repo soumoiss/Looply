@@ -41,11 +41,13 @@ const blobFromCanvas=canvas=>new Promise((resolve,reject)=>{
   canvas.toBlob(blob=>blob?.size?resolve(blob):reject(Error("avatar-decode-failed")),"image/jpeg",.91);
 });
 
-export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()=>{},onSaving=()=>{}}){
+export function mountProfileAvatarEditor({root,client,userId,onSaved=async()=>{},onStatus=()=>{},onSaving=()=>{},contextLabel="perfil",onOutput=null,onCancelled=()=>{}}){
+  const groupEditor=contextLabel==="grupo";
+  const targetName=groupEditor?"do grupo":"de perfil";
   const host=document.createElement("div");
   host.className="pr-avatar-host";
   host.innerHTML=`<dialog class="pr-avatar-menu" data-avatar-menu aria-labelledby="prAvatarMenuTitle">
-    <div class="pr-avatar-menu-body"><h2 id="prAvatarMenuTitle">Alterar foto de perfil</h2>
+    <div class="pr-avatar-menu-body"><h2 id="prAvatarMenuTitle">Alterar foto ${targetName}</h2>
     <p>Escolha de onde deseja obter sua foto.</p><p role="status" aria-live="polite" class="pr-avatar-menu-status" data-avatar-menu-status></p>
     <button type="button" data-avatar-pick="gallery">${icon("image")} <span>Escolher da galeria</span></button>
     <button type="button" data-avatar-pick="camera">${icon("camera")} <span>Tirar foto</span></button>
@@ -57,7 +59,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
     <div class="pr-avatar-crop-shell">
       <header class="pr-avatar-crop-heading">
         <button type="button" data-avatar-back aria-label="Voltar para escolha de foto">${icon("back")}</button>
-        <h2 id="prAvatarCropTitle">Editar foto de perfil</h2>
+        <h2 id="prAvatarCropTitle">Editar foto ${targetName}</h2>
         <button type="button" data-avatar-confirm class="pr-avatar-done">Concluir</button>
       </header>
       <div class="pr-avatar-crop-content">
@@ -68,8 +70,8 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
           <div class="pr-avatar-circle" aria-hidden="true"></div>
         </div>
         <div class="pr-avatar-preview">
-          <canvas width="128" height="128" data-avatar-preview role="img" aria-label="Prévia circular da foto de perfil"></canvas>
-          <div><strong>Prévia do perfil</strong><small>Recorte quadrado 1:1 · 512 × 512 px</small></div>
+          <canvas width="128" height="128" data-avatar-preview role="img" aria-label="Prévia circular da foto ${targetName}"></canvas>
+          <div><strong>Prévia ${groupEditor?"do grupo":"do perfil"}</strong><small>Recorte quadrado 1:1 · 512 × 512 px</small></div>
         </div>
         <label class="pr-avatar-zoom" for="prAvatarZoom"><span>Zoom</span>
           <input id="prAvatarZoom" type="range" min="1" max="${AVATAR_MAX_ZOOM}" step=".01" value="1" data-avatar-zoom>
@@ -148,7 +150,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   const onClick=event=>{
     const item=event.target.closest("[data-avatar-pick]");
     if(item){const input=$('[data-avatar-source="'+item.dataset.avatarPick+'"]');input?.click();return;}
-    if(event.target.closest("[data-avatar-cancel]")){hide();return;}
+    if(event.target.closest("[data-avatar-cancel]")){hide();onCancelled();return;}
     if(event.target.closest("[data-avatar-back]")){hide();start();return;}
     if(event.target.closest("[data-avatar-reset]")){
       if(bitmap){state=avatarCropLayout(bitmap.width,bitmap.height);update();}
@@ -162,12 +164,17 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   };
   const save=async()=>{
     if(!bitmap||!state||working||disposed)return;
-    working=true;onSaving(true);done.disabled=true;status.textContent="Salvando foto de perfil…";
+    working=true;onSaving(true);done.disabled=true;status.textContent=`Salvando foto ${targetName}…`;
     try{
       const canvas=document.createElement("canvas");canvas.width=canvas.height=AVATAR_OUTPUT_SIZE;
       paintAvatarSquare(canvas,bitmap,state);
       const jpeg=await blobFromCanvas(canvas);
-      const file=new File([jpeg],"avatar-looply.jpg",{type:"image/jpeg",lastModified:Date.now()});
+      const file=groupEditor
+        ?new File([jpeg],"capa-grupo.jpg",{type:"image/jpeg",lastModified:Date.now()})
+        :new File([jpeg],"avatar-looply.jpg",{type:"image/jpeg",lastModified:Date.now()});
+      if(onOutput){
+        await onOutput(file);
+      }else{
       const session=await client.auth.getSession();
       if(session.error||!session.data?.session)throw Object.assign(Error("Session required"),{status:401});
       const saved=await saveNeonAvatarOnly({
@@ -176,8 +183,9 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
       });
       if(!saved.avatarUrl||saved.profile?.avatar_path!==saved.avatarPath)throw Error("avatar-save-unconfirmed");
       await onSaved(saved);
+      }
       working=false;hide();
-      onStatus("Foto de perfil atualizada.");
+      if(!onOutput)onStatus("Foto de perfil atualizada.");
     }catch(error){
       status.textContent=error?.status===401?"Sua sessão expirou. Entre novamente.":
         error?.status===403?"Não foi possível autorizar esta foto.":
@@ -188,8 +196,8 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
   for(const input of host.querySelectorAll("[data-avatar-source]"))
     input.addEventListener("change",()=>{const file=input.files?.[0];if(file)void choose(file);});
   for(const element of [menu,dialog]){
-    element.addEventListener("cancel",event=>{event.preventDefault();hide();});
-    element.addEventListener("click",event=>{if(event.target===element)hide();});
+    element.addEventListener("cancel",event=>{event.preventDefault();hide();onCancelled();});
+    element.addEventListener("click",event=>{if(event.target===element){hide();onCancelled();}});
   }
   zoomControl.addEventListener("input",()=>{if(!bitmap||working)return;state.zoom=Number(zoomControl.value);update();});
   stage.addEventListener("wheel",event=>{
@@ -232,7 +240,7 @@ export function mountProfileAvatarEditor({root,client,userId,onSaved,onStatus=()
     event.preventDefault();
     state.x+=dirs[event.key][0];state.y+=dirs[event.key][1];update();
   });
-  return {open:start,dispose(){
+  return {open:start,openFile:choose,dispose(){
     disposed=true;++request;working=false;
     if(menu.open)menu.close();if(dialog.open)dialog.close();
     clear();host.remove();

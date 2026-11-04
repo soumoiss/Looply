@@ -228,6 +228,14 @@ export async function loadChatData(client, userId) {
   }));
   for (const person of profileReferences)
     if (person?.id) person.avatarUrl = avatarUrls.get(person.id) || null;
+  // Cache signed sender avatars in the trusted Android WebView's private storage.
+  // No image URLs or image bytes are sent to Firebase, and other web origins
+  // cannot send avatar-cache messages to the native receiver.
+  if(typeof window!=="undefined"&&window.LooplyAvatarCache?.postMessage){
+    for(const [id,url] of avatarUrls){
+      if(url)try{window.LooplyAvatarCache.postMessage(JSON.stringify({userId:id,url}));}catch{}
+    }
+  }
   const groupIds = conversations.filter(c => c.kind === "group").map(c => c.id);
   const covers = new Map();
   if (groupIds.length) {
@@ -325,7 +333,7 @@ export function chatMarkup(data, userId) {
   const groupCompose = `<details class="chat-panel group-compose-panel"><summary>Criar grupo</summary>
     <form class="chat-group-form" data-chat-group-create>
       <div class="field"><label for="chatGroupSubject">Nome do grupo</label><input id="chatGroupSubject" name="subject" type="text" maxlength="120" required placeholder="Ex.: Amigos"></div>
-      <label class="chat-group-cover-pick" for="chatGroupCover"><span class="chat-group-cover-preview" data-chat-create-cover-preview aria-hidden="true">${icon("users")}</span><span><strong>Foto do grupo (opcional)</strong><small>Escolher imagem</small></span></label><input id="chatGroupCover" class="visually-hidden" name="groupCover" type="file" accept="image/jpeg,image/png,image/webp"><fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
+      <button type="button" class="chat-group-cover-pick" data-chat-create-cover-editor><span class="chat-group-cover-preview" data-chat-create-cover-preview aria-hidden="true">${icon("users")}</span><span><strong>Foto do grupo (opcional)</strong><small>Galeria, câmera, recortar e zoom</small></span></button><input id="chatGroupCover" class="visually-hidden" name="groupCover" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"><fieldset class="group-member-options"><legend>Escolha pelo menos duas pessoas</legend>${groupOptions || `<p class="chat-empty">Não há outros perfis disponíveis.</p>`}</fieldset>
       <button class="primary-button compact-button" type="submit"${groupProfiles.length < 2 ? " disabled" : ""}>Criar grupo</button>
       <span class="form-status" data-status role="status" aria-live="polite"></span>
     </form>
@@ -1320,11 +1328,12 @@ export function bindChatEvents(root, client, getUserId) {
     await openConversation(root, client, conversationId, userId);
   });
 
-  async function saveNewGroupCover(conversationId,userId,file,status){
+  const groupCoverDrafts=new WeakMap();
+  async function saveNewGroupCover(conversationId,userId,file,status,alreadyCropped=false){
     let messageId=null,uploadedPath="",persisted=false;
     try{
       status("Preparando foto do grupo…");
-      const cropped=await editGroupCover(file);
+      const cropped=alreadyCropped?file:await editGroupCover(file);
       if(!cropped){status("Grupo criado sem foto.");return false;}
       const image=await normalizeGroupCover(cropped);
       const message=await client.from("chat_messages").insert({
@@ -1361,39 +1370,65 @@ export function bindChatEvents(root, client, getUserId) {
       return false;
     }
   }
-  root.addEventListener("change",event=>{
-    const input=event.target.closest('form[data-chat-group-create] input[name="groupCover"]');
-    if(!input)return;
-    const preview=input.form.querySelector("[data-chat-create-cover-preview]");
+  const previewNewGroupCover=(form,file)=>{
+    const preview=form.querySelector('[data-chat-create-cover-preview]');
     if(!preview)return;
     preview.replaceChildren();
-    const file=input.files?.[0];
-    if(!file){preview.textContent="+";return;}
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>10*1024*1024){
-      input.value="";preview.textContent="+";return;
-    }
-    const url=URL.createObjectURL(file);
-    const img=document.createElement("img");img.alt="";img.src=url;
+    const url=URL.createObjectURL(file),img=document.createElement('img');
+    img.alt='Prévia da foto de grupo';img.src=url;
     img.onload=()=>URL.revokeObjectURL(url);
-    img.onerror=()=>{URL.revokeObjectURL(url);preview.textContent="+";};
+    img.onerror=()=>{URL.revokeObjectURL(url);preview.textContent='+';};
     preview.append(img);
+  };
+  root.addEventListener('click',async event=>{
+    const button=event.target.closest('[data-chat-create-cover-editor]');
+    if(!button||button.disabled)return;
+    const form=button.closest('[data-chat-group-create]');
+    if(!form)return;
+    button.disabled=true;
+    try{
+      const cropped=await editGroupCover();
+      if(!cropped)return;
+      groupCoverDrafts.set(form,cropped);
+      previewNewGroupCover(form,cropped);
+      setStatus(form,'Foto pronta. Crie o grupo para salvar.','info');
+    }finally{button.disabled=false;}
+  });
+  root.addEventListener('change',async event=>{
+    const input=event.target.closest('form[data-chat-group-create] input[name="groupCover"]');
+    if(!input)return;
+    const form=input.form,file=input.files?.[0];input.value='';
+    if(!file)return;
+    const cropped=await editGroupCover(file);
+    if(cropped){groupCoverDrafts.set(form,cropped);previewNewGroupCover(form,cropped);}
   });
   // The group creator can replace the cover. The image is stored once in
   // the already-authorized chat-media bucket, and the cover points to it.
-  root.addEventListener("click", event => {
-    if (!event.target.closest("[data-chat-group-cover-choose]")) return;
-    root.querySelector(".chat-thread-heading [data-chat-group-cover-input]")?.click();
+  root.addEventListener("click",async event=>{
+    const button=event.target.closest("[data-chat-group-cover-choose]");
+    if(!button||button.disabled)return;
+    const conversationId=button.closest(".chat-thread-heading")?.dataset.conversationId;
+    const file=await editGroupCover();
+    const heading=root.querySelector('.chat-thread-heading');
+    if(file&&heading?.dataset.conversationId===conversationId)
+      root.dispatchEvent(new CustomEvent("looply:group-cover-ready",{detail:{file,heading}}));
   });
-  root.addEventListener("change", async event => {
-    const input = event.target.closest("[data-chat-group-cover-input]");
-    if (!input || !input.files?.length) return;
-    const file = input.files[0];
-    const heading = input.closest(".chat-thread-heading");
+  root.addEventListener("change", async event=>{
+    const input=event.target.closest("[data-chat-group-cover-input]");
+    if(!input||!input.files?.length)return;
+    const original=input.files[0],heading=input.closest(".chat-thread-heading");
+    input.value="";
+    const file=await editGroupCover(original);
+    if(file&&heading?.isConnected)
+      root.dispatchEvent(new CustomEvent("looply:group-cover-ready",{detail:{file,heading}}));
+  });
+  root.addEventListener("looply:group-cover-ready",async event=>{
+    const {file,heading}=event.detail||{};
+    if(!file||!heading?.isConnected)return;
     const conversationId = heading?.dataset.conversationId;
     const userId = getUserId?.();
     const status = heading?.querySelector("[data-chat-cover-status]");
     const button = heading?.querySelector("[data-chat-group-cover-choose]");
-    input.value = "";
     if (!conversationId || !userId || !status || !button || button.disabled) return;
     button.disabled = true;
     let messageId = null;
@@ -1401,9 +1436,7 @@ export function bindChatEvents(root, client, getUserId) {
     let persisted = false;
     try {
       status.textContent = "Salvando foto…";
-      const cropped=await editGroupCover(file);
-      if(!cropped){status.textContent="";return;}
-      const image = await normalizeGroupCover(cropped);
+      const image = await normalizeGroupCover(file);
       const message = await client.from("chat_messages").insert({
         conversation_id:conversationId,sender_id:userId,body:"Atualizou a foto do grupo."
       }).select("id").single();
@@ -1876,10 +1909,12 @@ export function bindChatEvents(root, client, getUserId) {
         const { data, error } = await client.functions.invoke("looply-chat", { body: { action: "create_group", subject, targetIds } });
         if (error) throw error;
         if (!data?.conversationId) throw new Error(data?.errorCode || "group unavailable");
-        const cover=values.get("groupCover");
+        const draft=groupCoverDrafts.get(form);
+        const cover=draft||values.get("groupCover");
         if(cover instanceof File&&cover.size){
-          await saveNewGroupCover(data.conversationId,userId,cover,text=>setStatus(form,text));
+          await saveNewGroupCover(data.conversationId,userId,cover,text=>setStatus(form,text),Boolean(draft));
         }
+        groupCoverDrafts.delete(form);
         form.reset();
         activeConversationId = data.conversationId;
         setStatus(form, "Grupo criado.");

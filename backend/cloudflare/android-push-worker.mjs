@@ -119,6 +119,9 @@ const pendingSql = `
 SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.conversation_id,events.token_id,events.fcm_token,
        events.actor_name,events.call_mode,
+       CASE WHEN events.source='chat' THEN
+         public.v36_fcm_safe_chat_actor(events.event_id,events.token_id)
+         ELSE NULL END AS actor_id,
        CASE WHEN events.source='chat'
          THEN public.v27_fcm_safe_chat_preview(events.event_id,events.token_id)
          WHEN events.source='feed-comment'
@@ -193,6 +196,8 @@ export async function deliverNotifications(env,{
     const kind=kindFor(item);
     const data={kind};
     if(item.conversation_id)data.conversationId=String(item.conversation_id);
+    if(item.source==='chat'&&/^[0-9a-f-]{36}$/i.test(String(item.actor_id||'')))
+      data.actorId=String(item.actor_id);
     if(item.resource_id)data.resourceId=String(item.resource_id);
     // Names are sourced from Neon after recipient visibility checks. Never
     // trust senderName from the client signaling payload.

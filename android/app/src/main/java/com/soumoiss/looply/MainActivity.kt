@@ -358,6 +358,7 @@ class MainActivity : Activity() {
             }
         }
         CookieManager.getInstance().setAcceptCookie(true)
+        ChatAvatarCache.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(

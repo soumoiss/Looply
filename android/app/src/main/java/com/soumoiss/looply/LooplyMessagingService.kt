@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
+import androidx.core.graphics.drawable.IconCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -60,16 +61,36 @@ class LooplyMessagingService : FirebaseMessagingService() {
         }
         val pending = PendingIntent.getActivity(this, route.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val channelId = "looply_activity"
-        if (Build.VERSION.SDK_INT >= 26)
-            manager.createNotificationChannel(NotificationChannel(channelId,
-                "Atividade Looply", NotificationManager.IMPORTANCE_DEFAULT))
-        val notification = NotificationCompat.Builder(this, channelId)
+        val isChat=kind in setOf("message","voice","chat")
+        val channelId = if (isChat) "looply_messages_v2" else "looply_activity"
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel=NotificationChannel(channelId,
+                if (isChat) "Mensagens recebidas" else "Atividade Looply",
+                if (isChat) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description=if (isChat) "Mensagens com nome, prévia e foto do remetente" else "Atividades do Looply"
+            manager.createNotificationChannel(channel)
+        }
+        val sender=data["title"]?.trim()?.take(70)?.ifBlank { "Looply" } ?: "Looply"
+        val body=data["body"]?.trim()?.take(250)?.ifBlank { "Nova atividade" } ?: "Nova atividade"
+        val avatar=if (isChat) ChatAvatarCache.load(this,data["actorId"]) else null
+        val builder=NotificationCompat.Builder(this,channelId)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle(data["title"]?.take(70) ?: "Looply")
-            .setContentText(data["body"]?.take(180) ?: "Nova atividade")
+            .setContentTitle(sender).setContentText(body)
             .setContentIntent(pending).setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT).build()
+            .setPriority(if (isChat) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        if(isChat){
+            val person=Person.Builder().setName(sender)
+            if(avatar!=null){
+                builder.setLargeIcon(avatar)
+                person.setIcon(IconCompat.createWithBitmap(avatar))
+            }
+            builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setStyle(NotificationCompat.MessagingStyle(Person.Builder().setName("Você").build())
+                    .addMessage(body,System.currentTimeMillis(),person.build()))
+                .addAction(R.drawable.ic_launcher_monochrome,"Responder",pending)
+        }else builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        val notification=builder.build()
         manager.notify((message.messageId ?: (System.currentTimeMillis().toString()+route)).hashCode(),
             notification)
     }

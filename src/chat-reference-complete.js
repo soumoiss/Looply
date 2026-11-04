@@ -161,12 +161,36 @@ export function setupOfficialMessagesModel(root,client,userId,seed={}) {
     const heading=currentHeading()?.querySelector('.chat-thread-identity strong');if(heading)heading.textContent=name;
     activeInfo.name=name;closeSheet();void openDetails(id);notices('Nome atualizado.');
   };
+  let memberSearchSeq=0;
+  const searchGroupCandidates=async(query='')=>{
+    const id=activeInfo?.id;
+    if(!id||!activeInfo?.canManage)return;
+    const seq=++memberSearchSeq;
+    const parent=root.querySelector('[data-ref-member-results]');
+    if(!parent)return;
+    parent.textContent='Buscando pessoas…';
+    try{
+      // Query the actual Neon profiles, not the 100-row chat-page snapshot.
+      // User-scoped RLS still controls profile discovery.
+      let request=client.from('profiles').select('id,username,display_name,avatar_path')
+        .order('username').limit(30);
+      const value=String(query||'').trim().replace(/^@/,'').slice(0,40);
+      if(value) request=request.or(`username.ilike.${value.replace(/[^a-zA-Z0-9_]/g,'')}%,display_name.ilike.${value.replace(/[^a-zA-Z0-9_\s]/g,'')}%`);
+      const {data,error}=await request;
+      if(error)throw error;
+      if(seq!==memberSearchSeq||id!==activeInfo?.id||!parent.isConnected)return;
+      const members=new Set(activeInfo.participants.map(m=>m.user_id));
+      const pool=(data||[]).filter(p=>p.id!==userId&&!members.has(p.id));
+      parent.innerHTML=pool.map(p=>`<button type="button" class="pk" data-ref-add-member="${safe(p.id)}"><span class="av sm" style="background:var(--p)">${safe(initials(p.display_name||p.username))}</span><b>${safe(p.display_name||p.username)}<small>@${safe(p.username)}</small></b>${ic('plus')}</button>`).join('')||'<p class="ref-empty-members">Nenhuma pessoa disponível para adicionar.</p>';
+    }catch(error){if(seq===memberSearchSeq&&parent.isConnected){parent.textContent='Não foi possível buscar usuários.';console.warn('group member search failed',error);}}
+  };
   const pickNewMember=()=>{
     if(!activeInfo?.isGroup)return;
     if(!activeInfo.canManage){notices('Somente o criador pode gerenciar participantes.');return;}
-    const pool=(seed.profiles||[]).filter(p=>p.id!==userId&&!activeInfo.participants.some(m=>m.user_id===p.id));
     openSheet(`<h2><span>Adicionar participante</span><button class="ib" data-ref-sheet-close>${ic('close')}</button></h2>
-    <div class="ref-people">${pool.map(p=>`<button type="button" class="pk" data-ref-add-member="${safe(p.id)}"><span class="av sm" style="background:var(--p)">${safe(initials(p.display_name||p.username))}</span><b>${safe(p.display_name||p.username)}</b>${ic('plus')}</button>`).join('')||'<p>Não há outros perfis disponíveis.</p>'}</div>`);
+    <label class="sr ref-member-search">${ic('search')}<input type="search" data-ref-member-query aria-label="Buscar pessoas" placeholder="Buscar nome ou @usuário" autocomplete="off"></label>
+    <div class="ref-people" data-ref-member-results role="status">Buscando pessoas…</div>`);
+    void searchGroupCandidates();
   };
   const confirmSheet=(heading,body,yes,actionName)=>openSheet(`<h2><span>${heading}</span><button class="ib" data-ref-sheet-close>${ic('close')}</button></h2><p>${body}</p><button type="button" class="btn ref-danger" data-ref-confirm="${actionName}">${yes}</button><button type="button" class="btn gh" data-ref-sheet-close>Cancelar</button>`);
   const rowMenu=id=>{
@@ -317,14 +341,14 @@ export function setupOfficialMessagesModel(root,client,userId,seed={}) {
     const add=target.closest('[data-ref-add-member]');if(add){
       if(!activeInfo?.canManage)return;
       add.disabled=true;
-      try{const {error}=await client.from('conversation_participants').insert({conversation_id:activeInfo.id,user_id:add.dataset.refAddMember});if(error)throw error;
+      try{const {data,error}=await client.rpc('v36_add_group_member',{p_conversation_id:activeInfo.id,p_user_id:add.dataset.refAddMember});if(error||data!==true)throw error||Error('membership_not_confirmed');
         closeSheet();notices('Participante adicionado.');void openDetails(activeInfo.id);
       }catch(error){console.warn(error);add.disabled=false;notices('Não foi possível adicionar este participante.');}return;
     }
     const remove=target.closest('[data-ref-remove-member]');if(remove){
       if(!activeInfo?.canManage)return;
       if(!window.confirm('Remover este participante do grupo?'))return;
-      try{const {error}=await client.from('conversation_participants').delete().eq('conversation_id',activeInfo.id).eq('user_id',remove.dataset.refRemoveMember);if(error)throw error;notices('Participante removido.');void openDetails(activeInfo.id);}
+      try{const {data,error}=await client.rpc('v36_remove_group_member',{p_conversation_id:activeInfo.id,p_user_id:remove.dataset.refRemoveMember});if(error||data!==true)throw error||Error('removal_not_confirmed');notices('Participante removido.');void openDetails(activeInfo.id);}
       catch(error){console.warn(error);notices('A remoção não foi autorizada.');}return;
     }
     const messageStar=target.closest('[data-model-message-star]');if(messageStar){
@@ -355,6 +379,13 @@ export function setupOfficialMessagesModel(root,client,userId,seed={}) {
   };
   root.addEventListener('click',clickCapture,true);
   root.addEventListener('click',handleClick);
+  let memberSearchTimer=0;
+  root.addEventListener('input',event=>{
+    if(!event.target.matches('[data-ref-member-query]'))return;
+    clearTimeout(memberSearchTimer);
+    const query=event.target.value;
+    memberSearchTimer=setTimeout(()=>void searchGroupCandidates(query),180);
+  });
   root.addEventListener('change',event=>{
     const toggle=event.target.closest('[data-ref-toggle]');
     if(!toggle)return;toggleRow(toggle.dataset.refToggle,activeInfo?.id||activeId);

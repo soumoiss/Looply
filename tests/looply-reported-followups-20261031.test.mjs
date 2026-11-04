@@ -47,10 +47,12 @@ test("Sent letters are hidden only for sender; a queued scheduled letter is canc
 test("Conversation ordering and group cover crop are both interactive",()=>{
  const chat=file("src/chat.js");
  const crop=file("src/group-cover-editor.js");
+ const profileCrop=file("src/avatar-crop-editor.js");
  assert.match(chat,/latestByConversation\.get\(conversation\.id\)\?\.created_at/);
  assert.match(chat,/contactActivity/);
  assert.match(chat,/editGroupCover\(file\)/);
- assert.match(crop,/pointermove/);
- assert.match(crop,/sourceSize=size\/\(base\*zoom\)/);
- assert.match(crop,/toBlob\(resolve,"image\/webp"/);
+ assert.match(crop,/mountProfileAvatarEditor/);
+ assert.match(profileCrop,/pointermove/);
+ assert.match(profileCrop,/avatarCropLayout/);
+ assert.match(profileCrop,/canvas\.width=canvas\.height=AVATAR_OUTPUT_SIZE/);
 });
