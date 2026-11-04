@@ -82,6 +82,17 @@ function formatDate(value) {
   return Number.isNaN(date.valueOf()) ? "" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
+export function compactChatTime(value, now = new Date()) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"});
+  return date.toLocaleDateString("pt-BR", {day:"2-digit",month:"2-digit"});
+}
+function messageTime(value) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "";
+}
+
 function formatMessageDay(value) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "";
@@ -283,15 +294,15 @@ export function chatMarkup(data, userId) {
   const conversations = data.conversations.length
     ? data.conversations.map((conversation) => `<a class="chat-conversation ${conversation.id === activeConversationId ? "is-active" : ""}" href="conversa.html?id=${encodeURIComponent(conversation.id)}" data-chat-open="${escapeHtml(conversation.id)}" data-chat-kind="${escapeHtml(conversation.kind || "")}" data-chat-unread-count="${Number(conversation.unreadCount) || 0}">
         ${conversationAvatar(conversation, userId)}
-        <span class="chat-conversation-copy"><strong>${escapeHtml(conversationLabel(conversation, userId))}</strong><small>${escapeHtml(conversationPreview(conversation, userId))}</small><time>${escapeHtml(formatDate(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span>
+        <span class="chat-conversation-copy"><span class="chat-model-row-title"><strong>${escapeHtml(conversationLabel(conversation, userId).split(" · @")[0])}</strong><time>${escapeHtml(compactChatTime(conversation.lastMessage?.created_at || conversation.updated_at))}</time></span><span class="chat-model-row-preview"><small>${escapeHtml(conversationPreview(conversation, userId))}</small></span></span>
         ${conversation.unreadCount ? `<span class="chat-unread">${conversation.unreadCount}</span>` : ""}
       </a>`).join("")
     : `<p class="chat-empty">Nenhuma conversa. Inicie uma conversa ou escreva uma carta.</p>`;
   const conversationTools = `<div class="chat-conversation-tools">
     <label class="visually-hidden" for="chatConversationSearch">Buscar conversa</label>
-    <input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search>
-    <div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
-      <button type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button><button type="button" data-chat-filter="unread" aria-pressed="false">Não lidas</button><button type="button" data-chat-filter="groups" aria-pressed="false">Grupos</button><button type="button" data-chat-filter="favorites" aria-pressed="false">Favoritas</button><button type="button" data-chat-filter="archived" aria-pressed="false">Arquivadas</button>
+    <div class="chat-model-search">${icon("search")}<input id="chatConversationSearch" type="search" maxlength="100" placeholder="Buscar conversa ou última mensagem" value="${escapeHtml(conversationSearch)}" data-chat-conversation-search></div>
+    <div class="chat-premium-stories-slot" data-chat-premium-stories></div><div class="chat-filter-tabs" role="group" aria-label="Filtrar conversas">
+      <button class="chat-filter-chip" type="button" data-chat-filter="all" aria-pressed="${conversationFilter === "all"}">Todas</button><button class="chat-filter-chip" type="button" data-chat-filter="unread" aria-pressed="false">Não lidas</button><button class="chat-filter-chip" type="button" data-chat-filter="groups" aria-pressed="false">Grupos</button><button class="chat-filter-chip" type="button" data-chat-filter="favorites" aria-pressed="false">Favoritas</button><button class="chat-filter-chip" type="button" data-chat-filter="archived" aria-pressed="false">Arquivadas</button>
     </div>
   </div>`;
   const people = (data.profiles || []).filter((profile) => profile.id !== userId).map((profile) => `<article class="chat-person">
@@ -322,11 +333,11 @@ export function chatMarkup(data, userId) {
   return `<section class="chat-area chat-premium" data-chat-area aria-labelledby="chatTitle">
     <div class="chat-layout">
       <aside class="chat-sidebar">
-        <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live" data-chat-live role="status">Ao vivo</span><button class="chat-premium-head-action" type="button" data-chat-premium-new aria-label="Nova conversa">${icon("plus")}</button><button class="chat-premium-head-action" type="button" data-chat-premium-new-group aria-label="Criar grupo">${icon("users")}</button></div>
-        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-premium-stories-slot" data-chat-premium-stories></div><div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
+        <div class="chat-heading"><div><span class="section-kicker">Mensagens</span><h2 id="chatTitle">Conversas</h2></div><span class="chat-live visually-hidden" data-chat-live role="status">Ao vivo</span><button class="chat-premium-head-action" type="button" data-chat-premium-new aria-label="Nova conversa">${icon("plus")}</button><button class="chat-premium-head-action" type="button" data-chat-premium-new-group aria-label="Criar grupo">${icon("users")}</button></div>
+        <section class="chat-panel" aria-label="Suas conversas"><div class="chat-panel-heading"><h3>Conversas</h3><span>${data.conversations.length}</span></div>${conversationTools}<div class="chat-conversation-list" data-chat-conversations>${conversations}<p class="chat-empty chat-conversation-no-match" data-chat-no-matches hidden>Nenhuma conversa corresponde ao filtro.</p></div></section>
         <details class="chat-panel chat-search-panel"><summary>Encontrar uma pessoa</summary>
           <form class="chat-search-form" data-chat-search><label class="visually-hidden" for="chatSearch">Username</label><input id="chatSearch" name="query" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required placeholder="Buscar pelo username"><button class="text-button" type="submit">Buscar</button></form>
-          ${searchMessage}
+          ${searchMessage}<button type="button" class="text-button" data-chat-premium-legacy-letter>Escrever carta para Peixinho</button>
         </details>
         ${groupCompose}
         <details class="chat-panel letter-compose-panel"><summary>Escrever uma carta para Peixinho</summary>
@@ -737,10 +748,10 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
               ' reação(ões)">'+emoji+' <span>'+count+'</span></button>';
           }).join("")+'</div>' : "";
 
-    return `${daySeparator}<div class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
-    <div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time>${escapeHtml(formatDate(message.created_at))}</time></div>
-    ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${reactionSummary}${delivery}
-    <div class="chat-message-actions-inline"><button class="chat-premium-react-trigger" type="button" data-chat-premium-react="${escapeHtml(message.id)}" aria-label="Reagir à mensagem">♡</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
+    return `${daySeparator}<div data-message-row-id="${escapeHtml(message.id)}" class="chat-message-row ${isMine ? "is-mine" : "is-theirs"}">${avatar}<article class="chat-message ${isMine ? "is-mine" : ""}${visualOnly ? " is-visual-only" : ""}">
+    <div class="chat-bubble"><div class="chat-message-meta"><a href="perfil.html?usuario=${encodeURIComponent(message.sender_id)}"><strong data-profile-name-id="${escapeHtml(message.sender_id)}">${escapeHtml(message.sender_id === userId ? "Você" : authorProfile?.display_name || authorProfile?.username || "Perfil restrito")}</strong></a><time datetime="${escapeHtml(message.created_at)}" title="${escapeHtml(formatDate(message.created_at))}">${escapeHtml(messageTime(message.created_at))}</time></div>
+    ${replyContext}${storyContext}${sticker}${premiumCard}<p data-chat-message-body${hideVisualPlaceholder || premiumCard ? ' class="visually-hidden"' : ""}>${escapeHtml(message.body)}</p><form class="chat-message-edit" data-chat-edit-message data-message-id="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}" hidden><label class="visually-hidden" for="edit-message-${escapeHtml(message.id)}">Editar mensagem</label><textarea id="edit-message-${escapeHtml(message.id)}" name="body" maxlength="5000" required>${escapeHtml(message.body)}</textarea><div><button class="chat-reply-button" type="submit">Salvar</button><button class="chat-reply-button" type="button" data-chat-edit-cancel>Cancelar</button></div><p class="form-status" data-status role="status" aria-live="polite"></p></form>${message.media?.length ? `<div class="chat-message-media">${message.media.map(renderMedia).join("")}</div>` : ""}${delivery}</div>${reactionSummary}
+    <button type="button" class="chat-message-menu chat-icon" data-chat-message-menu aria-label="Opções da mensagem" aria-expanded="false">${icon("more")}</button><div class="chat-message-actions-inline" hidden><button class="chat-premium-react-trigger" type="button" data-chat-premium-react="${escapeHtml(message.id)}" aria-label="Reagir à mensagem">♡</button>${isMine ? `<button class="chat-reply-button" type="button" data-chat-edit-open="${escapeHtml(message.id)}">Editar</button><button class="chat-reply-button" type="button" data-chat-delete="${escapeHtml(message.id)}" data-conversation-id="${escapeHtml(message.conversation_id)}">Excluir</button>` : ""}<button class="chat-reply-button" type="button" data-chat-reply="${escapeHtml(message.id)}">Responder</button><button class="chat-reply-button" type="button" data-chat-copy="${escapeHtml(message.id)}">Copiar</button></div><p class="form-status" data-delete-status role="status" aria-live="polite"></p>
   </article></div>`;
   }).join("");
 }
@@ -749,7 +760,7 @@ function peerParticipantFor(participants, userId) {
   return participants.find((participant) => participant.user_id !== userId) || null;
 }
 
-function messageComposerMarkup(conversationId) {
+export function messageComposerMarkup(conversationId) {
   return `<form class="chat-message-form" data-chat-send data-conversation-id="${escapeHtml(conversationId)}">
     <input type="hidden" name="replyTo" value=""><p class="chat-reply-context" data-chat-reply-context hidden><span></span><button type="button" data-chat-reply-clear aria-label="Cancelar resposta">${icon("close")}</button></p>
     <div class="chat-premium-compose-row">
@@ -761,7 +772,7 @@ function messageComposerMarkup(conversationId) {
       </div>
       <div class="chat-message-actions">
         <button class="text-button chat-record-start" type="button" data-chat-record-start aria-label="Gravar áudio">${icon("mic")}</button>
-        <button class="primary-button compact-button chat-premium-send" type="submit" aria-label="Enviar mensagem">Enviar ${icon("send")}</button>
+        <button class="primary-button compact-button chat-premium-send" type="submit" aria-label="Enviar mensagem">${icon("send")}</button>
       </div>
     </div>
     <div id="premium-attachments-${escapeHtml(conversationId)}" class="chat-premium-attach-menu" data-chat-premium-menu hidden role="group" aria-label="Compartilhar na conversa">
@@ -781,7 +792,7 @@ function messageComposerMarkup(conversationId) {
     <span class="form-status" data-status role="status" aria-live="polite"></span></form>`;
 }
 
-function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
+export function threadHeadingMarkup(root, participants, userId, conversationInfo = null) {
   const search = '<button class="chat-v2-icon-button" type="button" data-chat-premium-search aria-label="Buscar nesta conversa">' + icon("search") + '</button>';
   if (conversationInfo?.kind === "group") {
     const memberCount = participants.length;
@@ -823,6 +834,8 @@ function updateThreadMarkup(thread, markup, conversationId) {
 
   const history=thread.querySelector("[data-chat-premium-history]")||thread;
   const wasNearBottom = history.scrollHeight-history.scrollTop-history.clientHeight < 120;
+  const previousScrollTop=history.scrollTop;
+  const openedNotes=new Set([...history.querySelectorAll(".chat-premium-note-card[open]")].map(note=>note.closest("[data-message-row-id]")?.dataset.messageRowId));
   const parsed = document.createElement("div");
   parsed.innerHTML = markup;
   parsed.querySelector("[data-chat-send]")?.remove();
@@ -833,6 +846,11 @@ function updateThreadMarkup(thread, markup, conversationId) {
     if (child !== currentForm) child.remove();
   }
   for (const child of [...parsed.childNodes]) thread.insertBefore(child, currentForm);
+  const updatedHistory=thread.querySelector("[data-chat-premium-history]")||thread;
+  for(const note of updatedHistory.querySelectorAll(".chat-premium-note-card")){
+    if(openedNotes.has(note.closest("[data-message-row-id]")?.dataset.messageRowId))note.open=true;
+  }
+  if(!wasNearBottom)updatedHistory.scrollTop=previousScrollTop;
   if (wasNearBottom) {const nextHistory=thread.querySelector("[data-chat-premium-history]")||thread;nextHistory.scrollTop=nextHistory.scrollHeight;}
 }
 
@@ -896,7 +914,7 @@ async function openConversation(root, client, conversationId, userId) {
     if (requestId !== activeThreadRequest || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
+    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history role="log" aria-label="Histórico da conversa">${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
     if (hasSameComposer) updateThreadMarkup(thread, markup, conversationId);
     else {
       thread.innerHTML = markup;
@@ -952,7 +970,7 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
     if (requestId !== refreshSequence || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
     const isGroup = conversation.kind === "group";
-    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history>${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
+    const markup = `${threadHeadingMarkup(root, participants, userId, conversation)}<div class="chat-premium-history" data-chat-premium-history role="log" aria-label="Histórico da conversa">${messages.length === 100 ? olderMessagesButton(conversationId, messages[0]) : ""}${threadMarkup(messages, userId, peer?.last_read_at || null, peer?.profile || null, participants, isGroup)}</div>${messageComposerMarkup(conversationId)}`;
     updateThreadMarkup(root.querySelector("[data-chat-thread]"), markup, conversationId);
     root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
     return true;
@@ -1095,7 +1113,9 @@ export function bindChatEvents(root, client, getUserId) {
       const obscured = window.innerHeight - screenBottom > 96;
       const typing = Boolean(document.activeElement?.closest(".chat-message-form"));
       const nav = document.querySelector(".page-navigation");
-      const navSpace = obscured && typing ? 0 : (nav?.getBoundingClientRect().height || 0) + 14;
+      const mobile = window.matchMedia("(max-width:860px)").matches;
+      const inThread = area?.classList.contains("is-conversation-open") || root.dataset.conversationPage === "true";
+      const navSpace = mobile && !inThread && !(obscured && typing) ? (nav?.getBoundingClientRect().height || 0) : 0;
       root.style.setProperty("--chat-panel-px",Math.max(170,Math.round(screenBottom-areaTop-navSpace))+"px");
       root.classList.toggle("chat-keyboard-open",obscured && typing);
     };
@@ -1122,6 +1142,7 @@ export function bindChatEvents(root, client, getUserId) {
       if (event.target.matches(".chat-message-form textarea")) requestAnimationFrame(updateViewport);
     });
     root.addEventListener("looply:conversation-activated",updateViewport);
+    root.addEventListener("looply:chat-rendered",()=>requestAnimationFrame(updateViewport));
     window.addEventListener("resize",updateViewport);
   }
   root.addEventListener("looply:open-conversation", async (event) => {
@@ -1565,6 +1586,7 @@ export function bindChatEvents(root, client, getUserId) {
     activeThreadRequest += 1;
     refreshSequence += 1;
     root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
+    root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
     const thread = root.querySelector("[data-chat-thread]");
     if (thread) thread.innerHTML = `<div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div>`;
   });

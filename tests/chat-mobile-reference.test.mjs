@@ -9,14 +9,14 @@ test("both Chat pages render one existing global header without a second mock he
     const html = await read(path);
     assert.equal((html.match(/data-site-header/g)||[]).length,1,path);
     assert.doesNotMatch(html,/class="global-header"|class="global-nav"|keyboard-mockup|id="callModal"/);
-    assert.match(html,/chat-mobile-reference\.css\?v=20261027/);
+    assert.match(html,/chat-premium\.css\?v=model-native-/);
   }
 });
-test("Chat CSS is loaded AFTER desktop legacy Chat CSS and conversation CSS", async () => {
+test("Model replaces all legacy layout sheets and follows isolated component styles", async () => {
   for (const path of ["chat.html","conversa.html"]) {
     const html=await read(path);
-    assert.ok(html.indexOf("chat-mobile-reference.css")>html.indexOf("pages/chat.css"),path);
-    if (path==="conversa.html") assert.ok(html.indexOf("chat-mobile-reference.css")>html.indexOf("pages/conversation.css"));
+    assert.ok(html.indexOf("chat-premium.css")>html.indexOf("chat-features.css"),path);
+    assert.doesNotMatch(html,/pages\/(?:chat|conversation|chat-mobile-reference|chat-viewport-catalog)\.css/);
   }
 });
 test("only global page-runtime renders the seven real bottom navigation links", async () => {

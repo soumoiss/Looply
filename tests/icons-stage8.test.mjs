@@ -95,7 +95,7 @@ test("Stage 8 uses the shared registry instead of improvised UI glyphs", async (
     read("src/music.js"), read("src/admin.js")
   ]);
   assert.match(social, /Abrir original '\s*\+ icon\("external"\)/);
-  assert.match(enhancements, /button\.innerHTML = icon\("menu"\)/);
+  assert.match(enhancements, /icon\("settings"\)/);
   assert.match(enhancements, /icon\(favorites\.has\(id\) \? "starFilled" : "star"\)/);
   assert.match(enhancements, /\+ icon\("more"\) \+/);
   assert.match(chat, /data-chat-premium-game[^\n]*\$\{icon\("gamepad"\)\}/);

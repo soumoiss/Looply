@@ -33,6 +33,12 @@ test("Prompt 002 styles use scoped theme tokens and preserve motion accessibilit
 
 test("All principal authenticated routes load the shared stylesheet without changing modules", () => {
   const pages = ["home","cartas","musicas","galeria","chat","conversa","perfil","usuarios","notificacoes","configuracoes","admin"];
-  for (const name of pages) assert.ok(read(name + ".html").includes("assets/css/theme-complete.css"), name);
+  for (const name of pages) {
+    const html=read(name+".html");
+    if(["chat","conversa"].includes(name)){
+      assert.ok(html.includes("chat-foundation.css"),name);
+      assert.match(read("assets/css/pages/chat-foundation.css"),/theme-complete\.css/);
+    }else assert.ok(html.includes("assets/css/theme-complete.css"),name);
+  }
   assert.match(read("src/primary-navigation.js"), /primaryDestinations/);
 });

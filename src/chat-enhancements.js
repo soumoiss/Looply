@@ -48,37 +48,34 @@ export function setupChatEnhancements(root, client, userId) {
     if (!node) { node = document.createElement("div"); node.className = "chat-v2-modal-backdrop"; node.dataset.chatV2Modal = ""; node.hidden = true; node.innerHTML = '<section class="chat-v2-modal" role="dialog" aria-modal="true" aria-labelledby="chatV2ModalTitle"><button type="button" class="chat-v2-modal-close" data-v2-close aria-label="Fechar">' + icon("close") + '</button><div data-v2-modal-content></div></section>'; root.append(node); }
     return node;
   };
-  const openModal = (content) => { const node = modal(); node.querySelector("[data-v2-modal-content]").innerHTML = content; node.hidden = false; node.querySelector("[data-v2-close]").focus(); };
-  const closeModal = () => { const node = root.querySelector("[data-chat-v2-modal]"); if (node) node.hidden = true; };
+  let returnFocus=null;
+  const openModal = (content) => { const node = modal();if(node.hidden)returnFocus=document.activeElement;root.querySelector("[data-chat-area]")?.setAttribute("inert",""); node.querySelector("[data-v2-modal-content]").innerHTML = content; node.hidden = false; node.querySelector("[data-v2-close]").focus(); };
+  const closeModal = () => { const node = root.querySelector("[data-chat-v2-modal]"); if (node) node.hidden = true;root.querySelector("[data-chat-area]")?.removeAttribute("inert");if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true}); };
+  root.addEventListener("keydown",event=>{
+    const node=root.querySelector("[data-chat-v2-modal]:not([hidden])");
+    if(!node)return;
+    if(event.key==="Escape"){event.preventDefault();closeModal();return;}
+    if(event.key!=="Tab")return;
+    const items=[...node.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select,textarea,[tabindex="0"]')].filter(item=>item.getClientRects().length);
+    const first=items[0],last=items.at(-1);
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+  });
+  root.addEventListener("click",event=>{if(event.target.matches("[data-chat-v2-modal]"))closeModal();});
   const game = setupChatTtt({root,client,userId,selectedConversation,isGroup,openModal,closeModal,toast});
   const gartic = setupChatGartic({root,client,userId,selectedConversation,openModal,closeModal,toast,openTtt:()=>game.open()});
   const applyWallpaper = () => {
     const id = selectedConversation();
-    const thread = root.querySelector("[data-chat-thread]");
+    const thread = root.querySelector("[data-chat-premium-history]");
     if (!thread) return;
     const value = wallpapers[id] || wallpapers["*"] || "";
     thread.style.backgroundColor = value.startsWith("url(") ? "" : (value || "");
-    thread.style.backgroundImage = value.startsWith("url(") ? value : "none";
+    thread.style.backgroundImage = value.startsWith("url(") ? value : "";
     thread.style.backgroundSize = value.startsWith("url(") ? "cover" : "";
     thread.classList.toggle("is-chat-v2-dark", value === "#202938");
   };
   const renderTools = () => {
     const topHeading = root.querySelector(".chat-heading");
-    if (topHeading && !topHeading.querySelector("[data-v2-home]")) {
-      const home = document.createElement("a");
-      home.href = "home.html";
-      home.className = "chat-v2-icon-button chat-v2-home-button";
-      home.dataset.v2Home = "";
-      home.setAttribute("aria-label", "Ir para a página inicial");
-      home.title = "Página inicial";
-      home.innerHTML = icon("home");
-      topHeading.prepend(home);
-    }
-    if (topHeading && !topHeading.querySelector("[data-v2-settings]")) {
-      const button = document.createElement("button");
-      button.type = "button"; button.className = "chat-v2-icon-button chat-v2-menu-button"; button.dataset.v2Settings = ""; button.setAttribute("aria-label", "Configurações das conversas"); button.title = "Configurações"; button.innerHTML = icon("menu");
-      topHeading.prepend(button);
-    }
     const filters = root.querySelector(".chat-filter-tabs");
     // Premium filters are real controls; do not remove them on refresh.
     const heading = root.querySelector(".chat-thread-heading");
@@ -121,7 +118,7 @@ export function setupChatEnhancements(root, client, userId) {
     settingsScope = conversationOnly ? selectedConversation() : "*";
     const id = settingsScope;
     const colors = COLORS.map((color) => `<button type="button" class="chat-v2-swatch ${(wallpapers[id] || "") === color.value ? "is-selected" : ""}" data-v2-color="${esc(color.value)}"><span style="background:${color.value || "var(--surface)"}"></span>${esc(color.name)}</button>`).join("");
-    openModal(`<span class="chat-v2-kicker">Personalização</span><h2 id="chatV2ModalTitle">${conversationOnly ? "Esta conversa" : "Suas conversas"}</h2><div class="chat-v2-setting-group"><strong>Papel de parede</strong><div class="chat-v2-swatches">${colors}</div><label class="chat-v2-upload">Usar uma imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-v2-wallpaper-file></label></div>${conversationOnly && !isGroup() ? '<div class="chat-v2-setting-group"><label for="chatV2Nickname">Apelido do contato</label><input id="chatV2Nickname" maxlength="60" value="' + esc(nicknames[id] || "") + '" placeholder="Nome que só você verá"><button type="button" class="chat-v2-button is-primary" data-v2-save-nickname>Salvar apelido</button></div>' : ""}<p class="chat-v2-help">O apelido é privado da sua conta e sincronizado pelo Neon. O papel de parede permanece neste dispositivo.</p>`);
+    openModal(`<span class="chat-v2-kicker">Personalização</span><h2 id="chatV2ModalTitle">${conversationOnly ? "Esta conversa" : "Suas conversas"}</h2><div class="chat-detail-links"><a href="configuracoes.html">${icon("settings")}Configurações globais</a><button type="button" data-chat-premium-search>Buscar nesta conversa</button><button type="button" data-chat-premium-note>💌 Escrever bilhete</button><button type="button" data-chat-premium-music>♫ Compartilhar música</button></div><div class="chat-v2-setting-group"><strong>Papel de parede</strong><div class="chat-v2-swatches">${colors}</div><label class="chat-v2-upload">Usar uma imagem<input type="file" accept="image/png,image/jpeg,image/webp" data-v2-wallpaper-file></label></div>${conversationOnly && !isGroup() ? '<div class="chat-v2-setting-group"><label for="chatV2Nickname">Apelido do contato</label><input id="chatV2Nickname" maxlength="60" value="' + esc(nicknames[id] || "") + '" placeholder="Nome que só você verá"><button type="button" class="chat-v2-button is-primary" data-v2-save-nickname>Salvar apelido</button></div>' : ""}<p class="chat-v2-help">O apelido é visível apenas para você.</p>`);
   };
   const updateNickname = (id, name) => {
     const link = [...root.querySelectorAll("[data-chat-open]")].find((item) => item.dataset.chatOpen === id);
@@ -174,7 +171,7 @@ export function setupChatEnhancements(root, client, userId) {
       const pop=document.createElement("div");
       pop.className="chat-premium-row-popover";
       pop.dataset.chatPremiumRowPopover="";
-      pop.innerHTML='<button type="button" data-chat-premium-row-action="pin" data-chat-premium-row-id="'+esc(id)+'">'+
+      pop.innerHTML='<button type="button" data-chat-premium-row-action="favorite" data-chat-premium-row-id="'+esc(id)+'">'+(favorites.has(id)?'Remover dos favoritos':'Favoritar')+'</button><button type="button" data-chat-premium-row-action="pin" data-chat-premium-row-id="'+esc(id)+'">'+
         (pinned.has(id)?"Desafixar":"Fixar conversa")+'</button>'+
         '<button type="button" data-chat-premium-row-action="mute" data-chat-premium-row-id="'+esc(id)+'">'+
         (muted.has(id)?"Ativar avisos":"Silenciar")+'</button>'+
@@ -187,9 +184,9 @@ export function setupChatEnhancements(root, client, userId) {
     if(rowAction){
       event.preventDefault();event.stopPropagation();
       const id=rowAction.dataset.chatPremiumRowId,action=rowAction.dataset.chatPremiumRowAction;
-      const scope=action==="pin"?pinned:action==="mute"?muted:archived;
+      const scope=action==="pin"?pinned:action==="mute"?muted:action==="favorite"?favorites:archived;
       if(scope.has(id))scope.delete(id);else scope.add(id);
-      const storage=action==="pin"?pinnedKey:action==="mute"?mutedKey:archivedKey;
+      const storage=action==="pin"?pinnedKey:action==="mute"?mutedKey:action==="favorite"?favoritesKey:archivedKey;
       write(storage,[...scope]);
       root.querySelector("[data-chat-premium-row-popover]")?.remove();
       renderTools();applyFilters();
@@ -211,6 +208,7 @@ export function setupChatEnhancements(root, client, userId) {
   root.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
+    if(target.matches("[data-chat-premium-search],[data-chat-premium-note],[data-chat-premium-music]"))closeModal();
     if (await gartic.handleClick(target)) return;
     if (await game.handleClick(target)) return;
     if (target.matches("[data-v2-close]")) { closeModal(); return; }

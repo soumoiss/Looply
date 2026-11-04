@@ -31,6 +31,8 @@ function createModal(root,{title,kind,content,submitLabel="Enviar"}){
     '<p class="form-status" data-chat-premium-modal-status role="status" aria-live="polite"></p></form></section>';
   root.append(modal);
   modal.addEventListener("close",()=>modal.remove(),{once:true});
+  modal._returnFocus=document.activeElement;
+  modal.addEventListener("close",()=>{if(modal._returnFocus?.isConnected)modal._returnFocus.focus({preventScroll:true});},{once:true});
   modal.showModal();
   modal.querySelector("input,textarea")?.focus({preventScroll:true});
   return modal;
@@ -127,11 +129,29 @@ export function setupChatPremium(root,client,userId){
   let activeAudio=null,activeButton=null;
   const stopAudio=()=>{
     if(activeAudio){try{activeAudio.pause();activeAudio.currentTime=0;}catch{}releaseMediaPlayback(root,activeAudio);}
-    if(activeButton?.isConnected){activeButton.textContent="▶";activeButton.setAttribute("aria-label","Ouvir prévia");}
+    if(activeButton?.isConnected){activeButton.textContent="▶";activeButton.setAttribute("aria-label","Ouvir prévia");activeButton.setAttribute("aria-pressed","false");}
     activeAudio=null;activeButton=null;
   };
   const onClick=async event=>{
     const target=event.target;
+    const messageMenu=target.closest("[data-chat-message-menu]");
+    if(messageMenu){
+      const actions=messageMenu.parentElement.querySelector(".chat-message-actions-inline");
+      const open=actions.hidden;
+      root.querySelectorAll("[data-chat-message-menu]").forEach(button=>{
+        button.setAttribute("aria-expanded","false");
+        button.parentElement.querySelector(".chat-message-actions-inline").hidden=true;
+      });
+      actions.hidden=!open;messageMenu.setAttribute("aria-expanded",String(open));
+      if(open)actions.querySelector("button")?.focus({preventScroll:true});
+      return;
+    }
+    if(target.closest("[data-chat-premium-legacy-letter]")){
+      root.querySelectorAll(".chat-sidebar>details").forEach(panel=>panel.open=false);
+      const panel=root.querySelector(".letter-compose-panel");
+      if(panel){panel.open=true;panel.querySelector("input")?.focus();}
+      return;
+    }
     const menuToggle=target.closest("[data-chat-premium-menu-toggle]");
     if(menuToggle){
       const form=menuToggle.closest("[data-chat-send]");
@@ -142,13 +162,17 @@ export function setupChatPremium(root,client,userId){
     const attachmentAction=target.closest("[data-chat-premium-menu] button");
     if(attachmentAction)closeAttachmentMenus(root);
     if(target.closest("[data-chat-premium-new]")){
-      if(root.dataset.conversationPage==="true"){window.location.assign("chat.html");return;}
+
+      root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
+      root.querySelectorAll(".chat-sidebar>details").forEach(panel=>panel.open=false);
       const panel=root.querySelector(".chat-search-panel");
       if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"nearest"});panel.querySelector('input[name="query"]')?.focus({preventScroll:true});}
       return;
     }
     if(target.closest("[data-chat-premium-new-group]")){
-      if(root.dataset.conversationPage==="true"){window.location.assign("chat.html");return;}
+
+      root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
+      root.querySelectorAll(".chat-sidebar>details").forEach(panel=>panel.open=false);
       const panel=root.querySelector(".group-compose-panel");
       if(panel){panel.open=true;panel.scrollIntoView({behavior:"smooth",block:"nearest"});panel.querySelector('input[name="subject"]')?.focus({preventScroll:true});}
       return;
@@ -170,7 +194,7 @@ export function setupChatPremium(root,client,userId){
     if(invite){
       const composer=invite.closest("form[data-chat-send]");
       const status=composer?.querySelector("[data-status]");
-      if(invite.disabled||!window.confirm("Enviar um convite para jogar nesta conversa?"))return;
+      if(invite.disabled)return;
       invite.disabled=true;
       try{
         await sendChatCard(root,client,userId,composer,makePremiumGameCard(composer?.dataset.conversationId));
@@ -264,7 +288,7 @@ export function setupChatPremium(root,client,userId){
       const audio=new Audio(preview.src);audio.preload="auto";
       if(!requestMediaPlayback("music",root,audio)){play.textContent="▶";return;}
       activeAudio=audio;activeButton=play;
-      play.textContent="Ⅱ";
+      play.textContent="Ⅱ";play.setAttribute("aria-label","Pausar prévia");play.setAttribute("aria-pressed","true");
       audio.addEventListener("ended",stopAudio,{once:true});
       audio.addEventListener("error",stopAudio,{once:true});
       try{await audio.play();}catch(error){console.warn("Preview playback requires tap",error);stopAudio();}
@@ -337,14 +361,33 @@ export function setupChatPremium(root,client,userId){
     if(event.key!=="Escape"||event.target.closest("[data-chat-premium-modal]"))return;
     closeAttachmentMenus(root);
     closePremiumModal(root);
+    root.querySelectorAll("[data-chat-message-menu]").forEach(button=>{
+      if(button.getAttribute("aria-expanded")==="true")button.focus({preventScroll:true});
+      button.setAttribute("aria-expanded","false");
+      button.parentElement.querySelector(".chat-message-actions-inline").hidden=true;
+    });
     root.querySelector("[data-chat-premium-reaction-palette]")?.remove();
   };
+  const syncComposer=()=>{
+    const form=currentComposer(root);if(!form)return;
+    const hasContent=Boolean(form.elements.body?.value.trim()||form.elements.files?.files.length||form._looplyRecordedFile||form._looplyStickerFile);
+    if(form.dataset.hasContent!==String(hasContent))form.dataset.hasContent=String(hasContent);
+  };
+  const syncObserver=new MutationObserver(syncComposer);
+  syncObserver.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["hidden"]});
+  root.addEventListener("input",syncComposer);
+  root.addEventListener("change",syncComposer);
+  root.addEventListener("reset",()=>queueMicrotask(syncComposer));
+  const stopOnNavigation=()=>{stopAudio();closeAttachmentMenus(root);};
+  root.addEventListener("looply:conversation-activated",stopOnNavigation);
   root.addEventListener("click",onClick);
   root.addEventListener("input",onInput);
   root.addEventListener("submit",onSubmit,true);
   root.addEventListener("keydown",onKey);
   const cleanup=()=>{
-    cancelSearch();stopAudio();
+    cancelSearch();stopAudio();syncObserver.disconnect();
+    root.removeEventListener("input",syncComposer);root.removeEventListener("change",syncComposer);
+    root.removeEventListener("looply:conversation-activated",stopOnNavigation);
     root.removeEventListener("click",onClick);
     root.removeEventListener("input",onInput);
     root.removeEventListener("submit",onSubmit,true);
@@ -353,5 +396,6 @@ export function setupChatPremium(root,client,userId){
     closePremiumModal(root);
   };
   window.addEventListener("pagehide",cleanup,{once:true});
+  syncComposer();
   return cleanup;
 }

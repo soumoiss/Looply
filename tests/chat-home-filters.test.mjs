@@ -10,8 +10,8 @@ test("chat renders explicit conversation metadata and applies shared data filter
     read("src/chat-enhancements.js")
   ]);
 
-  assert.match(enhancements, /home\.href = "home\.html"/);
-  assert.match(enhancements, /data-v2-home/);
+  assert.match(await read("src/primary-navigation.js"), /home\.html/);
+  assert.doesNotMatch(enhancements, /home\.href = "home\.html"/);
   assert.match(enhancements, /matchesConversationFilter\(/);
   assert.match(enhancements, /item\.hidden = !matches/);
   assert.match(enhancements, /if \(noMatches\.textContent !== emptyMessage\) noMatches\.textContent = emptyMessage/);
@@ -37,5 +37,5 @@ test("chat keeps the global header and gives the send icon a fixed size", async 
   assert.doesNotMatch(css, /\.page-chat \.page-header[^\n]*display:none/);
   assert.match(css, /chat-message-actions \.primary-button \.looply-icon \{ width:18px; height:18px/);
   assert.match(page, /data-site-header>[\s\S]*brand-mark-animated/);
-  assert.match(page, /assets\/css\/pages\/chat\.css\?v=[a-z0-9-]+/);
+  assert.match(page, /assets\/css\/pages\/chat-premium\.css\?v=[a-z0-9-]+/);
 });
