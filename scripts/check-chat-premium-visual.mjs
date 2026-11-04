@@ -49,11 +49,11 @@ const server=createServer(async(req,res)=>{
       res.writeHead(200,{"content-type":"text/html; charset=utf-8"});
       res.end(fixture);return;
     }
-    if(!/^\/(?:assets\/css\/(?:pages\/)?[a-zA-Z0-9-]+\.css|styles\.css)$/.test(path)){
+    if(!/^\/(?:assets\/css\/(?:pages\/)?[a-zA-Z0-9-]+\.css|styles\.css|src\/[a-zA-Z0-9-]+\.js|config\.js)$/.test(path)){
       res.writeHead(404);res.end();return;
     }
     const buf=await readFile(join(ROOT,path.slice(1)));
-    res.writeHead(200,{"content-type":"text/css"});res.end(buf);
+    res.writeHead(200,{"content-type":path.endsWith(".js")?"text/javascript":"text/css"});res.end(buf);
   }catch(error){res.writeHead(404);res.end();}
 });
 await mkdir(OUTPUT,{recursive:true});
@@ -63,7 +63,7 @@ let browser;
 try{
   browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
   for(const [width,height] of [[320,712],[360,800],[390,844],[428,926],[768,1024],[1100,800],[1440,900]]){
-    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,isMobile:width<=860,hasTouch:width<=860});
     const page=await context.newPage();
     const errors=[];page.on("pageerror",error=>errors.push(error.message));
     await page.goto(url,{waitUntil:"load"});
@@ -116,6 +116,49 @@ try{
         assert.equal(await note.getAttribute("open"),"");
         await note.locator("summary").press("Enter");
         assert.equal(await note.getAttribute("open"),null);
+      }
+      if(width<=860 && mode==="list"){
+        const scroll=await page.evaluate(()=>{
+          const sidebar=document.querySelector(".chat-sidebar");
+          const list=document.querySelector(".chat-conversation-list");
+          const item=list.querySelector("[data-chat-open]");
+          for(let i=0;i<30;i++)list.append(item.cloneNode(true));
+          const title=sidebar.querySelector(".chat-heading");
+          const before=title.getBoundingClientRect().top;
+          sidebar.scrollTop=200;
+          return {moved:before-title.getBoundingClientRect().top,listScroll:getComputedStyle(list).overflowY};
+        });
+        assert.ok(scroll.moved>100,"entire picker must scroll including its heading");
+        assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");
+      }
+      if(width<=860 && mode==="thread"){
+        const stable=await page.evaluate(async ({cid})=>{
+          const {updateThreadMarkup}=await import("/src/chat.js");
+          const thread=document.querySelector("[data-chat-thread]");
+          const history=thread.querySelector("[data-chat-premium-history]");
+          history.scrollTop=20;
+          const node=history.querySelector("[data-message-row-id]");
+          const top=history.scrollTop;
+          updateThreadMarkup(thread,thread.innerHTML,cid);
+          return {same:history===thread.querySelector("[data-chat-premium-history]")&&node===history.querySelector("[data-message-row-id]"),delta:Math.abs(top-history.scrollTop)};
+        },{cid});
+        assert.ok(stable.same,"refresh must preserve history and unchanged messages");
+        assert.ok(stable.delta<2,"refresh must preserve reading position");
+        await page.evaluate(async()=>{
+          const {setupChatPremium}=await import("/src/chat-premium.js");
+          setupChatPremium(document.querySelector("#pageContent"),null,"test-user");
+          const message=document.querySelector(".chat-message p[data-chat-message-body]");
+          message.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,button:0,pointerType:"touch",clientX:80,clientY:140}));
+        });
+        await page.locator("[data-chat-premium-reaction-palette]").waitFor({state:"visible"});
+        await page.evaluate(()=>document.querySelector("#pageContent").dispatchEvent(new PointerEvent("pointerup",{bubbles:true})));
+
+        await page.evaluate(()=>document.querySelector("#pageContent").style.setProperty("--looply-visible-height","400px"));
+        const bottom=await page.locator(".chat-message-form").evaluate(el=>el.getBoundingClientRect().bottom);
+        assert.ok(Math.abs(bottom-400)<2,"composer must sit at visual viewport bottom");
+        const bubble=await page.locator(".chat-message:has(.chat-premium-note-card) .chat-bubble").evaluate(el=>getComputedStyle(el).backgroundColor);
+        assert.equal(bubble,"rgba(0, 0, 0, 0)","envelope must have no colored bubble");
+        await page.evaluate(()=>document.querySelector("#pageContent").style.removeProperty("--looply-visible-height"));
       }
       await page.screenshot({path:join(OUTPUT,mode+"-"+width+"x"+height+".png"),animations:"disabled"});
     }

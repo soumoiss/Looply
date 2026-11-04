@@ -823,7 +823,7 @@ async function signThreadAvatar(client, participants) {
   if (data) profiles.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
 }
 
-function updateThreadMarkup(thread, markup, conversationId) {
+export function updateThreadMarkup(thread, markup, conversationId) {
   if (!thread) return;
   const currentForm = thread.querySelector("[data-chat-send]");
   const preserveComposer = Boolean(currentForm && currentForm.dataset.conversationId === conversationId);
@@ -835,22 +835,53 @@ function updateThreadMarkup(thread, markup, conversationId) {
   const history=thread.querySelector("[data-chat-premium-history]")||thread;
   const wasNearBottom = history.scrollHeight-history.scrollTop-history.clientHeight < 120;
   const previousScrollTop=history.scrollTop;
+  const historyTop=history.getBoundingClientRect().top;
+  const anchor=[...history.querySelectorAll("[data-message-row-id]")].find(el=>el.getBoundingClientRect().bottom>historyTop);
+  const anchorOffset=anchor?.getBoundingClientRect().top-historyTop;
   const openedNotes=new Set([...history.querySelectorAll(".chat-premium-note-card[open]")].map(note=>note.closest("[data-message-row-id]")?.dataset.messageRowId));
   const parsed = document.createElement("div");
   parsed.innerHTML = markup;
   parsed.querySelector("[data-chat-send]")?.remove();
 
-  // Preserve the actual composer DOM node: its draft, focus, file selection,
-  // recorder state and keyboard connection survive every Realtime refresh.
-  for (const child of [...thread.childNodes]) {
-    if (child !== currentForm) child.remove();
+  // Keep existing message and media nodes alive across polling updates.
+  const incomingHistory=parsed.querySelector("[data-chat-premium-history]");
+  const existing=new Map([...history.children].filter(el=>el.dataset.messageRowId).map(el=>[el.dataset.messageRowId,el]));
+  const firstIncoming=incomingHistory.querySelector("[data-message-row-id]")?.dataset.messageRowId;
+  const firstExisting=existing.get(firstIncoming);
+  const nextNodes=[];
+  if(firstExisting && history.querySelector("[data-chat-load-older]")){
+    for(const node of [...history.children]){if(node===firstExisting)break;nextNodes.push(node);}
   }
-  for (const child of [...parsed.childNodes]) thread.insertBefore(child, currentForm);
-  const updatedHistory=thread.querySelector("[data-chat-premium-history]")||thread;
+  const keepOlder=nextNodes.some(node=>node.dataset.messageRowId);
+  if(!keepOlder)nextNodes.length=0;
+  for(const next of [...incomingHistory.children]){
+    if(keepOlder && next.matches("[data-chat-load-older]"))continue;
+    const old=existing.get(next.dataset.messageRowId);
+    if(old){
+      const comparison=old.cloneNode(true);
+      comparison.querySelectorAll("details[open]").forEach(el=>el.removeAttribute("open"));
+      if(comparison.outerHTML===next.outerHTML){nextNodes.push(old);continue;}
+    }
+    nextNodes.push(next);
+  }
+  let cursor=history.firstChild;
+  for(const node of nextNodes){
+    if(node===cursor){cursor=cursor.nextSibling;continue;}
+    history.insertBefore(node,cursor);
+  }
+  const retained=new Set(nextNodes);
+  for(const node of [...history.childNodes])if(!retained.has(node))node.remove();
+  const oldHeading=thread.querySelector(".chat-thread-heading");
+  const newHeading=parsed.querySelector(".chat-thread-heading");
+  if(oldHeading&&newHeading&&oldHeading.outerHTML!==newHeading.outerHTML)oldHeading.replaceWith(newHeading);
+  const updatedHistory=history;
   for(const note of updatedHistory.querySelectorAll(".chat-premium-note-card")){
     if(openedNotes.has(note.closest("[data-message-row-id]")?.dataset.messageRowId))note.open=true;
   }
-  if(!wasNearBottom)updatedHistory.scrollTop=previousScrollTop;
+  if(!wasNearBottom){
+    updatedHistory.scrollTop=previousScrollTop;
+    if(anchor?.isConnected)updatedHistory.scrollTop+=anchor.getBoundingClientRect().top-historyTop-anchorOffset;
+  }
   if (wasNearBottom) {const nextHistory=thread.querySelector("[data-chat-premium-history]")||thread;nextHistory.scrollTop=nextHistory.scrollHeight;}
 }
 
@@ -898,6 +929,9 @@ export async function sendChatCard(root, client, userId, composer, body) {
 
 async function openConversation(root, client, conversationId, userId) {
   if (!conversationId || !client || !userId) return;
+  if(!root.querySelector("[data-chat-area]")?.classList.contains("is-conversation-open") && root.dataset.conversationPage !== "true"){
+    window.history.pushState({...window.history.state,looplyChatThread:true},"",window.location.href);
+  }
   activeConversationId = conversationId;
   refreshSequence += 1;
   const requestId = ++activeThreadRequest;
@@ -1582,6 +1616,7 @@ export function bindChatEvents(root, client, getUserId) {
       window.location.assign("chat.html");
       return;
     }
+    if(window.history.state?.looplyChatThread){window.history.back();return;}
     activeConversationId = null;
     activeThreadRequest += 1;
     refreshSequence += 1;
@@ -1591,6 +1626,16 @@ export function bindChatEvents(root, client, getUserId) {
     if (thread) thread.innerHTML = `<div class="chat-empty chat-thread-empty"><strong>Nenhuma conversa selecionada.</strong><span>Escolha uma conversa ou encontre uma pessoa.</span></div>`;
   });
 
+  const onChatBack=()=>{
+    if(root.dataset.conversationPage === "true")return;
+    activeConversationId=null;
+    activeThreadRequest+=1;
+    refreshSequence+=1;
+    root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
+    root.dispatchEvent(new CustomEvent("looply:chat-rendered"));
+  };
+  window.addEventListener("popstate",onChatBack);
+  window.addEventListener("pagehide",()=>window.removeEventListener("popstate",onChatBack),{once:true});
   root.addEventListener("input", (event) => {
     if (event.target.matches("[data-chat-conversation-search]")) {
       conversationSearch = event.target.value;
