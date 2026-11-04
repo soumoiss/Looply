@@ -64,7 +64,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add -- .github/workflows/chat-premium-visual.yml QA_REPORT_MENSAGENS_PREMIUM_FINAL.md assets/css/pages/chat-fixes.css assets/js/chat.js assets/js/conversation.js chat.html conversa.html scripts/check-chat-premium-visual.mjs src/chat-premium.js src/chat.js sw.js tests/chat-catalog-group-covers.test.mjs tests/chat-mobile-premium-final.test.mjs tests/chat-stability.test.mjs tests/index.js
+          git restore -- .github/workflows/chat-premium-visual.yml
+          git add -- QA_REPORT_MENSAGENS_PREMIUM_FINAL.md assets/css/pages/chat-fixes.css assets/js/chat.js assets/js/conversation.js chat.html conversa.html scripts/check-chat-premium-visual.mjs src/chat-premium.js src/chat.js sw.js tests/chat-catalog-group-covers.test.mjs tests/chat-mobile-premium-final.test.mjs tests/chat-stability.test.mjs tests/index.js
           git rm -r -- .github/chat-premium-payload
           git -c user.name='Looply CI' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m 'fix(chat): publish premium mobile conversations with validated build and tests'
           git push origin HEAD:main
