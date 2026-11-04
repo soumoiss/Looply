@@ -49,7 +49,7 @@ const server=createServer(async(req,res)=>{
       res.writeHead(200,{"content-type":"text/html; charset=utf-8"});
       res.end(fixture);return;
     }
-    if(!/^\/(?:assets\/css\/(?:pages\/)?[a-zA-Z0-9-]+\.css|styles\.css)$/.test(path)){
+    if(!/^\/(?:assets\/css\/(?:pages\/)?[a-zA-Z0-9-]+\.css|styles\.css|src\/[a-zA-Z0-9-]+\.js|config\.js)$/.test(path)){
       res.writeHead(404);res.end();return;
     }
     const buf=await readFile(join(ROOT,path.slice(1)));
