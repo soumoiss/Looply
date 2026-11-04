@@ -823,7 +823,7 @@ async function signThreadAvatar(client, participants) {
   if (data) profiles.forEach((profile, index) => { profile.avatarUrl = data[index]?.signedUrl || ""; });
 }
 
-function updateThreadMarkup(thread, markup, conversationId) {
+export function updateThreadMarkup(thread, markup, conversationId) {
   if (!thread) return;
   const currentForm = thread.querySelector("[data-chat-send]");
   const preserveComposer = Boolean(currentForm && currentForm.dataset.conversationId === conversationId);

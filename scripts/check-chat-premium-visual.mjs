@@ -53,7 +53,7 @@ const server=createServer(async(req,res)=>{
       res.writeHead(404);res.end();return;
     }
     const buf=await readFile(join(ROOT,path.slice(1)));
-    res.writeHead(200,{"content-type":"text/css"});res.end(buf);
+    res.writeHead(200,{"content-type":path.endsWith(".js")?"text/javascript":"text/css"});res.end(buf);
   }catch(error){res.writeHead(404);res.end();}
 });
 await mkdir(OUTPUT,{recursive:true});
@@ -132,6 +132,27 @@ try{
         assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");
       }
       if(width<=860 && mode==="thread"){
+        const stable=await page.evaluate(async ({cid})=>{
+          const {updateThreadMarkup}=await import("/src/chat.js");
+          const thread=document.querySelector("[data-chat-thread]");
+          const history=thread.querySelector("[data-chat-premium-history]");
+          history.scrollTop=20;
+          const node=history.querySelector("[data-message-row-id]");
+          const top=history.scrollTop;
+          updateThreadMarkup(thread,thread.innerHTML,cid);
+          return {same:history===thread.querySelector("[data-chat-premium-history]")&&node===history.querySelector("[data-message-row-id]"),delta:Math.abs(top-history.scrollTop)};
+        },{cid});
+        assert.ok(stable.same,"refresh must preserve history and unchanged messages");
+        assert.ok(stable.delta<2,"refresh must preserve reading position");
+        await page.evaluate(async()=>{
+          const {setupChatPremium}=await import("/src/chat-premium.js");
+          setupChatPremium(document.querySelector("#pageContent"),null,"test-user");
+          const message=document.querySelector(".chat-message p[data-chat-message-body]");
+          message.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,button:0,pointerType:"touch",clientX:80,clientY:140}));
+        });
+        await page.locator("[data-chat-premium-reaction-palette]").waitFor({state:"visible"});
+        await page.evaluate(()=>document.querySelector("#pageContent").dispatchEvent(new PointerEvent("pointerup",{bubbles:true})));
+
         await page.evaluate(()=>document.querySelector("#pageContent").style.setProperty("--looply-visible-height","400px"));
         const bottom=await page.locator(".chat-message-form").evaluate(el=>el.getBoundingClientRect().bottom);
         assert.ok(Math.abs(bottom-400)<2,"composer must sit at visual viewport bottom");
