@@ -1,0 +1,218 @@
+/* Looply · Mensagens — camada final de correções (carregar por último).
+   1 rolagem única da lista · 2 teclado sem folga · 3 foto do grupo · 4 mensagens sem balão
+   5 figurinhas menores · 6 áudio com onda · 7 seletor de reações (pressionar a mensagem) */
+
+/* ---------- 1. Lista de conversas: uma única superfície de rolagem (celular) ---------- */
+@media (max-width: 860px) {
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-area,
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .page-content,
+  .page-chat:not(:has(.chat-area.is-conversation-open)) main { overflow: visible !important; height: auto !important; max-height: none !important; }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-layout { height: auto !important; min-height: 0 !important; }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-sidebar { height: auto !important; max-height: none !important; overflow: visible !important; overscroll-behavior: auto; }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-thread-panel { display: none !important; }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .container-page { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-conversation-list { overflow: visible !important; max-height: none !important; }
+}
+
+/* ---------- 2. Conversa aberta: altura real da tela, teclado sem folga ---------- */
+@media (max-width: 860px) {
+  html:has(.chat-area.is-conversation-open), html:has(.chat-area.is-conversation-open) body { overflow: hidden; overscroll-behavior: none; }
+  .page-chat:has(.chat-area.is-conversation-open) .chat-layout {
+    position: fixed !important; left: 0; right: 0; bottom: auto !important;
+    top: var(--looply-visible-top, 0px) !important;
+    height: var(--looply-visible-height, 100dvh) !important; max-height: none !important; margin: 0 !important;
+  }
+  .page-chat:has(.chat-area.is-conversation-open) .page-navigation,
+  .page-chat:has(.chat-area.is-conversation-open) .looply-footer { display: none !important; }
+  .page-chat .chat-area.is-conversation-open .chat-message-form { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; }
+  html.chat-keyboard-open .page-chat .chat-message-form,
+  .page-chat.chat-keyboard-open .chat-message-form,
+  .chat-keyboard-open .chat-message-form { padding-bottom: 8px !important; }
+}
+.page-chat .chat-premium-history { overscroll-behavior: contain; overflow-anchor: none; }
+
+/* ---------- 3. Foto do grupo: câmera sobre o avatar ---------- */
+.page-chat .chat-group-avatar-wrap { position: relative; display: inline-grid; flex: none; }
+.page-chat .chat-thread-heading .chat-cover-badge {
+  position: absolute; right: -5px; bottom: -4px; z-index: 2;
+  width: 22px !important; min-width: 22px !important; height: 22px !important; min-height: 22px !important;
+  display: grid; place-items: center; padding: 0 !important; border: 2px solid var(--s) !important; border-radius: 50% !important;
+  background: var(--p) !important; color: var(--on) !important; box-shadow: 0 3px 8px rgba(0,0,0,.22);
+  transition: transform .15s;
+}
+.page-chat .chat-thread-heading .chat-cover-badge::after { content: ""; position: absolute; inset: -12px; }
+.page-chat .chat-thread-heading .chat-cover-badge:active { transform: scale(.9); }
+.page-chat .chat-thread-heading .chat-cover-badge:disabled { opacity: .6; }
+.page-chat .chat-thread-heading .chat-cover-badge svg { width: 12px; height: 12px; }
+.page-chat .chat-cover-status {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 6;
+  max-width: calc(100% - 24px); padding: 7px 14px; border-radius: 999px; background: var(--t); color: var(--s);
+  font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 8px 20px rgba(0,0,0,.25);
+}
+.page-chat .chat-cover-status:empty { display: none; }
+
+/* ---------- 4. Mensagens sem balão: figurinha, áudio, envelope ---------- */
+.page-chat .chat-message.is-bare .chat-bubble,
+.page-chat .chat-message.is-bare.is-mine .chat-bubble,
+.page-chat .chat-message.is-bare:not(.is-mine) .chat-bubble {
+  background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; color: var(--t) !important;
+}
+.page-chat .chat-message.is-bare .chat-bubble::before,
+.page-chat .chat-message.is-bare .chat-bubble::after { display: none !important; }
+.page-chat .chat-message.is-bare .chat-message-meta { margin: 0 2px 4px; font-size: 11px; color: var(--m) !important; gap: 6px; }
+.page-chat .chat-message.is-bare .chat-message-meta a, .page-chat .chat-message.is-bare .chat-message-meta strong { color: var(--m) !important; }
+.page-chat .chat-message.is-bare.is-mine .chat-message-meta strong { display: none; }
+.page-chat .chat-message.is-bare .chat-delivery,
+.page-chat .chat-message.is-bare.is-mine .chat-delivery { color: var(--m) !important; font-size: 10.5px; }
+.page-chat .chat-message.is-bare p[data-chat-message-body].visually-hidden { display: none; }
+.page-chat .chat-message.is-note { max-width: min(320px, 88%); }
+
+/* ---------- 5. Figurinhas menores ---------- */
+.page-chat .chat-catalog-message,
+.page-chat .chat-sticker,
+.page-chat .chat-message.is-visual-only img.chat-sticker,
+.page-chat .chat-message.is-visual-only img.chat-catalog-message,
+.page-chat .chat-message.is-sticker img {
+  width: auto !important; height: auto !important;
+  max-width: min(112px, 32vw) !important; max-height: 112px !important; object-fit: contain;
+}
+
+/* ---------- 6. Áudio: onda que preenche enquanto toca ---------- */
+.page-chat .chat-voice { --prog: 0%; display: flex; align-items: center; gap: 10px; width: min(300px, 74vw); min-width: 210px; padding: 2px 0; }
+.page-chat .chat-voice audio { display: none; }
+.page-chat .chat-voice-play {
+  position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--p); color: var(--on); box-shadow: 0 8px 18px color-mix(in srgb, var(--p) 38%, transparent); transition: transform .15s, box-shadow .2s;
+}
+.page-chat .chat-voice-play:active { transform: scale(.92); }
+.page-chat .chat-voice.is-playing .chat-voice-play { box-shadow: 0 0 0 6px color-mix(in srgb, var(--p) 18%, transparent), 0 8px 18px color-mix(in srgb, var(--p) 38%, transparent); }
+.page-chat .chat-voice-play svg { width: 19px; height: 19px; }
+.page-chat .chat-voice-icon-play, .page-chat .chat-voice-icon-pause { display: grid; place-items: center; }
+.page-chat .chat-voice-icon-pause { display: none; }
+.page-chat .chat-voice.is-playing .chat-voice-icon-play { display: none; }
+.page-chat .chat-voice.is-playing .chat-voice-icon-pause { display: grid; }
+.page-chat .chat-voice-track { position: relative; flex: 1; min-width: 0; height: 38px; cursor: pointer; touch-action: pan-y; }
+.page-chat .chat-voice-track:focus-visible { outline: 3px solid color-mix(in srgb, var(--p) 55%, transparent); outline-offset: 3px; border-radius: 8px; }
+.page-chat .chat-voice-wave { position: absolute; inset: 0; display: flex; align-items: center; gap: 2px; color: color-mix(in srgb, var(--m) 55%, transparent); }
+.page-chat .chat-voice-wave i { flex: 1; min-width: 2px; height: var(--h); border-radius: 3px; background: currentColor; transition: transform .2s; }
+.page-chat .chat-voice-wave.is-fill { color: var(--p); clip-path: inset(0 calc(100% - var(--prog, 0%)) 0 0); transition: clip-path .1s linear; }
+.page-chat .chat-voice.is-playing .chat-voice-wave.is-fill i { animation: chat-voice-beat .9s ease-in-out infinite alternate; }
+.page-chat .chat-voice.is-playing .chat-voice-wave.is-fill i:nth-child(odd) { animation-delay: .25s; }
+.page-chat .chat-voice-knob { position: absolute; top: 50%; left: var(--prog, 0%); width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--p); box-shadow: 0 0 0 3px var(--s), 0 2px 6px rgba(0,0,0,.25); transition: left .1s linear, transform .15s; }
+.page-chat .chat-voice-track:active .chat-voice-knob { transform: scale(1.3); }
+.page-chat .chat-voice-time { flex: none; min-width: 34px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--m); text-align: right; }
+.page-chat .chat-voice-rate { flex: none; padding: 3px 8px; border-radius: 999px; background: var(--b2); color: var(--p); font-size: 11px; font-weight: 800; }
+.page-chat .chat-voice:not(.is-playing) .chat-voice-rate { opacity: .7; }
+@keyframes chat-voice-beat { from { transform: scaleY(1); } to { transform: scaleY(.62); } }
+
+/* ---------- 7. Seletor de reações (pressionar a mensagem) ---------- */
+.page-chat .chat-react-backdrop { position: fixed; inset: 0; z-index: 9990; background: rgba(12, 6, 24, .2); animation: chat-fade-in .15s both; }
+:is(.page-chat, .page-conversation) .chat-premium .chat-premium-reaction-palette,
+.page-chat .chat-premium-reaction-palette {
+  position: fixed; z-index: 9991; display: grid; gap: 8px; width: max-content; max-width: calc(100vw - 20px);
+  padding: 0; border: 0; background: none; box-shadow: none; transform-origin: bottom left; animation: chat-pop-in .22s cubic-bezier(.2, 1.3, .4, 1) both;
+}
+.page-chat .chat-premium-reaction-palette.is-mine { transform-origin: bottom right; }
+:is(.page-chat, .page-conversation) .chat-premium .chat-react-bar,
+.page-chat .chat-react-bar { display: flex; gap: 2px; padding: 6px 8px; border-radius: 999px; background: var(--s); border: 1px solid var(--l); box-shadow: 0 14px 38px rgba(0, 0, 0, .3); }
+:is(.page-chat, .page-conversation) .chat-premium .chat-react-bar button,
+.page-chat .chat-react-bar button {
+  width: 46px; height: 46px; min-width: 0; padding: 0; display: grid; place-items: center; border-radius: 50%; background: none; font-size: 29px; line-height: 1;
+  opacity: 0; animation: chat-emoji-in .3s calc(var(--i, 0) * 38ms + 60ms) cubic-bezier(.2, 1.5, .4, 1) both; transition: transform .15s, background .15s;
+}
+.page-chat .chat-react-bar button:hover, .page-chat .chat-react-bar button:active, .page-chat .chat-react-bar button:focus-visible { transform: scale(1.38) translateY(-7px); background: none; }
+.page-chat .chat-react-bar button.is-current { background: var(--b2); }
+.page-chat .chat-react-actions { display: grid; min-width: 168px; overflow: hidden; border-radius: 18px; background: var(--s); border: 1px solid var(--l); box-shadow: 0 14px 38px rgba(0, 0, 0, .28); }
+.page-chat .chat-react-actions:empty { display: none; }
+.page-chat .chat-react-actions button { padding: 13px 18px; text-align: left; font-size: 15px; font-weight: 600; color: var(--t); background: none; border: 0; border-bottom: 1px solid var(--l); }
+.page-chat .chat-react-actions button:last-child { border-bottom: 0; }
+.page-chat .chat-react-actions button:hover { background: var(--so); }
+.page-chat .chat-react-actions button.is-danger { color: #e5484d; }
+.page-chat .chat-message.is-reacting { position: relative; z-index: 9992; animation: chat-lift .2s both; }
+.page-chat .chat-message { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.page-chat .chat-message-edit textarea { -webkit-user-select: text; user-select: text; }
+@keyframes chat-emoji-in { from { opacity: 0; transform: translateY(14px) scale(.4); } to { opacity: 1; transform: none; } }
+@keyframes chat-pop-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes chat-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes chat-lift { to { transform: scale(1.025); } }
+@media (prefers-reduced-motion: reduce) {
+  .page-chat .chat-voice-wave i, .page-chat .chat-react-bar button, .page-chat .chat-premium-reaction-palette, .page-chat .chat-message.is-reacting { animation: none !important; opacity: 1; }
+}
+
+/* Mobile reference: the picker is one page-long scroll surface, not a scroll
+   box inside another scroll box. The page's global navigation stays fixed. */
+@media (max-width: 860px) {
+  html:has(.page-chat:not(:has(.chat-area.is-conversation-open))) {
+    height: auto; min-height: 100%; overflow-y: auto; overscroll-behavior-y: auto;
+  }
+  body.page-chat:not(:has(.chat-area.is-conversation-open)) {
+    height: auto !important; min-height: 100dvh !important;
+    overflow-x: clip !important; overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto;
+  }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .container-page {
+    height: auto !important; min-height: 100dvh !important;
+    padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .container-page > main,
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .page-content,
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-area {
+    display: block !important; flex: none !important;
+    height: auto !important; min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-layout {
+    display: block !important; height: auto !important;
+    min-height: 0 !important; max-height: none !important;
+    overflow: visible !important;
+  }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-sidebar {
+    display: flex !important; height: auto !important;
+    flex: none !important; min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-sidebar > .chat-panel,
+  .page-chat:not(:has(.chat-area.is-conversation-open)) .chat-conversation-list {
+    flex: none !important; min-height: 0 !important;
+    max-height: none !important; overflow: visible !important;
+  }
+  .page-chat .chat-conversation { animation: none !important; }
+
+  /* visualViewport is the authoritative rectangle when Android's keyboard
+     reduces or pans the visible viewport (also works with display cutouts). */
+  body.page-chat:has(.chat-area.is-conversation-open) {
+    height: 100dvh; overflow: hidden !important;
+  }
+  .page-chat:has(.chat-area.is-conversation-open) .chat-layout {
+    position: fixed !important; inset: auto 0 auto 0 !important;
+    top: var(--looply-visible-top, 0px) !important;
+    height: var(--looply-visible-height, 100dvh) !important;
+    min-height: 0 !important; max-height: none !important;
+    display: flex !important; flex-direction: column !important;
+    padding: 0 !important; overflow: hidden !important;
+  }
+  .page-chat .chat-area.is-conversation-open .chat-thread-panel,
+  .page-chat .chat-area.is-conversation-open .chat-thread {
+    display: flex !important; flex: 1 1 auto !important;
+    flex-direction: column !important; min-height: 0 !important;
+    height: 100% !important; max-height: none !important;
+  }
+  .page-chat .chat-area.is-conversation-open .chat-premium-history {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    overscroll-behavior: contain; overflow-anchor: none; scroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page-chat .chat-area.is-conversation-open .chat-message-form {
+    flex: none !important; margin: 0 !important; transform: none !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  html.chat-keyboard-open .page-chat .chat-area.is-conversation-open .chat-message-form {
+    padding-bottom: 4px !important;
+  }
+  .page-chat .chat-message-form textarea { font-size: max(16px, var(--fs)); }
+}
+
+@media(max-width:360px){
+  .page-chat .chat-react-bar button {width:clamp(34px,12.4vw,46px)!important;height:42px!important;font-size:25px!important}
+  .page-chat .chat-voice {min-width:0!important;width:min(300px,calc(100vw - 74px))!important}
+}

@@ -1,0 +1,135 @@
+import { mountAppPage } from "../../src/page-runtime.js?build=c8dfb31c1e9d8b3a";
+import { welcomeGreeting } from "../../src/welcome.js?build=c8dfb31c1e9d8b3a";
+import { bindHomeProfilePreview } from "../../src/home-profile-preview.js?build=c8dfb31c1e9d8b3a";
+import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js?build=c8dfb31c1e9d8b3a";
+import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?build=c8dfb31c1e9d8b3a";
+import { loadStories, storiesMarkup } from "../../src/stories.js?build=c8dfb31c1e9d8b3a";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?build=c8dfb31c1e9d8b3a";
+import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js?build=c8dfb31c1e9d8b3a";
+import { mountSecretMessages } from "../../src/secret-messages.js?build=c8dfb31c1e9d8b3a";
+
+// Support direct links to home.html?share_url=... without the splash screen.
+captureIncomingSharedLink();
+
+function escapeSettingsHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
+
+function renderGlobalHomeSettings(settings = {}) {
+  const welcome = String(settings.welcome_banner_text || "").trim();
+  const title = String(settings.music_of_the_day_title || "").trim();
+  const rawUrl = String(settings.music_of_the_day_url || "").trim();
+  let musicUrl = "";
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol === "https:" && (/(^|\.)youtube\.com$/.test(url.hostname) || /(^|\.)youtu\.be$/.test(url.hostname))) musicUrl = url.href;
+  } catch {}
+  return `${welcome ? `<section class="looply-welcome-banner" data-global-welcome>${escapeSettingsHtml(welcome)}</section>` : `<section data-global-welcome hidden></section>`}${musicUrl ? `<a class="looply-music-of-day" data-global-music href="${escapeSettingsHtml(musicUrl)}" target="_blank" rel="noopener noreferrer"><span class="looply-music-of-day-icon" aria-hidden="true">♫</span><span class="looply-music-of-day-copy"><small>MÚSICA DO DIA</small><strong>${escapeSettingsHtml(title || "Ouça a música de hoje")}</strong></span><span class="looply-music-of-day-play" aria-hidden="true">▶</span></a>` : `<section data-global-music hidden></section>`}`;
+}
+
+function renderWelcome(profile) {
+  const name = String(profile.display_name || profile.username || "usuário");
+  const avatar = profile.avatarUrl;
+  const markup = `<section class="hero-panel home-welcome" aria-labelledby="homeWelcomeTitle">
+    <div class="home-welcome-avatar" data-home-avatar aria-hidden="true"><span data-home-avatar-initial></span></div>
+    <div class="home-welcome-copy"><div class="eyebrow">✦</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Feed conectado com atualizações ao vivo</p></div>
+    <a class="header-action home-profile-shortcut" href="perfil.html">Meu perfil</a>
+  </section>`;
+  const template = document.createElement("template");
+  template.innerHTML = markup;
+  const welcome = template.content.firstElementChild;
+  welcome.querySelector("[data-home-welcome-title]").textContent = "Bem-vindo, " + name;
+  const fallback = welcome.querySelector("[data-home-avatar-initial]");
+  fallback.textContent = Array.from(name.trim())[0]?.toLocaleUpperCase("pt-BR") || "?";
+  if (avatar) {
+    const image = document.createElement("img");
+    image.src = avatar;
+    image.alt = "";
+    image.referrerPolicy = "no-referrer";
+    image.addEventListener("error", () => image.remove(), { once: true });
+    welcome.querySelector("[data-home-avatar]").prepend(image);
+  }
+  return welcome.outerHTML;
+}
+
+await mountAppPage({ page: "home", render: async ({ root, client, user, profile, isAdmin }) => {
+  let globalSettings = {};
+  try {
+    const { data, error } = await client.from("app_settings")
+      .select("music_of_the_day_title,music_of_the_day_url,welcome_banner_text").eq("id", 1).maybeSingle();
+    if (error) throw error;
+    globalSettings = data || {};
+  } catch (error) { console.warn("Looply home global settings unavailable", error); }
+  // Existing post links created before the Reels split still resolve.
+  // Only redirect after a readable Neon row proves the post is external.
+  const postHash=location.hash.match(/^#post-([0-9a-f-]{36})$/i);
+  if(postHash){
+    const {data:target}=await client.from("posts").select("id,external_url").eq("id",postHash[1]).maybeSingle();
+    if(target?.external_url){
+      window.location.replace("reels.html#post-"+encodeURIComponent(target.id));
+      return;
+    }
+  }
+  const [socialResult, storiesResult] = await Promise.allSettled([
+    loadSocialData(client,"native"), loadStories(client,user.id)
+  ]);
+  const socialData = socialResult.status === "fulfilled"
+    ? socialResult.value
+    : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
+  const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
+  const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
+  root.dataset.socialStream="native";
+  root.innerHTML = `${renderWelcome(profile)}${renderGlobalHomeSettings(globalSettings)}${storiesMarkup(
+    stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
+  )}${socialMarkup(socialData, user.id, isAdmin,"native")}`;
+  void mountSecretMessages(client, user.id, isAdmin);
+  // Only the Stories area is replaced; Feed, profile and all other modules remain unchanged.
+  const whyNow = mountWhyNowStories({ root, client, user, profile, initialStories: stories });
+  bindSocialEvents(root, client, () => user.id, isAdmin);
+  bindHomeProfilePreview({ root, client, user, profile });
+  bindHomeCommentsSheet(root);
+  const globalSettingsChannel = client.channel("looply-home-global-settings")
+    .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "id=eq.1" }, ({ new: updated }) => {
+      const next = document.createElement("template");
+      next.innerHTML = renderGlobalHomeSettings(updated || {});
+      const nextWelcome = next.content.querySelector("[data-global-welcome]");
+      const nextMusic = next.content.querySelector("[data-global-music]");
+      root.querySelector("[data-global-welcome]")?.replaceWith(nextWelcome);
+      root.querySelector("[data-global-music]")?.replaceWith(nextMusic);
+    }).subscribe();
+  window.addEventListener("pagehide", () => client.removeChannel(globalSettingsChannel), { once: true });
+
+  // Expand and prefill the existing Feed composer. Never submit automatically.
+  const sharedUrl = takeIncomingSharedLink();
+  if(sharedUrl){
+    window.location.replace("reels.html?share_url="+encodeURIComponent(sharedUrl));
+    return;
+  }
+  root.__looplyRefreshData = async () => {
+    const [storyOk,feedOk,settingsResult] = await Promise.all([
+      whyNow.refresh(),
+      refreshSocialFeed(root, client, user.id, isAdmin),
+      client.from("app_settings").select("music_of_the_day_title,music_of_the_day_url,welcome_banner_text").eq("id", 1).maybeSingle()
+    ]);
+    if (!settingsResult.error) {
+      const fragment = document.createElement("template");
+      fragment.innerHTML = renderGlobalHomeSettings(settingsResult.data || {});
+      root.querySelector("[data-global-welcome]")?.replaceWith(fragment.content.querySelector("[data-global-welcome]"));
+      root.querySelector("[data-global-music]")?.replaceWith(fragment.content.querySelector("[data-global-music]"));
+    }
+    return storyOk && feedOk && !settingsResult.error;
+  };
+  setupSocialRealtime(client, user.id, root, isAdmin);
+  window.addEventListener("pagehide", () => {
+    disposeSocialRealtime(client);
+  }, { once: true });
+} });
+
+if (window.location.hash) {
+  requestAnimationFrame(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}

@@ -34,11 +34,6 @@ export function adminMarkup(profile = {}) {
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
     <p class="admin-description">Acesso administrativo vinculado à conta Peixinho. As operações continuam sendo verificadas pelo servidor.</p>
-    <section class="admin-broadcast-panel" aria-labelledby="adminLetterActivityTitle" data-letter-activity-panel>
-      <div class="admin-broadcast-heading"><div><span class="section-kicker">Registro reservado</span><h3 id="adminLetterActivityTitle">Atividade das cartas privadas</h3></div><button class="text-button" type="button" data-letter-activity-refresh>Atualizar</button></div>
-      <p class="admin-description">Leituras e desbloqueios registrados sem avisos ou push. Horário exibido em Fortaleza.</p>
-      <div class="admin-letter-activity" data-letter-activity-list aria-live="polite"><p>Carregando registros…</p></div>
-    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. A criação usa o backend administrativo, preserva a sessão do Peixinho e registra a operação na auditoria.</p>
@@ -314,29 +309,6 @@ function renderResults(container, resourceType, data) {
 }
 
 export function bindAdminEvents(root, client) {
-  const activityList=root.querySelector("[data-letter-activity-list]");
-  async function loadLetterActivity(){
-    if(!activityList)return;
-    activityList.textContent="Carregando registros…";
-    try {
-      const {data,error}=await client.from("looply_admin_activity_notifications")
-        .select("id,actor_id,kind,resource_id,resource_label,created_at,actor:profiles!looply_admin_activity_notifications_actor_id_fkey(username,display_name)")
-        .in("kind",["admin_letter_read","admin_private_unlock"])
-        .order("created_at",{ascending:false}).limit(100);
-      if(error)throw error;
-      if(!data?.length){activityList.textContent="Nenhuma leitura ou desbloqueio registrado.";return;}
-      const format=new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",dateStyle:"short",timeStyle:"medium"});
-      activityList.innerHTML=`<ol class="admin-letter-activity-list">${data.map(item=>{
-        const when=new Date(item.created_at);
-        const date=Number.isNaN(when.valueOf())?"Horário indisponível":format.format(when);
-        const actor=item.actor?.display_name||item.actor?.username||"Usuário";
-        const card=item.resource_label||item.resource_id||"Carta";
-        return `<li><time datetime="${escapeHtml(item.created_at)}">${escapeHtml(date)}</time><strong>${escapeHtml(actor)}</strong><span>${item.kind==="admin_private_unlock"?"Desbloqueou":"Leu"} · ${escapeHtml(card)}</span></li>`;
-      }).join("")}</ol>`;
-    }catch(error){console.warn("Admin letter activity unavailable",error);activityList.textContent="Não foi possível carregar os registros. Tente novamente.";}
-  }
-  root.querySelector("[data-letter-activity-refresh]")?.addEventListener("click",()=>{void loadLetterActivity();});
-  void loadLetterActivity();
   const secretForm = root.querySelector("[data-secret-message-form]");
   const secretRecipient = root.querySelector("[data-secret-message-form] select[name='recipient_id']");
   const secretMediaInput = root.querySelector("#secretMedia");

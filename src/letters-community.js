@@ -38,7 +38,7 @@ export async function sealLetter(body, password, subject) {
   const secret = String(password || "");
   const cleanSubject = String(subject || "").trim();
   if (!text.trim() || text.length > maxBodyLength) throw new Error("A carta deve ter entre 1 e 5.000 caracteres.");
-  if (!secret) throw new Error("Informe uma senha de pelo menos um caractere.");
+  if (!secret || /\s/.test(secret)) throw new Error("A senha deve conter pelo menos um caractere e não pode conter espaços.");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await passwordKey(secret, salt);

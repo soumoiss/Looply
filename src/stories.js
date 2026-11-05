@@ -110,7 +110,7 @@ export function groupActiveStories(stories, now = Date.now()) {
     const effectiveExpiry = Number.isFinite(expiresAt)
       ? expiresAt
       : Number.isFinite(createdAt) ? createdAt + 24 * 60 * 60 * 1000 : NaN;
-    if (!story?.author_id || !Number.isFinite(effectiveExpiry) || (effectiveExpiry <= now && !story.highlighted)) continue;
+    if (!story?.author_id || !Number.isFinite(effectiveExpiry) || effectiveExpiry <= now) continue;
     const item = { ...story, expires_at: new Date(effectiveExpiry).toISOString() };
     let group = grouped.get(item.author_id);
     if (!group) {
@@ -144,26 +144,9 @@ export async function loadStories(client, viewerId = null) {
   if (error) throw error;
 
   const rows = data || [];
-  // A separate lookup keeps the 24-hour feed working during database rollout.
-  const highlights=await client.from("story_highlights").select("story_id").limit(200);
-  if(!highlights.error && highlights.data?.length){
-    const ids=[...new Set(highlights.data.map(row=>row.story_id))];
-    const active=new Set(rows.map(row=>row.id));
-    for(let offset=0;offset<ids.length;offset+=75){
-      const {data:kept,error:keptError}=await client.from("stories")
-        .select("id,author_id,body,visibility,created_at,expires_at,author:profiles!stories_author_id_fkey(id,username,display_name,avatar_path),media:story_media!story_media_story_id_fkey(id,storage_path,kind,mime_type,alt_text,created_at)")
-        .in("id",ids.slice(offset,offset+75));
-      if(keptError)continue;
-      for(const story of kept||[])if(!active.has(story.id)){rows.push(story);active.add(story.id);}
-    }
-    const marked=new Set(ids);
-    for(const story of rows)story.highlighted=marked.has(story.id);
-  }
   const mediaItems = rows.flatMap((story) => {
     const media = Array.isArray(story.media) ? story.media : story.media ? [story.media] : [];
-    return media.map((item) => ({ ...item, storyId: story.id,
-      storyExpiresAt:story.highlighted && Date.parse(story.expires_at)<Date.now()
-        ? new Date(Date.now()+1805_000).toISOString():story.expires_at }));
+    return media.map((item) => ({ ...item, storyId: story.id, storyExpiresAt: story.expires_at }));
   });
   const signedAt = Date.now();
   const signGroups = new Map();
@@ -318,7 +301,6 @@ export function storiesMarkup(stories, error, people, peopleError, userId, profi
           ['❤️','🔥','👏','😍','😂','😮','😢','💜'].map(emoji => '<button type="button" data-story-quick-reaction="' + emoji + '" aria-label="Reagir com ' + emoji + '">' + emoji + '</button>').join('') +
         '</div>' +
         '<div class="story-owner-menu" data-story-owner-menu hidden role="group" aria-label="Outras opções do Story">' +
-          '<button type="button" data-story-keep-highlight>Adicionar aos Highlights</button>' +
           '<button type="button" data-story-save>Salvar mídia</button>' +
           '<button class="story-delete-button" type="button" data-story-delete>Excluir Story</button>' +
           '<button type="button" data-story-more-close>Cancelar</button></div>' +
@@ -352,7 +334,7 @@ function setFormStatus(form, message, isError = false) {
 }
 
 function activeStoriesFor(group) {
-  return (group?.stories || []).filter((story) => story.highlighted || Date.parse(story.expires_at) > Date.now());
+  return (group?.stories || []).filter((story) => Date.parse(story.expires_at) > Date.now());
 }
 
 function cleanupExpiredStories(client) {
@@ -743,7 +725,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     const canDelete = story.author_id === userId || isAdmin;
     viewer.querySelector("[data-story-delete]").hidden = !canDelete;
     viewer.querySelector("[data-story-delete]").textContent = story.author_id === userId ? "Excluir" : "Excluir como ADM";
-    viewer.querySelector("[data-story-keep-highlight]").hidden = story.author_id !== userId;
     viewer.querySelector("[data-story-owner-actions]").hidden = !(story.author_id === userId || isAdmin);
     const insightsButton = viewer.querySelector("[data-story-insights-open]");
     if (insightsButton) {
@@ -1224,20 +1205,6 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
     if (event.target.closest("[data-story-more-close]")) {
       viewer.querySelector("[data-story-owner-menu]").hidden=true;
       viewer.querySelector("[data-story-more]").setAttribute("aria-expanded","false");
-      return;
-    }
-    if (event.target.closest("[data-story-keep-highlight]")) {
-      const story=currentStory();
-      if(!story || story.author_id!==userId)return;
-      const button=viewer.querySelector("[data-story-keep-highlight]");
-      button.disabled=true;
-      try{
-        const {data,error}=await client.rpc("v37_keep_story_highlight",{p_story_id:story.id});
-        if(error||data!==true)throw error||Error("highlight_unavailable");
-        button.textContent="Adicionado aos Highlights";
-        actionStatus("Highlight salvo. Você receberá avisos de novas visualizações.");
-      }catch(error){console.warn("Highlight save unavailable",error);actionStatus("Não foi possível salvar este Highlight.",true);}
-      finally{button.disabled=false;viewer.querySelector("[data-story-owner-menu]").hidden=true;}
       return;
     }
     if (event.target.closest("[data-story-save]")) {

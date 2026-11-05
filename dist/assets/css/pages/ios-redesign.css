@@ -1,0 +1,130 @@
+/* LOOPLY iOS REDESIGN — final layer. Presentation only; brand tokens (--primary,
+   --bg, --surface-*) and every theme from src/theme.js are preserved. Loaded last. */
+:root{
+  --ios-ease:cubic-bezier(.22,1,.36,1);
+  --ios-spring:cubic-bezier(.34,1.4,.64,1);
+  --ios-glass:color-mix(in srgb,var(--surface-strong,#fff) 68%,transparent);
+  --ios-glass-edge:color-mix(in srgb,var(--surface-strong,#fff) 55%,transparent);
+  --ios-hairline:color-mix(in srgb,var(--text,#292236) 10%,transparent);
+  --ios-shadow:0 8px 30px color-mix(in srgb,var(--primary,#7010b0) 14%,transparent),0 1px 0 var(--ios-glass-edge) inset;
+}
+html{-webkit-text-size-adjust:100%}
+body.looply-page{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overscroll-behavior-y:none}
+
+/* ── Page transitions (slide + fade; direction set by src/ios-motion.js) ── */
+@keyframes ios-in-fwd{from{opacity:0;transform:translate3d(22px,0,0)}to{opacity:1;transform:none}}
+@keyframes ios-in-back{from{opacity:0;transform:translate3d(-22px,0,0)}to{opacity:1;transform:none}}
+@keyframes ios-out{to{opacity:0;transform:translate3d(-14px,0,0)}}
+body.looply-page>.container-page>main{animation:ios-in-fwd .38s var(--ios-ease) both}
+html[data-nav-dir="back"] body.looply-page>.container-page>main{animation-name:ios-in-back}
+body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in both}
+
+/* ── Global frosted-glass header ── */
+.looply-page .page-header{
+  background:var(--ios-glass);
+  -webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px);
+  border:1px solid var(--ios-glass-edge);box-shadow:var(--ios-shadow);
+  border-radius:22px;padding:8px 10px;top:calc(env(safe-area-inset-top) + 6px);
+}
+@media(max-width:760px){
+  .looply-page .page-header{-webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px)}
+}
+.looply-page .brand-inline{min-height:44px;display:inline-flex;align-items:center}
+.looply-page .header-back-button{min-width:44px;border-radius:14px}
+
+/* ── Bottom navigation: floating glass dock with liquid indicator ── */
+.looply-page .page-navigation{position:relative;isolation:isolate}
+.looply-page .page-navigation .nav-liquid{
+  position:absolute;z-index:-1;top:var(--nav-y,5px);left:0;height:var(--nav-h,calc(100% - 10px));
+  width:var(--nav-w,0);transform:translate3d(var(--nav-x,0),0,0);border-radius:16px;pointer-events:none;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 16%,var(--surface-strong)),color-mix(in srgb,var(--primary) 9%,var(--surface-strong)));
+  box-shadow:0 4px 14px color-mix(in srgb,var(--primary) 22%,transparent),0 1px 0 var(--ios-glass-edge) inset;
+  opacity:0;
+}
+.looply-page .page-navigation.is-ready .nav-liquid{opacity:1}
+.looply-page .page-navigation.is-animated .nav-liquid{
+  transition:transform .46s var(--ios-spring),width .46s var(--ios-spring)}
+.looply-page .page-navigation.is-ready .header-action[aria-current="page"],
+.looply-page.page-chat .page-navigation.is-ready [aria-current="page"]{background:transparent;border-color:transparent}
+.looply-page .page-navigation .header-action{transition:color .25s ease,transform .2s var(--ios-ease)}
+.looply-page .page-navigation .header-action:active{transform:scale(.92)}
+.looply-page .page-navigation [aria-current="page"] .page-navigation-icon{transform:translateY(-1px) scale(1.08);transition:transform .35s var(--ios-spring)}
+@media(max-width:760px){
+  .looply-page .page-navigation,.looply-page.page-chat .page-navigation{
+    background:var(--ios-glass);border:1px solid var(--ios-glass-edge);border-radius:26px;
+    -webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);
+    box-shadow:0 12px 36px color-mix(in srgb,var(--primary) 20%,transparent),0 1px 0 var(--ios-glass-edge) inset;
+    padding:5px;bottom:calc(8px + env(safe-area-inset-bottom));
+  }
+  .looply-page .page-navigation .header-action{min-height:52px;border-radius:18px;font-size:10px;font-weight:650;letter-spacing:.01em}
+  .looply-page .container-page{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+}
+
+/* ── Touch targets & feedback ── */
+.looply-page :where(button,.primary-button,.text-button,.header-action,.account-menu-link,summary,[role="tab"],input[type=checkbox],input[type=radio]){touch-action:manipulation}
+.looply-page :where(button,.primary-button,.secondary-button,.text-button,.icon-action){min-height:44px}
+.looply-page :where(.icon-action,.looply-live-close){min-width:44px}
+.looply-page :where(button,.primary-button,.secondary-button,.header-action):not(:disabled):active{transform:scale(.97);transition:transform .12s ease}
+.looply-page :where(input,select,textarea){font-size:max(16px,1em);border-radius:14px}
+.looply-page :where(.panel,.card,.media-card,.notification-row){transition:transform .25s var(--ios-ease),box-shadow .25s ease}
+.looply-page .notification-row:active{transform:scale(.985)}
+
+/* ── Account menu, dialogs and sheets ── */
+@keyframes ios-pop{from{opacity:0;transform:translateY(-6px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes ios-sheet{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes ios-fade{from{opacity:0}to{opacity:1}}
+.looply-page .account-menu-popover{
+  transform-origin:top right;animation:ios-pop .24s var(--ios-spring) both;
+  background:var(--ios-glass);border:1px solid var(--ios-glass-edge);border-radius:20px;
+  -webkit-backdrop-filter:saturate(180%) blur(26px);backdrop-filter:saturate(180%) blur(26px);box-shadow:var(--ios-shadow)}
+.looply-page dialog[open]{animation:ios-sheet .34s var(--ios-ease) both;border-radius:26px}
+.looply-page dialog[open]::backdrop{animation:ios-fade .3s ease both;background:rgba(20,15,30,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+[data-looply-letter-notice]{animation:ios-fade .25s ease both;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+[data-looply-letter-notice]>section{animation:ios-sheet .36s var(--ios-spring) both;border-radius:26px!important}
+@media(max-width:560px){
+  .looply-page dialog[open]{width:100%;max-width:100%;margin:auto 0 0;border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:env(safe-area-inset-bottom)}
+}
+
+/* ── Instagram-style live notification banner ── */
+@keyframes ios-banner-in{from{opacity:0;transform:translateY(-120%) scale(.96)}to{opacity:1;transform:none}}
+@keyframes ios-banner-out{to{opacity:0;transform:translateY(-110%) scale(.97)}}
+.looply-live-notices{top:calc(env(safe-area-inset-top) + 8px);left:10px;right:10px;margin:0 auto;width:min(430px,calc(100vw - 20px));gap:8px}
+.looply-live-notice--ios{
+  display:flex;align-items:center;gap:12px;padding:10px 8px 10px 10px;text-decoration:none;position:relative;
+  background:var(--ios-glass);color:var(--text,#292236);border:1px solid var(--ios-glass-edge);border-radius:22px;
+  -webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);
+  box-shadow:0 14px 40px rgba(20,12,40,.22);animation:ios-banner-in .5s var(--ios-spring) both;touch-action:pan-x}
+.looply-live-notice--ios.is-leaving{animation:ios-banner-out .3s ease-in both}
+.looply-live-avatar{flex:0 0 46px;width:46px;height:46px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 55%,#e879f9));color:#fff;font-weight:800;font-size:16px;
+  box-shadow:0 0 0 2px var(--surface-strong,#fff),0 0 0 4px color-mix(in srgb,var(--primary) 55%,transparent)}
+.looply-live-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.looply-live-copy{min-width:0;flex:1;display:grid;gap:2px}
+.looply-live-head{display:flex;align-items:baseline;gap:8px;justify-content:space-between}
+.looply-live-head strong{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#292236)}
+.looply-live-head time{font-size:11px;color:var(--muted,#7d7390);flex:none}
+.looply-live-text{font-size:13.5px;line-height:1.35;color:color-mix(in srgb,var(--text,#292236) 82%,transparent);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.looply-live-close{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:transparent;color:var(--muted,#7d7390);font-size:22px;line-height:1;cursor:pointer}
+
+/* ── Admin: silent private-letter log ── */
+.letter-log-filters{display:flex;gap:6px;padding:4px;margin:10px 0;border-radius:14px;background:var(--surface-soft,#f5effa);width:max-content;max-width:100%;overflow-x:auto}
+.letter-log-filters button{min-height:36px;padding:0 14px;border:0;border-radius:11px;background:transparent;color:var(--text);font-weight:650;font-size:13px;transition:background .25s,box-shadow .25s}
+.letter-log-filters button[aria-selected="true"]{background:var(--surface-strong,#fff);color:var(--primary);box-shadow:0 2px 8px color-mix(in srgb,var(--primary) 18%,transparent)}
+.letter-log-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.letter-log-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--surface-strong,#fff);animation:ios-in-fwd .32s var(--ios-ease) both}
+.letter-log-mark{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;color:var(--primary);background:color-mix(in srgb,var(--primary) 11%,var(--surface-strong,#fff))}
+.letter-log-mark svg{width:20px;height:20px}
+.letter-log-copy{display:grid;gap:2px;min-width:0;font-size:13.5px}
+.letter-log-copy strong{font-weight:800;overflow:hidden;text-overflow:ellipsis}
+.letter-log-copy strong small{font-weight:500;color:var(--muted)}
+.letter-log-copy b{font-weight:700}
+.letter-log-copy time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.letter-log-tag{font-size:11px;font-weight:750;padding:4px 9px;border-radius:999px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+.letter-log-row[data-letter-log-kind="unlock"] .letter-log-tag{color:#b45309;background:#fef3c7}
+.letter-log-status{margin:10px 2px 0;font-size:13px;color:var(--muted)}
+
+@media(prefers-reduced-motion:reduce){
+  body.looply-page>.container-page>main,.looply-page dialog[open],.looply-page .account-menu-popover,.looply-live-notice--ios,.letter-log-row{animation:none!important}
+  .looply-page .page-navigation.is-animated .nav-liquid{transition:none}
+}

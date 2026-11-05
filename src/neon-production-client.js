@@ -217,7 +217,7 @@ async function setGroupCoverRpc(args) {
     return {data,error:null};
   } catch(error) {return {data:null,error:{message:error?.message||"group_cover_unavailable"}};}
 }
-const storyEngagementRpcNames = new Set(["record_story_view", "send_story_reply", "v37_keep_story_highlight"]);
+const storyEngagementRpcNames = new Set(["record_story_view", "send_story_reply"]);
 async function storyEngagementRpc(name, args) {
   if (!storyEngagementRpcNames.has(name)) return blocked();
   try {

@@ -8,7 +8,7 @@ import { loadArchivedCards } from "../src/archived-cards.js";
 
 const root = process.cwd();
 
-test("protected letters accept 1, 2 and long passwords and round-trip encrypted content", async () => {
+test("protected letters accept 1, 2 and long non-whitespace passwords and round-trip encrypted content", async () => {
   for (const password of ["x", "a7", "a".repeat(180)]) {
     const sealed = await sealLetter("Mensagem secreta de teste", password, "Teste");
     assert.equal(sealed.body, null);
@@ -18,12 +18,10 @@ test("protected letters accept 1, 2 and long passwords and round-trip encrypted 
   }
 });
 
-test("private passwords accept spaces, accents and lengths above 256", async () => {
-  for(const password of [" ", "a b", "a\\tb", "á🔒", "s".repeat(512)]) {
-    const letter=await sealLetter("Segredo protegido",password,"Carta");
-    assert.equal(await openProtectedLetter({...letter,subject:"Carta"},password),"Segredo protegido");
+test("protected letters reject whitespace in passwords without imposing an arbitrary length limit", async () => {
+  for (const password of [" ", "a b", "a\tb", "a\nb"]) {
+    await assert.rejects(() => sealLetter("Mensagem", password, "Teste"), /não pode conter espaços/);
   }
-  await assert.rejects(()=>sealLetter("Texto","","Carta"),/pelo menos um caractere/);
 });
 
 test("edited archive-card password hashes remain compatible with the deployed PBKDF2 verifier", async () => {

@@ -125,7 +125,7 @@ export function installScheduledLetters({
     const body=$("#textoCarta").value.trim(),protectedLetter=$("#isPrivada").checked;
     if (!recipient || recipient===user.id || !subject || !body) throw Error("Preencha o destinatário, título e conteúdo.");
     const password=$("#senhaCarta").value || editPassword;
-    if (protectedLetter && !password) throw Error("Digite uma senha para proteger a carta.");
+    if (protectedLetter && password.length<1) throw Error("Escolha uma senha para a carta privada.");
     const deliverAt=fortalezaInstant($("#scheduledDate").value,$("#scheduledTime").value);
     const sealed=protectedLetter ? await sealLetter(body,password,subject) :
       {body,password_salt:null,password_iv:null,password_ciphertext:null};

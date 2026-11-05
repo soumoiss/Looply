@@ -1,0 +1,474 @@
+.looply-page .page-header { position: sticky; top: 8px; z-index: 700; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--bg) 82%, white); box-shadow: var(--shadow-sm); backdrop-filter: blur(18px); }
+.looply-page .page-navigation { flex: 1 1 240px; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+.looply-page .page-navigation::-webkit-scrollbar { display: none; }
+.looply-page .page-navigation .header-action { position: relative; flex: 0 0 auto; }
+.looply-page .page-navigation [aria-current="page"] { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 32%, var(--line)); background: var(--surface-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent); }
+.page-navigation-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: 0 0 20px; color: inherit; }
+.page-navigation-icon .looply-icon { display: block; width: 20px; height: 20px; margin: 0; color: inherit; }
+/* Override legacy app.css @media(max-width:390px) .header-action span {display:none},
+   which otherwise hides BOTH the SVG and label on narrow Android screens. */
+.looply-page .page-navigation .header-action .page-navigation-icon { display: inline-flex; }
+.looply-page .page-navigation .header-action .page-navigation-label { display: block; }
+
+.looply-page .page-navigation .header-action { -webkit-tap-highlight-color: transparent; }
+.looply-page .page-navigation .header-action:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+.header-back-button { flex: 0 0 auto; gap: 6px; padding: 0 10px; }
+.header-back-button > span:first-child { display: inline-flex; color: var(--looply-icon-color, #000); }
+.header-back-button svg { width: 16px; height: 16px; }
+html[data-theme="noite"] { --looply-icon-color: #fff; }
+.navigation-badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--surface-strong); border-radius: 999px; color: #fff; background: #cf3154; font-size: 9px; font-weight: 800; line-height: 1; }
+.page-navigation-label { white-space: nowrap; }
+.looply-account { display: flex; align-items: center; gap: 9px; }
+.looply-user-avatar, .looply-user-initial { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.looply-user-initial { display: grid; place-items: center; color: var(--primary); background: var(--lilac); font-weight: 800; }
+.looply-account > span { display: grid; gap: 2px; }
+.looply-account strong { font-size: 12px; }
+.looply-account small { color: var(--muted); font-size: 10px; }
+.looply-account .header-action { min-height: 38px; }
+
+.looply-account-menu { position: relative; z-index: 1200; flex: 0 0 auto; margin-left: auto; }
+.looply-account-menu > summary { list-style: none; cursor: pointer; }
+.looply-account-menu > summary::-webkit-details-marker { display: none; }
+.looply-account-menu[open] > summary { color: var(--primary); }
+.account-menu-caret { color: var(--muted); font-size: 16px; line-height: 1; }
+.account-menu-popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 1300; display: grid; min-width: 190px; gap: 4px; padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-strong); box-shadow: var(--shadow-md); }
+.account-menu-link { display: block; padding: 10px 12px; border-radius: 10px; color: var(--text); font-size: 13px; text-decoration: none; }
+.account-menu-link:hover, .account-menu-link[aria-current=\"page\"] { color: var(--primary); background: var(--surface-soft); }
+.account-menu-popover .header-action { width: 100%; min-height: 38px; margin-top: 4px; }
+.theme-picker select { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); background: var(--surface-strong); }
+.looply-footer { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
+.page-notice { padding: 20px; }
+@media (max-width: 760px) {
+  .looply-page .page-navigation { position: fixed; z-index: 900; left: 50%; bottom: calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: min(calc(100% - 14px), 900px); max-width: 100%; flex: none; justify-content: stretch; gap: 3px; padding: 6px; overflow: visible; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--surface-strong) 94%, transparent); box-shadow: 0 10px 30px rgba(35, 20, 50, .16); backdrop-filter: blur(18px); transform: translateX(-50%); box-sizing: border-box; }
+  .looply-page .page-navigation::-webkit-scrollbar { display: none; }
+  .looply-page .page-navigation .header-action { min-width: 0; width: 100%; min-height: 54px; flex: none; flex-direction: column; gap: 3px; padding: 6px 1px; border-color: transparent; border-radius: 13px; background: transparent; box-shadow: none; font-size: 10px; box-sizing: border-box; }
+  .looply-page .page-navigation .page-navigation-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; font-weight: 700; }
+  .looply-page .page-navigation [aria-current="page"] .page-navigation-label { font-weight: 850; }
+  .looply-page .page-navigation [aria-current="page"] { background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong)); }
+  .looply-page .page-header { top: 5px; gap: 10px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .looply-page .container-page { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .looply-account { margin-left: auto; }
+}
+@media (max-width: 520px) {
+  .looply-page .page-navigation .header-action { font-size: 9px; }
+  .page-navigation-label[data-short-label] { font-size: 0; }
+  .page-navigation-label[data-short-label]::after { content: attr(data-short-label); font-size: 10px; }
+  .header-back-button .back-label { display: none; }
+  .looply-account > span { display: none; }
+  .looply-account .theme-picker { display: none; }
+}
+/* Keep native account actions accessible beside the profile avatar on mobile. */
+.looply-account > .account-menu-caret { display:inline-flex; align-items:center; justify-content:center; width:24px; min-height:36px; }
+
+
+/* One shared, touch-only pull-to-refresh indicator. Never overlays native status bar. */
+.looply-pull-indicator {
+  --looply-pull-distance: 0px;
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 1450;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100vw - 28px);
+  min-height: 43px;
+  padding: 7px 14px 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--line));
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--surface-strong);
+  box-shadow: 0 9px 28px rgba(54, 34, 87, .16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% + var(--looply-pull-distance)));
+  transition: opacity 140ms ease, transform 160ms ease;
+  will-change: transform;
+}
+.looply-pull-indicator[hidden] { display: none !important; }
+.looply-pull-indicator.is-pulling,
+.looply-pull-indicator.is-loading,
+.looply-pull-indicator.has-error { opacity: 1; }
+.looply-pull-indicator-icon {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+}
+.looply-pull-indicator-icon .looply-icon { width: 18px; height: 18px; }
+.looply-pull-indicator-text { color: var(--text); font-size: 11px; font-weight: 750; white-space: nowrap; }
+.looply-pull-indicator.is-ready .looply-pull-indicator-icon { background: var(--primary); color: #fff; }
+.looply-pull-indicator.is-loading .looply-pull-indicator-icon svg { animation: looply-pull-spin .8s linear infinite; }
+.looply-pull-indicator.has-error { border-color: color-mix(in srgb, var(--danger, #bf3254) 25%, var(--line)); }
+.looply-pull-indicator.has-error .looply-pull-indicator-text { white-space: normal; }
+@keyframes looply-pull-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) and (pointer: coarse) {
+  .looply-page { overscroll-behavior-y: contain; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .looply-pull-indicator { transition: none; will-change: auto; }
+  .looply-pull-indicator.is-loading .looply-pull-indicator-icon svg { animation: none; }
+}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — shared navigation, original six destinations. */
+.looply-page .page-header {
+  isolation: isolate;
+  column-gap: clamp(8px,1.5vw,16px);
+  border-color: var(--line);
+  background: color-mix(in srgb,var(--surface-strong) 90%,var(--bg));
+  box-shadow: 0 3px 18px color-mix(in srgb,var(--deep) 8%,transparent);
+}
+.looply-page .page-navigation .header-action {
+  gap: 5px;
+  border-radius: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.looply-page .page-navigation [aria-current="page"] {
+  border-color: color-mix(in srgb,var(--primary) 24%,var(--line));
+  background: color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
+}
+.looply-page .page-navigation .header-action .page-navigation-icon,
+.looply-page .page-navigation .header-action .page-navigation-icon svg {
+  flex-shrink: 0;
+}
+.looply-account-menu > summary {
+  border-radius: 14px;
+}
+.looply-account-menu > summary:focus-visible,
+.looply-account-menu .account-menu-link:focus-visible {
+  outline: 3px solid color-mix(in srgb,var(--primary) 50%,transparent);
+  outline-offset: 3px;
+}
+.account-menu-popover {
+  max-width: min(300px,calc(100vw - 26px));
+  border-color: var(--line);
+  box-shadow: 0 12px 32px color-mix(in srgb,var(--deep) 15%,transparent);
+}
+.account-menu-popover .account-menu-link {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+@media (max-width:760px) {
+  .looply-page .page-header {
+    top: max(5px,env(safe-area-inset-top));
+    border-radius: 17px;
+    padding: 8px 10px;
+  }
+  .looply-page .page-navigation {
+    bottom: calc(7px + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 35px color-mix(in srgb,var(--deep) 18%,transparent);
+  }
+  .looply-page .page-navigation .header-action {
+    min-height: 53px;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 13px;
+  }
+  .looply-page .page-navigation .page-navigation-label {
+    letter-spacing: -.01em;
+  }
+}
+@media (max-width:360px) {
+  .looply-page .page-navigation { gap: 1px; padding: 5px 4px; }
+  .looply-page .page-navigation .header-action { padding-inline: 0; }
+  .looply-page .page-navigation .page-navigation-label { font-size: 9px; }
+  .looply-page .page-navigation .page-navigation-icon,
+  .looply-page .page-navigation .page-navigation-icon svg { width: 19px; height: 19px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .looply-page .page-navigation .header-action { transition:none !important; }
+}
+
+
+/* LOOPLY DESIGN SYSTEM · Prompt 02 · non-invasive semantic adoption.
+   These are the same values already used by the existing shared shell. */
+.looply-page .page-header {
+  border-color: var(--looply-ds-stroke, var(--line));
+}
+.looply-page .page-navigation [aria-current="page"] {
+  color: var(--looply-ds-brand, var(--primary));
+}
+.looply-page .account-menu-popover {
+  background: var(--looply-ds-surface-raised, var(--surface-strong));
+  border-color: var(--looply-ds-stroke, var(--line));
+}
+.looply-page .looply-user-initial {
+  color: var(--looply-ds-brand, var(--primary));
+}
+
+
+
+/* LOOPLY PROMPT 03 · global navigation & account geometry.
+   CSS-only: canonical six links, destination/active logic, counts and event
+   handlers stay in src/primary-navigation.js and src/page-runtime.js. */
+.looply-page .page-header {
+  min-width: 0;
+  row-gap: 9px;
+}
+.looply-page .page-navigation {
+  min-width: 0;
+  align-items: center;
+  scroll-padding-inline: 8px;
+}
+.looply-page .page-navigation .header-action {
+  min-height: 44px;
+  white-space: nowrap;
+  text-align: center;
+}
+.looply-page .page-navigation .page-navigation-icon {
+  flex-shrink: 0;
+}
+.looply-page .page-navigation .page-navigation-label {
+  min-width: 0;
+  line-height: 1.25;
+}
+.looply-page .page-navigation .header-action:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+.looply-page .page-navigation .navigation-badge {
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 4px;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+.looply-page .header-back-button {
+  min-height: 44px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.looply-page .header-back-button > span:first-child { color: inherit; }
+.looply-page .brand-inline { min-width: 0; }
+.looply-page .brand-inline:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+.looply-page .looply-account-menu > summary {
+  min-height: 44px;
+  padding: 3px 5px;
+  gap: 8px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.looply-page .looply-account-menu[open] > summary {
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface-strong));
+}
+.looply-page .account-menu-popover {
+  min-width: 208px;
+  width: max-content;
+  max-width: min(290px, calc(100vw - 28px));
+  max-height: min(70dvh, 520px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.looply-page .account-menu-popover .account-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  text-align: left;
+  white-space: normal;
+}
+.looply-page .account-menu-popover .account-menu-link .looply-icon,
+.looply-page .account-menu-popover .account-menu-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.looply-page .account-menu-popover .header-action {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.looply-page .account-menu-popover :where(a, button):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* The chat's older mobile stylesheet contains an orange active tab.
+   Specificity here restores the currently selected *profile* theme,
+   without adding or rearranging any destinations. */
+@media (max-width: 760px) {
+  .looply-page .page-navigation {
+    width: min(calc(100% - 14px), 900px);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+  .looply-page .page-navigation .header-action {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    padding: 5px 1px;
+    gap: 4px;
+    font-size: 10px;
+    line-height: 1.15;
+    overflow: visible;
+    white-space: normal;
+  }
+  .looply-page .page-navigation .page-navigation-label {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .looply-page .page-navigation .navigation-badge {
+    top: 1px;
+    right: 1px;
+  }
+  .looply-page.page-chat .page-navigation {
+    display: grid;
+    width: min(calc(100% - 14px), 900px);
+    max-width: 900px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 3px;
+    overflow: visible;
+    background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+    border-color: var(--line);
+    border-radius: 20px;
+  }
+  .looply-page.page-chat .page-navigation .header-action {
+    min-width: 0;
+    min-height: 54px;
+    flex: none;
+    border-color: transparent;
+    color: var(--text);
+    background: transparent;
+  }
+  .looply-page.page-chat .page-navigation [aria-current="page"] {
+    color: var(--primary);
+    border-color: transparent;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+  }
+}
+
+/* Open conversation has its own contact/group header. Hide duplicate global
+   chrome, but retain the exact original six-link nav (mobile: bottom dock;
+   desktop: slim navigation row). Calls and dialog overlays remain unaffected. */
+.looply-page.page-conversation .page-header {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  isolation: auto;
+  margin-bottom: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.looply-page.page-conversation .page-header > :not(.page-navigation) {
+  display: none;
+}
+.looply-page.page-conversation .page-header > .page-navigation {
+  flex: 1 1 100%;
+}
+@media (max-width: 760px) {
+  .looply-page.page-chat.page-conversation .page-header {
+    width: 100%;
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .looply-page.page-chat.page-conversation .page-header > .page-navigation {
+    position: fixed;
+  }
+}
+@media (max-width: 360px) {
+  .looply-page .page-navigation { gap: 1px; padding: 5px 4px; }
+  .looply-page .page-navigation .header-action { padding-inline: 0; }
+  .looply-page .page-navigation .page-navigation-label { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .looply-page .page-navigation .header-action,
+  .looply-page .looply-account-menu > summary,
+  .looply-page .account-menu-popover .account-menu-link {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* LOOPLY · PROMPT 002 · acabamento do menu compartilhado.
+   Mantém destinos, foco e o controle nativo <details> existentes. */
+.looply-page .account-menu-popover :where(.account-menu-link,.header-action) {
+  border-radius: var(--looply-ds-control-radius, var(--radius-sm));
+  touch-action: manipulation;
+}
+@media (hover:hover) and (pointer:fine) {
+  .looply-page .account-menu-popover .account-menu-link:hover {
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface-strong));
+    color: var(--text);
+  }
+}
+.looply-page .account-menu-popover .account-menu-link:active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-strong));
+}
+.looply-page .looply-account-menu > summary:focus-visible {
+  outline-width: var(--looply-ds-focus-width, 3px);
+}
+@media (prefers-reduced-motion:reduce) {
+  .looply-page .account-menu-popover .account-menu-link {
+    transition:none !important;
+    transform:none !important;
+  }
+}
+
+/* Prompt 003 — baseline dos SVGs no shell existente, sem mudar os handlers. */
+.looply-page .page-navigation .page-navigation-icon {
+  line-height: 0;
+}
+.looply-page .page-navigation .page-navigation-icon > .looply-icon {
+  display: block;
+  stroke-width: 1.8;
+  vertical-align: middle;
+  pointer-events: none;
+}
+.looply-page .account-menu-popover [data-sign-out] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--looply-ds-space-2, 8px);
+  text-align: left;
+}
+.looply-page .account-menu-popover [data-sign-out] > .looply-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: inherit;
+  pointer-events: none;
+}
+
+
+/* On-screen, recipient-scoped activity. Does not obscure bottom mobile navigation. */
+.looply-live-notices{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:13px;z-index:12000;display:grid;gap:8px;width:min(355px,calc(100vw - 26px));pointer-events:none}
+.looply-live-notice{pointer-events:auto;background:var(--surface-strong,#fff);color:var(--text,#292236);border:1px solid var(--line,#e8dbf0);border-left:4px solid var(--primary,#7952d5);border-radius:16px;padding:12px 14px;box-shadow:0 10px 36px #21142d34;animation:looply-live-notice-arrive .18s ease-out}
+.looply-live-notice-top{display:flex;justify-content:space-between;align-items:center;gap:9px}
+.looply-live-notice-top strong{font-size:12px;font-weight:850;color:var(--primary,#7952d5)}
+.looply-live-notice-top button{width:30px;height:30px;flex:0 0 30px;border:0;background:var(--surface-soft,#f5effa);color:var(--text,#292236);border-radius:50%;font-size:20px}
+.looply-live-notice p{font-size:13px;line-height:1.45;margin:5px 0 10px;overflow-wrap:anywhere;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.looply-live-notice a{font-size:11px;color:var(--primary,#7952d5);font-weight:800;text-decoration:none}
+.looply-live-notice a:focus-visible{outline:2px solid var(--primary,#7952d5);outline-offset:3px}
+@keyframes looply-live-notice-arrive{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.looply-live-notices{top:calc(env(safe-area-inset-top) + 9px);left:10px;right:10px;margin:0 auto;width:min(385px,calc(100vw - 20px))}}
+@media(prefers-reduced-motion:reduce){.looply-live-notice{animation:none}}

@@ -387,7 +387,7 @@ export function bindArchivedCards(root, client, userId, { cards, reads, readsUna
       unlockButton.disabled = true;
       try {
         const suppliedPassword = String(password?.value || "");
-        if (!card || !suppliedPassword) throw new Error("password");
+        if (!card || suppliedPassword.length < 1) throw new Error("password");
         const { data, error: invokeError } = await client.rpc("v13_unlock_archived_card", {
           p_card_id: card.id, p_password: suppliedPassword
         });

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "clown",
+  "type": "paint",
+  "strength": 0.65,
+  "params": {
+    "cheekColor": "#ff5189",
+    "noseColor": "#f32c4c",
+    "lipColor": "#c71746"
+  },
+  "assets": {
+    "model": null,
+    "texture": null
+  },
+  "license": "original-looply-procedural"
+}

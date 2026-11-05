@@ -1,0 +1,384 @@
+/* Final mobile-first viewer refinements. Keep the original composition and
+   all interaction handlers; no letterboxing crop or duplicated media controls. */
+.story-viewer-dialog .story-viewer-media,
+.story-viewer-dialog .story-viewer-stage {
+  min-width:0;
+  min-height:0;
+}
+.story-viewer-dialog .story-viewer-media img,
+.story-viewer-dialog .story-viewer-media video {
+  object-fit:contain!important;
+  object-position:center center!important;
+  max-width:100%!important;
+  max-height:100%!important;
+}
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  overflow:visible!important;
+  max-height:none!important;
+  padding:16px 12px calc(12px + env(safe-area-inset-bottom))!important;
+}
+.story-viewer-dialog .story-viewer-owner-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-owner-actions {
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  align-items:center;
+}
+.story-viewer-dialog .story-owner-action {
+  min-height:50px!important;
+  min-width:44px;
+  padding:3px 2px!important;
+  touch-action:manipulation;
+}
+.story-viewer-dialog .story-owner-action small {
+  font-size:clamp(10px,2.7vw,12px)!important;
+  line-height:1.25;
+  white-space:normal!important;
+}
+.story-viewer-dialog .story-owner-action[hidden] {display:none!important}
+.story-viewer-dialog .story-viewer-reply-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-reply-actions {
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  min-width:0;
+  align-items:center;
+  gap:5px!important;
+}
+.story-viewer-dialog .story-viewer-reply-actions[hidden],
+.story-viewer-dialog[data-admin="true"] .story-viewer-reply-actions[hidden] {display:none!important}
+.story-viewer-dialog .story-reply-form {
+  order:0!important;
+  flex:1 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  margin:0;
+}
+.story-viewer-dialog .story-reply-form input {
+  font-size:16px!important;
+  min-width:0;
+  min-height:42px!important;
+  text-overflow:ellipsis;
+}
+.story-viewer-dialog .story-reply-form>button,
+.story-viewer-dialog .story-aux-action,
+.story-viewer-dialog .story-like-button {
+  flex:0 0 44px!important;
+  width:44px!important;
+  min-width:44px!important;
+  height:44px!important;
+  min-height:44px!important;
+  padding:5px!important;
+  touch-action:manipulation;
+}
+.story-viewer-dialog .story-reply-status {
+  position:absolute!important;
+  bottom:calc(100% + 5px)!important;
+  left:12px!important;
+  right:12px!important;
+  width:auto;
+  pointer-events:none;
+  overflow-wrap:anywhere;
+  font-size:12px;
+}
+.story-viewer-dialog .story-reply-status:empty {display:none}
+.story-viewer-dialog .story-viewer-caption:not(:empty) {
+  bottom:calc(82px + env(safe-area-inset-bottom))!important;
+  max-height:min(24dvh,190px);
+}
+.story-viewer-dialog .story-share-panel:not([hidden]) {
+  position:absolute;
+  z-index:23;
+  left:12px;
+  right:12px;
+  bottom:calc(82px + env(safe-area-inset-bottom));
+  display:grid;
+  gap:9px;
+  max-height:min(62dvh,420px);
+  overflow-y:auto;
+  padding:15px;
+  border:1px solid #ffffff38;
+  border-radius:18px;
+  background:#1d1a23f5;
+  box-shadow:0 15px 50px #000b;
+  color:#fff;
+  backdrop-filter:blur(16px);
+}
+.story-viewer-dialog .story-share-panel[hidden] {display:none!important}
+.story-viewer-dialog .story-share-panel strong {font-size:14px}
+.story-viewer-dialog .story-share-panel label {display:grid;gap:6px;font-size:12px}
+.story-viewer-dialog .story-share-panel select,
+.story-viewer-dialog .story-share-panel button {
+  box-sizing:border-box;
+  min-height:44px;
+  width:100%;
+  border-radius:12px;
+  border:1px solid #ffffff3b;
+  padding:10px 12px;
+  font-size:13px;
+}
+.story-viewer-dialog .story-share-panel select {background:#fff;color:#17141b}
+.story-viewer-dialog .story-share-panel button {
+  color:#fff;
+  background:#ffffff1b;
+  cursor:pointer;
+}
+.story-viewer-dialog .story-share-panel button:disabled {opacity:.48}
+.story-viewer-dialog .story-owner-menu:not([hidden]),
+.story-viewer-dialog .story-mention-dialog:not([hidden]),
+.story-viewer-dialog .story-quick-reactions:not([hidden]) {
+  bottom:calc(82px + env(safe-area-inset-bottom))!important;
+}
+.story-viewer-dialog .story-insights-panel {
+  max-height:min(68dvh,520px)!important;
+  overscroll-behavior:contain;
+}
+.story-viewer-dialog .story-insights-panel li {
+  min-width:0;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto;
+  gap:10px;
+}
+@media(max-width:370px) {
+  .story-viewer-dialog .story-viewer-actions,
+  .story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+    padding-left:7px!important;
+    padding-right:7px!important;
+  }
+  .story-viewer-dialog .story-reply-form {gap:0;padding:1px}
+  .story-viewer-dialog .story-like-button,
+  .story-viewer-dialog .story-aux-action {
+    flex-basis:42px!important;
+    width:42px!important;
+    min-width:42px!important;
+  }
+}
+@media(max-height:530px) and (orientation:landscape) {
+  .story-viewer-dialog .story-viewer-actions,
+  .story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+    padding-top:6px!important;
+    padding-bottom:calc(5px + env(safe-area-inset-bottom))!important;
+  }
+  .story-viewer-dialog .story-owner-action {min-height:44px!important}
+  .story-viewer-dialog .story-viewer-caption:not(:empty) {
+    max-height:28dvh;
+    bottom:calc(65px + env(safe-area-inset-bottom))!important;
+  }
+}
+
+/* VisualViewport reports the occluded keyboard region on Android and iOS.
+   With no focused input this variable is zero. */
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  bottom:var(--story-keyboard-inset,0px)!important;
+}
+.story-viewer-dialog .story-viewer-caption:not(:empty) {
+  bottom:calc(82px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
+}
+
+/* Official providers cannot be treated as an invisible downloadable sound
+   track. Their legitimate in-view players appear only when the song is tapped.
+   This is NOT an interstitial popup or an extra player for uploaded audio. */
+.story-viewer-dialog .story-song-label[role="button"] {
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  touch-action:manipulation;
+}
+.story-viewer-dialog .story-song-label[role="button"]:focus-visible {
+  outline:2px solid #fff;
+  outline-offset:3px;
+}
+.story-viewer-dialog .story-music-provider-dock[hidden] {display:none!important}
+.story-viewer-dialog .story-music-provider-dock {
+  position:absolute;
+  z-index:15;
+  left:12px;
+  right:12px;
+  bottom:calc(82px + env(safe-area-inset-bottom));
+  max-width:420px;
+  margin-inline:auto;
+  padding:8px;
+  border-radius:14px;
+  background:#15121bf0;
+  box-shadow:0 8px 32px #0008;
+  pointer-events:auto;
+}
+.story-viewer-dialog .story-music-provider-dock [data-story-provider-close] {
+  display:block;
+  margin:0 0 5px auto;
+  width:32px;
+  height:32px;
+  border:0;
+  border-radius:50%;
+  color:#fff;
+  background:#ffffff33;
+  font-size:22px;
+}
+.story-viewer-dialog .story-music-provider-dock iframe {
+  display:block;
+  width:100%;
+  height:170px;
+  border:0;
+  border-radius:9px;
+  background:#fff;
+}
+.story-viewer-dialog .story-sound-toggle:not([hidden]) {
+  display:inline-flex;align-items:center;gap:5px;min-height:34px;max-width:145px;padding:6px 9px;
+  border:1px solid #ffffff5c;border-radius:999px;background:#09070bbd;color:#fff;
+  font:700 10px/1.1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(9px);
+}
+.story-viewer-dialog .story-sound-toggle span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story-viewer-dialog .story-sound-toggle:disabled {opacity:.78;cursor:default}
+.story-viewer-dialog .story-sound-toggle[data-kind="unavailable"] {border-color:#ffffff2e;color:#ffffffc7}
+@media(max-width:390px){.story-viewer-dialog .story-sound-toggle:not([hidden]){max-width:112px}.story-viewer-dialog .story-sound-toggle span{max-width:72px}}
+
+
+/* 20261031 framing repair: one intrinsic, uncropped image/video centered in
+   the viewport between the profile header and the keyboard-aware reply bar.
+   Existing click/gesture overlays and the sound player remain untouched. */
+.story-viewer-dialog .story-viewer-stage {
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  display:block!important;
+  overflow:hidden!important;
+  background:#060608!important;
+}
+.story-viewer-dialog .story-media-backdrop { display:none!important; }
+.story-viewer-dialog .story-viewer-media {
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  top:calc(env(safe-area-inset-top) + 86px)!important;
+  bottom:calc(env(safe-area-inset-bottom) + 78px + var(--story-keyboard-inset,0px))!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:#060608!important;
+}
+.story-viewer-dialog .story-viewer-media img,
+.story-viewer-dialog .story-viewer-media video {
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  transform:none!important;
+  margin:auto!important;
+}
+.story-viewer-dialog .story-viewer-actions,
+.story-viewer-dialog[data-admin="true"] .story-viewer-actions {
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  top:auto!important;
+  bottom:var(--story-keyboard-inset,0px)!important;
+  width:100%!important;
+  max-height:min(34dvh,245px)!important;
+  margin:0!important;
+  padding:12px 12px calc(9px + env(safe-area-inset-bottom))!important;
+  box-sizing:border-box!important;
+}
+.story-viewer-dialog .story-viewer-caption:not(:empty):not(.unused) {
+  bottom:calc(90px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
+}
+@media(max-height:560px) {
+  .story-viewer-dialog .story-viewer-media {
+    top:calc(env(safe-area-inset-top) + 66px)!important;
+    bottom:calc(env(safe-area-inset-bottom) + 62px + var(--story-keyboard-inset,0px))!important;
+  }
+}
+
+/* Unseen stories use a red ring; fully viewed groups use neutral gray.
+   Explicit specificity wins over older Home/Chat lilac and gradient rules. */
+:is(.page-home,.page-chat) .story-avatar-button.is-story-unseen .story-avatar-frame {
+  border:3px solid transparent!important;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,
+    linear-gradient(145deg,#ff4c4c,#d41443 55%,#f23c48) border-box!important;
+}
+:is(.page-home,.page-chat) .story-avatar-button.is-story-seen .story-avatar-frame {
+  border:3px solid transparent!important;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,
+    linear-gradient(#9c9ca5,#9c9ca5) border-box!important;
+}
+.story-viewer-dialog .story-viewer-header-controls [data-story-close] {
+  display:grid!important;place-items:center!important;
+  position:relative!important;
+  visibility:visible!important;opacity:1!important;
+  flex:0 0 42px!important;width:42px!important;height:42px!important;
+  border:1px solid #ffffff9c!important;border-radius:50%!important;
+  background:#09090dd6!important;color:white!important;
+  font-size:26px!important;font-weight:600!important;
+  z-index:99!important;pointer-events:auto!important;
+}
+.story-viewer-dialog .story-viewer-header-controls {
+  position:relative!important;z-index:50!important;pointer-events:auto!important;
+}
+.story-viewer-dialog .story-viewer-header {z-index:45!important;pointer-events:auto!important;}
+
+/* Story controls must remain tappable above every navigation/media layer. */
+.story-viewer-dialog .story-viewer-header-controls [data-story-close] {display:none!important}
+.story-viewer-dialog .story-close-floating {
+  position:absolute!important;z-index:120!important;
+  top:calc(env(safe-area-inset-top) + 31px)!important;right:12px!important;
+  width:46px!important;height:46px!important;min-width:46px!important;
+  display:grid!important;place-items:center!important;
+  padding:0!important;border:1px solid #fff9!important;border-radius:50%!important;
+  background:#121017e8!important;color:white!important;
+  font:700 26px/1 system-ui,sans-serif!important;opacity:1!important;
+  visibility:visible!important;pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+.story-viewer-dialog .story-viewer-header-controls {padding-right:52px!important}
+.story-viewer-dialog .story-viewer-actions .story-repost-visible:not([hidden]) {
+  position:absolute!important;display:flex!important;align-items:center;justify-content:center;
+  right:12px!important;bottom:calc(73px + env(safe-area-inset-bottom) + var(--story-keyboard-inset,0px))!important;
+  min-height:42px!important;max-width:min(64vw,260px);padding:9px 14px!important;
+  background:var(--primary,#7010b0)!important;color:#fff!important;
+  border:1px solid var(--primary-dark,#5f1098)!important;border-radius:999px!important;
+  box-shadow:0 4px 18px #0008;font:700 12px/1.3 inherit;z-index:120!important;
+  touch-action:manipulation!important;pointer-events:auto!important;
+}
+.story-viewer-dialog .story-repost-visible[hidden] {display:none!important}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — viewer controls only; never affect media fit. */
+.story-viewer-dialog :where(
+  .story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle
+) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.story-viewer-dialog :where(
+  .story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle
+):focus-visible {
+  outline: 3px solid rgba(255,255,255,.9);
+  outline-offset: 3px;
+}
+.story-viewer-dialog :where(.story-viewer-caption,.story-reply-status,.story-song-label) {
+  overflow-wrap: anywhere;
+}
+.story-viewer-dialog :where(.story-viewer-actions,.story-viewer-reply-actions) {
+  min-width: 0;
+  gap: 7px;
+}
+.story-viewer-dialog :where(.story-mention-dialog,.story-share-panel,.story-insights-panel) {
+  max-width: calc(100vw - 18px);
+  overscroll-behavior: contain;
+}
+@media (prefers-reduced-motion:reduce) {
+  .story-viewer-dialog :where(.story-owner-action,.story-aux-action,.story-like-button,.story-sound-toggle) {
+    transition:none!important;
+  }
+}

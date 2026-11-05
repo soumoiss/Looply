@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "skincare",
+  "type": "paint",
+  "strength": 0.55,
+  "params": {
+    "topColor": "#a2ffce",
+    "bottomColor": "#49acac"
+  },
+  "assets": {
+    "model": null,
+    "texture": null
+  },
+  "license": "original-looply-procedural"
+}

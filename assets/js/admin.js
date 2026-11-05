@@ -1,6 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { adminMarkup, bindAdminEvents } from "../../src/admin.js?v=archive-card-controls-20261022";
 import { bindArchiveImport } from "../../src/archive-import.js";
+import { mountAdminLetterLog } from "../../src/admin-letter-log.js";
 
 await mountAppPage({ page: "admin", adminOnly: true, render: async ({ root, client, profile, user }) => {
   root.dataset.currentUserId = user.id;
@@ -13,5 +14,6 @@ await mountAppPage({ page: "admin", adminOnly: true, render: async ({ root, clie
   }
   bindAdminEvents(root, client);
   bindArchiveImport(root, client);
+  mountAdminLetterLog(root, client);
 } });
 

@@ -54,6 +54,7 @@ const WRITABLE = Object.freeze({
   notifications: ["read_at"],
   chat_notifications: ["read_at"],
   looply_admin_activity_notifications: ["read_at"],
+  looply_admin_letter_access_log: [], // Read-only silent ADM log (RLS: Peixinho only).
   app_settings: []
 });
 const plainIdentifier = /^[a-z][a-z0-9_]*$/;

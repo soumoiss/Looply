@@ -1,0 +1,110 @@
+.page-title-panel { margin-bottom: 16px; }
+.archive-import { margin-top: 22px; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.archive-import form { display: grid; gap: 13px; }
+.archive-import .field-hint { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.archive-import-progress { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--surface-soft); font-size: 11px; }
+.archive-import-errors { max-height: 240px; margin: 0; padding: 10px 10px 10px 30px; overflow: auto; border: 1px solid color-mix(in srgb, #a13f59 28%, var(--line)); border-radius: 10px; color: #a13f59; background: color-mix(in srgb, #a13f59 5%, var(--surface)); font-size: 10px; line-height: 1.6; }
+.archive-import-errors[hidden] { display: none; }
+.admin-archive-card-body { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; }
+.admin-archive-card-body summary { width: fit-content; color: var(--primary); cursor: pointer; font-size: 10px; font-weight: 750; }
+.admin-archive-card-body pre { max-height: 420px; margin: 9px 0 0; padding: 13px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--surface-soft); font: inherit; font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-record-hint { color: var(--muted); font-size: 10px; }
+.admin-record .admin-media-link a { color: var(--primary); }
+.admin-record .admin-comment-form { margin-top: 12px; }
+.admin-record .admin-comment-form textarea { width: 100%; min-height: 64px; resize: vertical; padding: 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-soft); font: inherit; font-size: 10px; }
+.admin-record .admin-comment-form [data-status][data-kind="error"] { color: #a13f59; }
+.admin-record .admin-comment-form [data-status][data-kind="success"] { color: var(--primary); }
+@media (max-width: 620px) { .archive-import { padding: 13px; } .admin-archive-card-body pre { max-height: 300px; } }
+
+.admin-broadcast-panel { margin:22px 0; padding:clamp(14px,3vw,22px); border:1px solid var(--line); border-radius:18px; background:var(--surface); }
+.admin-broadcast-heading h3 { margin:5px 0 0; font-size:clamp(1.1rem,3vw,1.35rem); }
+.admin-broadcast-form { display:grid; gap:13px; margin-top:16px; }
+.admin-broadcast-form input, .admin-broadcast-form textarea { width:100%; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:10px; color:var(--text); background:var(--surface-soft); font:inherit; font-size:12px; }
+.admin-broadcast-form textarea { min-height:80px; resize:vertical; }
+.admin-broadcast-form small { display:block; margin-top:5px; color:var(--muted); font-size:10px; line-height:1.5; }
+.admin-broadcast-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.admin-broadcast-actions button { min-height:42px; }
+.admin-broadcast-results { display:grid; gap:12px; margin-top:16px; }
+.admin-broadcast-record { min-width:0; padding:14px; border:1px solid var(--line); border-radius:13px; background:var(--surface-soft); }
+.admin-broadcast-body { margin:10px 0; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.admin-broadcast-meta { margin:5px 0; color:var(--muted); font-size:10px; }
+.admin-broadcast-record details { margin-top:10px; border-top:1px solid var(--line); padding-top:9px; }
+.admin-broadcast-record summary { color:var(--primary); cursor:pointer; font-size:11px; font-weight:750; }
+.admin-broadcast-readers { display:grid; gap:7px; margin:10px 0 0; padding:0; list-style:none; }
+.admin-broadcast-readers li { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11px; }
+.admin-broadcast-readers li span { color:var(--muted); }
+.admin-broadcast-record [data-broadcast-deactivate] { margin-top:12px; color:#a13f59; }
+@media (max-width:620px) { .admin-broadcast-panel { padding:13px; } .admin-broadcast-actions { align-items:stretch; } .admin-broadcast-actions button { width:100%; } }
+
+
+/* Admin user management */
+.admin-user-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  margin-top: 0.85rem;
+  border: 1px solid var(--border-color, rgba(127, 127, 127, 0.28));
+  border-radius: 1rem;
+  background: var(--surface, rgba(127, 127, 127, 0.04));
+  min-width: 0;
+}
+.admin-user-card > p { margin: 0; overflow-wrap: anywhere; }
+.admin-user-card .admin-broadcast-heading { align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.admin-user-card .admin-broadcast-heading h4 { margin: 0; overflow-wrap: anywhere; }
+.admin-user-card .admin-broadcast-form { margin-top: 0; }
+.admin-user-card textarea { width: 100%; min-height: 5rem; resize: vertical; }
+.admin-user-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.admin-user-card input, .admin-user-card select, .admin-user-card textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 540px) {
+  .admin-user-card { padding: 0.8rem; }
+  .admin-user-card .admin-broadcast-heading { align-items: flex-start; }
+  .admin-user-actions > button { min-height: 44px; }
+}
+
+
+/* LOOPLY UI POLISH 2026-11-01 — admin forms and record hierarchy only. */
+.page-admin .admin-broadcast-panel {
+  min-width: 0;
+  border-color: var(--line);
+  border-radius: 20px;
+  margin-block: 18px;
+}
+.page-admin .admin-broadcast-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-admin .admin-broadcast-heading :where(h3,h4) { line-height: 1.3; text-wrap: balance; }
+.page-admin :where(.admin-broadcast-form,.archive-import form) { min-width: 0; gap: 13px; }
+.page-admin :where(.admin-broadcast-form input,.admin-broadcast-form textarea,.admin-record textarea) {
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: 12px;
+}
+.page-admin :where(.admin-broadcast-actions,.admin-user-actions) {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.page-admin :where(.admin-broadcast-actions,.admin-user-actions) button { min-height: 44px; }
+.page-admin :where(.admin-broadcast-record,.admin-user-card) {
+  min-width: 0;
+  border-color: var(--line);
+  border-radius: 15px;
+}
+.page-admin :where(.archive-import-progress,.admin-broadcast-meta,.admin-record-hint) {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+@media (max-width:620px) {
+  .page-admin .admin-broadcast-panel { padding: 15px 13px; }
+  .page-admin :where(.admin-broadcast-actions,.admin-user-actions) button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

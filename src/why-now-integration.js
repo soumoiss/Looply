@@ -36,7 +36,7 @@ function toGroup(storyGroup, userId) {
         id: story.id, url: media?.signedUrl || "",
         type: media?.kind === "video" ? "video" : "image",
         created: Date.parse(story.created_at) || Date.now(),
-        seen: Boolean(story.seen), highlighted:Boolean(story.highlighted), caption: text.caption, reason: text.reason, music: text.music, duration: text.duration
+        seen: Boolean(story.seen), caption: text.caption, reason: text.reason, music: text.music, duration: text.duration
       };
     }).filter(story => story.url)
   };
@@ -454,15 +454,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if(message.error||!message.data?.id)throw message.error||Error("Envio não confirmado");
     return {sent:true};
   }
-  async function keepHighlight(storyId){
-    const story=getOwned(storyId);
-    if(story.author_id!==user.id)throw Error("Este Why Now não pertence à sua conta");
-    const result=await client.rpc("v37_keep_story_highlight",{p_story_id:storyId});
-    if(result.error||result.data!==true)throw result.error||Error("Highlight indisponível");
-    await refresh();
-    return {saved:true};
-  }
-  const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,"share-send":sendShare,"keep-highlight":keepHighlight};
+  const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,"share-send":sendShare};
   async function onMessage(event) {
     if (destroyed || event.origin !== location.origin || event.source !== frame.contentWindow) return;
     const message = event.data;

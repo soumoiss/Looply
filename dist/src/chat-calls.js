@@ -1,0 +1,680 @@
+import { icon } from "./icons.js?build=c8dfb31c1e9d8b3a";
+import { createCallIceGate } from "./call-ice-gate.js?build=c8dfb31c1e9d8b3a";
+import { createCallRingtone } from "./call-ringtone.js?build=c8dfb31c1e9d8b3a";
+import { requestImmediateCallPush } from "./call-push-alert.js?build=c8dfb31c1e9d8b3a";
+import { setCallPlaybackActive } from "./media-playback-coordinator.js?build=c8dfb31c1e9d8b3a";
+import { captureCallMedia, isRecoverableCallCaptureError } from "./call-media-capture.js?build=c8dfb31c1e9d8b3a";
+const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+export function setupChatCalls(root, client, userId) {
+  if (!root || root.dataset.chatCalls === "true") return;
+  root.dataset.chatCalls = "true";
+  let channel = null;
+  let channelConversationId = "";
+  let channelReady = null;
+  let pc = null;
+  let localStream = null;
+  let remoteStream = null;
+  let incomingOffer = null;
+  let callMode = "audio";
+  let callPeerName = "Contato";
+  let videoUnavailable = false;
+  let pendingCandidates = [];
+  let isCaller = false;
+  let activeCallId = "";
+  let closing = false;
+  // Lock each asynchronous media-permission flow so rapid taps never
+  // overwrite an active stream or create two peer connections.
+  let startingCall = false;
+  let answeringCall = false;
+  let offerRetryTimer = null;
+  let connectionTimer = null;
+  const clearOfferRetry = () => { if (offerRetryTimer) clearInterval(offerRetryTimer); offerRetryTimer = null; };
+  const clearConnectionTimer = () => { if (connectionTimer) clearTimeout(connectionTimer); connectionTimer = null; };
+  const activeConversation = () => root.querySelector(".chat-thread-heading")?.dataset.conversationId || root.querySelector("[data-chat-send]")?.dataset.conversationId || "";
+  const isGroup = () => root.querySelector(".chat-thread-heading")?.dataset.chatKind === "group";
+  const peerName = () => root.querySelector(".chat-thread-heading strong")?.textContent?.trim() || "Contato";
+  const toast = (message) => {
+    let node = root.querySelector("[data-call-toast]");
+    if (!node) { node = document.createElement("div"); node.className = "chat-v2-toast"; node.dataset.callToast = ""; node.setAttribute("role", "status"); root.append(node); }
+    node.textContent = message; node.hidden = false; clearTimeout(node._timer); node._timer = setTimeout(() => { node.hidden = true; }, 3200);
+  };
+  const getModal = () => {
+    let modal = root.querySelector("[data-call-modal]");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.className = "chat-v2-modal-backdrop chat-call-backdrop";
+      modal.dataset.callModal = "";
+      modal.hidden = true;
+      modal.innerHTML = '<section class="chat-v2-modal chat-call-modal" role="dialog" aria-modal="true" aria-labelledby="chatCallTitle"><button type="button" class="chat-v2-modal-close" data-call-close aria-label="Encerrar chamada">' + icon("hangup") + '</button><div data-call-content></div></section>';
+      root.append(modal);
+    }
+    return modal;
+  };
+  const showModal = (markup) => {
+    const modal = getModal();
+    modal.querySelector("[data-call-content]").innerHTML = markup;
+    modal.hidden = false;
+  };
+  const closeModal = () => { const modal = root.querySelector("[data-call-modal]"); if (modal) { modal.hidden = true; modal.classList.remove("is-video-call", "is-audio-call"); } };
+  const send = async (type, extra = {}) => {
+    const topic = activeConversation();
+    if (!channel || !topic || topic !== channelConversationId) return false;
+    try {
+      const result = await channel.send({ type: "broadcast", event: "signal", payload: { type, conversationId: topic, senderId: userId, callId: activeCallId, ...extra } });
+      return result === "ok" || result?.status === "ok";
+    } catch (error) { console.warn("Looply call signaling failed", error); return false; }
+  };
+  const iceGate = createCallIceGate(candidate => send("ice", { candidate }));
+  const ringtone = createCallRingtone();
+  const releaseMedia = () => {
+    iceGate.reset();
+    ringtone.stop();
+    setCallPlaybackActive(false);
+    clearOfferRetry();
+    clearConnectionTimer();
+    if (pc) { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.close(); pc = null; }
+    if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
+    const local = root.querySelector("[data-call-local]");
+    const remote = root.querySelector("[data-call-remote]");
+    if (local) local.srcObject = null;
+    if (remote) remote.srcObject = null;
+    remoteStream = null;
+    pendingCandidates = [];
+    videoUnavailable = false;
+    incomingOffer = null;
+    activeCallId = "";
+    isCaller = false;
+    startingCall = false;
+    answeringCall = false;
+  };
+  const endCall = async (notify = true, message = "Chamada encerrada.") => {
+    if (closing) return;
+    closing = true;
+    // Release the camera and microphone immediately, even if signaling stalls.
+    if (notify) void send("hangup");
+    releaseMedia();
+    closeModal();
+    toast(message);
+    closing = false;
+  };
+  const updateStatus = (message) => {
+    const status = root.querySelector("[data-call-status]");
+    if (status) status.textContent = message;
+  };
+  const attachMedia = () => {
+    const local = root.querySelector("[data-call-local]");
+    const remote = root.querySelector("[data-call-remote]");
+    if (local && localStream) { local.srcObject = localStream; local.muted = true; local.play().catch(() => {}); }
+    if (pc) {
+      if (!remoteStream) remoteStream = new MediaStream();
+      if (remote) {
+        remote.srcObject = remoteStream;
+        remote.muted = false;
+        remote.volume = 1;
+        remote.autoplay = true;
+        remote.playsInline = true;
+        if (remoteStream.getTracks().length) {
+          remote.play().then(() => {
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = true;
+          }).catch(() => {
+            updateStatus("Toque em “Ativar áudio” para ouvir o outro participante.");
+            const enableAudio = root.querySelector("[data-call-enable-audio]");
+            if (enableAudio) enableAudio.hidden = false;
+          });
+        }
+      }
+      // Install ontrack as soon as the peer connection exists. On the answering side,
+      // remote tracks can arrive before the answer has finished and before callView renders.
+      pc.ontrack = (event) => {
+        const stream = event.streams?.[0];
+        if (stream) remoteStream = stream;
+        else if (event.track && !remoteStream.getTracks().some((track) => track.id === event.track.id)) remoteStream.addTrack(event.track);
+        const target = root.querySelector("[data-call-remote]");
+        if (!target) return;
+        target.srcObject = remoteStream;
+        target.muted = false;
+        target.volume = 1;
+        target.play().then(() => {
+          const enableAudio = root.querySelector("[data-call-enable-audio]");
+          if (enableAudio) enableAudio.hidden = true;
+        }).catch(() => {
+          updateStatus("Toque em “Ativar áudio” para ouvir o outro participante.");
+          const enableAudio = root.querySelector("[data-call-enable-audio]");
+          if (enableAudio) enableAudio.hidden = false;
+        });
+      };
+    }
+  };
+  const callView = (statusText) => {
+    showModal(`<div class="chat-call-heading"><span class="chat-v2-kicker">${callMode === "video" ? "Chamada de vídeo" : "Chamada de áudio"}</span><h2 id="chatCallTitle">${escape(callPeerName)}</h2><p data-call-status role="status">${escape(statusText)}</p></div><div class="chat-call-videos"><video data-call-remote autoplay playsinline aria-label="Vídeo e áudio recebidos"></video><video data-call-local autoplay playsinline muted aria-label="Prévia da sua câmera"></video></div><button type="button" class="chat-v2-button chat-call-audio-unlock" data-call-enable-audio hidden>Ativar áudio</button><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-toggle-mic aria-label="Silenciar microfone" aria-pressed="false">${icon("mic")} <span>Silenciar microfone</span></button><button type="button" class="chat-v2-button" data-call-toggle-speaker aria-label="Silenciar áudio remoto" aria-pressed="false">${icon("volume")} <span>Áudio ligado</span></button>${callMode === "video" ? (videoUnavailable ? '<button type="button" class="chat-v2-button" data-call-retry-camera aria-label="Tentar ativar câmera">' + icon("camera") + ' <span>Ativar câmera</span></button>' : '<button type="button" class="chat-v2-button" data-call-toggle-camera aria-label="Desligar câmera" aria-pressed="false">' + icon("camera") + ' <span>Desligar câmera</span></button><button type="button" class="chat-v2-button" data-call-flip-camera aria-label="Trocar câmera">' + icon("cameraSwitch") + ' <span>Trocar câmera</span></button>') : ""}<button type="button" class="chat-v2-button is-primary" data-call-hangup aria-label="Encerrar chamada">${icon("hangup")} <span>Encerrar chamada</span></button></div>`);
+    const modal = getModal();
+    modal.classList.toggle("is-video-call", callMode === "video");
+    modal.classList.toggle("is-audio-call", callMode === "audio");
+    if (callMode === "audio") {
+      // Voice calls display the actual conversation avatar/name while the
+      // remote <video> element stays mounted to receive the WebRTC audio track.
+      const videos = root.querySelector(".chat-call-videos");
+      const avatarSource = root.querySelector(".chat-thread-heading .chat-thread-avatar");
+      const avatarFrame = document.createElement("div");
+      avatarFrame.className = "chat-voice-call-avatar";
+      avatarFrame.setAttribute("aria-hidden", "true");
+      if (avatarSource?.tagName === "IMG" && avatarSource.src) {
+        const photo = document.createElement("img");
+        photo.src = avatarSource.src;
+        photo.alt = "";
+        photo.referrerPolicy = "no-referrer";
+        avatarFrame.append(photo);
+      } else {
+        avatarFrame.textContent = (callPeerName || "?").slice(0, 1).toLocaleUpperCase("pt-BR");
+      }
+      videos?.prepend(avatarFrame);
+    }
+    const local = root.querySelector("[data-call-local]");
+    if (local && callMode !== "video") local.hidden = true;
+    attachMedia();
+  };
+  const createPeerConnection = () => {
+    if (!window.RTCPeerConnection) throw new Error("webrtc unavailable");
+    const configuredIceServers = Array.isArray(window.LOOPLY_CONFIG?.rtcIceServers)
+      ? window.LOOPLY_CONFIG.rtcIceServers.filter((server) => server && (
+          (typeof server.urls === "string" && /^turns?:/i.test(server.urls))
+          || (Array.isArray(server.urls) && server.urls.some((url) => typeof url === "string" && /^turns?:/i.test(url)))
+        ) && (typeof server.username === "string") && (typeof server.credential === "string"))
+      : [];
+    pc = new RTCPeerConnection({ iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun.cloudflare.com:3478" },
+      ...configuredIceServers
+    ] });
+    // The offer/answer already contains the candidates gathered before it is sent.
+    // Suppress duplicate, premature ICE RPCs; publish only genuinely late candidates.
+    iceGate.bind(pc);
+    const peer = pc;
+    pc.onconnectionstatechange = () => {
+      if (pc !== peer) return;
+      if (peer.connectionState === "connected") { clearConnectionTimer(); updateStatus("Conectado"); }
+      else if (peer.connectionState === "connecting") updateStatus("Conectando…");
+      else if (peer.connectionState === "failed") {
+         updateStatus("Reconectando…");
+         clearConnectionTimer();
+         connectionTimer = window.setTimeout(() => {
+           if (pc === peer && peer.connectionState === "failed")
+             void endCall(true, "Não foi possível estabelecer a conexão.");
+         }, 10000);
+       }
+      else if (peer.connectionState === "disconnected") {
+        updateStatus("Reconectando…");
+        clearConnectionTimer();
+        connectionTimer = window.setTimeout(() => {
+          if (pc === peer && peer.connectionState === "disconnected") void endCall(true, "A chamada caiu. Verifique sua conexão.");
+        }, 12000);
+      } else if (peer.connectionState === "closed") void endCall(false);
+    };
+    if (localStream) localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    if (callMode === "video" && !localStream?.getVideoTracks().length) {
+      // Keep an m=video section even while the remote camera is occupied.
+      // The user can enable video later via replaceTrack (no renegotiation).
+      pc.addTransceiver("video",{direction:"sendrecv"});
+    }
+    attachMedia();
+    return pc;
+  };
+  // Allow 1.5 s for ICE before dispatching the call; late candidates
+  // are already handled by createCallIceGate after offer/answer.
+  const waitForIceGatheringComplete = (peer, timeout = 1500) => new Promise((resolve) => {
+    if (!peer || peer.iceGatheringState === "complete") { resolve(); return; }
+    let timer;
+    const finish = () => {
+      peer.removeEventListener("icegatheringstatechange", check);
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    const check = () => { if (peer.iceGatheringState === "complete") finish(); };
+    peer.addEventListener("icegatheringstatechange", check);
+    timer = setTimeout(finish, timeout);
+  });
+  const addPendingCandidates = async () => {
+    if (!pc?.remoteDescription) return;
+    const queued = pendingCandidates.splice(0);
+    for (const candidate of queued) {
+      try { await pc.addIceCandidate(candidate); } catch (error) { console.warn("Looply ICE candidate ignored", error); }
+    }
+  };
+  const startCall = async (mode) => {
+    if (startingCall || answeringCall || pc || localStream) return;
+    if (!activeConversation() || isGroup()) { toast("Chamadas estão disponíveis apenas em conversas individuais."); return; }
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { toast("Chamadas exigem HTTPS e suporte a microfone/câmera."); return; }
+    if (!window.RTCPeerConnection) { toast("Este navegador não oferece suporte a chamadas WebRTC."); return; }
+    startingCall = true;
+    callMode = mode; callPeerName = peerName(); isCaller = true;
+    activeCallId = typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : String(Date.now())+"-"+Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,"0")).join("");
+    try {
+      // Request capture while still handling the user's direct click, before
+      // any slow signaling handshake (important on Android WebView/mobile).
+      const capture = await captureCallMedia(navigator.mediaDevices,mode);
+      localStream = capture.stream;
+      videoUnavailable = capture.videoUnavailable;
+      if (!localStream.getAudioTracks().length) {
+        throw new DOMException("Required capture device is missing","NotFoundError");
+      }
+      setCallPlaybackActive(true);
+      const liveChannel = await ensureChannel();
+      if (!liveChannel) throw new Error("signaling unavailable");
+      createPeerConnection();
+      callView(videoUnavailable ? "Chamando por áudio. Câmera indisponível; você poderá tentar ativá-la." : "Chamando…");
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      // Include gathered candidates in the SDP as a fallback for missed ephemeral ICE broadcasts.
+      await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
+      const offerPayload = {
+        description: pc.localDescription.toJSON(),
+        mode,
+        senderName: root.querySelector(".looply-account strong")?.textContent?.trim() || "Contato"
+      };
+      const sent = await send("offer", offerPayload);
+      if (!sent) throw new Error("offer could not be sent");
+      iceGate.markDescriptionSent(pc);
+      // A 60-second cron is slower than a 30-second call. Wake Android through
+      // FCM now; the call itself proceeds even if this optional path fails.
+      void requestImmediateCallPush(client,activeConversation());
+      // Broadcast is ephemeral. Retry the offer while waiting so a listener that is
+      // still loading its conversation memberships can still receive the call.
+      clearOfferRetry();
+      const retryUntil = Date.now() + 30000;
+      offerRetryTimer = window.setInterval(() => {
+        if (!pc || !isCaller || pc.remoteDescription || Date.now() >= retryUntil) {
+          clearOfferRetry();
+          if (pc && isCaller && !pc.remoteDescription && Date.now() >= retryUntil) void endCall(true, "A chamada não foi atendida.");
+          return;
+        }
+        void send("offer", offerPayload);
+      }, 1800);
+    } catch (error) {
+      console.error("Looply call start failed", error);
+      const reasons = {
+        NotAllowedError: "Permissão de microfone ou câmera negada. Autorize o Looply nas configurações do Android.",
+        NotFoundError: "Não foi encontrado microfone ou câmera disponível para esta chamada.",
+        NotReadableError: "O microfone ou a câmera está ocupado por outro aplicativo.",
+        NotSupportedError: "Este dispositivo não suporta o formato de mídia solicitado.",
+        SecurityError: "A página não tem permissão para acessar mídia em uma origem insegura."
+      };
+      const signalingFailure = ["signaling", "offer", "Realtime", "channel"]
+        .some(term => String(error?.message || "").includes(term));
+      const detail = reasons[error?.name] ||
+        (error?.message === "call_auth_required" ? "Sua sessão expirou. Entre novamente no Looply para iniciar a chamada." :
+        (signalingFailure
+          ? "O canal de chamadas não conseguiu conectar ao serviço de sinalização."
+          : "Falha técnica ao iniciar a chamada. Verifique sua conexão e tente novamente."));
+      await endCall(false, detail);
+    } finally {
+      startingCall = false;
+    }
+  };
+  const acceptCall = async () => {
+    if (!incomingOffer || answeringCall || pc) return;
+    answeringCall = true;
+    ringtone.stop();
+    updateStatus("Atendendo…");
+    callMode = incomingOffer.mode === "video" ? "video" : "audio";
+    activeCallId = incomingOffer.callId || "";
+    callPeerName = incomingOffer.senderName || peerName();
+    try {
+      const capture = await captureCallMedia(navigator.mediaDevices,callMode);
+      localStream = capture.stream;
+      videoUnavailable = capture.videoUnavailable;
+      if (!localStream.getAudioTracks().length) {
+        throw new DOMException("Required capture device is missing", "NotFoundError");
+      }
+      setCallPlaybackActive(true);
+      createPeerConnection();
+      await pc.setRemoteDescription(incomingOffer.description);
+      await addPendingCandidates();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await waitForIceGatheringComplete(pc);
+      iceGate.snapshotDescription(pc);
+      const sent = await send("answer", { description: pc.localDescription.toJSON() });
+      if (!sent) throw new Error("answer could not be sent");
+      iceGate.markDescriptionSent(pc);
+      callView(videoUnavailable ? "Conectando por áudio. A câmera está ocupada; tente ativá-la depois." : "Conectando…");
+    } catch (error) {
+      console.error("Looply call accept failed", {name:error?.name||"unknown"});
+      if (isRecoverableCallCaptureError(error)) {
+        // A temporarily busy microphone is not a declined call. Keep the
+        // incoming offer and show retry without sending FAILED or HANGUP.
+        const offer=incomingOffer;
+        releaseMedia();
+        incomingOffer=offer;
+        showModal(`<span class="chat-v2-kicker">Dispositivo ocupado</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>O Android não liberou o microfone ou a câmera. Feche outros aplicativos que estejam usando esses dispositivos e tente atender novamente.</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Tentar atender novamente</button></div>`);
+        return;
+      }
+      if (["NotAllowedError", "PermissionDeniedError"].includes(error?.name)) {
+        const offer = incomingOffer;
+        releaseMedia();
+        incomingOffer = offer;
+        showModal(`<span class="chat-v2-kicker">Permissão necessária</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Permita o acesso ao microfone${callMode === "video" ? " e à câmera" : ""} no navegador e toque em Atender para continuar.</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+        return;
+      }
+      // A technical setup failure is not a user decline. Keep the outcomes distinct
+      // so the caller never receives a false "A chamada foi recusada" notification.
+      await send("failed", { reason: error?.name || "CallSetupError" });
+      await endCall(false, "Não foi possível atender a chamada. Confira a conexão, as permissões e os dispositivos.");
+    } finally {
+      answeringCall = false;
+    }
+  };
+  const restorePendingIncomingCall = (conversationId) => {
+    if (!conversationId || activeConversation() !== conversationId || incomingOffer || pc) return;
+    let pending = null;
+    try {
+      const key = `looply:pending-call:${userId}`;
+      pending = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (pending) sessionStorage.removeItem(key);
+    } catch (error) {
+      console.warn("Looply pending call could not be restored", error);
+      return;
+    }
+    if (!pending || pending.conversationId !== conversationId || pending.senderId === userId
+      || pending.accepted !== true || !Number.isFinite(pending.savedAt)
+      || Date.now() - pending.savedAt > 90000 || !pending.description) return;
+    incomingOffer = pending;
+    activeCallId = pending.callId || "";
+    callMode = pending.mode === "video" ? "video" : "audio";
+    callPeerName = pending.senderName || peerName();
+    // The user already pressed "Atender" on the global incoming-call overlay.
+    // Continue directly into media setup instead of requiring a second navigation/tap.
+    window.setTimeout(() => { if (incomingOffer === pending && activeConversation() === conversationId) void acceptCall(); }, 0);
+  };
+
+  // The Neon all-conversation inbox can receive an offer while this page's
+  // conversation-scoped signaling channel is still connecting. Both sources
+  // must use exactly the same incoming dialog and accept/decline controller.
+  const receiveOffer = payload => {
+    if (!payload || payload.conversationId !== activeConversation() ||
+        payload.senderId === userId || payload.description?.type !== "offer" ||
+        !["audio","video"].includes(payload.mode)) return false;
+    if (pc) {
+      if (incomingOffer?.senderId === payload.senderId &&
+          incomingOffer?.conversationId === payload.conversationId) return true;
+      void send("decline",{callId:payload.callId||""});
+      return true;
+    }
+    if (incomingOffer?.senderId === payload.senderId &&
+        incomingOffer?.conversationId === payload.conversationId) return true;
+    if (incomingOffer) return false;
+    incomingOffer = payload;
+    activeCallId = payload.callId || "";
+    callMode = payload.mode;
+    callPeerName = payload.senderName || peerName();
+    showModal(`<span class="chat-v2-kicker">Chamada recebida</span><h2 id="chatCallTitle">${escape(callPeerName)} está ligando</h2><p>Deseja atender à chamada de ${callMode === "video" ? "vídeo" : "áudio"}?</p><div class="chat-v2-actions"><button type="button" class="chat-v2-button" data-call-decline>Recusar</button><button type="button" class="chat-v2-button is-primary" data-call-accept>Atender</button></div>`);
+    void ringtone.start();
+    return true;
+  };
+  const ensureChannel = async () => {
+    const id = activeConversation();
+    if (!id || isGroup() || !client) { toast("Abra uma conversa individual para chamar."); return null; }
+    if (channel && channelConversationId === id) {
+      const ready = channelReady ? await channelReady : Boolean(channel);
+      if (ready) restorePendingIncomingCall(id);
+      return ready ? channel : null;
+    }
+    if (channel) await client.removeChannel(channel);
+    channel = null; channelReady = null; channelConversationId = id;
+    const session = await client.auth.getSession();
+    if (session.error || !session.data?.session?.access_token) {
+      channelConversationId = "";
+      throw new Error("call_auth_required");
+    }
+    await client.realtime.setAuth(session.data.session.access_token);
+    const next = client.channel(`looply-call-${id}`, { config: { private: true, broadcast: { ack: true, self: false }, preferNeon: true } });
+    channel = next;
+    next.on("broadcast", { event: "signal" }, async ({ payload }) => {
+      if (!payload || payload.conversationId !== channelConversationId || payload.senderId === userId) return;
+      // Filter stale ICE, answers and hangups from earlier attempts in this conversation.
+      if (payload.type !== "offer" && (!pc && !incomingOffer)) return;
+      if (payload.type !== "offer" && String(payload.callId || "") !== activeCallId) return;
+      if (payload.type === "offer") {
+        receiveOffer(payload);
+      } else if (payload.type === "answer" && pc && isCaller) {
+        try {
+          clearOfferRetry();
+          await pc.setRemoteDescription(payload.description);
+          await addPendingCandidates();
+          updateStatus("Conectando…");
+        } catch (error) { console.error("Looply call answer failed", error); }
+      } else if (payload.type === "ice" && payload.candidate) {
+        if (pc?.remoteDescription) { try { await pc.addIceCandidate(payload.candidate); } catch (error) { console.warn("Looply ICE candidate ignored", error); } }
+        else pendingCandidates.push(payload.candidate);
+      } else if (payload.type === "decline") {
+        await endCall(false, "A chamada foi recusada.");
+      } else if (payload.type === "failed") {
+        await endCall(false, "A outra pessoa não conseguiu iniciar a chamada. Confira as permissões e a conexão.");
+      } else if (payload.type === "hangup") {
+        await endCall(false, "A outra pessoa encerrou a chamada.");
+      }
+    });
+    channelReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Realtime call channel timed out")), 10000);
+      next.subscribe((status, error) => {
+        if (status === "SUBSCRIBED") { clearTimeout(timer); resolve(true); }
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") { clearTimeout(timer); reject(error || new Error(status)); }
+      });
+    }).catch(async (error) => {
+      console.error("Looply private call channel failed", error);
+      toast("Canal de chamadas indisponível: " + String(error?.message || "erro desconhecido").slice(0,110));
+      if (channel === next) channel = null;
+      await client.removeChannel(next);
+      return false;
+    });
+    const subscribed = await channelReady;
+    if (subscribed) restorePendingIncomingCall(id);
+    return subscribed ? channel : null;
+  };
+  // The Android CallStyle answer/decline button opens an authenticated chat.
+  // Fetch only the last active offer for this recipient, even if the WebView
+  // was killed while the FCM message was being delivered.
+  const requestedNativeAction=new URLSearchParams(window.location.search).get("nativeCallAction");
+  let nativeActionHandled=false;
+  const handleNativeCallAction = () => {
+    if(nativeActionHandled || !["accept","decline"].includes(requestedNativeAction))return;
+    const conversationId=activeConversation();
+    if(!conversationId || isGroup() || !client?.dataApiUrl)return;
+    const urlConversation=new URLSearchParams(window.location.search).get("id");
+    if(urlConversation!==conversationId)return;
+    nativeActionHandled=true;
+    // Prevent re-answering on refresh/back navigation.
+    const url=new URL(window.location.href);
+    url.searchParams.delete("nativeCallAction");
+    window.history.replaceState(window.history.state,"",url.href);
+    void(async()=>{
+      try{
+        const {data,error}=await client.auth.getSession();
+        if(error || !data?.session?.access_token)throw Error("session_required");
+        const headers={authorization:"Bearer "+data.session.access_token,
+          "content-type":"application/json",accept:"application/json"};
+        const offerResponse=await fetch(client.dataApiUrl+"/rpc/v23_fcm_pending_incoming_offer",{
+          method:"POST",headers,body:JSON.stringify({p_conversation_id:conversationId}),
+          cache:"no-store",credentials:"omit"
+        });
+        if(!offerResponse.ok)throw Error("call_lookup_failed");
+        const offer=await offerResponse.json();
+        if(!offer || offer.conversationId!==conversationId ||
+           offer.senderId===userId || !["audio","video"].includes(offer.mode)) {
+          toast("A chamada não está mais disponível.");
+          return;
+        }
+        if(requestedNativeAction==="decline"){
+          const reject=await fetch(client.dataApiUrl+"/rpc/v3_call_signal_send",{
+            method:"POST",headers,cache:"no-store",credentials:"omit",
+            body:JSON.stringify({p_conversation_id:conversationId,
+              p_kind:"signal",p_payload:{type:"decline",conversationId}})
+          });
+          if(!reject.ok)throw Error("decline_failed");
+          toast("Chamada recusada.");
+          return;
+        }
+        const ready=await ensureChannel();
+        if(!ready)throw Error("signaling_unavailable");
+        if(pc || incomingOffer)return;
+        incomingOffer=offer;
+        activeCallId=offer.callId||"";
+        callMode=offer.mode;
+        callPeerName=peerName();
+        await acceptCall();
+      }catch(error){
+        console.warn("Looply Android call response unavailable",error?.message);
+        toast("Não foi possível abrir a chamada. Confira a conexão.");
+      }
+    })();
+  };
+  const addButtons = () => {
+    const heading = root.querySelector(".chat-thread-heading");
+    if (!heading || heading.dataset.chatKind === "group") return;
+    if (!heading.querySelector("[data-call-audio]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-audio aria-label="Ligar por áudio" title="Chamada de áudio">' + icon("phone") + '</button>');
+    if (!heading.querySelector("[data-call-video]")) heading.insertAdjacentHTML("beforeend", '<button type="button" class="chat-v2-icon-button" data-call-video aria-label="Ligar por vídeo" title="Chamada de vídeo">' + icon("video") + '</button>');
+  };
+  root.addEventListener("looply:incoming-call", event => {
+    const payload = event.detail?.payload;
+    if (event.detail?.conversationId !== activeConversation() || !payload) return;
+    if (payload.type !== "offer") {
+      // A caller may hang up before the conversation room has subscribed.
+      if (incomingOffer?.senderId !== payload.senderId ||
+          String(payload.callId || "") !== activeCallId ||
+          !["hangup", "decline", "failed"].includes(payload.type)) return;
+      event.preventDefault();
+      void endCall(false, "A outra pessoa encerrou a chamada.");
+      return;
+    }
+    if (!receiveOffer(payload)) return;
+    // Tell the global listener that this conversation owns the incoming UI.
+    // It must not simultaneously show a second ringing overlay on Android.
+    event.preventDefault();
+    // Begin the secure Neon channel handshake while the user decides. The
+    // incoming dialog is available immediately, regardless of room latency.
+    void ensureChannel().then(ready => {
+      if (!ready && incomingOffer === payload) toast("Canal de chamadas indisponível. Verifique a conexão.");
+    }).catch(error => console.warn("Looply incoming call channel unavailable",error));
+  });
+  root.addEventListener("click", async (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.matches("[data-call-audio]")) { await startCall("audio"); return; }
+    if (button.matches("[data-call-video]")) { await startCall("video"); return; }
+    if (button.matches("[data-call-enable-audio]")) {
+      const remote = root.querySelector("[data-call-remote]");
+      if (!remote) return;
+      remote.muted = false;
+      remote.volume = 1;
+      try {
+        await remote.play();
+        button.hidden = true;
+        updateStatus("Áudio remoto ativado.");
+      } catch (error) {
+        console.warn("Looply remote audio playback remains blocked", error);
+        updateStatus("O navegador bloqueou o áudio. Confira as permissões e toque novamente.");
+      }
+      return;
+    }
+    if (button.matches("[data-call-accept]")) { await acceptCall(); return; }
+    if (button.matches("[data-call-decline]")) { await send("decline"); await endCall(false, "Chamada recusada."); return; }
+    if (button.matches("[data-call-hangup]") || button.matches("[data-call-close]")) { await endCall(true); return; }
+    if (button.matches("[data-call-toggle-mic]")) {
+      const track = localStream?.getAudioTracks()[0];
+      if (track) {
+        track.enabled = !track.enabled;
+        button.setAttribute("aria-pressed", String(!track.enabled));
+        const label = track.enabled ? "Silenciar microfone" : "Ativar microfone";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(track.enabled ? "mic" : "micOff") + " <span>" + label + "</span>";
+      }
+      return;
+    }
+    if (button.matches("[data-call-toggle-speaker]")) {
+      const remote = root.querySelector("[data-call-remote]");
+      if (remote) {
+        remote.muted = !remote.muted;
+        button.setAttribute("aria-pressed", String(remote.muted));
+        const label = remote.muted ? "Ativar áudio remoto" : "Silenciar áudio remoto";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(remote.muted ? "volumeOff" : "volume") + " <span>" + label + "</span>";
+      }
+      return;
+    }
+    if (button.matches("[data-call-retry-camera]")) {
+      if (!pc || !localStream || callMode !== "video" || !videoUnavailable) return;
+      button.disabled = true;
+      let cameraStream=null;
+      try {
+        cameraStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+        const track=cameraStream.getVideoTracks()[0];
+        if (!track) throw new DOMException("Camera unavailable","NotFoundError");
+        const sender=pc.getTransceivers().find(item=>item.receiver?.track?.kind==="video")?.sender;
+        if (!sender) throw Error("video_sender_unavailable");
+        await sender.replaceTrack(track);
+        localStream.addTrack(track);
+        videoUnavailable=false;
+        const local=root.querySelector("[data-call-local]");
+        if (local) { local.srcObject=localStream; local.hidden=false; void local.play().catch(()=>{}); }
+        button.remove();
+        updateStatus("Câmera ativada.");
+      } catch (error) {
+        cameraStream?.getTracks().forEach(track=>track.stop());
+        toast("Câmera ainda indisponível. O áudio continua conectado.");
+      } finally {button.disabled=false;}
+      return;
+    }
+    if (button.matches("[data-call-toggle-camera]")) {
+      const track = localStream?.getVideoTracks()[0];
+      if (track) {
+        track.enabled = !track.enabled;
+        button.setAttribute("aria-pressed", String(!track.enabled));
+        const label = track.enabled ? "Desligar câmera" : "Ligar câmera";
+        button.setAttribute("aria-label", label);
+        button.innerHTML = icon(track.enabled ? "camera" : "cameraOff") + " <span>" + label + "</span>";
+      }
+      return;
+    }
+    if (button.matches("[data-call-flip-camera]")) {
+      if (!localStream || callMode !== "video" || !navigator.mediaDevices?.getUserMedia) return;
+      const oldTrack = localStream.getVideoTracks()[0];
+      if (!oldTrack) return;
+      button.disabled = true;
+      try {
+        const facing = oldTrack.getSettings?.().facingMode;
+        const nextFacing = facing === "environment" ? "user" : "environment";
+        const replacementStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: nextFacing } }, audio: false });
+        const nextTrack = replacementStream.getVideoTracks()[0];
+        if (!nextTrack) throw new Error("camera unavailable");
+        const sender = pc?.getSenders().find((item) => item.track?.kind === "video");
+        if (sender) await sender.replaceTrack(nextTrack);
+        localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+        localStream.addTrack(nextTrack);
+        const local = root.querySelector("[data-call-local]");
+        if (local) { local.srcObject = localStream; await local.play().catch(() => {}); }
+        toast(nextFacing === "environment" ? "Câmera traseira selecionada." : "Câmera frontal selecionada.");
+      } catch (error) {
+        console.warn("Looply camera switch failed", error);
+        toast("Não foi possível trocar a câmera neste dispositivo.");
+      } finally { button.disabled = false; }
+      return;
+    }
+  });
+  const observer = new MutationObserver(() => { addButtons(); if (activeConversation() && !isGroup()) { void ensureChannel(); handleNativeCallAction(); } });
+  observer.observe(root, { childList: true, subtree: true });
+  root.addEventListener("looply:open-conversation", () => { setTimeout(() => { addButtons(); void ensureChannel(); handleNativeCallAction(); }, 0); });
+  root.addEventListener("looply:chat-rendered", () => { addButtons(); void ensureChannel(); handleNativeCallAction(); });
+  root.addEventListener("click", (event) => {
+    if (event.target.matches("[data-call-modal]")) endCall(true);
+  });
+  window.addEventListener("pagehide", () => {
+    ringtone.stop();
+    observer.disconnect();
+    if (pc || localStream) endCall(false, "");
+    if (channel) client.removeChannel(channel);
+  }, { once: true });
+  addButtons();
+  handleNativeCallAction();
+}

@@ -433,7 +433,7 @@ Deno.serve(async (request: Request) => {
     if (payload.action === "unlock_archived_card") {
       const cardId = String(payload.cardId || "");
       const password = String(payload.password || "");
-      if (!uuidPattern.test(cardId) || password.length < 1 || password.length > 256) {
+      if (!uuidPattern.test(cardId) || password.length < 1) {
         return respond(400, { error: "invalid_card_unlock" });
       }
       const { data: secret, error: secretError } = await service.rpc("read_looply_archived_card_secret", {

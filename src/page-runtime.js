@@ -9,6 +9,7 @@ import { startAdminPresenceTracking, clearAdminPresenceSession } from "./admin-p
 import { registerLooplyServiceWorker } from "./service-worker.js";
 import { mountPullToRefresh } from "./pull-to-refresh.js";
 import { notificationBus } from "./notification-bus.js?v=notification-bus-20261022";
+import { mountIosMotion } from "./ios-motion.js";
 import { mountLiveNotificationToasts } from "./live-notification-toast.js";
 import { bindAdminModeSync } from "./admin-mode.js";
 
@@ -76,12 +77,16 @@ async function loadProfileAvatar(profile) {
 }
 
 async function loadUnreadNotifications(client) {
-  const [notifications, chats] = await Promise.all([
+  const [notifications, chats, adminNotices] = await Promise.all([
     client.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
-    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null)
+    client.from("chat_notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    // RLS reveals Peixinho's administrative events only to Peixinho.
+    client.from("looply_admin_activity_notifications")
+      .select("id", { count: "exact", head: true }).eq("kind", "admin_online").is("read_at", null)
   ]);
   return (notifications.error ? 0 : notifications.count || 0)
-    + (chats.error ? 0 : chats.count || 0);
+    + (chats.error ? 0 : chats.count || 0)
+    + (adminNotices.error ? 0 : adminNotices.count || 0);
 }
 
 async function refreshUnreadBadge(header, client) {
@@ -120,41 +125,8 @@ function prefetchNavigation(header) {
   header.addEventListener("focusin", prefetch);
 }
 
-function animatePrimaryNavigation(header){
-  const nav=header.querySelector(".page-navigation");
-  if(!nav)return;
-  const links=[...nav.querySelectorAll("a[href]")];
-  const current=links.findIndex(link=>link.getAttribute("aria-current")==="page");
-  if(current<0)return;
-  const indicator=document.createElement("span");
-  indicator.className="page-navigation-indicator";
-  indicator.setAttribute("aria-hidden","true");
-  nav.prepend(indicator);
-  const position=index=>{
-    const link=links[index];
-    if(!link)return;
-    indicator.style.width=link.offsetWidth+"px";
-    indicator.style.transform=`translateX(${link.offsetLeft}px)`;
-  };
-  let previous=current;
-  try{const saved=Number(sessionStorage.getItem("looply-nav-from"));
-    if(Number.isInteger(saved)&&saved>=0&&saved<links.length)previous=saved;
-    sessionStorage.setItem("looply-nav-from",String(current));
-  }catch{}
-  position(previous);
-  if(previous!==current && !matchMedia("(prefers-reduced-motion: reduce)").matches){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      indicator.classList.add("is-ready");position(current);
-    }));
-  }else position(current);
-  for(const [index,link] of links.entries())link.addEventListener("click",()=>{
-    try{sessionStorage.setItem("looply-nav-from",String(index));}catch{}
-  });
-  window.addEventListener("resize",()=>position(current),{passive:true});
-}
-
 function showLetterNotice({title,message,buttonText,onAction}){if(document.querySelector("[data-looply-letter-notice]"))return;const overlay=document.createElement("div");overlay.dataset.looplyLetterNotice="true";overlay.style.cssText="position:fixed;inset:0;z-index:10050;background:rgba(20,15,30,.62);display:grid;place-items:center;padding:20px";const panel=document.createElement("section");panel.setAttribute("role","alertdialog");panel.setAttribute("aria-modal","true");panel.style.cssText="width:min(100%,440px);background:var(--panel,#fff);color:var(--text,#222);border-radius:20px;padding:24px;box-shadow:0 20px 70px #0005";const h=document.createElement("h2");h.textContent=title;const p=document.createElement("p");p.textContent=message;const b=document.createElement("button");b.type="button";b.className="primary-button";b.textContent=buttonText;b.addEventListener("click",async()=>{b.disabled=true;try{await onAction();overlay.remove()}catch(e){console.warn("Letter notice action failed",e);b.disabled=false}});panel.append(h,p,b);overlay.append(panel);document.body.append(overlay);b.focus()}
-async function mountLetterEventNotices(client,user,page){try{if(page!=="letters")return;const {data,error}=await client.from("letter_event_notifications").select("id,letter_id,letter_type").eq("recipient_id",user.id).eq("event_type","new_received").is("notified_at",null).order("created_at").limit(1);if(error||!data?.length)return;const n=data[0];const {data:l}=n.letter_type==="community_letter"?await client.from("community_letters").select("subject,sender:profiles!community_letters_sender_id_fkey(username,display_name)").eq("id",n.letter_id).maybeSingle():{data:null};const who=l?.sender?.display_name||l?.sender?.username||"Alguém";showLetterNotice({title:"Você recebeu uma nova carta",message:n.letter_type==="community_letter"?who+" enviou uma carta"+(l?.subject?" “"+l.subject+"”":"")+".":"Uma nova carta está disponível para você.",buttonText:"Ler carta",onAction:async()=>{const {error:e}=await client.from("letter_event_notifications").update({notified_at:new Date().toISOString()}).eq("id",n.id).eq("recipient_id",user.id);if(e)throw e;window.location.href=n.letter_type==="community_letter"?"cartas.html?letterId="+encodeURIComponent(n.letter_id):"cartas.html?cardId="+encodeURIComponent(n.letter_id)}})}catch(e){console.warn("Letter notifications unavailable",e)}}
+async function mountLetterEventNotices(client,user,page){try{/* Sender "letter unlocked/read" notices were removed: those events now go to the silent ADM log. */const {data,error}=await client.from("letter_event_notifications").select("id,letter_id,letter_type").eq("recipient_id",user.id).eq("event_type","new_received").is("notified_at",null).order("created_at").limit(1);if(error||!data?.length)return;const n=data[0];const {data:l}=n.letter_type==="community_letter"?await client.from("community_letters").select("subject,sender:profiles!community_letters_sender_id_fkey(username,display_name)").eq("id",n.letter_id).maybeSingle():{data:null};const who=l?.sender?.display_name||l?.sender?.username||"Alguém";showLetterNotice({title:"Você recebeu uma nova carta",message:n.letter_type==="community_letter"?who+" enviou uma carta"+(l?.subject?" “"+l.subject+"”":"")+".":"Uma nova carta está disponível para você.",buttonText:"Ler carta",onAction:async()=>{const {error:e}=await client.from("letter_event_notifications").update({notified_at:new Date().toISOString()}).eq("id",n.id).eq("recipient_id",user.id);if(e)throw e;window.location.href=n.letter_type==="community_letter"?"cartas.html?letterId="+encodeURIComponent(n.letter_id):"cartas.html?cardId="+encodeURIComponent(n.letter_id)}})}catch(e){console.warn("Letter notifications unavailable",e)}}
 export async function mountAppPage({ page, adminOnly = false, render }) {
   void registerLooplyServiceWorker();
   const root = document.getElementById("pageContent");
@@ -238,12 +210,12 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   applyProfilePreferences(profile);
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
-  animatePrimaryNavigation(header);
   const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
   const stopAdminPresence = startAdminPresenceTracking(supabase, user.id);
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
+  mountIosMotion(header);
   const stopProfileNavigation = bindProfileNavigation({root,header,user});
   // Confirm before any auth mutation, and perform exactly one logout.
   // The auth adapter revokes this device's FCM token once (no double request).

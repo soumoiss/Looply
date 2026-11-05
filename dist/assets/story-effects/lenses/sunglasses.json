@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "sunglasses",
+  "type": "accessory",
+  "strength": 0.65,
+  "params": {},
+  "assets": {
+    "model": null,
+    "texture": null
+  },
+  "license": "original-looply-procedural"
+}
