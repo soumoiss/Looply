@@ -1,17 +1,17 @@
-import { bindProfileNavigation } from "./profile-navigation.js?build=f096c6dcc96f4a2c";
-import { icon } from "./icons.js?build=f096c6dcc96f4a2c";
-import { primaryNavigationMarkup } from "./primary-navigation.js?build=f096c6dcc96f4a2c";
-import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?build=f096c6dcc96f4a2c";
-import { applyProfilePreferences } from "./theme.js?build=f096c6dcc96f4a2c";
-import { setupGlobalCallListener } from "./global-call-listener.js?build=f096c6dcc96f4a2c";
-import { mountGlobalAnnouncements } from "./global-announcements.js?build=f096c6dcc96f4a2c";
-import { startAdminPresenceTracking, clearAdminPresenceSession } from "./admin-presence.js?build=f096c6dcc96f4a2c";
-import { registerLooplyServiceWorker } from "./service-worker.js?build=f096c6dcc96f4a2c";
-import { mountPullToRefresh } from "./pull-to-refresh.js?build=f096c6dcc96f4a2c";
-import { notificationBus } from "./notification-bus.js?build=f096c6dcc96f4a2c";
-import { mountIosMotion } from "./ios-motion.js?build=f096c6dcc96f4a2c";
-import { mountLiveNotificationToasts } from "./live-notification-toast.js?build=f096c6dcc96f4a2c";
-import { bindAdminModeSync } from "./admin-mode.js?build=f096c6dcc96f4a2c";
+import { bindProfileNavigation } from "./profile-navigation.js?build=caa8d5b0bdd8905d";
+import { icon } from "./icons.js?build=caa8d5b0bdd8905d";
+import { primaryNavigationMarkup } from "./primary-navigation.js?build=caa8d5b0bdd8905d";
+import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?build=caa8d5b0bdd8905d";
+import { applyProfilePreferences } from "./theme.js?build=caa8d5b0bdd8905d";
+import { setupGlobalCallListener } from "./global-call-listener.js?build=caa8d5b0bdd8905d";
+import { mountGlobalAnnouncements } from "./global-announcements.js?build=caa8d5b0bdd8905d";
+import { startAdminPresenceTracking, clearAdminPresenceSession } from "./admin-presence.js?build=caa8d5b0bdd8905d";
+import { registerLooplyServiceWorker } from "./service-worker.js?build=caa8d5b0bdd8905d";
+import { mountPullToRefresh } from "./pull-to-refresh.js?build=caa8d5b0bdd8905d";
+import { notificationBus } from "./notification-bus.js?build=caa8d5b0bdd8905d";
+import { mountIosMotion } from "./ios-motion.js?build=caa8d5b0bdd8905d";
+import { mountLiveNotificationToasts } from "./live-notification-toast.js?build=caa8d5b0bdd8905d";
+import { bindAdminModeSync } from "./admin-mode.js?build=caa8d5b0bdd8905d";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({

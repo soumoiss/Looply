@@ -1,8 +1,8 @@
-import { icon } from "./icons.js?build=f096c6dcc96f4a2c";
-import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js?build=f096c6dcc96f4a2c";
-import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js?build=f096c6dcc96f4a2c";
-import { saveNeonProfile, saveNeonAvatarOnly, removeNeonAvatarOnly } from "./neon-avatar-profile.js?build=f096c6dcc96f4a2c";
-import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js?build=f096c6dcc96f4a2c";
+import { icon } from "./icons.js?build=caa8d5b0bdd8905d";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js?build=caa8d5b0bdd8905d";
+import { normalizeYouTubePlaylistUrl } from "./youtube-playlist.js?build=caa8d5b0bdd8905d";
+import { saveNeonProfile, saveNeonAvatarOnly, removeNeonAvatarOnly } from "./neon-avatar-profile.js?build=caa8d5b0bdd8905d";
+import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js?build=caa8d5b0bdd8905d";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({

@@ -1,6 +1,6 @@
-import "./theme.js?build=f096c6dcc96f4a2c";
-import { isSupabaseConfigured, supabase } from "./supabase.js?build=f096c6dcc96f4a2c";
-import { captureIncomingSharedLink } from "./shared-link.js?build=f096c6dcc96f4a2c";
+import "./theme.js?build=caa8d5b0bdd8905d";
+import { isSupabaseConfigured, supabase } from "./supabase.js?build=caa8d5b0bdd8905d";
+import { captureIncomingSharedLink } from "./shared-link.js?build=caa8d5b0bdd8905d";
 
 // Capture share-sheet parameters before the splash redirects to login or home.
 captureIncomingSharedLink();

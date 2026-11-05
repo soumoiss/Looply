@@ -1,8 +1,8 @@
-import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata, appleStoryTrackId } from "./story-music-catalog.js?build=f096c6dcc96f4a2c";
-import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js?build=f096c6dcc96f4a2c";
-import { dedupeStorySongRecordings } from "./story-music-dedupe.js?build=f096c6dcc96f4a2c";
-import { storyMusicStartSeconds, withStoryMusicStart } from "./story-music-clip.js?build=f096c6dcc96f4a2c";
-import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js?build=f096c6dcc96f4a2c";
+import { PROVIDER_NAMES, officialSongPreview, officialStorySongEmbed, searchStorySongs, searchAppleMusicPublic, searchSpotifyStoryMetadata, appleStoryTrackId } from "./story-music-catalog.js?build=caa8d5b0bdd8905d";
+import { searchLicensedStorySongs, downloadLicensedStorySong } from "./story-licensed-music.js?build=caa8d5b0bdd8905d";
+import { dedupeStorySongRecordings } from "./story-music-dedupe.js?build=caa8d5b0bdd8905d";
+import { storyMusicStartSeconds, withStoryMusicStart } from "./story-music-clip.js?build=caa8d5b0bdd8905d";
+import { suggestStoryQueryFromApple } from "./story-apple-search-correction.js?build=caa8d5b0bdd8905d";
 
 // Apple catalog selections may use the historical remote soundtrack in the
 // published viewer; only owned/licensed audio is mixed into uploaded media.
@@ -15,7 +15,7 @@ export function storyMusicCanPublish(track) {
 async function searchSpotifyAuthenticated(term,{signal}={}) {
   // The preexisting authenticated Neon Function proxies Spotify catalog
   // metadata server-side. No Spotify secret or media bytes enter the browser.
-  const {activeSession,neonFunctionsBase}=await import("./neon-production-client.js?build=f096c6dcc96f4a2c");
+  const {activeSession,neonFunctionsBase}=await import("./neon-production-client.js?build=caa8d5b0bdd8905d");
   const session=await activeSession();
   return searchSpotifyStoryMetadata(term,{
     signal,endpoint:neonFunctionsBase,accessToken:session?.access_token||""

@@ -1,8 +1,8 @@
 // Open-source mobile AR camera: MediaPipe Face Landmarker + WebGL + Three.js.
 // All effects render on-device; face video never leaves the user's browser.
-import {FaceWarpGPU,fallbackFaceWarp} from "./story-ar-warp.js?build=f096c6dcc96f4a2c";
-import {paintFaceEffect} from "./story-ar-paint.js?build=f096c6dcc96f4a2c";
-import {StoryGlasses3D} from "./story-ar-3d.js?build=f096c6dcc96f4a2c";
+import {FaceWarpGPU,fallbackFaceWarp} from "./story-ar-warp.js?build=caa8d5b0bdd8905d";
+import {paintFaceEffect} from "./story-ar-paint.js?build=caa8d5b0bdd8905d";
+import {StoryGlasses3D} from "./story-ar-3d.js?build=caa8d5b0bdd8905d";
 // Only use a published, pinned stable version. 0.10.22 does NOT exist on npm.
 const TASKS_VERSION = "0.10.34";
 const TASKS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + TASKS_VERSION;

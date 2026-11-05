@@ -1,9 +1,9 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=f096c6dcc96f4a2c";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?build=f096c6dcc96f4a2c";
-import { setupChatEnhancements } from "../../src/chat-enhancements.js?build=f096c6dcc96f4a2c";
-import { setupChatPremium } from "../../src/chat-premium.js?build=f096c6dcc96f4a2c";
-import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?build=f096c6dcc96f4a2c";
-import { setupChatCalls } from "../../src/chat-calls.js?build=f096c6dcc96f4a2c";
+import { mountAppPage } from "../../src/page-runtime.js?build=caa8d5b0bdd8905d";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?build=caa8d5b0bdd8905d";
+import { setupChatEnhancements } from "../../src/chat-enhancements.js?build=caa8d5b0bdd8905d";
+import { setupChatPremium } from "../../src/chat-premium.js?build=caa8d5b0bdd8905d";
+import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?build=caa8d5b0bdd8905d";
+import { setupChatCalls } from "../../src/chat-calls.js?build=caa8d5b0bdd8905d";
 
 await mountAppPage({ page: "conversation", render: async ({ root, client, user }) => {
   root.dataset.conversationPage = "true";

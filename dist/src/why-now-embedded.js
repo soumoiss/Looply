@@ -27,7 +27,7 @@
     const key=previewKey(song);
     if (!key) return "";
     if(previewUrls.has(key))return previewUrls.get(key);
-    const { resolveAppleStoryPreview }=await import("./story-music-catalog.js?build=f096c6dcc96f4a2c");
+    const { resolveAppleStoryPreview }=await import("./story-music-catalog.js?build=caa8d5b0bdd8905d");
     const url=await resolveAppleStoryPreview(song).catch(()=> "");
     previewUrls.set(key,url);
     return url;
@@ -545,7 +545,7 @@
   musicButton.onclick = async function () {
     try {
       if (musicPickerCleanup) { musicPickerCleanup(); musicPickerCleanup = null; }
-      const module = await import("./story-music-picker.js?build=f096c6dcc96f4a2c");
+      const module = await import("./story-music-picker.js?build=caa8d5b0bdd8905d");
       const body = document.querySelector("#sheet-body");
       musicPickerCleanup = module.openStoryMusicPicker({
         modal: (title, html) => sheetOpen('<h2 class="sheet-title">' + escapeHtml(title) + '</h2>' + html),

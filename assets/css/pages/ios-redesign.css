@@ -35,7 +35,9 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
   /* Give every desktop destination room instead of clipping the last tabs. */
   .looply-page:not(.page-chat) .page-header{
     width:min(1320px,calc(100vw - 24px));max-width:none;
-    left:50%;transform:translateX(-50%);box-sizing:border-box;
+    left:auto;transform:none;
+    margin-left:calc((100% - min(1320px,calc(100vw - 24px)))/2);
+    box-sizing:border-box;
   }
 }
 

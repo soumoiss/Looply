@@ -1,5 +1,5 @@
-import "./theme.js?build=f096c6dcc96f4a2c";
-import {neon,activeSession,emailOf,selfProfile} from "./neon-production-client.js?build=f096c6dcc96f4a2c";
+import "./theme.js?build=caa8d5b0bdd8905d";
+import {neon,activeSession,emailOf,selfProfile} from "./neon-production-client.js?build=caa8d5b0bdd8905d";
 const $=id=>document.getElementById(id);
 const form=$("loginForm"),message=$("message"),submit=$("loginButton"),password=$("password");
 const redirect=(()=>{const v=new URLSearchParams(location.search).get("next");return v&&/^[a-z0-9_-]+\.html$/i.test(v)?v:"home.html"})();

@@ -1,4 +1,4 @@
-import {notificationBus} from "./notification-bus.js?build=f096c6dcc96f4a2c";
+import {notificationBus} from "./notification-bus.js?build=caa8d5b0bdd8905d";
 
 const verifiedUuid=/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
 const AVATAR_BUCKET="looply-avatars";

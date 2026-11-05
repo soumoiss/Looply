@@ -1,4 +1,4 @@
-import { extractDate, toISO } from "./date-parser.js?build=f096c6dcc96f4a2c";
+import { extractDate, toISO } from "./date-parser.js?build=caa8d5b0bdd8905d";
 
 const maxFileBytes = 200 * 1024 * 1024;
 const passwordIterations = 210_000;

@@ -1,6 +1,6 @@
 // Login Neon em HOMOLOGAÇÃO. Nunca substitui a sessão Supabase na produção.
 import { createClient, SupabaseAuthAdapter } from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
-import "./theme.js?build=f096c6dcc96f4a2c";
+import "./theme.js?build=caa8d5b0bdd8905d";
 
 const neon = createClient({
   auth: {
