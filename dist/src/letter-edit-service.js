@@ -1,6 +1,6 @@
 // The live Cartas editor reads the full authorized Neon record, not a list preview.
 // The same checks apply to UI edits and direct REST requests via the database RLS.
-import { openProtectedLetter, sealLetter } from "./letters-community.js?build=caa8d5b0bdd8905d";
+import { openProtectedLetter, sealLetter } from "./letters-community.js?build=23c5b03973212076";
 
 export const COMMUNITY_LETTER_LIMIT = 5000;
 const communityColumns = "id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,password_hints";

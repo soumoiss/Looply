@@ -1,10 +1,10 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=caa8d5b0bdd8905d";
-import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?build=caa8d5b0bdd8905d";
-import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?build=caa8d5b0bdd8905d";
-import { signProfileAvatars } from "../../src/profiles.js?build=caa8d5b0bdd8905d";
-import { installScheduledLetters } from "../../src/scheduled-letters.js?build=caa8d5b0bdd8905d";
-import { createLetterAttachmentComposer, createLetterAttachmentReader } from "../../src/letter-attachments.js?build=caa8d5b0bdd8905d";
-import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?build=caa8d5b0bdd8905d";
+import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
+import { archivedCardsMarkup, bindArchivedCards, loadArchivedCards } from "../../src/archived-cards.js?build=23c5b03973212076";
+import { bindCommunityLetters, communityLettersMarkup, loadCommunityLetters, sealLetter, openProtectedLetter } from "../../src/letters-community.js?build=23c5b03973212076";
+import { signProfileAvatars } from "../../src/profiles.js?build=23c5b03973212076";
+import { installScheduledLetters } from "../../src/scheduled-letters.js?build=23c5b03973212076";
+import { createLetterAttachmentComposer, createLetterAttachmentReader } from "../../src/letter-attachments.js?build=23c5b03973212076";
+import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?build=23c5b03973212076";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const day = (value) => value && !Number.isNaN(new Date(value).valueOf()) ? new Date(value).toLocaleDateString("pt-BR") : "Sem data";

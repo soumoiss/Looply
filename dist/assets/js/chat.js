@@ -1,12 +1,12 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=caa8d5b0bdd8905d";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?build=caa8d5b0bdd8905d";
-import { setupChatEnhancements } from "../../src/chat-enhancements.js?build=caa8d5b0bdd8905d";
-import { setupChatPremium } from "../../src/chat-premium.js?build=caa8d5b0bdd8905d";
-import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?build=caa8d5b0bdd8905d";
-import { setupChatCalls } from "../../src/chat-calls.js?build=caa8d5b0bdd8905d";
-import { loadStories, storiesMarkup } from "../../src/stories.js?build=caa8d5b0bdd8905d";
-import { mountWhyNowStories } from "../../src/why-now-integration.js?build=caa8d5b0bdd8905d";
-import { loadSocialData } from "../../src/social.js?build=caa8d5b0bdd8905d";
+import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, refreshChatInPlace, setupChatRealtime } from "../../src/chat.js?build=23c5b03973212076";
+import { setupChatEnhancements } from "../../src/chat-enhancements.js?build=23c5b03973212076";
+import { setupChatPremium } from "../../src/chat-premium.js?build=23c5b03973212076";
+import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?build=23c5b03973212076";
+import { setupChatCalls } from "../../src/chat-calls.js?build=23c5b03973212076";
+import { loadStories, storiesMarkup } from "../../src/stories.js?build=23c5b03973212076";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?build=23c5b03973212076";
+import { loadSocialData } from "../../src/social.js?build=23c5b03973212076";
 
 const chatRoot = document.getElementById("pageContent");
 if (chatRoot) {

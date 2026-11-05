@@ -1,5 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=caa8d5b0bdd8905d";
-import { notificationBus } from "../../src/notification-bus.js?build=caa8d5b0bdd8905d";
+import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
+import { notificationBus } from "../../src/notification-bus.js?build=23c5b03973212076";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"

@@ -137,8 +137,8 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
 .letter-log-status{margin:10px 2px 0;font-size:13px;color:var(--muted)}
 
 /* Visible page fixes found in the published site. */
-.looply-page.page-chat .chat-message-form[data-has-content="false"] .chat-record-start{
-  color:var(--on,#fff);
+.looply-page.page-chat.chat-model-live .chat-message-form.cmp[data-has-content="false"] .chat-record-start.ib{
+  color:var(--on,#fff)!important;
 }
 .page-gallery .gallery-preview-slot:has(> video){
   position:relative;
@@ -150,6 +150,15 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
 }
 .page-gallery .gallery-preview-slot > video{background:transparent}
 .page-profile .pr-page,.page-profile .pr-dialog{--pr-accent:var(--primary)}
+.page-profile .pr-avatar{background:linear-gradient(35deg,var(--primary),color-mix(in srgb,var(--primary) 45%,#fff))}
+.page-profile .pr-stats > button{background:color-mix(in srgb,var(--primary) 7%,var(--surface-strong))}
+.page-profile .pr-tabs button[aria-selected="true"]{
+  background:color-mix(in srgb,var(--primary) 12%,var(--surface-strong));color:var(--primary);
+}
+.page-profile .pr-message{
+  background:color-mix(in srgb,var(--primary) 10%,var(--surface-strong));
+  border-color:color-mix(in srgb,var(--primary) 22%,var(--line));color:var(--primary);
+}
 .page-users .people-area{grid-template-columns:minmax(0,1fr)}
 .page-users .person-result > div strong{font-size:14px}
 .page-users .person-result > div > span{font-size:12px}

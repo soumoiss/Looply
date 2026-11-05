@@ -1,7 +1,7 @@
-import { icon } from "./icons.js?build=caa8d5b0bdd8905d";
-import { signProfileAvatars } from "./profiles.js?build=caa8d5b0bdd8905d";
-import { readOwnDedicationForEdit, saveOwnDedicationNote } from "./music-dedication-edit.js?build=caa8d5b0bdd8905d";
-import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js?build=caa8d5b0bdd8905d";
+import { icon } from "./icons.js?build=23c5b03973212076";
+import { signProfileAvatars } from "./profiles.js?build=23c5b03973212076";
+import { readOwnDedicationForEdit, saveOwnDedicationNote } from "./music-dedication-edit.js?build=23c5b03973212076";
+import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, searchStorySongs } from "./story-music-catalog.js?build=23c5b03973212076";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"

@@ -1,6 +1,6 @@
-import { icon } from './icons.js?build=caa8d5b0bdd8905d';
-import { cachedSignedUrl } from './storage-url-cache.js?build=caa8d5b0bdd8905d';
-import { esc, profileError, profileRpc, signPeople } from './profile-api.js?build=caa8d5b0bdd8905d';
+import { icon } from './icons.js?build=23c5b03973212076';
+import { cachedSignedUrl } from './storage-url-cache.js?build=23c5b03973212076';
+import { esc, profileError, profileRpc, signPeople } from './profile-api.js?build=23c5b03973212076';
 
 // The profile uses the gallery's immersive media layout with the original
 // visibility checks, likes and comments for each content source.

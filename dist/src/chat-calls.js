@@ -1,9 +1,9 @@
-import { icon } from "./icons.js?build=caa8d5b0bdd8905d";
-import { createCallIceGate } from "./call-ice-gate.js?build=caa8d5b0bdd8905d";
-import { createCallRingtone } from "./call-ringtone.js?build=caa8d5b0bdd8905d";
-import { requestImmediateCallPush } from "./call-push-alert.js?build=caa8d5b0bdd8905d";
-import { setCallPlaybackActive } from "./media-playback-coordinator.js?build=caa8d5b0bdd8905d";
-import { captureCallMedia, isRecoverableCallCaptureError } from "./call-media-capture.js?build=caa8d5b0bdd8905d";
+import { icon } from "./icons.js?build=23c5b03973212076";
+import { createCallIceGate } from "./call-ice-gate.js?build=23c5b03973212076";
+import { createCallRingtone } from "./call-ringtone.js?build=23c5b03973212076";
+import { requestImmediateCallPush } from "./call-push-alert.js?build=23c5b03973212076";
+import { setCallPlaybackActive } from "./media-playback-coordinator.js?build=23c5b03973212076";
+import { captureCallMedia, isRecoverableCallCaptureError } from "./call-media-capture.js?build=23c5b03973212076";
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
 export function setupChatCalls(root, client, userId) {
   if (!root || root.dataset.chatCalls === "true") return;

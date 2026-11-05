@@ -3,7 +3,7 @@
  * conversation IDs and authenticated Neon rows. No prototype users or messages.
  * Both chat.html and conversa.html share this controller.
  */
-import { modelIcon as ic } from './chat-model-icons.js?build=caa8d5b0bdd8905d';
+import { modelIcon as ic } from './chat-model-icons.js?build=23c5b03973212076';
 
 const COLOR_PALETTE = ['#7010b0','#5f1098','#bd42f2','#087fbd','#c04483','#187b58','#6752d8','#d05b65','#14806e','#d76a32'];
 const THEMES = [
@@ -335,7 +335,7 @@ export function setupOfficialMessagesModel(root,client,userId,seed={}) {
     if(target.closest('[data-ref-toggle-button]')){toggleRow('favorites',activeId);return;}
     const color=target.closest('[data-ref-color]');if(color){changeColor(activeInfo.id,color.dataset.refColor);return;}
     const theme=target.closest('[data-ref-theme]');if(theme){
-      const {applyTheme}=await import('./theme.js?build=caa8d5b0bdd8905d');applyTheme(theme.dataset.refTheme);
+      const {applyTheme}=await import('./theme.js?build=23c5b03973212076');applyTheme(theme.dataset.refTheme);
       settings();return;
     }
     const add=target.closest('[data-ref-add-member]');if(add){

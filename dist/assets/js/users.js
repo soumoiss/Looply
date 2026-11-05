@@ -1,5 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=caa8d5b0bdd8905d";
-import { bindProfileEvents, renderSearchResults, signProfileAvatars } from "../../src/profiles.js?build=caa8d5b0bdd8905d";
+import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
+import { bindProfileEvents, renderSearchResults, signProfileAvatars } from "../../src/profiles.js?build=23c5b03973212076";
 
 function directoryMarkup() {
   return `<section class="panel people-area"><div class="people-search">
