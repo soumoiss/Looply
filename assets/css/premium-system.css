@@ -1,0 +1,340 @@
+/*
+ Looply / Etapa 1 — Design System premium mobile-first
+ Camada final de apresentação, sem redefinir temas, controllers, rotas,
+ canvas, visores imersivos, teclado ou gestos.
+*/
+@view-transition { navigation: auto; }
+:root {
+  --premium-space-1: var(--looply-ds-space-1,4px);
+  --premium-space-2: var(--looply-ds-space-2,8px);
+  --premium-space-3: var(--looply-ds-space-3,12px);
+  --premium-space-4: var(--looply-ds-space-4,16px);
+  --premium-space-6: var(--looply-ds-space-6,24px);
+  --premium-space-8: var(--looply-ds-space-8,32px);
+  --premium-radius-control: var(--looply-ds-radius-sm,14px);
+  --premium-radius-card: var(--looply-ds-radius-md,20px);
+  --premium-radius-sheet: var(--looply-ds-radius-lg,28px);
+  --premium-glass: color-mix(in srgb,var(--surface-strong,#fff) 76%,transparent);
+  --premium-glass-line: color-mix(in srgb,var(--line,#e0d6ea) 75%,var(--surface-strong,#fff));
+  --premium-ring: color-mix(in srgb,var(--primary,#7010b0) 70%,var(--text,#29252f));
+  --premium-ease: cubic-bezier(.2,.8,.2,1);
+  --premium-spring: cubic-bezier(.22,1,.36,1);
+  --premium-shadow: 0 12px 40px color-mix(in srgb,var(--deep,#302050) 11%,transparent),0 2px 8px color-mix(in srgb,var(--deep,#302050) 5%,transparent);
+}
+html {-webkit-text-size-adjust:100%;}
+html[data-theme] body.looply-page {
+  color:var(--text);
+  background:radial-gradient(75% 38% at 5% 0%,color-mix(in srgb,var(--primary) 12%,transparent),transparent 85%),
+             radial-gradient(64% 36% at 100% 8%,color-mix(in srgb,var(--bg-2) 85%,transparent),transparent 90%),var(--bg);
+  accent-color:var(--primary);
+}
+.looply-page {min-width:0;}
+.looply-page :where(main,.page-content,.container-page,section,article) {min-width:0;}
+.looply-page :where(p,h1,h2,h3,.hero-title) {overflow-wrap:break-word;}
+.looply-page :where(button,a,input,textarea,select,summary) {-webkit-tap-highlight-color:transparent;}
+.looply-page :where(button,a,input,textarea,select,summary):focus-visible,
+.login-page :where(button,a,input,textarea,select):focus-visible,
+.share-shell :where(button,a,input,textarea,select):focus-visible {
+  outline:3px solid var(--premium-ring);outline-offset:3px;
+}
+.looply-page :where(button,input,select,textarea):disabled {cursor:not-allowed;}
+.looply-page :where(img,video,canvas) {max-inline-size:100%;}
+
+/* Translucent shared header, logo and account drawer. */
+.looply-page:not(.page-conversation) .page-header {
+  isolation:isolate;border:1px solid var(--premium-glass-line);
+  border-radius:clamp(17px,3vw,24px);background:var(--premium-glass);
+  -webkit-backdrop-filter:saturate(1.65) blur(26px);
+  backdrop-filter:saturate(1.65) blur(26px);
+  box-shadow:var(--premium-shadow);
+  transition:border-color .2s var(--premium-ease),box-shadow .2s var(--premium-ease);
+}
+.looply-page:not(.page-chat):not(.page-conversation) .page-header {padding:9px 12px;}
+.looply-page .brand-inline {gap:10px;min-width:0;}
+.looply-page .brand-inline .brand-mark {
+  border-radius:15px;border:1px solid color-mix(in srgb,var(--primary) 17%,var(--line));
+  background:color-mix(in srgb,var(--surface-strong) 88%,var(--primary) 12%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--primary) 9%,transparent);
+}
+.looply-page .brand-inline strong {letter-spacing:-.035em;}
+.looply-page .looply-account-menu > summary {
+  border-radius:15px;transition:background-color .18s var(--premium-ease),box-shadow .18s var(--premium-ease);
+}
+.looply-page .looply-account-menu[open] > summary {
+  background:color-mix(in srgb,var(--primary) 8%,var(--surface-strong));
+}
+.looply-page .account-menu-popover {
+  border:1px solid var(--premium-glass-line);border-radius:20px;padding:8px;
+  background:color-mix(in srgb,var(--surface-strong) 93%,transparent);
+  -webkit-backdrop-filter:saturate(1.3) blur(18px);backdrop-filter:saturate(1.3) blur(18px);
+  box-shadow:0 20px 58px color-mix(in srgb,var(--deep) 19%,transparent);
+}
+.looply-page .account-menu-popover :where(.account-menu-link,button) {
+  border-radius:12px;min-height:44px;display:flex;align-items:center;gap:10px;
+}
+
+/* Canonical seven destinations retain the existing DOM, URLs and badges. */
+.looply-page .page-navigation {isolation:isolate;}
+.looply-page .page-navigation .header-action {
+  z-index:1;color:var(--text);border-radius:14px;
+  transition:color .2s var(--premium-ease),background-color .2s var(--premium-ease),
+             border-color .2s var(--premium-ease),transform .18s var(--premium-ease);
+}
+.looply-page .page-navigation [aria-current="page"] {color:var(--primary);font-weight:800;}
+.looply-page .page-navigation .page-navigation-icon,
+.looply-page .page-navigation .page-navigation-icon svg {width:21px;height:21px;flex-shrink:0;}
+.looply-page .page-navigation .navigation-badge {
+  box-shadow:0 2px 7px rgba(70,22,40,.16);font-variant-numeric:tabular-nums;
+}
+@media (hover:hover) and (pointer:fine) {
+  .looply-page .page-navigation .header-action:hover {
+    color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,var(--surface-strong));
+  }
+  .looply-page .account-menu-popover :where(.account-menu-link,button):hover {
+    background:color-mix(in srgb,var(--primary) 8%,var(--surface-strong));
+  }
+}
+@media (max-width:760px) {
+  .looply-page:not(.page-conversation) .page-header {
+    top:max(5px,env(safe-area-inset-top,0px));
+    background:color-mix(in srgb,var(--surface-strong) 72%,transparent);
+    -webkit-backdrop-filter:saturate(1.55) blur(23px);
+    backdrop-filter:saturate(1.55) blur(23px);
+  }
+  .looply-page .page-navigation,.looply-page.page-chat .page-navigation {
+    position:fixed;inset:auto auto calc(7px + env(safe-area-inset-bottom,0px)) 50%;
+    display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+    align-items:stretch;justify-content:stretch;gap:3px;
+    width:min(calc(100% - 14px),900px);max-width:900px;padding:6px;margin:0;
+    box-sizing:border-box;border:1px solid var(--premium-glass-line);
+    border-radius:22px;background:color-mix(in srgb,var(--surface-strong) 83%,transparent);
+    box-shadow:0 14px 46px color-mix(in srgb,var(--deep) 20%,transparent);
+    -webkit-backdrop-filter:saturate(1.6) blur(26px);
+    backdrop-filter:saturate(1.6) blur(26px);
+    transform:translateX(-50%);z-index:900;overflow:visible;
+  }
+  .looply-page .page-navigation .header-action,
+  .looply-page.page-chat .page-navigation .header-action {
+    display:flex;flex-direction:column;gap:4px;align-items:center;
+    justify-content:center;width:100%;min-width:0;min-height:56px;
+    padding:6px 1px;border:0;border-radius:14px;color:var(--muted);
+    background:transparent;box-shadow:none;font-size:9.5px;line-height:1.1;
+  }
+  .looply-page .page-navigation .page-navigation-label,
+  .looply-page.page-chat .page-navigation .page-navigation-label {
+    display:block !important;width:100%;max-width:100%;min-width:0;
+    font-size:9.5px;font-weight:650;letter-spacing:-.015em;line-height:1.2;
+    text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .looply-page .page-navigation [aria-current="page"],
+  .looply-page.page-chat .page-navigation [aria-current="page"] {
+    color:var(--primary);border-color:transparent;background:transparent;box-shadow:none;
+  }
+  .looply-page .page-navigation [aria-current="page"] .page-navigation-label {font-weight:850;}
+  .looply-page .page-navigation-indicator {
+    display:block;position:absolute;z-index:0;top:6px;bottom:6px;left:0;
+    border:1px solid color-mix(in srgb,var(--primary) 26%,transparent);
+    border-radius:15px;background:color-mix(in srgb,var(--primary) 12%,var(--surface-strong));
+    box-shadow:inset 0 1px 0 color-mix(in srgb,var(--surface-strong) 86%,transparent),
+               0 3px 11px color-mix(in srgb,var(--primary) 12%,transparent);
+    pointer-events:none;will-change:transform,width;
+  }
+  .looply-page .page-navigation-indicator.is-ready {
+    transition:transform .49s var(--premium-spring),width .49s var(--premium-spring);
+  }
+  .looply-page:not(.page-chat) .container-page {
+    width:min(calc(100% - 20px),var(--max));
+    padding-bottom:calc(104px + env(safe-area-inset-bottom,0px));
+  }
+  .looply-page:not(.page-chat):not(.page-reels) .page-content {
+    animation:premium-content-enter .3s var(--premium-ease) both;
+  }
+  .looply-page .hero-panel.page-title-panel {padding:clamp(18px,5vw,26px);}
+}
+@media (max-width:360px) {
+  .looply-page .page-navigation,.looply-page.page-chat .page-navigation {padding:5px 4px;gap:1px;}
+  .looply-page .page-navigation .header-action,.looply-page.page-chat .page-navigation .header-action {
+    padding-inline:0;min-height:54px;
+  }
+  .looply-page .page-navigation .page-navigation-label,.looply-page.page-chat .page-navigation .page-navigation-label {font-size:8.5px;}
+  .looply-page .page-navigation .page-navigation-icon,.looply-page .page-navigation .page-navigation-icon svg {width:19px;height:19px;}
+}
+@keyframes premium-content-enter {
+  from {opacity:.72;translate:0 7px;}to {opacity:1;translate:0 0;}
+}
+
+/* Surfaces / typography; do not recolor letter sheets, story canvas or media. */
+.looply-page:not(.page-chat) :where(.hero-panel,.panel) {
+  border-color:var(--premium-glass-line);border-radius:var(--premium-radius-sheet);
+  background:var(--surface);
+  box-shadow:0 10px 34px color-mix(in srgb,var(--deep) 7%,transparent);
+}
+.looply-page:not(.page-chat) .hero-panel.page-title-panel {
+  background:linear-gradient(140deg,
+    color-mix(in srgb,var(--surface-strong) 97%,var(--primary) 3%),
+    color-mix(in srgb,var(--surface) 90%,var(--bg-2) 10%));
+  box-shadow:0 10px 32px color-mix(in srgb,var(--primary) 7%,transparent);
+}
+.looply-page .hero-title {
+  font-weight:850;line-height:1.09;letter-spacing:-.043em;text-wrap:balance;
+}
+.looply-page .eyebrow {letter-spacing:.11em;}
+.looply-page .looply-footer {opacity:.74;letter-spacing:.035em;}
+.looply-page:not(.page-chat) :where(
+  .home-welcome,.post-card.ig-post,.music-card,.youtube-track-row,
+  .gallery-card,.notification-row,.profile-card,.users-card,
+  .settings-card,.admin-card,.overview-card
+) {
+  border-radius:var(--premium-radius-card);border-color:var(--premium-glass-line);
+  box-shadow:0 6px 24px color-mix(in srgb,var(--deep) 6%,transparent);
+}
+.looply-page:not(.page-chat) :where(.home-welcome,.music-card,.overview-card,.notification-row) {
+  transition:border-color .2s var(--premium-ease),box-shadow .2s var(--premium-ease);
+}
+@media (hover:hover) and (pointer:fine) {
+  .looply-page:not(.page-chat) :where(.music-card,.overview-card,.notification-row):hover {
+    border-color:color-mix(in srgb,var(--primary) 22%,var(--line));
+    box-shadow:0 10px 28px color-mix(in srgb,var(--deep) 9%,transparent);
+  }
+}
+
+/* Touch feedback: none of the application handlers are changed. */
+.looply-page:not(.page-chat) :where(
+  .primary-button,.secondary-button,.danger-button,.quiet-button,
+  .filter-button,.text-button,.header-action,.icon-action,
+  .gallery-primary,.gallery-chip,.gallery-tab,.gallery-tool,.pr-button
+) {
+  border-radius:var(--premium-radius-control);touch-action:manipulation;
+  transition:transform .18s var(--premium-ease),box-shadow .2s var(--premium-ease),
+    background-color .2s var(--premium-ease),border-color .2s var(--premium-ease),
+    color .2s var(--premium-ease);
+}
+.looply-page:not(.page-chat) :where(
+  .primary-button,.secondary-button,.filter-button,.gallery-primary,.pr-button
+) {min-height:44px;}
+.looply-page:not(.page-chat) .primary-button {
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  box-shadow:0 8px 20px color-mix(in srgb,var(--primary) 22%,transparent);
+}
+.looply-page:not(.page-chat) :where(.filter-button,.gallery-chip,.gallery-tab)[aria-pressed="true"],
+.looply-page:not(.page-chat) :where(.filter-button,.gallery-chip,.gallery-tab).active {
+  color:var(--primary);border-color:color-mix(in srgb,var(--primary) 28%,var(--line));
+  background:color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
+}
+.looply-page:not(.page-chat) :where(
+  .primary-button,.secondary-button,.danger-button,.quiet-button,
+  .filter-button,.text-button,.icon-action,.gallery-primary,.pr-button
+):not(:disabled):not([aria-disabled="true"]):active {
+  transform:scale(.975);filter:brightness(.97);
+}
+@media (hover:hover) and (pointer:fine) {
+  .looply-page:not(.page-chat) :where(.primary-button,.secondary-button,.gallery-primary,.pr-button):not(:disabled):hover {
+    box-shadow:0 12px 27px color-mix(in srgb,var(--primary) 23%,transparent);
+  }
+}
+
+/* Form geometry and theme-aware focus. */
+.looply-page:not(.page-chat) :where(.field,.form-field,.settings-form,.community-letter-form) {min-width:0;}
+.looply-page:not(.page-chat) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,textarea
+) {
+  max-width:100%;min-width:0;border-radius:14px;
+  transition:border-color .18s var(--premium-ease),box-shadow .18s var(--premium-ease);
+}
+.looply-page:not(.page-chat) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,textarea
+):focus-visible {
+  border-color:color-mix(in srgb,var(--primary) 42%,var(--line));
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 9%,transparent);
+}
+.looply-page:not(.page-chat) :where(.field input,.field select,.form-field input,.settings-form select) {min-height:44px;}
+.looply-page :where(.filters,.tabs,.tab-list) {min-width:0;}
+.looply-page :where(.filters,.tabs) {gap:8px;}
+
+/* Modals; full-screen story, viewer and call windows retain their geometry. */
+.looply-page :where(
+  dialog[open]:not(.story-viewer-dialog):not(.story-studio-dialog):not(.gallery-media-dialog),
+  .modal.is-open,.account-menu-popover
+) {animation:premium-modal-enter .24s var(--premium-spring) both;}
+.looply-page dialog:not(.story-viewer-dialog):not(.story-studio-dialog):not(.gallery-media-dialog)::backdrop {
+  background:rgba(13,9,23,.55);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+}
+.looply-page :where(dialog:not(.story-viewer-dialog):not(.story-studio-dialog):not(.gallery-media-dialog)) {
+  max-width:min(96vw,720px);box-sizing:border-box;
+}
+@keyframes premium-modal-enter {
+  from {opacity:0;scale:.97;translate:0 8px;}
+  to {opacity:1;scale:1;translate:0 0;}
+}
+
+/* Feature-specific, purely decorative details. */
+.page-home .post-card.ig-post {overflow:hidden;}
+.page-home .home-welcome {border-radius:22px;}
+.page-music .music-card {overflow:clip;}
+.page-gallery .gallery-card {overflow:hidden;}
+.page-notifications .notification-row {border-radius:17px;}
+.page-users :where(.user-row,.user-card) {border-radius:18px;}
+.page-settings fieldset {min-width:0;border-radius:20px;}
+.page-admin :where(.admin-record,.sticker-import-card) {
+  border-radius:20px;border-color:var(--premium-glass-line);
+  background:var(--surface-strong);box-shadow:var(--premium-shadow);
+}
+.page-letters :where(.community-letter-collection,.written-letters-panel,.archived-cards) {border-radius:22px;}
+.page-chat:not(.page-conversation):not(:has(.chat-area.is-conversation-open)) .page-header {
+  background:var(--premium-glass);
+  -webkit-backdrop-filter:saturate(1.5) blur(20px);backdrop-filter:saturate(1.5) blur(20px);
+}
+.page-chat .chat-sidebar :where(.chat-conversation,.chat-conversation-row) {border-radius:17px;}
+.page-chat :where(.chat-panel,.chat-thread-panel) {
+  border-color:color-mix(in srgb,var(--primary,#7010b0) 10%,var(--line,#e6dbed));
+}
+
+/* Standalone entrypoints (login, share and Why Now) keep their own layouts. */
+.login-page {width:min(calc(100% - 28px),440px);margin-inline:auto;}
+.login-card {
+  border:1px solid color-mix(in srgb,var(--line) 77%,var(--surface-strong) 23%);
+  border-radius:28px;background:color-mix(in srgb,var(--surface-strong) 94%,transparent);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 22px 64px color-mix(in srgb,var(--deep) 12%,transparent);
+}
+.login-card :where(.input,.login-button) {min-height:48px;border-radius:15px;}
+.login-card .login-button {
+  box-shadow:0 10px 26px color-mix(in srgb,var(--primary) 22%,transparent);
+  transition:transform .18s var(--premium-ease),filter .18s var(--premium-ease);
+}
+.login-card .login-button:not(:disabled):active {transform:scale(.98);filter:brightness(.97);}
+.share-shell :where(.share-preview,.share-heading,.share-card) {border-radius:21px;}
+.share-shell :where(button,.share-icon-button) {transition:transform .18s var(--premium-ease),filter .18s var(--premium-ease);}
+.share-shell button:not(:disabled):active {transform:scale(.975);}
+.page-why-now button:not(:disabled):active {filter:brightness(.94);}
+.page-why-now :where(button,input,textarea):focus-visible {
+  outline:3px solid var(--violet,#794eff);outline-offset:3px;
+}
+
+@media (max-width:428px) {
+  .looply-page:not(.page-chat) .hero-title {font-size:clamp(26px,7.5vw,34px);}
+  .looply-page :where(dialog[open]:not(.story-viewer-dialog):not(.story-studio-dialog):not(.gallery-media-dialog)) {
+    max-inline-size:calc(100vw - 16px);
+    max-block-size:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 16px);
+  }
+  .looply-page :where(.panel,.hero-panel,.admin-record) {max-width:100%;}
+  .looply-page:not(.page-chat) :where(input:not([type=checkbox]):not([type=radio]),textarea,select) {
+    font-size:max(16px,1rem);
+  }
+  .login-card {padding:clamp(20px,6vw,28px) clamp(16px,5vw,24px);}
+}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))) {
+  .looply-page:not(.page-conversation) .page-header,.looply-page .page-navigation,
+  .looply-page .account-menu-popover,.login-card {background:var(--surface-strong,#fff);}
+}
+@media (prefers-reduced-motion:reduce) {
+  @view-transition {navigation:none;}
+  .looply-page .page-navigation-indicator,
+  .looply-page :where(button,a,dialog[open],.modal.is-open,.page-content,.account-menu-popover),
+  .login-card :where(button,a),.share-shell :where(button,a) {
+    animation:none !important;transition:none !important;
+  }
+  ::view-transition-old(root),::view-transition-new(root) {animation-duration:.01ms;}
+}
