@@ -59,6 +59,7 @@ function notificationHref(item) {
   if (item.source === "chat") return `conversa.html?id=${encodeURIComponent(item.conversation_id)}`;
   if (["post", "comment", "reply", "post_like"].includes(item.kind)) return `${item.externalPost?"reels":"home"}.html#post-${encodeURIComponent(item.resource_id)}`;
   if (item.kind === "story_like") return "home.html#stories";
+  if (item.kind === "story_view") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "highlight_view") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "story_mention") return `home.html?storyId=${encodeURIComponent(item.resource_id)}#stories`;
   if (item.kind === "music_dedication") return `musicas.html#dedication-${encodeURIComponent(item.resource_id)}`;
@@ -67,7 +68,7 @@ function notificationHref(item) {
 }
 
 function notificationMarkup(item) {
-  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", story_mention: "Menção em story", highlight_view:"Visualização de Highlight", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
+  const labels = { post: "Publicação", comment: "Comentário", reply: "Resposta", post_like: "Curtida no feed", story_like: "Curtida no story", story_mention: "Menção em story", highlight_view:"Visualização de Highlight",story_view:"Visualização do WhyNow", music_dedication: "Dedicatória", gallery_comment: "Comentário na galeria", gallery_tag: "Menção na galeria", letter: "Carta", message: "Mensagem" };
   const actor = item.actor ? (item.actor.display_name || item.actor.username) : "Looply";
   const category=item.kind==="post_like"&&String(item.preview||"").includes("Curtiu seu comentário")?"Curtida em comentário":labels[item.kind]||"Atividade";
   return `<a class="notification-row ${item.read_at ? "is-read" : "is-unread"}" href="${notificationHref(item)}"

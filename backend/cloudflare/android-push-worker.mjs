@@ -169,11 +169,11 @@ function kindFor(row){
   if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag","archive-gallery-comment","archive-gallery-mention"].includes(row.source))
     return "gallery";
   if(kind==="story_mention")return "mention";
-  if(kind==="story_like")return "story";
+  if(kind==="story_like" || kind==="story_view")return "story";
   if(kind==="highlight_view")return "highlight_view";
   if(kind==="gallery_like" || kind==="gallery_mention" || kind==="gallery_comment")return "gallery";
   if(kind==="dedication")return "dedication";
-  if(kind==="story_like")return "story";
+  if(kind==="story_like" || kind==="story_view")return "story";
   if(kind==="music_dedication")return "dedication";
   if(["comment","reply","post","post_like","like","reel","story","mention","call"].includes(kind))return kind==="post_like"?"like":kind;
   return "activity";
@@ -247,7 +247,7 @@ export async function deliverNotifications(env,{
       "reply":"Respondeu ao seu comentário","mention":"Mencionou você",
       "story_mention":"Mencionou você em um Story",
       "story_like":"Curtiu seu Story","post_like":"Curtiu sua publicação",
-      "highlight_view":"Visualizou seu Highlight",
+      "highlight_view":"Visualizou seu Highlight","story_view":"Visualizou seu WhyNow",
       "dedication":"Dedicou uma música para você","music_dedication":"Dedicou uma música para você",
       "post":"Publicou no feed","reel":"Publicou um Reel",
       "like":"Curtiu sua publicação","gallery":"Publicou na galeria"

@@ -515,3 +515,12 @@ html[data-theme="noite"] { --looply-icon-color: #fff; }
 .looply-live-notice-avatar {grid-column:1;grid-row:1 / span 3;width:42px;height:42px;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--surface-soft);color:var(--primary);font-weight:800}
 .looply-live-notice-avatar img {width:100%;height:100%;object-fit:cover}
 @media(prefers-reduced-motion:reduce){.looply-page :where(dialog[open],.modal.is-open,.account-menu-popover),.looply-page .page-content{animation:none!important}.looply-page .page-navigation-indicator{transition:none!important}}
+
+/* Looply premium — glassmorphism e acabamento mobile sem alterar a navegação atual. */
+.looply-page:not(.page-conversation) .page-header {background:color-mix(in srgb,var(--bg) 60%,transparent);border:1px solid color-mix(in srgb,var(--line) 78%,transparent);-webkit-backdrop-filter:saturate(1.55) blur(24px);backdrop-filter:saturate(1.55) blur(24px);box-shadow:0 8px 28px color-mix(in srgb,var(--text) 8%,transparent)}
+@media(max-width:760px){.looply-page:not(.page-conversation) .page-header{background:color-mix(in srgb,var(--surface-strong) 66%,transparent);-webkit-backdrop-filter:saturate(1.5) blur(20px);backdrop-filter:saturate(1.5) blur(20px)}}
+.looply-page :is(button,.header-action,.primary-button,.text-button,.icon-action){-webkit-tap-highlight-color:transparent;transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .2s,border-color .2s,box-shadow .2s}
+.looply-page :is(button,.header-action,.primary-button,.text-button,.icon-action):active:not(:disabled){transform:scale(.965)}
+.looply-page :is(button,.header-action,.primary-button,.text-button,.icon-action):focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+.looply-page :is(dialog[open],.modal.is-open){-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+@media(prefers-reduced-motion:reduce){.looply-page :is(button,.header-action,.primary-button,.text-button,.icon-action){transition:none!important}}

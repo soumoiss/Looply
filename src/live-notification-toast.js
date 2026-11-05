@@ -42,7 +42,8 @@ export function mountLiveNotificationToasts(client,userId){
       item.kind==="reply"?"Resposta":
       item.kind==="comment"?"Comentário":
       item.preview==="Curtiu seu comentário"?"Curtida no comentário":
-      item.kind==="post_like"?"Curtida":"Atividade";
+      item.kind==="post_like"?"Curtida":
+      item.kind==="story_view"?"Visualizou seu WhyNow":"Atividade";
     const author=item.actor?.display_name||item.actor?.username||"Looply";
     if(source==="chat"){
       card.classList.add("looply-live-notice-chat");
