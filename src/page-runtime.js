@@ -148,7 +148,7 @@ function animatePrimaryNavigation(header){
     }));
   }else position(current);
   for(const [index,link] of links.entries())link.addEventListener("click",()=>{
-    try{sessionStorage.setItem("looply-nav-from",String(index));}catch{}
+    try{sessionStorage.setItem("looply-nav-from",String(current));}catch{}
   });
   window.addEventListener("resize",()=>position(current),{passive:true});
 }
