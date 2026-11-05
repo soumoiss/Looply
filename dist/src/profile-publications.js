@@ -1,5 +1,5 @@
-import { cachedSignedUrls } from './storage-url-cache.js?build=c8dfb31c1e9d8b3a';
-import { esc } from './profile-api.js?build=c8dfb31c1e9d8b3a';
+import { cachedSignedUrls } from './storage-url-cache.js?build=f096c6dcc96f4a2c';
+import { esc } from './profile-api.js?build=f096c6dcc96f4a2c';
 
 // Verified by the pre-media-reset Neon branch (2026-10-25).
 // This is provenance metadata, NOT a replacement photo or a fake upload.

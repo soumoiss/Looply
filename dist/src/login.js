@@ -1,6 +1,6 @@
-import "./theme.js?build=c8dfb31c1e9d8b3a";
-import { isSupabaseConfigured, supabase } from "./supabase.js?build=c8dfb31c1e9d8b3a";
-import { captureIncomingSharedLink } from "./shared-link.js?build=c8dfb31c1e9d8b3a";
+import "./theme.js?build=f096c6dcc96f4a2c";
+import { isSupabaseConfigured, supabase } from "./supabase.js?build=f096c6dcc96f4a2c";
+import { captureIncomingSharedLink } from "./shared-link.js?build=f096c6dcc96f4a2c";
 
 // Preserve shared links while the user authenticates before opening the Feed.
 captureIncomingSharedLink();

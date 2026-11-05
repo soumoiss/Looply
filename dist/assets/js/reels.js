@@ -1,7 +1,7 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=c8dfb31c1e9d8b3a";
-import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?build=c8dfb31c1e9d8b3a";
-import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js?build=c8dfb31c1e9d8b3a";
-import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js?build=c8dfb31c1e9d8b3a";
+import { mountAppPage } from "../../src/page-runtime.js?build=f096c6dcc96f4a2c";
+import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?build=f096c6dcc96f4a2c";
+import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js?build=f096c6dcc96f4a2c";
+import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js?build=f096c6dcc96f4a2c";
 captureIncomingSharedLink();
 await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
   root.dataset.socialStream="external";

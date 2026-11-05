@@ -1,5 +1,5 @@
-import { icon } from "./icons.js?build=c8dfb31c1e9d8b3a";
-import { addMonths, extractDate, firstDayOfMonth, formatMonthYear, formatShort, sameDay, toISO } from "./date-parser.js?build=c8dfb31c1e9d8b3a";
+import { icon } from "./icons.js?build=f096c6dcc96f4a2c";
+import { addMonths, extractDate, firstDayOfMonth, formatMonthYear, formatShort, sameDay, toISO } from "./date-parser.js?build=f096c6dcc96f4a2c";
 
 const $ = (root, selector) => root.querySelector(selector);
 const cardIcon = (name) => name === "read" ? icon("check") : icon("circle");

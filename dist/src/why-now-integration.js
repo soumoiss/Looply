@@ -1,10 +1,10 @@
 /* A scoped bridge: replace only Looply's Stories surface with Why Now.
    Existing Neon Auth, Neon Storage, R2, story permissions and 24h expiry remain authoritative. */
-import { loadStories, groupActiveStories } from "./stories.js?build=c8dfb31c1e9d8b3a";
-import { normalizePublicationMedia, uploadResumable } from "./social.js?build=c8dfb31c1e9d8b3a";
-import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?build=c8dfb31c1e9d8b3a";
-import { decodeStoryBody } from "./story-text-style.js?build=c8dfb31c1e9d8b3a";
-import { cachedSignedUrls } from "./storage-url-cache.js?build=c8dfb31c1e9d8b3a";
+import { loadStories, groupActiveStories } from "./stories.js?build=f096c6dcc96f4a2c";
+import { normalizePublicationMedia, uploadResumable } from "./social.js?build=f096c6dcc96f4a2c";
+import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?build=f096c6dcc96f4a2c";
+import { decodeStoryBody } from "./story-text-style.js?build=f096c6dcc96f4a2c";
+import { cachedSignedUrls } from "./storage-url-cache.js?build=f096c6dcc96f4a2c";
 
 const CHANNEL = "looply-why-now-v1";
 const EXT = Object.freeze({

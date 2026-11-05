@@ -1,6 +1,6 @@
-import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js?build=c8dfb31c1e9d8b3a";
-import { saveNeonAvatarOnly } from "./neon-avatar-profile.js?build=c8dfb31c1e9d8b3a";
-import { icon } from "./icons.js?build=c8dfb31c1e9d8b3a";
+import { prepareAvatarSource, avatarPreviewFromBitmap } from "./avatar-image-processing.js?build=f096c6dcc96f4a2c";
+import { saveNeonAvatarOnly } from "./neon-avatar-profile.js?build=f096c6dcc96f4a2c";
+import { icon } from "./icons.js?build=f096c6dcc96f4a2c";
 
 export const AVATAR_OUTPUT_SIZE=512;
 export const AVATAR_MAX_ZOOM=3.5;

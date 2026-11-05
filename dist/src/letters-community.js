@@ -1,5 +1,5 @@
-import { icon } from "./icons.js?build=c8dfb31c1e9d8b3a";
-import { firstDayOfMonth, formatMonthYear } from "./date-parser.js?build=c8dfb31c1e9d8b3a";
+import { icon } from "./icons.js?build=f096c6dcc96f4a2c";
+import { firstDayOfMonth, formatMonthYear } from "./date-parser.js?build=f096c6dcc96f4a2c";
 const passwordIterations = 310000;
 const maxBodyLength = 5000;
 const encoder = new TextEncoder();

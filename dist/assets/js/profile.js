@@ -1,3 +1,3 @@
-import { mountAppPage } from '../../src/page-runtime.js?build=c8dfb31c1e9d8b3a';
-import { mountProfilePage } from '../../src/profile-page.js?build=c8dfb31c1e9d8b3a';
+import { mountAppPage } from '../../src/page-runtime.js?build=f096c6dcc96f4a2c';
+import { mountProfilePage } from '../../src/profile-page.js?build=f096c6dcc96f4a2c';
 await mountAppPage({page:'profile', render:mountProfilePage});

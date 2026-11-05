@@ -1,6 +1,6 @@
 // The group photo uses exactly the same chooser, crop geometry, zoom,
 // gestures, rotation and preview component as the profile photo.
-import { mountProfileAvatarEditor } from "./avatar-crop-editor.js?build=c8dfb31c1e9d8b3a";
+import { mountProfileAvatarEditor } from "./avatar-crop-editor.js?build=f096c6dcc96f4a2c";
 
 export function editGroupCover(file=null){
   return new Promise(resolve=>{

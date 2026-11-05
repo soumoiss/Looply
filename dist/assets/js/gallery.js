@@ -1,8 +1,8 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=c8dfb31c1e9d8b3a";
-import { icon } from "../../src/icons.js?build=c8dfb31c1e9d8b3a";
-import { optimizeUploadImage } from "../../src/media-upload-optimizer.js?build=c8dfb31c1e9d8b3a";
-import { cachedSignedUrl } from "../../src/storage-url-cache.js?build=c8dfb31c1e9d8b3a";
-import { createGalleryGestureController } from "./gallery-gestures.js?build=c8dfb31c1e9d8b3a";
+import { mountAppPage } from "../../src/page-runtime.js?build=f096c6dcc96f4a2c";
+import { icon } from "../../src/icons.js?build=f096c6dcc96f4a2c";
+import { optimizeUploadImage } from "../../src/media-upload-optimizer.js?build=f096c6dcc96f4a2c";
+import { cachedSignedUrl } from "../../src/storage-url-cache.js?build=f096c6dcc96f4a2c";
+import { createGalleryGestureController } from "./gallery-gestures.js?build=f096c6dcc96f4a2c";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const dateLabel = value => {
