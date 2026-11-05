@@ -210,11 +210,14 @@
     if (current.owner) {
       document.querySelector("#own-viewers").onclick = showOwnViewers;
       const actions=document.querySelector(".own-bottom");
-      const mention=document.createElement("button");
-      mention.type="button";mention.className="wn-mention-button";
-      mention.textContent="@";mention.title="Mencionar usuários";mention.setAttribute("aria-label","Mencionar pessoas para poderem republicar");
+      let highlight=actions.querySelector(".wn-highlight-button");
+      if(!highlight){highlight=document.createElement("button");highlight.type="button";highlight.className="wn-highlight-button";highlight.textContent="✦";highlight.title="Adicionar aos Highlights";highlight.setAttribute("aria-label","Adicionar aos Highlights");actions.insertBefore(highlight,document.querySelector("#own-remove"));}
+      highlight.onclick=async()=>{highlight.disabled=true;try{await request("keep-highlight",{storyId:current.id});showToast("Adicionado aos Highlights");}catch(error){messageError(error);}finally{highlight.disabled=false;}};
+      let mention=actions.querySelector(".wn-mention-button");
+      if(!mention){mention=document.createElement("button");mention.type="button";mention.className="wn-mention-button";
+        mention.textContent="@";mention.title="Mencionar usuários";mention.setAttribute("aria-label","Mencionar pessoas para poderem republicar");
+        actions.insertBefore(mention,document.querySelector("#own-remove"));}
       mention.onclick=()=>mentionPeople();
-      actions.insertBefore(mention,document.querySelector("#own-remove"));
       document.querySelector("#own-remove").onclick = removeOwnMoment;
       document.querySelector("#own-share").onclick = shareMoment;
     } else {
@@ -651,7 +654,9 @@
     "#viewer .own-bottom{gap:6px}",
     "#viewer .own-bottom .views-btn{flex:1;min-width:0;font-size:11px}",
     "#viewer .own-bottom .btn{min-width:0;padding:10px 9px}",
-    "#viewer .wn-mention-button{border:1px solid #ffffff68;border-radius:13px;color:#fff;padding:10px 12px;min-width:38px;font-weight:800;font-size:16px}",
+    "#viewer .wn-mention-button,#viewer .wn-highlight-button{border:1px solid #ffffff68;border-radius:13px;color:#fff;padding:10px;min-width:44px;min-height:44px;font-weight:800;font-size:16px}",
+    "#viewer .own-bottom #own-remove,#viewer .own-bottom #own-share,#viewer .own-bottom .views-btn{min-height:44px}",
+    "@media(max-width:390px){#viewer .own-bottom .views-btn span{display:none}#viewer .own-bottom #own-share{font-size:0;min-width:44px}#viewer .own-bottom #own-share svg{width:18px;height:18px}}",
     "#viewer .wn-repost-pill{position:absolute;z-index:9;right:18px;bottom:calc(87px + var(--safeBottom));padding:10px 16px;border-radius:99px;background:var(--violet,#8455f0);color:#fff;font-weight:800;font-size:12px;box-shadow:0 9px 25px #0005}",
     "#sheet .wn-sheet-actions{display:grid;gap:9px}",
     "#sheet .wn-sheet-action{width:100%;text-align:left;background:#f2eff7;color:#27202f;padding:15px 17px;border-radius:16px;font-size:13px;font-weight:700}",

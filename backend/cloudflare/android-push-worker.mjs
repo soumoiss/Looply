@@ -129,6 +129,7 @@ SELECT events.source,events.event_id,events.kind,events.resource_id,
          ELSE NULL END AS message_preview
 FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
+AND (events.source <> 'admin_event' OR events.kind='admin_online')
 AND (events.source<>'incoming-call' OR created_at>now()-interval '30 seconds')
 AND NOT EXISTS (
   SELECT 1 FROM public.android_fcm_deliveries d
@@ -169,6 +170,7 @@ function kindFor(row){
     return "gallery";
   if(kind==="story_mention")return "mention";
   if(kind==="story_like")return "story";
+  if(kind==="highlight_view")return "highlight_view";
   if(kind==="gallery_like" || kind==="gallery_mention" || kind==="gallery_comment")return "gallery";
   if(kind==="dedication")return "dedication";
   if(kind==="story_like")return "story";
@@ -182,7 +184,9 @@ export async function deliverNotifications(env,{
   query=neonQuery, accessTokenProvider=googleAccessToken, sendFetch=fetch,
   pendingQuerySql=pendingSql,pendingQueryParams=[]
 }={}){
-  const rows=await query(env,pendingQuerySql,pendingQueryParams);
+  // Defense in depth for direct calls and old SQL queue functions during rollout.
+  const rows=(await query(env,pendingQuerySql,pendingQueryParams))
+    .filter(row=>row.source!=="admin_event" || row.kind==="admin_online");
   if(!rows.length)return {eligible:0,sent:0,failed:0};
   const accessToken=await accessTokenProvider(env);
   let sent=0,failed=0;
@@ -228,6 +232,7 @@ export async function deliverNotifications(env,{
       "story":"Publicou um Story",
       "story-mention":"Mencionou você em um Story",
       "story-like":"Curtiu seu Story",
+      "activity":"Interagiu com você",
       "post-like":"Curtiu sua publicação",
       "letter":"Enviou uma carta para você",
       "community-letter":"Enviou uma carta para você",
@@ -242,6 +247,7 @@ export async function deliverNotifications(env,{
       "reply":"Respondeu ao seu comentário","mention":"Mencionou você",
       "story_mention":"Mencionou você em um Story",
       "story_like":"Curtiu seu Story","post_like":"Curtiu sua publicação",
+      "highlight_view":"Visualizou seu Highlight",
       "dedication":"Dedicou uma música para você","music_dedication":"Dedicou uma música para você",
       "post":"Publicou no feed","reel":"Publicou um Reel",
       "like":"Curtiu sua publicação","gallery":"Publicou na galeria"

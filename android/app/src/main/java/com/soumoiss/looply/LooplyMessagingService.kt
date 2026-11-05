@@ -31,6 +31,8 @@ class LooplyMessagingService : FirebaseMessagingService() {
 
         val data = message.data
         val kind = data["kind"] ?: "activity"
+        // A stale push worker must never surface private-letter activity.
+        if (kind == "admin_letter_read" || kind == "admin_private_unlock") return
         val uuid = Regex("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
         fun id(key: String): String? = data[key]?.takeIf { uuid.matches(it) }
         val conversationId = id("conversationId")
@@ -42,7 +44,7 @@ class LooplyMessagingService : FirebaseMessagingService() {
                 (id("letterId") ?: resourceId)?.let { "cartas.html?letterId=$it" } ?: "cartas.html"
             "music", "dedication", "dedicatoria" ->
                 (id("dedicationId") ?: resourceId)?.let { "musicas.html#dedication-$it" } ?: "musicas.html"
-            "story", "mention" ->
+            "story", "mention", "highlight_view" ->
                 (id("storyId") ?: resourceId)?.let { "home.html?storyId=$it#stories" } ?: "home.html#stories"
             "post", "reel", "like", "comment" ->
                 resourceId?.let { "home.html#post-$it" } ?: "home.html"

@@ -16,6 +16,19 @@ export function mountLiveNotificationToasts(client,userId){
   document.body.append(stack);
   let stopped=false,busy=false,lastPoll=0;
   const timers=new Set();
+  const avatarCache=new Map();
+  async function loadAvatar(actor,host){
+    if(!actor?.avatar_path)return;
+    const path=actor.avatar_path;
+    try{
+      if(!avatarCache.has(path))avatarCache.set(path,client.storage.from("looply-avatars").createSignedUrl(path,600));
+      const {data,error}=await avatarCache.get(path);
+      if(error||!data?.signedUrl||!host.isConnected)return;
+      const img=document.createElement("img");img.src=data.signedUrl;img.alt="";
+      img.referrerPolicy="no-referrer";
+      host.replaceChildren(img);
+    }catch{avatarCache.delete(path);}
+  }
   function display(item,source){
     const id=source+":"+item.id;
     if(seen.has(id))return;
@@ -31,15 +44,23 @@ export function mountLiveNotificationToasts(client,userId){
       item.preview==="Curtiu seu comentário"?"Curtida no comentário":
       item.kind==="post_like"?"Curtida":"Atividade";
     const author=item.actor?.display_name||item.actor?.username||"Looply";
+    if(source==="chat"){
+      card.classList.add("looply-live-notice-chat");
+      const portrait=document.createElement("span");
+      portrait.className="looply-live-notice-avatar";
+      portrait.textContent=author.slice(0,1).toLocaleUpperCase("pt-BR");
+      card.append(portrait);
+      void loadAvatar(item.actor,portrait);
+    }
     const top=document.createElement("div");
     top.className="looply-live-notice-top";
-    const label=document.createElement("strong");label.textContent=kind;
+    const label=document.createElement("strong");label.textContent=source==="chat"?author:kind;
     const close=document.createElement("button");close.type="button";
     close.textContent="×";close.setAttribute("aria-label","Fechar notificação");
     top.append(label,close);
     const body=document.createElement("p");
     body.textContent=source==="chat"?
-      ((item.actor?author+" · ":"")+(safePreview(item.preview)||"Nova mensagem")):
+      (safePreview(item.preview)||"Nova mensagem"):
       (author+" · "+(safePreview(item.preview)||"Nova atividade"));
     const anchor=document.createElement("a");
     anchor.href=source==="chat"?"conversa.html?id="+encodeURIComponent(item.conversation_id):
@@ -68,7 +89,7 @@ export function mountLiveNotificationToasts(client,userId){
       const chatMessages=[...new Set((chat.data||[]).map(row=>row.message_id).filter(Boolean))];
       if(chatMessages.length){
         const {data:messages,error:messageError}=await client.from("chat_messages")
-          .select("id,author:profiles!chat_messages_sender_id_fkey(username,display_name)")
+          .select("id,author:profiles!chat_messages_sender_id_fkey(username,display_name,avatar_path)")
           .in("id",chatMessages.slice(0,12));
         if(!messageError){
           const senders=new Map((messages||[]).map(msg=>[msg.id,msg.author]));

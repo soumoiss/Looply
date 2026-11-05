@@ -108,3 +108,8 @@
     min-width: 0;
   }
 }
+.admin-letter-activity-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.admin-letter-activity-list li{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-strong)}
+.admin-letter-activity-list time{color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+.admin-letter-activity-list strong{color:var(--text)}
+.admin-letter-activity-list span{color:var(--muted);overflow-wrap:anywhere}

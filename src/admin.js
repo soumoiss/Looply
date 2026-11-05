@@ -34,6 +34,11 @@ export function adminMarkup(profile = {}) {
     <div class="admin-heading"><div><span class="section-kicker">Acesso verificado pelo servidor</span><h2 id="adminTitle">Administração</h2></div>
       <span class="admin-badge">${adminName} · administrador</span></div>
     <p class="admin-description">Acesso administrativo vinculado à conta Peixinho. As operações continuam sendo verificadas pelo servidor.</p>
+    <section class="admin-broadcast-panel" aria-labelledby="adminLetterActivityTitle" data-letter-activity-panel>
+      <div class="admin-broadcast-heading"><div><span class="section-kicker">Registro reservado</span><h3 id="adminLetterActivityTitle">Atividade das cartas privadas</h3></div><button class="text-button" type="button" data-letter-activity-refresh>Atualizar</button></div>
+      <p class="admin-description">Leituras e desbloqueios registrados sem avisos ou push. Horário exibido em Fortaleza.</p>
+      <div class="admin-letter-activity" data-letter-activity-list aria-live="polite"><p>Carregando registros…</p></div>
+    </section>
     <section class="admin-broadcast-panel" aria-labelledby="adminUsersTitle">
       <div class="admin-broadcast-heading"><div><span class="section-kicker">Contas e permissões</span><h3 id="adminUsersTitle">Gerenciamento de usuários</h3></div><button class="text-button" type="button" data-users-refresh>Atualizar lista</button></div>
       <p class="admin-description">Consulte contas, edite o perfil, suspenda ou restaure o acesso. A criação usa o backend administrativo, preserva a sessão do Peixinho e registra a operação na auditoria.</p>
@@ -212,9 +217,9 @@ function itemMarkup(resourceType, item) {
       <p>Enviada por Peixinho · ADM</p>${item.password_hint ? `<p class="admin-record-hint">Dica: ${escapeHtml(item.password_hint)}</p>` : ""}${body}
       <button class="text-button" type="button" data-edit-archived-card>${item.is_protected ? "Substituir carta protegida" : "Editar carta"}</button>
       <form class="admin-community-letter-edit" data-edit-archived-card-form data-card-id="${escapeHtml(item.id)}" data-recipient-id="${escapeHtml(item.recipient_id)}" data-original-file="${escapeHtml(item.original_file)}" data-card-number="${escapeHtml(item.card_number)}" data-private="${item.is_private ? "true" : "false"}" data-protected="${item.is_protected ? "true" : "false"}" hidden>
-        ${item.is_protected ? `<p class="admin-record-hint">O arquivo original não foi localizado e o conteúdo cifrado atual não pôde ser aberto. Cole o texto original recuperado. O texto e a senha serão salvos juntos na mesma carta.</p><label>Senha atual para carregar o conteúdo salvo<input name="current_password" type="password" maxlength="256" autocomplete="current-password"></label><button class="text-button" type="button" data-load-archived-card-content>Carregar conteúdo completo</button>` : ""}
+        ${item.is_protected ? `<p class="admin-record-hint">O arquivo original não foi localizado e o conteúdo cifrado atual não pôde ser aberto. Cole o texto original recuperado. O texto e a senha serão salvos juntos na mesma carta.</p><label>Senha atual para carregar o conteúdo salvo<input name="current_password" type="password" autocomplete="current-password"></label><button class="text-button" type="button" data-load-archived-card-content>Carregar conteúdo completo</button>` : ""}
         <label>Texto da carta<textarea name="body" maxlength="100000" required>${item.is_protected ? "" : escapeHtml(item.body)}</textarea></label>
-        ${item.is_protected ? `<label>Nova senha<input name="password" type="password" maxlength="256" autocomplete="new-password" required></label>` : `<label>Data da carta<input name="sent_date" type="date" value="${escapeHtml(item.sent_date || "")}"></label><label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label><label>Nova senha (opcional)<input name="password" type="password" maxlength="256" autocomplete="new-password"></label>`}
+        ${item.is_protected ? `<label>Nova senha<input name="password" type="password" autocomplete="new-password" required></label>` : `<label>Data da carta<input name="sent_date" type="date" value="${escapeHtml(item.sent_date || "")}"></label><label>Dica da senha (opcional)<input name="password_hint" maxlength="300" value="${escapeHtml(item.password_hint || "")}"></label><label>Nova senha (opcional)<input name="password" type="password" autocomplete="new-password"></label>`}
         <button class="text-button" type="submit">Salvar carta</button><button class="text-button" type="button" data-cancel-archived-card-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form><button class="text-button admin-danger-action" type="button" data-delete-archived-card="${escapeHtml(item.id)}">Excluir carta importada permanentemente</button><small>Carta UUID: ${escapeHtml(item.id)}</small></article>`;
   }
@@ -231,7 +236,7 @@ function itemMarkup(resourceType, item) {
         ${item.is_protected ? `<p class="admin-record-hint">O texto cifrado atual não pode ser recuperado. Esta operação o substitui por uma nova carta.</p>` : ""}
         <label>Assunto<input name="subject" maxlength="120" required value="${escapeHtml(item.subject)}"></label>
         <label>Novo texto<textarea name="body" maxlength="5000" required>${item.is_protected ? "" : escapeHtml(item.body)}</textarea></label>
-        <label>Senha para proteção<input name="password" type="password" minlength="1" maxlength="256" autocomplete="new-password" data-community-letter-password ${item.is_protected ? "required" : "disabled"}></label>
+        <label>Senha para proteção<input name="password" type="password" autocomplete="new-password" data-community-letter-password ${item.is_protected ? "required" : "disabled"}></label>
         ${item.is_protected ? `<input type="hidden" name="is_protected" value="true">` : `<label><input type="checkbox" name="is_protected" value="true" data-community-letter-protect> Proteger carta com senha</label>`}
         <button class="text-button" type="submit">Salvar edição</button><button class="text-button" type="button" data-cancel-community-letter-edit>Cancelar</button><span class="form-status" data-status role="status" aria-live="polite"></span>
       </form>
@@ -309,6 +314,29 @@ function renderResults(container, resourceType, data) {
 }
 
 export function bindAdminEvents(root, client) {
+  const activityList=root.querySelector("[data-letter-activity-list]");
+  async function loadLetterActivity(){
+    if(!activityList)return;
+    activityList.textContent="Carregando registros…";
+    try {
+      const {data,error}=await client.from("looply_admin_activity_notifications")
+        .select("id,actor_id,kind,resource_id,resource_label,created_at,actor:profiles!looply_admin_activity_notifications_actor_id_fkey(username,display_name)")
+        .in("kind",["admin_letter_read","admin_private_unlock"])
+        .order("created_at",{ascending:false}).limit(100);
+      if(error)throw error;
+      if(!data?.length){activityList.textContent="Nenhuma leitura ou desbloqueio registrado.";return;}
+      const format=new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",dateStyle:"short",timeStyle:"medium"});
+      activityList.innerHTML=`<ol class="admin-letter-activity-list">${data.map(item=>{
+        const when=new Date(item.created_at);
+        const date=Number.isNaN(when.valueOf())?"Horário indisponível":format.format(when);
+        const actor=item.actor?.display_name||item.actor?.username||"Usuário";
+        const card=item.resource_label||item.resource_id||"Carta";
+        return `<li><time datetime="${escapeHtml(item.created_at)}">${escapeHtml(date)}</time><strong>${escapeHtml(actor)}</strong><span>${item.kind==="admin_private_unlock"?"Desbloqueou":"Leu"} · ${escapeHtml(card)}</span></li>`;
+      }).join("")}</ol>`;
+    }catch(error){console.warn("Admin letter activity unavailable",error);activityList.textContent="Não foi possível carregar os registros. Tente novamente.";}
+  }
+  root.querySelector("[data-letter-activity-refresh]")?.addEventListener("click",()=>{void loadLetterActivity();});
+  void loadLetterActivity();
   const secretForm = root.querySelector("[data-secret-message-form]");
   const secretRecipient = root.querySelector("[data-secret-message-form] select[name='recipient_id']");
   const secretMediaInput = root.querySelector("#secretMedia");
@@ -894,7 +922,7 @@ export function bindAdminEvents(root, client) {
       const password = String(new FormData(archivedCardForm).get("password") || "");
       const protectedCard = archivedCardForm.dataset.protected === "true" || Boolean(password);
       if (!body.trim() || body.length > 100000 || (archivedCardForm.dataset.protected === "true" && !password)
-          || (password && (password.length > 256 || /\s/.test(password)))) {
+          || (password && /\s/.test(password))) {
         setStatus(archivedCardForm, "Informe um texto válido e, para carta protegida, uma nova senha sem espaços.", "error");
         return;
       }

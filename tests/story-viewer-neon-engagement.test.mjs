@@ -6,7 +6,7 @@ const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8"
 
 test("story engagement RPCs are routed through an authenticated Neon gateway", () => {
   const gateway = read("src/neon-production-client.js");
-  assert.match(gateway, /storyEngagementRpcNames = new Set\(\["record_story_view", "send_story_reply"\]\)/);
+  assert.match(gateway, /storyEngagementRpcNames = new Set\(\["record_story_view", "send_story_reply", "v37_keep_story_highlight"\]\)/);
   assert.match(gateway, /storyEngagementRpcNames\.has\(name\) \? storyEngagementRpc\(name,args\)/);
   assert.match(gateway, /authorization: "Bearer " \+ session\.access_token/);
   assert.match(gateway, /name === "send_story_reply" && \(!data\?\.conversation_id \|\| !data\?\.message_id\)/);

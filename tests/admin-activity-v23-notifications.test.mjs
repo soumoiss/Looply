@@ -70,11 +70,11 @@ test("Admin-only notices are grounded by authenticated SQL and recipient RLS",as
   assert.doesNotMatch(sql,/DELETE FROM public\.community_letters|TRUNCATE/i);
 });
 test("Real letter view, private unlock and app runtime register only authenticated events",async()=>{
-  const [letters,community,client,bridge,runtime,ann,notif]=await Promise.all([
+  const [letters,community,client,bridge,runtime,ann,notif,admin]=await Promise.all([
     read("assets/js/letters.js"),read("src/letters-community.js"),
     read("src/neon-production-client.js"),read("src/neon-rest-bridge.js"),
     read("src/page-runtime.js"),read("src/global-announcements.js"),
-    read("assets/js/notifications.js")
+    read("assets/js/notifications.js"),read("src/admin.js")
   ]);
   for(const code of [letters,community]){
     assert.match(code,/v23_mark_community_letter_read/);
@@ -87,7 +87,9 @@ test("Real letter view, private unlock and app runtime register only authenticat
   assert.match(runtime,/startAdminPresenceTracking\(supabase, user\.id\)/);
   assert.match(runtime,/stopAdminPresence\(\)/);
   assert.match(ann,/client\.rpc\("v23_mark_global_announcement_read"/);
-  assert.match(notif,/admin_private_unlock/);
+  assert.doesNotMatch(notif,/admin_private_unlock|looply_admin_activity_notifications/);
+  assert.match(admin,/data-letter-activity-list/);
+  assert.match(admin,/admin_private_unlock/);
   assert.match(notif,/America\/Fortaleza/);
 });
 test("Admin presence FCM uses verified person and timestamp only",async()=>{
