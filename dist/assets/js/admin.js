@@ -1,7 +1,7 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=e96bd539b17ff957";
-import { adminMarkup, bindAdminEvents } from "../../src/admin.js?build=e96bd539b17ff957";
-import { bindArchiveImport } from "../../src/archive-import.js?build=e96bd539b17ff957";
-import { mountAdminLetterLog } from "../../src/admin-letter-log.js?build=e96bd539b17ff957";
+import { mountAppPage } from "../../src/page-runtime.js?build=a11088ce9a105311";
+import { adminMarkup, bindAdminEvents } from "../../src/admin.js?build=a11088ce9a105311";
+import { bindArchiveImport } from "../../src/archive-import.js?build=a11088ce9a105311";
+import { mountAdminLetterLog } from "../../src/admin-letter-log.js?build=a11088ce9a105311";
 
 await mountAppPage({ page: "admin", adminOnly: true, render: async ({ root, client, profile, user }) => {
   root.dataset.currentUserId = user.id;

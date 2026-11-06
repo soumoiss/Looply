@@ -1,8 +1,8 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=e96bd539b17ff957";
-import { icon } from "../../src/icons.js?build=e96bd539b17ff957";
-import { optimizeUploadImage } from "../../src/media-upload-optimizer.js?build=e96bd539b17ff957";
-import { cachedSignedUrl } from "../../src/storage-url-cache.js?build=e96bd539b17ff957";
-import { createGalleryGestureController } from "./gallery-gestures.js?build=e96bd539b17ff957";
+import { mountAppPage } from "../../src/page-runtime.js?build=a11088ce9a105311";
+import { icon } from "../../src/icons.js?build=a11088ce9a105311";
+import { optimizeUploadImage } from "../../src/media-upload-optimizer.js?build=a11088ce9a105311";
+import { cachedSignedUrl } from "../../src/storage-url-cache.js?build=a11088ce9a105311";
+import { createGalleryGestureController } from "./gallery-gestures.js?build=a11088ce9a105311";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const dateLabel = value => {

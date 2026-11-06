@@ -5,6 +5,7 @@ import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js";
 import { invokeAdminAction } from "./admin.js";
 import { decodeStoryBody } from "./story-text-style.js";
 import { storyStudioMarkup, bindStoryStudio } from "./story-studio.js?v=story-publish-official-20261028";
+import { recordStoryView } from "./story-view-receipt.js";
 
 const storyMimeTypes = new Map([
   ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
@@ -400,8 +401,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
         state.viewedThisSession.has(storyId) || state.viewPending.has(storyId)) return;
     state.viewPending.add(storyId);
     try {
-      const { data, error } = await client.rpc("record_story_view", { p_story_id: storyId });
-      if (error || typeof data !== "boolean") throw error || Error("story_view_unconfirmed");
+      if (!await recordStoryView(client, storyId, userId)) throw Error("story_view_unconfirmed");
       state.viewedThisSession.add(storyId);
       for(const group of state.groups)for(const item of group.stories)
         if(item.id===storyId)item.seen=true;
@@ -871,7 +871,9 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
   };
   const refresh = async () => {
     try {
-      state.groups = groupActiveStories(await loadStories(client,userId));
+      const latest = await loadStories(client,userId);
+      for (const story of latest) if (state.viewedThisSession.has(story.id)) story.seen = true;
+      state.groups = groupActiveStories(latest);
       renderList();
       if (state.active) {
         const replacement = state.groups.find((group) => group.author_id === state.active.author_id);
@@ -1130,6 +1132,7 @@ export function bindStories(root, client, userId, initialStories = [], initialEr
       try {
         showStatus("Carregando mídia do story…");
         const refreshed = await loadStories(client,userId);
+        for (const story of refreshed) if (state.viewedThisSession.has(story.id)) story.seen = true;
         if (!viewer.open || state.slideVersion !== retryVersion || currentStory()?.id !== current.id) return;
         state.groups = groupActiveStories(refreshed);
         const group = state.groups.find((item) => item.author_id === current.author_id);

@@ -20,9 +20,11 @@ test("Why Now creation entry is first-class Looply UI, even with existing own mo
 test("Why Now live viewer shares, mentions and repost rights are authenticated",()=>{
   const parent=read("src/why-now-integration.js");
   const embedded=read("src/why-now-embedded.js");
-  for(const endpoint of ["v5_add_story_mentions","v5_create_story","v5_attach_story_media","record_story_view","send_story_reply"]){
+  for(const endpoint of ["v5_add_story_mentions","v5_create_story","v5_attach_story_media","send_story_reply"]){
     assert.match(parent,new RegExp(endpoint));
   }
+  assert.match(parent,/recordStoryView\(client, storyId, user\.id\)/);
+  assert.match(read("src/story-view-receipt.js"),/client\.rpc\("record_story_view"/);
   for(const feature of ["share-send","story_mentions","story_views","viewed_at","cachedSignedUrls","avatar_path","repost","permissions","people:listPeople"])
     assert.ok(parent.includes(feature),"missing "+feature);
   for(const feature of ["Compartilhar externamente","Copiar link","Enviar pelo Looply","Mencionar no Why Now","Viu em","Republicar","shareMoment","showOwnViewers"])

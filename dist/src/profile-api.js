@@ -1,5 +1,5 @@
-import { cachedSignedUrls } from './storage-url-cache.js?build=e96bd539b17ff957';
-import { prepareAvatarSource } from './avatar-image-processing.js?build=e96bd539b17ff957';
+import { cachedSignedUrls } from './storage-url-cache.js?build=a11088ce9a105311';
+import { prepareAvatarSource } from './avatar-image-processing.js?build=a11088ce9a105311';
 
 export const PROFILE_TABS = Object.freeze(['fotos', 'videos', 'mencoes', 'publicacoes']);
 export const isProfileId = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');

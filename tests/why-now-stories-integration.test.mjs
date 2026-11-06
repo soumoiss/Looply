@@ -24,8 +24,10 @@ test("Why Now v3 ships as a complete source without replacing the Feed or profil
 
 test("Why Now uses authenticated story RPCs and user-specific viewer receipts", () => {
   const bridge = read("src/why-now-integration.js");
-  for (const rpc of ["v5_create_story","v5_attach_story_media","record_story_view","send_story_reply"])
+  for (const rpc of ["v5_create_story","v5_attach_story_media","send_story_reply"])
     assert.ok(bridge.includes(rpc), "missing server RPC " + rpc);
+  assert.match(bridge,/recordStoryView\(client, storyId, user\.id\)/);
+  assert.match(read("src/story-view-receipt.js"),/client\.rpc\("record_story_view"/);
   assert.match(bridge,/story_likes/);
   assert.match(bridge,/story_views/);
   assert.match(bridge,/story_media/);

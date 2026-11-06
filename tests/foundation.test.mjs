@@ -660,7 +660,8 @@ test("stories expose private replies, likes, camera capture, viewer history, and
   assert.match(markup, /data-story-reply/);
   assert.match(markup, /data-story-insights-open/);
   assert.match(source, /send_story_reply/);
-  assert.match(source, /record_story_view/);
+  assert.match(source, /recordStoryView\(client, storyId, userId\)/);
+  assert.match(await read("src/story-view-receipt.js"), /client\.rpc\("record_story_view"/);
   assert.match(source, /pointerup/);
   assert.match(source, /ArrowRight/);
   assert.match(source, /timeLabels.exact/);

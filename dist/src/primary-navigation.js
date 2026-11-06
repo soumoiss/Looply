@@ -1,4 +1,4 @@
-import { icon } from "./icons.js?build=e96bd539b17ff957";
+import { icon } from "./icons.js?build=a11088ce9a105311";
 
 /** Canonical Looply primary navigation. Do not reproduce this inside page content. */
 export const primaryDestinations = Object.freeze([

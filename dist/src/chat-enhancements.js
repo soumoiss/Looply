@@ -1,7 +1,7 @@
-import { icon } from "./icons.js?build=e96bd539b17ff957";
-import { matchesConversationFilter } from "./chat-filter-logic.js?build=e96bd539b17ff957";
-import { setupChatTtt } from "./chat-ttt.js?build=e96bd539b17ff957";
-import { setupChatGartic } from "./chat-gartic.js?build=e96bd539b17ff957";
+import { icon } from "./icons.js?build=a11088ce9a105311";
+import { matchesConversationFilter } from "./chat-filter-logic.js?build=a11088ce9a105311";
+import { setupChatTtt } from "./chat-ttt.js?build=a11088ce9a105311";
+import { setupChatGartic } from "./chat-gartic.js?build=a11088ce9a105311";
 const PREFIX = "looply-chat-v2";
 const COLORS = [
   { name: "Padrão", value: "" },

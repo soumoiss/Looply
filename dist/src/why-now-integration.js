@@ -1,10 +1,11 @@
 /* A scoped bridge: replace only Looply's Stories surface with Why Now.
    Existing Neon Auth, Neon Storage, R2, story permissions and 24h expiry remain authoritative. */
-import { loadStories, groupActiveStories } from "./stories.js?build=e96bd539b17ff957";
-import { normalizePublicationMedia, uploadResumable } from "./social.js?build=e96bd539b17ff957";
-import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?build=e96bd539b17ff957";
-import { decodeStoryBody } from "./story-text-style.js?build=e96bd539b17ff957";
-import { cachedSignedUrls } from "./storage-url-cache.js?build=e96bd539b17ff957";
+import { loadStories, groupActiveStories } from "./stories.js?build=a11088ce9a105311";
+import { normalizePublicationMedia, uploadResumable } from "./social.js?build=a11088ce9a105311";
+import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?build=a11088ce9a105311";
+import { decodeStoryBody } from "./story-text-style.js?build=a11088ce9a105311";
+import { cachedSignedUrls } from "./storage-url-cache.js?build=a11088ce9a105311";
+import { recordStoryView } from "./story-view-receipt.js?build=a11088ce9a105311";
 
 const CHANNEL = "looply-why-now-v1";
 const EXT = Object.freeze({
@@ -104,6 +105,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   overlay.append(frame);document.body.append(overlay);
   const styleParent = document.body;
   let destroyed = false, loadId = 0, reloadTimer = 0, records = initialStories;
+  const viewedInSession = new Set();
   let expanded = false, frameReady=false, pendingOpen=null;
   let requestedStoryId = new URL(location.href).searchParams.get("storyId");
   if (requestedStoryId && validStoryId(requestedStoryId)) {
@@ -200,6 +202,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     try {
       const latest = await loadStories(client, user.id);
       if (destroyed || id !== loadId) return false;
+      for (const story of latest) if (viewedInSession.has(story.id)) story.seen = true;
       records = latest; sync(); return true;
     } catch (error) {
       console.warn("[Why Now] Story refresh unavailable:", error);
@@ -296,8 +299,8 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   }
   async function seen(storyId) {
     getOwned(storyId);
-    const result = await client.rpc("record_story_view", { p_story_id: storyId });
-    if (result.error || typeof result.data !== "boolean") throw result.error || Error("Visualização não confirmada");
+    if (!await recordStoryView(client, storyId, user.id)) throw Error("Visualização não confirmada");
+    viewedInSession.add(storyId);
     const current = records.find(story => story.id === storyId);
     if (current) current.seen = true;
     sync();

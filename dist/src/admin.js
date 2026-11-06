@@ -1,7 +1,7 @@
-import { icon } from "./icons.js?build=e96bd539b17ff957";
-import { sealLetter } from "./letters-community.js?build=e96bd539b17ff957";
-import { hashArchivePassword } from "./archive-import.js?build=e96bd539b17ff957";
-import { decodeStoryBody } from "./story-text-style.js?build=e96bd539b17ff957";
+import { icon } from "./icons.js?build=a11088ce9a105311";
+import { sealLetter } from "./letters-community.js?build=a11088ce9a105311";
+import { hashArchivePassword } from "./archive-import.js?build=a11088ce9a105311";
+import { decodeStoryBody } from "./story-text-style.js?build=a11088ce9a105311";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
