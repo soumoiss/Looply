@@ -22,7 +22,8 @@ const WRITABLE = Object.freeze({
   chat_media: ["conversation_id","message_id","created_by","storage_path","mime_type","byte_size","file_name"],
   archived_cards: ["body","is_private","password_hint","password_hints"],
   admin_music_track_comments: ["author_id","recipient_id","playlist_id","video_id","track_title","body"],
-  community_letters: ["sender_id","recipient_id","subject","body","is_protected","password_salt","password_iv","password_ciphertext","attachments","password_hint","password_hints"],
+  community_letters: ["sender_id","recipient_id","subject","body","is_protected","password_salt","password_iv","password_ciphertext","attachments","password_hint","password_hints","model_style","view_once"],
+  looply_letter_ui_state: ["user_id","letter_kind","letter_id","favorite","reaction","read_at"],
   archived_card_reads: ["card_id","user_id","read_at"],
   // RLS permits only the authenticated user to acknowledge active announcements.
   global_announcement_reads: ["announcement_id","user_id"],

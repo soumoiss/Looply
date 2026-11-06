@@ -38,7 +38,7 @@ export function fortalezaInstant(date,time) {
   return new Date(resolved).toISOString();
 }
 export function installScheduledLetters({
-  root,client,user,people,getRecipient,setRecipient,sealLetter,openProtectedLetter,
+  root,client,user,people,getRecipient,setRecipient,getSeal,setSeal,sealLetter,openProtectedLetter,
   notify,onChanged,selectScheduled
 }) {
   const $ = q => root.querySelector(q);
@@ -54,14 +54,13 @@ export function installScheduledLetters({
   }
   const panel = document.createElement("section");
   panel.className = "scheduled-compose";
-  panel.innerHTML = '<fieldset class="scheduled-mode"><legend>Quando deseja enviar?</legend>'+
+  panel.innerHTML = '<fieldset class="scheduled-mode"><legend>Entrega</legend>'+
     '<label><input type="radio" name="delivery_mode" value="now" checked> Enviar agora</label>'+
     '<label><input type="radio" name="delivery_mode" value="later"> Programar entrega</label></fieldset>'+
     '<div id="scheduledFields" hidden><div class="scheduled-date-grid">'+
     '<label>Data da entrega<input type="date" id="scheduledDate"></label>'+
     '<label>Horário (24h)<input type="time" id="scheduledTime" step="60"></label></div>'+
-    '<p class="scheduled-date-description" id="scheduledDateText" aria-live="polite"></p>'+
-    '<small>Fuso horário: America/Fortaleza (horário de Brasília sem horário de verão, UTC−03:00).</small></div>';
+    '<p class="scheduled-date-description" id="scheduledDateText" aria-live="polite"></p></div>';
   compose.insertBefore(panel,$("#enviarStatus"));
   const preview = document.createElement("dialog");
   preview.id="scheduledPreview";preview.className="modal-carta scheduled-confirm";
@@ -90,7 +89,7 @@ export function installScheduledLetters({
   const renderDate = () => {
     $("#scheduledDate").min=localDate();
     try { $("#scheduledDateText").textContent = "Entrega: "+formatted(fortalezaInstant($("#scheduledDate").value,$("#scheduledTime").value)); }
-    catch { $("#scheduledDateText").textContent = "Escolha um dia e um horário futuros."; }
+    catch { $("#scheduledDateText").textContent = ""; }
   };
   const setMode = value => {
     const radio=compose.querySelector('input[name="delivery_mode"][value="'+value+'"]');
@@ -139,7 +138,7 @@ export function installScheduledLetters({
       p_is_protected:protectedLetter,p_password_salt:sealed.password_salt,
       p_password_iv:sealed.password_iv,p_password_ciphertext:sealed.password_ciphertext,
       p_password_hint:protectedLetter ? ($("#dicaCarta").value.trim()||null) : null,
-      p_deliver_at:deliverAt};
+      p_deliver_at:deliverAt,p_seal:getSeal()};
   };
   let pending = null;
   const closePreview = () => {if(preview.open) preview.close();};
@@ -153,9 +152,9 @@ export function installScheduledLetters({
       pending=await payload();
       const detail='<div class="scheduled-person"><span class="scheduled-avatar">'+avatar(pending.p_recipient_id)+'</span>'+
         '<div><small>Para</small><strong>'+esc(name(pending.p_recipient_id))+'</strong></div></div>'+
-        '<h2>'+esc(pending.p_subject)+'</h2><p class="scheduled-preview-body">'+esc($("#textoCarta").value)+'</p>'+
+        '<h2>'+esc(pending.p_seal)+' '+esc(pending.p_subject)+'</h2><p class="scheduled-preview-body">'+esc($("#textoCarta").value)+'</p>'+
         '<p><strong>Entrega:</strong> '+esc(formatted(pending.p_deliver_at))+'</p>'+
-        (pending.p_is_protected?'<p>🔒 Conteúdo protegido por senha.</p>':'');
+        (pending.p_is_protected?'<p>🔒 Com senha</p>':'');
       $("#scheduledPreviewContent").innerHTML=detail;
       $("#scheduledPreviewStatus").textContent="";
       preview.showModal();
@@ -168,7 +167,7 @@ export function installScheduledLetters({
     try {
       const isEdit=Boolean(editId);
       const input=isEdit ? {p_id:editId,...pending} : {p_request_id:requestId,...pending};
-      const {data,error}=await client.rpc(isEdit?"v24_update_scheduled_letter":"v24_create_scheduled_letter",input);
+      const {data,error}=await client.rpc(isEdit?"v29_update_scheduled_letter":"v29_create_scheduled_letter",input);
       if(error) throw error;
       if(!data || (isEdit && data!==true)) throw Error("O agendamento não foi confirmado.");
       closePreview();$("#modalEscrever").close();compose.reset();reset();
@@ -192,7 +191,7 @@ export function installScheduledLetters({
     }
     $("#scheduledReadContent").innerHTML='<div class="scheduled-person"><span class="scheduled-avatar">'+avatar(row.recipient_id)+
       '</span><div><small>Destinatário</small><strong>'+esc(name(row.recipient_id))+'</strong></div></div>'+
-      '<h2>'+esc(row.subject)+'</h2><p class="scheduled-preview-body">'+body+'</p>'+
+      '<h2>'+esc(row.seal||'')+' '+esc(row.subject)+'</h2><p class="scheduled-preview-body">'+body+'</p>'+
       '<p><strong>Data:</strong> '+esc(formatted(row.deliver_at))+'</p>'+
       '<p><strong>Status:</strong> '+esc(statusLabels[row.status]||row.status)+'</p>';
     $("#scheduledReadHistory").textContent="Carregando histórico...";
@@ -236,7 +235,7 @@ export function installScheduledLetters({
       if(!unlocked) return;
       body=unlocked.body;password=unlocked.password;
     }
-    editId=row.id;editPassword=password;setRecipient(row.recipient_id);
+    editId=row.id;editPassword=password;setRecipient(row.recipient_id);setSeal(row.seal);
     $("#tituloCarta").value=row.subject;$("#textoCarta").value=body;
     $("#isPrivada").checked=row.is_protected;
     $("#privadaFields").hidden=!row.is_protected;
@@ -291,7 +290,7 @@ export function installScheduledLetters({
     try {
       const [sent, received, hidden] = await Promise.all([
         client.from("scheduled_letters")
-          .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,deliver_at,status,delivered_at,created_at")
+          .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,deliver_at,status,delivered_at,created_at,seal")
           .eq("sender_id",user.id).order("created_at",{ascending:false}).limit(200),
         client.rpc("v26_scheduled_recipient_inbox",{}),
         client.rpc("v26_hidden_sent_ids",{})
@@ -328,8 +327,8 @@ export function installScheduledLetters({
         esc(row.status==="delivered"?"Entregue":row.status==="sending"?"Em processamento":"Pendente")+'</span>'+
         (row.status==="delivered"&&row.delivered_letter_id
           ? '<div class="scheduled-actions"><button type="button" data-scheduled-action="received" data-schedule-id="'+esc(row.id)+'">Abrir nas cartas recebidas</button></div>'
-          : '<p class="scheduled-lock-note">🔒 O conteúdo será liberado quando chegar a data programada.</p>')+
-        '</article>').join(""):'<p class="cartas-empty">Nenhuma carta programada recebida.</p>';
+          : '<p class="scheduled-lock-note" aria-label="Bloqueada até a entrega">🔒</p>')+
+        '</article>').join(""):'<p class="cartas-empty">Nenhuma carta recebida</p>';
     }else{
       cards=items.length?items.map(row=>
         '<article class="carta-item scheduled-card">'+
@@ -342,7 +341,7 @@ export function installScheduledLetters({
         (eligible(row)?'<button type="button" data-scheduled-action="edit" data-schedule-id="'+esc(row.id)+'">Editar programação</button>'+
           '<button type="button" class="scheduled-danger" data-scheduled-action="cancel" data-schedule-id="'+esc(row.id)+'">Cancelar envio</button>':'')+
         '<button type="button" class="scheduled-danger" data-scheduled-action="delete" data-schedule-id="'+esc(row.id)+'">Excluir da minha lista</button>'+
-        '</div></article>').join(""):'<p class="cartas-empty">Nenhuma carta programada enviada.</p>';
+        '</div></article>').join(""):'<p class="cartas-empty">Nenhuma carta enviada</p>';
     }
     $("#cartasList").innerHTML=tabs+(loadError?'<p class="cartas-empty" role="alert">Não foi possível sincronizar as programações.</p>':cards);
   };

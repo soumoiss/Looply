@@ -22,7 +22,7 @@ test("the model shares global theme tokens and stores new UI state with owner RL
   assert.match(css,/--strong:var\(--surface-strong\)/);
   assert.match(css,/background:var\(--bg\) !important/);
   assert.match(page,/signProfileAvatars\(client, people\)/);
-  assert.match(page,/model_style:state\.style,view_once:/);
+  assert.match(page,/model_style:modelStyle,view_once:viewOnce/);
   assert.match(page,/looply_letter_ui_state/);
   assert.match(sql,/letter_ui_owner_insert[\s\S]*?looply_legacy_uid\(\)/);
   assert.match(sql,/v27_letter_activity/);

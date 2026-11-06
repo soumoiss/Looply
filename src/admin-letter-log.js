@@ -43,9 +43,8 @@ export function letterLogRowMarkup(row) {
 
 export function adminLetterLogMarkup() {
   return `<section class="admin-broadcast-panel letter-log-panel" aria-labelledby="letterLogTitle" data-letter-log>
-    <div class="admin-broadcast-heading"><div><span class="section-kicker">Registro silencioso</span><h3 id="letterLogTitle">Atividade de cartas privadas</h3></div>
+    <div class="admin-broadcast-heading"><div><h3 id="letterLogTitle">Atividade de cartas privadas</h3></div>
       <button class="text-button" type="button" data-letter-log-refresh>Atualizar</button></div>
-    <p class="admin-description">Cada leitura e desbloqueio de carta privada fica registrado aqui com data, hora exata, usuário e carta. Nenhum aviso é enviado a ninguém.</p>
     <div class="letter-log-filters" role="tablist" aria-label="Filtrar registro">
       <button type="button" role="tab" aria-selected="true" data-letter-log-filter="all">Tudo</button>
       <button type="button" role="tab" aria-selected="false" data-letter-log-filter="unlock">Desbloqueios</button>

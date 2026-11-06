@@ -127,20 +127,20 @@ test("Stories remain in the conversation list and survive Realtime sidebar refre
 
 test("emoji picker has searchable categories, per-user recents, skin tones, flags and cursor-safe insertion", async () => {
   const source = await read("src/chat.js");
-  const css = await read("assets/css/pages/chat.css");
-  assert.match(source, /data-chat-emoji-picker/);
-  assert.match(source, /data-chat-emoji-choice/);
-  assert.match(source, /input\.setRangeText\(emojiChoice\.dataset\.chatEmojiChoice, start, end, "end"\)/);
-  assert.match(source, /data-chat-emoji-category/);
-  assert.match(source, /data-chat-emoji-search/);
-  assert.match(source, /CHAT_EMOJI_CATEGORIES/);
-  assert.match(source, /looply-chat-emoji-recent:/);
-  assert.match(source, /👋🏿/);
-  assert.match(source, /🇧🇷/);
-  assert.match(source, /data-chat-emoji-grid/);
-  assert.match(css, /\.chat-emoji-picker/);
-  assert.match(css, /\.chat-emoji-categories/);
-  assert.match(css, /\.chat-emoji-grid/);
+  const [picker, css, catalog] = await Promise.all([
+    read("src/emoji-picker.js"), read("assets/css/pages/emoji-picker.css"),
+    import("../src/emoji-picker-data.js")
+  ]);
+  assert.match(source, /toggleEmojiPicker\(emojiButton/);
+  assert.match(source, /input\.setRangeText\(emoji, start, end, "end"\)/);
+  for (const hook of ["picker", "choice", "category", "search", "grid"]) {
+    assert.ok(picker.includes("data-chat-emoji-" + hook), hook);
+  }
+  assert.match(picker, /looply-chat-emoji-recent:/);
+  const emojis = Object.values(catalog.emojiGroups).flat().map(([emoji]) => emoji);
+  assert.ok(emojis.length > 3900);
+  for (const emoji of ["👋🏿", "🇧🇷", "👩🏽‍🚀", "1️⃣"]) assert.ok(emojis.includes(emoji), emoji);
+  for (const selector of ["picker", "categories", "grid"]) assert.ok(css.includes(".chat-emoji-" + selector));
 });
 
 test("chat stickers use a dedicated native file picker, enforce safe static image formats and render compactly", async () => {

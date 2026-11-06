@@ -5,6 +5,7 @@ import { signProfileAvatars } from "../../src/profiles.js";
 import { installScheduledLetters } from "../../src/scheduled-letters.js?v=scheduled-inbox-20261031";
 import { createLetterAttachmentComposer, createLetterAttachmentReader } from "../../src/letter-attachments.js?v=letter-native-attachments-20261103";
 import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?v=sender-editor-20261030";
+import { closeEmojiPicker, toggleEmojiPicker } from "../../src/emoji-picker.js";
 import { mountAdminLetterLog } from "../../src/admin-letter-log.js";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -15,14 +16,13 @@ const MISOL_ORIGINAL_RECOVERY_CARD_ID = "98df71c4-cf50-42fe-98d2-357d12633356";
 const adminOriginalRecoveryMarkup = `
   <details id="adminOriginalRecovery" hidden aria-labelledby="adminOriginalRecoveryTitle"><summary>Restaurar conteúdo original</summary><div class="letter-recovery-fields">
     <h3 id="adminOriginalRecoveryTitle">Restaurar texto da carta original</h3>
-    <p>Cole o conteúdo completo que você guardou. A senha antiga não é necessária. A versão criptografada anterior será preservada no histórico privado.</p>
     <label>Conteúdo completo da carta original
-      <textarea id="archiveRecoveryText" rows="8" maxlength="100000" spellcheck="true" placeholder="Cole aqui o texto completo do seu bloco de notas..."></textarea>
+      <textarea id="archiveRecoveryText" rows="8" maxlength="100000" spellcheck="true"></textarea>
     </label>
     <label>Proteção da carta
       <select id="archiveRecoveryMode">
-        <option value="password">Com senha (MiSol precisará desbloquear)</option>
-        <option value="none">Sem senha (continua privada para MiSol)</option>
+        <option value="password">Com senha</option>
+        <option value="none">Sem senha</option>
       </select>
     </label>
     <div id="archiveRecoveryPasswordFields">
@@ -70,7 +70,7 @@ function archivedRecoveryError(error) {
     ". O texto permanece no editor; copie-o antes de sair.";
 }
 
-const editorMarkup = "<dialog class=\"modal-carta letter-edit-dialog\" id=\"editorAdminCarta\" aria-labelledby=\"adminEditTitle\">\n<div class=\"modal-header\"><button type=\"button\" id=\"fecharAdminCarta\" aria-label=\"Fechar editor\">✕</button><strong id=\"adminEditTitle\">Editar carta</strong><button id=\"salvarAdminCarta\" type=\"submit\" form=\"adminEditForm\" class=\"btn-enviar\">Salvar</button></div>\n<form class=\"modal-body letter-edit-body\" id=\"adminEditForm\">\n<label id=\"adminSubjectField\">Título<input name=\"subject\" maxlength=\"120\"></label>\n<div id=\"letterEditUnlock\" class=\"letter-edit-unlock\">\n<label id=\"adminPasswordField\" hidden>Senha atual da carta<input name=\"password\" type=\"password\" autocomplete=\"current-password\"></label>\n<label id=\"archiveCurrentPasswordField\" hidden>Senha atual da carta original<input name=\"archive_current_password\" type=\"password\" autocomplete=\"current-password\"></label>\n<button id=\"desbloquearEdicaoCarta\" class=\"btn-enviar\" type=\"button\" hidden>Desbloquear conteúdo</button>\n</div>\n<label id=\"adminContentField\">Conteúdo completo<textarea name=\"body\" rows=\"9\" spellcheck=\"true\" placeholder=\"Texto completo da carta\"></textarea></label>\n<label id=\"adminPrivateField\" hidden><input type=\"checkbox\" name=\"is_private\"> Carta privada</label>\n<details id=\"adminHintSection\" class=\"letter-edit-details\" hidden><summary>Adicionar dica</summary>\n<label id=\"adminHintField\">Nova dica<input name=\"password_hint\" maxlength=\"240\" placeholder=\"Uma pista para a senha\"></label>\n<button id=\"addEditorHint\" type=\"button\" class=\"btn-enviar\">Salvar dica</button><p id=\"adminHintStatus\" role=\"status\" aria-live=\"polite\"></p></details>\n<details id=\"communityPasswordChange\" class=\"letter-edit-details\" hidden><summary>Editar senha</summary>\n<label id=\"adminNewPasswordField\">Nova senha (opcional)<input name=\"new_password\" type=\"password\" autocomplete=\"new-password\"></label><p>A alteração da senha será aplicada ao salvar a carta.</p></details>\n<details id=\"adminArchivePasswordChange\" class=\"letter-edit-details\" hidden><summary>Editar senha</summary>\n<p>Desbloqueie com a senha atual acima para atualizar a proteção.</p>\n<label>Nova senha<input name=\"archive_new_password\" type=\"password\" autocomplete=\"new-password\"></label>\n<label>Confirmar nova senha<input name=\"archive_confirm_password\" type=\"password\" autocomplete=\"new-password\"></label>\n<button id=\"alterarSenhaCartaOriginal\" class=\"btn-enviar\" type=\"button\">Salvar nova senha</button></details>" + adminOriginalRecoveryMarkup + "<p id=\"adminEditStatus\" role=\"status\" aria-live=\"polite\"></p>\n<button id=\"adminDeleteCarta\" class=\"danger\" type=\"button\" hidden>Excluir carta permanentemente</button></form></dialog>";
+const editorMarkup = "<dialog class=\"modal-carta letter-edit-dialog\" id=\"editorAdminCarta\" aria-labelledby=\"adminEditTitle\">\n<div class=\"modal-header\"><button type=\"button\" id=\"fecharAdminCarta\" aria-label=\"Fechar editor\">✕</button><strong id=\"adminEditTitle\">Editar carta</strong><button id=\"salvarAdminCarta\" type=\"submit\" form=\"adminEditForm\" class=\"btn-enviar\">Salvar</button></div>\n<form class=\"modal-body letter-edit-body\" id=\"adminEditForm\">\n<label id=\"adminSubjectField\">Título<input name=\"subject\" maxlength=\"120\"></label>\n<div id=\"letterEditUnlock\" class=\"letter-edit-unlock\">\n<label id=\"adminPasswordField\" hidden>Senha atual da carta<input name=\"password\" type=\"password\" autocomplete=\"current-password\"></label>\n<label id=\"archiveCurrentPasswordField\" hidden>Senha atual da carta original<input name=\"archive_current_password\" type=\"password\" autocomplete=\"current-password\"></label>\n<button id=\"desbloquearEdicaoCarta\" class=\"btn-enviar\" type=\"button\" hidden>Desbloquear conteúdo</button>\n</div>\n<label id=\"adminContentField\">Conteúdo completo<textarea name=\"body\" rows=\"9\" spellcheck=\"true\" placeholder=\"Texto completo da carta\"></textarea></label>\n<label id=\"adminPrivateField\" hidden><input type=\"checkbox\" name=\"is_private\"> Carta privada</label>\n<details id=\"adminHintSection\" class=\"letter-edit-details\" hidden><summary>Adicionar dica</summary>\n<label id=\"adminHintField\">Nova dica<input name=\"password_hint\" maxlength=\"240\" placeholder=\"Uma pista para a senha\"></label>\n<button id=\"addEditorHint\" type=\"button\" class=\"btn-enviar\">Salvar dica</button><p id=\"adminHintStatus\" role=\"status\" aria-live=\"polite\"></p></details>\n<details id=\"communityPasswordChange\" class=\"letter-edit-details\" hidden><summary>Editar senha</summary>\n<label id=\"adminNewPasswordField\">Nova senha (opcional)<input name=\"new_password\" type=\"password\" autocomplete=\"new-password\"></label></details>\n<details id=\"adminArchivePasswordChange\" class=\"letter-edit-details\" hidden><summary>Editar senha</summary>\n<label>Nova senha<input name=\"archive_new_password\" type=\"password\" autocomplete=\"new-password\"></label>\n<label>Confirmar nova senha<input name=\"archive_confirm_password\" type=\"password\" autocomplete=\"new-password\"></label>\n<button id=\"alterarSenhaCartaOriginal\" class=\"btn-enviar\" type=\"button\">Salvar nova senha</button></details>" + adminOriginalRecoveryMarkup + "<p id=\"adminEditStatus\" role=\"status\" aria-live=\"polite\"></p>\n<button id=\"adminDeleteCarta\" class=\"danger\" type=\"button\" hidden>Excluir carta permanentemente</button></form></dialog>";
 
 const modelPaths = {
   mail:"M3 6h18v12H3z M3 7l9 6 9-6", plus:"M12 5v14 M5 12h14", search:"M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z M21 21l-5-5",
@@ -82,14 +82,14 @@ const modelPaths = {
 const mi = name => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${modelPaths[name]}"></path></svg>`;
 const papers = [["#fffaf0","#29252f"],["#ffe4ec","#4a1230"],["#ece4ff","#2d1b55"],["#1f1730","#f3e6c4"],["#e7f4ea","#1d3b27"],["#fff1d6","#4b2a14"],["#dff1ff","#12324d"],["#fde7f6","#5a1646"]];
 const inks = ["#29252f","#7010b0","#a3123a","#1d5fa8","#c9a24b"];
-const seals = ["💌","🌸","🦋","🌙","⭐","🔥","🕊️","🍀"];
+const defaultSeal = "💌";
 
 function visual() {
   return `<section class="letter-model shell">
-    <section class="hero" id="hero" aria-label="Correio Looply"><div class="eyebrow">Correio Looply</div><h1>Olá, <span id="cartasHeroName">você</span></h1><p id="cartasHeroDescription">Cartas escritas à mão, seladas com cuidado e entregues na hora certa.</p><div class="stats">
+    <section class="hero" id="hero"><h1>Olá, <span id="cartasHeroName">você</span></h1><div class="stats">
       <div class="stat"><b id="cartasUnread">0</b><span>não lidas</span></div><div class="stat"><b id="cartasReceived">0</b><span>recebidas</span></div><div class="stat"><b id="cartasSent">0</b><span>enviadas</span></div><div class="stat"><b id="cartasScheduled">0</b><span>agendadas</span></div>
     </div></section>
-    <section class="seg" aria-label="Coleções"><span class="pill" aria-hidden="true"></span><div class="row types">
+    <section class="seg" aria-label="Coleções"><div class="row types">
       <button type="button" class="filter-btn on" data-filter="recebidas" aria-pressed="true">Recebidas <em id="tabReceived">0</em></button><button type="button" class="filter-btn" data-filter="enviadas" aria-pressed="false">Enviadas <em id="tabSent">0</em></button>
       <button type="button" class="filter-btn" data-filter="programadas" aria-pressed="false" data-scheduled-tab>Agendadas <em id="tabScheduled">0</em></button>
       <button type="button" class="filter-btn admin-only" data-filter="todas" aria-pressed="false" hidden>Todas (ADM)</button><button type="button" class="filter-btn admin-only" data-filter="registro" aria-pressed="false" hidden>Registro (ADM)</button>
@@ -104,12 +104,12 @@ function visual() {
     <dialog class="modal-carta model-dialog" id="modalEscrever" aria-labelledby="modalEscreverTitle"><div class="sheet"><div class="grab"></div><header><h2 id="modalEscreverTitle">Nova carta</h2><button type="button" id="fecharModal" class="ib" aria-label="Fechar editor">${mi("x")}</button></header>
       <form id="cartaComposeForm" class="model-compose">
         <div class="sec"><h5><i>1</i>Para quem</h5><div id="listaUsuarios" class="pick" role="group" aria-label="Escolher destinatário"></div><label class="f">Buscar pessoa<input type="search" id="buscarDestinatario" placeholder="Pesquisar pessoa..." autocomplete="off"></label><div class="row"><button type="button" id="selecionarTodos" class="btn sm">Selecionar todos</button><span id="destinatariosCount"></span></div></div>
-        <div class="sec"><h5><i>2</i>Escrita</h5><label class="f">Assunto<input id="tituloCarta" name="subject" maxlength="120" placeholder="Um título para o envelope" required></label><div class="row"><select id="letterFont" class="btn sm" aria-label="Fonte da carta"><option value="Cormorant Garamond">Clássica</option><option value="Caveat">Manuscrita</option><option value="Special Elite">Máquina</option><option value="Inter">Moderna</option></select><input id="letterSize" type="range" min="14" max="36" value="21" aria-label="Tamanho da letra"><span id="letterInks" class="row"></span></div><div id="letterPapers" class="row"></div><div class="row" id="letterFormatting"><button type="button" class="btn sm" data-format="**" aria-label="Negrito"><b>B</b></button><button type="button" class="btn sm" data-format="*" aria-label="Itálico"><i>I</i></button><button type="button" class="btn sm" data-format="__" aria-label="Sublinhado"><u>U</u></button><span>Selo</span><span id="letterSeals" class="row"></span></div><label class="f">Mensagem<textarea id="textoCarta" name="body" class="paper" placeholder="Querido(a)…" maxlength="5000" required></textarea></label></div>
+        <div class="sec"><h5><i>2</i>Escrita</h5><label class="f">Assunto<input id="tituloCarta" name="subject" maxlength="120" required></label><div class="row"><select id="letterFont" class="btn sm" aria-label="Fonte da carta"><option value="Cormorant Garamond">Clássica</option><option value="Caveat">Manuscrita</option><option value="Special Elite">Máquina</option><option value="Inter">Moderna</option></select><input id="letterSize" type="range" min="14" max="36" value="21" aria-label="Tamanho da letra"><span id="letterInks" class="row"></span></div><div id="letterPapers" class="row"></div><div class="row" id="letterFormatting"><button type="button" class="btn sm" data-format="**" aria-label="Negrito"><b>B</b></button><button type="button" class="btn sm" data-format="*" aria-label="Itálico"><i>I</i></button><button type="button" class="btn sm" data-format="__" aria-label="Sublinhado"><u>U</u></button><button type="button" id="letterSeal" class="btn sm" aria-expanded="false">Selo <span aria-hidden="true">💌</span></button></div><label class="f">Mensagem<textarea id="textoCarta" name="body" class="paper" maxlength="5000" required></textarea></label></div>
         <div class="sec"><h5><i>3</i>Anexos</h5><div class="letter-compose-files"><div class="row"><button type="button" id="letterImport" class="btn sm">${mi("clip")}Fotos e arquivos</button><input id="letterFileInput" type="file" multiple hidden aria-label="Escolher arquivos"><button type="button" id="letterRecord" class="btn sm">${mi("mic")}Gravar áudio</button><button type="button" id="letterStopRecord" class="btn sm" hidden>■ Parar</button></div><span id="letterFileStatus" role="status" aria-live="polite"></span><ul id="letterFileList" class="att" aria-label="Anexos selecionados"></ul></div></div>
-        <div class="sec"><h5><i>4</i>Segurança e tempo</h5><label class="opt">${mi("lock")}<span><b>Senha</b><small>Quantos caracteres quiser.</small></span><input type="checkbox" id="isPrivada" role="switch"></label><div id="privadaFields" class="reveal" hidden><label class="f">Senha da carta<input id="senhaCarta" type="password" autocomplete="new-password" placeholder="Qualquer tamanho"></label><label class="f">Dica (opcional)<input id="dicaCarta" maxlength="240"></label></div><label class="opt">${mi("eye")}<span><b>Visualização única</b><small>O destinatário lê uma vez.</small></span><input type="checkbox" id="letterOnce" role="switch"></label></div>
-        <div id="letterDraftPreview" class="prev"></div><p id="enviarStatus" role="alert"></p><button type="submit" id="enviarCarta" class="btn main" style="width:100%;min-height:54px">${mi("send")}Selar e enviar</button>
+        <div class="sec"><h5><i>4</i>Segurança e tempo</h5><label class="opt">${mi("lock")}<span><b>Senha</b></span><input type="checkbox" id="isPrivada" role="switch"></label><div id="privadaFields" class="reveal" hidden><label class="f">Senha da carta<input id="senhaCarta" type="password" autocomplete="new-password"></label><label class="f">Dica (opcional)<input id="dicaCarta" maxlength="240"></label></div><label class="opt">${mi("eye")}<span><b>Visualização única</b></span><input type="checkbox" id="letterOnce" role="switch"></label></div>
+        <p id="enviarStatus" role="alert"></p><button type="submit" id="enviarCarta" class="btn main" style="width:100%;min-height:54px">${mi("send")}Selar e enviar</button>
       </form></div></dialog>
-    <dialog class="modal-carta model-dialog" id="modalLeituraNova" aria-labelledby="readCartaTitulo"><div class="sheet"><div class="grab"></div><header><h2 id="readCartaTitulo">Carta</h2><button type="button" id="fecharLeituraNova" class="ib" aria-label="Fechar carta">${mi("x")}</button></header><p id="readCartaAutor"></p><p id="readCartaData"></p><div class="stage"><div class="envl" id="letterEnvelope"><div class="flap"></div><div class="wax">💌</div></div></div><div id="readCartaDicas" class="banner i"></div><form id="desbloquearNova" class="pw" hidden><h2>Carta protegida</h2><label class="f">Senha da carta<input id="senhaLeituraNova" type="password" autocomplete="current-password" required></label><button class="btn main" type="submit">Abrir</button></form><div id="readCartaTexto" class="letter"></div><div id="readCartaAttachments" class="letter-read-attachments" aria-label="Anexos da carta"></div><div id="letterReactions" class="react"></div><div id="letterReceipts" class="rec"></div><div class="row"><button id="responderCarta" class="btn" type="button">${mi("reply")}Responder</button><button id="editarCartaLida" class="btn" type="button" hidden>Editar carta</button><button id="mostrarDicaNova" class="btn" type="button" hidden aria-expanded="false" aria-controls="formDicaNova">Adicionar dica</button></div><form id="formDicaNova" hidden><label class="f">Nova dica<input name="password_hint" maxlength="240" placeholder="Uma pista para a senha"></label><button class="btn main" type="submit">Salvar dica</button><p id="novaDicaStatus" role="status" aria-live="polite"></p></form><p id="readCartaStatus" role="status"></p></div></dialog>
+    <dialog class="modal-carta model-dialog" id="modalLeituraNova" aria-labelledby="readCartaTitulo"><div class="sheet"><div class="grab"></div><header><h2 id="readCartaTitulo">Carta</h2><button type="button" id="fecharLeituraNova" class="ib" aria-label="Fechar carta">${mi("x")}</button></header><p id="readCartaAutor"></p><p id="readCartaData"></p><div class="stage"><div class="envl" id="letterEnvelope"><div class="flap"></div><div class="wax">💌</div></div></div><div id="readCartaDicas" class="banner i"></div><form id="desbloquearNova" class="pw" hidden><h2>Carta protegida</h2><label class="f">Senha da carta<input id="senhaLeituraNova" type="password" autocomplete="current-password" required></label><button class="btn main" type="submit">Abrir</button></form><div id="readCartaTexto" class="letter"></div><div id="readCartaAttachments" class="letter-read-attachments" aria-label="Anexos da carta"></div><div id="letterReactions" class="react"></div><div id="letterReceipts" class="rec"></div><div class="row"><button id="responderCarta" class="btn" type="button">${mi("reply")}Responder</button><button id="editarCartaLida" class="btn" type="button" hidden>Editar carta</button><button id="mostrarDicaNova" class="btn" type="button" hidden aria-expanded="false" aria-controls="formDicaNova">Adicionar dica</button></div><form id="formDicaNova" hidden><label class="f">Nova dica<input name="password_hint" maxlength="240"></label><button class="btn main" type="submit">Salvar dica</button><p id="novaDicaStatus" role="status" aria-live="polite"></p></form><p id="readCartaStatus" role="status"></p></div></dialog>
     ${editorMarkup}<div id="cartasToast" role="status" aria-live="polite" class="cartas-toast" hidden></div>
   </section>`;
 }
@@ -132,7 +132,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
   if (archiveResult.status === "fulfilled") bindArchivedCards(root, client, user.id, archive, isAdmin, people);
   const $ = (selector) => root.querySelector(selector);
   const state = { filter: "recebidas", sub: "todas", date: "", adminUser: user.id,
-    cards: archive.cards, reads: new Set(archive.reads.map(item => item.card_id)), letters, hiddenSent: new Set(), selectedRecipient: null, selectedRecipients: new Set(), search: "", favorites: new Set(), communityReads: new Set(), editor: null, reading: null, style: { paper: papers[0][0], ink: inks[0], font: "Cormorant Garamond", size: 21, seal: seals[0] } };
+    cards: archive.cards, reads: new Set(archive.reads.map(item => item.card_id)), letters, hiddenSent: new Set(), selectedRecipient: null, selectedRecipients: new Set(), search: "", favorites: new Set(), communityReads: new Set(), editor: null, reading: null, style: { paper: papers[0][0], ink: inks[0], font: "Cormorant Garamond", size: 21, seal: defaultSeal } };
   const notify = (message, error = false) => {
     const notice = $("#cartasToast"); notice.textContent = message; notice.hidden = false;
     notice.classList.toggle("error", error);
@@ -192,8 +192,6 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     const active=root.querySelector('[data-filter="'+state.filter+'"]');
     root.querySelectorAll("[data-filter]").forEach(button=>{const on=button===active;button.classList.toggle("on",on);button.setAttribute("aria-pressed",String(on));});
     root.querySelectorAll("[data-sub]").forEach(button=>{const on=button.dataset.sub===state.sub;button.classList.toggle("on",on);button.setAttribute("aria-pressed",String(on));});
-    const pill=$(".seg .pill"), segment=$(".seg");
-    if(active&&pill&&segment){pill.style.width=active.offsetWidth+"px";pill.style.transform=`translateX(${active.offsetLeft-segment.offsetLeft}px)`;}
     $("#colecaoTitulo").textContent=state.filter==="programadas"?"Cartas agendadas":state.filter==="enviadas"?"Cartas enviadas":"Cartas recebidas";
     $("#colecaoCount").textContent=(state.filter==="enviadas"?sent:received)+" cartas";
     $("#lidasCount").textContent=`${received-unread}/${received} lidas`;
@@ -204,12 +202,13 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     const rows=filtered();
     $("#cartasList").innerHTML=rows.length?rows.map((c,i)=>{
       const key=c.kind+":"+c.id, favorite=state.favorites.has(key);
+      const canFavorite=c.raw.recipient_id===user.id || (c.kind==="community"&&c.raw.sender_id===user.id);
       const badges=[c.locked?`<span class="bd">${mi("lock")}Senha</span>`:"",c.raw.view_once?`<span class="bd r">Leitura única</span>`:"",c.kind==="archive"?'<span class="bd g">Original</span>':"",!c.read?'<span class="bd">Nova</span>':""].join("");
       return `<article class="letter-row" style="--i:${i}"><div class="env ${c.read?"":"new"}">
-        ${avatar(c.avatarId)}<button class="letter-open" type="button" data-letter-kind="${c.kind}" data-letter-id="${h(c.id)}" aria-label="Ler ${h(c.title)}"><span class="letter-person">${h(c.author)}</span><h3>${h(c.title)}</h3><p class="letter-excerpt">${h(c.excerpt||"Uma carta espera por você.")}</p><div class="meta">${badges}<span class="when">${h(day(c.date))}</span></div></button>
-        <span class="side"><button type="button" class="star ${favorite?"on":""}" data-favorite-kind="${c.kind}" data-favorite-id="${h(c.id)}" aria-label="${favorite?"Remover dos favoritos":"Adicionar aos favoritos"}" aria-pressed="${favorite}">${mi("star")}</button>${c.read?mi("check"):'<span class="udot" aria-hidden="true"></span>'}</span></div>
+        ${avatar(c.avatarId)}<button class="letter-open" type="button" data-letter-kind="${c.kind}" data-letter-id="${h(c.id)}" aria-label="Ler ${h(c.title)}"><span class="letter-person">${h(c.author)}</span><h3>${h(c.title)}</h3><p class="letter-excerpt">${h(c.excerpt)}</p><div class="meta">${badges}<span class="when">${h(day(c.date))}</span></div></button>
+        <span class="side">${canFavorite?`<button type="button" class="star ${favorite?"on":""}" data-favorite-kind="${c.kind}" data-favorite-id="${h(c.id)}" aria-label="${favorite?"Remover dos favoritos":"Adicionar aos favoritos"}" aria-pressed="${favorite}">${mi("star")}</button>`:""}${c.read?mi("check"):'<span class="udot" aria-hidden="true"></span>'}</span></div>
         ${(c.kind==="community"&&c.raw.sender_id===user.id)||(isAdmin&&c.kind==="archive")||c.kind==="community"&&c.raw.sender_id===user.id?`<div class="env-actions">${(c.kind==="community"&&c.raw.sender_id===user.id)||(isAdmin&&c.kind==="archive")?`<button type="button" data-edit-kind="${c.kind}" data-edit-id="${h(c.id)}">Editar</button>`:""}${c.kind==="community"&&c.raw.sender_id===user.id?`<button type="button" data-delete-sent="${h(c.id)}">Excluir</button>`:""}</div>`:""}</article>`;
-    }).join(""):'<p class="empty">Nenhuma carta encontrada para estes filtros.</p>';
+    }).join(""):'<p class="empty">Nenhuma carta</p>';
     if(isAdmin) $("#adminCartasCount").textContent=`${state.cards.filter(c=>c.recipient_id===ownerTarget()).length} originais · ${received} recebidas`;
   };
   const loadCurrent = async () => {
@@ -246,10 +245,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
   const markRead = async letter => {
     const {error:receiptError}=await client.rpc("v23_mark_community_letter_read",{p_letter_id:letter.id});
     if(receiptError){console.warn("Could not record letter read",receiptError);return;}
-    const previous=(state.uiRows||[]).find(row=>row.letter_kind==="community"&&row.letter_id===letter.id);
     const {error}=await client.from("looply_letter_ui_state").upsert({
-      user_id:user.id,letter_kind:"community",letter_id:letter.id,
-      favorite:previous?.favorite||false,reaction:previous?.reaction||null,read_at:previous?.read_at||new Date().toISOString()
+      user_id:user.id,letter_kind:"community",letter_id:letter.id,read_at:new Date().toISOString()
     },{onConflict:"user_id,letter_kind,letter_id"});
     if(error)console.warn("Could not sync letter receipt",error);
     else {state.communityReads.add(letter.id);updateList();}
@@ -271,15 +268,19 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     $("#listaUsuarios").innerHTML = matches.length ? matches.map(p => '<button type="button" class="recipient'+(state.selectedRecipients.has(p.id)?' selected':'')+'" data-recipient="'+h(p.id)+'" aria-pressed="'+state.selectedRecipients.has(p.id)+'">'+
       '<span class="recipient-avatar">'+(p.avatarUrl ? '<img src="'+h(p.avatarUrl)+'" alt="" loading="lazy"/>' : h((p.display_name||p.username||"?")[0].toUpperCase()))+'</span><span class="recipient-meta"><strong>'+h(p.display_name||p.username)+'</strong><small>@'+h(p.username)+'</small></span><span class="recipient-select">Selecionado</span></button>').join("") : '<p class="cartas-empty">Nenhum destinatário encontrado.</p>';
     $("#destinatariosCount").textContent=state.selectedRecipients.size ? `${state.selectedRecipients.size} pessoa${state.selectedRecipients.size===1?"":"s"}` : "";
-    const preview=$("#letterDraftPreview small");if(preview)preview.textContent=`${state.selectedRecipients.size} destinatário(s)`;
   };
   const close = (id) => { if (id === "modalEscrever") composerAttachments.stop(true); if (id === "modalLeituraNova") readerAttachments.clear(); const dialog=$("#"+id); if (dialog?.open) dialog.close(); };
-  $("#modalEscrever").addEventListener("close", () => composerAttachments.clear());
+  $("#modalEscrever").addEventListener("close", () => {
+    composerAttachments.clear();
+    closeEmojiPicker($("#letterSeal"));
+  });
   $("#modalLeituraNova").addEventListener("close", () => readerAttachments.clear());
-  $("#btnEscrever").addEventListener("click", () => { composerAttachments.clear(); state.selectedRecipient = null; state.selectedRecipients.clear(); $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#enviarStatus").textContent=""; renderRecipients(); $("#modalEscrever").showModal(); });
+  $("#btnEscrever").addEventListener("click", () => { composerAttachments.clear(); state.selectedRecipient = null; state.selectedRecipients.clear(); $("#cartaComposeForm").reset(); $("#privadaFields").hidden=true; $("#senhaCarta").required=false; $("#enviarStatus").textContent=""; applyStyle(); renderRecipients(); $("#modalEscrever").showModal(); });
   scheduledController = installScheduledLetters({
     root,client,user,people,sealLetter,openProtectedLetter,notify,
     getRecipient:()=>state.selectedRecipient,
+    getSeal:()=>state.style.seal,
+    setSeal:seal=>{state.style.seal=seal||defaultSeal;applyStyle();},
     setRecipient:id=>{state.selectedRecipient=id;state.selectedRecipients=new Set(id?[id]:[]);renderRecipients();},
     onChanged:()=>loadCurrent(),
     selectScheduled:()=>{
@@ -585,16 +586,24 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     text.style.setProperty("--letter-size",style.size+"px");
     $("#letterPapers").innerHTML=papers.map(([paper],i)=>`<button type="button" class="sw ${style.paper===paper?"on":""}" data-paper="${i}" style="background:${paper}" aria-label="Papel ${i+1}" aria-pressed="${style.paper===paper}"></button>`).join("");
     $("#letterInks").innerHTML=inks.map((ink,i)=>`<button type="button" class="sw ${style.ink===ink?"on":""}" data-ink="${i}" style="background:${ink}" aria-label="Tinta ${i+1}" aria-pressed="${style.ink===ink}"></button>`).join("");
-    $("#letterSeals").innerHTML=seals.map((seal,i)=>`<button type="button" class="sealpick ${style.seal===seal?"on":""}" data-seal="${i}" aria-label="Selo ${i+1}" aria-pressed="${style.seal===seal}">${seal}</button>`).join("");
+    $("#letterSeal span").textContent=style.seal;
     $("#letterFont").value=style.font;$("#letterSize").value=String(style.size);
-    $("#letterDraftPreview").innerHTML=`<span style="font-size:26px">${style.seal}</span><span><b>${h($("#tituloCarta").value||"Sua carta")}</b><br><small>${state.selectedRecipients.size} destinatário(s)</small></span>`;
   };
   $("#letterPapers").addEventListener("click",e=>{const b=e.target.closest("[data-paper]");if(b){state.style.paper=papers[Number(b.dataset.paper)][0];applyStyle();}});
   $("#letterInks").addEventListener("click",e=>{const b=e.target.closest("[data-ink]");if(b){state.style.ink=inks[Number(b.dataset.ink)];applyStyle();}});
-  $("#letterSeals").addEventListener("click",e=>{const b=e.target.closest("[data-seal]");if(b){state.style.seal=seals[Number(b.dataset.seal)];applyStyle();}});
+  const sealButton = $("#letterSeal");
+  sealButton.addEventListener("click", () => toggleEmojiPicker(sealButton, {
+    userId: user.id,
+    action: "Usar",
+    focusSearch: false,
+    onSelect(emoji) {
+      state.style.seal = emoji;
+      applyStyle();
+      sealButton.focus();
+    }
+  }));
   $("#letterFont").addEventListener("change",e=>{state.style.font=e.target.value;applyStyle();});
   $("#letterSize").addEventListener("input",e=>{state.style.size=Number(e.target.value);applyStyle();});
-  $("#tituloCarta").addEventListener("input",applyStyle);
   $("#letterFormatting").addEventListener("click",e=>{
     const b=e.target.closest("[data-format]");if(!b)return;
     const area=$("#textoCarta"),start=area.selectionStart,end=area.selectionEnd,mark=b.dataset.format;
@@ -607,6 +616,8 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     if(!title||!body||!recipients.length){notify("Preencha o título, o texto e escolha uma pessoa.",true);return;}
     if(privateCarta && $("#senhaCarta").value.length<1){notify("Escolha uma senha para a carta privada.",true);return;}
     if(!composerAttachments.validate(privateCarta)){notify("Revise os anexos antes de enviar.",true);return;}
+    const modelStyle = {...state.style};
+    const viewOnce = $("#letterOnce").checked;
     button.disabled=true;let completed=0;
     try {
       const sealed=privateCarta?await sealLetter(body,$("#senhaCarta").value,title):{body,password_salt:null,password_iv:null,password_ciphertext:null};
@@ -614,7 +625,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
         $("#enviarStatus").textContent=`Enviando carta ${completed+1} de ${recipients.length}...`;
         const payload={subject:title,recipient_id:recipient,sender_id:user.id,is_protected:privateCarta,
           body:sealed.body,password_salt:sealed.password_salt,password_iv:sealed.password_iv,password_ciphertext:sealed.password_ciphertext,
-          password_hint:privateCarta?$("#dicaCarta").value.trim()||null:null,attachments:[],model_style:state.style,view_once:$("#letterOnce").checked};
+          password_hint:privateCarta?$("#dicaCarta").value.trim()||null:null,attachments:[],model_style:modelStyle,view_once:viewOnce};
         const {data,error}=await client.from("community_letters").insert(payload).select("id,subject,recipient_id,created_at");
         if(error||!data?.length)throw error||Error("O banco não confirmou a carta.");
         const createdId=data[0].id;
@@ -634,12 +645,20 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
             throw uploadError;
           }
         }
+        state.selectedRecipients.delete(recipient);
         completed++;
       }
       close("modalEscrever");form.reset();state.selectedRecipient=null;state.selectedRecipients.clear();state.filter="enviadas";state.sub="todas";state.date="";
-      $("#dataCartas").value="";await loadCurrent();notify(`${completed} carta${completed===1?"":"s"} enviada${completed===1?"":"s"} e confirmada${completed===1?"":"s"} no Neon!`);
-    }catch(error){$("#enviarStatus").textContent=asError(error);notify(completed?`${completed} de ${recipients.length} cartas enviadas; confira Enviadas antes de repetir.`:"Não foi possível enviar a carta.",true);await loadCurrent();}
-    finally{button.disabled=false;}
+      $("#dataCartas").value="";await loadCurrent();notify(completed===1?"Carta enviada":"Cartas enviadas");
+    }catch(error){console.warn("Letter send failed",error?.code||error?.message);notify(completed?`${completed} de ${recipients.length} cartas enviadas; confira Enviadas antes de repetir.`:"Não foi possível enviar a carta.",true);await loadCurrent();}
+    finally{
+      if (completed && $("#modalEscrever").open) {
+        state.selectedRecipient=state.selectedRecipients.values().next().value||null;
+        renderRecipients($("#buscarDestinatario").value);
+      }
+      $("#enviarStatus").textContent="";
+      button.disabled=false;
+    }
   });
   root.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click",async()=>{
     state.filter=b.dataset.filter;state.sub="todas";
@@ -667,7 +686,7 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     const previous=(state.uiRows||[]).find(row=>row.letter_kind==="community"&&row.letter_id===letter.id);
     const reaction=previous?.reaction===button.dataset.reaction?null:button.dataset.reaction;
     button.disabled=true;
-    const {error}=await client.from("looply_letter_ui_state").upsert({user_id:user.id,letter_kind:"community",letter_id:letter.id,favorite:previous?.favorite||false,reaction,read_at:previous?.read_at||new Date().toISOString()},{onConflict:"user_id,letter_kind,letter_id"});
+    const {error}=await client.from("looply_letter_ui_state").upsert({user_id:user.id,letter_kind:"community",letter_id:letter.id,reaction},{onConflict:"user_id,letter_kind,letter_id"});
     if(error)notify("Não foi possível salvar a reação.",true);
     else {await loadCurrent();$("#letterReactions").querySelectorAll("[data-reaction]").forEach(b=>b.classList.toggle("on",b.dataset.reaction===reaction));}
     button.disabled=false;
@@ -678,11 +697,11 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
       const key=favorite.dataset.favoriteKind+":"+favorite.dataset.favoriteId;
       const next=!state.favorites.has(key);favorite.disabled=true;
       try{
-        const existing=(state.uiRows||[]).find(row=>row.letter_kind===favorite.dataset.favoriteKind&&row.letter_id===favorite.dataset.favoriteId);
-        const {error}=await client.from("looply_letter_ui_state").upsert({user_id:user.id,letter_kind:favorite.dataset.favoriteKind,letter_id:favorite.dataset.favoriteId,favorite:next,reaction:existing?.reaction||null,read_at:existing?.read_at||null},{onConflict:"user_id,letter_kind,letter_id"});
+        const {error}=await client.from("looply_letter_ui_state").upsert({user_id:user.id,letter_kind:favorite.dataset.favoriteKind,letter_id:favorite.dataset.favoriteId,favorite:next},{onConflict:"user_id,letter_kind,letter_id"});
         if(error)throw error;
         await loadCurrent();
-      }catch(error){notify("Não foi possível salvar o favorito no Neon.",true);favorite.disabled=false;}
+      }catch(error){console.warn("Favorite write failed",error?.code||error?.message);notify("Não foi possível salvar o favorito.",true);}
+      finally{favorite.disabled=false;}
       return;
     }
     const remove=e.target.closest("[data-delete-sent]");
@@ -758,15 +777,11 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
       const opened=await openProtectedLetter(letter,$("#senhaLeituraNova").value);
       $("#readCartaTexto").innerHTML=formattedBody(opened);$("#readCartaTexto").hidden=false;
       void readerAttachments.render(letter,$("#senhaLeituraNova").value);
-      $("#desbloquearNova").hidden=true;$("#readCartaStatus").textContent="Carta desbloqueada.";
+      $("#desbloquearNova").hidden=true;$("#readCartaStatus").textContent="";
       if(letter.recipient_id===user.id && letter.sender_id!==user.id){
-        const [{error:unlockError},{error:readError}]=await Promise.all([
-          client.rpc("looply_register_recipient_unlock",{p_letter_id:letter.id}),
-          client.rpc("v23_mark_community_letter_read",{p_letter_id:letter.id})
-        ]);
+        const {error:unlockError}=await client.rpc("looply_register_recipient_unlock",{p_letter_id:letter.id});
         if(unlockError)console.warn("Could not register private-letter unlock",unlockError);
-        if(readError)console.warn("Could not register private-letter read",readError);
-        else await markRead(letter);
+        await markRead(letter);
       }
     }
     catch{$("#readCartaStatus").textContent="Senha incorreta ou conteúdo indisponível.";}
@@ -859,9 +874,17 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
       void loadCurrent();
       notify("Carta original não encontrada na coleção do ADM.", true);
     }
-  } else void loadCurrent();
-  const requestedLetterId=new URLSearchParams(location.search).get("letterId");
-  const requestedCardId=new URLSearchParams(location.search).get("cardId");
-  if(requestedCardId)requestAnimationFrame(()=>$("#cartasList [data-letter-id='"+CSS.escape(requestedCardId)+"']")?.click());
-  if(requestedLetterId)requestAnimationFrame(()=>$("#cartasList [data-letter-id='"+CSS.escape(requestedLetterId)+"']")?.click());
+  } else {
+    const params = new URLSearchParams(location.search);
+    const requestedLetterId = params.get("letterId");
+    const requestedCardId = params.get("cardId");
+    void loadCurrent().then(() => {
+      if (requestedLetterId && ownerRows().sent.some(letter => letter.id === requestedLetterId)) {
+        state.filter = "enviadas";
+        updateList();
+      }
+      const requested = requestedLetterId || requestedCardId;
+      if (requested) $("#cartasList [data-letter-id='"+CSS.escape(requested)+"']")?.click();
+    });
+  }
 }});

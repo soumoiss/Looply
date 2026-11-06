@@ -56,7 +56,7 @@ test("Existing normal letter path and new scheduled filter both remain",async()=
   assert.match(source,/installScheduledLetters/);
   assert.match(module,/data\.filter="programadas"|filter\.dataset\.filter="programadas"/);
   assert.match(module,/stopImmediatePropagation\(\)/);
-  assert.match(module,/v24_create_scheduled_letter/);
-  assert.match(module,/v24_update_scheduled_letter/);
+  assert.match(module,/v29_create_scheduled_letter/);
+  assert.match(module,/v29_update_scheduled_letter/);
   assert.match(module,/v24_cancel_scheduled_letter/);
 });

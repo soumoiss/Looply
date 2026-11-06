@@ -95,7 +95,7 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   assert.match(markup, /data-community-letter-edit-form/);
   assert.match(markup, /Salvar alterações/);
   assert.match(archive, /data-card-hint-form/);
-  assert.match(archive, /As dicas anteriores ficam guardadas/);
+  assert.match(archive, /password_hints = \[\.\.\./);
   assert.match(archive, /Adicionar dica/);
   assert.match(archive, /Nova dica adicionada ao histórico/);
   const community = await read("src/letters-community.js");

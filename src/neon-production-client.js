@@ -183,7 +183,7 @@ async function cleanupPendingGalleryMedia(name, args) {
 const protectedArchiveRpcNames = new Set([
   "v13_unlock_archived_card","v13_admin_change_archived_card_password",
   "v14_admin_recover_archived_card","looply_register_recipient_unlock",
-  "v23_mark_global_announcement_read","v23_mark_community_letter_read",
+  "v23_mark_global_announcement_read","v23_mark_community_letter_read","v27_letter_activity",
   "v23_register_app_open", "v28_register_app_open"
 ]);
 const galleryRpcNames = new Set(["set_gallery_media_adjustment","set_gallery_media_pinned","set_gallery_media_private","set_gallery_media_permissions","create_community_gallery_comment","create_archive_media_comment","v8_delete_gallery_media","v8_create_gallery_comment"]);
@@ -247,6 +247,7 @@ async function storyEngagementRpc(name, args) {
 // Never silently fall back to a generic unsupported-feature response.
 const scheduledLetterRpcNames = new Set([
   "v24_create_scheduled_letter", "v24_update_scheduled_letter",
+  "v29_create_scheduled_letter", "v29_update_scheduled_letter",
   "v24_cancel_scheduled_letter", "v26_scheduled_recipient_inbox",
   "v26_hide_sent_letter", "v26_hidden_sent_ids"
 ]);
@@ -273,7 +274,7 @@ async function scheduledLetterRpc(name, args) {
         status: response.status, code: value?.code || ""
       } };
     }
-    const valid = name === "v24_create_scheduled_letter"
+    const valid = ["v24_create_scheduled_letter", "v29_create_scheduled_letter"].includes(name)
       ? typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)
       : (name === "v26_scheduled_recipient_inbox" || name === "v26_hidden_sent_ids") ? Array.isArray(value)
       : value === true;
