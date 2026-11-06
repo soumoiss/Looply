@@ -1,12 +1,12 @@
-import { icon } from "./icons.js?build=a11088ce9a105311";
-import { requestImmediateMessagePush } from "./chat-push-alert.js?build=a11088ce9a105311";
-import { premiumChatCardMarkup } from "./chat-premium-cards.js?build=a11088ce9a105311";
-import { editGroupCover } from "./group-cover-editor.js?build=a11088ce9a105311";
-import { matchesConversationFilter } from "./chat-filter-logic.js?build=a11088ce9a105311";
-import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js?build=a11088ce9a105311";
-import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js?build=a11088ce9a105311";
-import { stickerCatalogMarkup, bindStickerCatalog, cc0StickerFromMessage } from "./chat-sticker-catalog.js?build=a11088ce9a105311";
-import { notificationBus } from "./notification-bus.js?build=a11088ce9a105311";
+import { icon } from "./icons.js?build=e913ddee23ac1c1d";
+import { requestImmediateMessagePush } from "./chat-push-alert.js?build=e913ddee23ac1c1d";
+import { premiumChatCardMarkup } from "./chat-premium-cards.js?build=e913ddee23ac1c1d";
+import { editGroupCover } from "./group-cover-editor.js?build=e913ddee23ac1c1d";
+import { matchesConversationFilter } from "./chat-filter-logic.js?build=e913ddee23ac1c1d";
+import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js?build=e913ddee23ac1c1d";
+import { cachedSignedUrls, cachedSignedUrl } from "./storage-url-cache.js?build=e913ddee23ac1c1d";
+import { stickerCatalogMarkup, bindStickerCatalog, cc0StickerFromMessage } from "./chat-sticker-catalog.js?build=e913ddee23ac1c1d";
+import { notificationBus } from "./notification-bus.js?build=e913ddee23ac1c1d";
 const CHAT_EMOJI_CATEGORIES = {
   "Carinhas": [["😀","sorriso"],["😃","sorriso aberto"],["😄","alegre"],["😁","grande sorriso"],["😆","rindo"],["😅","suor"],["😂","rindo com lágrimas"],["🤣","rolando de rir"],["😊","feliz"],["😇","anjo"],["🙂","sorriso leve"],["🙃","invertido"],["😉","piscando"],["😍","apaixonado"],["🥰","carinhoso"],["😘","beijo"],["😋","delícia"],["😎","óculos escuros"],["🤩","estrelas"],["🥳","festa"],["😭","chorando"],["🥹","emocionado"],["😢","triste"],["😡","irritado"],["🤔","pensando"],["🤗","abraço"],["🤭","rindo com a mão"],["😴","sono"],["😮","surpreso"],["🤯","explodindo a cabeça"],["😬","constrangido"],["🥱","bocejando"]],
   "Pessoas": [["👋","aceno"],["👋🏻","aceno pele clara"],["👋🏼","aceno pele média clara"],["👋🏽","aceno pele média"],["👋🏾","aceno pele média escura"],["👋🏿","aceno pele escura"],["🙏","oração"],["👏","palmas"],["👍","positivo"],["👎","negativo"],["🤝","aperto de mãos"],["💪","força"],["🤦","facepalm"],["🤷","tanto faz"],["🙋","mão levantada"],["🙌","comemoração"],["🫶","coração com as mãos"],["🧑‍🤝‍🧑","pessoas de mãos dadas"],["👩‍❤️‍👨","casal"],["💃","dança"],["🕺","dançarino"]],

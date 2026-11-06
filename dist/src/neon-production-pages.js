@@ -1,6 +1,6 @@
-import "./theme.js?build=a11088ce9a105311";
-import { neon, activeSession, selfProfile, escapeText, unregisterAndroidFcmDevice } from "./neon-production-client.js?build=a11088ce9a105311";
-import { icon } from "./icons.js?build=a11088ce9a105311";
+import "./theme.js?build=e913ddee23ac1c1d";
+import { neon, activeSession, selfProfile, escapeText, unregisterAndroidFcmDevice } from "./neon-production-client.js?build=e913ddee23ac1c1d";
+import { icon } from "./icons.js?build=e913ddee23ac1c1d";
 
 const pages = [
   ["home", "Início", "home.html", "home"], ["letters", "Cartas", "cartas.html", "mail"],

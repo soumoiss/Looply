@@ -1,10 +1,10 @@
-import { icon } from './icons.js?build=a11088ce9a105311';
-import { saveNeonProfile } from './neon-avatar-profile.js?build=a11088ce9a105311';
-import { mountProfileAvatarEditor } from './avatar-crop-editor.js?build=a11088ce9a105311';
-import { normalizeYouTubePlaylistUrl } from './youtube-playlist.js?build=a11088ce9a105311';
-import { PROFILE_TABS, esc, isProfileId, profileError, profileRpc, signPeople, signContentCovers, optimisticFollow } from './profile-api.js?build=a11088ce9a105311';
-import { createProfileMediaViewer } from './profile-media-viewer.js?build=a11088ce9a105311';
-import { loadProfilePublications, profilePublicationsMarkup } from './profile-publications.js?build=a11088ce9a105311';
+import { icon } from './icons.js?build=e913ddee23ac1c1d';
+import { saveNeonProfile } from './neon-avatar-profile.js?build=e913ddee23ac1c1d';
+import { mountProfileAvatarEditor } from './avatar-crop-editor.js?build=e913ddee23ac1c1d';
+import { normalizeYouTubePlaylistUrl } from './youtube-playlist.js?build=e913ddee23ac1c1d';
+import { PROFILE_TABS, esc, isProfileId, profileError, profileRpc, signPeople, signContentCovers, optimisticFollow } from './profile-api.js?build=e913ddee23ac1c1d';
+import { createProfileMediaViewer } from './profile-media-viewer.js?build=e913ddee23ac1c1d';
+import { loadProfilePublications, profilePublicationsMarkup } from './profile-publications.js?build=e913ddee23ac1c1d';
 
 const avatar = (p,link=true) => p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" ${link?`data-profile-avatar-id="${esc(p.id)}"`:''} alt="" referrerpolicy="no-referrer">` : `<span aria-hidden="true">${esc(Array.from(p.display_name || p.username || '?')[0])}</span>`;
 const closeButton = label => `<button type="button" class="pr-icon" data-pr-close aria-label="${label}">${icon('close')}</button>`;

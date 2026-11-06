@@ -1,4 +1,4 @@
-import { icon } from "./icons.js?build=a11088ce9a105311";
+import { icon } from "./icons.js?build=e913ddee23ac1c1d";
 const playlists = Object.freeze({
   misol: "PLUZFdmgmipvI",
   yara: "PLCn4CAsA_tiM",

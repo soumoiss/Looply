@@ -15,7 +15,7 @@ body.looply-page{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegib
 @keyframes ios-in-fwd{from{opacity:0;transform:translate3d(22px,0,0)}to{opacity:1;transform:none}}
 @keyframes ios-in-back{from{opacity:0;transform:translate3d(-22px,0,0)}to{opacity:1;transform:none}}
 @keyframes ios-out{to{opacity:0;transform:translate3d(-14px,0,0)}}
-body.looply-page>.container-page>main{animation:ios-in-fwd .38s var(--ios-ease) both}
+body.looply-page>.container-page>main{animation:ios-in-fwd .38s var(--ios-ease) backwards}
 html[data-nav-dir="back"] body.looply-page>.container-page>main{animation-name:ios-in-back}
 body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in both}
 

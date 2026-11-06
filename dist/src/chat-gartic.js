@@ -1,5 +1,5 @@
-import { applyGarticStroke } from "./gartic-paint.js?build=a11088ce9a105311";
-import { attachGarticViewport } from "./gartic-viewport.js?build=a11088ce9a105311";
+import { applyGarticStroke } from "./gartic-paint.js?build=e913ddee23ac1c1d";
+import { attachGarticViewport } from "./gartic-viewport.js?build=e913ddee23ac1c1d";
 // Looply Gartic: server-authoritative word game scoped to an authenticated conversation.
 // Shares the existing authenticated Cloudflare "ttt" room for ephemeral drawing/audio signals.
 // All words, turns, scores, chat messages and persisted strokes are verified by Neon RPCs.

@@ -1,4 +1,4 @@
-import { releaseMediaPlayback, requestMediaPlayback } from "./media-playback-coordinator.js?build=a11088ce9a105311";
+import { releaseMediaPlayback, requestMediaPlayback } from "./media-playback-coordinator.js?build=e913ddee23ac1c1d";
 
 // Each pending play() resolves only for its own active attempt. A cancelled
 // attempt cannot reactivate a soundtrack after advancing or closing a Story.

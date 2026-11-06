@@ -1,10 +1,10 @@
-import { icon } from "./icons.js?build=a11088ce9a105311";
-import { optimizeUploadImage } from "./media-upload-optimizer.js?build=a11088ce9a105311";
-import { cachedSignedUrls } from "./storage-url-cache.js?build=a11088ce9a105311";
-import { invokeAdminAction } from "./admin.js?build=a11088ce9a105311";
-import { signProfileAvatars } from "./profiles.js?build=a11088ce9a105311";
-import { validatePublicationInput } from "./publication-validation.js?build=a11088ce9a105311";
-import { releaseMediaPlayback, requestMediaPlayback } from "./media-playback-coordinator.js?build=a11088ce9a105311";
+import { icon } from "./icons.js?build=e913ddee23ac1c1d";
+import { optimizeUploadImage } from "./media-upload-optimizer.js?build=e913ddee23ac1c1d";
+import { cachedSignedUrls } from "./storage-url-cache.js?build=e913ddee23ac1c1d";
+import { invokeAdminAction } from "./admin.js?build=e913ddee23ac1c1d";
+import { signProfileAvatars } from "./profiles.js?build=e913ddee23ac1c1d";
+import { validatePublicationInput } from "./publication-validation.js?build=e913ddee23ac1c1d";
+import { releaseMediaPlayback, requestMediaPlayback } from "./media-playback-coordinator.js?build=e913ddee23ac1c1d";
 
 const externalHosts = new Set([
   "instagram.com", "www.instagram.com", "m.instagram.com", "l.instagram.com",
@@ -894,7 +894,7 @@ function bindReelsViewer(root) {
     if (!key) { event.preventDefault(); trigger.setAttribute("title", "Ainda não há vídeos disponíveis"); return; }
     event.preventDefault();
     event.stopImmediatePropagation();
-    void import("./home-hybrid-reels.js?build=a11088ce9a105311").then(({ openHybridReels }) => openHybridReels(root, key)).catch(error => {
+    void import("./home-hybrid-reels.js?build=e913ddee23ac1c1d").then(({ openHybridReels }) => openHybridReels(root, key)).catch(error => {
       console.error("Looply Reels viewer unavailable; opening legacy viewer", error);
       root.__looplyVideoAutoplayDispose?.();
       root.querySelectorAll("video[data-feed-video]").forEach(video => video.pause());

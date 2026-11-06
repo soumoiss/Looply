@@ -1,5 +1,5 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=a11088ce9a105311";
-import { applyProfilePreferences } from "../../src/theme.js?build=a11088ce9a105311";
+import { mountAppPage } from "../../src/page-runtime.js?build=e913ddee23ac1c1d";
+import { applyProfilePreferences } from "../../src/theme.js?build=e913ddee23ac1c1d";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"

@@ -1,6 +1,6 @@
 /* Looply's public app shell is cacheable; signed Neon URLs and private API
    responses are not. Serve the shell immediately and refresh in background. */
-const CACHE = "looply-pages-a11088ce9a105311-chat-mobile-20261104";
+const CACHE = "looply-pages-e913ddee23ac1c1d-chat-mobile-20261104";
 const STATIC = /\.(?:html|css|js|svg|png|jpg|jpeg|webp|woff2?)$/i;
 const SHELL = [
   "home.html","chat.html","conversa.html","cartas.html",

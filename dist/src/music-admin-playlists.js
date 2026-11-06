@@ -1,7 +1,7 @@
 // Admin playlist inspector backed by Neon Auth + Postgres RLS (no legacy Supabase Edge Function).
 // Only admins authenticated by v3_self_is_admin() can see this panel or insert private notes.
-import { fetchPlaylistItemsWithFallback } from "./youtube-playlist.js?build=a11088ce9a105311";
-import { signProfileAvatars } from "./profiles.js?build=a11088ce9a105311";
+import { fetchPlaylistItemsWithFallback } from "./youtube-playlist.js?build=e913ddee23ac1c1d";
+import { signProfileAvatars } from "./profiles.js?build=e913ddee23ac1c1d";
 const h = (v) => String(v??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const defaults=Object.freeze({misol:"PLUZFdmgmipvI",yara:"PLCn4CAsA_tiM",patati:"PLE0tcB0gaSzM",peixinho:"PLD5PXwJcU-Sg"});
 const fallback="PLMeQ_QyqhY7s";
