@@ -19,12 +19,14 @@ test("Model replaces all legacy layout sheets and follows isolated component sty
     assert.doesNotMatch(html,/pages\/(?:chat|conversation|chat-mobile-reference|chat-viewport-catalog)\.css/);
   }
 });
-test("only global page-runtime renders the seven real bottom navigation links", async () => {
+test("only global page-runtime renders the six bottom links and header Avisos", async () => {
   const [runtime,nav,html]=await Promise.all([
     read("src/page-runtime.js"),read("src/primary-navigation.js"),read("chat.html")
   ]);
   assert.match(runtime,/primaryNavigationMarkup/);
-  for(const route of ["home.html","chat.html","notificacoes.html"]) assert.match(nav,new RegExp(route.replace(".","\\.")));
+  for(const route of ["home.html","chat.html"]) assert.match(nav,new RegExp(route.replace(".","\\.")));
+  assert.match(runtime,/header-notifications" href="notificacoes.html"/);
+  assert.doesNotMatch(nav,/notificacoes\.html/);
   assert.doesNotMatch(html,/<nav[^>]+aria-label="Navegação principal"|<nav class="global-nav"/);
 });
 test("reference stylesheet forces mobile width to one column with the desktop rule overridden",async()=>{

@@ -37,6 +37,9 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
 }
 .looply-page .brand-inline{min-height:44px;display:inline-flex;align-items:center}
 .looply-page .header-back-button{min-width:44px;border-radius:14px}
+.looply-page .header-notifications{position:relative;flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center;border:1px solid var(--ios-glass-edge);border-radius:14px;background:var(--surface-strong);color:var(--text);text-decoration:none}
+.looply-page .header-notifications .looply-icon{width:20px;height:20px}
+.looply-page .header-notifications .navigation-badge{position:absolute;top:0;right:0;min-width:18px;height:18px;border-radius:99px;background:#cf3154;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;transform:translate(25%,-25%)}
 @media(min-width:761px){
   /* Give every desktop destination room instead of clipping the last tabs. */
   .looply-page:not(.page-chat) .page-header{
@@ -65,6 +68,8 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
 .looply-page .page-navigation .header-action:active{transform:scale(.92)}
 .looply-page .page-navigation [aria-current="page"] .page-navigation-icon{transform:translateY(-1px) scale(1.08);transition:transform .35s var(--ios-spring)}
 @media(max-width:760px){
+  .looply-page .page-navigation,.looply-page.page-chat .page-navigation{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .looply-page .header-notifications{margin-left:auto}
   .looply-page .page-navigation,.looply-page.page-chat .page-navigation{
     position:fixed;z-index:900;left:50%;right:auto;top:auto;
     width:min(calc(100% - 14px),900px);max-width:900px;

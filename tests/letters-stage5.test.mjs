@@ -61,10 +61,10 @@ test("My Letters presents received, sent, and imported archive cards in one swit
   for (const name of ["received", "sent", "legacy"]) {
     assert.match(markup + archive, new RegExp(`data-letter-collection-(?:select|panel)=\\"${name}\\"`));
   }
-  assert.match(page, /state\.filter === "originais"/);
-  assert.match(page, /state\.filter === "enviadas"/);
+  assert.match(page, /\[\.\.\.received,\.\.\.originals\]/);
+  assert.match(page, /state\.filter==="enviadas"/);
   assert.match(page, /data-filter="recebidas"/);
-  assert.match(page, /data-filter="originais"/);
+  assert.doesNotMatch(page, /data-filter="originais"/);
   assert.match(archive, /data-letter-collection-panel="legacy" hidden/);
   assert.match(page, /archivedCardsMarkup\(\)/);
 });
@@ -173,7 +173,7 @@ test("letters use the authenticated server-verified administrator role, never a 
     readFile(resolve(root, "assets/js/letters.js"), "utf8"),
     readFile(resolve(root, "src/page-runtime.js"), "utf8")
   ]);
-  assert.match(page, /render: async \(\{ root, client, user, isAdmin \}\)/);
+  assert.match(page, /render: async \(\{ root, client, user, profile, isAdmin \}\)/);
   assert.doesNotMatch(page, /user\.id\s*===\s*["'][0-9a-f-]{36}["']/i);
   assert.match(runtime, /supabase\.rpc\("v3_self_is_admin"\)/);
   assert.match(runtime, /adminResult\.value\?\.data === true/);
@@ -184,6 +184,7 @@ test("archived cards stay visible when read receipts fail, without guessing read
     const query = {
       select() { return query; },
       order() { return query; },
+      range() { return query; },
       eq() { return query; },
       then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); }
     };
@@ -208,6 +209,7 @@ test("archived card query failures still surface instead of looking like an empt
     const query = {
       select() { return query; },
       order() { return query; },
+      range() { return query; },
       eq() { return query; },
       then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); }
     };

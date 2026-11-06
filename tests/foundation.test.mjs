@@ -615,7 +615,8 @@ test("global navigation keeps the six core pages and puts profile tools in the a
     read("src/page-runtime.js"),read("assets/css/pages/shared.css"),read("src/primary-navigation.js")
   ]);
   assert.match(primaryNavigation, /"letters","Cartas"/);
-  assert.match(primaryNavigation, /"notifications","Avisos"/);
+  assert.doesNotMatch(primaryNavigation, /"notifications","Avisos"/);
+  assert.match(runtime, /header-notifications" href="notificacoes.html"/);
   assert.doesNotMatch(primaryNavigation, /\["users"|\["profile"|\["settings"/);
   assert.match(runtime,/primaryNavigationMarkup\(page, unreadCount\)/);
   assert.match(runtime, /class="account-menu-link"[^>]*href="usuarios.html"/);

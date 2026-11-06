@@ -55,14 +55,19 @@ export function archivedCardsMarkup() {
 
 // Legacy archive read shape: from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,body,sent_date")
 export async function loadArchivedCards(client, userId, isAdmin = false) {
-  let cardsQuery = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,password_hints,body,sent_date")
-    .order("is_private", { ascending: false }).order("card_number", { ascending: true });
-  if (!isAdmin) cardsQuery = cardsQuery.eq("recipient_id", userId);
-  const [{ data: cards, error: cardsError }, { data: reads, error: readsError }] = await Promise.all([
-    cardsQuery,
-    client.from("archived_card_reads").select("card_id,read_at").eq("user_id", userId)
-  ]);
-  if (cardsError) throw cardsError;
+  const cards = [];
+  for (let from = 0; ; from += 500) {
+    let query = client.from("archived_cards").select("id,recipient_id,original_file,card_number,is_private,is_protected,password_hint,password_hints,body,sent_date")
+      .order("is_private", { ascending: false }).order("card_number", { ascending: true }).order("id", { ascending: true })
+      .range(from, from + 499);
+    if (!isAdmin) query = query.eq("recipient_id", userId);
+    const { data, error } = await query;
+    if (error) throw error;
+    cards.push(...(data || []));
+    if (!data || data.length < 500) break;
+  }
+  const { data: reads, error: readsError } = await client.from("archived_card_reads")
+    .select("card_id,read_at").eq("user_id", userId);
   return {
     cards: (cards || []).map((card) => ({ ...card, date: cardDate(card), unlocked: false })),
     reads: readsError ? [] : (reads || []),

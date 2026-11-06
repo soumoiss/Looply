@@ -11,8 +11,8 @@ function post(id,external_url=null,comments=[]){
     body:"Publicação de exemplo",visibility:"public",external_url,created_at:"2026-11-02T11:15:00Z",
     media:[],comments,likeCount:1,likedByMe:false};
 }
-test("Reels is a real seventh navigation destination with matching physical build route",()=>{
-  assert.equal(primaryDestinations.length,7);
+test("Reels remains a main destination after Avisos moves to the header",()=>{
+  assert.equal(primaryDestinations.length,6);
   assert.ok(primaryDestinations.some(([key,label,href,icon])=>
     key==="reels"&&label==="Reels"&&href==="reels.html"&&icon==="video"));
   assert.match(read("reels.html"),/assets\/js\/reels\.js/);

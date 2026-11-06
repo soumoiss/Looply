@@ -75,9 +75,10 @@ test("home reuses one global navigation with all six labels, never a separate fe
   const {primaryNavigationMarkup}=await import("../src/primary-navigation.js");
   const html=primaryNavigationMarkup("home");
   const feed=socialMarkup({people:[],posts:[]}, "viewer");
-  for(const name of ["Início","Cartas","Músicas","Galeria","Chat","Avisos"]) {
+  for(const name of ["Início","Reels","Cartas","Músicas","Galeria","Chat"]) {
     assert.ok(html.includes('aria-label="'+name+'"'),name);
   }
+  assert.doesNotMatch(html,/aria-label="Avisos"/);
   assert.doesNotMatch(feed,/looply-feed-nav|aria-label="Navegação rápida"/);
 });
 test("new CSS styles actual story list and existing viewer, not fake story media", async () => {

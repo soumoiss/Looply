@@ -46,10 +46,12 @@ export function installScheduledLetters({
   let rows = [], recipientRows = [], hiddenIds = new Set(), direction="sent";
   let editId = null, editPassword = "", requestId = crypto.randomUUID();
   let loading = false, busy = false, loadError = "";
-  const filter = document.createElement("button");
-  filter.type="button"; filter.className="filter-btn"; filter.dataset.filter="programadas";
-  filter.setAttribute("aria-pressed","false");filter.textContent="Programadas";
-  $(".row.types")?.append(filter);
+  if (!root.querySelector('[data-filter="programadas"]')) {
+    const filter = document.createElement("button");
+    filter.type="button"; filter.className="filter-btn"; filter.dataset.filter="programadas";
+    filter.setAttribute("aria-pressed","false");filter.textContent="Programadas";
+    $(".row.types")?.append(filter);
+  }
   const panel = document.createElement("section");
   panel.className = "scheduled-compose";
   panel.innerHTML = '<fieldset class="scheduled-mode"><legend>Quando deseja enviar?</legend>'+
@@ -121,6 +123,10 @@ export function installScheduledLetters({
       '<span aria-hidden="true">'+esc(name(id).slice(0,1).toUpperCase())+'</span>';
   };
   const payload = async () => {
+    if (root.querySelectorAll('#listaUsuarios [aria-pressed="true"]').length > 1)
+      throw Error("Agende uma pessoa por vez.");
+    if ($("#letterOnce")?.checked)
+      throw Error("A visualização única está disponível apenas para entrega imediata.");
     const recipient=getRecipient(),subject=$("#tituloCarta").value.trim();
     const body=$("#textoCarta").value.trim(),protectedLetter=$("#isPrivada").checked;
     if (!recipient || recipient===user.id || !subject || !body) throw Error("Preencha o destinatário, título e conteúdo.");
@@ -153,7 +159,7 @@ export function installScheduledLetters({
       $("#scheduledPreviewContent").innerHTML=detail;
       $("#scheduledPreviewStatus").textContent="";
       preview.showModal();
-    } catch(error) {console.warn("Scheduled letter preview rejected",error?.name||"invalid");notify("Confira os dados da programação.",true);}
+    } catch(error) {console.warn("Scheduled letter preview rejected",error?.name||"invalid");notify(error?.message||"Confira os dados da programação.",true);}
   },true);
   $("#scheduledConfirm").addEventListener("click",async()=>{
     if(busy || !pending) return;
@@ -342,5 +348,5 @@ export function installScheduledLetters({
   };
   reset();
   void reload();
-  return {reload,render};
+  return {reload,render,counts:()=>({sent:rows.length,received:recipientRows.length})};
 }

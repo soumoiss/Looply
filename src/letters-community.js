@@ -84,13 +84,17 @@ function rowMarkup(letter, own, isAdmin = false) {
   return `<article class="community-letter-row"><div class="community-letter-meta"><strong>${escapeHtml(letter.subject)}</strong><span>${own ? "Para " : "De "}${escapeHtml(displayName(peer))}${letter.is_protected ? " · protegida por senha" : ""} · ${escapeHtml(dateLabel(letter.created_at))}</span></div><button class="text-button" type="button" data-open-community-letter="${escapeHtml(letter.id)}">${letter.is_protected ? "Desbloquear" : "Ler carta"}</button>${own && isAdmin ? `<button class="text-button" type="button" data-admin-edit-community-letter="${escapeHtml(letter.id)}">Editar</button>` : ""}${own ? `<button class="icon-action" type="button" data-delete-community-letter="${escapeHtml(letter.id)}" aria-label="Excluir carta enviada">${icon("trash")}</button>` : ""}</article>`;
 }
 export async function loadCommunityLetters(client, userId, isAdmin = false) {
-  let query = client.from("community_letters")
-    .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,password_hints,attachments,created_at,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
-    .order("created_at", { ascending: false }).limit(isAdmin ? 1000 : 200);
-  if (!isAdmin) query = query.or("sender_id.eq." + userId + ",recipient_id.eq." + userId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  const all = [];
+  for (let from = 0; ; from += 500) {
+    let query = client.from("community_letters")
+      .select("id,sender_id,recipient_id,subject,body,is_protected,password_salt,password_iv,password_ciphertext,password_hint,password_hints,attachments,created_at,model_style,view_once,sender:profiles!community_letters_sender_id_fkey(username,display_name),recipient:profiles!community_letters_recipient_id_fkey(username,display_name)")
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, from + 499);
+    if (!isAdmin) query = query.or("sender_id.eq." + userId + ",recipient_id.eq." + userId);
+    const { data, error } = await query;
+    if (error) throw error;
+    all.push(...(data || []));
+    if (!data || data.length < 500) return all;
+  }
 }
 function rowsMarkup(letters, userId, own, dateValue = "", isAdmin = false) {
   const rows = letters.filter((letter) => (own ? letter.sender_id === userId : letter.recipient_id === userId) && matchesLetterDate(letter, dateValue));

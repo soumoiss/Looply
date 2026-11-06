@@ -57,10 +57,11 @@ export function adminLetterLogMarkup() {
   </section>`;
 }
 
-export function mountAdminLetterLog(root, client) {
-  const anchor = root.querySelector(".admin-description");
+export function mountAdminLetterLog(root, client, mountPoint = null) {
+  const anchor = mountPoint || root.querySelector(".admin-description");
   if (!anchor || root.querySelector("[data-letter-log]")) return () => {};
-  anchor.insertAdjacentHTML("afterend", adminLetterLogMarkup());
+  if (mountPoint) anchor.innerHTML = adminLetterLogMarkup();
+  else anchor.insertAdjacentHTML("afterend", adminLetterLogMarkup());
   const panel = root.querySelector("[data-letter-log]");
   const list = panel.querySelector("[data-letter-log-list]");
   const status = panel.querySelector("[data-letter-log-status]");

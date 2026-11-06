@@ -7,7 +7,7 @@ import { communityLettersMarkup } from "../src/letters-community.js";
 const root = process.cwd();
 const read = path => readFile(resolve(root, path), "utf8");
 
-test("Retro-Tech Letters UI exposes compact composition, file attachments, and audio recording", async () => {
+test("Cartas model exposes real composition, file attachments, and audio recording", async () => {
   const [markup, css, page] = await Promise.all([
     read("src/letters-community.js"), read("assets/css/pages/letters.css"), read("assets/js/letters.js")
   ]);
@@ -20,8 +20,10 @@ test("Retro-Tech Letters UI exposes compact composition, file attachments, and a
   assert.match(css, /--letters-paper:\s*#f5f1e9/i);
   assert.match(css, /--letters-accent:\s*#20b99a/i);
   assert.match(css, /repeating-linear-gradient\(135deg/);
-  assert.match(page, /class="cartas-page"/);
+  assert.match(page, /class="letter-model shell"/);
   assert.match(page, /id="modalEscrever"/);
+  assert.match(page, /id="letterPapers"/);
+  assert.match(page, /id="letterOnce"/);
   assert.match(page, /\.insert\(payload\)\.select/);
   assert.match(page, /\.from\("community_letters"\)/);
 });
@@ -34,7 +36,7 @@ test("admin collection reads all letters and can delete letters while RLS remain
   assert.match(markup, /loadCommunityLetters\(client, userId, isAdmin = false\)/);
   assert.match(markup, /if \(!isAdmin\) query = query\.or/);
   assert.match(markup, /data-admin-delete-community-letter/);
-  assert.match(page, /render: async \(\{ root, client, user, isAdmin \}\)/);
+  assert.match(page, /render: async \(\{ root, client, user, profile, isAdmin \}\)/);
   assert.doesNotMatch(page, /user\.id\s*===\s*["'][0-9a-f-]{36}["']/i);
   assert.match(migration, /private\.is_admin\(\)/);
   assert.match(migration, /archived_cards_admin_update/);
@@ -50,7 +52,7 @@ test("only administrators can edit or delete imported native cards in the collec
   assert.match(archive, /loadArchivedCards\(client, userId, isAdmin = false\)/);
   assert.match(archive, /data-admin-edit-card/);
   assert.match(archive, /data-admin-delete-card/);
-  assert.match(archive, /if \(!isAdmin\) cardsQuery = cardsQuery\.eq/);
+  assert.match(archive, /if \(!isAdmin\) query = query\.eq/);
   assert.match(page, /bindArchivedCards/);
   assert.match(migration, /archived_cards_admin_update/);
   assert.match(migration, /archived_cards_admin_delete/);
@@ -104,7 +106,7 @@ test("letters share the original calendar, keep inbox/outbox personal, hide empt
   assert.match(archive, /data-calendar-date/);
   assert.doesNotMatch(archive, /id="archiveCalendar"/);
   assert.match(page, /archive\.cards/);
-  assert.match(page, /data-filter="originais"/);
+  assert.match(page, /\[\.\.\.received,\.\.\.originals\]/);
   assert.match(page, /loadCurrent\(\)/);
   assert.match(css, /calendar-card/);
   assert.match(migration, /guard_archived_card_hint_update/);

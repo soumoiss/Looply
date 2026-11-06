@@ -57,8 +57,10 @@ function headerMarkup(page, profile, admin, unreadCount) {
   const usersCurrent = page === "users" ? " aria-current=\"page\"" : "";
   const adminCurrent = page === "admin" ? " aria-current=\"page\"" : "";
   const accountLinks = `<a class="account-menu-link"${profileCurrent} href="perfil.html">${icon("user")}Meu perfil</a><a class="account-menu-link"${usersCurrent} href="usuarios.html">${icon("users")}Pessoas</a><a class="account-menu-link"${settingsCurrent} href="configuracoes.html">${icon("settings")}Configurações</a>${admin ? `<button class="account-menu-link admin-mode-toggle" type="button" data-admin-mode-toggle aria-pressed="false">Ativar ADM</button><a class="account-menu-link"${adminCurrent} href="admin.html">${icon("shield")}Administração</a>` : ""}`;
+  const notificationBadge = unreadCount > 0 ? `<span class="navigation-badge" aria-label="${unreadCount} não lidas">${unreadCount > 99 ? "99+" : unreadCount}</span>` : "";
   return `${page === "home" ? "" : `<a class="header-action header-back-button" href="home.html" data-page-back aria-label="Voltar para o início" title="Voltar para o início"><span aria-hidden="true">${icon("back")}</span><span class="back-label">Início</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     ${primaryNavigationMarkup(page, unreadCount)}
+    <a class="header-action header-notifications" href="notificacoes.html" aria-label="Avisos"${page === "notifications" ? ' aria-current="page"' : ""}>${icon("bell")}${notificationBadge}</a>
     <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">${icon("menu")}</span></summary>
       <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out>${icon("logout")}Sair</button></div></details>`;
 }
@@ -91,7 +93,7 @@ async function loadUnreadNotifications(client) {
 
 async function refreshUnreadBadge(header, client) {
   const count = await loadUnreadNotifications(client);
-  const link = header.querySelector('.page-navigation a[href="notificacoes.html"]');
+  const link = header.querySelector('.header-notifications[href="notificacoes.html"]');
   if (!link) return;
   let badge = link.querySelector(".navigation-badge");
   if (!count) {
