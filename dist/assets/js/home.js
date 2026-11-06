@@ -1,12 +1,12 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
-import { welcomeGreeting } from "../../src/welcome.js?build=23c5b03973212076";
-import { bindHomeProfilePreview } from "../../src/home-profile-preview.js?build=23c5b03973212076";
-import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js?build=23c5b03973212076";
-import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?build=23c5b03973212076";
-import { loadStories, storiesMarkup } from "../../src/stories.js?build=23c5b03973212076";
-import { mountWhyNowStories } from "../../src/why-now-integration.js?build=23c5b03973212076";
-import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js?build=23c5b03973212076";
-import { mountSecretMessages } from "../../src/secret-messages.js?build=23c5b03973212076";
+import { mountAppPage } from "../../src/page-runtime.js?build=e96bd539b17ff957";
+import { welcomeGreeting } from "../../src/welcome.js?build=e96bd539b17ff957";
+import { bindHomeProfilePreview } from "../../src/home-profile-preview.js?build=e96bd539b17ff957";
+import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js?build=e96bd539b17ff957";
+import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?build=e96bd539b17ff957";
+import { loadStories, storiesMarkup } from "../../src/stories.js?build=e96bd539b17ff957";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?build=e96bd539b17ff957";
+import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js?build=e96bd539b17ff957";
+import { mountSecretMessages } from "../../src/secret-messages.js?build=e96bd539b17ff957";
 
 // Support direct links to home.html?share_url=... without the splash screen.
 captureIncomingSharedLink();

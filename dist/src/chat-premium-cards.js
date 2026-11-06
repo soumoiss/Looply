@@ -1,4 +1,4 @@
-import { normalizeStorySong } from "./story-music-catalog.js?build=23c5b03973212076";
+import { normalizeStorySong } from "./story-music-catalog.js?build=e96bd539b17ff957";
 
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const NOTE="💌 Bilhete\n";

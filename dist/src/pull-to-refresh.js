@@ -1,4 +1,4 @@
-import { icon } from "./icons.js?build=23c5b03973212076";
+import { icon } from "./icons.js?build=e96bd539b17ff957";
 
 const mounted = new WeakMap();
 const RESTRICTED_START = [

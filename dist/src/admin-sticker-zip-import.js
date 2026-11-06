@@ -1,7 +1,7 @@
 // Administração: importação real de ZIP preparado pelo Looply.
 // O ZIP contém WebP originais em armazenamento ZIP_STORED (método 0).
 // Nenhum recurso externo, desenho substituto ou conversão de animação.
-import { looplyClient } from "./neon-production-client.js?build=23c5b03973212076";
+import { looplyClient } from "./neon-production-client.js?build=e96bd539b17ff957";
 
 const input=document.querySelector("#stickerZip");
 const start=document.querySelector("#startStickerImport");

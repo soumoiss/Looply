@@ -27,7 +27,13 @@ body.looply-page.is-leaving>.container-page>main{animation:ios-out .16s ease-in 
   border-radius:22px;padding:8px 10px;top:calc(env(safe-area-inset-top) + 6px);
 }
 @media(max-width:760px){
-  .looply-page .page-header{-webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px)}
+  /* A backdrop filter on the header traps its fixed nav inside the header. */
+  .looply-page .page-header{-webkit-backdrop-filter:none;backdrop-filter:none}
+  .looply-page .page-header::before{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    border-radius:inherit;-webkit-backdrop-filter:saturate(180%) blur(22px);
+    backdrop-filter:saturate(180%) blur(22px);
+  }
 }
 .looply-page .brand-inline{min-height:44px;display:inline-flex;align-items:center}
 .looply-page .header-back-button{min-width:44px;border-radius:14px}

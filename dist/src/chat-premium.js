@@ -1,8 +1,8 @@
-import { sendChatCard } from "./chat.js?build=23c5b03973212076";
-import { icon } from "./icons.js?build=23c5b03973212076";
-import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js?build=23c5b03973212076";
-import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js?build=23c5b03973212076";
-import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js?build=23c5b03973212076";
+import { sendChatCard } from "./chat.js?build=e96bd539b17ff957";
+import { icon } from "./icons.js?build=e96bd539b17ff957";
+import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js?build=e96bd539b17ff957";
+import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js?build=e96bd539b17ff957";
+import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js?build=e96bd539b17ff957";
 
 const REACTIONS=["❤️","😂","😮","😢","🙏","👍"];
 const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));

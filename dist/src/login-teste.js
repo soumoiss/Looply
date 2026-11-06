@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured } from "./supabase.js?build=23c5b03973212076";
-import { authenticateOriginalAccount } from "./auth-gateway.js?build=23c5b03973212076";
+import { supabase, isSupabaseConfigured } from "./supabase.js?build=e96bd539b17ff957";
+import { authenticateOriginalAccount } from "./auth-gateway.js?build=e96bd539b17ff957";
 
 const form = document.getElementById("testLogin");
 const message = document.getElementById("message");

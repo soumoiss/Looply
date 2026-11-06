@@ -1,7 +1,7 @@
-import { mountAppPage } from "../../src/page-runtime.js?build=23c5b03973212076";
-import { bindMusicEvents, disposeMusicRealtime, loadMusicData, refreshMusicInPlace, musicMarkup, setupMusicRealtime } from "../../src/music.js?build=23c5b03973212076";
-import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js?build=23c5b03973212076";
-import { mountMusicAdminPlaylistPanel } from "../../src/music-admin-playlists.js?build=23c5b03973212076";
+import { mountAppPage } from "../../src/page-runtime.js?build=e96bd539b17ff957";
+import { bindMusicEvents, disposeMusicRealtime, loadMusicData, refreshMusicInPlace, musicMarkup, setupMusicRealtime } from "../../src/music.js?build=e96bd539b17ff957";
+import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js?build=e96bd539b17ff957";
+import { mountMusicAdminPlaylistPanel } from "../../src/music-admin-playlists.js?build=e96bd539b17ff957";
 
 await mountAppPage({ page: "music", render: async ({ root, client, user, profile }) => {
   const data = await loadMusicData(client, user.id);
