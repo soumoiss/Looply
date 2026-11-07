@@ -1,4 +1,4 @@
-import { sendChatCard } from "./chat.js?v=premium-fixes-20261104";
+import { sendChatCard } from "./chat.js?v=ultra-20261107-r1";
 import { icon } from "./icons.js";
 import { makePremiumNote, makePremiumMusic, makePremiumGameCard, makePremiumLetter, makePremiumContact, makePremiumLocation, makePremiumPoll } from "./chat-premium-cards.js";
 import { toggleEmojiPicker } from "./emoji-picker.js";
