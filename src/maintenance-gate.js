@@ -1,4 +1,5 @@
-import { neon, activeSession } from "./neon-production-client.js";
+import { NEON_DATA_API_URL, activeSession } from "./neon-production-client.js";
+import { evaluateMaintenanceAccess } from "./maintenance-decision.js";
 
 // A single, fail-closed check runs before every production page controller.
 // Postgres remains the authority: client state never grants an ADM bypass.
@@ -10,6 +11,7 @@ let pollStarted = false;
 let listenerAttached = false;
 
 function maintenanceScreen() {
+  if (blocked && document.querySelector(".looply-maintenance-screen")) return;
   blocked = true;
   document.documentElement.classList.remove("looply-maintenance-pending");
   document.documentElement.classList.add("looply-maintenance-locked");
@@ -44,56 +46,40 @@ function loginOrEntryPage() {
     || /\/$/.test(location.pathname);
 }
 
-// This RPC grants access only when the Neon Auth user is an active admin
-// linked to the original Peixinho profile. Never infer this from local names.
+// Both the UI and the pre-controller gate consult the same authenticated
+// Data API authorization. Local usernames never establish administrator access.
 export async function verifiedPeixinhoAdmin() {
   try {
-    const response = await neon.rpc("looply_maintenance_admin_bypass");
-    if (response.error) return false;
-    let value = Array.isArray(response.data) ? response.data[0] : response.data;
-    if (value && typeof value === "object" && "looply_maintenance_admin_bypass" in value) {
-      value = value.looply_maintenance_admin_bypass;
-    }
-    return value === true || value === "true";
+    const session = await activeSession();
+    if (!session?.access_token) return false;
+    const decision = await evaluateMaintenanceAccess({
+      session, dataApiUrl: NEON_DATA_API_URL
+    });
+    return decision.verifiedAdmin === true;
   } catch {
     return false;
   }
 }
 
 async function verifyAccess() {
-  const session = await activeSession();
-  // Peixinho must still be able to sign in while maintenance is active.
+  let session;
+  try {
+    session = await activeSession();
+  } catch (error) {
+    // Never prevent Peixinho from reaching the login form to restore an
+    // expired/broken session; actual app routes remain securely gated.
+    if (loginOrEntryPage()) return true;
+    throw error;
+  }
   if (!session?.access_token) {
     if (loginOrEntryPage()) return true;
     window.location.replace(new URL("login.html", document.baseURI).href);
     return false;
   }
-
-  // A separate, restricted server-side admin check prevents the maintenance
-  // overlay from locking out Peixinho when a general settings RPC is stale.
-  let result;
-  try {
-    result = await neon.rpc("looply_maintenance_status");
-  } catch {
-    // A settings endpoint outage must not lock the authenticated ADM out.
-    // The fallback independently checks their identity on the server.
-    return verifiedPeixinhoAdmin();
-  }
-  let value = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (typeof value === "string") {
-    try { value = JSON.parse(value); } catch { value = null; }
-  }
-  if (value && typeof value === "object" && value.looply_maintenance_status) {
-    value = value.looply_maintenance_status;
-  }
-  const valid = !result.error && value
-    && typeof value.enabled === "boolean"
-    && typeof value.blocked === "boolean";
-  if (valid && value.blocked === false) return true;
-
-  // Maintenance or settings error: only the proven Peixinho account may enter.
-  // Every other user remains blocked, including sessions already logged in.
-  return verifiedPeixinhoAdmin();
+  const decision = await evaluateMaintenanceAccess({
+    session, dataApiUrl: NEON_DATA_API_URL
+  });
+  return decision.allowed === true;
 }
 
 async function check() {
