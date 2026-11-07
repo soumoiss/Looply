@@ -36,6 +36,6 @@ test("chat keeps the global header and gives the send icon a fixed size", async 
   const page = await read("chat.html");
   assert.doesNotMatch(css, /\.page-chat \.page-header[^\n]*display:none/);
   assert.match(css, /chat-message-actions \.primary-button \.looply-icon \{ width:18px; height:18px/);
-  assert.match(page, /data-site-header>[\s\S]*brand-mark-animated/);
-  assert.match(page, /assets\/css\/pages\/chat-premium\.css\?v=[a-z0-9-]+/);
+  assert.match(page, /class="gh glass"/);
+  assert.match(page, /assets\/js\/chat-ultra-live\.js\?v=/);
 });
