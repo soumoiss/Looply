@@ -38,7 +38,9 @@ const fixture='<!doctype html><html lang="pt-BR" data-theme="lilas"><head>'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-gartic.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-premium.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-fixes.css">'+
-  '</head><body class="looply-page page-chat">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-reference-complete.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-ultra-adapter.css">'+
+  '</head><body class="looply-page page-chat chat-model-live">'+
   '<div class="container-page"><header class="page-header"><strong>Looply</strong></header>'+
   '<main><div class="page-content" id="pageContent">'+content+
   '</div></main></div></body></html>';
@@ -68,6 +70,14 @@ try{
     const page=await context.newPage();
     const errors=[];page.on("pageerror",error=>errors.push(error.message));
     await page.goto(url,{waitUntil:"load"});
+    await page.evaluate(()=>{
+      document.querySelector(".chat-layout")?.classList.add("main");
+      document.querySelector(".chat-sidebar")?.classList.add("side");
+      document.querySelector(".chat-thread-panel")?.classList.add("thread");
+      document.querySelector(".chat-conversation-list")?.classList.add("list");
+      document.querySelectorAll(".chat-conversation").forEach(node=>node.classList.add("row"));
+      document.querySelectorAll(".chat-model-search").forEach(node=>node.classList.add("sr"));
+    });
     const cases=width<=860?["list","thread"]:["thread"];
     for(const mode of cases){
       await page.evaluate(({mode,markup})=>{
@@ -75,6 +85,8 @@ try{
         if(mode==="thread"){
           root.classList.add("is-conversation-open");
           root.querySelector("[data-chat-thread]").innerHTML=markup;
+          root.querySelector(".chat-thread")?.classList.add("ref-thread-body");
+          root.querySelector(".chat-premium-history")?.classList.add("msgs");
         } else root.classList.remove("is-conversation-open");
       },{mode,markup:mockedThread});
       const geometry=await page.evaluate(()=>{
