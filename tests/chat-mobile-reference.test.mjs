@@ -9,13 +9,13 @@ test("both Chat pages render one existing global header without a second mock he
     const html = await read(path);
     assert.equal((html.match(/data-site-header/g)||[]).length,1,path);
     assert.doesNotMatch(html,/class="global-header"|class="global-nav"|keyboard-mockup|id="callModal"/);
-    assert.match(html,/chat-premium\.css\?v=model-native-/);
+    assert.match(html,/class="conv" id="conv"/);
   }
 });
 test("Model replaces all legacy layout sheets and follows isolated component styles", async () => {
   for (const path of ["chat.html","conversa.html"]) {
     const html=await read(path);
-    assert.ok(html.indexOf("chat-premium.css")>html.indexOf("chat-features.css"),path);
+    assert.match(html,/<style>[\s\S]*--primary:#7010b0/,path);
     assert.doesNotMatch(html,/pages\/(?:chat|conversation|chat-mobile-reference|chat-viewport-catalog)\.css/);
   }
 });
