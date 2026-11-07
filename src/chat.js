@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { requestImmediateMessagePush } from "./chat-push-alert.js";
-import { premiumChatCardMarkup } from "./chat-premium-cards.js";
+import { premiumChatCardMarkup, parsePremiumChatBody } from "./chat-premium-cards.js";
 import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
@@ -252,7 +252,13 @@ function conversationPreview(conversation, userId) {
   const authorName = message.sender_id === userId ? "Você" : conversation.kind === "group" ? (message.author?.display_name || message.author?.username || "Membro") : "";
   const author = authorName ? `${authorName}: ` : "";
   const text = String(message.body || "").trim();
-  return `${author}${text || "Mídia"}`.slice(0, 68);
+  const card = parsePremiumChatBody(text);
+  const preview = card?.type === "letter" ? "💌 Carta · "+card.title
+    : card?.type === "note" ? "📝 Bilhete"
+    : card?.type === "game" ? "🎮 Convite de jogo"
+    : card?.type === "music" ? "🎵 "+card.title
+    : (text || "Mídia");
+  return `${author}${preview}`.slice(0,68);
 }
 
 function notificationsMarkup(notifications) {
@@ -775,7 +781,8 @@ export function messageComposerMarkup(conversationId) {
       <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinha</span></button>
       <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Jogos</span></button>
       <button type="button" data-chat-premium-share-game><span class="chat-premium-tile indigo">${icon("share")}</span><span>Convidar para jogar</span></button>
-      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Cartas</span></button>
+      <button type="button" data-chat-premium-letter><span class="chat-premium-tile amber">💌</span><span>Carta</span></button>
+      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">📝</span><span>Nota</span></button>
       <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Músicas</span></button>
     </div>
     <input id="files-${escapeHtml(conversationId)}" name="files" class="chat-premium-file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf">
