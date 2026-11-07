@@ -344,6 +344,7 @@ body.cv #banner.on{transform:translate(-50%,0)}
 #bStickers{color:var(--primary)}
 #conv .who .chat-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1dbd67;box-shadow:0 0 0 2px color-mix(in srgb,#1dbd67 20%,transparent);margin-right:4px;vertical-align:middle}
 </style>
+<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=presence-stickers-20261107">
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
 <body class="looply-chat-ultra-live">
 <header class="gh glass" id="gh">
@@ -3778,14 +3779,15 @@ refresh();
     if(fake)fake.remove();
   };
   online=function liveContacts(){
-    const names=Object.keys(USERS).filter(id=>id!==ME).slice(0,14);
+    const names=Object.keys(USERS).filter(id=>id!==ME&&U(id).on).slice(0,20);
     document.querySelector("#online").innerHTML=names.map((id,i)=>
-      '<button class="on1" style="--i:'+i+'" data-dm="'+esc(id)+'">'+av(id,56,0)+'<span>'+esc(U(id).n)+'</span></button>'
+      '<button class="on1" style="--i:'+i+'" data-dm="'+esc(id)+'">'+av(id,56,1)+'<span>'+esc(U(id).n)+'</span></button>'
     ).join("");
   };
   status=function liveStatus(c){
     if(c.type==="group")return '<small>'+c.members.length+' participantes</small>';
-    return '<small>Conversa privada</small>';
+    const other=c.members.find(id=>id!==ME);
+    return U(other)?.on?'<small><span class="chat-live-dot"></span>online agora</small>':'<small>Não está online agora</small>';
   };
   cav=function liveConversationAvatar(c,size=52){
     if(c.type!=="group"||!c.coverUrl)return originalCav(c,size);
@@ -3798,12 +3800,15 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
-    rooms({selfId,profiles,conversations,selfAvatar}){
+    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[]}){
       ME=selfId;
+      const onlineNow=new Set(onlineUserIds);
+      let userPreferences={};
+      try{userPreferences=JSON.parse(localStorage.getItem("looply-chat-visual-v4:"+selfId)||"{}")||{};}catch{}
       Object.keys(USERS).forEach(key=>delete USERS[key]);
       for(const person of profiles||[]){
         const name=person.display_name||person.username||"Usuário";
-        USERS[person.id]={n:name,g:["#8e4ccc","#7010b0"],on:false,username:person.username||""};
+        USERS[person.id]={n:name,g:["#8e4ccc","#7010b0"],on:onlineNow.has(person.id),username:person.username||""};
         if(person.avatarUrl)photos[person.id]=person.avatarUrl;
         else delete photos[person.id];
       }
@@ -3811,9 +3816,18 @@ refresh();
       if(selfAvatar)photos[ME]=selfAvatar;
       const old=new Map(C.map(c=>[c.id,c]));
       C=conversations.map(c=>{
-        const existing=old.get(c.id);
-        return {...c,pin:existing?.pin||0,mute:existing?.mute||0,fav:existing?.fav||0,
-          msgs:existing&&c.id===cur?existing.msgs:c.msgs};
+        const existing=old.get(c.id),pref=userPreferences[c.id]||{};
+        return {...c,
+          pin:existing?.pin??pref.pin??0,
+          mute:existing?.mute??pref.mute??0,
+          fav:existing?.fav??pref.fav??0,
+          arch:existing?.arch??pref.arch??0,
+          nick:existing?.nick??pref.nick??"",
+          wallpaper:existing?.wallpaper??pref.wallpaper??"",
+          wallpaperTint:existing?.wallpaperTint??pref.wallpaperTint??.18,
+          color:existing?.color??pref.color??"",
+          msgs:existing&&c.id===cur?existing.msgs:c.msgs
+        };
       });
       refresh();
       if(cur&&!conv(cur)){originalClose();}
