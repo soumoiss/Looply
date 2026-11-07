@@ -3924,7 +3924,18 @@ refresh();
           inp.value="";grow();btn();document.querySelector("#pan")?.classList.remove("open");
           const replyTo=reply?.id||null;
           reply=null;ctx();
-          void hooks?.send(c,{kind:"text",text:message,replyTo});
+          // Do not lose typed text if Neon rejects a send.
+          const sendingConversation=c.id;
+          void Promise.resolve(hooks?.send(c,{kind:"text",text:message,replyTo})).then(saved=>{
+            if(saved===false&&cur===sendingConversation&&!inp.value.trim()){
+              inp.value=message;grow();btn();toast("Envio não confirmado. Tente novamente.");
+            }
+          }).catch(()=>{
+            if(cur===sendingConversation&&!inp.value.trim()){
+              inp.value=message;grow();btn();
+            }
+            toast("Falha de conexão. Mensagem preservada para reenvio.");
+          });
         }
       };
       const menu=document.querySelector("#menu");
