@@ -22,6 +22,12 @@ export function mountUltraStickerPicker({client,getUserId,getConversationId,onSa
   picker.setAttribute("data-chat-sticker-picker","");
   picker.setAttribute("aria-label","Figurinhas da sua conta");
   picker.innerHTML=stickerCatalogMarkup();
+  const importTools=document.createElement("div");
+  importTools.className="chat-ultra-sticker-import";
+  importTools.innerHTML='<label><input type="checkbox" data-chat-sticker-import-rights> Tenho autorização para compartilhar estas imagens</label>'+
+    '<button type="button" data-ultra-sticker-import>＋ Importar</button>'+
+    '<input type="file" data-chat-sticker-import-files accept="image/png,image/jpeg,image/webp" multiple hidden>';
+  picker.querySelector("[data-chat-catalog]").append(importTools);
   form.append(load,picker);
   nativeHost.append(form);
   tabs.after(nativeHost);
@@ -35,6 +41,12 @@ export function mountUltraStickerPicker({client,getUserId,getConversationId,onSa
     onSaved?.();
   });
   bindStickerCatalog(nativeHost,client,getUserId);
+  nativeHost.addEventListener("click",event=>{
+    if(event.target.closest("[data-ultra-sticker-import]")){
+      event.preventDefault();
+      picker.querySelector("[data-chat-sticker-import-files]")?.click();
+    }
+  });
   // The real multiplayer Games control still exists for the fan action. It is
   // no longer a redundant composer shortcut.
   games.hidden=true;
