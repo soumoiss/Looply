@@ -47,7 +47,7 @@ test("original ZIP stickers are published and all 535 Neon catalog items remain 
   assert.match(live,/createSignedUrl\(row\.storage_path,1800\)/);
   assert.match(picker,/bindStickerCatalog\(nativeHost,client,getUserId\)/);
   assert.match(picker,/games\.style\.display="none"/);
-  assert.match(picker,/id="bStickers"/);
+  assert.match(picker,/button\.id="bStickers"/);
   assert.match(picker,/data-chat-sticker-import-rights/);
   assert.match(css,/#pan:not\(\.open\)\{display:none!important\}/);
 });
