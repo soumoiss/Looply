@@ -44,25 +44,49 @@ function loginOrEntryPage() {
     || /\/$/.test(location.pathname);
 }
 
+// This RPC grants access only when the Neon Auth user is an active admin
+// linked to the original Peixinho profile. Never infer this from local names.
+export async function verifiedPeixinhoAdmin() {
+  try {
+    const response = await neon.rpc("looply_maintenance_admin_bypass");
+    if (response.error) return false;
+    let value = Array.isArray(response.data) ? response.data[0] : response.data;
+    if (value && typeof value === "object" && "looply_maintenance_admin_bypass" in value) {
+      value = value.looply_maintenance_admin_bypass;
+    }
+    return value === true || value === "true";
+  } catch {
+    return false;
+  }
+}
+
 async function verifyAccess() {
   const session = await activeSession();
-  // The login must remain available to let Peixinho authenticate and later
-  // deactivate maintenance. All other anonymous application pages redirect.
+  // Peixinho must still be able to sign in while maintenance is active.
   if (!session?.access_token) {
     if (loginOrEntryPage()) return true;
     window.location.replace(new URL("login.html", document.baseURI).href);
     return false;
   }
 
-  // Do not use looplyClient.rpc: its compatibility adapter intentionally
-  // rejects arbitrary RPC names. This call uses Neon Auth's real JWT.
+  // A separate, restricted server-side admin check prevents the maintenance
+  // overlay from locking out Peixinho when a general settings RPC is stale.
   const result = await neon.rpc("looply_maintenance_status");
-  const value = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (result.error || !value || typeof value.enabled !== "boolean"
-      || typeof value.exempt !== "boolean" || typeof value.blocked !== "boolean") {
-    throw result.error || new Error("maintenance_verification_unavailable");
+  let value = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { value = null; }
   }
-  return value.blocked === false;
+  if (value && typeof value === "object" && value.looply_maintenance_status) {
+    value = value.looply_maintenance_status;
+  }
+  const valid = !result.error && value
+    && typeof value.enabled === "boolean"
+    && typeof value.blocked === "boolean";
+  if (valid && value.blocked === false) return true;
+
+  // Maintenance or settings error: only the proven Peixinho account may enter.
+  // Every other user remains blocked, including sessions already logged in.
+  return verifiedPeixinhoAdmin();
 }
 
 async function check() {
