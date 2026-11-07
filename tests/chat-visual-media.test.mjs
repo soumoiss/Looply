@@ -44,6 +44,6 @@ test("CSS removes purple media surfaces and global header only in open threads",
   assert.match(css, /background:transparent/);
   assert.ok(css.includes(":has(.chat-area.is-conversation-open) .page-header"));
   assert.ok(css.includes(".chat-message.is-visual-only .chat-bubble"));
-  assert.ok(chat.includes("chat-premium.css"));
-  assert.ok(conversation.includes("chat-premium.css"));
+  assert.ok(chat.includes("chat-ultra-live.js"));
+  assert.ok(conversation.includes("chat-ultra-live.js"));
 });
