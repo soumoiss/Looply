@@ -8,13 +8,22 @@ import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1"
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
-import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact } from "../../src/chat-premium-cards.js";
+import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
+import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
+import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
 
 const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
 let busy=false,loading=null,refreshTimer=0;
+async function onlineIds(profiles){
+  const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
+  if(!ids.length)return [];
+  try{const {data,error}=await client.rpc("v37_chat_presence_visible",{p_user_ids:ids});
+    if(error)throw error;return (data||[]).map(row=>row.user_id).filter(Boolean);
+  }catch(error){console.warn("Chat Ultra: presença temporariamente indisponível",error?.code||"offline");return [];}
+}
 const say=text=>visual.notice(text);
 const safeTime=value=>new Date(value||Date.now()).getTime()||Date.now();
 function mapPreview(message){
@@ -24,7 +33,7 @@ function mapPreview(message){
     text:card?.type==="letter"?"💌 Carta selada":card?.type==="poll"?"📊 "+card.question:
       card?.type==="contact"?"👤 "+card.name:card?.type==="location"?"📍 "+card.label:
       card?.type==="note"?card.body:card?.type==="music"?"🎵 "+card.title:
-      String(message.body||""),kind:"text",react:{},st:"read"}];
+      String(message.body||""),kind:"text",react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
 }
 function mapConversations(data){
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
@@ -41,7 +50,8 @@ async function refreshRooms(){
   try{
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data)});
+    const active=await onlineIds(knownProfiles);
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data),onlineUserIds:active});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -60,6 +70,25 @@ async function refreshThread(id){
       .eq("conversation_id",id).order("created_at",{ascending:false}).limit(100);
     if(error)throw error;
     const messages=(data||[]).reverse();
+    // Read the genuine sticker attachments. A sticker belongs to the chat message;
+    // a local file name must never be sent as its message body.
+    const ids=messages.map(m=>m.id);
+    const stickerData=ids.length?await client.from("chat_sticker_messages")
+      .select("message_id,sticker_id").eq("conversation_id",id).in("message_id",ids).limit(100):{data:[],error:null};
+    const stickerRefs=stickerData.error?[]:(stickerData.data||[]);
+    const stickerIds=[...new Set(stickerRefs.map(row=>row.sticker_id))];
+    const stickerRows=stickerIds.length?await client.from("sticker_catalog")
+      .select("id,title,asset_path,storage_path").in("id",stickerIds):{data:[],error:null};
+    const stickerUrls=new Map();
+    if(!stickerRows.error)await Promise.all((stickerRows.data||[]).map(async row=>{
+      if(/^assets\/stickers\/cc0\/[a-z0-9-]+\.webp$/.test(row.asset_path||"")){
+        stickerUrls.set(row.id,row.asset_path);return;
+      }
+      if(!/^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(row.storage_path||""))return;
+      const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
+      if(!signed.error&&/^https:\/\//.test(signed.data?.signedUrl||""))stickerUrls.set(row.id,signed.data.signedUrl);
+    }));
+    const stickerByMessage=new Map(stickerRefs.map(row=>[row.message_id,stickerUrls.get(row.sticker_id)||""]));
     let reactions=[];
     if(messages.length){
       const result=await client.from("chat_message_reactions")
@@ -75,6 +104,8 @@ async function refreshThread(id){
     }
     const mapped=await Promise.all(messages.map(async message=>{
       const card=parsePremiumChatBody(message.body||"");
+      const bundled=cc0StickerFromMessage(message.body||"");
+      const nativeSticker=stickerByMessage.get(message.id)||"";
       const files=Array.isArray(message.media)?message.media:[];
       let media=files[0];
       let url="";
@@ -82,14 +113,16 @@ async function refreshThread(id){
         const signed=await client.storage.from("looply-chat").createSignedUrl(media.storage_path,1800);
         url=signed.data?.signedUrl||"";
       }
-      const kind=card?.type==="letter"?"letter":card?.type==="poll"?"poll":
+      const kind=nativeSticker||bundled?"sticker":card?.type==="letter"?"letter":card?.type==="poll"?"poll":
         media?.mime_type?.startsWith("image/")?"img":
         media?.mime_type?.startsWith("audio/")?"audio":
+        media?.mime_type?.startsWith("video/")?"video":
         media?"file":"text";
       const base={
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
-        text:String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null
+        text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
+        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||""
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
       if(card?.type==="poll"){const votes={};for(const [voter,emoji] of Object.entries(base.react)){const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);if(index>=0)votes[voter]=index;}Object.assign(base,{text:card.question,options:card.options,votes,react:{}});}
@@ -100,7 +133,7 @@ async function refreshThread(id){
       if(card?.type==="game")base.text="🎮 Convite para jogar";
       return base;
     }));
-    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url]));
+    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl]));
     if(visual.current()===id&&signature!==lastRender){
       visual.messages(id,mapped);
       lastRender=signature;
@@ -114,6 +147,7 @@ async function openBackend(id){
   void refreshThread(id);
   const {error}=await client.rpc("mark_conversation_read",{p_conversation_id:id});
   if(error)console.warn("Chat Ultra: leitura não confirmada",error);
+  else planRefresh(200);
 }
 async function postBody(conversationId,body,replyTo=null){
   if(busy||!roomIds.has(conversationId))throw Error("Conversa indisponível.");
@@ -139,7 +173,8 @@ async function sendModel(c,m){
     if(m?.kind==="poll")body=makePremiumPoll({question:m.text,options:m.options});
     if(m?.kind==="location")body=makePremiumLocation(m.text);
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
-    if(m?.kind==="sticker")body=String(m.text||"");
+    if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
+    if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
     if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
     await postBody(c.id,body,m?.replyTo||null);
     return true;
@@ -274,8 +309,13 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   setupOfficialMessagesModel(root,client,selfId,initial);
   setupChatRealtime(client,selfId,root);
   knownProfiles=initial.profiles||[];
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||""});
+  const active=await onlineIds(knownProfiles);
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active});
   bindEvents();
+  mountUltraStickerPicker({client,getUserId:()=>selfId,getConversationId:()=>visual.current(),onSaved:()=>{
+    const id=visual.current();if(id)void refreshThread(id);
+    planRefresh(350);
+  }});
   const params=new URLSearchParams(location.search);
   const linked=params.get("conversation")||params.get("id");
   if(linked&&roomIds.has(linked))visual.open(linked);

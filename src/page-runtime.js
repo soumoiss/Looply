@@ -13,6 +13,7 @@ import { mountIosMotion } from "./ios-motion.js";
 import { mountLiveNotificationToasts } from "./live-notification-toast.js";
 import { bindAdminModeSync } from "./admin-mode.js";
 import { verifiedPeixinhoAdmin } from "./maintenance-gate.js";
+import { startChatPresenceHeartbeat } from "./chat-presence.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -180,6 +181,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   header.innerHTML = headerMarkup(page, profile, isAdmin, 0);
   const stopAdminModeSync = bindAdminModeSync(header.querySelector("[data-admin-mode-toggle]"), { authorized: isAdmin });
   const stopAdminPresence = startAdminPresenceTracking(supabase, user.id);
+  const stopChatPresence = startChatPresenceHeartbeat(supabase);
   // Keep this control deterministic: the href rendered by headerMarkup is the destination.
   // History-based navigation can send users to an unrelated internal page instead of home.
   prefetchNavigation(header);
@@ -360,6 +362,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     stopPullToRefresh();
     delete root.__looplyRefreshData;
     stopAdminPresence();
+    stopChatPresence();
     stopAdminModeSync();
     stopProfileNavigation();
   }, { once: true });
