@@ -9,6 +9,7 @@ import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clea
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
+import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
 import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
 
@@ -266,8 +267,28 @@ async function removeMessage(conversationId,messageId){
   }catch(error){console.error("Chat Ultra: exclusão falhou",error);say(errorMessage);}
 }
 
+function launchActualFeature(conversationId,selector,label){
+  if(!conversationId||!roomIds.has(conversationId)){say("Conversa indisponível.");return;}
+  const form=runtime.querySelector("form[data-chat-send]");
+  const native=form?.dataset.conversationId===conversationId?runtime.querySelector(selector):null;
+  if(native){native.click();return;}
+  void legacyComposer(conversationId).then(()=>{
+    const button=runtime.querySelector(selector);
+    if(button)button.click();
+    else say(label+" indisponível. Verifique a conexão.");
+  }).catch(error=>say(error?.message||"Conversa não carregada."));
+}
+function startRealCall(conversationId,video=false){
+  const room=visual.conversations().find(c=>c.id===conversationId);
+  if(!room||room.type!=="dm"){say("Chamadas diretas exigem uma conversa privada.");return;}
+  launchActualFeature(conversationId,video?"[data-call-video]":"[data-call-audio]","Chamada");
+}
+function openRealGames(conversationId){
+  launchActualFeature(conversationId,"[data-v2-game]","Games");
+}
 function bindEvents(){
-  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,react:setReaction,vote:votePoll,remove:removeMessage});
+  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
+    react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames});
   document.addEventListener("change",event=>{
     const target=event.target;
     if(!target?.matches("#fImg,#fAny"))return;
@@ -302,6 +323,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   client=sessionClient;selfId=user.id;
   const initial=await loadChatData(client,selfId);
   root.innerHTML=chatMarkup(initial,selfId);
+  const stopNativeOverlays=mountUltraNativeOverlays(document.getElementById("looplyLiveRuntime"),root);
+  window.addEventListener("pagehide",stopNativeOverlays,{once:true});
   bindChatEvents(root,client,()=>selfId);
   setupChatEnhancements(root,client,selfId);
   setupChatPremium(root,client,selfId);
