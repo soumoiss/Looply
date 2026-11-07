@@ -92,7 +92,7 @@ async function refreshThread(id){
         text:String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
-      if(card?.type==="poll")Object.assign(base,{text:card.question,options:card.options});
+      if(card?.type==="poll"){const votes={};for(const [voter,emoji] of Object.entries(base.react)){const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);if(index>=0)votes[voter]=index;}Object.assign(base,{text:card.question,options:card.options,votes,react:{}});}
       if(card?.type==="note")base.text=card.body;
       if(card?.type==="music")base.text="🎵 "+card.title+" — "+card.artist;
       if(card?.type==="contact")base.text="👤 "+card.name+" (@"+card.username+")";
@@ -115,13 +115,13 @@ async function openBackend(id){
   const {error}=await client.rpc("mark_conversation_read",{p_conversation_id:id});
   if(error)console.warn("Chat Ultra: leitura não confirmada",error);
 }
-async function postBody(conversationId,body){
+async function postBody(conversationId,body,replyTo=null){
   if(busy||!roomIds.has(conversationId))throw Error("Conversa indisponível.");
   if(typeof body!=="string"||!body.trim()||body.length>5000)throw Error("Mensagem inválida.");
   busy=true;
   try{
     const {data,error}=await client.from("chat_messages")
-      .insert({conversation_id:conversationId,sender_id:selfId,body})
+      .insert({conversation_id:conversationId,sender_id:selfId,body,reply_to:replyTo||null})
       .select("id").single();
     if(error||!data?.id)throw error||Error("Envio não confirmado");
     runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
@@ -141,8 +141,9 @@ async function sendModel(c,m){
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
     if(m?.kind==="sticker")body=String(m.text||"");
     if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
-    await postBody(c.id,body);
-  }catch(error){console.error("Chat Ultra: envio falhou",error);say(error?.message||errorMessage);}
+    await postBody(c.id,body,m?.replyTo||null);
+    return true;
+  }catch(error){console.error("Chat Ultra: envio falhou",error);say(error?.message||errorMessage);return false;}
 }
 async function editModel(c,m,body){
   if(!c?.id||!m?.id||m.from!==selfId||!body.trim())return;
@@ -198,8 +199,40 @@ async function uploadFiles(files){
     setTimeout(()=>void refreshThread(id),1100);
   }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);}
 }
+
+const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
+async function setReaction(conversationId,messageId,emoji){
+  if(!roomIds.has(conversationId)||!POLL_VOTES.includes(emoji))return;
+  try{
+    const {data,error}=await client.from("chat_message_reactions")
+      .select("emoji").eq("conversation_id",conversationId)
+      .eq("message_id",messageId).eq("user_id",selfId).maybeSingle();
+    if(error)throw error;
+    const op=data?.emoji===emoji
+      ?client.from("chat_message_reactions").delete().eq("conversation_id",conversationId).eq("message_id",messageId).eq("user_id",selfId)
+      :client.from("chat_message_reactions").upsert({conversation_id:conversationId,message_id:messageId,user_id:selfId,emoji},{onConflict:"message_id,user_id"});
+    const result=await op;
+    if(result.error)throw result.error;
+    await refreshThread(conversationId);
+  }catch(error){console.error("Chat Ultra: reação não persistida",error);say(errorMessage);}
+}
+async function votePoll(conversationId,messageId,index){
+  const emoji=POLL_VOTES[index];
+  if(emoji)await setReaction(conversationId,messageId,emoji);
+}
+async function removeMessage(conversationId,messageId){
+  if(!roomIds.has(conversationId))return;
+  try{
+    const {data,error}=await client.from("chat_messages").delete()
+      .eq("conversation_id",conversationId).eq("id",messageId)
+      .eq("sender_id",selfId).select("id").maybeSingle();
+    if(error||!data?.id)throw error||Error("Exclusão não autorizada");
+    await refreshThread(conversationId);
+  }catch(error){console.error("Chat Ultra: exclusão falhou",error);say(errorMessage);}
+}
+
 function bindEvents(){
-  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup});
+  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,react:setReaction,vote:votePoll,remove:removeMessage});
   document.addEventListener("change",event=>{
     const target=event.target;
     if(!target?.matches("#fImg,#fAny"))return;
@@ -209,6 +242,10 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const poll=event.target.closest("#msgs [data-poll-vote]");
+    if(poll){event.preventDefault();event.stopImmediatePropagation();void votePoll(visual.current(),poll.dataset.pollVote,Number(poll.dataset.option));return;}
+    const destructive=event.target.closest("#shBox [data-d]");
+    if(destructive){event.preventDefault();event.stopImmediatePropagation();const item=window.LooplyVisual.pendingDelete?.();document.querySelector("#sh")?.close();if(destructive.dataset.d==="all"&&item)void removeMessage(item.conversationId,item.messageId);else say("Esta exclusão não está disponível para você.");return;}
     const go=event.target.closest("#shBox #go");
     if(go){
       event.preventDefault();event.stopImmediatePropagation();
