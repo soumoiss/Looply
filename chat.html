@@ -3688,10 +3688,10 @@ refresh();
     sheet(`<h2>Informações</h2>
       <div class="feature-panel"><b>Mensagem</b><p>${esc(m.kind==="letter"?"💌 Carta selada":(m.text||m.kind||"Mensagem")).slice(0,350)}</p></div>
       <div class="feature-row"><span class="minicon">📤</span><span class="grow">Enviada<small>${esc(readable(m.t))}</small></span></div>
-      <div class="feature-row"><span class="minicon">${delivered?"✓✓":"⌛"}</span><span class="grow">${delivered?"Entregue (simulado)":"Aguardando entrega demonstrativa"}</span></div>
-      <div class="feature-row"><span class="minicon">${read?"💙":"○"}</span><span class="grow">${read?"Lida (simulado)":"Ainda não lida"}</span></div>
+      <div class="feature-row"><span class="minicon">${delivered?"✓✓":"⌛"}</span><span class="grow">${delivered?"Entregue":"Aguardando confirmação de entrega"}</span></div>
+      <div class="feature-row"><span class="minicon">${read?"💙":"○"}</span><span class="grow">${read?"Lida":"Ainda não lida"}</span></div>
       <button class="btn main" data-info-close>Fechar</button>
-      <p class="mobile-note">Estes estados são simulados para apresentar a experiência visual. Não são confirmações de outro dispositivo.</p>`);
+      `);
     $u("#shBox").onclick=event=>{if(event.target.closest("[data-info-close]"))sh.close();};
   }
 
