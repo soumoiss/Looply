@@ -3794,6 +3794,33 @@ refresh();
     return '<span class="av grp" style="--s:'+Number(size)+'px"><img src="'+esc(c.coverUrl)+'" alt=""></span>';
   };
   settle=function noFakeReplies(){};
+  // Render R2-backed stickers inside the Ultra visual bubble without
+  // exposing the raw placeholder "Figurinha" or injecting message HTML.
+  const originalBubbleVisual=bubble;
+  bubble=function secureLiveStickerBubble(conversation,message,index,messages){
+    const html=originalBubbleVisual(conversation,message,index,messages);
+    if(message.kind!=="sticker"||!message.stickerUrl)return html;
+    let url;
+    try{
+      url=new URL(message.stickerUrl);
+      if(url.protocol!=="https:"||
+         !/(?:\.neon\.tech|\.workers\.dev|\.r2\.dev)$/.test(url.hostname))return html;
+    }catch{return html;}
+    const template=document.createElement("template");
+    template.innerHTML=html;
+    const bubbleNode=template.content.querySelector(".m .b");
+    if(!bubbleNode)return html;
+    const image=document.createElement("img");
+    image.className="sticker-actual";image.src=url.href;
+    image.alt="Figurinha";image.loading="lazy";image.decoding="async";
+    const meta=bubbleNode.querySelector(".meta");
+    for(const child of [...bubbleNode.childNodes]){
+      if(child!==meta&&!(child.nodeType===1&&child.matches(".fw,.q")))child.remove();
+    }
+    bubbleNode.insertBefore(image,meta||null);
+    return template.innerHTML;
+  };
+
   window.LooplyVisual={
     notice:m=>toast(m),
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
