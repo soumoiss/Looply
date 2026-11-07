@@ -2,6 +2,8 @@ import { normalizeStorySong } from "./story-music-catalog.js";
 
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const NOTE="💌 Bilhete\n";
+const LETTER="💌 Carta Looply/1\n";
+const PAPER_COLORS=Object.freeze({cream:"#faf1df",rose:"#fff0f4",lavender:"#f2edff",sky:"#edf6ff"});
 const MUSIC="🎵 Música: ";
 
 export function safeMusicArtwork(value){
@@ -16,6 +18,33 @@ export function makePremiumNote(text){
   if(!value)throw Error("Escreva um bilhete antes de enviar.");
   return NOTE+value;
 }
+/** Envelope payload fits the existing 5k-character authenticated chat_messages.body limit. */
+export function makePremiumLetter({title,body,signature="",paper="cream",seal="💌"}={}) {
+  const record={v:1,
+    title:String(title??"").trim().slice(0,100),
+    body:String(body??"").trim(),
+    signature:String(signature??"").trim().slice(0,80),
+    paper:Object.hasOwn(PAPER_COLORS,paper)?paper:"cream",
+    seal:String(seal??"💌").trim().slice(0,16)||"💌"};
+  if(record.body.length<2||record.body.length>4200)throw Error("A carta precisa ter entre 2 e 4.200 caracteres.");
+  if(!record.title)throw Error("Dê um título à carta.");
+  const encoded=LETTER+JSON.stringify(record);
+  if(encoded.length>5000)throw Error("Reduza o texto da carta para enviá-la.");
+  return encoded;
+}
+export function parsePremiumLetter(value){
+  const text=String(value??"");
+  if(!text.startsWith(LETTER)||text.length>5000)return null;
+  try {
+    const data=JSON.parse(text.slice(LETTER.length));
+    if(!data||data.v!==1||typeof data.body!=="string"||typeof data.title!=="string"||
+       typeof data.signature!=="string"||typeof data.seal!=="string"||
+       !Object.hasOwn(PAPER_COLORS,data.paper)||!data.title.trim()||
+       data.title.length>100||data.body.trim().length<2||data.body.length>4200||
+       data.signature.length>80||data.seal.length>16) return null;
+    return {type:"letter",title:data.title,body:data.body,signature:data.signature,paper:data.paper,seal:data.seal};
+  }catch{return null;}
+}
 export function makePremiumGameCard(conversationId){
   const id=String(conversationId||"").trim();
   if(!/^[0-9a-f-]{36}$/i.test(id))throw Error("Abra uma conversa válida para convidar alguém.");
@@ -28,6 +57,8 @@ export function makePremiumMusic(track){
 }
 export function parsePremiumChatBody(value){
   const text=String(value||"");
+  const letter=parsePremiumLetter(text);
+  if(letter)return letter;
   if(text.startsWith("🎮 Convite para jogar no Looply\n")){
     const conversationId=text.split("\n")[1];
     if(/^[0-9a-f-]{36}$/i.test(conversationId))return {type:"game",conversationId};
@@ -63,6 +94,15 @@ export function premiumChatCardMarkup(body){
       '<span class="chat-premium-game-icon" aria-hidden="true">🎮</span>'+
       '<div><small>Looply Games</small><strong>Vamos jogar?</strong><span>Jogo da Velha e Gartic</span></div>'+
       '<button type="button" data-v2-game data-chat-premium-game aria-label="Abrir jogos desta conversa">Jogar</button></section>';
+  if(card.type==="letter")
+    return '<details class="chat-premium-note-card chat-ultra-letter-card" aria-label="Carta selada: '+escapeHtml(card.title)+'" style="--chat-ultra-paper:'+PAPER_COLORS[card.paper]+'">' +
+      '<summary class="chat-envelope-toggle"><span class="chat-envelope" aria-hidden="true">'+
+      '<span class="chat-envelope-back"></span><span class="chat-envelope-slip"></span><span class="chat-envelope-flap"></span>'+
+      '<span class="chat-envelope-front"></span><span class="chat-envelope-seal">'+escapeHtml(card.seal)+'</span>'+
+      '<span class="chat-envelope-sparks">✧ <i>♡</i> ✦</span></span>'+
+      '<span class="chat-premium-card-kicker"><span class="chat-envelope-closed-label">💌 '+escapeHtml(card.title)+'</span><span class="chat-envelope-open-label">Fechar carta</span></span></summary>'+
+      '<div class="chat-letter-paper"><h3 class="chat-ultra-letter-title">'+escapeHtml(card.title)+'</h3>'+
+      '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p><span class="chat-letter-signature">'+escapeHtml(card.signature)+'</span></div></details>';
   if(card.type==="note")
     return '<details class="chat-premium-note-card" aria-label="Bilhete enviado">' +
       '<summary class="chat-envelope-toggle"><span class="chat-envelope" aria-hidden="true">'+
