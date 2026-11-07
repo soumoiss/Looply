@@ -3808,10 +3808,12 @@ refresh();
   settle=function noFakeReplies(){};
   // Render R2-backed stickers inside the Ultra visual bubble without
   // exposing the raw placeholder "Figurinha" or injecting message HTML.
+  let ultraMediaDecorator=null;
   const originalBubbleVisual=bubble;
   bubble=function secureLiveStickerBubble(conversation,message,index,messages){
     const html=originalBubbleVisual(conversation,message,index,messages);
-    if(message.kind!=="sticker"||!message.stickerUrl)return html;
+    if(message.kind!=="sticker"||!message.stickerUrl)
+      return ultraMediaDecorator?ultraMediaDecorator(html,message):html;
     let url;
     try{
       url=new URL(message.stickerUrl);
@@ -3835,6 +3837,7 @@ refresh();
 
   window.LooplyVisual={
     notice:m=>toast(m),
+    mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
