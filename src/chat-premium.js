@@ -1,6 +1,7 @@
-import { sendChatCard } from "./chat.js?v=premium-fixes-20261104";
+import { sendChatCard } from "./chat.js?v=ultra-20261107-r1";
 import { icon } from "./icons.js";
-import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js";
+import { makePremiumNote, makePremiumMusic, makePremiumGameCard, makePremiumLetter, makePremiumContact, makePremiumLocation, makePremiumPoll } from "./chat-premium-cards.js";
+import { toggleEmojiPicker } from "./emoji-picker.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
 import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js";
 
@@ -44,6 +45,73 @@ function createModal(root,{title,kind,content,submitLabel="Enviar"}){
 function setModalError(modal,message){
   const target=modal?.querySelector("[data-chat-premium-modal-status]");
   if(target)target.textContent=message;
+}
+function openLetter(root){
+  const modal=createModal(root,{title:"💌 Escrever carta",kind:"letter",submitLabel:"Selar e enviar",content:
+    '<label for="chatUltraLetterTitle">Título</label><input id="chatUltraLetterTitle" name="title" maxlength="100" required placeholder="Título da carta">'+
+    '<label for="chatUltraLetterBody">Carta</label><textarea id="chatUltraLetterBody" name="body" maxlength="4200" rows="8" required placeholder="Escreva sua carta…"></textarea>'+
+    '<label for="chatUltraLetterSignature">Assinatura (opcional)</label><input id="chatUltraLetterSignature" name="signature" maxlength="80" placeholder="Sua assinatura">'+
+    '<label for="chatUltraLetterPaper">Papel</label><select id="chatUltraLetterPaper" name="paper">'+
+    '<option value="cream">Creme</option><option value="rose">Rosa</option><option value="lavender">Lavanda</option><option value="sky">Azul</option></select>'+
+    '<label for="chatUltraLetterSeal">Selo</label><div class="chat-ultra-seal-picker">'+
+    '<input id="chatUltraLetterSeal" name="seal" value="💌" maxlength="16" readonly aria-label="Selo escolhido">'+
+    '<button type="button" data-chat-ultra-seal-picker aria-expanded="false">Escolher emoji</button></div>'});
+  return modal;
+}
+function openPoll(root){
+  const options=Array.from({length:6},(_,i)=>
+    '<label for="chatUltraPollOption'+i+'">Alternativa '+(i+1)+'</label>'+
+    '<input id="chatUltraPollOption'+i+'" data-chat-ultra-poll-option name="option'+i+
+    '" maxlength="95" '+(i<2?'required ':'')+'placeholder="Alternativa '+(i+1)+'">').join("");
+  return createModal(root,{title:"📊 Nova enquete",kind:"poll",submitLabel:"Publicar enquete",content:
+    '<label for="chatUltraPollQuestion">Pergunta</label>'+
+    '<textarea id="chatUltraPollQuestion" name="question" maxlength="240" rows="3" required placeholder="O que você quer perguntar?"></textarea>'+options+
+    '<p class="chat-ultra-modal-note">Até seis alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
+}
+function openLocation(root){
+  return createModal(root,{title:"📍 Compartilhar local",kind:"location",submitLabel:"Enviar local",content:
+    '<label for="chatUltraLocation">Local, cidade ou endereço</label>'+
+    '<input id="chatUltraLocation" name="place" maxlength="180" minlength="3" required placeholder="Digite um local ou endereço">'+
+    '<p class="chat-ultra-modal-note">O destinatário poderá abrir este local no mapa.</p>'});
+}
+async function openContact(root,client,userId){
+  const modal=createModal(root,{title:"👤 Compartilhar contato",kind:"contact",content:
+    '<label for="chatUltraContact">Perfil Looply</label>'+
+    '<select id="chatUltraContact" name="contactId" required><option value="">Carregando perfis…</option></select>'});
+  const select=modal.querySelector('[name="contactId"]');
+  const submit=modal.querySelector('[data-chat-premium-confirm]');
+  submit.disabled=true;
+  const response=await client.from("profiles").select("id,display_name,username")
+    .order("username").limit(250);
+  if(!modal.open)return;
+  if(response.error){select.replaceChildren(new Option("Não foi possível carregar os perfis.",""));setModalError(modal,"Falha ao consultar perfis.");return;}
+  const people=(response.data||[]).filter(p=>p.id!==userId&&p.username);
+  modal._contacts=people;
+  select.replaceChildren(new Option("Selecione um contato",""),...people.map(p=>new Option(p.display_name||p.username,p.id)));
+  submit.disabled=!people.length;
+}
+async function openActivities(root,client,userId){
+  const modal=createModal(root,{title:"🔔 Atividades",kind:"activity",content:
+    '<div class="chat-ultra-activity-list" data-chat-ultra-activity-list role="status">Carregando atividades…</div>'});
+  modal.querySelector('[data-chat-premium-confirm]')?.remove();
+  const container=modal.querySelector('[data-chat-ultra-activity-list]');
+  const {data,error}=await client.from("chat_notifications")
+    .select("id,conversation_id,kind,preview,created_at,read_at")
+    .eq("user_id",userId).order("created_at",{ascending:false}).limit(50);
+  if(!modal.open)return;
+  container.replaceChildren();
+  if(error){container.textContent="Não foi possível consultar atividades.";return;}
+  if(!data?.length){container.textContent="Nenhuma atividade.";return;}
+  for(const event of data){
+    if(!/^[0-9a-f-]{36}$/i.test(event.conversation_id||""))continue;
+    const link=document.createElement("a");
+    link.href="conversa.html?id="+encodeURIComponent(event.conversation_id);
+    link.className="chat-ultra-activity-item"+(event.read_at?"":" is-unread");
+    const kind=document.createElement("strong");kind.textContent=event.kind==="letter"?"💌 Carta":"💬 Mensagem";
+    const preview=document.createElement("span");preview.textContent=event.preview||"Nova atividade";
+    const time=document.createElement("small");time.textContent=new Date(event.created_at).toLocaleString("pt-BR");
+    link.append(kind,preview,time);container.append(link);
+  }
 }
 function openNote(root){
   return createModal(root,{title:"💌 Escrever bilhete",kind:"note",content:
@@ -227,6 +295,41 @@ export function setupChatPremium(root,client,userId){
     }
     const attachmentAction=target.closest("[data-chat-premium-menu] button");
     if(attachmentAction)closeAttachmentMenus(root);
+    const fileChoice=target.closest("[data-chat-ultra-file-type]");
+    if(fileChoice){
+      const input=fileChoice.closest("form[data-chat-send]")?.querySelector('input[name="files"]');
+      if(input){
+        const types={image:"image/jpeg,image/png,image/webp",video:"video/mp4,video/webm",
+          file:"application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf"};
+        const original=input.getAttribute("accept")||"";
+        input.setAttribute("accept",types[fileChoice.dataset.chatUltraFileType]||original);
+        input.addEventListener("change",()=>input.setAttribute("accept",original),{once:true});
+        input.click();
+      }
+      return;
+    }
+    if(target.closest("[data-chat-ultra-record]")){
+      target.closest("form[data-chat-send]")?.querySelector("[data-chat-record-start]")?.click();return;
+    }
+    if(target.closest("[data-chat-ultra-poll]")){openPoll(root);return;}
+    if(target.closest("[data-chat-ultra-location]")){openLocation(root);return;}
+    if(target.closest("[data-chat-ultra-contact]")){void openContact(root,client,userId);return;}
+    if(target.closest("[data-chat-ultra-activities]")){void openActivities(root,client,userId);return;}
+    if(target.closest("[data-chat-ultra-share]")){
+      const composer=target.closest("form[data-chat-send]");
+      const conversationId=composer?.dataset.conversationId;
+      if(!/^[0-9a-f-]{36}$/i.test(conversationId||""))return;
+      const url=new URL("conversa.html?id="+encodeURIComponent(conversationId),window.location.href).href;
+      if(navigator.share){
+        void navigator.share({title:"Conversa Looply",url}).catch(error=>{
+          if(error?.name!=="AbortError")console.warn("Compartilhamento indisponível",error);
+        });
+      }else if(navigator.clipboard?.writeText){
+        void navigator.clipboard.writeText(url).then(()=>{const s=composer.querySelector("[data-status]");if(s)s.textContent="Link da conversa copiado. O destinatário precisa ter acesso autorizado.";})
+        .catch(()=>{const s=composer.querySelector("[data-status]");if(s)s.textContent="Não foi possível copiar o link.";});
+      }
+      return;
+    }
     if(target.closest("[data-chat-premium-new]")){
 
       root.querySelector("[data-chat-area]")?.classList.remove("is-conversation-open");
@@ -272,7 +375,17 @@ export function setupChatPremium(root,client,userId){
       return;
     }
     if(target.closest("[data-chat-premium-search]")){openThreadSearch(root);return;}
+    if(target.closest("[data-chat-premium-letter]")){openLetter(root);return;}
     if(target.closest("[data-chat-premium-note]")){openNote(root);return;}
+    const seal=target.closest("[data-chat-ultra-seal-picker]");
+    if(seal){
+      const modal=seal.closest("[data-chat-premium-modal]");
+      const input=modal?.querySelector('[name="seal"]');
+      if(input)toggleEmojiPicker(seal,{userId,action:"Usar selo",focusSearch:true,onSelect:emoji=>{
+        input.value=emoji;seal.focus({preventScroll:true});
+      }});
+      return;
+    }
     if(target.closest("[data-chat-premium-music]")){
       openMusic(root).addEventListener("close",cancelSearch,{once:true});
       return;
@@ -398,6 +511,20 @@ export function setupChatPremium(root,client,userId){
       }
       const body=kind==="note"
         ? makePremiumNote(form.elements.note?.value)
+        : kind==="letter"
+        ? makePremiumLetter({
+            title:form.elements.title?.value,body:form.elements.body?.value,
+            signature:form.elements.signature?.value,paper:form.elements.paper?.value,seal:form.elements.seal?.value
+          })
+        : kind==="poll" ? makePremiumPoll({question:form.elements.question?.value,
+            options:[...form.querySelectorAll("[data-chat-ultra-poll-option]")].map(input=>input.value)})
+        : kind==="location" ? makePremiumLocation(form.elements.place?.value)
+        : kind==="contact" ? makePremiumContact(modal._contacts?.find(p=>p.id===form.elements.contactId?.value)&&{
+            id:form.elements.contactId?.value,
+            name:modal._contacts.find(p=>p.id===form.elements.contactId?.value).display_name||
+                modal._contacts.find(p=>p.id===form.elements.contactId?.value).username,
+            username:modal._contacts.find(p=>p.id===form.elements.contactId?.value).username
+          })
         : makePremiumMusic(modal?._premiumSelected);
       await sendChatCard(root,client,userId,modal.composer,body);
       if(modal.open)modal.close();

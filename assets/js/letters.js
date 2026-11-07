@@ -7,6 +7,7 @@ import { createLetterAttachmentComposer, createLetterAttachmentReader } from "..
 import { fetchFullLetterForEdit, unlockFullLetterForEdit, saveFullLetterEdit, COMMUNITY_LETTER_LIMIT } from "../../src/letter-edit-service.js?v=sender-editor-20261030";
 import { closeEmojiPicker, toggleEmojiPicker } from "../../src/emoji-picker.js";
 import { mountAdminLetterLog } from "../../src/admin-letter-log.js";
+import { selectOwnLetterRecords } from "../../src/letter-ownership.js";
 
 const h = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const formattedBody = value => h(value).replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>")
@@ -148,18 +149,18 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     return person?.avatarUrl ? `<img class="av" src="${h(person.avatarUrl)}" alt="" loading="lazy">` : `<span class="av" aria-hidden="true">${h(name.slice(0,1).toUpperCase())}</span>`;
   };
   const ownerRows = () => {
-    const owner = ownerTarget();
-    const originals = state.cards.filter(c => c.recipient_id === owner).map(c => ({
+    const own = selectOwnLetterRecords({letters:state.letters,originalCards:state.cards,hiddenSent:state.hiddenSent}, user.id);
+    const originals = own.originals.map(c => ({
       kind:"archive", id:c.id, title:cardTitle(c), author:"Peixinho · ADM", avatarId:people.find(p=>p.username?.toLowerCase()==="peixinho")?.id,
       date:c.date, num:c.card_number, read:state.reads.has(c.id), locked:c.is_protected,
       excerpt:c.is_protected?"Protegida por senha":String(c.body||"").slice(0,160), raw:c
     }));
-    const received = state.letters.filter(c => c.recipient_id === owner).map(c => ({
+    const received = own.received.map(c => ({
       kind:"community", id:c.id, title:c.subject, author:fullName(c.sender_id),avatarId:c.sender_id,
       date:c.created_at, read:state.communityReads.has(c.id), locked:c.is_protected,
       excerpt:c.is_protected?"Protegida por senha":String(c.body||"").slice(0,160),raw:c
     }));
-    const sent = state.letters.filter(c => c.sender_id === owner && !state.hiddenSent.has("community:"+c.id)).map(c => ({
+    const sent = own.sent.map(c => ({
       kind:"community",id:c.id,title:c.subject,author:"Para " + fullName(c.recipient_id),avatarId:c.recipient_id,
       date:c.created_at,read:true,locked:c.is_protected,
       excerpt:c.is_protected?"Protegida por senha":String(c.body||"").slice(0,160),raw:c
@@ -221,10 +222,6 @@ await mountAppPage({ page: "letters", render: async ({ root, client, user, profi
     if (ar.status === "fulfilled") {
       state.cards = ar.value.cards;
       state.reads = new Set(ar.value.reads.map(x => x.card_id));
-      if (isAdmin) {
-        const r = await client.from("archived_card_reads").select("card_id").eq("user_id", ownerTarget()).limit(1000);
-        if (!r.error) state.reads = new Set((r.data || []).map(x => x.card_id));
-      }
     }
     if (cr.status === "fulfilled") state.letters = cr.value;
     if (ui.status === "fulfilled") {

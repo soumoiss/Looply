@@ -1,7 +1,7 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
-import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=mobile-stable-20261104";
+import { bindChatEvents, chatMarkup, disposeChatRealtime, loadChatData, setupChatRealtime } from "../../src/chat.js?v=ultra-20261107-r1";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
-import { setupChatPremium } from "../../src/chat-premium.js?v=official-model-20261104-r1";
+import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { setupChatCalls } from "../../src/chat-calls.js?v=incoming-handoff-20261030";
 

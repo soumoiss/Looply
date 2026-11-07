@@ -142,8 +142,13 @@
 /* Mobile reference: the picker is one page-long scroll surface, not a scroll
    box inside another scroll box. The page's global navigation stays fixed. */
 @media (max-width: 860px) {
-  html:has(.page-chat:not(:has(.chat-area.is-conversation-open))) {
-    height: auto; min-height: 100%; overflow-y: auto; overscroll-behavior-y: auto;
+  /* :has() cannot be nested inside another :has(); keep the root as the
+     actual scrolling viewport instead of creating a body-only scrollbox. */
+  html:has(body.page-chat):not(:has(.chat-area.is-conversation-open)) {
+    height: 100% !important; min-height: 100%;
+    overflow-x: hidden !important; overflow-y: auto !important;
+    scroll-behavior: auto !important;
+    overscroll-behavior-y: auto;
   }
   body.page-chat:not(:has(.chat-area.is-conversation-open)) {
     height: auto !important; min-height: 100dvh !important;

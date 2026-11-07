@@ -38,7 +38,9 @@ const fixture='<!doctype html><html lang="pt-BR" data-theme="lilas"><head>'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-gartic.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-premium.css">'+
   '<link rel="stylesheet" href="/assets/css/pages/chat-fixes.css">'+
-  '</head><body class="looply-page page-chat">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-reference-complete.css">'+
+  '<link rel="stylesheet" href="/assets/css/pages/chat-ultra-adapter.css">'+
+  '</head><body class="looply-page page-chat chat-model-live">'+
   '<div class="container-page"><header class="page-header"><strong>Looply</strong></header>'+
   '<main><div class="page-content" id="pageContent">'+content+
   '</div></main></div></body></html>';
@@ -68,6 +70,14 @@ try{
     const page=await context.newPage();
     const errors=[];page.on("pageerror",error=>errors.push(error.message));
     await page.goto(url,{waitUntil:"load"});
+    await page.evaluate(()=>{
+      document.querySelector(".chat-layout")?.classList.add("main");
+      document.querySelector(".chat-sidebar")?.classList.add("side");
+      document.querySelector(".chat-thread-panel")?.classList.add("thread");
+      document.querySelector(".chat-conversation-list")?.classList.add("list");
+      document.querySelectorAll(".chat-conversation").forEach(node=>node.classList.add("row"));
+      document.querySelectorAll(".chat-model-search").forEach(node=>node.classList.add("sr"));
+    });
     const cases=width<=860?["list","thread"]:["thread"];
     for(const mode of cases){
       await page.evaluate(({mode,markup})=>{
@@ -75,6 +85,8 @@ try{
         if(mode==="thread"){
           root.classList.add("is-conversation-open");
           root.querySelector("[data-chat-thread]").innerHTML=markup;
+          root.querySelector(".chat-thread")?.classList.add("ref-thread-body");
+          root.querySelector(".chat-premium-history")?.classList.add("msgs");
         } else root.classList.remove("is-conversation-open");
       },{mode,markup:mockedThread});
       const geometry=await page.evaluate(()=>{
@@ -130,8 +142,25 @@ try{
           return {moved:before-title.getBoundingClientRect().top,
             documentScroll:document.scrollingElement.scrollTop,
             bodyScroll:getComputedStyle(document.body).overflowY,
-            listScroll:getComputedStyle(list).overflowY};
+            listScroll:getComputedStyle(list).overflowY,
+            scrollingElement:document.scrollingElement.tagName,
+            htmlOverflowY:getComputedStyle(document.documentElement).overflowY,
+            bodyClientHeight:document.body.clientHeight,
+            bodyScrollHeight:document.body.scrollHeight,
+            bodyScrollTop:document.body.scrollTop,
+            htmlScrollTop:document.documentElement.scrollTop,
+            htmlHeight:getComputedStyle(document.documentElement).height,
+            scrollHeight:document.scrollingElement.scrollHeight,
+            clientHeight:document.scrollingElement.clientHeight,
+            layoutHeight:document.querySelector(".chat-layout").getBoundingClientRect().height,
+            sidebarHeight:sidebar.getBoundingClientRect().height,
+            panelHeight:sidebar.querySelector(".chat-panel")?.getBoundingClientRect().height,
+            listHeight:list.getBoundingClientRect().height,
+            listScrollHeight:list.scrollHeight,
+            sidebarScrollHeight:sidebar.scrollHeight,
+            pageHeight:document.querySelector(".container-page")?.getBoundingClientRect().height};
         });
+        console.log("CHAT_PREMIUM_PICKER_SCROLL", JSON.stringify({width,height,scroll}));
         assert.ok(scroll.moved>100&&scroll.documentScroll>100,"entire picker must scroll including its heading");
         assert.equal(scroll.bodyScroll,"auto","document is the scrolling surface on phones");
         assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");

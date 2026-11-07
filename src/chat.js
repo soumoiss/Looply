@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { requestImmediateMessagePush } from "./chat-push-alert.js";
-import { premiumChatCardMarkup } from "./chat-premium-cards.js";
+import { premiumChatCardMarkup, parsePremiumChatBody } from "./chat-premium-cards.js";
 import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
 import { countUnreadNotificationsByConversation } from "./chat-read-receipts.js";
@@ -246,20 +246,42 @@ function conversationAvatar(conversation, userId) {
     : `<span class="chat-conversation-avatar" data-profile-avatar-id="${escapeHtml(profile?.id || "")}" aria-hidden="true">${escapeHtml(initial)}</span>`;
 }
 
+function safeChatPreview(value){
+  const text=String(value||"").trim();
+  if(text.startsWith("💌 Carta Looply/1"))return "💌 Carta selada";
+  if(text.startsWith("📊 Enquete Looply/1"))return "📊 Enquete";
+  if(text.startsWith("👤 Contato Looply/1"))return "👤 Contato compartilhado";
+  if(text.startsWith("📍 Local Looply/1"))return "📍 Local compartilhado";
+  const card=parsePremiumChatBody(text);
+  if(card?.type==="letter")return "💌 Carta selada";
+  if(card?.type==="poll")return "📊 Enquete";
+  if(card?.type==="contact")return "👤 Contato compartilhado";
+  if(card?.type==="location")return "📍 Local compartilhado";
+  return text;
+}
 function conversationPreview(conversation, userId) {
   const message = conversation.lastMessage;
   if (!message) return conversation.kind === "letter" ? "Carta privada" : "Nenhuma mensagem";
   const authorName = message.sender_id === userId ? "Você" : conversation.kind === "group" ? (message.author?.display_name || message.author?.username || "Membro") : "";
   const author = authorName ? `${authorName}: ` : "";
   const text = String(message.body || "").trim();
-  return `${author}${text || "Mídia"}`.slice(0, 68);
+  const card = parsePremiumChatBody(text);
+  const preview = card?.type === "letter" ? "💌 Carta · "+card.title
+    : card?.type === "note" ? "📝 Bilhete"
+    : card?.type === "game" ? "🎮 Convite de jogo"
+    : card?.type === "music" ? "🎵 "+card.title
+    : card?.type === "contact" ? "👤 Contato · "+card.name
+    : card?.type === "location" ? "📍 Local · "+card.label
+    : card?.type === "poll" ? "📊 Enquete · "+card.question
+    : (text || "Mídia");
+  return `${author}${preview}`.slice(0,68);
 }
 
 function notificationsMarkup(notifications) {
   const unread = notifications.filter((item) => !item.read_at).length;
   if (!notifications.length) return `<p class="chat-empty">Nenhuma notificação</p>`;
   return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="conversa.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
-    <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(item.preview)}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
+    <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(safeChatPreview(item.preview))}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
   </a>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
 }
 
@@ -695,7 +717,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const daySeparator = day && day !== lastDay ? `<div class="chat-date-separator"><span>${escapeHtml(day)}</span></div>` : "";
     lastDay = day || lastDay;
     const parent = message.reply_to ? byId.get(message.reply_to) : null;
-    const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? (parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
+    const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? safeChatPreview(parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
@@ -710,11 +732,11 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const sticker = stickerSource
       ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(bundledSticker?.title || message.sticker?.title || "Looply")}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
       : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
-    const premiumCard = premiumChatCardMarkup(message.body);
+    const premiumCard = premiumChatCardMarkup(message.body,message.reactions,message.id,userId);
     const visualOnly = isVisualOnlyChatMessage(message, Boolean(sticker));
     const mediaList = Array.isArray(message.media) ? message.media : [];
     const audioOnly = mediaList.length > 0 && mediaList.every((item) => String(item?.mime_type || "").startsWith("audio/"));
-    const noteCard = String(premiumCard || "").includes("chat-premium-note-card");
+    const noteCard = /chat-premium-note-card|chat-ultra-(?:contact|location|poll)-card/.test(String(premiumCard || ""));
     const bare = visualOnly || audioOnly || noteCard;
     const hideVisualPlaceholder = Boolean(sticker) || ((visualOnly || audioOnly) && isAttachmentPlaceholder(message.body));
     const isMine = message.sender_id === userId;
@@ -728,7 +750,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const groupReadText = readCount === readTotal && readTotal ? "Lida por todos" : readCount ? `Lida por ${readCount} de ${readTotal}` : "Enviada";
     const deliveryLabel = isGroup ? groupReadText : message.read_at ? "Lida" : message.delivered_at ? "Entregue" : "Enviada";
     const delivery = isMine ? `<small class="chat-delivery">${deliveryLabel}</small>` : "";
-    const reactionSummary=Array.isArray(message.reactions)&&message.reactions.length
+    const reactionSummary=parsePremiumChatBody(message.body)?.type!=="poll" && Array.isArray(message.reactions)&&message.reactions.length
       ? '<div class="chat-premium-reactions" aria-label="Reações à mensagem">'+
         [...new Set(message.reactions.map(r=>r.emoji))]
           .filter(emoji=>["❤️","😂","😮","😢","🙏","👍"].includes(emoji))
@@ -770,13 +792,22 @@ export function messageComposerMarkup(conversationId) {
       </div>
     </div>
     <div id="premium-attachments-${escapeHtml(conversationId)}" class="chat-premium-attach-menu" data-chat-premium-menu hidden role="group" aria-label="Compartilhar na conversa">
-      <button type="button" data-chat-choose-files><span class="chat-premium-tile purple">${icon("image")}</span><span>Fotos e arquivos</span></button>
-      <button type="button" data-chat-premium-camera><span class="chat-premium-tile rose">${icon("camera")}</span><span>Câmera</span></button>
-      <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinha</span></button>
-      <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Jogos</span></button>
+      <button type="button" data-chat-premium-letter><span class="chat-premium-tile amber">💌</span><span>Carta</span></button>
+      <button type="button" data-chat-ultra-file-type="image"><span class="chat-premium-tile purple">${icon("image")}</span><span>Foto</span></button>
+      <button type="button" data-chat-ultra-file-type="video"><span class="chat-premium-tile rose">${icon("video")}</span><span>Vídeo</span></button>
+      <button type="button" data-chat-ultra-file-type="file"><span class="chat-premium-tile orange">${icon("paperclip")}</span><span>Arquivo</span></button>
+      <button type="button" data-chat-ultra-record><span class="chat-premium-tile rose">${icon("mic")}</span><span>Áudio</span></button>
+      <button type="button" data-chat-choose-sticker><span class="chat-premium-tile orange">${icon("smile")}</span><span>Figurinhas</span></button>
+      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">📝</span><span>Nota</span></button>
+      <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Música</span></button>
+      <button type="button" data-v2-game data-chat-premium-game><span class="chat-premium-tile indigo">${icon("gamepad")}</span><span>Games</span></button>
+      <button type="button" data-chat-ultra-poll><span class="chat-premium-tile purple">📊</span><span>Enquete</span></button>
+      <button type="button" data-chat-ultra-location><span class="chat-premium-tile green">📍</span><span>Local</span></button>
+      <button type="button" data-chat-ultra-contact><span class="chat-premium-tile indigo">👤</span><span>Contato</span></button>
+      <button type="button" data-chat-ultra-share><span class="chat-premium-tile green">${icon("share")}</span><span>Compartilhar</span></button>
+      <button type="button" data-chat-ultra-activities><span class="chat-premium-tile rose">${icon("bell")}</span><span>Atividades</span></button>
+      <button type="button" data-chat-premium-camera><span class="chat-premium-tile purple">${icon("camera")}</span><span>Câmera</span></button>
       <button type="button" data-chat-premium-share-game><span class="chat-premium-tile indigo">${icon("share")}</span><span>Convidar para jogar</span></button>
-      <button type="button" data-chat-premium-note><span class="chat-premium-tile amber">💌</span><span>Cartas</span></button>
-      <button type="button" data-chat-premium-music><span class="chat-premium-tile green">${icon("music")}</span><span>Músicas</span></button>
     </div>
     <input id="files-${escapeHtml(conversationId)}" name="files" class="chat-premium-file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf">
     <input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha">
