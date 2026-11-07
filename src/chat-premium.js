@@ -1,6 +1,7 @@
 import { sendChatCard } from "./chat.js?v=premium-fixes-20261104";
 import { icon } from "./icons.js";
-import { makePremiumNote, makePremiumMusic, makePremiumGameCard } from "./chat-premium-cards.js";
+import { makePremiumNote, makePremiumMusic, makePremiumGameCard, makePremiumLetter } from "./chat-premium-cards.js";
+import { toggleEmojiPicker } from "./emoji-picker.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
 import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js";
 
@@ -44,6 +45,18 @@ function createModal(root,{title,kind,content,submitLabel="Enviar"}){
 function setModalError(modal,message){
   const target=modal?.querySelector("[data-chat-premium-modal-status]");
   if(target)target.textContent=message;
+}
+function openLetter(root){
+  const modal=createModal(root,{title:"💌 Escrever carta",kind:"letter",submitLabel:"Selar e enviar",content:
+    '<label for="chatUltraLetterTitle">Título</label><input id="chatUltraLetterTitle" name="title" maxlength="100" required placeholder="Título da carta">'+
+    '<label for="chatUltraLetterBody">Carta</label><textarea id="chatUltraLetterBody" name="body" maxlength="4200" rows="8" required placeholder="Escreva sua carta…"></textarea>'+
+    '<label for="chatUltraLetterSignature">Assinatura (opcional)</label><input id="chatUltraLetterSignature" name="signature" maxlength="80" placeholder="Sua assinatura">'+
+    '<label for="chatUltraLetterPaper">Papel</label><select id="chatUltraLetterPaper" name="paper">'+
+    '<option value="cream">Creme</option><option value="rose">Rosa</option><option value="lavender">Lavanda</option><option value="sky">Azul</option></select>'+
+    '<label for="chatUltraLetterSeal">Selo</label><div class="chat-ultra-seal-picker">'+
+    '<input id="chatUltraLetterSeal" name="seal" value="💌" maxlength="16" readonly aria-label="Selo escolhido">'+
+    '<button type="button" data-chat-ultra-seal-picker aria-expanded="false">Escolher emoji</button></div>'});
+  return modal;
 }
 function openNote(root){
   return createModal(root,{title:"💌 Escrever bilhete",kind:"note",content:
@@ -272,7 +285,17 @@ export function setupChatPremium(root,client,userId){
       return;
     }
     if(target.closest("[data-chat-premium-search]")){openThreadSearch(root);return;}
+    if(target.closest("[data-chat-premium-letter]")){openLetter(root);return;}
     if(target.closest("[data-chat-premium-note]")){openNote(root);return;}
+    const seal=target.closest("[data-chat-ultra-seal-picker]");
+    if(seal){
+      const modal=seal.closest("[data-chat-premium-modal]");
+      const input=modal?.querySelector('[name="seal"]');
+      if(input)toggleEmojiPicker(seal,{userId,action:"Usar selo",focusSearch:true,onSelect:emoji=>{
+        input.value=emoji;seal.focus({preventScroll:true});
+      }});
+      return;
+    }
     if(target.closest("[data-chat-premium-music]")){
       openMusic(root).addEventListener("close",cancelSearch,{once:true});
       return;
@@ -398,6 +421,11 @@ export function setupChatPremium(root,client,userId){
       }
       const body=kind==="note"
         ? makePremiumNote(form.elements.note?.value)
+        : kind==="letter"
+        ? makePremiumLetter({
+            title:form.elements.title?.value,body:form.elements.body?.value,
+            signature:form.elements.signature?.value,paper:form.elements.paper?.value,seal:form.elements.seal?.value
+          })
         : makePremiumMusic(modal?._premiumSelected);
       await sendChatCard(root,client,userId,modal.composer,body);
       if(modal.open)modal.close();
