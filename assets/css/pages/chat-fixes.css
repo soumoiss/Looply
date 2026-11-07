@@ -147,6 +147,7 @@
   html:has(body.page-chat):not(:has(.chat-area.is-conversation-open)) {
     height: 100% !important; min-height: 100%;
     overflow-x: hidden !important; overflow-y: auto !important;
+    scroll-behavior: auto !important;
     overscroll-behavior-y: auto;
   }
   body.page-chat:not(:has(.chat-area.is-conversation-open)) {
