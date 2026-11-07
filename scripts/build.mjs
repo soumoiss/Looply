@@ -39,6 +39,9 @@ for (const route of ["cartas", "musicas"]) {
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
+// The approved Chat Ultra sticker library lives in Stickers/, outside assets/.
+// Without this copy every ZIP sticker renders as a broken image on GitHub Pages.
+await cp(path.join(projectRoot,"Stickers"),path.join(outputDirectory,"Stickers"),{recursive:true});
 console.log("Looply built with separate pages for login, home, music, conversations, letters, notifications, users, settings, profile, and administration, and gallery.");
 
 
