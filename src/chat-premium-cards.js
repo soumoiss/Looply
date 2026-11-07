@@ -63,8 +63,8 @@ export function makePremiumLocation(place){
 export function makePremiumPoll({question,options}={}){
   const q=String(question??"").trim().slice(0,240);
   const list=Array.isArray(options)?options.map(x=>String(x??"").trim()).filter(Boolean):[];
-  if(q.length<3||list.length<2||list.length>6||list.some(x=>x.length>95))
-    throw Error("A enquete exige pergunta e de 2 a 6 alternativas (até 95 caracteres).");
+  if(q.length<3||list.length<2||list.length>8||list.some(x=>x.length>95))
+    throw Error("A enquete exige pergunta e de 2 a 8 alternativas (até 95 caracteres).");
   if(new Set(list.map(x=>x.toLocaleLowerCase("pt-BR"))).size!==list.length)
     throw Error("Use alternativas diferentes.");
   return POLL+JSON.stringify({v:1,question:q,options:list});
@@ -87,7 +87,7 @@ export function parsePremiumChatBody(value){
     try{
       const p=JSON.parse(text.slice(POLL.length));
       if(p.v===1&&typeof p.question==="string"&&p.question.trim().length>=3&&p.question.length<=240&&
-        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=6&&
+        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=8&&
         p.options.every(x=>typeof x==="string"&&x.length>0&&x.length<=95))
         return {type:"poll",question:p.question,options:p.options};
     }catch{return null;}
