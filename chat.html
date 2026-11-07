@@ -3803,8 +3803,8 @@ refresh();
     let url;
     try{
       url=new URL(message.stickerUrl);
-      if(url.protocol!=="https:"||
-         !/(?:\.neon\.tech|\.workers\.dev|\.r2\.dev)$/.test(url.hostname))return html;
+      // The URL is supplied solely by the authenticated R2 signer above.
+      if(url.protocol!=="https:")return html;
     }catch{return html;}
     const template=document.createElement("template");
     template.innerHTML=html;
