@@ -879,9 +879,9 @@ test("global app settings are singleton, admin-writable, maintenance-gated, and 
   assert.match(migration, /app_settings_authenticated_read[\s\S]*?for select to authenticated/i);
   assert.match(migration, /app_settings_admin_update[\s\S]*?private\.is_admin\(\)/i);
   assert.match(runtime, /readGlobalSettings/);
-  assert.match(runtime, /settings\?\.maintenance_mode === true/);
+  assert.match(runtime, /return data\.maintenance_mode/);
   assert.match(runtime, /renderMaintenanceScreen/);
-  assert.match(runtime, /maintenanceChannel/);
+  assert.match(runtime, /maintenancePollTimer/);
   assert.match(admin, /data-app-settings-form/);
   assert.match(admin, /app_settings_update/);
   assert.match(edge, /action === "app_settings_update"[\s\S]*?service\.from\("app_settings"\)\.update/);
