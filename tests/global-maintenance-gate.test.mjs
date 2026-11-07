@@ -32,7 +32,9 @@ test("maintenance renders only the requested text and checks every second", () =
   assert.match(gate, /const CHECK_EVERY_MS = 1000/);
   assert.match(gate, /if \(!allowed\) maintenanceScreen\(\)/);
   assert.match(gate, /else if \(blocked\) window\.location\.reload\(\)/);
-  assert.match(gate, /await neon\.rpc\("looply_maintenance_status"\)/);
+  assert.match(gate, /await evaluateMaintenanceAccess\(/);
+  assert.match(read("src/maintenance-decision.js"), /"looply_maintenance_status"/);
+  assert.match(read("src/maintenance-decision.js"), /"looply_maintenance_admin_bypass"/);
 });
 
 test("server-side RLS maintenance bypass requires real admin identity plus Peixinho", () => {
@@ -47,12 +49,11 @@ test("server-side RLS maintenance bypass requires real admin identity plus Peixi
   assert.doesNotMatch(sql, /DELETE FROM public\./i);
 });
 
-test("Peixinho exception uses server-verified identity in both gates", () => {
+test("Peixinho exception uses a single server-verified global gate", () => {
   const app = read("src/maintenance-gate.js");
   const runtime = read("src/page-runtime.js");
-  assert.match(app, /neon\.rpc\("looply_maintenance_admin_bypass"\)/);
-  assert.match(app, /return verifiedPeixinhoAdmin\(\)/);
+  assert.match(app, /await evaluateMaintenanceAccess\(/);
   assert.match(runtime, /await verifiedPeixinhoAdmin\(\)/);
-  assert.match(runtime, /&& bypassVerified/);
+  assert.doesNotMatch(runtime, /checkMaintenance\(|renderMaintenanceScreen\(|maintenanceBlocked/);
   assert.match(read("migrations/20261107_maintenance_lock.sql"), /exempt := public\.looply_maintenance_admin_bypass\(\)/);
 });
