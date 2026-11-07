@@ -192,7 +192,7 @@ test("conversations have their own route and real microphone recording flow", as
   const [chat, conversation, page, css, sharedChatCss] = await Promise.all([
     read("src/chat.js"), read("assets/js/conversation.js"), read("conversa.html"), read("assets/css/pages/conversation.css"), read("assets/css/pages/chat.css")
   ]);
-  assert.match(page, /assets\/js\/conversation\.js/);
+  assert.match(page, /assets\/js\/chat-ultra-live\.js/);
   assert.match(conversation, /new URLSearchParams\(window\.location\.search\)/);
   assert.match(chat, /navigator\.mediaDevices\?\.getUserMedia/);
   assert.match(chat, /new MediaRecorder/);
