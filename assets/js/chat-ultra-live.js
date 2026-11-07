@@ -276,7 +276,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||""});
   bindEvents();
-  const linked=new URLSearchParams(location.search).get("conversation");
+  const params=new URLSearchParams(location.search);
+  const linked=params.get("conversation")||params.get("id");
   if(linked&&roomIds.has(linked))visual.open(linked);
   channel=client.channel("chat-ultra-live-"+selfId)
     .on("postgres_changes",{event:"*",schema:"public",table:"chat_messages"},payload=>{
