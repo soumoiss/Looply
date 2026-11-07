@@ -33,7 +33,7 @@ function mapPreview(message){
     text:card?.type==="letter"?"💌 Carta selada":card?.type==="poll"?"📊 "+card.question:
       card?.type==="contact"?"👤 "+card.name:card?.type==="location"?"📍 "+card.label:
       card?.type==="note"?card.body:card?.type==="music"?"🎵 "+card.title:
-      String(message.body||""),kind:"text",react:{},st:"read"}];
+      String(message.body||""),kind:"text",react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
 }
 function mapConversations(data){
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
