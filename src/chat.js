@@ -723,7 +723,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const visualOnly = isVisualOnlyChatMessage(message, Boolean(sticker));
     const mediaList = Array.isArray(message.media) ? message.media : [];
     const audioOnly = mediaList.length > 0 && mediaList.every((item) => String(item?.mime_type || "").startsWith("audio/"));
-    const noteCard = String(premiumCard || "").includes("chat-premium-note-card");
+    const noteCard = /chat-premium-note-card|chat-ultra-(?:contact|location|poll)-card/.test(String(premiumCard || ""));
     const bare = visualOnly || audioOnly || noteCard;
     const hideVisualPlaceholder = Boolean(sticker) || ((visualOnly || audioOnly) && isAttachmentPlaceholder(message.body));
     const isMine = message.sender_id === userId;
