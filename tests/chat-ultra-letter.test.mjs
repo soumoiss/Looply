@@ -59,3 +59,14 @@ test("contato e localização só aceitam payloads de tipos válidos",()=>{
   assert.ok(premiumChatCardMarkup(l).includes("google.com/maps/search"));
   assert.throws(()=>makePremiumContact({id:"forged",name:"a",username:"b"}),/perfil válido/);
 });
+
+test("backend sanitiza notificações de cartas e enquetes sem apagar dados",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const {fileURLToPath}=await import("node:url");
+  const sql=await readFile(fileURLToPath(new URL("../migration/20261107_chat_ultra_safe_previews.sql",import.meta.url)),"utf8");
+  assert.match(sql,/CREATE OR REPLACE FUNCTION public\.v19_queue_chat_notifications/);
+  assert.match(sql,/Você recebeu uma carta selada/);
+  assert.match(sql,/Nova enquete na conversa/);
+  assert.match(sql,/ON CONFLICT \(user_id,message_id\) DO NOTHING/);
+  assert.doesNotMatch(sql,/DELETE FROM public\./i);
+});
