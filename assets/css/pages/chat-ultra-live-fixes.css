@@ -140,3 +140,45 @@ body.looply-chat-ultra-live .chat-ultra-voice time{
   flex:none;font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);
 }
 body.looply-chat-ultra-live .chat-ultra-voice audio{display:none}
+
+
+/* Date/time composer and authenticated queue status. */
+.chat-ultra-schedule-dialog{
+  border:1px solid var(--lens-edge);border-radius:25px;
+  width:min(calc(100vw - 20px),510px);max-height:90dvh;
+  padding:0;overflow:auto;color:var(--text);background:var(--strong);
+  box-shadow:0 25px 70px rgba(27,8,46,.3);
+}
+.chat-ultra-schedule-dialog::backdrop{background:rgba(15,6,26,.66);backdrop-filter:blur(7px)}
+.chat-ultra-schedule-content{display:grid;gap:11px;padding:18px}
+.chat-ultra-schedule-content header{display:flex;align-items:center;justify-content:space-between}
+.chat-ultra-schedule-content h2{font-size:18px;margin:0;color:var(--text)}
+.chat-ultra-schedule-content h3{font-size:13px;margin:7px 0 0;color:var(--text)}
+.chat-ultra-schedule-content header button{width:41px;height:41px;display:grid;place-items:center;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.chat-ultra-schedule-content form{display:grid;gap:8px}
+.chat-ultra-schedule-content label{font-size:12px;font-weight:750;color:var(--text)}
+.chat-ultra-schedule-content textarea,
+.chat-ultra-schedule-content input[type="datetime-local"]{
+  width:100%;padding:11px;border-radius:13px;border:1px solid var(--line);
+  background:var(--surface);color:var(--text);font-size:16px;outline-color:var(--primary)
+}
+.chat-ultra-schedule-content form small,
+.chat-ultra-schedule-content [data-sch-status]{font-size:11px;color:var(--muted)}
+.chat-ultra-schedule-content [data-sch-send]{
+  min-height:47px;border-radius:15px;background:var(--primary);color:#fff;
+  font-size:14px;font-weight:800
+}
+.chat-ultra-schedule-content [data-sch-send]:disabled{opacity:.55}
+.chat-ultra-schedule-list{display:grid;gap:6px;max-height:min(28dvh,240px);overflow-y:auto}
+.chat-ultra-schedule-row{
+  display:grid;grid-template-columns:1fr auto;gap:3px 8px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:13px;padding:10px;align-items:center
+}
+.chat-ultra-schedule-row strong{grid-column:1;min-width:0;font-size:12px;overflow-wrap:anywhere}
+.chat-ultra-schedule-row small{grid-column:1;color:var(--muted);font-size:10px}
+.chat-ultra-schedule-row button{
+  grid-column:2;grid-row:1/span 2;border:1px solid var(--line);
+  border-radius:12px;background:var(--strong);padding:9px;color:var(--wax);
+  font-size:12px;font-weight:800
+}
