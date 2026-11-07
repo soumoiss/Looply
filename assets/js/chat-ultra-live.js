@@ -337,6 +337,69 @@ function startRealCall(conversationId,video=false){
 function openRealGames(conversationId){
   launchActualFeature(conversationId,"[data-v2-game]","Games");
 }
+
+async function applyRealMemberChange(button){
+  const id=visual.current();
+  const group=visual.conversations().find(c=>c.id===id);
+  const members=[...document.querySelectorAll("#shBox .pk.on[data-member-id]")].map(node=>node.dataset.memberId);
+  if(!group||group.type!=="group"||!members.length){say("Escolha os participantes.");return;}
+  const adding=button.textContent.trim().toLowerCase().startsWith("adicionar");
+  if(!adding&&!confirm("Remover os participantes selecionados do grupo?"))return;
+  button.disabled=true;
+  let confirmed=0,failed=0;
+  const mutation=adding?"v36_add_group_member":"v36_remove_group_member";
+  for(const userId of new Set(members)){
+    if(userId===selfId){failed++;continue;}
+    try{
+      const {data,error}=await client.rpc(mutation,{p_conversation_id:id,p_user_id:userId});
+      if(error||data!==true)throw error||Error("not_confirmed");
+      confirmed++;
+    }catch(error){console.warn("Group membership was not confirmed",error?.code||"permission");failed++;}
+  }
+  document.querySelector("#sh")?.close();
+  if(confirmed)await refreshRooms();
+  say(confirmed?(adding?"Participantes adicionados: ":"Participantes removidos: ")+confirmed+
+    (failed?" · "+failed+" não autorizados.":""):"Nenhuma alteração foi autorizada pelo servidor.");
+}
+async function saveRealConversationName(button){
+  const id=visual.current(),group=visual.conversations().find(c=>c.id===id);
+  if(!group)return;
+  const name=document.querySelector("#shBox #nk")?.value.trim().slice(0,120)||"";
+  if(!name){say("Informe o nome.");return;}
+  button.disabled=true;
+  try{
+    const result=group.type==="group"?
+      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
+        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
+      await client.from("conversation_nicknames").upsert({
+        user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
+      },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
+    if(result.error||!result.data)throw result.error||Error("not_confirmed");
+    if(group.type==="dm")group.nick=name;
+    document.querySelector("#sh")?.close();
+    await refreshRooms();
+    say("Nome salvo na sua conta.");
+  }catch(error){console.warn("Conversation rename denied",error?.code||"permission");say("Não foi possível salvar o nome no servidor.");}
+  finally{button.disabled=false;}
+}
+async function submitRealReport(button){
+  const id=visual.current();
+  if(!id||!roomIds.has(id))return;
+  const selected=document.querySelector("#shBox [data-r].on")?.dataset.r;
+  if(!selected){say("Selecione um motivo.");return;}
+  const details=document.querySelector("#shBox #rd")?.value.trim().slice(0,500)||"";
+  const reason=[selected,details].filter(Boolean).join(": ").slice(0,700);
+  button.disabled=true;
+  try{
+    const {data,error}=await client.from("chat_conversation_reports")
+      .insert({conversation_id:id,reporter_id:selfId,reason}).select("id").maybeSingle();
+    if(error||!data?.id)throw error||Error("not_confirmed");
+    document.querySelector("#sh")?.close();
+    say("Denúncia registrada para análise.");
+  }catch(error){console.warn("Moderation report not confirmed",error?.code||"permission");say("Não foi possível registrar a denúncia.");}
+  finally{button.disabled=false;}
+}
+
 function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
@@ -350,6 +413,23 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const membership=event.target.closest("#shBox #memberCommit");
+    if(membership){event.preventDefault();event.stopImmediatePropagation();void applyRealMemberChange(membership);return;}
+    const nameSave=event.target.closest("#shBox #nks");
+    if(nameSave){event.preventDefault();event.stopImmediatePropagation();void saveRealConversationName(nameSave);return;}
+    const report=event.target.closest("#shBox #rs");
+    if(report){event.preventDefault();event.stopImmediatePropagation();void submitRealReport(report);return;}
+    const photo=event.target.closest('#cfg [data-feature="group-avatar"]');
+    if(photo){
+      event.preventDefault();event.stopImmediatePropagation();
+      const choose=runtime.querySelector("[data-chat-group-cover-choose]");
+      const group=visual.conversations().find(c=>c.id===visual.current());
+      if(group?.type==="group"&&choose)choose.click();
+      else say("Editor da foto do grupo indisponível. Reabra a conversa.");
+      return;
+    }
+    const fakeSimulation=event.target.closest("#shBox [data-activity-sim],#cfg [data-ultra-setting='incoming']");
+    if(fakeSimulation){event.preventDefault();event.stopImmediatePropagation();say("Eventos de demonstração não estão disponíveis na produção.");return;}
     const poll=event.target.closest("#msgs [data-poll-vote]");
     if(poll){event.preventDefault();event.stopImmediatePropagation();void votePoll(visual.current(),poll.dataset.pollVote,Number(poll.dataset.option));return;}
     const destructive=event.target.closest("#shBox [data-d]");
