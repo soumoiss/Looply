@@ -7,9 +7,12 @@ const pages=["index.html","login.html","home.html","musicas.html","chat.html","c
 test("GitHub Pages keeps the recovered original controllers and uses Neon for auth",async()=>{
  for(const filename of pages){
   const html=await readFile(path.join(dist,filename),"utf8");
-  if(filename==="index.html") assert.match(html,/src="src\/neon-production-splash\.js\?build=[a-f0-9]{16}"/);
-  else if(filename==="login.html") assert.match(html,/src="src\/neon-production-login\.js\?build=[a-f0-9]{16}"/);
-  else assert.match(html,/src="assets\/js\/[^\"]+\.js\?build=[a-f0-9]{16}"/);
+  // The authentic original controller is retained as a deferred data-entry;
+  // a shared maintenance bootstrap checks Neon before importing it.
+  assert.match(html,/src="src\/maintenance-bootstrap\.js\?build=[a-f0-9]{16}"/);
+  if(filename==="index.html") assert.match(html,/data-looply-entry="src\/neon-production-splash\.js"/);
+  else if(filename==="login.html") assert.match(html,/data-looply-entry="src\/neon-production-login\.js"/);
+  else assert.match(html,/data-looply-entry="assets\/js\/[^"]+\.js/);
  }
  const runtime=await readFile(path.join(dist,"src/page-runtime.js"),"utf8");
  assert.match(runtime,/neon-production-client\.js/);
@@ -18,7 +21,7 @@ test("GitHub Pages keeps the recovered original controllers and uses Neon for au
  const galleryController=await readFile(path.join(dist,"assets/js/gallery.js"),"utf8");
  assert.match(galleryController,/page-runtime\.js\?build=[a-f0-9]{16}/);
  const gallery=await readFile(path.join(dist,"galeria.html"),"utf8");
- assert.match(gallery,/assets\/js\/gallery\.js\?build=[a-f0-9]{16}/);
+ assert.match(gallery,/data-looply-entry="assets\/js\/gallery\.js/);
  const worker=await readFile(path.join(dist,"sw.js"),"utf8");
  assert.match(worker,/looply-pages-[a-f0-9]{16}/);
 });
