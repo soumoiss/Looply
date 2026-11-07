@@ -878,10 +878,14 @@ test("global app settings are singleton, admin-writable, maintenance-gated, and 
   assert.match(migration, /check \(id = 1\)/i);
   assert.match(migration, /app_settings_authenticated_read[\s\S]*?for select to authenticated/i);
   assert.match(migration, /app_settings_admin_update[\s\S]*?private\.is_admin\(\)/i);
-  assert.match(runtime, /readGlobalSettings/);
-  assert.match(runtime, /return data\.maintenance_mode/);
-  assert.match(runtime, /renderMaintenanceScreen/);
-  assert.match(runtime, /maintenancePollTimer/);
+  // Maintenance is checked once by the authenticated entrypoint, not by an
+  // independent page runtime that could incorrectly deny access to Peixinho.
+  const gate = await read("src/maintenance-gate.js");
+  const decision = await read("src/maintenance-decision.js");
+  assert.match(gate, /await evaluateMaintenanceAccess\(/);
+  assert.match(decision, /app_settings\?select=maintenance_mode/);
+  assert.match(decision, /looply_maintenance_admin_bypass/);
+  assert.doesNotMatch(runtime, /renderMaintenanceScreen|maintenancePollTimer/);
   assert.match(admin, /data-app-settings-form/);
   assert.match(admin, /app_settings_update/);
   assert.match(edge, /action === "app_settings_update"[\s\S]*?service\.from\("app_settings"\)\.update/);
