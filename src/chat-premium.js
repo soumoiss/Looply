@@ -59,14 +59,14 @@ function openLetter(root){
   return modal;
 }
 function openPoll(root){
-  const options=Array.from({length:6},(_,i)=>
+  const options=Array.from({length:8},(_,i)=>
     '<label for="chatUltraPollOption'+i+'">Alternativa '+(i+1)+'</label>'+
     '<input id="chatUltraPollOption'+i+'" data-chat-ultra-poll-option name="option'+i+
     '" maxlength="95" '+(i<2?'required ':'')+'placeholder="Alternativa '+(i+1)+'">').join("");
   return createModal(root,{title:"📊 Nova enquete",kind:"poll",submitLabel:"Publicar enquete",content:
     '<label for="chatUltraPollQuestion">Pergunta</label>'+
     '<textarea id="chatUltraPollQuestion" name="question" maxlength="240" rows="3" required placeholder="O que você quer perguntar?"></textarea>'+options+
-    '<p class="chat-ultra-modal-note">Até seis alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
+    '<p class="chat-ultra-modal-note">Até oito alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
 }
 function openLocation(root){
   return createModal(root,{title:"📍 Compartilhar local",kind:"location",submitLabel:"Enviar local",content:
