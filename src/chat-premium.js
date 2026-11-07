@@ -1,6 +1,6 @@
 import { sendChatCard } from "./chat.js?v=premium-fixes-20261104";
 import { icon } from "./icons.js";
-import { makePremiumNote, makePremiumMusic, makePremiumGameCard, makePremiumLetter, makePremiumContact, makePremiumLocation } from "./chat-premium-cards.js";
+import { makePremiumNote, makePremiumMusic, makePremiumGameCard, makePremiumLetter, makePremiumContact, makePremiumLocation, makePremiumPoll } from "./chat-premium-cards.js";
 import { toggleEmojiPicker } from "./emoji-picker.js";
 import { searchStorySongs, officialSongPreview, normalizeStorySong } from "./story-music-catalog.js";
 import { requestMediaPlayback, releaseMediaPlayback } from "./media-playback-coordinator.js";
@@ -57,6 +57,16 @@ function openLetter(root){
     '<input id="chatUltraLetterSeal" name="seal" value="💌" maxlength="16" readonly aria-label="Selo escolhido">'+
     '<button type="button" data-chat-ultra-seal-picker aria-expanded="false">Escolher emoji</button></div>'});
   return modal;
+}
+function openPoll(root){
+  const options=Array.from({length:6},(_,i)=>
+    '<label for="chatUltraPollOption'+i+'">Alternativa '+(i+1)+'</label>'+
+    '<input id="chatUltraPollOption'+i+'" data-chat-ultra-poll-option name="option'+i+
+    '" maxlength="95" '+(i<2?'required ':'')+'placeholder="Alternativa '+(i+1)+'">').join("");
+  return createModal(root,{title:"📊 Nova enquete",kind:"poll",submitLabel:"Publicar enquete",content:
+    '<label for="chatUltraPollQuestion">Pergunta</label>'+
+    '<textarea id="chatUltraPollQuestion" name="question" maxlength="240" rows="3" required placeholder="O que você quer perguntar?"></textarea>'+options+
+    '<p class="chat-ultra-modal-note">Até seis alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
 }
 function openLocation(root){
   return createModal(root,{title:"📍 Compartilhar local",kind:"location",submitLabel:"Enviar local",content:
@@ -301,6 +311,7 @@ export function setupChatPremium(root,client,userId){
     if(target.closest("[data-chat-ultra-record]")){
       target.closest("form[data-chat-send]")?.querySelector("[data-chat-record-start]")?.click();return;
     }
+    if(target.closest("[data-chat-ultra-poll]")){openPoll(root);return;}
     if(target.closest("[data-chat-ultra-location]")){openLocation(root);return;}
     if(target.closest("[data-chat-ultra-contact]")){void openContact(root,client,userId);return;}
     if(target.closest("[data-chat-ultra-activities]")){void openActivities(root,client,userId);return;}
@@ -505,6 +516,8 @@ export function setupChatPremium(root,client,userId){
             title:form.elements.title?.value,body:form.elements.body?.value,
             signature:form.elements.signature?.value,paper:form.elements.paper?.value,seal:form.elements.seal?.value
           })
+        : kind==="poll" ? makePremiumPoll({question:form.elements.question?.value,
+            options:[...form.querySelectorAll("[data-chat-ultra-poll-option]")].map(input=>input.value)})
         : kind==="location" ? makePremiumLocation(form.elements.place?.value)
         : kind==="contact" ? makePremiumContact(modal._contacts?.find(p=>p.id===form.elements.contactId?.value)&&{
             id:form.elements.contactId?.value,
