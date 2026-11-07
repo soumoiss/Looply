@@ -155,15 +155,17 @@ export function premiumChatCardMarkup(body,reactions=[],messageId="",userId=""){
       '<div class="chat-letter-paper"><h3 class="chat-ultra-letter-title">'+escapeHtml(card.title)+'</h3>'+
       '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p><span class="chat-letter-signature">'+escapeHtml(card.signature)+'</span></div></details>';
   if(card.type==="poll"){
-    const rows=Array.isArray(reactions)?reactions.filter(r=>r&&POLL_VOTES.includes(r.emoji)):[];
+    const ballots=Array.isArray(reactions)?reactions.filter(r=>r&&Number.isInteger(r.option_index)&&r.option_index>=0&&r.option_index<8):[];
+    // Preserve older six-emoji reactions for messages that predate v38.
+    const rows=ballots.length?ballots:Array.isArray(reactions)?reactions.filter(r=>r&&POLL_VOTES.includes(r.emoji)):[];
     const total=rows.length;
     return '<section class="chat-ultra-poll-card" aria-label="Enquete da conversa">'+
       '<small>📊 Enquete</small><strong>'+escapeHtml(card.question)+'</strong><div class="chat-ultra-poll-options">'+
       card.options.map((label,index)=>{
-        const emoji=POLL_VOTES[index],votes=rows.filter(r=>r.emoji===emoji).length;
-        const selected=rows.some(r=>r.emoji===emoji&&r.user_id===userId);
+        const votes=rows.filter(r=>ballots.length?r.option_index===index:r.emoji===POLL_VOTES[index]).length;
+        const selected=rows.some(r=>(ballots.length?r.option_index===index:r.emoji===POLL_VOTES[index])&&r.user_id===userId);
         const percentage=total?Math.round(votes*100/total):0;
-        return '<button type="button" data-chat-premium-reaction-existing="'+emoji+'" data-chat-premium-message-id="'+escapeHtml(messageId)+
+        return '<button type="button" data-chat-premium-poll-option="'+index+'" data-chat-premium-message-id="'+escapeHtml(messageId)+
           '" aria-pressed="'+String(selected)+'" class="chat-ultra-poll-option'+(selected?' is-selected':'')+'">'+
           '<span class="chat-ultra-poll-progress" style="width:'+percentage+'%"></span>'+
           '<span>'+escapeHtml(label)+'</span><small>'+votes+' · '+percentage+'%</small></button>';
