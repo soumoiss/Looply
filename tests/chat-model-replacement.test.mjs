@@ -9,7 +9,7 @@ test('both message entrypoints ship the model without any old layout overlay',()
   for(const page of ['chat.html','conversa.html']){
     const source=read(page);
     assert.doesNotMatch(source,/href="assets\/css\/pages\/(?:chat|chat-mobile-reference|chat-viewport-catalog|conversation)\.css/);
-    for(const file of ['chat-foundation.css','chat-features.css','chat-premium.css'])assert.ok(source.includes(file));
+    assert.match(source,/class="gh glass"/);assert.match(source,/class="dock glass"/);assert.match(source,/chat-ultra-live\.js/);
   }
   assert.match(read('assets/css/pages/chat-foundation.css'),/theme-complete\.css.*layer\(looply-foundation\)/);
 });

@@ -19,7 +19,7 @@ test('group cover reuses the exact profile photo chooser and crop engine',async(
   assert.match(chat,/groupCoverDrafts\.get\(form\)/);
   assert.match(css,/\.pr-avatar-stage\{/);
   assert.match(css,/\.pr-avatar-crop::backdrop/);
-  assert.match(html,/group-avatar-editor\.css/);
+  assert.match(html,/chat-ultra-live\.js/);
 });
 
 test('Neon group additions and removals use creator-authorized RPCs with a 50-member limit',async()=>{

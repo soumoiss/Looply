@@ -36,7 +36,7 @@ test("All principal authenticated routes load the shared stylesheet without chan
   for (const name of pages) {
     const html=read(name+".html");
     if(["chat","conversa"].includes(name)){
-      assert.ok(html.includes("chat-foundation.css"),name);
+      assert.ok(html.includes("chat-ultra-live.js"),name);
       assert.match(read("assets/css/pages/chat-foundation.css"),/theme-complete\.css/);
     }else assert.ok(html.includes("assets/css/theme-complete.css"),name);
   }

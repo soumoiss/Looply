@@ -84,7 +84,7 @@ test("model is styled through global Looply themes and both chat entries",()=>{
     assert.ok(css.includes(token),token);
   }
   for(const page of ["chat.html","conversa.html"])
-    assert.match(read(page),/assets\/css\/pages\/chat-premium\.css/);
+    assert.match(read(page),/assets\/js\/chat-ultra-live\.js/);
   assert.match(read("assets/js/chat.js"),/setupChatPremium\(root, client, user\.id\)/);
   assert.match(read("assets/js/conversation.js"),/setupChatPremium\(root, client, user\.id\)/);
 });

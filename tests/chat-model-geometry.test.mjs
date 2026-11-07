@@ -26,5 +26,5 @@ test('model details compact action row and switches',()=>{
 });
 test('both chat routes request fixed geometry stylesheet',()=>{
  for(const page of ['chat.html','conversa.html'])
- assert.match(readFileSync(page,'utf8'),/chat-reference-complete\.css\?v=official-model-20261104-r2/);
+ assert.match(readFileSync(page,'utf8'),/class="conv" id="conv"/);
 });

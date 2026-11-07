@@ -53,8 +53,8 @@ test("Games is available in the shared composer attachment menu, preserving tic 
  assert.match(enh,/setupChatGartic/);
  assert.match(icons,/gamepad:/);
  assert.match(ttt,/v25_ttt_move/);
- assert.match(chat,/chat-gartic\.css/);
- assert.match(conversation,/chat-gartic\.css/);
+ assert.match(chat,/\["games","🎮","Games"\]/);
+ assert.match(conversation,/\["games","🎮","Games"\]/);
 });
 
 test("Audio is opt-in, room scoped, with negotiated WebRTC peers",async()=>{

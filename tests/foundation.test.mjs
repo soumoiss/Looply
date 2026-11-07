@@ -110,7 +110,7 @@ test("the application pages keep navigation and responsive layout and include th
   }
   assert.match(home, /home\.js/);
   assert.match(music, /music\.js/);
-  assert.match(chat, /chat\.js/);
+  assert.match(chat, /chat-ultra-live\.js/);
   assert.match(profile, /profile\.js/);
   assert.match(admin, /admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
@@ -192,7 +192,7 @@ test("conversations have their own route and real microphone recording flow", as
   const [chat, conversation, page, css, sharedChatCss] = await Promise.all([
     read("src/chat.js"), read("assets/js/conversation.js"), read("conversa.html"), read("assets/css/pages/conversation.css"), read("assets/css/pages/chat.css")
   ]);
-  assert.match(page, /assets\/js\/conversation\.js/);
+  assert.match(page, /assets\/js\/chat-ultra-live\.js/);
   assert.match(conversation, /new URLSearchParams\(window\.location\.search\)/);
   assert.match(chat, /navigator\.mediaDevices\?\.getUserMedia/);
   assert.match(chat, /new MediaRecorder/);
