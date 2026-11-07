@@ -324,7 +324,7 @@ body.cv #banner.on{transform:translate(-50%,0)}
 .m.me .poll-card{color:var(--text)}.m.me .poll-card .poll-choice{background:var(--strong)}
 .activity-count{min-height:18px;min-width:18px;padding:2px 5px;border-radius:99px;background:#f13c64;color:white;font-size:11px;font-weight:800;display:grid;place-items:center}
 .activity-list{display:grid;gap:8px;max-height:55vh;overflow:auto;padding:5px 1px}.activity-item{display:flex;gap:11px;align-items:center;width:100%;text-align:left;padding:12px;border-radius:17px;border:1px solid var(--line);background:var(--strong);font-size:13px}.activity-item.unseen{background:color-mix(in srgb,var(--primary) 9%,var(--strong));border-color:color-mix(in srgb,var(--primary) 35%,var(--line))}.activity-item .act-main{flex:1;min-width:0}.activity-item b{display:block}.activity-item small{display:block;font-size:11px;color:var(--muted);margin-top:3px}.activity-item .act-emoji{font-size:22px}
-.wallpaper-preview{border-radius:20px;min-height:118px;background:var(--bg);background-size:cover;background-position:center;position:relative;border:1px solid var(--line);overflow:hidden;margin-bottom:8px}.wallpaper-preview:before{content:'Mensagem de demonstração';position:absolute;bottom:16px;right:12px;background:var(--primary);color:#fff;font-size:12px;padding:10px 13px;border-radius:15px}.wallpaper-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.wallpaper-tools .btn{width:auto;flex:1;min-width:150px}
+.wallpaper-preview{border-radius:20px;min-height:118px;background:var(--bg);background-size:cover;background-position:center;position:relative;border:1px solid var(--line);overflow:hidden;margin-bottom:8px}.wallpaper-preview:before{content:'Prévia do fundo';position:absolute;bottom:16px;right:12px;background:var(--primary);color:#fff;font-size:12px;padding:10px 13px;border-radius:15px}.wallpaper-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.wallpaper-tools .btn{width:auto;flex:1;min-width:150px}
 #conv.gallery-wallpaper{background-size:cover;background-position:center;background-attachment:scroll}#conv.gallery-wallpaper:before{content:"";position:absolute;inset:0;background:rgba(20,11,32,var(--wallpaper-tint,.17));pointer-events:none;z-index:0}#conv.gallery-wallpaper .msgs{position:relative}
 #conv.gallery-wallpaper .m .b:not(:has(.letter-bubble)){backdrop-filter:blur(3px)}
 #pinnedBar{max-width:min(calc(100% - 24px),660px);margin:0 auto;border-color:color-mix(in srgb,var(--primary) 23%,var(--line));background:color-mix(in srgb,var(--strong) 93%,transparent);box-shadow:0 5px 19px rgba(0,0,0,.07)}
@@ -336,6 +336,13 @@ body.cv #banner.on{transform:translate(-50%,0)}
 #bVideo:focus-visible,.fan-option:focus-visible,.letter-color-choice:focus-visible,.letter-seal-choice:focus-visible,.activity-item:focus-visible{outline:3px solid #ba55f6;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.fan,.fan-option,.letter-read.open .letter-preview,.letter-open-mark,.call-ultra .call-wave i{animation:none!important;transition:none!important}}
 
+/* Correções mobile: painel fechado e auxiliares vazios não criam barras extras. */
+#pan:not(.open){display:none!important}
+#comp > .ctx[hidden],#comp > .blkbar[hidden]{display:none!important}
+#comp .pan:not(.open) > div{display:none!important}
+.test-mode{display:none!important}
+#bStickers{color:var(--primary)}
+#conv .who .chat-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1dbd67;box-shadow:0 0 0 2px color-mix(in srgb,#1dbd67 20%,transparent);margin-right:4px;vertical-align:middle}
 </style>
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
 <body class="looply-chat-ultra-live">
@@ -408,7 +415,13 @@ function seed(){const n=Date.now(),M=(f,t,o={})=>({id:uid(),from:f,t:n-t,kind:"t
  {id:"c5",type:"dm",members:[ME,"caio"],pin:0,mute:1,unread:0,msgs:[M("caio",4*DAY,{text:"Valeu pela ajuda com o projeto!"}),M(ME,4*DAY-MIN,{text:"Sempre! Qualquer coisa me chama.",st:"deliv"})]},
  {id:"c6",type:"dm",members:[ME,"duda"],pin:0,mute:0,unread:0,msgs:[M("duda",6*DAY,{text:"Ainda tem aquela foto do show?"}),M(ME,6*DAY-HR,{text:"Tenho! Te mando já."})]}]}
 let C;try{C=JSON.parse(localStorage.getItem(KEY)||"null")}catch{C=null}C=[];
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(C.map(c=>({...c,msgs:c.msgs.map(m=>m.kind==="img"?{...m,url:null}:m)}))))}catch{}};
+// Production data lives in Neon. Store only per-account visual preferences here.
+const save=()=>{if(!/^[0-9a-f-]{36}$/i.test(ME))return;
+ try {const preferences=Object.fromEntries(C.map(c=>[c.id,{
+ wallpaper:c.wallpaper||"",wallpaperTint:c.wallpaperTint??.18,
+ color:c.color||"",pin:c.pin||0,mute:c.mute||0,arch:c.arch||0,
+ fav:c.fav||0,nick:c.nick||""}]));
+ localStorage.setItem("looply-chat-visual-v4:"+ME,JSON.stringify(preferences));}catch{}};
 let seenM=new Set(),inboxAnim=true,cur=null,flt="all",qry="",reply=null,editing=null,recording=null,typing={},uMark=null;
 const conv=id=>C.find(c=>c.id===id),peers=c=>c.members.filter(k=>k!==ME);
 const title=c=>c.type==="group"?c.name:(c.nick||U(peers(c)[0]).n);
@@ -1717,12 +1730,7 @@ refresh();
     }
   });
 
-  // Metadados de testes locais (nunca simula uma conexão real).
-  const testChip = document.createElement("span");
-  testChip.className = "test-mode";
-  testChip.textContent = "MODELO LOCAL";
-  testChip.title = "Jogos e mensagens desta demonstração não estão conectados a outros usuários.";
-  document.body.append(testChip);
+
 
   // Intercala miniaturas de mídias e corrige persistência após recarregar.
   const originalBubbleWithCards = bubble;
