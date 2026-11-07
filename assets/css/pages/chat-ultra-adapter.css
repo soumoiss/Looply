@@ -48,3 +48,33 @@
 .page-chat .chat-premium-modal form[data-chat-premium-card-form="letter"] textarea{min-height:140px;resize:vertical}
 .page-chat .chat-premium-modal form[data-chat-premium-card-form="letter"] label{font-size:12px;font-weight:750;color:var(--m)}
 .page-chat .chat-premium-modal .chat-ultra-seal-picker [data-chat-emoji-picker]{max-width:min(360px,calc(100vw - 60px));left:auto;right:0;bottom:calc(100% + 8px);z-index:110}
+
+/* Ultra production cards: profile, maps, votes and activity stream. */
+.page-chat .chat-ultra-contact-card,.page-chat .chat-ultra-location-card{display:flex;align-items:center;gap:10px;min-width:210px;max-width:min(320px,79vw);padding:14px 13px;border-radius:18px;border:1px solid var(--l);background:var(--s);text-decoration:none;color:var(--t);box-shadow:0 3px 15px rgba(69,32,91,.07)}
+.page-chat .chat-ultra-contact-card>span:nth-child(2),.page-chat .chat-ultra-location-card>span:nth-child(2){display:grid;gap:3px;flex:1;min-width:0}
+.page-chat .chat-ultra-contact-card strong,.page-chat .chat-ultra-location-card strong{font-size:14px;font-weight:750;overflow-wrap:anywhere}
+.page-chat .chat-ultra-contact-card small,.page-chat .chat-ultra-location-card small{font-size:11px;color:var(--m)}
+.page-chat .chat-ultra-card-emoji{display:grid;place-items:center;background:var(--b2);border-radius:14px;width:46px;height:46px;flex:none;font-size:23px}
+.page-chat .chat-ultra-poll-card{display:grid;gap:10px;width:min(320px,78vw);background:var(--s);border:1px solid var(--l);border-radius:19px;padding:14px;box-shadow:0 3px 16px rgba(69,32,91,.07)}
+.page-chat .chat-ultra-poll-card>strong{font-size:15px;font-weight:750;color:var(--t);overflow-wrap:anywhere}
+.page-chat .chat-ultra-poll-card>small{font-size:11px;color:var(--m)}
+.page-chat .chat-ultra-poll-options{display:grid;gap:8px}
+.page-chat .chat-ultra-poll-option{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;isolation:isolate;min-height:46px;width:100%;padding:9px 11px!important;border:1px solid var(--l)!important;background:var(--so)!important;border-radius:12px!important;text-align:left;font-size:13px!important;font-weight:650!important;color:var(--t)!important;overflow:hidden}
+.page-chat .chat-ultra-poll-option.is-selected{border-color:var(--p)!important}
+.page-chat .chat-ultra-poll-option>span:not(.chat-ultra-poll-progress){flex:1;min-width:0;overflow-wrap:anywhere;z-index:1}
+.page-chat .chat-ultra-poll-option>small{white-space:nowrap;font-size:11px;color:var(--m);z-index:1}
+.page-chat .chat-ultra-poll-progress{position:absolute;z-index:0;inset:0 auto 0 0;max-width:100%;background:color-mix(in srgb,var(--p) 17%,transparent);border-radius:inherit;pointer-events:none}
+.page-chat .chat-ultra-activity-list{display:grid;gap:8px;max-height:56dvh;overflow-y:auto}
+.page-chat .chat-ultra-activity-item{display:grid;gap:5px;border:1px solid var(--l);border-radius:14px;padding:12px;background:var(--so);text-decoration:none;color:var(--t)}
+.page-chat .chat-ultra-activity-item.is-unread{border-left:4px solid var(--p)}
+.page-chat .chat-ultra-activity-item strong{font-size:13px}
+.page-chat .chat-ultra-activity-item span{font-size:13px;overflow-wrap:anywhere}
+.page-chat .chat-ultra-activity-item small{font-size:11px;color:var(--m)}
+.page-chat .chat-ultra-modal-note{font-size:12px!important;color:var(--m)!important}
+.page-chat .chat-premium-attach-menu[data-chat-premium-menu]{grid-template-columns:repeat(3,minmax(0,1fr));max-height:min(65dvh,480px);overflow-y:auto;overscroll-behavior:contain}
+.page-chat .chat-premium-attach-menu[data-chat-premium-menu]>button{min-height:82px;display:grid;place-items:center;text-align:center;gap:6px;font-size:12px;white-space:normal}
+.page-chat .chat-premium-attach-menu[data-chat-premium-menu] .chat-premium-tile{width:43px;height:43px}
+.page-chat .chat-premium-modal form[data-chat-premium-card-form="poll"]{display:grid;gap:5px}
+.page-chat .chat-premium-modal form[data-chat-premium-card-form="poll"] label{font-size:12px;font-weight:700;color:var(--m)}
+.page-chat .chat-premium-modal form[data-chat-premium-card-form="poll"] :is(input,textarea){min-height:42px;width:100%;padding:10px;background:var(--so);color:var(--t);border:1px solid var(--l);border-radius:12px}
+@media(max-width:360px){.page-chat .chat-premium-attach-menu[data-chat-premium-menu]>button{min-height:76px;font-size:11px}.page-chat .chat-ultra-poll-card{padding:12px}}
