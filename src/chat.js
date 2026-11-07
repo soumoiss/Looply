@@ -246,6 +246,19 @@ function conversationAvatar(conversation, userId) {
     : `<span class="chat-conversation-avatar" data-profile-avatar-id="${escapeHtml(profile?.id || "")}" aria-hidden="true">${escapeHtml(initial)}</span>`;
 }
 
+function safeChatPreview(value){
+  const text=String(value||"").trim();
+  if(text.startsWith("💌 Carta Looply/1"))return "💌 Carta selada";
+  if(text.startsWith("📊 Enquete Looply/1"))return "📊 Enquete";
+  if(text.startsWith("👤 Contato Looply/1"))return "👤 Contato compartilhado";
+  if(text.startsWith("📍 Local Looply/1"))return "📍 Local compartilhado";
+  const card=parsePremiumChatBody(text);
+  if(card?.type==="letter")return "💌 Carta selada";
+  if(card?.type==="poll")return "📊 Enquete";
+  if(card?.type==="contact")return "👤 Contato compartilhado";
+  if(card?.type==="location")return "📍 Local compartilhado";
+  return text;
+}
 function conversationPreview(conversation, userId) {
   const message = conversation.lastMessage;
   if (!message) return conversation.kind === "letter" ? "Carta privada" : "Nenhuma mensagem";
@@ -268,7 +281,7 @@ function notificationsMarkup(notifications) {
   const unread = notifications.filter((item) => !item.read_at).length;
   if (!notifications.length) return `<p class="chat-empty">Nenhuma notificação</p>`;
   return `<div class="chat-notification-list">${notifications.slice(0, 5).map((item) => `<a class="chat-notification ${item.read_at ? "is-read" : ""}" href="conversa.html?id=${encodeURIComponent(item.conversation_id)}" data-chat-open="${escapeHtml(item.conversation_id)}">
-    <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(item.preview)}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
+    <span class="chat-notification-kind">${item.kind === "letter" ? "Carta" : "Mensagem"}</span><span>${escapeHtml(safeChatPreview(item.preview))}</span><time>${escapeHtml(formatDate(item.created_at))}</time>
   </a>`).join("")}</div><span class="chat-count">${unread} não lida${unread === 1 ? "" : "s"}</span>`;
 }
 
@@ -704,7 +717,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const daySeparator = day && day !== lastDay ? `<div class="chat-date-separator"><span>${escapeHtml(day)}</span></div>` : "";
     lastDay = day || lastDay;
     const parent = message.reply_to ? byId.get(message.reply_to) : null;
-    const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? (parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
+    const replyContext = message.reply_to ? `<small class="chat-reply-preview">↳ ${escapeHtml(parent ? safeChatPreview(parent.body || "mensagem").slice(0, 120) : "Respondeu a uma mensagem anterior")}</small>` : "";
     const storyContext = message.storyId
       ? `<a class="chat-reply-preview" href="home.html?storyId=${encodeURIComponent(message.storyId)}">↳ Story respondido</a>`
       : "";
