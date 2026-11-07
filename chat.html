@@ -412,7 +412,7 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(C.map(c=>({...c,msgs
 let seenM=new Set(),inboxAnim=true,cur=null,flt="all",qry="",reply=null,editing=null,recording=null,typing={},uMark=null;
 const conv=id=>C.find(c=>c.id===id),peers=c=>c.members.filter(k=>k!==ME);
 const title=c=>c.type==="group"?c.name:(c.nick||U(peers(c)[0]).n);
-const cav=(c,s=52)=>c.type==="group"?`<span class="av grp" style="--s:${s}px">${ic("users")}</span>`:av(peers(c)[0],s,1);
+let cav=(c,s=52)=>c.type==="group"?`<span class="av grp" style="--s:${s}px">${ic("users")}</span>`:av(peers(c)[0],s,1);
 const vis=c=>c.msgs.filter(m=>!(m.sched&&m.sched>Date.now()));
 const prev=m=>!m?"Nova conversa":m.kind==="sys"?m.text:m.del?"Mensagem apagada":m.kind==="img"?"📷 Foto":m.kind==="audio"?"🎤 Áudio "+mmss(m.dur||0):m.kind==="sticker"?m.text:m.kind==="file"?"📎 "+m.name:m.text;
 const tick=m=>m.from!==ME||m.del?"":`<span class="tk ${m.st==="read"?"read":""}">${ic(m.st==="sent"?"c1":"c2")}</span>`;
