@@ -11,6 +11,7 @@ import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
+import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
 import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
 
@@ -18,7 +19,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0;
+let busy=false,loading=null,refreshTimer=0,scheduler=null;
 const signedMediaCache=new Map();
 async function signedMedia(bucket,path){
   if(!path)return "";
@@ -338,7 +339,8 @@ function openRealGames(conversationId){
 }
 function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
-    react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames});
+    react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
+    schedule:()=>scheduler?.open()});
   document.addEventListener("change",event=>{
     const target=event.target;
     if(!target?.matches("#fImg,#fAny"))return;
@@ -384,6 +386,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active});
+  scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
+  window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
   visual.mediaRenderer(renderUltraPlayableMedia);
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
