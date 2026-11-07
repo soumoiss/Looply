@@ -182,3 +182,7 @@ body.looply-chat-ultra-live .chat-ultra-voice audio{display:none}
   border-radius:12px;background:var(--strong);padding:9px;color:var(--wax);
   font-size:12px;font-weight:800
 }
+
+/* QA simulations are not product actions and cannot inject fake notifications. */
+body.looply-chat-ultra-live #shBox [data-activity-sim],
+body.looply-chat-ultra-live #cfg [data-ultra-setting="incoming"]{display:none!important}
