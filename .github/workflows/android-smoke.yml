@@ -5,6 +5,7 @@ on:
     branches:
       - codex/looply-android-fcm-302
       - fix/looply-auth-push-calls-stickers-20261030
+      - fix/looply-stage2-media-calls-responsive-20261030
     paths:
       - "android/**"
       - "src/**"
@@ -40,6 +41,14 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y libpulse0 libasound2t64 libnss3 libx11-6 libxcb-cursor0
+      - name: Enable KVM acceleration when the runner exposes /dev/kvm
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            test -r /dev/kvm && test -w /dev/kvm
+          else
+            echo "::notice::KVM unavailable: emulator will use software acceleration (not an APK failure)."
+          fi
       - name: Install and open activities in an actual Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -48,7 +57,9 @@ jobs:
           arch: x86_64
           profile: pixel_2
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
-          disable-animations: true
+          # ADB settings service crashed on the last software-emulated runner:
+          # do not make launcher testing depend on disabling animations.
+          disable-animations: false
           script: |
             set -e
             mkdir -p smoke-results
