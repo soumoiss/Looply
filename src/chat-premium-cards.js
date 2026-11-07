@@ -3,6 +3,8 @@ import { normalizeStorySong } from "./story-music-catalog.js";
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const NOTE="💌 Bilhete\n";
 const LETTER="💌 Carta Looply/1\n";
+const CONTACT="👤 Contato Looply/1\n";
+const LOCATION="📍 Local Looply/1\n";
 const PAPER_COLORS=Object.freeze({cream:"#faf1df",rose:"#fff0f4",lavender:"#f2edff",sky:"#edf6ff"});
 const MUSIC="🎵 Música: ";
 
@@ -45,6 +47,17 @@ export function parsePremiumLetter(value){
     return {type:"letter",title:data.title,body:data.body,signature:data.signature,paper:data.paper,seal:data.seal};
   }catch{return null;}
 }
+export function makePremiumContact({id,name,username}={}){
+  const record={v:1,id:String(id??""),name:String(name??"").trim().slice(0,90),username:String(username??"").trim().slice(0,40)};
+  if(!/^[0-9a-f-]{36}$/i.test(record.id)||!record.name||!record.username)
+    throw Error("Selecione um perfil válido da lista.");
+  return CONTACT+JSON.stringify(record);
+}
+export function makePremiumLocation(place){
+  const label=String(place??"").trim().slice(0,180);
+  if(label.length<3)throw Error("Digite um local ou endereço.");
+  return LOCATION+JSON.stringify({v:1,label});
+}
 export function makePremiumGameCard(conversationId){
   const id=String(conversationId||"").trim();
   if(!/^[0-9a-f-]{36}$/i.test(id))throw Error("Abra uma conversa válida para convidar alguém.");
@@ -59,6 +72,23 @@ export function parsePremiumChatBody(value){
   const text=String(value||"");
   const letter=parsePremiumLetter(text);
   if(letter)return letter;
+  if(text.startsWith(CONTACT)&&text.length<=500){
+    try {
+      const d=JSON.parse(text.slice(CONTACT.length));
+      if(d.v===1&&/^[0-9a-f-]{36}$/i.test(d.id)&&typeof d.name==="string"&&d.name.length<=90&&d.name.trim()&&
+         typeof d.username==="string"&&d.username.length<=40&&d.username.trim())
+        return {type:"contact",id:d.id,name:d.name,username:d.username};
+    }catch{return null;}
+    return null;
+  }
+  if(text.startsWith(LOCATION)&&text.length<=500){
+    try {
+      const d=JSON.parse(text.slice(LOCATION.length));
+      if(d.v===1&&typeof d.label==="string"&&d.label.trim().length>=3&&d.label.length<=180)
+        return {type:"location",label:d.label};
+    }catch{return null;}
+    return null;
+  }
   if(text.startsWith("🎮 Convite para jogar no Looply\n")){
     const conversationId=text.split("\n")[1];
     if(/^[0-9a-f-]{36}$/i.test(conversationId))return {type:"game",conversationId};
@@ -103,6 +133,12 @@ export function premiumChatCardMarkup(body){
       '<span class="chat-premium-card-kicker"><span class="chat-envelope-closed-label">💌 '+escapeHtml(card.title)+'</span><span class="chat-envelope-open-label">Fechar carta</span></span></summary>'+
       '<div class="chat-letter-paper"><h3 class="chat-ultra-letter-title">'+escapeHtml(card.title)+'</h3>'+
       '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p><span class="chat-letter-signature">'+escapeHtml(card.signature)+'</span></div></details>';
+  if(card.type==="contact")
+    return '<a class="chat-ultra-contact-card" href="perfil.html?usuario='+encodeURIComponent(card.id)+'" aria-label="Abrir perfil de '+escapeHtml(card.name)+'">'+
+      '<span class="chat-ultra-card-emoji" aria-hidden="true">👤</span><span><small>Contato Looply</small><strong>'+escapeHtml(card.name)+'</strong><small>@'+escapeHtml(card.username)+'</small></span><span aria-hidden="true">›</span></a>';
+  if(card.type==="location")
+    return '<a class="chat-ultra-location-card" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(card.label)+'" target="_blank" rel="noopener noreferrer">'+
+      '<span class="chat-ultra-card-emoji" aria-hidden="true">📍</span><span><small>Local compartilhado</small><strong>'+escapeHtml(card.label)+'</strong><small>Abrir no mapa</small></span></a>';
   if(card.type==="note")
     return '<details class="chat-premium-note-card" aria-label="Bilhete enviado">' +
       '<summary class="chat-envelope-toggle"><span class="chat-envelope" aria-hidden="true">'+
