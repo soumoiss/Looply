@@ -1,6 +1,27 @@
 -- Canonical maintenance gate for the production Neon database.
 -- Run once against the production branch; this migration is idempotent.
 -- No application data is removed and maintenance remains unchanged.
+-- Resolve the *authenticated* Neon identity through its verified link to
+-- Peixinho's profile. A forged display name or username cannot bypass RLS.
+CREATE OR REPLACE FUNCTION public.looply_maintenance_admin_bypass()
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND EXISTS (
+    SELECT 1
+    FROM neon_auth."user" AS account
+    INNER JOIN looply_migration.verified_identity_links AS link
+      ON link.neon_user_id = account.id
+    INNER JOIN public.profiles AS profile
+      ON profile.id = link.legacy_user_id
+    WHERE account.id = auth.uid()
+      AND account.role = 'admin'
+      AND COALESCE(account.banned, false) = false
+      AND pg_catalog.lower(profile.username) = 'peixinho'
+  );
+$function$;
+
 CREATE OR REPLACE FUNCTION public.looply_maintenance_status()
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -8,20 +29,13 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   enabled boolean;
-  exempt boolean := false;
-  legacy_id uuid;
+  exempt boolean;
 BEGIN
   SELECT s.maintenance_mode INTO enabled FROM public.app_settings AS s WHERE s.id = 1;
   IF enabled IS NULL THEN
     RETURN pg_catalog.jsonb_build_object('enabled', true, 'exempt', false, 'blocked', true);
   END IF;
-  IF enabled AND auth.uid() IS NOT NULL AND public.v3_self_is_admin() THEN
-    legacy_id := public.looply_legacy_uid();
-    SELECT EXISTS(
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = legacy_id AND pg_catalog.lower(p.username) = 'peixinho'
-    ) INTO exempt;
-  END IF;
+  exempt := public.looply_maintenance_admin_bypass();
   RETURN pg_catalog.jsonb_build_object(
     'enabled', enabled,
     'exempt', exempt,
@@ -38,6 +52,7 @@ AS $function$
   SELECT COALESCE((public.looply_maintenance_status()->>'blocked')::boolean, false) = false;
 $function$;
 
+GRANT EXECUTE ON FUNCTION public.looply_maintenance_admin_bypass() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.looply_maintenance_status() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.looply_maintenance_allowed() TO authenticated;
 
