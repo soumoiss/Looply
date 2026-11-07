@@ -807,6 +807,7 @@ export function messageComposerMarkup(conversationId) {
       <button type="button" data-chat-ultra-share><span class="chat-premium-tile green">${icon("share")}</span><span>Compartilhar</span></button>
       <button type="button" data-chat-ultra-activities><span class="chat-premium-tile rose">${icon("bell")}</span><span>Atividades</span></button>
       <button type="button" data-chat-premium-camera><span class="chat-premium-tile purple">${icon("camera")}</span><span>Câmera</span></button>
+      <button type="button" data-chat-premium-share-game><span class="chat-premium-tile indigo">${icon("share")}</span><span>Convidar para jogar</span></button>
     </div>
     <input id="files-${escapeHtml(conversationId)}" name="files" class="chat-premium-file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mp4,audio/mpeg,audio/ogg,audio/webm,application/pdf,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf">
     <input class="chat-sticker-input" name="sticker" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Selecionar imagem para figurinha">
