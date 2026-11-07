@@ -97,6 +97,22 @@ async function refreshThread(id){
         .in("message_id",messages.map(m=>m.id)).limit(1000);
       reactions=result.data||[];
     }
+
+    // A dedicated authenticated ballot table replaces the old six-emoji
+    // encoding, so an eighth alternative is a real eighth choice.
+    const pollIds=messages.filter(m=>parsePremiumChatBody(m.body||"")?.type==="poll").map(m=>m.id);
+    let storedPollVotes=null;
+    if(pollIds.length){
+      const ballots=await client.rpc("v38_chat_poll_votes",{p_conversation_id:id,p_message_ids:pollIds});
+      if(!ballots.error && Array.isArray(ballots.data)){
+        storedPollVotes=new Map();
+        for(const ballot of ballots.data){
+          let votes=storedPollVotes.get(ballot.message_id);
+          if(!votes){votes={};storedPollVotes.set(ballot.message_id,votes);}
+          votes[ballot.user_id]=Number(ballot.option_index);
+        }
+      }else console.warn("Chat Ultra: votos de enquete indisponíveis",ballots.error?.code||"offline");
+    }
     const reactByMessage=new Map();
     for(const r of reactions){
       let bucket=reactByMessage.get(r.message_id);
@@ -126,7 +142,17 @@ async function refreshThread(id){
         stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||""
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
-      if(card?.type==="poll"){const votes={};for(const [voter,emoji] of Object.entries(base.react)){const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);if(index>=0)votes[voter]=index;}Object.assign(base,{text:card.question,options:card.options,votes,react:{}});}
+      if(card?.type==="poll"){
+        const votes=storedPollVotes?.get(message.id)||{};
+        if(!storedPollVotes){
+          // Read-only fallback for earlier data when offline; no fake votes.
+          for(const [voter,emoji] of Object.entries(base.react)){
+            const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);
+            if(index>=0)votes[voter]=index;
+          }
+        }
+        Object.assign(base,{text:card.question,options:card.options,votes,react:{}});
+      }
       if(card?.type==="note")base.text=card.body;
       if(card?.type==="music")base.text="🎵 "+card.title+" — "+card.artist;
       if(card?.type==="contact")base.text="👤 "+card.name+" (@"+card.username+")";
@@ -134,7 +160,7 @@ async function refreshThread(id){
       if(card?.type==="game")base.text="🎮 Convite para jogar";
       return base;
     }));
-    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl]));
+    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes]));
     if(visual.current()===id&&signature!==lastRender){
       visual.messages(id,mapped);
       lastRender=signature;
@@ -253,8 +279,18 @@ async function setReaction(conversationId,messageId,emoji){
   }catch(error){console.error("Chat Ultra: reação não persistida",error);say(errorMessage);}
 }
 async function votePoll(conversationId,messageId,index){
-  const emoji=POLL_VOTES[index];
-  if(emoji)await setReaction(conversationId,messageId,emoji);
+  if(!roomIds.has(conversationId)||!Number.isInteger(index)||index<0||index>7)return;
+  const selected=visual.conversations().find(c=>c.id===conversationId)?.msgs
+    ?.find(m=>m.id===messageId)?.votes?.[selfId];
+  try{
+    const {data,error}=await client.rpc("v38_vote_chat_poll",{
+      p_message_id:messageId,p_option:selected===index?-1:index
+    });
+    if(error||data!==true)throw error||Error("Voto não confirmado");
+    lastRender="";
+    await refreshThread(conversationId);
+    planRefresh(500);
+  }catch(error){console.error("Chat Ultra: voto não confirmado",error);say("Não foi possível registrar o voto.");}
 }
 async function removeMessage(conversationId,messageId){
   if(!roomIds.has(conversationId))return;
