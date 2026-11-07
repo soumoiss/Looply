@@ -33,7 +33,7 @@ test('Existing Neon media, calls, audio, games, sticker and realtime services re
 });
 
 test('Both chat entrypoints load official reference CSS and dynamic module',()=>{
-  for(const route of ['chat.html','conversa.html']) assert.match(read(route),/chat-reference-complete[.]css/);
+  for(const route of ['chat.html','conversa.html']){assert.match(read(route),/class="conv" id="conv"/);assert.match(read(route),/chat-ultra-live[.]js/);}
   const migration=read('migration/20261104_group_cover_participants.sql');
   assert.match(migration,/JOIN public[.]conversation_participants/);
   assert.match(migration,/msg[.]sender_id=actor/);
