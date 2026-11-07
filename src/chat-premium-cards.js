@@ -63,8 +63,8 @@ export function makePremiumLocation(place){
 export function makePremiumPoll({question,options}={}){
   const q=String(question??"").trim().slice(0,240);
   const list=Array.isArray(options)?options.map(x=>String(x??"").trim()).filter(Boolean):[];
-  if(q.length<3||list.length<2||list.length>6||list.some(x=>x.length>95))
-    throw Error("A enquete exige pergunta e de 2 a 6 alternativas (até 95 caracteres).");
+  if(q.length<3||list.length<2||list.length>8||list.some(x=>x.length>95))
+    throw Error("A enquete exige pergunta e de 2 a 8 alternativas (até 95 caracteres).");
   if(new Set(list.map(x=>x.toLocaleLowerCase("pt-BR"))).size!==list.length)
     throw Error("Use alternativas diferentes.");
   return POLL+JSON.stringify({v:1,question:q,options:list});
@@ -87,7 +87,7 @@ export function parsePremiumChatBody(value){
     try{
       const p=JSON.parse(text.slice(POLL.length));
       if(p.v===1&&typeof p.question==="string"&&p.question.trim().length>=3&&p.question.length<=240&&
-        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=6&&
+        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=8&&
         p.options.every(x=>typeof x==="string"&&x.length>0&&x.length<=95))
         return {type:"poll",question:p.question,options:p.options};
     }catch{return null;}
@@ -155,15 +155,17 @@ export function premiumChatCardMarkup(body,reactions=[],messageId="",userId=""){
       '<div class="chat-letter-paper"><h3 class="chat-ultra-letter-title">'+escapeHtml(card.title)+'</h3>'+
       '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p><span class="chat-letter-signature">'+escapeHtml(card.signature)+'</span></div></details>';
   if(card.type==="poll"){
-    const rows=Array.isArray(reactions)?reactions.filter(r=>r&&POLL_VOTES.includes(r.emoji)):[];
+    const ballots=Array.isArray(reactions)?reactions.filter(r=>r&&Number.isInteger(r.option_index)&&r.option_index>=0&&r.option_index<8):[];
+    // Preserve older six-emoji reactions for messages that predate v38.
+    const rows=ballots.length?ballots:Array.isArray(reactions)?reactions.filter(r=>r&&POLL_VOTES.includes(r.emoji)):[];
     const total=rows.length;
     return '<section class="chat-ultra-poll-card" aria-label="Enquete da conversa">'+
       '<small>📊 Enquete</small><strong>'+escapeHtml(card.question)+'</strong><div class="chat-ultra-poll-options">'+
       card.options.map((label,index)=>{
-        const emoji=POLL_VOTES[index],votes=rows.filter(r=>r.emoji===emoji).length;
-        const selected=rows.some(r=>r.emoji===emoji&&r.user_id===userId);
+        const votes=rows.filter(r=>ballots.length?r.option_index===index:r.emoji===POLL_VOTES[index]).length;
+        const selected=rows.some(r=>(ballots.length?r.option_index===index:r.emoji===POLL_VOTES[index])&&r.user_id===userId);
         const percentage=total?Math.round(votes*100/total):0;
-        return '<button type="button" data-chat-premium-reaction-existing="'+emoji+'" data-chat-premium-message-id="'+escapeHtml(messageId)+
+        return '<button type="button" data-chat-premium-poll-option="'+index+'" data-chat-premium-message-id="'+escapeHtml(messageId)+
           '" aria-pressed="'+String(selected)+'" class="chat-ultra-poll-option'+(selected?' is-selected':'')+'">'+
           '<span class="chat-ultra-poll-progress" style="width:'+percentage+'%"></span>'+
           '<span>'+escapeHtml(label)+'</span><small>'+votes+' · '+percentage+'%</small></button>';

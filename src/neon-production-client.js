@@ -185,7 +185,10 @@ const protectedArchiveRpcNames = new Set([
   "v14_admin_recover_archived_card","looply_register_recipient_unlock",
   "v23_mark_global_announcement_read","v23_mark_community_letter_read","v27_letter_activity",
   "v23_register_app_open", "v28_register_app_open",
-   "v37_chat_presence_heartbeat","v37_chat_presence_visible"
+   "v37_chat_presence_heartbeat","v37_chat_presence_visible",
+   "v38_vote_chat_poll","v38_chat_poll_votes",
+   "v39_schedule_chat_message","v39_cancel_chat_schedule","v39_list_chat_schedules",
+   "v36_add_group_member","v36_remove_group_member"
 ]);
 const galleryRpcNames = new Set(["set_gallery_media_adjustment","set_gallery_media_pinned","set_gallery_media_private","set_gallery_media_permissions","create_community_gallery_comment","create_archive_media_comment","v8_delete_gallery_media","v8_create_gallery_comment"]);
 async function galleryRpc(name,args) {

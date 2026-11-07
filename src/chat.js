@@ -639,6 +639,20 @@ async function loadThread(client, conversationId, before = null) {
       list.push(item);reactionsById.set(item.message_id,list);
     }
     for(const message of messages)message.reactions=reactionsById.get(message.id)||[];
+    const pollIds=messages.filter(message=>parsePremiumChatBody(message.body||"")?.type==="poll").map(message=>message.id);
+    if(pollIds.length){
+      const ballots=await client.rpc("v38_chat_poll_votes",{p_conversation_id:conversationId,p_message_ids:pollIds});
+      if(ballots.error)console.warn("Chat Ultra real poll votes unavailable",ballots.error);
+      else {
+        const byMessage=new Map();
+        for(const ballot of ballots.data||[]){
+          const list=byMessage.get(ballot.message_id)||[];
+          list.push(ballot);byMessage.set(ballot.message_id,list);
+        }
+        for(const message of messages)if(pollIds.includes(message.id))
+          message.pollVotes=byMessage.get(message.id)||[];
+      }
+    }
   }
   if (messages.length) {
     const {data:stickerMessages,error:stickersError} = await client.from("chat_sticker_messages")
@@ -732,7 +746,7 @@ export function threadMarkup(messages, userId, peerReadAt = null, peerProfile = 
     const sticker = stickerSource
       ? `<img class="chat-catalog-message" src="${escapeHtml(stickerSource)}" alt="Figurinha: ${escapeHtml(bundledSticker?.title || message.sticker?.title || "Looply")}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
       : message.sticker?.storage_path ? `<span class="chat-media-unavailable">Figurinha indisponível.</span>` : "";
-    const premiumCard = premiumChatCardMarkup(message.body,message.reactions,message.id,userId);
+    const premiumCard = premiumChatCardMarkup(message.body,message.pollVotes??message.reactions,message.id,userId);
     const visualOnly = isVisualOnlyChatMessage(message, Boolean(sticker));
     const mediaList = Array.isArray(message.media) ? message.media : [];
     const audioOnly = mediaList.length > 0 && mediaList.every((item) => String(item?.mime_type || "").startsWith("audio/"));

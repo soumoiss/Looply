@@ -344,7 +344,9 @@ body.cv #banner.on{transform:translate(-50%,0)}
 #bStickers{color:var(--primary)}
 #conv .who .chat-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1dbd67;box-shadow:0 0 0 2px color-mix(in srgb,#1dbd67 20%,transparent);margin-right:4px;vertical-align:middle}
 </style>
-<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=presence-stickers-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=real-games-calls-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-gartic.css?v=real-games-calls-20261107">
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
 <body class="looply-chat-ultra-live">
 <header class="gh glass" id="gh">
@@ -1805,6 +1807,11 @@ refresh();
   }
 
   function openGames() {
+    // Never execute the model's local bot/opponent against a real profile.
+    if(typeof window.LooplyVisual?.nativeGames==="function")
+      return window.LooplyVisual.nativeGames();
+    toast("Conectando às partidas online…");
+    return;
     if (!cur) return;
     stopGameClock();
     stopGameMicrophone();
@@ -3521,6 +3528,11 @@ refresh();
     }catch {toast("Câmera indisponível ou acesso recusado");}
   }
   startCall=function ultraStartCall(video=false){
+    // A connected UI must only use the authenticated WebRTC caller/receiver.
+    if(typeof window.LooplyVisual?.nativeCall==="function")
+      return window.LooplyVisual.nativeCall(Boolean(video));
+    toast("Conectando ao serviço de chamadas…");
+    return;
     const c=validConversation();
     if(!c||currentCall)return;
     if(c.blocked)return toast("Contato bloqueado");
@@ -3796,10 +3808,12 @@ refresh();
   settle=function noFakeReplies(){};
   // Render R2-backed stickers inside the Ultra visual bubble without
   // exposing the raw placeholder "Figurinha" or injecting message HTML.
+  let ultraMediaDecorator=null;
   const originalBubbleVisual=bubble;
   bubble=function secureLiveStickerBubble(conversation,message,index,messages){
     const html=originalBubbleVisual(conversation,message,index,messages);
-    if(message.kind!=="sticker"||!message.stickerUrl)return html;
+    if(message.kind!=="sticker"||!message.stickerUrl)
+      return ultraMediaDecorator?ultraMediaDecorator(html,message):html;
     let url;
     try{
       url=new URL(message.stickerUrl);
@@ -3823,10 +3837,23 @@ refresh();
 
   window.LooplyVisual={
     notice:m=>toast(m),
+    mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
+    nativeCall(video=false){
+      if(!cur||!hooks?.call)return toast("Abra uma conversa para iniciar uma chamada.");
+      return hooks.call(cur,Boolean(video));
+    },
+    nativeGames(){
+      if(!cur||!hooks?.games)return toast("Abra uma conversa para iniciar uma partida.");
+      return hooks.games(cur);
+    },
+    nativeSchedule(){
+      if(!cur||!hooks?.schedule)return toast("Abra uma conversa para agendar.");
+      return hooks.schedule(cur);
+    },
     rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[]}){
       ME=selfId;
       const onlineNow=new Set(onlineUserIds);
@@ -3880,6 +3907,9 @@ refresh();
         hooks?.opened(id);
       };
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
+      // The original schedule() mutates a local array and cannot deliver with
+      // the app closed. Replace it with the authenticated server scheduler.
+      schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
       push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
@@ -3894,7 +3924,18 @@ refresh();
           inp.value="";grow();btn();document.querySelector("#pan")?.classList.remove("open");
           const replyTo=reply?.id||null;
           reply=null;ctx();
-          void hooks?.send(c,{kind:"text",text:message,replyTo});
+          // Do not lose typed text if Neon rejects a send.
+          const sendingConversation=c.id;
+          void Promise.resolve(hooks?.send(c,{kind:"text",text:message,replyTo})).then(saved=>{
+            if(saved===false&&cur===sendingConversation&&!inp.value.trim()){
+              inp.value=message;grow();btn();toast("Envio não confirmado. Tente novamente.");
+            }
+          }).catch(()=>{
+            if(cur===sendingConversation&&!inp.value.trim()){
+              inp.value=message;grow();btn();
+            }
+            toast("Falha de conexão. Mensagem preservada para reenvio.");
+          });
         }
       };
       const menu=document.querySelector("#menu");

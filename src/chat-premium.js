@@ -59,14 +59,14 @@ function openLetter(root){
   return modal;
 }
 function openPoll(root){
-  const options=Array.from({length:6},(_,i)=>
+  const options=Array.from({length:8},(_,i)=>
     '<label for="chatUltraPollOption'+i+'">Alternativa '+(i+1)+'</label>'+
     '<input id="chatUltraPollOption'+i+'" data-chat-ultra-poll-option name="option'+i+
     '" maxlength="95" '+(i<2?'required ':'')+'placeholder="Alternativa '+(i+1)+'">').join("");
   return createModal(root,{title:"📊 Nova enquete",kind:"poll",submitLabel:"Publicar enquete",content:
     '<label for="chatUltraPollQuestion">Pergunta</label>'+
     '<textarea id="chatUltraPollQuestion" name="question" maxlength="240" rows="3" required placeholder="O que você quer perguntar?"></textarea>'+options+
-    '<p class="chat-ultra-modal-note">Até seis alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
+    '<p class="chat-ultra-modal-note">Até oito alternativas; um voto por pessoa, sincronizado entre participantes.</p>'});
 }
 function openLocation(root){
   return createModal(root,{title:"📍 Compartilhar local",kind:"location",submitLabel:"Enviar local",content:
@@ -267,6 +267,35 @@ export function setupChatPremium(root,client,userId){
     activeAudio=null;activeButton=null;
   };
   const onClick=async event=>{
+    const pollButton=event.target.closest("[data-chat-premium-poll-option]");
+    if(pollButton){
+      event.preventDefault();event.stopPropagation();
+      const option=Number(pollButton.dataset.chatPremiumPollOption);
+      const messageId=pollButton.dataset.chatPremiumMessageId;
+      const conversationId=currentComposer(root)?.dataset.conversationId;
+      if(!Number.isInteger(option)||option<0||option>7||
+        !/^[0-9a-f-]{36}$/i.test(messageId||"")||
+        !/^[0-9a-f-]{36}$/i.test(conversationId||""))return;
+      if(pollButton.disabled)return;
+      pollButton.disabled=true;
+      try{
+        const old=await client.rpc("v38_chat_poll_votes",{
+          p_conversation_id:conversationId,p_message_ids:[messageId]});
+        if(old.error)throw old.error;
+        const current=(old.data||[]).find(v=>v.user_id===userId)?.option_index;
+        const {data,error}=await client.rpc("v38_vote_chat_poll",{
+          p_message_id:messageId,p_option:current===option?-1:option
+        });
+        if(error||data!==true)throw error||Error("poll_vote_not_confirmed");
+        root.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+        root.dispatchEvent(new CustomEvent("looply:open-conversation",{detail:{conversationId}}));
+      }catch(error){
+        console.warn("Looply poll vote unavailable",error?.code||"offline");
+        const status=currentComposer(root)?.querySelector("[data-status]");
+        if(status)status.textContent="Não foi possível registrar o voto.";
+      }finally{pollButton.disabled=false;}
+      return;
+    }
     const target=event.target;
     const messageMenu=target.closest("[data-chat-message-menu]");
     if(messageMenu){

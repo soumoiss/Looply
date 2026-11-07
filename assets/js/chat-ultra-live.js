@@ -9,6 +9,9 @@ import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clea
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
+import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
+import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
+import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
 import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
 
@@ -16,7 +19,21 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0;
+let busy=false,loading=null,refreshTimer=0,scheduler=null;
+const signedMediaCache=new Map();
+async function signedMedia(bucket,path){
+  if(!path)return "";
+  const key=bucket+":"+path,old=signedMediaCache.get(key),now=Date.now();
+  if(old?.validUntil>now)return old.url;
+  const result=await client.storage.from(bucket).createSignedUrl(path,1800);
+  const url=result.error?"":String(result.data?.signedUrl||"");
+  if(/^https:\/\//i.test(url)){
+    if(signedMediaCache.size>350)signedMediaCache.clear();
+    signedMediaCache.set(key,{url,validUntil:now+25*60*1000});
+    return url;
+  }
+  return "";
+}
 async function onlineIds(profiles){
   const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
   if(!ids.length)return [];
@@ -85,8 +102,8 @@ async function refreshThread(id){
         stickerUrls.set(row.id,row.asset_path);return;
       }
       if(!/^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(row.storage_path||""))return;
-      const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
-      if(!signed.error&&/^https:\/\//.test(signed.data?.signedUrl||""))stickerUrls.set(row.id,signed.data.signedUrl);
+      const url=await signedMedia("looply-stickers",row.storage_path);
+      if(url)stickerUrls.set(row.id,url);
     }));
     const stickerByMessage=new Map(stickerRefs.map(row=>[row.message_id,stickerUrls.get(row.sticker_id)||""]));
     let reactions=[];
@@ -95,6 +112,22 @@ async function refreshThread(id){
         .select("message_id,user_id,emoji").eq("conversation_id",id)
         .in("message_id",messages.map(m=>m.id)).limit(1000);
       reactions=result.data||[];
+    }
+
+    // A dedicated authenticated ballot table replaces the old six-emoji
+    // encoding, so an eighth alternative is a real eighth choice.
+    const pollIds=messages.filter(m=>parsePremiumChatBody(m.body||"")?.type==="poll").map(m=>m.id);
+    let storedPollVotes=null;
+    if(pollIds.length){
+      const ballots=await client.rpc("v38_chat_poll_votes",{p_conversation_id:id,p_message_ids:pollIds});
+      if(!ballots.error && Array.isArray(ballots.data)){
+        storedPollVotes=new Map();
+        for(const ballot of ballots.data){
+          let votes=storedPollVotes.get(ballot.message_id);
+          if(!votes){votes={};storedPollVotes.set(ballot.message_id,votes);}
+          votes[ballot.user_id]=Number(ballot.option_index);
+        }
+      }else console.warn("Chat Ultra: votos de enquete indisponíveis",ballots.error?.code||"offline");
     }
     const reactByMessage=new Map();
     for(const r of reactions){
@@ -110,22 +143,31 @@ async function refreshThread(id){
       let media=files[0];
       let url="";
       if(media?.storage_path){
-        const signed=await client.storage.from("looply-chat").createSignedUrl(media.storage_path,1800);
-        url=signed.data?.signedUrl||"";
+        url=await signedMedia("looply-chat",media.storage_path);
       }
       const kind=nativeSticker||bundled?"sticker":card?.type==="letter"?"letter":card?.type==="poll"?"poll":
         media?.mime_type?.startsWith("image/")?"img":
         media?.mime_type?.startsWith("audio/")?"audio":
         media?.mime_type?.startsWith("video/")?"video":
-        media?"file":"text";
+        media?"file":["contact","location","music","note"].includes(card?.type)?card.type:"text";
       const base={
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
         text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
-        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||""
+        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
-      if(card?.type==="poll"){const votes={};for(const [voter,emoji] of Object.entries(base.react)){const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);if(index>=0)votes[voter]=index;}Object.assign(base,{text:card.question,options:card.options,votes,react:{}});}
+      if(card?.type==="poll"){
+        const votes=storedPollVotes?.get(message.id)||{};
+        if(!storedPollVotes){
+          // Read-only fallback for earlier data when offline; no fake votes.
+          for(const [voter,emoji] of Object.entries(base.react)){
+            const index=["❤️","😂","😮","😢","🙏","👍"].indexOf(emoji);
+            if(index>=0)votes[voter]=index;
+          }
+        }
+        Object.assign(base,{text:card.question,options:card.options,votes,react:{}});
+      }
       if(card?.type==="note")base.text=card.body;
       if(card?.type==="music")base.text="🎵 "+card.title+" — "+card.artist;
       if(card?.type==="contact")base.text="👤 "+card.name+" (@"+card.username+")";
@@ -133,7 +175,7 @@ async function refreshThread(id){
       if(card?.type==="game")base.text="🎮 Convite para jogar";
       return base;
     }));
-    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl]));
+    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes]));
     if(visual.current()===id&&signature!==lastRender){
       visual.messages(id,mapped);
       lastRender=signature;
@@ -252,8 +294,18 @@ async function setReaction(conversationId,messageId,emoji){
   }catch(error){console.error("Chat Ultra: reação não persistida",error);say(errorMessage);}
 }
 async function votePoll(conversationId,messageId,index){
-  const emoji=POLL_VOTES[index];
-  if(emoji)await setReaction(conversationId,messageId,emoji);
+  if(!roomIds.has(conversationId)||!Number.isInteger(index)||index<0||index>7)return;
+  const selected=visual.conversations().find(c=>c.id===conversationId)?.msgs
+    ?.find(m=>m.id===messageId)?.votes?.[selfId];
+  try{
+    const {data,error}=await client.rpc("v38_vote_chat_poll",{
+      p_message_id:messageId,p_option:selected===index?-1:index
+    });
+    if(error||data!==true)throw error||Error("Voto não confirmado");
+    lastRender="";
+    await refreshThread(conversationId);
+    planRefresh(500);
+  }catch(error){console.error("Chat Ultra: voto não confirmado",error);say("Não foi possível registrar o voto.");}
 }
 async function removeMessage(conversationId,messageId){
   if(!roomIds.has(conversationId))return;
@@ -266,8 +318,92 @@ async function removeMessage(conversationId,messageId){
   }catch(error){console.error("Chat Ultra: exclusão falhou",error);say(errorMessage);}
 }
 
+function launchActualFeature(conversationId,selector,label){
+  if(!conversationId||!roomIds.has(conversationId)){say("Conversa indisponível.");return;}
+  const form=runtime.querySelector("form[data-chat-send]");
+  const native=form?.dataset.conversationId===conversationId?runtime.querySelector(selector):null;
+  if(native){native.click();return;}
+  void legacyComposer(conversationId).then(()=>{
+    const button=runtime.querySelector(selector);
+    if(button)button.click();
+    else say(label+" indisponível. Verifique a conexão.");
+  }).catch(error=>say(error?.message||"Conversa não carregada."));
+}
+function startRealCall(conversationId,video=false){
+  const room=visual.conversations().find(c=>c.id===conversationId);
+  if(!room||room.type!=="dm"){say("Chamadas diretas exigem uma conversa privada.");return;}
+  launchActualFeature(conversationId,video?"[data-call-video]":"[data-call-audio]","Chamada");
+}
+function openRealGames(conversationId){
+  launchActualFeature(conversationId,"[data-v2-game]","Games");
+}
+
+async function applyRealMemberChange(button){
+  const id=visual.current();
+  const group=visual.conversations().find(c=>c.id===id);
+  const members=[...document.querySelectorAll("#shBox .pk.on[data-member-id]")].map(node=>node.dataset.memberId);
+  if(!group||group.type!=="group"||!members.length){say("Escolha os participantes.");return;}
+  const adding=button.textContent.trim().toLowerCase().startsWith("adicionar");
+  if(!adding&&!confirm("Remover os participantes selecionados do grupo?"))return;
+  button.disabled=true;
+  let confirmed=0,failed=0;
+  const mutation=adding?"v36_add_group_member":"v36_remove_group_member";
+  for(const userId of new Set(members)){
+    if(userId===selfId){failed++;continue;}
+    try{
+      const {data,error}=await client.rpc(mutation,{p_conversation_id:id,p_user_id:userId});
+      if(error||data!==true)throw error||Error("not_confirmed");
+      confirmed++;
+    }catch(error){console.warn("Group membership was not confirmed",error?.code||"permission");failed++;}
+  }
+  document.querySelector("#sh")?.close();
+  if(confirmed)await refreshRooms();
+  say(confirmed?(adding?"Participantes adicionados: ":"Participantes removidos: ")+confirmed+
+    (failed?" · "+failed+" não autorizados.":""):"Nenhuma alteração foi autorizada pelo servidor.");
+}
+async function saveRealConversationName(button){
+  const id=visual.current(),group=visual.conversations().find(c=>c.id===id);
+  if(!group)return;
+  const name=document.querySelector("#shBox #nk")?.value.trim().slice(0,120)||"";
+  if(!name){say("Informe o nome.");return;}
+  button.disabled=true;
+  try{
+    const result=group.type==="group"?
+      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
+        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
+      await client.from("conversation_nicknames").upsert({
+        user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
+      },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
+    if(result.error||!result.data)throw result.error||Error("not_confirmed");
+    if(group.type==="dm")group.nick=name;
+    document.querySelector("#sh")?.close();
+    await refreshRooms();
+    say("Nome salvo na sua conta.");
+  }catch(error){console.warn("Conversation rename denied",error?.code||"permission");say("Não foi possível salvar o nome no servidor.");}
+  finally{button.disabled=false;}
+}
+async function submitRealReport(button){
+  const id=visual.current();
+  if(!id||!roomIds.has(id))return;
+  const selected=document.querySelector("#shBox [data-r].on")?.dataset.r;
+  if(!selected){say("Selecione um motivo.");return;}
+  const details=document.querySelector("#shBox #rd")?.value.trim().slice(0,500)||"";
+  const reason=[selected,details].filter(Boolean).join(": ").slice(0,700);
+  button.disabled=true;
+  try{
+    const {data,error}=await client.from("chat_conversation_reports")
+      .insert({conversation_id:id,reporter_id:selfId,reason}).select("id").maybeSingle();
+    if(error||!data?.id)throw error||Error("not_confirmed");
+    document.querySelector("#sh")?.close();
+    say("Denúncia registrada para análise.");
+  }catch(error){console.warn("Moderation report not confirmed",error?.code||"permission");say("Não foi possível registrar a denúncia.");}
+  finally{button.disabled=false;}
+}
+
 function bindEvents(){
-  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,react:setReaction,vote:votePoll,remove:removeMessage});
+  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
+    react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
+    schedule:()=>scheduler?.open()});
   document.addEventListener("change",event=>{
     const target=event.target;
     if(!target?.matches("#fImg,#fAny"))return;
@@ -277,6 +413,23 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const membership=event.target.closest("#shBox #memberCommit");
+    if(membership){event.preventDefault();event.stopImmediatePropagation();void applyRealMemberChange(membership);return;}
+    const nameSave=event.target.closest("#shBox #nks");
+    if(nameSave){event.preventDefault();event.stopImmediatePropagation();void saveRealConversationName(nameSave);return;}
+    const report=event.target.closest("#shBox #rs");
+    if(report){event.preventDefault();event.stopImmediatePropagation();void submitRealReport(report);return;}
+    const photo=event.target.closest('#cfg [data-feature="group-avatar"]');
+    if(photo){
+      event.preventDefault();event.stopImmediatePropagation();
+      const choose=runtime.querySelector("[data-chat-group-cover-choose]");
+      const group=visual.conversations().find(c=>c.id===visual.current());
+      if(group?.type==="group"&&choose)choose.click();
+      else say("Editor da foto do grupo indisponível. Reabra a conversa.");
+      return;
+    }
+    const fakeSimulation=event.target.closest("#shBox [data-activity-sim],#cfg [data-ultra-setting='incoming']");
+    if(fakeSimulation){event.preventDefault();event.stopImmediatePropagation();say("Eventos de demonstração não estão disponíveis na produção.");return;}
     const poll=event.target.closest("#msgs [data-poll-vote]");
     if(poll){event.preventDefault();event.stopImmediatePropagation();void votePoll(visual.current(),poll.dataset.pollVote,Number(poll.dataset.option));return;}
     const destructive=event.target.closest("#shBox [data-d]");
@@ -296,12 +449,14 @@ function bindEvents(){
       if(index>=0&&index!==5){event.preventDefault();event.stopImmediatePropagation();location.href=paths[index];}
     }
   },true);
-  window.addEventListener("pagehide",()=>{clearTimeout(refreshTimer);void channel?.unsubscribe?.();disposeChatRealtime(client);},{once:true});
+  window.addEventListener("pagehide",()=>{clearTimeout(refreshTimer);signedMediaCache.clear();void channel?.unsubscribe?.();disposeChatRealtime(client);},{once:true});
 }
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
   const initial=await loadChatData(client,selfId);
   root.innerHTML=chatMarkup(initial,selfId);
+  const stopNativeOverlays=mountUltraNativeOverlays(document.getElementById("looplyLiveRuntime"),root);
+  window.addEventListener("pagehide",stopNativeOverlays,{once:true});
   bindChatEvents(root,client,()=>selfId);
   setupChatEnhancements(root,client,selfId);
   setupChatPremium(root,client,selfId);
@@ -311,6 +466,11 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active});
+  scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
+  window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
+  visual.mediaRenderer(renderUltraPlayableMedia);
+  const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
+  window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
   mountUltraStickerPicker({client,getUserId:()=>selfId,getConversationId:()=>visual.current(),onSaved:()=>{
     const id=visual.current();if(id)void refreshThread(id);

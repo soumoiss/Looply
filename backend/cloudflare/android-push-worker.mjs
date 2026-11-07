@@ -115,6 +115,14 @@ export async function dispatchScheduledLetters(env,{query=neonQuery}={}){
   const rows=await query(env,"SELECT processed,delivered,failed FROM public.v24_dispatch_scheduled_letters($1)",[50]);
   return rows[0]||{processed:0,delivered:0,failed:0};
 }
+/* Chat scheduled delivery uses the same already-configured one-minute Cron,
+ * private Neon connection, server-owned identity and insert notification trigger.
+ * No chat content is logged, returned or exposed to Cloudflare logs. */
+export async function dispatchScheduledChat(env,{query=neonQuery}={}){
+  const rows=await query(env,"SELECT processed,sent,failed FROM public.v39_dispatch_scheduled_chat($1)",[50]);
+  return rows[0]||{processed:0,sent:0,failed:0};
+}
+
 const pendingSql = `
 SELECT events.source,events.event_id,events.kind,events.resource_id,
        events.conversation_id,events.token_id,events.fcm_token,
@@ -412,6 +420,10 @@ export default {
       try { await dispatchScheduledLetters(env); }
       catch(error) {
         console.error("Looply scheduled letters failed",String(error?.message||"unavailable").slice(0,120));
+      }
+      try { await dispatchScheduledChat(env); }
+      catch(error) {
+        console.error("Looply scheduled chat failed",String(error?.message||"unavailable").slice(0,120));
       }
       try { await deliverNotifications(env); }
       catch(error) {
