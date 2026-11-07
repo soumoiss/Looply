@@ -12,6 +12,7 @@ import { notificationBus } from "./notification-bus.js?v=notification-bus-202610
 import { mountIosMotion } from "./ios-motion.js";
 import { mountLiveNotificationToasts } from "./live-notification-toast.js";
 import { bindAdminModeSync } from "./admin-mode.js";
+import { verifiedPeixinhoAdmin } from "./maintenance-gate.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -178,7 +179,11 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   // Only the verified Peixinho administrator bypasses maintenance.
   // A username alone is never sufficient to authorize the bypass.
-  const maintenanceExempt = isAdmin && String(profile.username || "").toLowerCase() === "peixinho";
+  // The shared gate has already approved page entry. Revalidate the precise
+  // admin bypass against Neon rather than relying on a username or local flags.
+  const bypassVerified = await verifiedPeixinhoAdmin();
+  if (bypassVerified) isAdmin = true;
+  const maintenanceExempt = isAdmin && String(profile.username || "").toLowerCase() === "peixinho" && bypassVerified;
   const readGlobalSettings = async () => {
     const { data, error } = await supabase.from("app_settings")
       .select("maintenance_mode").eq("id", 1).maybeSingle();
