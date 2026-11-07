@@ -3046,14 +3046,14 @@ refresh();
       <div class="feature-panel">
         <input id="letterTitle" class="feature-input" maxlength="100" placeholder="Título da carta">
         <textarea id="letterBody" class="feature-input area" maxlength="10000" style="min-height:150px" placeholder="Escreva sua carta…" aria-label="Texto da carta"></textarea>
-        <input id="letterSign" class="feature-input" maxlength="80" value="Marina" placeholder="Assinatura">
+        <input id="letterSign" class="feature-input" maxlength="80" value="${esc(U(ME).n)}" placeholder="Assinatura">
       </div>
       <div class="feature-heading">Papel</div>
       <div class="inline-actions" id="letterPapers">${Object.entries(letterPapers).map(([key,color])=>`<button class="letter-color-choice" type="button" aria-pressed="${key===letterPaper}" data-paper="${key}" style="background:${color}" title="Papel ${key}">${key==="cream"?"✉️":key==="rose"?"🌷":key==="lavender"?"💜":"🕊️"}</button>`).join("")}</div>
       <div class="feature-heading">Selo</div>
       <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div>
       <div class="feature-heading">Prévia</div>
-      <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>Marina</footer></div>
+      <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>${esc(U(ME).n)}</footer></div>
       <div class="sfoot"><button class="btn main" data-letter-send>${ic("mail")} Selar e enviar carta</button></div>`);
     const sync = () => {
       const preview=$u("#letterLivePreview");
@@ -3697,7 +3697,7 @@ refresh();
       <button class="crow" data-ultra-setting="wallpaper"><span class="ci">🖼️</span><span class="ct"><b>Foto e papel de parede</b><small>Escolher imagem da galeria ou uma cor</small></span></button>
       <button class="crow" data-ultra-setting="activity"><span class="ci">🔔</span><span class="ct"><b>Histórico de atividades</b><small>Chamadas, mensagens, cartas e avisos</small></span></button>
       <button class="crow" data-ultra-setting="letter"><span class="ci">💌</span><span class="ct"><b>Enviar carta</b><small>Envelope lacrado, selo e papel personalizado</small></span></button>
-      <button class="crow" data-ultra-setting="incoming"><span class="ci">📹</span><span class="ct"><b>Simular evento recebido</b><small>Videochamada, mensagem ou carta</small></span></button>`);
+      `);
   };
   function setupSettingsActions() {
     $u("#cfg").addEventListener("click",event=>{
