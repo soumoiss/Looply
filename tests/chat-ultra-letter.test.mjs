@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {makePremiumLetter,parsePremiumLetter,parsePremiumChatBody,premiumChatCardMarkup,makePremiumNote} from "../src/chat-premium-cards.js";
+import {makePremiumLetter,parsePremiumLetter,parsePremiumChatBody,premiumChatCardMarkup,makePremiumNote,makePremiumPoll,makePremiumContact,makePremiumLocation} from "../src/chat-premium-cards.js";
 
 test("carta Ultra mantém título, papel, selo e assinatura entre dispositivos",()=>{
   const payload=makePremiumLetter({title:"Uma promessa",body:"Primeira linha\nSegunda linha",paper:"rose",seal:"🦋",signature:"Amizade"});
@@ -34,4 +34,28 @@ test("bilhetes antigos continuam abrindo normalmente",()=>{
 test("payload inválido não é interpretado como envelope seguro",()=>{
   assert.equal(parsePremiumLetter('💌 Carta Looply/1\n{"v":1,"title":"a","body":"b"}'),null);
   assert.equal(parsePremiumLetter("outra coisa"),null);
+});
+test("enquete autoritativa mostra contagens das reações persistidas",()=>{
+  const payload=makePremiumPoll({question:"Qual horário?",options:["Manhã","Tarde","Noite"]});
+  const messageId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",uid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const reactions=[{user_id:uid,emoji:"❤️"},{user_id:"outro",emoji:"😂"}];
+  const html=premiumChatCardMarkup(payload,reactions,messageId,uid);
+  assert.equal(parsePremiumChatBody(payload).type,"poll");
+  assert.ok(html.includes("Qual horário?"));
+  assert.ok(html.includes('data-chat-premium-message-id="'+messageId+'"'));
+  assert.ok(html.includes('aria-pressed="true"'));
+  assert.ok(html.includes('50%'));
+});
+test("alternativas repetidas não podem criar enquete",()=>{
+  assert.throws(()=>makePremiumPoll({question:"Qual?",options:["Sim","sim"]}),/diferentes/i);
+  assert.throws(()=>makePremiumPoll({question:"Qual?",options:["Um"]}),/2 a 6/i);
+});
+test("contato e localização só aceitam payloads de tipos válidos",()=>{
+  const c=makePremiumContact({id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",name:"Yara",username:"yara"});
+  const l=makePremiumLocation("Parnaíba, PI");
+  assert.equal(parsePremiumChatBody(c).type,"contact");
+  assert.equal(parsePremiumChatBody(l).type,"location");
+  assert.ok(premiumChatCardMarkup(c).includes("perfil.html?usuario="));
+  assert.ok(premiumChatCardMarkup(l).includes("google.com/maps/search"));
+  assert.throws(()=>makePremiumContact({id:"forged",name:"a",username:"b"}),/perfil válido/);
 });
