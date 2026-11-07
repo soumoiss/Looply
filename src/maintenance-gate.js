@@ -71,7 +71,14 @@ async function verifyAccess() {
 
   // A separate, restricted server-side admin check prevents the maintenance
   // overlay from locking out Peixinho when a general settings RPC is stale.
-  const result = await neon.rpc("looply_maintenance_status");
+  let result;
+  try {
+    result = await neon.rpc("looply_maintenance_status");
+  } catch {
+    // A settings endpoint outage must not lock the authenticated ADM out.
+    // The fallback independently checks their identity on the server.
+    return verifiedPeixinhoAdmin();
+  }
   let value = Array.isArray(result.data) ? result.data[0] : result.data;
   if (typeof value === "string") {
     try { value = JSON.parse(value); } catch { value = null; }
