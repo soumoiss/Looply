@@ -25,26 +25,6 @@ function notice(root, text, kind = "info") {
 }
 
 
-function renderMaintenanceScreen(root, header) {
-  // No branding, icon, controls, links or user content may remain visible.
-  header.replaceChildren();
-  root.replaceChildren();
-  document.querySelectorAll(".looply-maintenance-screen").forEach(node => node.remove());
-  document.body.classList.add("looply-maintenance-active");
-  const screen = document.createElement("main");
-  screen.className = "looply-maintenance-screen";
-  screen.setAttribute("role", "alert");
-  screen.setAttribute("aria-live", "assertive");
-  screen.style.cssText = "position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-direction:column!important;gap:12px!important;background:#fff!important;color:#171717!important;padding:24px!important;text-align:center!important;box-sizing:border-box!important;";
-  const title = document.createElement("h1");
-  title.textContent = "Em manutenção";
-  title.style.cssText = "font:700 clamp(24px,6vw,36px)/1.2 system-ui,sans-serif;margin:0;color:inherit";
-  const info = document.createElement("p");
-  info.textContent = "Aguarde um tempo.";
-  info.style.cssText = "font:400 16px/1.5 system-ui,sans-serif;margin:0;color:inherit";
-  screen.append(title, info);
-  document.body.append(screen);
-}
 
 function headerMarkup(page, profile, admin, unreadCount) {
   const username = escapeHtml(profile.username);
@@ -177,67 +157,18 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     return;
   }
 
-  // Only the verified Peixinho administrator bypasses maintenance.
-  // A username alone is never sufficient to authorize the bypass.
-  // The shared gate has already approved page entry. Revalidate the precise
-  // admin bypass against Neon rather than relying on a username or local flags.
-  const bypassVerified = await verifiedPeixinhoAdmin();
-  if (bypassVerified) isAdmin = true;
-  const maintenanceExempt = isAdmin && String(profile.username || "").toLowerCase() === "peixinho" && bypassVerified;
-  const readGlobalSettings = async () => {
-    const { data, error } = await supabase.from("app_settings")
-      .select("maintenance_mode").eq("id", 1).maybeSingle();
-    if (error || !data || typeof data.maintenance_mode !== "boolean") {
-      throw error || new Error("maintenance_state_unavailable");
-    }
-    return data.maintenance_mode;
-  };
-  let maintenanceBlocked = false;
-  let maintenanceChecking = false;
-  const checkMaintenance = async () => {
-    if (maintenanceExempt || maintenanceChecking) return;
-    maintenanceChecking = true;
-    try {
-      const enabled = await readGlobalSettings();
-      if (enabled) {
-        if (!maintenanceBlocked) {
-          maintenanceBlocked = true;
-          renderMaintenanceScreen(root, header);
-        }
-      } else if (maintenanceBlocked) {
-        window.location.reload();
-      }
-    } catch (error) {
-      // Never expose application content when its maintenance state is unknown.
-      console.warn("Looply maintenance verification unavailable", error?.message || "network");
-      if (!maintenanceBlocked) {
-        maintenanceBlocked = true;
-        renderMaintenanceScreen(root, header);
-      }
-    } finally {
-      maintenanceChecking = false;
-    }
-  };
-  await checkMaintenance();
-  // Polling is required: the Neon bridge does not implement postgres_changes.
-  // Continue checking even while the maintenance screen is displayed so that
-  // access is restored automatically after the administrator disables it.
-  const maintenancePollTimer = !maintenanceExempt
-    ? window.setInterval(() => { void checkMaintenance(); }, 3000)
-    : null;
-  if (maintenanceBlocked) {
-    window.addEventListener("pagehide", () => window.clearInterval(maintenancePollTimer), { once: true });
-    return;
-  }
+  // A single authenticated maintenance gate already ran before the page
+  // controller was imported. Never run a second independent lockout here:
+  // it previously blocked Peixinho even after the global gate allowed him.
+  // Verify administrative navigation with the same server authorization.
+  if (!isAdmin) isAdmin = await verifiedPeixinhoAdmin();
 
   if (!profile.avatar_path && page !== "profile" && page !== "gallery") {
-    window.clearInterval(maintenancePollTimer);
     window.location.replace("perfil.html?foto=obrigatoria");
     return;
   }
 
   if (adminOnly && !isAdmin) {
-    window.clearInterval(maintenancePollTimer);
     window.location.replace("home.html");
     return;
   }
@@ -431,7 +362,6 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     stopAdminPresence();
     stopAdminModeSync();
     stopProfileNavigation();
-    window.clearInterval(maintenancePollTimer);
   }, { once: true });
 }
 
