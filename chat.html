@@ -3760,9 +3760,12 @@ refresh();
 (() => {
   "use strict";
   let hooks=null;
-  const originalHead=head,originalOpen=open,originalClose=closeConv,originalCav=cav;
+  const originalHead=head,originalOpen=open,originalClose=closeConv,originalCav=cav,originalMsgMenu=msgMenu;
+  let pendingDeleteId="";
   head=function liveHead(){
     originalHead();
+    const heading=document.querySelector("#sub");
+    if(heading)heading.textContent=C.length+" conversas · "+unreadTotal()+" mensagens não lidas";
     const fake=document.querySelector('#menu [data-m="sim"]');
     if(fake)fake.remove();
   };
@@ -3783,6 +3786,7 @@ refresh();
   settle=function noFakeReplies(){};
   window.LooplyVisual={
     notice:m=>toast(m),
+    pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
@@ -3801,7 +3805,7 @@ refresh();
       C=conversations.map(c=>{
         const existing=old.get(c.id);
         return {...c,pin:existing?.pin||0,mute:existing?.mute||0,fav:existing?.fav||0,
-          msgs:existing?existing.msgs:c.msgs};
+          msgs:existing&&c.id===cur?existing.msgs:c.msgs};
       });
       refresh();
       if(cur&&!conv(cur)){originalClose();}
@@ -3827,6 +3831,8 @@ refresh();
         hooks?.opened(id);
       };
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
+      msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
+      react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
       push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
       sendText=function liveSendText(){
         const c=conv(cur),message=inp.value.trim();
@@ -3837,7 +3843,9 @@ refresh();
           void hooks?.edit(c,target,message);
         }else{
           inp.value="";grow();btn();document.querySelector("#pan")?.classList.remove("open");
-          void hooks?.send(c,{kind:"text",text:message});
+          const replyTo=reply?.id||null;
+          reply=null;ctx();
+          void hooks?.send(c,{kind:"text",text:message,replyTo});
         }
       };
       const menu=document.querySelector("#menu");
