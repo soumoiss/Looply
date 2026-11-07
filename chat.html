@@ -3850,6 +3850,10 @@ refresh();
       if(!cur||!hooks?.games)return toast("Abra uma conversa para iniciar uma partida.");
       return hooks.games(cur);
     },
+    nativeSchedule(){
+      if(!cur||!hooks?.schedule)return toast("Abra uma conversa para agendar.");
+      return hooks.schedule(cur);
+    },
     rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[]}){
       ME=selfId;
       const onlineNow=new Set(onlineUserIds);
@@ -3903,6 +3907,9 @@ refresh();
         hooks?.opened(id);
       };
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
+      // The original schedule() mutates a local array and cannot deliver with
+      // the app closed. Replace it with the authenticated server scheduler.
+      schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
       push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
