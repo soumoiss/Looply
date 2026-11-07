@@ -44,7 +44,7 @@ test("Assets use fresh versions without changing Gartic or calls",async()=>{
   const runtime=await read("assets/js/chat.js");
   const enhanced=await read("src/chat-enhancements.js");
   assert.match(html,/chat-features\.css/);
-  assert.match(html,/chat\.js\?v=ttt-clean-20261103/);
+  assert.match(html,/chat\.js\?v=ultra-20261107/);
   assert.match(runtime,/chat-enhancements\.js\?v=ttt-clean-20261103/);
   assert.match(enhanced,/chat-ttt\.js\?v=ttt-clean-20261103/);
   assert.match(enhanced,/setupChatGartic/);
