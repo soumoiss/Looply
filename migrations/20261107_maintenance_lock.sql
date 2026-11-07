@@ -65,3 +65,8 @@ BEGIN
   END LOOP;
 END
 $maintenance$;
+
+-- Views run with the requesting user's RLS permissions, not their owner's
+-- privileges; this avoids bypassing the maintenance policy via Data API views.
+ALTER VIEW public.v3_feed_posts SET (security_invoker = true);
+ALTER VIEW public.v3_self_profile SET (security_invoker = true);
