@@ -48,7 +48,7 @@ test("enquete autoritativa mostra contagens das reações persistidas",()=>{
 });
 test("alternativas repetidas não podem criar enquete",()=>{
   assert.throws(()=>makePremiumPoll({question:"Qual?",options:["Sim","sim"]}),/diferentes/i);
-  assert.throws(()=>makePremiumPoll({question:"Qual?",options:["Um"]}),/2 a 6/i);
+  assert.throws(()=>makePremiumPoll({question:"Qual?",options:["Um"]}),/2 a 8/i);
 });
 test("contato e localização só aceitam payloads de tipos válidos",()=>{
   const c=makePremiumContact({id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",name:"Yara",username:"yara"});
