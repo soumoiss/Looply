@@ -130,8 +130,18 @@ try{
           return {moved:before-title.getBoundingClientRect().top,
             documentScroll:document.scrollingElement.scrollTop,
             bodyScroll:getComputedStyle(document.body).overflowY,
-            listScroll:getComputedStyle(list).overflowY};
+            listScroll:getComputedStyle(list).overflowY,
+            scrollHeight:document.scrollingElement.scrollHeight,
+            clientHeight:document.scrollingElement.clientHeight,
+            layoutHeight:document.querySelector(".chat-layout").getBoundingClientRect().height,
+            sidebarHeight:sidebar.getBoundingClientRect().height,
+            panelHeight:sidebar.querySelector(".chat-panel")?.getBoundingClientRect().height,
+            listHeight:list.getBoundingClientRect().height,
+            listScrollHeight:list.scrollHeight,
+            sidebarScrollHeight:sidebar.scrollHeight,
+            pageHeight:document.querySelector(".container-page")?.getBoundingClientRect().height};
         });
+        console.log("CHAT_PREMIUM_PICKER_SCROLL", JSON.stringify({width,height,scroll}));
         assert.ok(scroll.moved>100&&scroll.documentScroll>100,"entire picker must scroll including its heading");
         assert.equal(scroll.bodyScroll,"auto","document is the scrolling surface on phones");
         assert.equal(scroll.listScroll,"visible","no nested contact-only scroll");
