@@ -65,7 +65,7 @@ test("shell and gallery reuse the SVG registry without altering functional hooks
   const runtime=read("src/page-runtime.js");
   const gallery=read("assets/js/gallery.js");
   assert.match(runtime,/data-sign-out>\$\{icon\("logout"\)\}Sair/);
-  assert.match(runtime,/iconNode\.innerHTML = icon\("settings"\)/);
+  assert.match(runtime,/icon\("settings"\)\}Configurações/);
   assert.match(gallery,/data-main="recentes"[^\n]*icon\("image"\)/);
   assert.match(read("src/story-studio.js"), /thumb\.innerHTML = icon\(normalized\.type\.startsWith/);
   assert.match(read("assets/css/pages/story-studio.css"), /Prompt 003/);
