@@ -68,6 +68,34 @@ async function collectAssetFiles(directory) {
   return files;
 }
 const assetFiles = (await collectAssetFiles(outputDirectory)).sort();
+
+// Every deployed HTML page must pass the same authenticated maintenance gate,
+// including direct deep links and prototype screens not using mountAppPage.
+// Hide content before first paint, then defer its external module entrypoint
+// until the real Neon maintenance check has completed.
+for (const filename of assetFiles.filter(value => /\\.html$/i.test(value))) {
+  let html = await readFile(filename, "utf8");
+  const parent = path.relative(path.dirname(filename), outputDirectory).replaceAll(path.sep, "/");
+  const gateScript = (parent ? parent + "/" : "") + "src/maintenance-bootstrap.js";
+  const conceal = `<style id="looply-maintenance-conceal">
+    html.looply-maintenance-pending body { visibility: hidden !important; }
+    html.looply-maintenance-locked body > :not(.looply-maintenance-screen) { display: none !important; }
+    html.looply-maintenance-locked body { visibility: visible !important; }
+    html.looply-maintenance-locked .looply-maintenance-screen { visibility: visible !important; }
+  </style><script>document.documentElement.classList.add("looply-maintenance-pending");</script>`;
+  if (!/<head\\b[^>]*>/i.test(html)) throw new Error("Missing HTML head: " + filename);
+  html = html.replace(/<head\\b[^>]*>/i, match => match + conceal);
+  let entrypoints = 0;
+  html = html.replace(/<script\\s+type="module"\\s+src="([^"]+)"\\s*><\\/script>/gi, (_match, entry) => {
+    entrypoints++;
+    return `<script type="module" data-looply-entry="${entry}" src="${gateScript}"></script>`;
+  });
+  if (entrypoints > 1) throw new Error("Multiple independent app entrypoints: " + filename);
+  if (entrypoints === 0) {
+    html = html.replace(/<\\/head>/i, `<script type="module" src="${gateScript}"></script></head>`);
+  }
+  await writeFile(filename, html, "utf8");
+}
 const buildHasher = createHash("sha256");
 for (const filename of assetFiles) {
   buildHasher.update(path.relative(outputDirectory, filename).replaceAll(path.sep, "/"));
