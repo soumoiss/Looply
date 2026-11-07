@@ -5,6 +5,8 @@ const NOTE="💌 Bilhete\n";
 const LETTER="💌 Carta Looply/1\n";
 const CONTACT="👤 Contato Looply/1\n";
 const LOCATION="📍 Local Looply/1\n";
+const POLL="📊 Enquete Looply/1\n";
+const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
 const PAPER_COLORS=Object.freeze({cream:"#faf1df",rose:"#fff0f4",lavender:"#f2edff",sky:"#edf6ff"});
 const MUSIC="🎵 Música: ";
 
@@ -58,6 +60,15 @@ export function makePremiumLocation(place){
   if(label.length<3)throw Error("Digite um local ou endereço.");
   return LOCATION+JSON.stringify({v:1,label});
 }
+export function makePremiumPoll({question,options}={}){
+  const q=String(question??"").trim().slice(0,240);
+  const list=Array.isArray(options)?options.map(x=>String(x??"").trim()).filter(Boolean):[];
+  if(q.length<3||list.length<2||list.length>6||list.some(x=>x.length>95))
+    throw Error("A enquete exige pergunta e de 2 a 6 alternativas (até 95 caracteres).");
+  if(new Set(list.map(x=>x.toLocaleLowerCase("pt-BR"))).size!==list.length)
+    throw Error("Use alternativas diferentes.");
+  return POLL+JSON.stringify({v:1,question:q,options:list});
+}
 export function makePremiumGameCard(conversationId){
   const id=String(conversationId||"").trim();
   if(!/^[0-9a-f-]{36}$/i.test(id))throw Error("Abra uma conversa válida para convidar alguém.");
@@ -72,6 +83,16 @@ export function parsePremiumChatBody(value){
   const text=String(value||"");
   const letter=parsePremiumLetter(text);
   if(letter)return letter;
+  if(text.startsWith(POLL)&&text.length<=1300){
+    try{
+      const p=JSON.parse(text.slice(POLL.length));
+      if(p.v===1&&typeof p.question==="string"&&p.question.trim().length>=3&&p.question.length<=240&&
+        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=6&&
+        p.options.every(x=>typeof x==="string"&&x.length>0&&x.length<=95))
+        return {type:"poll",question:p.question,options:p.options};
+    }catch{return null;}
+    return null;
+  }
   if(text.startsWith(CONTACT)&&text.length<=500){
     try {
       const d=JSON.parse(text.slice(CONTACT.length));
@@ -116,7 +137,7 @@ export function parsePremiumChatBody(value){
   }
   return null;
 }
-export function premiumChatCardMarkup(body){
+export function premiumChatCardMarkup(body,reactions=[],messageId="",userId=""){
   const card=parsePremiumChatBody(body);
   if(!card)return "";
   if(card.type==="game")
@@ -133,6 +154,21 @@ export function premiumChatCardMarkup(body){
       '<span class="chat-premium-card-kicker"><span class="chat-envelope-closed-label">💌 '+escapeHtml(card.title)+'</span><span class="chat-envelope-open-label">Fechar carta</span></span></summary>'+
       '<div class="chat-letter-paper"><h3 class="chat-ultra-letter-title">'+escapeHtml(card.title)+'</h3>'+
       '<p class="chat-premium-note-body">'+escapeHtml(card.body)+'</p><span class="chat-letter-signature">'+escapeHtml(card.signature)+'</span></div></details>';
+  if(card.type==="poll"){
+    const rows=Array.isArray(reactions)?reactions.filter(r=>r&&POLL_VOTES.includes(r.emoji)):[];
+    const total=rows.length;
+    return '<section class="chat-ultra-poll-card" aria-label="Enquete da conversa">'+
+      '<small>📊 Enquete</small><strong>'+escapeHtml(card.question)+'</strong><div class="chat-ultra-poll-options">'+
+      card.options.map((label,index)=>{
+        const emoji=POLL_VOTES[index],votes=rows.filter(r=>r.emoji===emoji).length;
+        const selected=rows.some(r=>r.emoji===emoji&&r.user_id===userId);
+        const percentage=total?Math.round(votes*100/total):0;
+        return '<button type="button" data-chat-premium-reaction-existing="'+emoji+'" data-chat-premium-message-id="'+escapeHtml(messageId)+
+          '" aria-pressed="'+String(selected)+'" class="chat-ultra-poll-option'+(selected?' is-selected':'')+'">'+
+          '<span class="chat-ultra-poll-progress" style="width:'+percentage+'%"></span>'+
+          '<span>'+escapeHtml(label)+'</span><small>'+votes+' · '+percentage+'%</small></button>';
+      }).join('')+'</div><small>'+total+' voto'+(total===1?'':'s')+' · Toque para votar ou retirar seu voto</small></section>';
+  }
   if(card.type==="contact")
     return '<a class="chat-ultra-contact-card" href="perfil.html?usuario='+encodeURIComponent(card.id)+'" aria-label="Abrir perfil de '+escapeHtml(card.name)+'">'+
       '<span class="chat-ultra-card-emoji" aria-hidden="true">👤</span><span><small>Contato Looply</small><strong>'+escapeHtml(card.name)+'</strong><small>@'+escapeHtml(card.username)+'</small></span><span aria-hidden="true">›</span></a>';
