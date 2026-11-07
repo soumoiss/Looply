@@ -81,10 +81,10 @@ async function refreshThread(id){
       .select("id,title,asset_path,storage_path").in("id",stickerIds):{data:[],error:null};
     const stickerUrls=new Map();
     if(!stickerRows.error)await Promise.all((stickerRows.data||[]).map(async row=>{
-      if(/^assets\\/stickers\\/cc0\\/[a-z0-9-]+\\.webp$/.test(row.asset_path||"")){
+      if(/^assets\/stickers\/cc0\/[a-z0-9-]+\.webp$/.test(row.asset_path||"")){
         stickerUrls.set(row.id,row.asset_path);return;
       }
-      if(!/^stickers\\/[0-9a-f-]{36}\\/[0-9a-f-]{36}\\.webp$/.test(row.storage_path||""))return;
+      if(!/^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(row.storage_path||""))return;
       const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
       if(!signed.error&&/^https:\/\//.test(signed.data?.signedUrl||""))stickerUrls.set(row.id,signed.data.signedUrl);
     }));
