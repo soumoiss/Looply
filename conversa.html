@@ -344,7 +344,9 @@ body.cv #banner.on{transform:translate(-50%,0)}
 #bStickers{color:var(--primary)}
 #conv .who .chat-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1dbd67;box-shadow:0 0 0 2px color-mix(in srgb,#1dbd67 20%,transparent);margin-right:4px;vertical-align:middle}
 </style>
-<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=presence-stickers-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=real-games-calls-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-gartic.css?v=real-games-calls-20261107">
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
 <body class="looply-chat-ultra-live">
 <header class="gh glass" id="gh">
@@ -1805,6 +1807,11 @@ refresh();
   }
 
   function openGames() {
+    // Never execute the model's local bot/opponent against a real profile.
+    if(typeof window.LooplyVisual?.nativeGames==="function")
+      return window.LooplyVisual.nativeGames();
+    toast("Conectando às partidas online…");
+    return;
     if (!cur) return;
     stopGameClock();
     stopGameMicrophone();
@@ -3521,6 +3528,11 @@ refresh();
     }catch {toast("Câmera indisponível ou acesso recusado");}
   }
   startCall=function ultraStartCall(video=false){
+    // A connected UI must only use the authenticated WebRTC caller/receiver.
+    if(typeof window.LooplyVisual?.nativeCall==="function")
+      return window.LooplyVisual.nativeCall(Boolean(video));
+    toast("Conectando ao serviço de chamadas…");
+    return;
     const c=validConversation();
     if(!c||currentCall)return;
     if(c.blocked)return toast("Contato bloqueado");
@@ -3827,6 +3839,14 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
+    nativeCall(video=false){
+      if(!cur||!hooks?.call)return toast("Abra uma conversa para iniciar uma chamada.");
+      return hooks.call(cur,Boolean(video));
+    },
+    nativeGames(){
+      if(!cur||!hooks?.games)return toast("Abra uma conversa para iniciar uma partida.");
+      return hooks.games(cur);
+    },
     rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[]}){
       ME=selfId;
       const onlineNow=new Set(onlineUserIds);
