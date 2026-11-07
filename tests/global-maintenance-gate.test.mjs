@@ -37,9 +37,22 @@ test("maintenance renders only the requested text and checks every second", () =
 
 test("server-side RLS maintenance bypass requires real admin identity plus Peixinho", () => {
   const sql = read("migrations/20261107_maintenance_lock.sql");
-  assert.match(sql, /auth\.uid\(\) IS NOT NULL AND public\.v3_self_is_admin\(\)/);
-  assert.match(sql, /pg_catalog\.lower\(p\.username\) = 'peixinho'/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.looply_maintenance_admin_bypass/);
+  assert.match(sql, /auth\.uid\(\) IS NOT NULL AND EXISTS/);
+  assert.match(sql, /looply_migration\.verified_identity_links/);
+  assert.match(sql, /account\.role = 'admin'/);
+  assert.match(sql, /pg_catalog\.lower\(profile\.username\) = 'peixinho'/);
   assert.match(sql, /AS RESTRICTIVE FOR ALL TO authenticated/);
   assert.match(sql, /c\.relname <> 'app_settings'/);
   assert.doesNotMatch(sql, /DELETE FROM public\./i);
+});
+
+test("Peixinho exception uses server-verified identity in both gates", () => {
+  const app = read("src/maintenance-gate.js");
+  const runtime = read("src/page-runtime.js");
+  assert.match(app, /neon\.rpc\("looply_maintenance_admin_bypass"\)/);
+  assert.match(app, /return verifiedPeixinhoAdmin\(\)/);
+  assert.match(runtime, /await verifiedPeixinhoAdmin\(\)/);
+  assert.match(runtime, /&& bypassVerified/);
+  assert.match(read("migrations/20261107_maintenance_lock.sql"), /exempt := public\.looply_maintenance_admin_bypass\(\)/);
 });
