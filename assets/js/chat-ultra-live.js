@@ -10,6 +10,7 @@ import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
+import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
 import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
 
@@ -18,6 +19,20 @@ const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
 let busy=false,loading=null,refreshTimer=0;
+const signedMediaCache=new Map();
+async function signedMedia(bucket,path){
+  if(!path)return "";
+  const key=bucket+":"+path,old=signedMediaCache.get(key),now=Date.now();
+  if(old?.validUntil>now)return old.url;
+  const result=await client.storage.from(bucket).createSignedUrl(path,1800);
+  const url=result.error?"":String(result.data?.signedUrl||"");
+  if(/^https:\/\//i.test(url)){
+    if(signedMediaCache.size>350)signedMediaCache.clear();
+    signedMediaCache.set(key,{url,validUntil:now+25*60*1000});
+    return url;
+  }
+  return "";
+}
 async function onlineIds(profiles){
   const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
   if(!ids.length)return [];
@@ -86,8 +101,8 @@ async function refreshThread(id){
         stickerUrls.set(row.id,row.asset_path);return;
       }
       if(!/^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(row.storage_path||""))return;
-      const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
-      if(!signed.error&&/^https:\/\//.test(signed.data?.signedUrl||""))stickerUrls.set(row.id,signed.data.signedUrl);
+      const url=await signedMedia("looply-stickers",row.storage_path);
+      if(url)stickerUrls.set(row.id,url);
     }));
     const stickerByMessage=new Map(stickerRefs.map(row=>[row.message_id,stickerUrls.get(row.sticker_id)||""]));
     let reactions=[];
@@ -127,19 +142,18 @@ async function refreshThread(id){
       let media=files[0];
       let url="";
       if(media?.storage_path){
-        const signed=await client.storage.from("looply-chat").createSignedUrl(media.storage_path,1800);
-        url=signed.data?.signedUrl||"";
+        url=await signedMedia("looply-chat",media.storage_path);
       }
       const kind=nativeSticker||bundled?"sticker":card?.type==="letter"?"letter":card?.type==="poll"?"poll":
         media?.mime_type?.startsWith("image/")?"img":
         media?.mime_type?.startsWith("audio/")?"audio":
         media?.mime_type?.startsWith("video/")?"video":
-        media?"file":"text";
+        media?"file":["contact","location","music","note"].includes(card?.type)?card.type:"text";
       const base={
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
         text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
-        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||""
+        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
       if(card?.type==="poll"){
@@ -353,7 +367,7 @@ function bindEvents(){
       if(index>=0&&index!==5){event.preventDefault();event.stopImmediatePropagation();location.href=paths[index];}
     }
   },true);
-  window.addEventListener("pagehide",()=>{clearTimeout(refreshTimer);void channel?.unsubscribe?.();disposeChatRealtime(client);},{once:true});
+  window.addEventListener("pagehide",()=>{clearTimeout(refreshTimer);signedMediaCache.clear();void channel?.unsubscribe?.();disposeChatRealtime(client);},{once:true});
 }
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
@@ -370,6 +384,9 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active});
+  visual.mediaRenderer(renderUltraPlayableMedia);
+  const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
+  window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
   mountUltraStickerPicker({client,getUserId:()=>selfId,getConversationId:()=>visual.current(),onSaved:()=>{
     const id=visual.current();if(id)void refreshThread(id);
