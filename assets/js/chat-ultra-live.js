@@ -70,7 +70,7 @@ function mapPreview(message){
     text:card?.type==="letter"?"💌 Carta selada":card?.type==="poll"?"📊 "+card.question:
       card?.type==="contact"?"👤 "+card.name:card?.type==="location"?"📍 "+card.label:
       card?.type==="note"?card.body:card?.type==="music"?"🎵 "+card.title:
-      String(message.body||""),kind:"text",react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
+      card?.type==="forwarded-text"?card.body:String(message.body||""),kind:"text",fwd:Boolean(card?.forwarded),react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
 }
 async function loadChatBlocks(conversations){
   const blocks=new Map();
@@ -213,7 +213,7 @@ async function refreshThread(id){
       const base={
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),expiresAt:message.expires_at||null,
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
-        text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
+        text:kind==="sticker"?"Figurinha":card?.type==="forwarded-text"?card.body:String(message.body||""),fwd:Boolean(card?.forwarded),url,name:media?.file_name||"",reply:message.reply_to||null,
         stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null,
         starred:Boolean(flags.get(message.id)?.saved),pinned:Boolean(flags.get(message.id)?.pinned)
       };
