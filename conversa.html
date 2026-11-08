@@ -408,16 +408,7 @@ const host=()=>document.querySelector("dialog[open]")||document.body;
 let tt;const toast=m=>{const t=$("#toast"),h=host();if(t.parentNode!==h)h.append(t);t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),2800)};
 
 /* ── dados ── */
-const KEY="looply-chat-modelo-v1";
-function seed(){const n=Date.now(),M=(f,t,o={})=>({id:uid(),from:f,t:n-t,kind:"text",react:{},st:f===ME?"read":"read",...o});
- return[
- {id:"c1",type:"dm",nick:"Meu Sol ☀️💜",members:[ME,"ana"],pin:1,mute:0,unread:2,msgs:[M("ana",2*DAY,{text:"Oi, Marina! Já viu a carta nova que te mandei?"}),M(ME,2*DAY-5*MIN,{text:"Vi sim 🥹 chorei no ônibus"}),M("ana",DAY+3*HR,{kind:"sticker",text:"🫶"}),M("ana",3*HR,{kind:"audio",dur:14,text:""}),M("ana",2*MIN*30,{text:"Sábado tem sarau lá em casa. Você vem?",react:{}}),M("ana",MIN*4,{text:"Pode trazer a Bia! 💜"})]},
- {id:"c2",type:"group",name:"Turma do Looply",members:[ME,"ana","leo","bia"],pin:1,mute:0,unread:0,msgs:[M("leo",DAY+5*HR,{text:"Bora marcar o encontro da turma?"}),M("bia",DAY+4*HR,{text:"Topo! Sexta à noite?"}),M(ME,DAY+4*HR-MIN,{text:"Sexta fecha pra mim 🎉",react:{ana:"❤️",bia:"🔥"}}),M("ana",5*HR,{text:"Vou levar os discos 🎶"}),M("leo",HR,{text:"Eu levo as cartas antigas, vai ser lindo ✉️"})]},
- {id:"c3",type:"dm",members:[ME,"leo"],pin:0,mute:0,unread:0,msgs:[M("leo",3*DAY,{text:"Feliz aniversário, Marina!! 🎂"}),M(ME,3*DAY-10*MIN,{text:"Obrigadaaa, Leo! 💜"}),M(ME,5*HR,{text:"Você viu o story de ontem?",st:"deliv"})]},
- {id:"c4",type:"dm",members:[ME,"bia"],pin:0,mute:0,unread:1,msgs:[M(ME,DAY+HR,{text:"Te mandei uma carta agendada pra meia-noite 🤫"}),M("bia",20*MIN,{text:"AMEI!!! Chorei litros 😭✨",react:{}})]},
- {id:"c5",type:"dm",members:[ME,"caio"],pin:0,mute:1,unread:0,msgs:[M("caio",4*DAY,{text:"Valeu pela ajuda com o projeto!"}),M(ME,4*DAY-MIN,{text:"Sempre! Qualquer coisa me chama.",st:"deliv"})]},
- {id:"c6",type:"dm",members:[ME,"duda"],pin:0,mute:0,unread:0,msgs:[M("duda",6*DAY,{text:"Ainda tem aquela foto do show?"}),M(ME,6*DAY-HR,{text:"Tenho! Te mando já."})]}]}
-let C;try{C=JSON.parse(localStorage.getItem(KEY)||"null")}catch{C=null}C=[];
+let C=[];
 // Production data lives in Neon. Store only per-account visual preferences here.
 const save=()=>{if(!/^[0-9a-f-]{36}$/i.test(ME))return;
  try {const preferences=Object.fromEntries(C.map(c=>[c.id,{
@@ -574,7 +565,7 @@ let mr,chunks=[],rtm,rsec=0;
 async function startRec(){$("#comp").classList.add("rc");$("#send").classList.add("rec");$("#send").innerHTML=ic("send");rsec=0;$("#rt").textContent="00:00";recording={fake:true};
  rtm=setInterval(()=>{rsec++;$("#rt").textContent=mmss(rsec)},1e3);
  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(st);chunks=[];mr.ondataavailable=e=>chunks.push(e.data);mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());if(recording&&recording.send)push(conv(cur),{kind:"audio",dur:Math.max(1,rsec),url:URL.createObjectURL(new Blob(chunks,{type:mr.mimeType})),text:""});recording=null};mr.start();recording={fake:false}}
- catch{toast("Microfone indisponível: áudio simulado")}}
+ catch{toast("Microfone indisponível")}}
 function stopRec(cancel){clearInterval(rtm);$("#comp").classList.remove("rc");$("#send").classList.remove("rec");btn();const r=recording;if(!r)return;if(r.fake){recording=null;if(!cancel)push(conv(cur),{kind:"audio",dur:Math.max(1,rsec),text:""})}else{recording={send:!cancel};mr.stop()}}
 $("#rx").onclick=()=>stopRec(true);
 
@@ -1825,7 +1816,7 @@ refresh();
     gameModal("Looply Games", `<div class="game-hub">
       <button class="game-card" data-open-game="ttt"><span class="game-art">✕○</span><span><b>Jogo da Velha</b><small>${ttt ? "Partida salva · " + ttt.status : "Duas pessoas · convite obrigatório"}</small></span><span class="arrow">›</span></button>
       <button class="game-card" data-open-game="gartic"><span class="game-art">🎨</span><span><b>Gartic</b><small>${gartic ? "Partida salva · " + gartic.status : "Desenhar, adivinhar e conversar"}</small></span><span class="arrow">›</span></button>
-    </div><p class="mobile-note">Partidas demonstrativas neste arquivo. As partidas reais do repositório usam autenticação, Neon e sinalização.</p>`, event => {
+    </div>`, event => {
       const choice = event.target.closest("[data-open-game]")?.dataset.openGame;
       if (choice === "ttt") openTtt();
       if (choice === "gartic") openGartic();
@@ -2286,7 +2277,7 @@ refresh();
     const game = gameFor(c, "gartic");
     if (!game) return garticInvite();
     if (game.status === "invited") {
-      gameModal("Gartic", `<div class="game-invite"><span class="symbol-large">🎨</span><h3>Convite enviado</h3><p>Para ${esc(U(game.invitation).n)}</p><p class="mobile-note">Aceitar representa a confirmação no modo de demonstração.</p><div class="inline-actions"><button class="btn main" data-gartic-accept>Aceitar convite</button><button class="btn" data-gartic-decline>Recusar</button></div></div>`, event => {
+      gameModal("Gartic", `<div class="game-invite"><span class="symbol-large">🎨</span><h3>Convite enviado</h3><p>Para ${esc(U(game.invitation).n)}</p><div class="inline-actions"><button class="btn main" data-gartic-accept>Aceitar convite</button><button class="btn" data-gartic-decline>Recusar</button></div></div>`, event => {
         if (event.target.closest("[data-gartic-accept]")) {
           game.status = "lobby";
           gameSystem(c, `Convite para Gartic aceito por ${U(game.invitation).n}`);
@@ -3578,7 +3569,7 @@ refresh();
       <div class="cinfo">
         ${cav(c,120)}
         <h2>${esc(title(c))}</h2>
-        <div class="call-sim-pill">Modo demonstração · sem conexão remota</div>
+        
         <p id="cst">${incoming?"Chamada recebida…":"Chamando…"}</p>
         <div class="call-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       </div>
@@ -3874,7 +3865,7 @@ refresh();
     openLetter:showLetterEditor,
     openActivity:showActivityCenter,
     showWallpaper:wallpaperChoiceSheet,
-    simulateEvent:kind=>{const c=validConversation()||C[0];if(c)simulateEvent(c,kind);},
+    
     inspect:()=>({conversations:C.length,activities:activities.length,unseen:unseenActivityCount(),
       messages:C.reduce((total,c)=>total+c.msgs.length,0),hasVideoButton:Boolean($u("#bVideo")),hasFan:Boolean($u("#attachFan"))})
   });
