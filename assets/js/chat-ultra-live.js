@@ -81,6 +81,14 @@ async function loadChatBlocks(conversations){
   }
   return blocks;
 }
+async function loadOwnNicknames(){
+  try{
+    const {data,error}=await client.from('conversation_nicknames')
+      .select('conversation_id,nickname').eq('user_id',selfId).limit(500);
+    if(error)throw error;
+    return Object.fromEntries((data||[]).map(r=>[r.conversation_id,r.nickname||'']));
+  }catch(error){console.warn('Chat Ultra: aliases unavailable',error?.code||'offline');return null;}
+}
 function mapConversations(data,blocks=new Map()){
   const states=roomService;
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
@@ -103,9 +111,10 @@ async function refreshRooms(){
     const blocks=await loadChatBlocks(data.conversations||[]);
     try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
+    const nicknames=await loadOwnNicknames();
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences,remoteNicknames:nicknames});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -578,14 +587,16 @@ async function saveRealConversationName(button){
   if(!name){say("Informe o nome.");return;}
   button.disabled=true;
   try{
-    const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
-      await client.from("conversation_nicknames").upsert({
+    if(group.type==="group"){
+      const {data,error}=await client.rpc("v46_chat_rename_group",{p_conversation_id:id,p_subject:name});
+      if(error||data!==true)throw error||Error("not_authorized");
+    }else{
+      const result=await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
-    if(group.type==="dm")group.nick=name;
+      if(result.error||!result.data)throw result.error||Error("not_authorized");
+      group.nick=name;
+    }
     document.querySelector("#sh")?.close();
     await refreshRooms();
     say("Nome salvo na sua conta.");
@@ -808,7 +819,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  const nicknames=await loadOwnNicknames();
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences,remoteNicknames:nicknames});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
