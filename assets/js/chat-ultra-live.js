@@ -9,6 +9,7 @@ import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clea
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
+import { createUltraPreferenceService } from "../../src/chat-ultra-preferences.js?v=20261108-r1";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -19,7 +20,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null;
 const signedMediaCache=new Map();
 async function signedMedia(bucket,path){
   if(!path)return "";
@@ -68,7 +69,9 @@ async function refreshRooms(){
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data),onlineUserIds:active});
+    let preferences={};
+    try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data),onlineUserIds:active,remotePreferences:preferences});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -403,7 +406,10 @@ async function submitRealReport(button){
 function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
-    schedule:()=>scheduler?.open()});
+    schedule:()=>scheduler?.open(),
+    savePrefs:row=>preferenceService?.queue(row),
+    uploadWallpaper:(id,blob)=>preferenceService?.uploadPhoto(id,blob,visual.conversations().find(c=>c.id===id)),
+    resolveWallpaper:(id,path)=>preferenceService?.signPhoto(id,path)});
   document.addEventListener("change",event=>{
     const target=event.target;
     if(!target?.matches("#fImg,#fAny"))return;
@@ -454,6 +460,12 @@ function bindEvents(){
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
   const initial=await loadChatData(client,selfId);
+  preferenceService=createUltraPreferenceService(client,selfId,(message,error)=>{
+    console.warn("Chat Ultra visual sync failed",error?.code||"offline");say(message);
+  });
+  let firstPreferences={};
+  try{firstPreferences=await preferenceService.load();}catch(error){console.warn("Chat Ultra visual preferences unavailable",error?.code||"offline");}
+  window.addEventListener("pagehide",()=>preferenceService?.dispose(),{once:true});
   root.innerHTML=chatMarkup(initial,selfId);
   const stopNativeOverlays=mountUltraNativeOverlays(document.getElementById("looplyLiveRuntime"),root);
   window.addEventListener("pagehide",stopNativeOverlays,{once:true});
@@ -465,7 +477,7 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   setupChatRealtime(client,selfId,root);
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active});
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
   window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
   visual.mediaRenderer(renderUltraPlayableMedia);
