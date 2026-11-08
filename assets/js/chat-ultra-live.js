@@ -699,6 +699,56 @@ async function submitRealReport(button){
 }
 
 
+async function showServerMessageDetails(conversationId,messageId){
+  if(!roomIds.has(conversationId)||!/^[0-9a-f-]{36}$/i.test(messageId))return;
+  const panel=document.querySelector("#shBox"),dialog=document.querySelector("#sh");
+  if(!panel||!dialog)return;
+  panel.replaceChildren();
+  const heading=document.createElement("h2");heading.textContent="Informações da mensagem";
+  const status=document.createElement("p");status.textContent="Carregando confirmações…";
+  status.setAttribute("role","status");panel.append(heading,status);
+  if(!dialog.open)dialog.showModal();
+  try{
+    const {data:message,error}=await client.from("chat_messages")
+      .select("id,conversation_id,sender_id,created_at,delivered_at,read_at,updated_at,expires_at")
+      .eq("id",messageId).eq("conversation_id",conversationId).maybeSingle();
+    if(error||!message)throw error||Error("message_not_visible");
+    status.remove();
+    const append=(label,value)=>{
+      const row=document.createElement("div");row.className="feature-row";
+      const caption=document.createElement("span");caption.className="grow";
+      const strong=document.createElement("b");strong.textContent=label;
+      const small=document.createElement("small");small.textContent=value;
+      caption.append(strong,small);row.append(caption);panel.append(row);
+    };
+    append("Enviada",readableBrowseDate(message.created_at));
+    if(message.updated_at&&Date.parse(message.updated_at)-Date.parse(message.created_at)>1000)
+      append("Editada",readableBrowseDate(message.updated_at));
+    if(message.expires_at)append("Expira",readableBrowseDate(message.expires_at));
+    const room=visual.conversations().find(c=>c.id===conversationId);
+    const mine=message.sender_id===selfId;
+    if(room?.type==="group"&&mine){
+      const result=await client.rpc("v46_chat_message_receipts",{
+        p_conversation_id:conversationId,p_message_id:messageId
+      });
+      if(result.error)throw result.error;
+      const peers=Array.isArray(result.data)?result.data:[];
+      if(!peers.length)append("Leitura por participante","Nenhum outro participante no momento.");
+      for(const member of peers){
+        const read=Boolean(member.last_read_at&&Date.parse(member.last_read_at)>=Date.parse(message.created_at));
+        append(member.display_name||member.username||"Participante",
+          read?"Lida · "+readableBrowseDate(member.last_read_at):"Ainda não visualizada");
+      }
+    }else if(mine){
+      append("Entrega",message.delivered_at?readableBrowseDate(message.delivered_at):"Ainda não confirmada");
+      append("Leitura",message.read_at?readableBrowseDate(message.read_at):"Ainda não visualizada");
+    }else append("Recebida",readableBrowseDate(message.created_at));
+  }catch(error){
+    status.textContent="Não foi possível recuperar recibos autorizados desta mensagem.";
+    console.warn("Chat Ultra message details unavailable",error?.code||"permission");
+  }
+}
+
 let browseContext=null;
 const readableBrowseDate=value=>{
   const parsed=new Date(value||"");return Number.isFinite(parsed.valueOf())?
@@ -879,6 +929,12 @@ function bindEvents(){
     searchBar.append(button);
   }
   document.addEventListener("click",event=>{
+    const messageDetails=event.target.closest("#shBox [data-ultra-details]");
+    if(messageDetails){
+      event.preventDefault();event.stopImmediatePropagation();
+      void showServerMessageDetails(visual.current(),messageDetails.dataset.ultraDetails);
+      return;
+    }
     const browseFeature=event.target.closest('#cfg [data-feature="media"],#cfg [data-feature="starred"]');
     if(browseFeature){
       event.preventDefault();event.stopImmediatePropagation();
