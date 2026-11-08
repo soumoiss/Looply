@@ -3791,7 +3791,7 @@ refresh();
 /* Translates authenticated Looply data into the Ultra visual primitives. */
 (() => {
   "use strict";
-  let hooks=null;
+  let hooks=null,ultraEditBusy=false;
   const prefSnapshots=new Map(),remoteSnapshots=new Map();
   let draftOwner="",drafts={};
   const draftStorage=()=> "looply-ultra-drafts-v1:"+ME;
@@ -4096,9 +4096,24 @@ refresh();
         const c=conv(cur),message=inp.value.trim();
         if(!c||!message)return;
         if(editing){
-          const target=editing;
-          editing=null;reply=null;ctx();inp.value="";grow();btn();
-          void hooks?.edit(c,target,message);
+          if(ultraEditBusy)return;
+          const target=editing,editingConversation=c.id;
+          ultraEditBusy=true;
+          // Preserve the draft and edit context until Neon confirms the change.
+          void Promise.resolve(hooks?.edit(c,target,message)).then(saved=>{
+            if(saved!==true){
+              toast("Edição não confirmada. O texto foi preservado para tentar novamente.");
+              return;
+            }
+            if(cur===editingConversation&&editing?.id===target.id){
+              editing=null;reply=null;ctx();
+              if(inp.value.trim()===message)inp.value="";
+              grow();btn();
+              if(!inp.value.trim())saveDraft(editingConversation,"");
+            }
+          }).catch(()=>{
+            toast("Sem conexão para editar. O texto permanece na caixa.");
+          }).finally(()=>{ultraEditBusy=false;});
         }else{
           inp.value="";grow();btn();document.querySelector("#pan")?.classList.remove("open");
           const replyTo=reply?.id||null;
