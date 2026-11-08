@@ -331,6 +331,7 @@ async function openDirect(targetId){
     if(existing){visual.open(existing.id);return;}
     const {data,error}=await client.functions.invoke("looply-chat",{body:{action:"create_direct",targetId}});
     if(error||!data?.conversationId)throw error||Error(data?.errorCode||"Conversa indisponível");
+    await roomService?.hide(data.conversationId,false);
     await refreshRooms();
     visual.open(data.conversationId);
   }catch(error){console.error("Chat Ultra: conversa não criada",error);say(errorMessage);}
@@ -494,6 +495,53 @@ async function changeBlock(conversationId,enabled){
     return false;
   }
 }
+async function performRealRoomAction(action,id,value=null){
+  if(!id||!roomIds.has(id)||!roomService)return false;
+  const room=visual.conversations().find(c=>c.id===id);
+  let ok=false;
+  try{
+    if(action==="ttl")ok=await roomService.expiry(id,Number(value));
+    else if(action==="unread")ok=await roomService.unread(id,true);
+    else if(action==="read"){
+      const confirmed=await client.rpc("mark_conversation_read",{p_conversation_id:id});
+      ok=!confirmed.error&&confirmed.data===true&&await roomService.unread(id,false);
+    }
+    else if(action==="clear")ok=await roomService.clear(id);
+    else if(action==="hide")ok=await roomService.hide(id,true);
+    else if(action==="show")ok=await roomService.hide(id,false);
+    else if(action==="leave")ok=await roomService.leave(id);
+    else if(action==="transfer")ok=await roomService.transfer(id,String(value||""));
+    if(!ok){
+      say(action==="leave"&&room?.createdBy===selfId?
+        "Transfira a administração do grupo antes de sair.":"A alteração não foi autorizada pelo servidor.");
+      return false;
+    }
+    if(action==="clear"){
+      olderPages.delete(id);
+      hasMoreHistory.delete(id);
+      lastRender="";
+      visual.storeMessages(id,[]);
+    }
+    if(["hide","leave","unread"].includes(action)&&visual.current()===id)
+      visual.closeCurrent?.();
+    await refreshRooms();
+    if(["clear","ttl"].includes(action)&&visual.current()===id){
+      lastRender="";await refreshThread(id);
+    }
+    const labels={
+      ttl:"Prazo das novas mensagens atualizado.",unread:"Conversa marcada como não lida para você.",
+      read:"Conversa marcada como lida.",clear:"Histórico ocultado apenas para sua conta.",
+      hide:"Conversa removida da sua lista.",show:"Conversa restaurada.",
+      leave:"Você saiu do grupo.",transfer:"Administração transferida."
+    };
+    say(labels[action]||"Alteração confirmada.");
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra room action failed",action,error?.code||"offline");
+    say("Não foi possível concluir a ação no servidor.");
+    return false;
+  }
+}
 async function applyRealMemberChange(button){
   const id=visual.current();
   const group=visual.conversations().find(c=>c.id===id);
@@ -562,6 +610,7 @@ function bindEvents(){
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     activities:()=>activityService?.open(),
     block:changeBlock,
+    roomAction:performRealRoomAction,
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
@@ -705,4 +754,15 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
     }).subscribe();
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)planRefresh(500);});
   window.setInterval(()=>{if(!document.hidden)planRefresh(200);},30000);
+  // Time-limited messages vanish when Neon stops authorizing their rows.
+  // This timer only re-queries the server: it never deletes chat data locally
+  // as an ersatz expiration or purges a fellow participant's message.
+  const expirationRefresh=window.setInterval(()=>{
+    if(document.hidden)return;
+    const id=visual.current();
+    const messages=visual.conversations().find(c=>c.id===id)?.msgs||[];
+    if(id&&messages.some(m=>m.expiresAt))void refreshThread(id);
+  },6500);
+  window.addEventListener("pagehide",()=>window.clearInterval(expirationRefresh),{once:true});
+
 }});
