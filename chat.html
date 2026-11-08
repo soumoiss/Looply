@@ -3001,18 +3001,69 @@ refresh();
     };
   }
   function showMusicEditorProxy() {
-    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link Apple Music, Deezer ou Spotify" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
-    $u("#shBox").onclick = event => {
-      if (!event.target.closest("[data-ultra-music]")) return;
-      const title = $u("#musicUltraTitle").value.trim();
-      const artist = $u("#musicUltraArtist").value.trim();
-      const text = $u("#musicUltraUrl").value.trim();
+    let results=[],selected=null,controller=null,debounce=0;
+    sheet('<h2>Compartilhar música</h2>'+
+      '<input class="feature-input" id="musicUltraFind" type="search" maxlength="70" placeholder="Buscar música ou artista" aria-label="Buscar nos catálogos">'+
+      '<button type="button" class="btn" data-ultra-music-search>Buscar</button>'+
+      '<p role="status" id="musicUltraStatus"></p>'+
+      '<div id="musicUltraResults" style="max-height:35vh;overflow:auto"></div>'+
+      '<input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música">'+
+      '<input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista">'+
+      '<input class="feature-input" id="musicUltraUrl" placeholder="Link Apple Music, Deezer ou Spotify" type="url">'+
+      '<button class="btn main" data-ultra-music>Compartilhar</button>');
+    const panel=$u("#shBox"),listing=$u("#musicUltraResults"),status=$u("#musicUltraStatus");
+    const search=async()=>{
+      const query=$u("#musicUltraFind").value.trim();
+      if(query.length<2){status.textContent="Digite ao menos duas letras.";return;}
+      controller?.abort();const request=new AbortController();controller=request;
+      status.textContent="Buscando…";listing.replaceChildren();results=[];
+      try{
+        const found=await window.LooplyVisual?.searchMusic?.(query,request.signal);
+        if(request.signal.aborted||controller!==request)return;
+        results=Array.isArray(found)?found.slice(0,25):[];
+        status.textContent=results.length?"":"Nenhuma música encontrada.";
+        results.forEach((song,i)=>{
+          const button=document.createElement("button");button.type="button";
+          button.className="feature-row";button.dataset.ultraMusicPick=String(i);
+          const icon=document.createElement("span");icon.textContent="🎵";
+          const copy=document.createElement("span");copy.className="grow";
+          const strong=document.createElement("strong");strong.textContent=song.title||"Música";
+          const small=document.createElement("small");small.textContent=(song.artist||"")+" · "+
+            ({apple:"Apple Music",deezer:"Deezer",spotify:"Spotify"}[song.provider]||"Catálogo");
+          copy.append(strong,small);button.append(icon,copy);listing.append(button);
+        });
+      }catch(error){
+        if(!request.signal.aborted)status.textContent="Busca indisponível neste momento.";
+      }
+    };
+    panel.oninput=event=>{
+      if(event.target.id==="musicUltraFind"){
+        clearTimeout(debounce);debounce=setTimeout(()=>void search(),330);
+      }else if(["musicUltraTitle","musicUltraArtist","musicUltraUrl"].includes(event.target.id))selected=null;
+    };
+    panel.onclick=event=>{
+      if(event.target.closest("[data-ultra-music-search]")){void search();return;}
+      const pick=event.target.closest("[data-ultra-music-pick]");
+      if(pick){
+        const song=results[Number(pick.dataset.ultraMusicPick)];
+        if(!song)return;
+        selected=song;
+        $u("#musicUltraTitle").value=song.title||"";
+        $u("#musicUltraArtist").value=song.artist||"";
+        $u("#musicUltraUrl").value=song.url||"";
+        listing.querySelectorAll("[data-ultra-music-pick]").forEach(b=>b.classList.toggle("on",b===pick));
+        return;
+      }
+      const button=event.target.closest("[data-ultra-music]");
+      if(!button)return;
+      const title=$u("#musicUltraTitle").value.trim(),artist=$u("#musicUltraArtist").value.trim();
+      const text=$u("#musicUltraUrl").value.trim();
       if(!title||!artist)return toast("Informe música e artista.");
       if(!/^https:\/\//i.test(text))return toast("Use um link HTTPS Apple Music, Deezer ou Spotify.");
       const provider=/music\.apple\.com/i.test(text)?"apple":/deezer\.com/i.test(text)?"deezer":/open\.spotify\.com/i.test(text)?"spotify":"";
       if(!provider)return toast("Link fora dos catálogos aceitos.");
-      const button=event.target.closest("[data-ultra-music]");button.disabled=true;
-      void Promise.resolve(push(validConversation(),{kind:"music",title,artist,text,provider})).then(saved=>{
+      button.disabled=true;
+      void Promise.resolve(push(validConversation(),{kind:"music",title,artist,text,provider,song:selected})).then(saved=>{
         if(saved===true){sh.close();toast("Música compartilhada.");}
       }).finally(()=>{button.disabled=false;});
     };
@@ -3949,6 +4000,7 @@ refresh();
       };
     },
     mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
+    searchMusic:(query,signal)=>hooks?.searchMusic?.(query,signal)||Promise.resolve([]),
     showTyping(id,users=[]){
       const room=C.find(c=>c.id===id);
       if(!room)return;
