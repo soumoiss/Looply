@@ -13,6 +13,7 @@ import { createUltraPreferenceService } from "../../src/chat-ultra-preferences.j
 import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../src/chat-ultra-history.js";
 import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
 import { setupUltraActivities } from "../../src/chat-ultra-activities.js?v=20261108-v1";
+import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-v1";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -27,6 +28,7 @@ let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
+const pendingSendIds=createUltraSendIds();
 async function signedMedia(bucket,path){
   if(!path)return "";
   const key=bucket+":"+path,old=signedMediaCache.get(key),now=Date.now();
@@ -237,13 +239,31 @@ async function postBody(conversationId,body,replyTo=null){
   if(typeof body!=="string"||!body.trim()||body.length>5000)throw Error("Mensagem inválida.");
   busy=true;
   try{
-    const {data,error}=await client.from("chat_messages")
-      .insert({conversation_id:conversationId,sender_id:selfId,body,reply_to:replyTo||null})
-      .select("id").single();
-    if(error||!data?.id)throw error||Error("Envio não confirmado");
+    const nonce=pendingSendIds.get(conversationId,body,replyTo);
+    let messageId=null;
+    try{
+      const {data,error}=await client.from("chat_messages")
+        .insert({id:nonce,conversation_id:conversationId,sender_id:selfId,body,reply_to:replyTo||null})
+        .select("id").single();
+      if(error||data?.id!==nonce)throw error||Error("Envio não confirmado");
+      messageId=data.id;
+    }catch(insertError){
+      // A lost acknowledgement can leave the row persisted in Neon. The same
+      // nonce is used on retry; only the authenticated author's exact row can
+      // turn a duplicate/timeout into a confirmed success.
+      const {data:existing,error:readError}=await client.from("chat_messages")
+        .select("id,conversation_id,sender_id,body")
+        .eq("id",nonce).eq("conversation_id",conversationId)
+        .eq("sender_id",selfId).maybeSingle();
+      if(readError||existing?.id!==nonce||existing.body!==body)
+        throw insertError;
+      messageId=existing.id;
+    }
+    pendingSendIds.confirm(conversationId,body,replyTo);
     runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
-    const {requestImmediateMessagePush}=await import("../../src/chat-push-alert.js");
-    void requestImmediateMessagePush(client,data.id);
+    void import("../../src/chat-push-alert.js")
+      .then(({requestImmediateMessagePush})=>requestImmediateMessagePush(client,messageId))
+      .catch(error=>console.warn("Chat Ultra: push could not be queued",error?.code||"offline"));
     typingSession?.stop();
     await refreshThread(conversationId);
     planRefresh(450);
