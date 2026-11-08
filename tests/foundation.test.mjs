@@ -104,7 +104,7 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(login, /Quem és\?/);
   assert.match(login, /código secreto/);
   assert.match(login, /Avante!/);
-  for (const page of [home, music, chat, profile, admin]) {
+  for (const page of [home, music, chat, profile]) {
     assert.match(page, /data-site-header/);
     assert.match(page, /assets\/js\//);
   }
@@ -112,6 +112,8 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(music, /music\.js/);
   assert.match(chat, /chat-ultra-live\.js/);
   assert.match(profile, /profile\.js/);
+  assert.match(admin, /admin-model-live\.js/);
+  assert.match(admin, /id="v-mods"/);
   assert.match(admin, /admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
@@ -797,7 +799,7 @@ test("shared header provides one accessible back control, active navigation, and
     read("src/page-runtime.js"),
     read("assets/css/pages/shared.css"),
     read("assets/js/conversation.js"),
-    Promise.all(["home.html", "chat.html", "conversa.html", "cartas.html", "musicas.html", "notificacoes.html", "usuarios.html", "perfil.html", "configuracoes.html", "admin.html"].map(read))
+    Promise.all(["home.html", "chat.html", "conversa.html", "cartas.html", "musicas.html", "notificacoes.html", "usuarios.html", "perfil.html", "configuracoes.html"].map(read))
   ]);
   assert.match(runtime, /data-site-header/);
   assert.match(runtime, /data-page-back/);
