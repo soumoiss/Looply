@@ -941,8 +941,15 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   });
   window.addEventListener("pagehide",()=>browserService?.dispose(),{once:true});
   activityService=setupUltraActivities({
-    client,userId:selfId,visual,
-    onOpen:id=>{if(roomIds.has(id))visual.open(id);}
+    client,userId:selfId,visual,profiles:()=>knownProfiles,
+    onOpen:(id,messageId)=>{
+      if(!roomIds.has(id))return;
+      visual.open(id);
+      if(messageId)void refreshThread(id).then(()=>{
+        const node=document.querySelector('#msgs [data-id="'+CSS.escape(messageId)+'"]');
+        node?.scrollIntoView({block:"center",behavior:"smooth"});
+      });
+    }
   });
   window.addEventListener("pagehide",()=>activityService?.dispose(),{once:true});
   typingSession=setupUltraTyping({
