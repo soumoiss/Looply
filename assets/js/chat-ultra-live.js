@@ -21,6 +21,7 @@ import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultr
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
+import { setupUltraBrowse } from "./chat-ultra-browse.js?v=v46-20261108";
 import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote, makePremiumMusic } from "../../src/chat-premium-cards.js";
 
 const visual=window.LooplyVisual;
@@ -471,6 +472,32 @@ async function removeMessage(conversationId,messageId){
   }catch(error){console.error("Chat Ultra: exclusão falhou",error);say(errorMessage);}
 }
 
+async function navigateToHistoryResult(id,item){
+  if(!roomIds.has(id)||!item?.message_id)return;
+  try{
+    if(visual.current()!==id)visual.open(id);
+    const inView=visual.conversations().find(c=>c.id===id)?.msgs?.some(m=>m.id===item.message_id);
+    if(!inView){
+      const {data,error}=await client.from("chat_messages").select(CHAT_SELECT)
+        .eq("conversation_id",id).lte("created_at",item.created_at)
+        .order("created_at",{ascending:false}).limit(80);
+      if(error)throw error;
+      olderPages.set(id,mergeChatHistory(olderPages.get(id)||[],(data||[]).reverse()));
+      lastRender="";
+    }
+    await refreshThread(id);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const node=document.querySelector('#msgs [data-id="'+item.message_id+'"]');
+      if(!node){say("Esta mensagem não está mais disponível.");return;}
+      node.scrollIntoView({block:"center",behavior:"smooth"});
+      if(!window.matchMedia("(prefers-reduced-motion: reduce)").matches&&node.animate)
+        node.animate([{filter:"brightness(1)"},{filter:"brightness(1.35)"},{filter:"brightness(1)"}],{duration:650});
+    }));
+  }catch(error){
+    console.warn("Chat Ultra browse navigation failed",error?.code||"offline");
+    say("Não foi possível abrir esta mensagem.");
+  }
+}
 function launchActualFeature(conversationId,selector,label){
   if(!conversationId||!roomIds.has(conversationId)){say("Conversa indisponível.");return;}
   const form=runtime.querySelector("form[data-chat-send]");
@@ -829,6 +856,12 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
+  const browse=setupUltraBrowse({
+    client,getConversationId:()=>visual.current(),
+    onNavigate:navigateToHistoryResult,
+    onError:()=>say("Não foi possível consultar o histórico.")
+  });
+  window.addEventListener("pagehide",()=>browse.dispose(),{once:true});
   activityService=setupUltraActivities({
     client,userId:selfId,visual,
     onOpen:id=>{if(roomIds.has(id))visual.open(id);}
