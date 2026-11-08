@@ -89,6 +89,11 @@ export function makePremiumMusic(track){
 }
 export function parsePremiumChatBody(value){
   const text=String(value||"");
+  if(text.startsWith("↪ Encaminhada/1\n")){
+    const inner=text.slice("↪ Encaminhada/1\n".length);
+    const card=parsePremiumChatBody(inner);
+    return card?{...card,forwarded:true}:{type:"forwarded-text",body:inner,forwarded:true};
+  }
   const letter=parsePremiumLetter(text);
   if(letter)return letter;
   if(text.startsWith(POLL)&&text.length<=1300){
