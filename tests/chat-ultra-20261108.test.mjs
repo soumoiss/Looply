@@ -76,6 +76,7 @@ test("storage backend explicitly limits wallpaper reads and writes to owner and 
  assert.match(migration,/ENABLE ROW LEVEL SECURITY/);
  assert.match(migration,/user_id = public\.looply_legacy_uid\(\)/);
  assert.match(migration,/public\.v3_is_conversation_participant\(conversation_id\)/);
+ assert.match(file("src/neon-rest-bridge.js"),/chat_ultra_preferences: \["user_id","conversation_id","wallpaper"/);
 });
 test("all new production scripts pass Node's syntax parser",()=>{
  for(const path of ["src/chat-ultra-preferences.js","src/chat-ultra-history.js","assets/js/chat-ultra-live.js","backend/neon-storage/index.mjs"]){
