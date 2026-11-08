@@ -537,7 +537,7 @@ function msgMenu(id){const c=conv(cur),m=c.msgs.find(x=>x.id===id);if(!m)return;
    sheet(`<h2>Apagar mensagem</h2><button class="act dg" data-d="all">${ic("trash")}Apagar para todos</button><button class="act" data-d="me">${ic("x")}Apagar só para mim</button>`);
    $("#shBox").onclick=ev=>{const d=ev.target.closest("[data-d]");if(!d)return;if(d.dataset.d==="all"){m.del=true;m.text="";m.kind="text";m.react={}}else c.msgs=c.msgs.filter(x=>x!==m);save();sh.close();renderMsgs();refresh()}}}}
 function fwdPick(m){sheet(`<h2>Encaminhar para…</h2>${C.map(c=>`<button class="pk" data-t="${c.id}">${cav(c,44)}<span>${esc(title(c))}</span></button>`).join("")}`);
- $("#shBox").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;const t=conv(b.dataset.t);if(hooks?.forward){sh.close();void Promise.resolve(hooks.forward(m,t.id));return;}t.msgs.push({...m,id:uid(),from:ME,t:Date.now(),st:"sent",fwd:true,react:{},reply:null});save();sh.close();toast("Encaminhada para "+title(t));if(t.id===cur)renderMsgs();refresh();settle(t)}}
+ $("#shBox").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;const t=conv(b.dataset.t);if(hooks?.forward){sh.close();void Promise.resolve(hooks.forward(m,t.id));return;}toast("Encaminhamento indisponível.");}}
 
 /* áudio */
 let cA=null;function playAudio(el){const id=el.dataset.au,m=conv(cur).msgs.find(x=>x.id===id),bars=[...el.querySelectorAll("i")],b=el.querySelector("button");
@@ -3000,14 +3000,14 @@ refresh();
     };
   }
   function showMusicEditorProxy() {
-    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link HTTPS (opcional)" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
+    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link HTTPS da música" type="url" required><button class="btn main" data-ultra-music>Compartilhar</button>`);
     $u("#shBox").onclick = event => {
       if (!event.target.closest("[data-ultra-music]")) return;
       const title = $u("#musicUltraTitle").value.trim();
       const artist = $u("#musicUltraArtist").value.trim();
       const text = $u("#musicUltraUrl").value.trim();
       if (!title) return toast("Informe a música");
-      if (text && !/^https:\/\//i.test(text)) return toast("Insira um link HTTPS");
+      if (!/^https:\/\//i.test(text)) return toast("Insira um link HTTPS");
       sh.close();
       push(validConversation(), {kind:"music",title,artist,text});
     };
@@ -3047,7 +3047,7 @@ refresh();
       const id = event.target.closest("[data-contact]")?.dataset.contact;
       if (!id || !USERS[id]) return;
       sh.close();
-      push(validConversation(),{text:`👤 Contato Looply: ${U(id).n}`});
+      push(validConversation(),{kind:"contact",userId:id,name:U(id).n,username:U(id).u||U(id).username||U(id).n});
     };
   }
 
