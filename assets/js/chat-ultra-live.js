@@ -306,7 +306,7 @@ async function sendModel(c,m){
     let body=String(m?.text||"");
     if(m?.kind==="letter")body=makePremiumLetter({title:m.title,body:m.text,signature:m.signature,paper:m.paper,seal:m.seal});
     if(m?.kind==="poll")body=makePremiumPoll({question:m.text,options:m.options});
-    if(m?.kind==="location")body=makePremiumLocation(m.text);
+    if(m?.kind==="location")body=makePremiumLocation(m.text,m.coordinates||null);
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
     if(m?.kind==="music")body=makePremiumMusic({title:m.title,artist:m.artist,url:m.text,provider:m.provider||""});
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
