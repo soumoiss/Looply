@@ -3810,6 +3810,7 @@ refresh();
     if(value.trim())drafts[id]=value;
     else delete drafts[id];
     try{localStorage.setItem(draftStorage(),JSON.stringify(drafts));}catch{}
+    hooks?.draft?.(id,value);
   }
   function restoreDraft(id){
     inp.value=typeof drafts[id]==="string"?drafts[id]:"";
@@ -3949,6 +3950,23 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     draftPreview:id=>drafts[id]||"",
+    applyRemoteDrafts(rows=[]){
+      if(!Array.isArray(rows)||!draftOwner)return;
+      let changed=false;
+      for(const row of rows){
+        if(!/^[0-9a-f-]{36}$/i.test(row?.id||""))continue;
+        // An unsynced local draft is never overwritten by a remote read.
+        if(typeof drafts[row.id]==="string"&&drafts[row.id].trim())continue;
+        if(typeof row.body!=="string"||!row.body.trim())continue;
+        drafts[row.id]=row.body.slice(0,12000);
+        changed=true;
+      }
+      if(changed){
+        try{localStorage.setItem(draftStorage(),JSON.stringify(drafts));}catch{}
+        if(cur&&!inp.value.trim()&&!editing)restoreDraft(cur);
+        inbox();
+      }
+    },
     open:id=>open(id),
     closeCurrent:()=>closeConv(),
     hasOlder:id=>Boolean(hooks?.hasOlder?.(id)),
