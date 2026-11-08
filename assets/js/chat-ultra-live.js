@@ -15,6 +15,8 @@ import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41"
 import { setupUltraActivities } from "../../src/chat-ultra-activities.js?v=20261108-v1";
 import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-v1";
 import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=20261108-v44";
+import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
+import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -25,7 +27,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -611,6 +613,7 @@ function bindEvents(){
     activities:()=>activityService?.open(),
     block:changeBlock,
     roomAction:performRealRoomAction,
+    draft:(id,value)=>draftSync?.queue(id,value,!value),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
@@ -690,6 +693,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   client=sessionClient;selfId=user.id;
   const initial=await loadChatData(client,selfId);
   roomService=createUltraRoomService(client,code=>console.warn("Chat Ultra room action not confirmed",code));
+  draftSync=createUltraDraftSync(client,{onError:code=>console.warn("Chat Ultra draft retained locally",code)});
+  window.addEventListener("pagehide",()=>{void draftSync?.flush();},{once:true});
   try{await roomService.load((initial.conversations||[]).map(c=>c.id));}
   catch(error){console.warn("Chat Ultra room state unavailable",error?.code||"offline");}
   preferenceService=createUltraPreferenceService(client,selfId,(message,error)=>{
@@ -723,6 +728,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
+    .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
   window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
   visual.mediaRenderer(renderUltraPlayableMedia);
@@ -752,7 +759,11 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
       const id=payload.new?.conversation_id||payload.old?.conversation_id;
       if(roomIds.has(id)){void refreshThread(id);planRefresh(650);}
     }).subscribe();
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)planRefresh(500);});
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden)return;
+    planRefresh(500);
+    void draftSync?.load().then(rows=>visual.applyRemoteDrafts(rows)).catch(()=>{});
+  });
   window.setInterval(()=>{if(!document.hidden)planRefresh(200);},30000);
   // Time-limited messages vanish when Neon stops authorizing their rows.
   // This timer only re-queries the server: it never deletes chat data locally
