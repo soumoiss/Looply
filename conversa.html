@@ -4162,6 +4162,39 @@ refresh();
       // the app closed. Replace it with the authenticated server scheduler.
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
+      fwdPick=function authenticatedForwardPicker(message){
+        const origin=conv(cur);
+        if(!origin||!message?.id)return;
+        if(message.kind==="letter"||message.expiresAt){
+          toast("Cartas lacradas e mensagens temporárias não podem ser encaminhadas.");return;
+        }
+        const destinations=C.filter(c=>!c.blocked&&c.canChat!==false);
+        sheet('<h2>Encaminhar mensagem</h2>'+
+          '<input class="feature-input" type="search" data-ultra-forward-search placeholder="Buscar conversas" aria-label="Buscar destinos">'+
+          '<div data-ultra-forward-list>'+
+          destinations.map(c=>'<button type="button" class="pk" data-ultra-forward-target="'+esc(c.id)+'">'+
+            cav(c,42)+'<span>'+esc(title(c))+'</span><span class="ck"></span></button>').join("")+
+          '</div><textarea class="feature-input area" maxlength="2000" data-ultra-forward-note placeholder="Adicionar mensagem (opcional)" aria-label="Nota de encaminhamento"></textarea>'+
+          '<button type="button" class="btn main" data-ultra-forward-send>Encaminhar</button>');
+        const panel=document.querySelector("#shBox");
+        panel.dataset.ultraForwardSource=message.id;
+        panel.dataset.ultraForwardRoom=origin.id;
+        panel.onclick=event=>{
+          const target=event.target.closest("[data-ultra-forward-target]");
+          if(!target)return;
+          target.classList.toggle("on");
+          target.setAttribute("aria-pressed",String(target.classList.contains("on")));
+          const ck=target.querySelector(".ck");if(ck)ck.textContent=target.classList.contains("on")?"✓":"";
+        };
+        panel.querySelector("[data-ultra-forward-search]")?.addEventListener("input",event=>{
+          const query=event.target.value.toLocaleLowerCase("pt-BR");
+          for(const row of panel.querySelectorAll("[data-ultra-forward-target]")){
+            const target=conv(row.dataset.ultraForwardTarget);
+            row.hidden=!title(target).toLocaleLowerCase("pt-BR").includes(query);
+          }
+        });
+      };
+
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
       push=function livePush(c,m){return c&&m?Promise.resolve(hooks?.send(c,m)):Promise.resolve(false);};
       sendText=function liveSendText(){
