@@ -199,3 +199,14 @@ body.looply-chat-ultra-live #msgs .ultra-load-older {
 body.looply-chat-ultra-live #msgs .ultra-load-older:disabled{opacity:.58;cursor:wait}
 body.looply-chat-ultra-live .ultra-draft-mark{color:var(--primary);font-weight:800}
 body.looply-chat-ultra-live .row .rp:has(.ultra-draft-mark){color:var(--primary)}
+
+/* Authorized full-history browser inside the approved Ultra sheet. */
+body.looply-chat-ultra-live .chat-ultra-browse-results{display:flex;flex-direction:column;max-height:min(52dvh,470px);min-height:84px;overflow:auto;overscroll-behavior:contain;gap:4px;scrollbar-width:thin;padding:4px 1px}
+body.looply-chat-ultra-live .chat-ultra-browse-results .feature-row{width:100%;text-align:left;border-radius:13px;padding:10px 9px;display:flex;gap:10px;align-items:center;min-height:55px;cursor:pointer}
+body.looply-chat-ultra-live .chat-ultra-browse-results .feature-row .grow{min-width:0;flex:1}
+body.looply-chat-ultra-live .chat-ultra-browse-results .feature-row b{display:block;font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+body.looply-chat-ultra-live .chat-ultra-browse-results .feature-row small{display:block;font-size:11px;color:var(--muted)}
+body.looply-chat-ultra-live .chat-ultra-browse-status{font-size:12px;color:var(--muted);min-height:16px}
+body.looply-chat-ultra-live #shBox [data-ultra-browse-more],body.looply-chat-ultra-live #shBox [data-ultra-browse-close]{width:100%;margin-top:5px}
+body.looply-chat-ultra-live #shBox [data-ultra-browse-term]{width:100%;min-width:0}
+@media(prefers-reduced-motion:reduce){body.looply-chat-ultra-live .chat-ultra-browse-results{scroll-behavior:auto}}
