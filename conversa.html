@@ -1112,11 +1112,12 @@ refresh();
   async function shareConversation() {
     if (!cur) return;
     const conversation = conv(cur);
-    const data = { title: `Conversa: ${title(conversation)}`, text: `Looply · ${title(conversation)}` };
+    const link=new URL("conversa.html?id="+encodeURIComponent(conversation.id),location.href).href;
+    const data = { title: `Conversa: ${title(conversation)}`, text: `Looply · ${title(conversation)}`,url:link };
     try {
       if (navigator.share) await navigator.share(data);
       else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(data.text);
+        await navigator.clipboard.writeText(data.url);
         toast("Nome da conversa copiado");
       } else toast("Compartilhamento indisponível neste navegador");
     } catch (error) {
@@ -3018,9 +3019,12 @@ refresh();
   }
   function showShareProxy() {
     const c = validConversation();
-    const label = `Conversa Looply · ${title(c)}`;
-    if (navigator.share) navigator.share({title:label,text:label}).catch(()=>{});
-    else if (navigator.clipboard) navigator.clipboard.writeText(label).then(()=>toast("Copiado")).catch(()=>toast("Não foi possível copiar"));
+    const label=`Conversa Looply · ${title(c)}`;
+    const link=new URL("conversa.html?id="+encodeURIComponent(c.id),location.href).href;
+    if(navigator.share)navigator.share({title:label,text:label,url:link}).catch(error=>{
+      if(error?.name!=="AbortError")toast("Não foi possível compartilhar.");
+    });
+    else if(navigator.clipboard)navigator.clipboard.writeText(link).then(()=>toast("Link copiado")).catch(()=>toast("Não foi possível copiar"));
     else toast("Compartilhamento indisponível");
   }
   function showLocationShare() {
