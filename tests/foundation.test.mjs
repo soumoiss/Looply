@@ -114,7 +114,7 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(profile, /profile\.js/);
   assert.match(admin, /admin-model-live\.js/);
   assert.match(admin, /id="v-mods"/);
-  assert.match(admin, /admin\.js/);
+  assert.doesNotMatch(admin, /src="assets\/js\/admin\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(build, /galeria\.html/);
