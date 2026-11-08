@@ -4197,7 +4197,7 @@ refresh();
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
-      push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
+      push=function livePush(c,m){return c&&m?Promise.resolve(hooks?.send(c,m)):Promise.resolve(false);};
       sendText=function liveSendText(){
         const c=conv(cur),message=inp.value.trim();
         if(!c||!message)return;
