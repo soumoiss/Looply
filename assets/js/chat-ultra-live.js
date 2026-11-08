@@ -671,7 +671,63 @@ async function forwardRealMessage(source,targetId){
   }
 }
 
+async function openActualMessageDetails(messageId){
+  const id=visual.current();
+  if(!roomIds.has(id)||!messageId)return;
+  const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const date=value=>{
+    if(!value)return "Não confirmado";
+    const time=new Date(value);
+    return Number.isFinite(time.valueOf())?time.toLocaleString("pt-BR"):"Não confirmado";
+  };
+  try{
+    const {data:message,error}=await client.from("chat_messages")
+      .select("id,sender_id,created_at,updated_at,delivered_at,read_at")
+      .eq("id",messageId).eq("conversation_id",id).maybeSingle();
+    if(error||!message)throw error||Error("message_not_visible");
+    let receipts=[];
+    if(message.sender_id===selfId){
+      const result=await client.rpc("v46_chat_message_receipts",{
+        p_conversation_id:id,p_message_id:messageId
+      });
+      if(result.error)throw result.error;
+      receipts=result.data||[];
+    }
+    const panel=document.querySelector("#shBox"),sheet=document.querySelector("#sh");
+    if(!panel||!sheet)return;
+    const list=receipts.length?
+      receipts.map(row=>{
+        const read=Boolean(row.last_read_at&&Date.parse(row.last_read_at)>=Date.parse(message.created_at));
+        const label=row.display_name||row.username||"Participante";
+        return '<div class="feature-row"><span class="ci">'+(read?"💙":"○")+
+          '</span><span class="grow"><b>'+escape(label)+'</b><small>'+
+          (read?"Lido até "+escape(date(row.last_read_at)):"Sem confirmação de leitura")+
+          '</small></span></div>';
+      }).join(""):(message.sender_id===selfId?'<p class="empty">Nenhum recibo individual confirmado.</p>':"");
+    panel.innerHTML='<h2>Informações da mensagem</h2>'+
+      '<div class="feature-row"><span class="ci">📤</span><span class="grow"><b>Enviada</b><small>'+escape(date(message.created_at))+'</small></span></div>'+
+      '<div class="feature-row"><span class="ci">✓✓</span><span class="grow"><b>Entrega geral</b><small>'+escape(date(message.delivered_at))+'</small></span></div>'+
+      '<div class="feature-row"><span class="ci">💙</span><span class="grow"><b>Leitura geral</b><small>'+escape(date(message.read_at))+'</small></span></div>'+
+      (message.updated_at&&Date.parse(message.updated_at)>Date.parse(message.created_at)+1000?
+        '<div class="feature-row"><span class="ci">✏️</span><span class="grow"><b>Editada</b><small>'+
+        escape(date(message.updated_at))+'</small></span></div>':"")+
+      (receipts.length?'<h3>Participantes</h3>':"")+list+
+      '<button type="button" class="btn main" data-ultra-details-close>Fechar</button>';
+    if(!sheet.open)sheet.showModal();
+    panel.querySelector("[data-ultra-details-close]")?.addEventListener("click",()=>sheet.close(),{once:true});
+  }catch(error){
+    console.warn("Chat Ultra receipts unavailable",error?.code||"offline");
+    say("Não foi possível consultar os recibos.");
+  }
+}
+
 function bindEvents(){
+  document.addEventListener("click",event=>{
+    const receipt=event.target.closest("#shBox [data-ultra-details]");
+    if(!receipt)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    void openActualMessageDetails(receipt.dataset.ultraDetails);
+  },true);
   visual.install({send:sendModel,forward:forwardRealMessage,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
