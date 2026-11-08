@@ -18,6 +18,7 @@ import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=2
 import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
 import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
 import { browseUltraPage } from "../../src/chat-ultra-browse.js?v=20261108-v47";
+import { searchStorySongs } from "../../src/story-music-catalog.js";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -320,7 +321,7 @@ async function sendModel(c,m){
     if(m?.kind==="poll")body=makePremiumPoll({question:m.text,options:m.options});
     if(m?.kind==="location")body=makePremiumLocation(m.text,m.coordinates||null);
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
-    if(m?.kind==="music")body=makePremiumMusic({title:m.title,artist:m.artist,url:m.text,provider:m.provider||""});
+    if(m?.kind==="music")body=makePremiumMusic(m.song||{title:m.title,artist:m.artist,url:m.text,provider:m.provider||""});
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
     if(["audio","img","video","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return false;}
@@ -905,6 +906,10 @@ function bindEvents(){
     block:changeBlock,
     roomAction:performRealRoomAction,
     forward:forwardRealMessage,
+    searchMusic:async(query,signal)=>{
+      const result=await searchStorySongs(query,{signal});
+      return Array.isArray(result?.items)?result.items.slice(0,25):[];
+    },
     draft:(id,value)=>draftSync?.queue(id,value,!value),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
