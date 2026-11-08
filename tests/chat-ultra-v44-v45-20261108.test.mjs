@@ -124,3 +124,11 @@ test("both mobile HTML routes parse and intercept simulated lifecycle actions",(
   assert.match(adapter,/data-ultra-export-go/);
   assert.match(adapter,/createUltraDraftSync/);
 });
+
+test("Ultra displays TTL in model milliseconds, but writes seconds to Neon",()=>{
+  const adapter=read("assets/js/chat-ultra-live.js");
+  const visual=read("chat.html");
+  assert.match(visual,/30 segundos \(modo teste\)",3e4/);
+  assert.match(adapter,/ttl:\(states\?\.get\(c\.id\)\?\.ttl\|\|0\)\*1000/);
+  assert.match(adapter,/roomService\.expiry\(id,Math\.floor\(Number\(value\)\/1000\)\)/);
+});
