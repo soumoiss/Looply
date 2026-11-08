@@ -510,7 +510,7 @@ function renderMsgs(jump){const c=conv(cur);if(!c)return;const near=msgsEl.scrol
  if(!arr.length)h=`<div class="empty" style="margin:auto">${ic("chat")}<p>Diga oi para ${esc(title(c))} 👋</p></div>`;
  arr.forEach((m,i)=>{const t=m.sched||m.t;if(!d||!sameDay(d,t)){d=t;h+=`<div class="day">${dayLbl(t)}</div>`}if(m.id===uMark)h+=`<div class="day" id="uDiv" style="color:var(--primary);border-color:var(--primary)">Mensagens não lidas</div>`;h+=bubble(c,m,i,arr)});
  if(typing[c.id])h+=`<div class="m th f l"><span class="sp">${av(typing[c.id],30)}</span><div class="col"><div class="b tyb"><i></i><i></i><i></i></div></div></div>`;
- msgsEl.innerHTML=h;arr.forEach(m=>seenM.add(m.id));if(jump||near)msgsEl.scrollTo({top:msgsEl.scrollHeight,behavior:jump?"auto":"smooth"});searchMark()}
+ msgsEl.innerHTML=(window.LooplyVisual?.hasOlder?.(cur)?`<button class="ultra-load-older" type="button" data-ultra-history-more>Carregar mensagens anteriores</button>`:"")+h;arr.forEach(m=>seenM.add(m.id));if(jump||near)msgsEl.scrollTo({top:msgsEl.scrollHeight,behavior:jump?"auto":"smooth"});searchMark()}
 msgsEl.addEventListener("scroll",()=>{const far=msgsEl.scrollHeight-msgsEl.scrollTop-msgsEl.clientHeight>260;$("#toB").classList.toggle("on",far);if(!far)$("#toB").querySelector(".dotb")?.remove()});
 $("#toB").onclick=()=>msgsEl.scrollTo({top:msgsEl.scrollHeight,behavior:"smooth"});
 new ResizeObserver(()=>$("#conv").style.setProperty("--cb",$("#comp").offsetHeight+"px")).observe($("#comp"));
@@ -3854,6 +3854,7 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
+    hasOlder:id=>Boolean(hooks?.hasOlder?.(id)),
     persistPreferences(rows){
       for(const c of rows||[]){
         if(!c?.id)continue;
