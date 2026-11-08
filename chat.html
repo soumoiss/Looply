@@ -347,7 +347,8 @@ body.cv #banner.on{transform:translate(-50%,0)}
 <link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=real-games-calls-20261107">
 <link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
 <link rel="stylesheet" href="assets/css/pages/chat-gartic.css?v=real-games-calls-20261107">
-<script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
+<script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script><link rel="stylesheet" href="assets/css/pages/chat-ultra-remote-browser.css?v=20261108-remote-v1">
+</head>
 <body class="looply-chat-ultra-live">
 <header class="gh glass" id="gh">
   <a class="brand" href="#" aria-label="Looply, início"><span class="mark"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="50" r="35" stroke="currentColor" stroke-opacity=".18" stroke-width="7"/></svg></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
@@ -537,7 +538,7 @@ function msgMenu(id){const c=conv(cur),m=c.msgs.find(x=>x.id===id);if(!m)return;
    sheet(`<h2>Apagar mensagem</h2><button class="act dg" data-d="all">${ic("trash")}Apagar para todos</button><button class="act" data-d="me">${ic("x")}Apagar só para mim</button>`);
    $("#shBox").onclick=ev=>{const d=ev.target.closest("[data-d]");if(!d)return;if(d.dataset.d==="all"){m.del=true;m.text="";m.kind="text";m.react={}}else c.msgs=c.msgs.filter(x=>x!==m);save();sh.close();renderMsgs();refresh()}}}}
 function fwdPick(m){sheet(`<h2>Encaminhar para…</h2>${C.map(c=>`<button class="pk" data-t="${c.id}">${cav(c,44)}<span>${esc(title(c))}</span></button>`).join("")}`);
- $("#shBox").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;const t=conv(b.dataset.t);if(hooks?.forward){sh.close();void Promise.resolve(hooks.forward(m,t.id));return;}t.msgs.push({...m,id:uid(),from:ME,t:Date.now(),st:"sent",fwd:true,react:{},reply:null});save();sh.close();toast("Encaminhada para "+title(t));if(t.id===cur)renderMsgs();refresh();settle(t)}}
+ $("#shBox").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;const t=conv(b.dataset.t);if(hooks?.forward){sh.close();void Promise.resolve(hooks.forward(m,t.id));return;}toast("Encaminhamento indisponível: entre novamente no chat.");}}
 
 /* áudio */
 let cA=null;function playAudio(el){const id=el.dataset.au,m=conv(cur).msgs.find(x=>x.id===id),bars=[...el.querySelectorAll("i")],b=el.querySelector("button");
@@ -3001,19 +3002,22 @@ refresh();
   }
   function showMusicEditorProxy() {
     sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link HTTPS (opcional)" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
-    $u("#shBox").onclick = event => {
+    $u("#shBox").onclick = async event => {
       if (!event.target.closest("[data-ultra-music]")) return;
       const title = $u("#musicUltraTitle").value.trim();
       const artist = $u("#musicUltraArtist").value.trim();
       const text = $u("#musicUltraUrl").value.trim();
-      if (!title) return toast("Informe a música");
-      if (text && !/^https:\/\//i.test(text)) return toast("Insira um link HTTPS");
-      sh.close();
-      push(validConversation(), {kind:"music",title,artist,text});
+      if (!title || !artist) return toast("Informe a música e o artista.");
+      if (!/^https:\/\//i.test(text)) return toast("Cole um link oficial HTTPS.");
+      const current=validConversation();
+      if(!current)return;
+      const ok=await hooks?.send?.(current,{kind:"music",title,artist,text});
+      if(ok===true)sh.close();
     };
   }
   function showShareProxy() {
     const c = validConversation();
+    if(hooks?.shareCurrent)return hooks.shareCurrent(c.id);
     const label = `Conversa Looply · ${title(c)}`;
     if (navigator.share) navigator.share({title:label,text:label}).catch(()=>{});
     else if (navigator.clipboard) navigator.clipboard.writeText(label).then(()=>toast("Copiado")).catch(()=>toast("Não foi possível copiar"));
@@ -3028,14 +3032,14 @@ refresh();
         const value = $u("#manualPlace").value.trim();
         if (!value) return toast("Informe um local");
         sh.close();
-        push(validConversation(),{text:`📍 ${value}\nhttps://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`});
+        push(validConversation(),{kind:"location",text:value});
       }
       if (event.target.closest("[data-place-auto]")) {
         if (!navigator.geolocation) return toast("Localização indisponível");
         navigator.geolocation.getCurrentPosition(position=>{
           const {latitude,longitude}=position.coords;
           sh.close();
-          push(validConversation(),{text:`📍 Localização compartilhada\nhttps://www.google.com/maps?q=${latitude.toFixed(6)},${longitude.toFixed(6)}`});
+          push(validConversation(),{kind:"location",text:`${latitude.toFixed(6)},${longitude.toFixed(6)}`});
         },()=>toast("Permissão de localização não concedida"),{enableHighAccuracy:false,timeout:9000});
       }
     };
@@ -3047,7 +3051,7 @@ refresh();
       const id = event.target.closest("[data-contact]")?.dataset.contact;
       if (!id || !USERS[id]) return;
       sh.close();
-      push(validConversation(),{text:`👤 Contato Looply: ${U(id).n}`});
+      push(validConversation(),{kind:"contact",userId:id,name:U(id).n,username:U(id).username||""});
     };
   }
 
@@ -4020,7 +4024,7 @@ refresh();
           mute:original?.mute??pref.mute??0,
           fav:original?.fav??pref.fav??0,
           arch:original?.arch??pref.arch??0,
-          nick:existing?.nick??pref.nick??"",
+          nick:c.nick??existing?.nick??pref.nick??"",
           wallpaper:original?.wallpaper??pref.wallpaper??"",
           wallpaperPath:original?.wallpaperPath??pref.wallpaperPath??"",
           wallpaperTint:original?.wallpaperTint??pref.wallpaperTint??.18,
