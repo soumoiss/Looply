@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {Script} from "node:vm";
 import {setupUltraTyping} from "../src/chat-ultra-typing.js";
+import {createUltraSendIds} from "../src/chat-ultra-send-ids.js";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const sleep=()=>new Promise(resolve=>setImmediate(resolve));
@@ -72,4 +73,34 @@ test("real thread honors the per-account hidden-message tombstone",()=>{
   assert.match(js,/setupUltraTyping/);
   assert.match(js,/uploadAudio:\(conversationId,file\)=>uploadFiles/);
   assert.doesNotMatch(js,/push\(conversation.*kind:"audio"/);
+});
+
+test("message UUID stays the same across retry and rotates only after confirmation",()=>{
+  let n=0;
+  const ids=createUltraSendIds({createId:()=>{
+    n++;
+    return "aaaaaaaa-aaaa-4aaa-8aaa-"+String(n).padStart(12,"0");
+  }});
+  const c="33333333-3333-4333-8333-333333333333";
+  const first=ids.get(c,"Olá","");const retry=ids.get(c,"Olá","");
+  assert.equal(first,retry);
+  assert.equal(ids.count(),1);
+  const other=ids.get(c,"Uma nova mensagem","");
+  assert.notEqual(first,other);
+  ids.confirm(c,"Olá","");
+  assert.equal(ids.count(),1);
+  assert.notEqual(ids.get(c,"Olá",""),first);
+});
+
+test("saved and pinned messages are JWT-scoped, and only three can be pinned",()=>{
+  const sql=read("migration/20261108_chat_ultra_message_flags.sql");
+  const adapter=read("assets/js/chat-ultra-live.js");
+  assert.match(sql,/public\.looply_legacy_uid\(\)/);
+  assert.match(sql,/ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql,/ORDER BY older\.pinned_at DESC,older\.message_id DESC OFFSET 3/);
+  assert.match(sql,/flags\.user_id=actor\.id/);
+  assert.match(adapter,/v42_set_chat_message_flag/);
+  assert.match(adapter,/v42_chat_message_flags/);
+  assert.match(adapter,/pendingSendIds\.get\(conversationId,body,replyTo\)/);
+  assert.match(adapter,/existing\.body!==body/);
 });
