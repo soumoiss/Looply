@@ -401,27 +401,60 @@ async function legacyComposer(id){
   throw Error("O editor de anexos não está disponível.");
 }
 async function uploadFiles(files,targetConversation=visual.current()){
-  if(!files.length)return false;
+  if(!files?.length)return false;
+  const id=targetConversation;
   try{
-    const id=targetConversation;
     if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
-    if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
+    if(visual.conversations().find(c=>c.id===id)?.canChat===false)
+      throw Error("Envio bloqueado nesta conversa.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
     if(!input)throw Error("O envio de anexos não está disponível.");
     const body=form.querySelector('textarea[name="body"]');
     if(body)body.value="";
-    const transfer=new DataTransfer();
-    files.forEach(file=>transfer.items.add(file));
-    input.files=transfer.files;
-    form.requestSubmit();
+    if(typeof DataTransfer==="function"){
+      const transfer=new DataTransfer();
+      for(const file of files)transfer.items.add(file);
+      input.files=transfer.files;
+    }else if(files.length===1 && String(files[0].type).startsWith("audio/")){
+      // Older Android WebView: appendRecordedAudio(form,FormData) fallback.
+      form._looplyRecordedFile=files[0];
+    }else throw Error("Seu WebView não permite anexar este formato por este botão.");
+    const requestId=crypto.randomUUID();
+    form.dataset.ultraUploadRequestId=requestId;
     say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
-    return true;
-  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+    const confirmed=await new Promise(resolve=>{
+      let finished=false;
+      const finish=success=>{
+        if(finished)return;finished=true;
+        clearTimeout(timeout);
+        runtime.removeEventListener("looply:chat-message-saved",onSuccess);
+        runtime.removeEventListener("looply:chat-upload-result",onFailure);
+        if(form.dataset.ultraUploadRequestId===requestId)delete form.dataset.ultraUploadRequestId;
+        resolve(success);
+      };
+      const onSuccess=event=>{
+        if(event.detail?.ultraUploadRequestId===requestId&&event.detail?.conversationId===id)
+          finish(true);
+      };
+      const onFailure=event=>{
+        if(event.detail?.ultraUploadRequestId===requestId)finish(false);
+      };
+      const timeout=setTimeout(()=>finish(false),180000);
+      runtime.addEventListener("looply:chat-message-saved",onSuccess);
+      runtime.addEventListener("looply:chat-upload-result",onFailure);
+      try{form.requestSubmit();}
+      catch(error){console.warn("Chat Ultra native submit unavailable",error);finish(false);}
+    });
+    if(confirmed){await refreshThread(id);planRefresh(300);say("Anexo enviado.");return true;}
+    say("Não foi possível confirmar o envio. Verifique a conversa antes de tentar novamente.");
+    return false;
+  }catch(error){
+    console.error("Chat Ultra: anexo indisponível",error);
+    say(error?.message||errorMessage);
+    return false;
+  }
 }
-
-const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍","🔥"];
 async function setReaction(conversationId,messageId,emoji){
   if(!roomIds.has(conversationId)||!POLL_VOTES.includes(emoji))return;
   try{
