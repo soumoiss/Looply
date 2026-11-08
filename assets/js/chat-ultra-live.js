@@ -29,6 +29,7 @@ const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
 let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null,browserService=null;
+let attachmentBusy=false;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -381,11 +382,13 @@ async function legacyComposer(id){
   throw Error("O editor de anexos não está disponível.");
 }
 async function uploadFiles(files,targetConversation=visual.current()){
-  if(!files.length)return false;
+  if(!files.length||attachmentBusy)return false;
+  attachmentBusy=true;
   try{
     const id=targetConversation;
-    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
-    if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
+    if(id!==visual.current())throw Error("A conversa mudou antes do envio.");
+    if(visual.conversations().find(c=>c.id===id)?.canChat===false)
+      throw Error("Envio bloqueado nesta conversa.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
     if(!input)throw Error("O envio de anexos não está disponível.");
@@ -394,11 +397,43 @@ async function uploadFiles(files,targetConversation=visual.current()){
     const transfer=new DataTransfer();
     files.forEach(file=>transfer.items.add(file));
     input.files=transfer.files;
-    form.requestSubmit();
     say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
+    const accepted=await new Promise(resolve=>{
+      let settled=false,timeout=0;
+      const cleanup=()=>{
+        clearTimeout(timeout);
+        runtime.removeEventListener("looply:chat-attachment-saved",success);
+        runtime.removeEventListener("looply:chat-attachment-failed",failure);
+        window.removeEventListener("pagehide",unload);
+      };
+      const finish=value=>{
+        if(settled)return;
+        settled=true;
+        cleanup();
+        resolve(value);
+      };
+      const success=event=>{
+        if(event.detail?.conversationId===id)finish(true);
+      };
+      const failure=event=>{
+        if(event.detail?.conversationId===id)finish(false);
+      };
+      const unload=()=>finish(false);
+      runtime.addEventListener("looply:chat-attachment-saved",success);
+      runtime.addEventListener("looply:chat-attachment-failed",failure);
+      window.addEventListener("pagehide",unload,{once:true});
+      timeout=setTimeout(()=>finish(false),240000);
+      try{form.requestSubmit();}catch(error){console.warn("Native chat submit failed",error);finish(false);}
+    });
+    if(!accepted)throw Error("Upload não confirmado. Verifique o anexo antes de tentar novamente.");
+    await refreshThread(id);
+    planRefresh(350);
     return true;
-  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+  }catch(error){
+    console.error("Chat Ultra: anexo não confirmado",error);
+    say(error?.message||errorMessage);
+    return false;
+  }finally{attachmentBusy=false;}
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍","🔥"];
