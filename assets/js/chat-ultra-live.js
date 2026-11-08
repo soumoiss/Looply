@@ -46,6 +46,14 @@ async function signedMedia(bucket,path,requestedSeconds=1800){
   }
   return "";
 }
+async function loadPrivateNicknames(){
+  const {data,error}=await client.from("conversation_nicknames")
+    .select("conversation_id,nickname").eq("user_id",selfId).limit(500);
+  if(error)throw error;
+  return Object.fromEntries((data||[])
+    .filter(row=>roomIds.has(row.conversation_id)&&typeof row.nickname==="string")
+    .map(row=>[row.conversation_id,row.nickname.slice(0,120)]));
+}
 async function onlineIds(profiles){
   const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
   if(!ids.length)return [];
@@ -105,7 +113,10 @@ async function refreshRooms(){
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
+    let remoteNicknames=null;
+    try{remoteNicknames=await loadPrivateNicknames();}
+    catch(error){console.warn("Chat Ultra private nicknames unavailable",error?.code||"offline");}
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences,remoteNicknames:remoteNicknames});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -781,7 +792,10 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  let firstNicknames=null;
+  try{firstNicknames=await loadPrivateNicknames();}
+  catch(error){console.warn("Chat Ultra private nicknames unavailable",error?.code||"offline");}
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences,remoteNicknames:firstNicknames});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
