@@ -4020,7 +4020,7 @@ refresh();
           mute:original?.mute??pref.mute??0,
           fav:original?.fav??pref.fav??0,
           arch:original?.arch??pref.arch??0,
-          nick:existing?.nick??pref.nick??"",
+          nick:c.nick??original?.nick??pref.nick??"",
           wallpaper:original?.wallpaper??pref.wallpaper??"",
           wallpaperPath:original?.wallpaperPath??pref.wallpaperPath??"",
           wallpaperTint:original?.wallpaperTint??pref.wallpaperTint??.18,
