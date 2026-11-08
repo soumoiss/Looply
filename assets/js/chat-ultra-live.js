@@ -579,16 +579,15 @@ async function saveRealConversationName(button){
   button.disabled=true;
   try{
     const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
+      await client.rpc("v46_chat_rename_group",{p_conversation_id:id,p_subject:name}):
       await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
+    if(result.error||(group.type==="group"?result.data!==true:!result.data))throw result.error||Error("not_confirmed");
     if(group.type==="dm")group.nick=name;
     document.querySelector("#sh")?.close();
     await refreshRooms();
-    say("Nome salvo na sua conta.");
+    say(group.type==="group"?"Nome do grupo atualizado.":"Apelido salvo na sua conta.");
   }catch(error){console.warn("Conversation rename denied",error?.code||"permission");say("Não foi possível salvar o nome no servidor.");}
   finally{button.disabled=false;}
 }
