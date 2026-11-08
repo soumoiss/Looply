@@ -468,8 +468,9 @@ function refresh(){head();chips();online();inbox();dock()}
 
 /* ── sheets ── */
 const sh=$("#sh");sh.addEventListener("click",e=>{if(e.target===sh)sh.close()});
-function sheet(html){$("#shBox").innerHTML='<div class="grab"></div>'+html;if(!sh.open)sh.showModal()}
+function sheet(html){delete $("#shBox").dataset.looplyContextMenu;delete $("#shBox").dataset.looplyTtlRoom;delete $("#shBox").dataset.looplyRoomChoice;$("#shBox").innerHTML='<div class="grab"></div>'+html;if(!sh.open)sh.showModal()}
 function rowMenu(c){sheet(`<h2>${esc(title(c))}</h2><button class="act" data-a="pin">${ic("pin")}${c.pin?"Desafixar":"Fixar no topo"}</button><button class="act" data-a="mute">${ic("mute")}${c.mute?"Reativar notificações":"Silenciar"}</button><button class="act" data-a="read">${ic("c2")}${c.unread?"Marcar como lida":"Marcar como não lida"}</button><button class="act dg" data-a="clear">${ic("trash")}Limpar conversa</button>`);
+ $("#shBox").dataset.looplyContextMenu=c.id;
  $("#shBox").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;if(a==="pin")c.pin=c.pin?0:1;if(a==="mute")c.mute=c.mute?0:1;if(a==="read")c.unread=c.unread?0:1;if(a==="clear"){c.msgs=[];if(cur===c.id)renderMsgs()}save();sh.close();refresh();toast("Pronto")}}
 function newChat(){const sel=new Set();const o=Object.keys(USERS).filter(k=>k!==ME);
  const draw=()=>{const sc=$("#shBox").scrollTop;$("#shBox").innerHTML=`<div class="grab"></div><h2>Nova conversa</h2><input class="fi" id="nq" placeholder="Buscar pessoas" value="${esc(newChat.q||"")}">${o.filter(k=>U(k).n.toLowerCase().includes((newChat.q||"").toLowerCase())).map(k=>`<button class="pk ${sel.has(k)?"on":""}" data-k="${k}">${av(k,48,1)}<span>${esc(U(k).n)}<small>${U(k).on?"online":"offline"}</small></span><span class="ck">${sel.has(k)?ic("c1"):""}</span></button>`).join("")}
@@ -618,7 +619,7 @@ function cfgDraw(){const c=conv(cur);if(!c)return;const sc=$("#cfg").scrollTop,g
  <div class="crow static"><span class="ci">${ic("palette")}</span><span class="ct"><b>Cor das mensagens</b></span></div>
  <div class="sws">${COLORS.map(x=>`<button class="swc ${x===col?"on":""}" style="background:${x};color:${x}" data-col="${x}" aria-label="Cor ${x}"></button>`).join("")}</div>
  ${g?`<h6>Participantes</h6>${c.members.map(k=>`<div class="crow static">${av(k,42,1)}<span class="ct"><b>${esc(U(k).n)}${k===ME?" (você)":""}</b><small>${U(k).on?"online":"offline"}</small></span></div>`).join("")}`:""}
- <h6>Preferências</h6>${row("mute","mute","Silenciar notificações","Sem avisos desta conversa",tgl(c.mute))}${row("pin","pin","Fixar no topo","Mantém no início da lista",tgl(c.pin))}${row("arch","archive","Arquivar","Move para Arquivadas",tgl(c.arch))}${row("ttl","clock","Mensagens temporárias",ttlLbl(c.ttl||0))}
+ <h6>Preferências</h6>${row("mute","mute","Silenciar notificações","Sem avisos desta conversa",tgl(c.mute))}${row("pin","pin","Fixar no topo","Mantém no início da lista",tgl(c.pin))}${row("arch","archive","Arquivar","Move para Arquivadas",tgl(c.arch))}${row("ttl","clock","Mensagens temporárias",ttlLbl(c.ttl||0))}${g&&c.createdBy===ME?row("transfer","users","Transferir administração","Escolher novo responsável"):""}
  <h6>Privacidade</h6>${row("unread","dot","Marcar como não lida")}${g?"":row("block","block",c.blocked?"Desbloquear contato":"Bloquear contato","","","dg")}${row("report","flag","Denunciar","","","dg")}${row("clear","trash","Limpar conversa","","","dg")}${row("del","trash",g?"Sair e excluir grupo":"Excluir conversa","","","dg")}</div>`;
  $("#cfg").scrollTop=sc}
 function confirmSheet(t,txt,ok,fn){sheet(`<h2>${esc(t)}</h2><p style="margin:0 4px 16px;color:var(--muted);line-height:1.45">${esc(txt)}</p><button class="btn dgb" id="cok">${esc(ok)}</button><button class="btn" id="cno" style="margin-top:8px">Cancelar</button>`);
@@ -3949,6 +3950,7 @@ refresh();
     conversations:()=>C,
     draftPreview:id=>drafts[id]||"",
     open:id=>open(id),
+    closeCurrent:()=>closeConv(),
     hasOlder:id=>Boolean(hooks?.hasOlder?.(id)),
     persistPreferences(rows){
       for(const c of rows||[]){
