@@ -1,6 +1,6 @@
 /* Looply's public app shell is cacheable; signed Neon URLs and private API
    responses are not. Serve the shell immediately and refresh in background. */
-const CACHE = "looply-shell-v26-admin-20261108";
+const CACHE = "looply-shell-v48-admin-20261108";
 const STATIC = /\.(?:html|css|js|svg|png|jpg|jpeg|webp|woff2?)$/i;
 const SHELL = [
   "home.html","chat.html","conversa.html","cartas.html",
@@ -12,7 +12,7 @@ const cacheable = (request) => {
   if (request.method !== "GET" || request.cache === "no-store") return false;
   const url = new URL(request.url);
   // Nunca guardar interface ou módulo administrativo em cache offline.
-  if (/\/(?:admin\.html|admin-model-live\.js)$/.test(url.pathname)) return false;
+  if (/\/(?:admin\.html|admin-model-live\.js|admin-model-extensions\.js|archive-import\.js|neon-production-login\.js)$/.test(url.pathname)) return false;
   return url.origin === self.location.origin &&
     url.pathname.startsWith(scopePath) &&
     STATIC.test(url.pathname) &&

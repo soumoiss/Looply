@@ -134,6 +134,11 @@ SELECT events.source,events.event_id,events.kind,events.resource_id,
          THEN public.v27_fcm_safe_chat_preview(events.event_id,events.token_id)
          WHEN events.source='feed-comment'
          THEN public.v35_fcm_safe_comment_preview(events.event_id,events.token_id)
+         WHEN events.source='activity' AND events.kind='admin_broadcast'
+         THEN (SELECT left(n.preview,120) FROM public.notifications n
+               JOIN public.android_fcm_tokens token
+                 ON token.user_id=n.recipient_id AND token.id=events.token_id
+               WHERE n.id=events.event_id AND n.kind='admin_broadcast')
          ELSE NULL END AS message_preview
 FROM public.v22_android_fcm_named_candidates() events
 WHERE created_at > now()-interval '2 hours'
@@ -175,6 +180,7 @@ function kindFor(row){
   if(row.source==="post-mention")return "post";
   if(["gallery","gallery-comment","gallery-like","gallery-mention","gallery-tag","archive-gallery-comment","archive-gallery-mention"].includes(row.source))
     return "gallery";
+  if(kind==="admin_broadcast")return "activity";
   if(kind==="story_mention")return "mention";
   if(kind==="story_like" || kind==="story_view")return "story";
   if(kind==="gallery_like" || kind==="gallery_mention" || kind==="gallery_comment")return "gallery";
@@ -253,18 +259,22 @@ export async function deliverNotifications(env,{
       "post":"Publicou no feed","reel":"Publicou um Reel",
       "like":"Curtiu sua publicação","gallery":"Publicou na galeria"
     };
-    const action=kind==="call"?"Está ligando por "+(callMode==="video"?"vídeo":"voz"):
+    const action=String(item.kind)==="admin_broadcast"?"Comunicado do Looply":
+      kind==="call"?"Está ligando por "+(callMode==="video"?"vídeo":"voz"):
       item.source==="chat"?(kind==="voice"?"Enviou uma mensagem de voz":"Enviou uma mensagem"):
       item.source==="activity"?(genericByKind[String(item.kind)]||"Interagiu com você"):
       actionBySource[String(item.source)]||genericByKind[String(item.kind)]||"Interagiu com você";
-    data.title=kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
+    data.title=String(item.kind)==="admin_broadcast"?"Looply":
+      kind==="call"?"Chamada de "+(callMode==="video"?"vídeo":"voz"):actor;
     if(kind==="call"){data.callerName=actor;data.callMode=callMode;}
     // V27 chat and V35 comment previews are both token scoped and server verified.
     // Do not trust client-supplied preview bodies.
     const preview=((kind==="message"&&item.source==="chat")||
       (kind==="comment"&&item.source==="feed-comment"))
       ? String(item.message_preview||"").replace(/\s+/g," ").trim().slice(0,120):"";
-    data.body=kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):
+    data.body=String(item.kind)==="admin_broadcast"?
+      String(item.message_preview||"Comunicado do Looply").replace(/\s+/g," ").trim().slice(0,120):
+      kind==="call"?actor+" está ligando por "+(callMode==="video"?"vídeo":"voz"):
       preview|| (item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action);
     // All other notification kinds retain generic actions without private text.
     const message={token:item.fcm_token,data,

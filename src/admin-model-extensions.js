@@ -1,10 +1,12 @@
 /** Módulos operacionais adicionais — somente respostas da API Neon verificadas. */
-import {activeSession, NEON_DATA_API_URL} from './neon-production-client.js';
+import {activeSession, NEON_DATA_API_URL, neon, looplyClient} from './neon-production-client.js';
+import {archiveImportMarkup,bindArchiveImport} from './archive-import.js';
 
 export const adminExtendedKinds = new Set([
  'vip-members','active-sessions','user-invites','feature-flags','game-sessions',
  'call-records','group-management','sticker-manager','role-permissions',
- 'server-backup','server-heatmap','server-reports'
+ 'server-backup','server-heatmap','server-reports',
+ 'password-reset','archive-import','push-broadcast','login-audits','ip-blocks','limit-report'
 ]);
 
 export async function adminExtra(action,payload={}){
@@ -19,6 +21,20 @@ export async function adminExtra(action,payload={}){
  if(!response.ok||data===null)throw Error(data?.message||'Ação administrativa indisponível: '+action);
  return data;
 }
+
+async function adminFinal(action,payload={},endpoint='v48_admin_final_actions'){
+ const session=await activeSession();
+ if(!session?.access_token)throw Error('Sessão expirada');
+ const response=await fetch(NEON_DATA_API_URL+'/rpc/'+endpoint,{
+  method:'POST',cache:'no-store',
+  headers:{authorization:'Bearer '+session.access_token,accept:'application/json','content-type':'application/json'},
+  body:JSON.stringify({p_action:action,p_payload:payload})
+ });
+ const data=await response.json().catch(()=>null);
+ if(!response.ok||data===null)throw Error(data?.message||'Operação indisponível: '+action);
+ return data;
+}
+
 async function adminExport(resource,format,offset){
  const session=await activeSession();
  if(!session?.access_token)throw Error('Sessão expirada');
@@ -67,7 +83,67 @@ export async function renderAdminExtended(kind,root,ui,offset=0){
   return result;
  };
  try{
- if(kind==='vip-members'){
+
+ if(kind==='password-reset'){
+  const api=neon.auth?.admin;
+  if(typeof api?.listUsers!=='function'||typeof api?.setUserPassword!=='function')throw Error('Admin Neon Auth indisponível');
+  const response=await api.listUsers({query:{limit:200}});
+  if(response.error)throw Error(response.error.message||'Não foi possível listar as contas');
+  const users=response.data?.users;
+  if(!Array.isArray(users))throw Error('Resposta de contas inválida');
+  list(users,x=>(x.name||x.email||'Conta'),x=>(x.email||'')+' · '+(x.role||'user'),x=>openView('Redefinir senha',body=>{
+   body.append(elem('div','cnt',x.name||x.email||x.id));
+   form(body,[{key:'password',label:'Nova senha',type:'password',required:true},
+    {key:'confirm',label:'Confirmar senha',type:'password',required:true}],
+    'Redefinir',async fields=>{
+     if(fields.password!==fields.confirm)throw Error('As senhas não coincidem');
+     if(fields.password.length<8)throw Error('A senha precisa ter pelo menos 8 caracteres');
+     const saved=await api.setUserPassword({userId:x.id,newPassword:fields.password});
+     if(saved.error)throw Error(saved.error.message||'Neon Auth rejeitou a senha');
+     return {updated:true};
+    });
+  }));
+ }else if(kind==='archive-import'){
+  root.innerHTML=archiveImportMarkup();
+  bindArchiveImport(root,looplyClient);
+ }else if(kind==='push-broadcast'){
+  const users=await adminExtra('vip_list');
+  const choices=[['','Todos os usuários'],...users.map(u=>[u.id,'@'+u.username])];
+  root.replaceChildren();
+  form(root,[{key:'targetUserId',label:'Destinatários',type:'select',options:choices},
+   {key:'title',label:'Título',required:true},
+   {key:'body',label:'Mensagem',type:'textarea',required:true}],
+   'Enviar notificação',async values=>{
+    const saved=await adminFinal('push_create',{title:values.title,body:values.body,targetUserId:values.targetUserId||null});
+    toast('Notificação registrada para '+saved.recipients+' usuário(s)');
+    return saved;
+   });
+  const history=await adminFinal('push_list',{offset});
+  const wrap=elem('div','rows');root.append(wrap);
+  if(!history.length)empty(wrap);
+  for(const row of history){const line=elem('div','r');line.append(elem('strong','',row.title),
+   elem('small','',row.recipient_count+' destinatários · '+new Date(row.created_at).toLocaleString('pt-BR')));wrap.append(line);}
+ }else if(kind==='login-audits'){
+  const attempts=await adminFinal('login_attempts_list',{offset});
+  list(attempts,x=>'@'+(x.username||'conta sem perfil'),
+   x=>(x.origin==='neon_auth'?'Sessão confirmada':'Falha informada pelo navegador')+' · '+new Date(x.created_at).toLocaleString('pt-BR'),
+   x=>openView('Registro de acesso',body=>recordInline(body,x)));
+ }else if(kind==='ip-blocks'){
+  const blocks=await adminFinal('ip_list');
+  list(blocks,x=>x.network,x=>x.reason||'Bloqueio de acesso',x=>openView('IP ou rede',body=>{
+   recordInline(body,x);
+   body.append(btn('Desbloquear',()=>confirmAction('Remover bloqueio de '+x.network+'?',
+     ()=>adminFinal('ip_remove',{network:x.network})),'dg'));
+  }));
+  root.prepend(btn('Bloquear IP ou rede',()=>openView('Bloquear IP',body=>
+   form(body,[{key:'network',label:'IP ou CIDR',required:true},
+    {key:'reason',label:'Motivo'}],'Bloquear',
+    values=>adminFinal('ip_add',values))),'main'));
+ }else if(kind==='limit-report'){
+  const limits=await adminFinal('limits_list');
+  list(limits,x=>x.table+' · '+x.constraint,x=>String(x.rule||'').slice(0,140),
+    x=>openView('Regra do servidor',body=>recordInline(body,x)));
+ }else if(kind==='vip-members'){
   const data=await adminExtra('vip_list',{offset});
   list(data,x=>'@'+x.username,x=>x.enabled?'VIP':'Padrão',x=>openView('@'+x.username,body=>{
    recordInline(body,x);
@@ -106,10 +182,14 @@ export async function renderAdminExtended(kind,root,ui,offset=0){
     body.append(btn(x.enabled?'Desativar':'Ativar',()=>confirmAction('Alterar '+x.feature+' para todos os usuários?',()=>runMutation('features_set',{feature:x.feature,enabled:!x.enabled})),x.enabled?'dg':'main'));
    }));
  }else if(kind==='group-management'){
-  const groups=await adminExtra('groups_list',{offset});
-  list(groups,x=>x.subject||'Grupo sem nome',x=>x.members+' participantes',x=>openView('Grupo',body=>{
+  const groups=await adminFinal('groups_list',{},'v48_admin_groups_calls');
+  list(groups,x=>x.subject||'Grupo sem nome',x=>x.members+' participantes'+(x.archived_at?' · arquivado':''),x=>openView('Grupo',body=>{
    recordInline(body,x);
    body.append(btn('Renomear grupo',()=>openView('Renomear',b=>form(b,[{key:'subject',label:'Novo nome',value:x.subject,required:true}],'Salvar',v=>runMutation('groups_rename',{id:x.id,subject:v.subject})))));
+   body.append(btn(x.archived_at?'Restaurar grupo':'Arquivar grupo',
+    ()=>confirmAction((x.archived_at?'Restaurar':'Arquivar')+' '+x.subject+'?',
+    ()=>adminFinal(x.archived_at?'group_restore':'group_archive',{id:x.id},'v48_admin_groups_calls')),
+    x.archived_at?'main':'dg'));
   }));
  }else if(kind==='sticker-manager'){
   const items=await adminExtra('stickers_list',{offset});
@@ -125,8 +205,15 @@ export async function renderAdminExtended(kind,root,ui,offset=0){
    if(['waiting','active','invited'].includes(x.status))body.append(btn('Encerrar partida',()=>confirmAction('Encerrar partida ativa?',()=>runMutation('games_finish',{id:x.id,gameType:x.game_type})),'dg'));
   }));
  }else if(kind==='call-records'){
-  const calls=await adminExtra('calls_list',{offset});
-  list(calls,x=>'Sinalização: '+x.kind,x=>new Date(x.created_at).toLocaleString('pt-BR'),x=>openView('Evento de chamada',body=>recordInline(body,x)));
+  const calls=await adminFinal('calls_list',{},'v48_admin_groups_calls');
+  list(calls,x=>'Chamada: '+(x.signal_type||x.kind),
+   x=>new Date(x.created_at).toLocaleString('pt-BR'),x=>openView('Evento de chamada',body=>{
+    recordInline(body,x);
+    if(['offer','answer'].includes(x.signal_type)&&x.call_id){
+     body.append(btn('Encerrar sinalização',()=>confirmAction('Encerrar esta chamada?',
+      ()=>adminFinal('call_terminate',{conversationId:x.conversation_id},'v48_admin_groups_calls')),'dg'));
+    }
+   }));
  }else if(kind==='role-permissions'){
   const users=await adminExtra('roles_list',{offset});
   list(users,x=>'@'+x.username,x=>'Papel Neon: '+(x.role||'user')+(x.banned?' · suspenso':''),x=>openView('Permissões',body=>recordInline(body,x)));
