@@ -979,7 +979,7 @@ async function insertChatMessage(client, conversationId, userId, body, replyTo =
 }
 
 function publishChatMessage(root, client, conversationId, messageId) {
-  root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
+  root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId, messageId } }));
   void requestImmediateMessagePush(client, messageId);
 }
 
@@ -1947,6 +1947,9 @@ export function bindChatEvents(root, client, getUserId) {
       else if (/peixinho_admin_not_ready/i.test(String(error?.message || ""))) message = "A caixa de cartas abrirá assim que Peixinho concluir a nova conta administrativa.";
       else message = "Não foi possível concluir. Confira sua conexão e as permissões e tente novamente.";
       setStatus(form, message, "error");
+      if(form.matches("[data-chat-send]"))root.dispatchEvent(new CustomEvent("looply:chat-message-failed",{
+        detail:{conversationId:form.dataset.conversationId,reason:message}
+      }));
     } finally {
       if (button) button.disabled = false;
     }
