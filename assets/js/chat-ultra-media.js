@@ -1,3 +1,4 @@
+import { safeMusicArtwork } from "../../src/chat-premium-cards.js";
 /* Looply Chat Ultra: authenticated media previews.
  * Only URLs signed by the existing Neon/R2 storage adapter enter this renderer.
  * Replaces model-only audio/video/file placeholders with playable real media. */
@@ -34,7 +35,9 @@ function cardNode(message){
     a.href="perfil.html?usuario="+encodeURIComponent(card.id);
     head.textContent="👤";name.textContent=card.name;sub.textContent="@"+card.username;
   }else if(card.type==="location"){
-    a.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(card.label||"");
+    a.href=Number.isFinite(card.latitude)&&Number.isFinite(card.longitude)?
+      "https://www.google.com/maps?q="+encodeURIComponent(card.latitude+","+card.longitude):
+      "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(card.label||"");
     a.target="_blank";a.rel="noopener noreferrer";
     head.textContent="📍";name.textContent=card.label;sub.textContent="Abrir no mapa";
   }else{
@@ -42,7 +45,13 @@ function cardNode(message){
     try{const target=new URL(card.url||"");if(target.protocol==="https:")link=target.href;}catch{}
     if(!link)return null;
     a.href=link;a.target="_blank";a.rel="noopener noreferrer";
-    head.textContent="🎵";name.textContent=card.title;sub.textContent=card.artist||"Música compartilhada";
+    const artwork=safeMusicArtwork(card.artwork);
+    if(artwork){
+      const photo=document.createElement("img");photo.src=artwork;photo.alt="";photo.loading="lazy";
+      photo.style.cssText="width:48px;height:48px;object-fit:cover;border-radius:12px";
+      head.replaceChildren(photo);
+    }else head.textContent="🎵";
+    name.textContent=card.title;sub.textContent=card.artist||"Música compartilhada";
   }
   const copy=document.createElement("span");copy.className="chat-ultra-real-card-copy";
   copy.append(name,sub);a.append(head,copy);return a;

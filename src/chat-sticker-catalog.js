@@ -65,13 +65,13 @@ const stateFor = picker => {
   }
   return state;
 };
-function renderItems(picker, rows, append) {
+function renderItems(picker, rows, append, client=null) {
   const grid = picker.querySelector("[data-chat-catalog-grid]");
   const state = stateFor(picker);
   if (!append) grid.replaceChildren();
   for (const entry of rows) {
-    const url = stickerSrc(entry);
-    if (!entry || !url) continue;
+    if (!entry) continue;
+    const url=stickerSrc(entry);
     state.rendered.set(entry.id, entry);
     const item = document.createElement("div");
     item.className = "chat-catalog-item";
@@ -79,12 +79,32 @@ function renderItems(picker, rows, append) {
     send.type = "button";
     send.dataset.chatStickerItem = entry.id;
     send.setAttribute("aria-label", "Enviar figurinha: " + entry.title);
-    const picture = document.createElement("img");
-    picture.src = url;
-    picture.alt = entry.title;
-    picture.loading = "lazy";
-    picture.decoding = "async";
-    send.append(picture);
+    const placeholder=()=>{const span=document.createElement("span");
+      span.className="chat-catalog-preview-fallback";span.textContent="🖼️";
+      span.setAttribute("role","img");span.setAttribute("aria-label","Prévia temporariamente indisponível");
+      return span;};
+    if(url){
+      const picture=document.createElement("img");
+      picture.src=url;picture.alt=entry.title;
+      picture.loading = "lazy";picture.decoding = "async";
+      let retried=false;
+      picture.addEventListener("error",async()=>{
+        if(!retried&&safeUpload(entry.storage_path)&&client){
+          retried=true;
+          try{
+            const result=await client.storage.from("looply-stickers").createSignedUrl(entry.storage_path,120);
+            const fresh=result.error?"":result.data?.signedUrl||"";
+            if(fresh&&fresh!==picture.src){picture.src=fresh;return;}
+          }catch{}
+        }
+        send.disabled=true;
+        picture.replaceWith(placeholder());
+        setStatus(picker,"Uma figurinha ficou indisponível. As demais continuam acessíveis.");
+      });
+      send.append(picture);
+    }else{
+      send.disabled=true;send.append(placeholder());
+    }
     const favorite = document.createElement("button");
     favorite.type = "button";
     favorite.className = "chat-catalog-favorite";
@@ -152,7 +172,7 @@ async function loadPage(picker, client, userId, reset = false) {
       ? CC0_STICKERS.filter(item=>(state.tab!=="favorites" || state.favoriteIds.has(item.id))
           && (!state.query || item.title.toLocaleLowerCase("pt-BR").includes(state.query.toLocaleLowerCase("pt-BR"))))
       : [];
-    renderItems(picker,localRows,false);
+    renderItems(picker,localRows,false,client);
   }
   try {
     if(state.pack==="cc0") {
@@ -191,7 +211,7 @@ async function loadPage(picker, client, userId, reset = false) {
     }
     const ready=await prepareImages(client,rows);
     if(sequence!==state.request || !picker.isConnected) return;
-    renderItems(picker,ready,true);
+    renderItems(picker,ready,true,client);
     state.offset=offset+fetchedCount;
     more.hidden=fetchedCount<PAGE_SIZE;
     if(picker.querySelector("[data-chat-catalog-grid]").children.length)

@@ -408,16 +408,7 @@ const host=()=>document.querySelector("dialog[open]")||document.body;
 let tt;const toast=m=>{const t=$("#toast"),h=host();if(t.parentNode!==h)h.append(t);t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),2800)};
 
 /* ── dados ── */
-const KEY="looply-chat-modelo-v1";
-function seed(){const n=Date.now(),M=(f,t,o={})=>({id:uid(),from:f,t:n-t,kind:"text",react:{},st:f===ME?"read":"read",...o});
- return[
- {id:"c1",type:"dm",nick:"Meu Sol ☀️💜",members:[ME,"ana"],pin:1,mute:0,unread:2,msgs:[M("ana",2*DAY,{text:"Oi, Marina! Já viu a carta nova que te mandei?"}),M(ME,2*DAY-5*MIN,{text:"Vi sim 🥹 chorei no ônibus"}),M("ana",DAY+3*HR,{kind:"sticker",text:"🫶"}),M("ana",3*HR,{kind:"audio",dur:14,text:""}),M("ana",2*MIN*30,{text:"Sábado tem sarau lá em casa. Você vem?",react:{}}),M("ana",MIN*4,{text:"Pode trazer a Bia! 💜"})]},
- {id:"c2",type:"group",name:"Turma do Looply",members:[ME,"ana","leo","bia"],pin:1,mute:0,unread:0,msgs:[M("leo",DAY+5*HR,{text:"Bora marcar o encontro da turma?"}),M("bia",DAY+4*HR,{text:"Topo! Sexta à noite?"}),M(ME,DAY+4*HR-MIN,{text:"Sexta fecha pra mim 🎉",react:{ana:"❤️",bia:"🔥"}}),M("ana",5*HR,{text:"Vou levar os discos 🎶"}),M("leo",HR,{text:"Eu levo as cartas antigas, vai ser lindo ✉️"})]},
- {id:"c3",type:"dm",members:[ME,"leo"],pin:0,mute:0,unread:0,msgs:[M("leo",3*DAY,{text:"Feliz aniversário, Marina!! 🎂"}),M(ME,3*DAY-10*MIN,{text:"Obrigadaaa, Leo! 💜"}),M(ME,5*HR,{text:"Você viu o story de ontem?",st:"deliv"})]},
- {id:"c4",type:"dm",members:[ME,"bia"],pin:0,mute:0,unread:1,msgs:[M(ME,DAY+HR,{text:"Te mandei uma carta agendada pra meia-noite 🤫"}),M("bia",20*MIN,{text:"AMEI!!! Chorei litros 😭✨",react:{}})]},
- {id:"c5",type:"dm",members:[ME,"caio"],pin:0,mute:1,unread:0,msgs:[M("caio",4*DAY,{text:"Valeu pela ajuda com o projeto!"}),M(ME,4*DAY-MIN,{text:"Sempre! Qualquer coisa me chama.",st:"deliv"})]},
- {id:"c6",type:"dm",members:[ME,"duda"],pin:0,mute:0,unread:0,msgs:[M("duda",6*DAY,{text:"Ainda tem aquela foto do show?"}),M(ME,6*DAY-HR,{text:"Tenho! Te mando já."})]}]}
-let C;try{C=JSON.parse(localStorage.getItem(KEY)||"null")}catch{C=null}C=[];
+let C=[];
 // Production data lives in Neon. Store only per-account visual preferences here.
 const save=()=>{if(!/^[0-9a-f-]{36}$/i.test(ME))return;
  try {const preferences=Object.fromEntries(C.map(c=>[c.id,{
@@ -574,7 +565,7 @@ let mr,chunks=[],rtm,rsec=0;
 async function startRec(){$("#comp").classList.add("rc");$("#send").classList.add("rec");$("#send").innerHTML=ic("send");rsec=0;$("#rt").textContent="00:00";recording={fake:true};
  rtm=setInterval(()=>{rsec++;$("#rt").textContent=mmss(rsec)},1e3);
  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(st);chunks=[];mr.ondataavailable=e=>chunks.push(e.data);mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());if(recording&&recording.send)push(conv(cur),{kind:"audio",dur:Math.max(1,rsec),url:URL.createObjectURL(new Blob(chunks,{type:mr.mimeType})),text:""});recording=null};mr.start();recording={fake:false}}
- catch{toast("Microfone indisponível: áudio simulado")}}
+ catch{toast("Microfone indisponível")}}
 function stopRec(cancel){clearInterval(rtm);$("#comp").classList.remove("rc");$("#send").classList.remove("rec");btn();const r=recording;if(!r)return;if(r.fake){recording=null;if(!cancel)push(conv(cur),{kind:"audio",dur:Math.max(1,rsec),text:""})}else{recording={send:!cancel};mr.stop()}}
 $("#rx").onclick=()=>stopRec(true);
 
@@ -1112,11 +1103,12 @@ refresh();
   async function shareConversation() {
     if (!cur) return;
     const conversation = conv(cur);
-    const data = { title: `Conversa: ${title(conversation)}`, text: `Looply · ${title(conversation)}` };
+    const link=new URL("conversa.html?id="+encodeURIComponent(conversation.id),location.href).href;
+    const data = { title: `Conversa: ${title(conversation)}`, text: `Looply · ${title(conversation)}`,url:link };
     try {
       if (navigator.share) await navigator.share(data);
       else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(data.text);
+        await navigator.clipboard.writeText(data.url);
         toast("Nome da conversa copiado");
       } else toast("Compartilhamento indisponível neste navegador");
     } catch (error) {
@@ -1824,7 +1816,7 @@ refresh();
     gameModal("Looply Games", `<div class="game-hub">
       <button class="game-card" data-open-game="ttt"><span class="game-art">✕○</span><span><b>Jogo da Velha</b><small>${ttt ? "Partida salva · " + ttt.status : "Duas pessoas · convite obrigatório"}</small></span><span class="arrow">›</span></button>
       <button class="game-card" data-open-game="gartic"><span class="game-art">🎨</span><span><b>Gartic</b><small>${gartic ? "Partida salva · " + gartic.status : "Desenhar, adivinhar e conversar"}</small></span><span class="arrow">›</span></button>
-    </div><p class="mobile-note">Partidas demonstrativas neste arquivo. As partidas reais do repositório usam autenticação, Neon e sinalização.</p>`, event => {
+    </div>`, event => {
       const choice = event.target.closest("[data-open-game]")?.dataset.openGame;
       if (choice === "ttt") openTtt();
       if (choice === "gartic") openGartic();
@@ -2285,7 +2277,7 @@ refresh();
     const game = gameFor(c, "gartic");
     if (!game) return garticInvite();
     if (game.status === "invited") {
-      gameModal("Gartic", `<div class="game-invite"><span class="symbol-large">🎨</span><h3>Convite enviado</h3><p>Para ${esc(U(game.invitation).n)}</p><p class="mobile-note">Aceitar representa a confirmação no modo de demonstração.</p><div class="inline-actions"><button class="btn main" data-gartic-accept>Aceitar convite</button><button class="btn" data-gartic-decline>Recusar</button></div></div>`, event => {
+      gameModal("Gartic", `<div class="game-invite"><span class="symbol-large">🎨</span><h3>Convite enviado</h3><p>Para ${esc(U(game.invitation).n)}</p><div class="inline-actions"><button class="btn main" data-gartic-accept>Aceitar convite</button><button class="btn" data-gartic-decline>Recusar</button></div></div>`, event => {
         if (event.target.closest("[data-gartic-accept]")) {
           game.status = "lobby";
           gameSystem(c, `Convite para Gartic aceito por ${U(game.invitation).n}`);
@@ -3000,23 +2992,81 @@ refresh();
     };
   }
   function showMusicEditorProxy() {
-    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link HTTPS (opcional)" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
-    $u("#shBox").onclick = event => {
-      if (!event.target.closest("[data-ultra-music]")) return;
-      const title = $u("#musicUltraTitle").value.trim();
-      const artist = $u("#musicUltraArtist").value.trim();
-      const text = $u("#musicUltraUrl").value.trim();
-      if (!title) return toast("Informe a música");
-      if (text && !/^https:\/\//i.test(text)) return toast("Insira um link HTTPS");
-      sh.close();
-      push(validConversation(), {kind:"music",title,artist,text});
+    let results=[],selected=null,controller=null,debounce=0;
+    sheet('<h2>Compartilhar música</h2>'+
+      '<input class="feature-input" id="musicUltraFind" type="search" maxlength="70" placeholder="Buscar música ou artista" aria-label="Buscar nos catálogos">'+
+      '<button type="button" class="btn" data-ultra-music-search>Buscar</button>'+
+      '<p role="status" id="musicUltraStatus"></p>'+
+      '<div id="musicUltraResults" style="max-height:35vh;overflow:auto"></div>'+
+      '<input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música">'+
+      '<input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista">'+
+      '<input class="feature-input" id="musicUltraUrl" placeholder="Link Apple Music, Deezer ou Spotify" type="url">'+
+      '<button class="btn main" data-ultra-music>Compartilhar</button>');
+    const panel=$u("#shBox"),listing=$u("#musicUltraResults"),status=$u("#musicUltraStatus");
+    const search=async()=>{
+      const query=$u("#musicUltraFind").value.trim();
+      if(query.length<2){status.textContent="Digite ao menos duas letras.";return;}
+      controller?.abort();const request=new AbortController();controller=request;
+      status.textContent="Buscando…";listing.replaceChildren();results=[];
+      try{
+        const found=await window.LooplyVisual?.searchMusic?.(query,request.signal);
+        if(request.signal.aborted||controller!==request)return;
+        results=Array.isArray(found)?found.slice(0,25):[];
+        status.textContent=results.length?"":"Nenhuma música encontrada.";
+        results.forEach((song,i)=>{
+          const button=document.createElement("button");button.type="button";
+          button.className="feature-row";button.dataset.ultraMusicPick=String(i);
+          const icon=document.createElement("span");icon.textContent="🎵";
+          const copy=document.createElement("span");copy.className="grow";
+          const strong=document.createElement("strong");strong.textContent=song.title||"Música";
+          const small=document.createElement("small");small.textContent=(song.artist||"")+" · "+
+            ({apple:"Apple Music",deezer:"Deezer",spotify:"Spotify"}[song.provider]||"Catálogo");
+          copy.append(strong,small);button.append(icon,copy);listing.append(button);
+        });
+      }catch(error){
+        if(!request.signal.aborted)status.textContent="Busca indisponível neste momento.";
+      }
+    };
+    panel.oninput=event=>{
+      if(event.target.id==="musicUltraFind"){
+        clearTimeout(debounce);debounce=setTimeout(()=>void search(),330);
+      }else if(["musicUltraTitle","musicUltraArtist","musicUltraUrl"].includes(event.target.id))selected=null;
+    };
+    panel.onclick=event=>{
+      if(event.target.closest("[data-ultra-music-search]")){void search();return;}
+      const pick=event.target.closest("[data-ultra-music-pick]");
+      if(pick){
+        const song=results[Number(pick.dataset.ultraMusicPick)];
+        if(!song)return;
+        selected=song;
+        $u("#musicUltraTitle").value=song.title||"";
+        $u("#musicUltraArtist").value=song.artist||"";
+        $u("#musicUltraUrl").value=song.url||"";
+        listing.querySelectorAll("[data-ultra-music-pick]").forEach(b=>b.classList.toggle("on",b===pick));
+        return;
+      }
+      const button=event.target.closest("[data-ultra-music]");
+      if(!button)return;
+      const title=$u("#musicUltraTitle").value.trim(),artist=$u("#musicUltraArtist").value.trim();
+      const text=$u("#musicUltraUrl").value.trim();
+      if(!title||!artist)return toast("Informe música e artista.");
+      if(!/^https:\/\//i.test(text))return toast("Use um link HTTPS Apple Music, Deezer ou Spotify.");
+      const provider=/music\.apple\.com/i.test(text)?"apple":/deezer\.com/i.test(text)?"deezer":/open\.spotify\.com/i.test(text)?"spotify":"";
+      if(!provider)return toast("Link fora dos catálogos aceitos.");
+      button.disabled=true;
+      void Promise.resolve(push(validConversation(),{kind:"music",title,artist,text,provider,song:selected})).then(saved=>{
+        if(saved===true){sh.close();toast("Música compartilhada.");}
+      }).finally(()=>{button.disabled=false;});
     };
   }
   function showShareProxy() {
     const c = validConversation();
-    const label = `Conversa Looply · ${title(c)}`;
-    if (navigator.share) navigator.share({title:label,text:label}).catch(()=>{});
-    else if (navigator.clipboard) navigator.clipboard.writeText(label).then(()=>toast("Copiado")).catch(()=>toast("Não foi possível copiar"));
+    const label=`Conversa Looply · ${title(c)}`;
+    const link=new URL("conversa.html?id="+encodeURIComponent(c.id),location.href).href;
+    if(navigator.share)navigator.share({title:label,text:label,url:link}).catch(error=>{
+      if(error?.name!=="AbortError")toast("Não foi possível compartilhar.");
+    });
+    else if(navigator.clipboard)navigator.clipboard.writeText(link).then(()=>toast("Link copiado")).catch(()=>toast("Não foi possível copiar"));
     else toast("Compartilhamento indisponível");
   }
   function showLocationShare() {
@@ -3028,14 +3078,14 @@ refresh();
         const value = $u("#manualPlace").value.trim();
         if (!value) return toast("Informe um local");
         sh.close();
-        push(validConversation(),{text:`📍 ${value}\nhttps://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`});
+        void push(validConversation(),{kind:"location",text:value});
       }
       if (event.target.closest("[data-place-auto]")) {
         if (!navigator.geolocation) return toast("Localização indisponível");
         navigator.geolocation.getCurrentPosition(position=>{
           const {latitude,longitude}=position.coords;
           sh.close();
-          push(validConversation(),{text:`📍 Localização compartilhada\nhttps://www.google.com/maps?q=${latitude.toFixed(6)},${longitude.toFixed(6)}`});
+          void push(validConversation(),{kind:"location",text:"Localização do aparelho",coordinates:{latitude,longitude}});
         },()=>toast("Permissão de localização não concedida"),{enableHighAccuracy:false,timeout:9000});
       }
     };
@@ -3047,7 +3097,7 @@ refresh();
       const id = event.target.closest("[data-contact]")?.dataset.contact;
       if (!id || !USERS[id]) return;
       sh.close();
-      push(validConversation(),{text:`👤 Contato Looply: ${U(id).n}`});
+      void push(validConversation(),{kind:"contact",userId:id,name:U(id).n,username:U(id).username||""});
     };
   }
 
@@ -3064,16 +3114,36 @@ refresh();
     sheet(`<h2>Escrever carta</h2>
       <div class="feature-panel">
         <input id="letterTitle" class="feature-input" maxlength="100" placeholder="Título da carta">
-        <textarea id="letterBody" class="feature-input area" maxlength="10000" style="min-height:150px" placeholder="Escreva sua carta…" aria-label="Texto da carta"></textarea>
+        <textarea id="letterBody" class="feature-input area" maxlength="4200" style="min-height:150px" placeholder="Escreva sua carta…" aria-label="Texto da carta"></textarea>
         <input id="letterSign" class="feature-input" maxlength="80" value="${esc(U(ME).n)}" placeholder="Assinatura">
       </div>
       <div class="feature-heading">Papel</div>
       <div class="inline-actions" id="letterPapers">${Object.entries(letterPapers).map(([key,color])=>`<button class="letter-color-choice" type="button" aria-pressed="${key===letterPaper}" data-paper="${key}" style="background:${color}" title="Papel ${key}">${key==="cream"?"✉️":key==="rose"?"🌷":key==="lavender"?"💜":"🕊️"}</button>`).join("")}</div>
       <div class="feature-heading">Selo</div>
-      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div>
+      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div><label class="feature-row">Selo personalizado <input class="feature-input" id="letterSealCustom" maxlength="16" inputmode="text" aria-label="Emoji do selo" placeholder="Escolher emoji no teclado"></label><button type="button" class="btn" data-letter-emoji-open>Escolher emoji</button>
+      <div id="letterEmojiPicker" hidden><input class="feature-input" type="search" data-letter-emoji-search placeholder="Buscar emoji"><select class="feature-input" data-letter-emoji-category><option value="todos">Todos</option>${[...emojiGroups].map(([key,group])=>'<option value="'+esc(key)+'">'+esc(group.label)+'</option>').join("")}</select><div data-letter-emoji-grid style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-height:180px;overflow:auto"></div><button class="btn" type="button" data-letter-emoji-more>Mostrar mais</button></div>
       <div class="feature-heading">Prévia</div>
       <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>${esc(U(ME).n)}</footer></div>
       <div class="sfoot"><button class="btn main" data-letter-send>${ic("mail")} Selar e enviar carta</button></div>`);
+    let sealPage=112;
+    const drawSealEmoji=()=>{
+      const panel=$u("#letterEmojiPicker"),grid=$u("[data-letter-emoji-grid]",panel);
+      if(!panel||!grid)return;
+      const category=$u("[data-letter-emoji-category]",panel)?.value||"todos";
+      const query=$u("[data-letter-emoji-search]",panel)?.value.trim().toLocaleLowerCase("pt-BR")||"";
+      const candidates=category==="todos"?allEmoji:(emojiGroups.get(category)?.entries||[]);
+      const aliases=query?Object.entries(EMOJI_ALIAS).filter(([name])=>name.includes(query)).flatMap(([,symbols])=>symbols):[];
+      const chosen=query?[...new Set([...aliases,...candidates.filter(value=>value.includes(query))])]:candidates;
+      grid.replaceChildren();
+      for(const symbol of chosen.slice(0,sealPage)){
+        const button=document.createElement("button");button.type="button";button.textContent=symbol;
+        button.dataset.letterEmoji=symbol;
+        button.setAttribute("aria-label","Usar selo "+symbol);
+        button.style.cssText="font-size:24px;min-height:36px;border-radius:10px";
+        grid.append(button);
+      }
+      const more=$u("[data-letter-emoji-more]",panel);if(more)more.hidden=sealPage>=chosen.length;
+    };
     const sync = () => {
       const preview=$u("#letterLivePreview");
       if(!preview) return;
@@ -3082,8 +3152,25 @@ refresh();
       $u(".letter-body",preview).textContent=$u("#letterBody").value || "Sua carta aparecerá aqui…";
       $u("footer",preview).textContent=$u("#letterSign").value || "Sem assinatura";
     };
-    $u("#shBox").oninput=sync;
+    $u("#shBox").oninput=event=>{
+      if(event.target.matches("[data-letter-emoji-search]")){sealPage=112;drawSealEmoji();return;}
+      sync();
+    };
+    $u("#shBox").onchange=event=>{
+      if(event.target.matches("[data-letter-emoji-category]")){sealPage=112;drawSealEmoji();}
+    };
     $u("#shBox").onclick = event => {
+      if(event.target.closest("[data-letter-emoji-open]")){
+        const picker=$u("#letterEmojiPicker");picker.hidden=!picker.hidden;
+        if(!picker.hidden)drawSealEmoji();return;
+      }
+      if(event.target.closest("[data-letter-emoji-more]")){sealPage+=112;drawSealEmoji();return;}
+      const emoji=event.target.closest("[data-letter-emoji]");
+      if(emoji){
+        letterSeal=emoji.dataset.letterEmoji;
+        $u("#letterSealCustom").value=letterSeal;
+        $u("#letterEmojiPicker").hidden=true;return;
+      }
       const paper = event.target.closest("[data-paper]");
       if (paper) {
         letterPaper=paper.dataset.paper;
@@ -3101,16 +3188,18 @@ refresh();
         const text=$u("#letterBody").value.trim();
         const title=$u("#letterTitle").value.trim() || "Uma carta para você";
         const signature=$u("#letterSign").value.trim() || "Anônimo";
-        if (text.length<2) return toast("Escreva sua carta");
-        sh.close();
-        push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:letterSeal});
-        createActivity({kind:"letter",conversationId:c.id,from:ME,body:`Carta selada: ${title}`,outgoing:true,seen:true});
-        toast("Carta enviada em envelope 💌");
+        if(text.length<2||text.length>4200)return toast("A carta precisa ter entre 2 e 4.200 caracteres.");
+        const chosenSeal=$u("#letterSealCustom")?.value.trim()||letterSeal;
+        if(chosenSeal.length>16)return toast("Escolha um emoji para o selo.");
+        const button=event.target.closest("[data-letter-send]");button.disabled=true;
+        void Promise.resolve(push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:chosenSeal})).then(saved=>{
+          if(saved===true){sh.close();toast("Carta enviada em envelope 💌");}
+        }).finally(()=>{button.disabled=false;});
       }
     };
   }
   function letterMarkup(message) {
-    const seal = ["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].includes(message.seal)?message.seal:"💜";
+    const seal = typeof message.seal==="string"&&message.seal.length<=16&&/\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(message.seal)?esc(message.seal):"💜";
     const title = esc(message.title || "Uma carta para você");
     return `<button class="letter-bubble" type="button" data-letter-id="${esc(message.id)}" aria-label="Abrir carta ${title}">
       <span class="letter-envelope"><span class="letter-stamp">✉️</span><span class="letter-wax">${seal}</span><span class="letter-label">${title}</span><small class="letter-hint">Toque para abrir</small></span></button>`;
@@ -3480,7 +3569,7 @@ refresh();
       <div class="cinfo">
         ${cav(c,120)}
         <h2>${esc(title(c))}</h2>
-        <div class="call-sim-pill">Modo demonstração · sem conexão remota</div>
+        
         <p id="cst">${incoming?"Chamada recebida…":"Chamando…"}</p>
         <div class="call-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       </div>
@@ -3776,7 +3865,7 @@ refresh();
     openLetter:showLetterEditor,
     openActivity:showActivityCenter,
     showWallpaper:wallpaperChoiceSheet,
-    simulateEvent:kind=>{const c=validConversation()||C[0];if(c)simulateEvent(c,kind);},
+    
     inspect:()=>({conversations:C.length,activities:activities.length,unseen:unseenActivityCount(),
       messages:C.reduce((total,c)=>total+c.msgs.length,0),hasVideoButton:Boolean($u("#bVideo")),hasFan:Boolean($u("#attachFan"))})
   });
@@ -3919,23 +4008,27 @@ refresh();
           const at=new Date(item.createdAt);
           const date=Number.isNaN(at.valueOf())?"":at.toLocaleString("pt-BR");
           return '<button type="button" class="activity-item '+(item.seen?"":"unseen")+
-            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+esc(item.emoji)+
+            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+
+            (conversation?cav(conversation,32):esc(item.emoji))+
             '</span><span class="act-main"><b>'+esc(titleText)+'</b><span>'+esc(item.preview)+
             '</span><small>'+esc(date)+'</small></span>'+
             (item.seen?"":'<span class="activity-count" aria-label="Não vista">1</span>')+
             '</button>';
         }).join(""):'<div class="empty">Nenhuma atividade nesta categoria</div>')+
-        '</div><div class="inline-actions"><button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
+        '</div>'+(handlers?.hasMore?'<button type="button" class="btn" data-ultra-activity-more>Carregar mais</button>':'')+
+        '<div class="inline-actions"><button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
       const panel=document.querySelector("#shBox");
       panel.onclick=event=>{
         const filtering=event.target.closest("[data-ultra-activity-filter]");
         if(filtering){void handlers?.filter?.(filtering.dataset.ultraActivityFilter);return;}
+        if(event.target.closest("[data-ultra-activity-more]")){void handlers?.loadMore?.();return;}
         if(event.target.closest("[data-ultra-activity-all]")){void handlers?.markAll?.();return;}
         const item=event.target.closest("[data-ultra-activity-id]");
         if(item)void handlers?.select?.(item.dataset.ultraActivityId);
       };
     },
     mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
+    searchMusic:(query,signal)=>hooks?.searchMusic?.(query,signal)||Promise.resolve([]),
     showTyping(id,users=[]){
       const room=C.find(c=>c.id===id);
       if(!room)return;
@@ -3993,7 +4086,7 @@ refresh();
       if(!cur||!hooks?.schedule)return toast("Abra uma conversa para agendar.");
       return hooks.schedule(cur);
     },
-    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={}}){
+    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={},remoteNicknames=null}){
       ME=selfId;
       loadDrafts(selfId);
       const onlineNow=new Set(onlineUserIds);
@@ -4020,7 +4113,7 @@ refresh();
           mute:original?.mute??pref.mute??0,
           fav:original?.fav??pref.fav??0,
           arch:original?.arch??pref.arch??0,
-          nick:existing?.nick??pref.nick??"",
+          nick:remoteNicknames?String(remoteNicknames[c.id]||""):existing?.nick??pref.nick??"",
           wallpaper:original?.wallpaper??pref.wallpaper??"",
           wallpaperPath:original?.wallpaperPath??pref.wallpaperPath??"",
           wallpaperTint:original?.wallpaperTint??pref.wallpaperTint??.18,
@@ -4153,8 +4246,41 @@ refresh();
       // the app closed. Replace it with the authenticated server scheduler.
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
+      fwdPick=function authenticatedForwardPicker(message){
+        const origin=conv(cur);
+        if(!origin||!message?.id)return;
+        if(message.kind==="letter"||message.expiresAt){
+          toast("Cartas lacradas e mensagens temporárias não podem ser encaminhadas.");return;
+        }
+        const destinations=C.filter(c=>!c.blocked&&c.canChat!==false);
+        sheet('<h2>Encaminhar mensagem</h2>'+
+          '<input class="feature-input" type="search" data-ultra-forward-search placeholder="Buscar conversas" aria-label="Buscar destinos">'+
+          '<div data-ultra-forward-list>'+
+          destinations.map(c=>'<button type="button" class="pk" data-ultra-forward-target="'+esc(c.id)+'">'+
+            cav(c,42)+'<span>'+esc(title(c))+'</span><span class="ck"></span></button>').join("")+
+          '</div><textarea class="feature-input area" maxlength="2000" data-ultra-forward-note placeholder="Adicionar mensagem (opcional)" aria-label="Nota de encaminhamento"></textarea>'+
+          '<button type="button" class="btn main" data-ultra-forward-send>Encaminhar</button>');
+        const panel=document.querySelector("#shBox");
+        panel.dataset.ultraForwardSource=message.id;
+        panel.dataset.ultraForwardRoom=origin.id;
+        panel.onclick=event=>{
+          const target=event.target.closest("[data-ultra-forward-target]");
+          if(!target)return;
+          target.classList.toggle("on");
+          target.setAttribute("aria-pressed",String(target.classList.contains("on")));
+          const ck=target.querySelector(".ck");if(ck)ck.textContent=target.classList.contains("on")?"✓":"";
+        };
+        panel.querySelector("[data-ultra-forward-search]")?.addEventListener("input",event=>{
+          const query=event.target.value.toLocaleLowerCase("pt-BR");
+          for(const row of panel.querySelectorAll("[data-ultra-forward-target]")){
+            const target=conv(row.dataset.ultraForwardTarget);
+            row.hidden=!title(target).toLocaleLowerCase("pt-BR").includes(query);
+          }
+        });
+      };
+
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
-      push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
+      push=function livePush(c,m){return c&&m?Promise.resolve(hooks?.send(c,m)):Promise.resolve(false);};
       sendText=function liveSendText(){
         const c=conv(cur),message=inp.value.trim();
         if(!c||!message)return;

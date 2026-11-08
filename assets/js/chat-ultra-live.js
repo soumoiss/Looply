@@ -17,11 +17,13 @@ import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-
 import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=20261108-v44";
 import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
 import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
+import { browseUltraPage } from "../../src/chat-ultra-browse.js?v=20261108-v47";
+import { searchStorySongs } from "../../src/story-music-catalog.js";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
-import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
+import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote, makePremiumMusic } from "../../src/chat-premium-cards.js";
 
 const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
@@ -46,6 +48,14 @@ async function signedMedia(bucket,path,requestedSeconds=1800){
   }
   return "";
 }
+async function loadPrivateNicknames(){
+  const {data,error}=await client.from("conversation_nicknames")
+    .select("conversation_id,nickname").eq("user_id",selfId).limit(500);
+  if(error)throw error;
+  return Object.fromEntries((data||[])
+    .filter(row=>roomIds.has(row.conversation_id)&&typeof row.nickname==="string")
+    .map(row=>[row.conversation_id,row.nickname.slice(0,120)]));
+}
 async function onlineIds(profiles){
   const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
   if(!ids.length)return [];
@@ -62,7 +72,7 @@ function mapPreview(message){
     text:card?.type==="letter"?"💌 Carta selada":card?.type==="poll"?"📊 "+card.question:
       card?.type==="contact"?"👤 "+card.name:card?.type==="location"?"📍 "+card.label:
       card?.type==="note"?card.body:card?.type==="music"?"🎵 "+card.title:
-      String(message.body||""),kind:"text",react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
+      card?.type==="forwarded-text"?card.body:String(message.body||""),kind:"text",fwd:Boolean(card?.forwarded),react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
 }
 async function loadChatBlocks(conversations){
   const blocks=new Map();
@@ -105,7 +115,10 @@ async function refreshRooms(){
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
+    let remoteNicknames=null;
+    try{remoteNicknames=await loadPrivateNicknames();}
+    catch(error){console.warn("Chat Ultra private nicknames unavailable",error?.code||"offline");}
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences,remoteNicknames:remoteNicknames});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -202,7 +215,7 @@ async function refreshThread(id){
       const base={
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),expiresAt:message.expires_at||null,
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
-        text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
+        text:kind==="sticker"?"Figurinha":card?.type==="forwarded-text"?card.body:String(message.body||""),fwd:Boolean(card?.forwarded),url,name:media?.file_name||"",reply:message.reply_to||null,
         stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null,
         starred:Boolean(flags.get(message.id)?.saved),pinned:Boolean(flags.get(message.id)?.pinned)
       };
@@ -306,11 +319,12 @@ async function sendModel(c,m){
     let body=String(m?.text||"");
     if(m?.kind==="letter")body=makePremiumLetter({title:m.title,body:m.text,signature:m.signature,paper:m.paper,seal:m.seal});
     if(m?.kind==="poll")body=makePremiumPoll({question:m.text,options:m.options});
-    if(m?.kind==="location")body=makePremiumLocation(m.text);
+    if(m?.kind==="location")body=makePremiumLocation(m.text,m.coordinates||null);
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
+    if(m?.kind==="music")body=makePremiumMusic(m.song||{title:m.title,artist:m.artist,url:m.text,provider:m.provider||""});
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
-    if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
+    if(["audio","img","video","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return false;}
     await postBody(c.id,body,m?.replyTo||null);
     return true;
   }catch(error){console.error("Chat Ultra: envio falhou",error);say(error?.message||errorMessage);return false;}
@@ -358,30 +372,110 @@ async function legacyComposer(id){
   }
   throw Error("O editor de anexos não está disponível.");
 }
-async function uploadFiles(files,targetConversation=visual.current()){
+async function uploadFiles(files,targetConversation=visual.current(),messageBody=""){
   if(!files.length)return false;
   try{
     const id=targetConversation;
-    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
+    if(!roomIds.has(id))throw Error("A conversa de destino não está disponível.");
     if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
     if(!input)throw Error("O envio de anexos não está disponível.");
     const body=form.querySelector('textarea[name="body"]');
-    if(body)body.value="";
+    if(body)body.value=String(messageBody||"").slice(0,5000);
     const transfer=new DataTransfer();
     files.forEach(file=>transfer.items.add(file));
     input.files=transfer.files;
+    // Native upload performs the R2 PUT and Neon chat_media INSERT. A submit
+    // request is NOT a successful send: wait for its verified completion event.
+    const completed=new Promise(resolve=>{
+      let settled=false;
+      const finish=(ok,detail)=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        runtime.removeEventListener("looply:chat-message-saved",onSaved);
+        runtime.removeEventListener("looply:chat-message-failed",onFailed);
+        window.removeEventListener("pagehide",onHide);
+        if(!ok)say(detail||"Não foi possível confirmar o anexo. Confira a conversa antes de reenviar.");
+        resolve(ok);
+      };
+      const onSaved=event=>{
+        if(event.detail?.conversationId===id&&event.detail?.messageId)finish(true);
+      };
+      const onFailed=event=>{
+        if(event.detail?.conversationId===id)finish(false,event.detail?.reason);
+      };
+      const onHide=()=>finish(false);
+      const timer=window.setTimeout(()=>finish(false,"Envio sem confirmação. Verifique o histórico antes de tentar novamente."),180000);
+      runtime.addEventListener("looply:chat-message-saved",onSaved);
+      runtime.addEventListener("looply:chat-message-failed",onFailed);
+      window.addEventListener("pagehide",onHide,{once:true});
+    });
     form.requestSubmit();
     say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
-    return true;
+    const confirmed=await completed;
+    if(confirmed){lastRender="";await refreshThread(id);planRefresh(300);}
+    return confirmed;
   }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+}
+
+const FORWARD_MARKER="↪ Encaminhada/1\n";
+async function forwardRealMessage(sourceConversationId,messageId,destinations,note=""){
+  const unique=[...new Set((destinations||[]).filter(id=>roomIds.has(id)))].slice(0,12);
+  if(!sourceConversationId||!roomIds.has(sourceConversationId)||!unique.length)
+    return {sent:0,failed:unique.length,reason:"Selecione um destino autorizado."};
+  try{
+    const {data:source,error}=await client.from("chat_messages")
+      .select(CHAT_SELECT).eq("id",messageId).eq("conversation_id",sourceConversationId).maybeSingle();
+    if(error||!source)throw error||Error("Mensagem não está disponível para encaminhamento.");
+    if(source.expires_at||parsePremiumChatBody(source.body||"")?.type==="letter")
+      throw Error("Cartas lacradas e mensagens temporárias não podem ser encaminhadas.");
+    const plain=String(source.body||"").startsWith(FORWARD_MARKER)
+      ?String(source.body).slice(FORWARD_MARKER.length):String(source.body||"");
+    const text=FORWARD_MARKER+plain;
+    if(!plain.trim()||text.length>5000)throw Error("O conteúdo ultrapassa o limite para encaminhar.");
+    const originals=Array.isArray(source.media)?source.media:[];
+    if(originals.length>8)throw Error("Há anexos demais nesta mensagem.");
+    const files=[];
+    if(originals.length){
+      let total=0;
+      for(const media of originals){
+        if(!media?.storage_path||!media.mime_type)throw Error("Anexo de origem indisponível.");
+        const url=await signedMedia("looply-chat",media.storage_path,180);
+        if(!url)throw Error("Você não tem acesso a um dos anexos.");
+        const response=await fetch(url,{cache:"no-store"});
+        if(!response.ok)throw Error("Não foi possível recuperar o anexo original.");
+        const blob=await response.blob();
+        total+=blob.size;
+        if(!blob.size||blob.size>25*1024*1024||total>70*1024*1024)
+          throw Error("Arquivos muito grandes para encaminhar. Envie-os separadamente.");
+        const filename=String(media.file_name||"anexo").replace(/[/\\\x00-\x1f]/g,"_").slice(0,100)||"anexo";
+        files.push(new File([blob],filename,{type:media.mime_type,lastModified:Date.now()}));
+      }
+    }
+    let sent=0,failed=0;
+    for(const targetId of unique){
+      const target=visual.conversations().find(c=>c.id===targetId);
+      if(!target||target.canChat===false){failed++;continue;}
+      try{
+        if(files.length){
+          if(!await uploadFiles(files,targetId,text)){failed++;continue;}
+        }else await postBody(targetId,text);
+        sent++;
+        if(note.trim())try{await postBody(targetId,note.trim().slice(0,2000));}
+          catch(error){say("Encaminhamento concluído, mas a nota não foi enviada.");}
+      }catch(error){console.warn("Forward destination failed",error?.code||"offline");failed++;}
+    }
+    return {sent,failed};
+  }catch(error){
+    return {sent:0,failed:unique.length,reason:error?.message||"Encaminhamento indisponível."};
+  }
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
 async function setReaction(conversationId,messageId,emoji){
-  if(!roomIds.has(conversationId)||!POLL_VOTES.includes(emoji))return;
+  if(!roomIds.has(conversationId)||!["❤️","😂","😮","😢","🙏","👍","🔥"].includes(emoji))return;
   try{
     const {data,error}=await client.from("chat_message_reactions")
       .select("emoji").eq("conversation_id",conversationId)
@@ -575,12 +669,11 @@ async function saveRealConversationName(button){
   button.disabled=true;
   try{
     const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
+      await client.rpc("v46_chat_rename_group",{p_conversation_id:id,p_subject:name}):
       await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
+    if(result.error||(group.type==="group"?result.data!==true:!result.data))throw result.error||Error("not_confirmed");
     if(group.type==="dm")group.nick=name;
     document.querySelector("#sh")?.close();
     await refreshRooms();
@@ -606,6 +699,205 @@ async function submitRealReport(button){
   finally{button.disabled=false;}
 }
 
+
+async function showServerMessageDetails(conversationId,messageId){
+  if(!roomIds.has(conversationId)||!/^[0-9a-f-]{36}$/i.test(messageId))return;
+  const panel=document.querySelector("#shBox"),dialog=document.querySelector("#sh");
+  if(!panel||!dialog)return;
+  panel.replaceChildren();
+  const heading=document.createElement("h2");heading.textContent="Informações da mensagem";
+  const status=document.createElement("p");status.textContent="Carregando confirmações…";
+  status.setAttribute("role","status");panel.append(heading,status);
+  if(!dialog.open)dialog.showModal();
+  try{
+    const {data:message,error}=await client.from("chat_messages")
+      .select("id,conversation_id,sender_id,created_at,delivered_at,read_at,updated_at,expires_at")
+      .eq("id",messageId).eq("conversation_id",conversationId).maybeSingle();
+    if(error||!message)throw error||Error("message_not_visible");
+    status.remove();
+    const append=(label,value)=>{
+      const row=document.createElement("div");row.className="feature-row";
+      const caption=document.createElement("span");caption.className="grow";
+      const strong=document.createElement("b");strong.textContent=label;
+      const small=document.createElement("small");small.textContent=value;
+      caption.append(strong,small);row.append(caption);panel.append(row);
+    };
+    append("Enviada",readableBrowseDate(message.created_at));
+    if(message.updated_at&&Date.parse(message.updated_at)-Date.parse(message.created_at)>1000)
+      append("Editada",readableBrowseDate(message.updated_at));
+    if(message.expires_at)append("Expira",readableBrowseDate(message.expires_at));
+    const room=visual.conversations().find(c=>c.id===conversationId);
+    const mine=message.sender_id===selfId;
+    if(room?.type==="group"&&mine){
+      const result=await client.rpc("v46_chat_message_receipts",{
+        p_conversation_id:conversationId,p_message_id:messageId
+      });
+      if(result.error)throw result.error;
+      const peers=Array.isArray(result.data)?result.data:[];
+      if(!peers.length)append("Leitura por participante","Nenhum outro participante no momento.");
+      for(const member of peers){
+        const read=Boolean(member.last_read_at&&Date.parse(member.last_read_at)>=Date.parse(message.created_at));
+        append(member.display_name||member.username||"Participante",
+          read?"Lida · "+readableBrowseDate(member.last_read_at):"Ainda não visualizada");
+      }
+    }else if(mine){
+      append("Entrega",message.delivered_at?readableBrowseDate(message.delivered_at):"Ainda não confirmada");
+      append("Leitura",message.read_at?readableBrowseDate(message.read_at):"Ainda não visualizada");
+    }else append("Recebida",readableBrowseDate(message.created_at));
+  }catch(error){
+    status.textContent="Não foi possível recuperar recibos autorizados desta mensagem.";
+    console.warn("Chat Ultra message details unavailable",error?.code||"permission");
+  }
+}
+
+let browseContext=null;
+const readableBrowseDate=value=>{
+  const parsed=new Date(value||"");return Number.isFinite(parsed.valueOf())?
+    parsed.toLocaleString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+};
+async function openMessageContext(conversationId,messageId){
+  if(!roomIds.has(conversationId))return false;
+  if(visual.current()!==conversationId)visual.open(conversationId);
+  if(!/^[0-9a-f-]{36}$/i.test(messageId||""))return false;
+  try{
+    const {data:message,error}=await client.from("chat_messages")
+      .select("id,conversation_id,created_at").eq("conversation_id",conversationId)
+      .eq("id",messageId).maybeSingle();
+    if(error||!message?.id)throw error||Error("Mensagem indisponível");
+    const time=message.created_at;
+    const [older,newer]=await Promise.all([
+      client.from("chat_messages").select(CHAT_SELECT).eq("conversation_id",conversationId)
+        .lte("created_at",time).order("created_at",{ascending:false}).limit(55),
+      client.from("chat_messages").select(CHAT_SELECT).eq("conversation_id",conversationId)
+        .gt("created_at",time).order("created_at",{ascending:true}).limit(45)
+    ]);
+    if(older.error||newer.error)throw older.error||newer.error;
+    const pages=mergeChatHistory(olderPages.get(conversationId)||[],
+      [...(older.data||[]),...(newer.data||[])]);
+    olderPages.set(conversationId,pages);
+    hasMoreHistory.set(conversationId,hasChatHistoryPage(older.data||[]));
+    lastRender="";await refreshThread(conversationId);
+    const locate=()=>{
+      const node=document.querySelector('#msgs [data-id="'+messageId+'"]');
+      if(!node)return false;
+      node.scrollIntoView({behavior:"smooth",block:"center"});
+      node.animate?.([{outline:"2px solid var(--primary)"},{outline:"0 solid transparent"}],{duration:1100});
+      return true;
+    };
+    requestAnimationFrame(()=>{if(!locate())window.setTimeout(locate,320);});
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra: target message not visible",error?.code||"permission");
+    say("Esta mensagem foi removida, expirou ou não está mais disponível para sua conta.");
+    return false;
+  }
+}
+async function loadBrowseResults(reset=false){
+  const view=browseContext;if(!view)return;
+  if(view.loading)return;
+  view.loading=true;
+  const panel=document.querySelector("#shBox");
+  if(!panel||panel.dataset.ultraBrowseRoom!==view.id){view.loading=false;return;}
+  const list=panel.querySelector("[data-ultra-browse-list]");
+  const loadMore=panel.querySelector("[data-ultra-browse-more]");
+  const status=panel.querySelector("[data-ultra-browse-status]");
+  if(!list||!status){view.loading=false;return;}
+  if(reset){view.cursor=null;list.replaceChildren();}
+  status.textContent="Carregando…";
+  try{
+    const page=await browseUltraPage({
+      client,conversationId:view.id,mode:view.mode,
+      search:view.search,kind:view.kind,cursor:view.cursor
+    });
+    if(browseContext!==view||panel.dataset.ultraBrowseRoom!==view.id)return;
+    for(const item of page.items){
+      const button=document.createElement("button");
+      button.type="button";button.className="feature-row";
+      button.dataset.ultraBrowseMessage=item.message_id;
+      const icon=document.createElement("span");icon.className="minicon";
+      const title=document.createElement("span");title.className="grow";
+      let label="";
+      if(view.mode==="media"){
+        const mime=String(item.mime_type||"");
+        icon.textContent=mime.startsWith("image/")?"🖼️":mime.startsWith("video/")?"🎞️":mime.startsWith("audio/")?"🎤":"📎";
+        label=String(item.file_name||"Anexo");
+        if(mime.startsWith("image/")&&item.storage_path){
+          const mediaId=item.media_id;
+          void signedMedia("looply-chat",item.storage_path,30).then(url=>{
+            if(!url||!button.isConnected||browseContext!==view)return;
+            const photo=document.createElement("img");
+            photo.src=url;photo.alt="";photo.loading="lazy";
+            photo.style.cssText="width:46px;height:46px;object-fit:cover;border-radius:12px";
+            icon.replaceChildren(photo);
+          });
+        }
+      }else{
+        const card=parsePremiumChatBody(item.body||"");
+        icon.textContent=view.mode==="saved"?"⭐":"💬";
+        label=card?.type==="letter"?"💌 Carta selada":card?.type==="poll"?"📊 "+card.question:
+          card?.type==="contact"?"👤 "+card.name:card?.type==="music"?"🎵 "+card.title:
+          card?.type==="location"?"📍 "+card.label:card?.type==="note"?card.body:
+          card?.type==="forwarded-text"?card.body:String(item.body||"");
+      }
+      title.textContent=label.slice(0,200);
+      const time=document.createElement("small");
+      time.textContent=readableBrowseDate(item.created_at);title.append(time);
+      const arrow=document.createElement("span");arrow.textContent="›";
+      button.append(icon,title,arrow);list.append(button);
+    }
+    view.cursor=page.cursor;
+    if(loadMore)loadMore.hidden=!page.hasMore;
+    status.textContent=page.items.length?"":"Nenhum resultado disponível.";
+  }catch(error){
+    console.warn("Chat Ultra remote browsing rejected",error?.code||"offline");
+    status.textContent="Não foi possível consultar o histórico. Verifique a conexão.";
+    if(loadMore)loadMore.hidden=true;
+  }finally{view.loading=false;}
+}
+function openServerBrowse(mode,id=visual.current(),search=""){
+  if(!roomIds.has(id)||!["media","saved","search"].includes(mode))return;
+  browseContext={id,mode,search:String(search||"").trim(),kind:"all",cursor:null,loading:false};
+  const panel=document.querySelector("#shBox"),sheet=document.querySelector("#sh");
+  if(!panel||!sheet)return;
+  const settings=document.querySelector("#cfg");
+  if(settings){settings.hidden=true;settings.classList.remove("open");}
+  const heading={media:"Fotos e arquivos",saved:"Mensagens salvas",search:"Buscar no histórico"}[mode];
+  panel.dataset.ultraBrowseRoom=id;
+  panel.replaceChildren();
+  const title=document.createElement("h2");title.textContent=heading;panel.append(title);
+  if(mode==="media"){
+    const select=document.createElement("select");select.className="feature-input";
+    select.setAttribute("aria-label","Tipo de anexo");
+    for(const [value,label] of [["all","Todos"],["photo","Fotos"],["video","Vídeos"],["audio","Áudios"],["file","Arquivos"]]){
+      const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);
+    }
+    select.addEventListener("change",()=>{browseContext.kind=select.value;void loadBrowseResults(true);});
+    panel.append(select);
+  }
+  if(mode==="search"){
+    const input=document.createElement("input");input.type="search";input.className="feature-input";
+    input.placeholder="Buscar mensagens antigas";input.value=browseContext.search;
+    input.setAttribute("aria-label","Buscar mensagens no servidor");
+    let timer=0;
+    input.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>{
+      if(!browseContext||browseContext.id!==id)return;
+      browseContext.search=input.value.trim();void loadBrowseResults(true);
+    },330);});
+    panel.append(input);
+    input.focus({preventScroll:true});
+  }
+  const area=document.createElement("div");area.dataset.ultraBrowseList="";
+  area.style.cssText="max-height:54vh;overflow:auto;overscroll-behavior:contain";
+  const status=document.createElement("p");status.dataset.ultraBrowseStatus="";
+  status.setAttribute("role","status");
+  const more=document.createElement("button");more.type="button";more.className="btn";
+  more.dataset.ultraBrowseMore="";more.textContent="Carregar mais";more.hidden=true;
+  panel.append(area,status,more);
+  if(!sheet.open)sheet.showModal();
+  if(mode!=="search"||browseContext.search.length>=2)void loadBrowseResults(true);
+  else status.textContent="Digite pelo menos dois caracteres.";
+}
+
 function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
@@ -613,6 +905,11 @@ function bindEvents(){
     activities:()=>activityService?.open(),
     block:changeBlock,
     roomAction:performRealRoomAction,
+    forward:forwardRealMessage,
+    searchMusic:async(query,signal)=>{
+      const result=await searchStorySongs(query,{signal});
+      return Array.isArray(result?.items)?result.items.slice(0,25):[];
+    },
     draft:(id,value)=>draftSync?.queue(id,value,!value),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
@@ -626,6 +923,46 @@ function bindEvents(){
     const files=[...(target.files||[])];
     target.value="";
     void uploadFiles(files);
+  },true);
+  // All three tools query authorized Neon pages, not the model's loaded 100 messages.
+  const searchBar=document.querySelector("#sbar");
+  if(searchBar&&!searchBar.querySelector("[data-ultra-browse-trigger]")){
+    const button=document.createElement("button");
+    button.type="button";button.className="ib";button.textContent="No histórico";
+    button.dataset.ultraBrowseTrigger="";
+    button.setAttribute("aria-label","Buscar em todas as mensagens desta conversa");
+    searchBar.append(button);
+  }
+  document.addEventListener("click",event=>{
+    const messageDetails=event.target.closest("#shBox [data-ultra-details]");
+    if(messageDetails){
+      event.preventDefault();event.stopImmediatePropagation();
+      void showServerMessageDetails(visual.current(),messageDetails.dataset.ultraDetails);
+      return;
+    }
+    const browseFeature=event.target.closest('#cfg [data-feature="media"],#cfg [data-feature="starred"]');
+    if(browseFeature){
+      event.preventDefault();event.stopImmediatePropagation();
+      openServerBrowse(browseFeature.dataset.feature==="media"?"media":"saved");
+      return;
+    }
+    const searchButton=event.target.closest("[data-ultra-browse-trigger]");
+    if(searchButton){
+      event.preventDefault();event.stopImmediatePropagation();
+      const query=document.querySelector("#sq")?.value||"";
+      openServerBrowse("search",visual.current(),query);
+      return;
+    }
+    const next=event.target.closest("#shBox [data-ultra-browse-more]");
+    if(next){event.preventDefault();event.stopImmediatePropagation();void loadBrowseResults();return;}
+    const result=event.target.closest("#shBox [data-ultra-browse-message]");
+    if(result&&browseContext){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=browseContext.id,messageId=result.dataset.ultraBrowseMessage;
+      document.querySelector("#sh")?.close();
+      void openMessageContext(id,messageId);
+      return;
+    }
   },true);
   document.addEventListener("click",event=>{
     const exportOpen=event.target.closest("#cfg [data-feature='export']");
@@ -680,6 +1017,24 @@ function bindEvents(){
         console.warn("Chat Ultra: export failed",error?.code||"offline");
         if(status)status.textContent=error?.message||"Não foi possível exportar. Tente novamente.";
       }).finally(()=>{exportGo.disabled=false;});
+      return;
+    }
+    const forwardSubmit=event.target.closest("#shBox [data-ultra-forward-send]");
+    if(forwardSubmit){
+      event.preventDefault();event.stopImmediatePropagation();
+      const panel=document.querySelector("#shBox"),sourceId=panel?.dataset.ultraForwardSource;
+      const sourceRoom=panel?.dataset.ultraForwardRoom;
+      const targets=[...panel.querySelectorAll("[data-ultra-forward-target].on")].map(n=>n.dataset.ultraForwardTarget);
+      const note=panel.querySelector("[data-ultra-forward-note]")?.value||"";
+      if(!sourceId||!sourceRoom||!targets.length){say("Escolha pelo menos uma conversa.");return;}
+      forwardSubmit.disabled=true;forwardSubmit.textContent="Encaminhando…";
+      void forwardRealMessage(sourceRoom,sourceId,targets,note).then(result=>{
+        if(result.sent){
+          say("Encaminhada para "+result.sent+" conversa"+(result.sent===1?"":"s")+
+            (result.failed?" · "+result.failed+" falha(s).":"."));
+          document.querySelector("#sh")?.close();
+        }else{say(result.reason||"Nenhuma conversa confirmou o encaminhamento.");}
+      }).finally(()=>{forwardSubmit.disabled=false;forwardSubmit.textContent="Encaminhar";});
       return;
     }
     const older=event.target.closest("#msgs [data-ultra-history-more]");
@@ -781,7 +1136,10 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  let firstNicknames=null;
+  try{firstNicknames=await loadPrivateNicknames();}
+  catch(error){console.warn("Chat Ultra private nicknames unavailable",error?.code||"offline");}
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences,remoteNicknames:firstNicknames});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
@@ -792,7 +1150,7 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   bindEvents();
   activityService=setupUltraActivities({
     client,userId:selfId,visual,
-    onOpen:id=>{if(roomIds.has(id))visual.open(id);}
+    onOpen:(id,messageId)=>{if(messageId)void openMessageContext(id,messageId);else if(roomIds.has(id))visual.open(id);}
   });
   window.addEventListener("pagehide",()=>activityService?.dispose(),{once:true});
   typingSession=setupUltraTyping({
