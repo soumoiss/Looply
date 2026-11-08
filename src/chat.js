@@ -1934,9 +1934,11 @@ export function bindChatEvents(root, client, getUserId) {
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
         publishChatMessage(root, client, conversationId, message.id);
+        if(files.length)root.dispatchEvent(new CustomEvent("looply:chat-attachment-saved",{detail:{conversationId,messageId:message.id,count:files.length}}));
         await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
+      if(form.matches("[data-chat-send]"))root.dispatchEvent(new CustomEvent("looply:chat-attachment-failed",{detail:{conversationId:form.dataset.conversationId}}));
       console.error("Looply chat action failed", error);
       let message;
       if (/invalid group/.test(String(error?.message || ""))) message = "Informe um nome e selecione de duas a 49 pessoas para o grupo.";
