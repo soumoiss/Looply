@@ -3000,16 +3000,20 @@ refresh();
     };
   }
   function showMusicEditorProxy() {
-    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link HTTPS (opcional)" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
+    sheet(`<h2>Compartilhar música</h2><input class="feature-input" id="musicUltraTitle" maxlength="100" placeholder="Música"><input class="feature-input" id="musicUltraArtist" maxlength="90" placeholder="Artista"><input class="feature-input" id="musicUltraUrl" placeholder="Link Apple Music, Deezer ou Spotify" type="url"><button class="btn main" data-ultra-music>Compartilhar</button>`);
     $u("#shBox").onclick = event => {
       if (!event.target.closest("[data-ultra-music]")) return;
       const title = $u("#musicUltraTitle").value.trim();
       const artist = $u("#musicUltraArtist").value.trim();
       const text = $u("#musicUltraUrl").value.trim();
-      if (!title) return toast("Informe a música");
-      if (text && !/^https:\/\//i.test(text)) return toast("Insira um link HTTPS");
-      sh.close();
-      push(validConversation(), {kind:"music",title,artist,text});
+      if(!title||!artist)return toast("Informe música e artista.");
+      if(!/^https:\/\//i.test(text))return toast("Use um link HTTPS Apple Music, Deezer ou Spotify.");
+      const provider=/music\.apple\.com/i.test(text)?"apple":/deezer\.com/i.test(text)?"deezer":/open\.spotify\.com/i.test(text)?"spotify":"";
+      if(!provider)return toast("Link fora dos catálogos aceitos.");
+      const button=event.target.closest("[data-ultra-music]");button.disabled=true;
+      void Promise.resolve(push(validConversation(),{kind:"music",title,artist,text,provider})).then(saved=>{
+        if(saved===true){sh.close();toast("Música compartilhada.");}
+      }).finally(()=>{button.disabled=false;});
     };
   }
   function showShareProxy() {
@@ -3028,14 +3032,14 @@ refresh();
         const value = $u("#manualPlace").value.trim();
         if (!value) return toast("Informe um local");
         sh.close();
-        push(validConversation(),{text:`📍 ${value}\nhttps://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`});
+        void push(validConversation(),{kind:"location",text:value});
       }
       if (event.target.closest("[data-place-auto]")) {
         if (!navigator.geolocation) return toast("Localização indisponível");
         navigator.geolocation.getCurrentPosition(position=>{
           const {latitude,longitude}=position.coords;
           sh.close();
-          push(validConversation(),{text:`📍 Localização compartilhada\nhttps://www.google.com/maps?q=${latitude.toFixed(6)},${longitude.toFixed(6)}`});
+          void push(validConversation(),{kind:"location",text:"Localização do aparelho",coordinates:{latitude,longitude}});
         },()=>toast("Permissão de localização não concedida"),{enableHighAccuracy:false,timeout:9000});
       }
     };
@@ -3047,7 +3051,7 @@ refresh();
       const id = event.target.closest("[data-contact]")?.dataset.contact;
       if (!id || !USERS[id]) return;
       sh.close();
-      push(validConversation(),{text:`👤 Contato Looply: ${U(id).n}`});
+      void push(validConversation(),{kind:"contact",userId:id,name:U(id).n,username:U(id).username||""});
     };
   }
 
@@ -3064,13 +3068,13 @@ refresh();
     sheet(`<h2>Escrever carta</h2>
       <div class="feature-panel">
         <input id="letterTitle" class="feature-input" maxlength="100" placeholder="Título da carta">
-        <textarea id="letterBody" class="feature-input area" maxlength="10000" style="min-height:150px" placeholder="Escreva sua carta…" aria-label="Texto da carta"></textarea>
+        <textarea id="letterBody" class="feature-input area" maxlength="4200" style="min-height:150px" placeholder="Escreva sua carta…" aria-label="Texto da carta"></textarea>
         <input id="letterSign" class="feature-input" maxlength="80" value="${esc(U(ME).n)}" placeholder="Assinatura">
       </div>
       <div class="feature-heading">Papel</div>
       <div class="inline-actions" id="letterPapers">${Object.entries(letterPapers).map(([key,color])=>`<button class="letter-color-choice" type="button" aria-pressed="${key===letterPaper}" data-paper="${key}" style="background:${color}" title="Papel ${key}">${key==="cream"?"✉️":key==="rose"?"🌷":key==="lavender"?"💜":"🕊️"}</button>`).join("")}</div>
       <div class="feature-heading">Selo</div>
-      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div>
+      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div><label class="feature-row">Selo personalizado <input class="feature-input" id="letterSealCustom" maxlength="16" inputmode="text" aria-label="Emoji do selo" placeholder="Escolher emoji no teclado"></label>
       <div class="feature-heading">Prévia</div>
       <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>${esc(U(ME).n)}</footer></div>
       <div class="sfoot"><button class="btn main" data-letter-send>${ic("mail")} Selar e enviar carta</button></div>`);
@@ -3101,16 +3105,18 @@ refresh();
         const text=$u("#letterBody").value.trim();
         const title=$u("#letterTitle").value.trim() || "Uma carta para você";
         const signature=$u("#letterSign").value.trim() || "Anônimo";
-        if (text.length<2) return toast("Escreva sua carta");
-        sh.close();
-        push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:letterSeal});
-        createActivity({kind:"letter",conversationId:c.id,from:ME,body:`Carta selada: ${title}`,outgoing:true,seen:true});
-        toast("Carta enviada em envelope 💌");
+        if(text.length<2||text.length>4200)return toast("A carta precisa ter entre 2 e 4.200 caracteres.");
+        const chosenSeal=$u("#letterSealCustom")?.value.trim()||letterSeal;
+        if(chosenSeal.length>16)return toast("Escolha um emoji para o selo.");
+        const button=event.target.closest("[data-letter-send]");button.disabled=true;
+        void Promise.resolve(push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:chosenSeal})).then(saved=>{
+          if(saved===true){sh.close();toast("Carta enviada em envelope 💌");}
+        }).finally(()=>{button.disabled=false;});
       }
     };
   }
   function letterMarkup(message) {
-    const seal = ["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].includes(message.seal)?message.seal:"💜";
+    const seal = typeof message.seal==="string"&&message.seal.length<=16&&/\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(message.seal)?esc(message.seal):"💜";
     const title = esc(message.title || "Uma carta para você");
     return `<button class="letter-bubble" type="button" data-letter-id="${esc(message.id)}" aria-label="Abrir carta ${title}">
       <span class="letter-envelope"><span class="letter-stamp">✉️</span><span class="letter-wax">${seal}</span><span class="letter-label">${title}</span><small class="letter-hint">Toque para abrir</small></span></button>`;
@@ -4154,7 +4160,7 @@ refresh();
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
       msgMenu=function liveMessageMenu(id){pendingDeleteId=id;originalMsgMenu(id);};
       react=function liveReaction(id,emoji){if(cur)void hooks?.react(cur,id,emoji);};
-      push=function livePush(c,m){if(c&&m)void Promise.resolve(hooks?.send(c,m));};
+      push=function livePush(c,m){return c&&m?Promise.resolve(hooks?.send(c,m)):Promise.resolve(false);};
       sendText=function liveSendText(){
         const c=conv(cur),message=inp.value.trim();
         if(!c||!message)return;
