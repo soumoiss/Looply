@@ -12,6 +12,7 @@ import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20
 import { createUltraPreferenceService } from "../../src/chat-ultra-preferences.js?v=20261108-r1";
 import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../src/chat-ultra-history.js";
 import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
+import { setupUltraActivities } from "../../src/chat-ultra-activities.js?v=20261108-v1";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -22,7 +23,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -468,6 +469,7 @@ function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
+    activities:()=>activityService?.open(),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
@@ -573,6 +575,11 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
+  activityService=setupUltraActivities({
+    client,userId:selfId,visual,
+    onOpen:id=>{if(roomIds.has(id))visual.open(id);}
+  });
+  window.addEventListener("pagehide",()=>activityService?.dispose(),{once:true});
   typingSession=setupUltraTyping({
     client,input:document.querySelector("#inp"),
     getConversationId:()=>visual.current(),
