@@ -298,7 +298,7 @@ export default { async fetch(request) {
         seconds=Math.min(seconds,remaining);
       }
     }else seconds=Math.max(60,seconds);
-    const signed=await signedRequest({method:"GET",bucket,path,presignSeconds:seconds});
+    const signed=await signedRequest({ method: "GET", bucket, path, presignSeconds: seconds });
     return json({signedUrl:signed.url,expiresIn:seconds},200,{...headers,"cache-control":"private, no-store"});
   }
   return json({ error: "not_found" }, 404, headers);
