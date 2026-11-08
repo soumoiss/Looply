@@ -4012,7 +4012,13 @@ refresh();
       });
       refresh();
       if(cur&&!conv(cur)){originalClose();}
-      else if(cur){topbar();if(typeof applyWallpaper==="function")void applyWallpaper(conv(cur));}
+      else if(cur){
+        topbar();
+        if(typeof applyBlock==="function")applyBlock();
+        if(typeof applyWallpaper==="function")void applyWallpaper(conv(cur));
+        const settings=document.querySelector("#cfg");
+        if(settings&&!settings.hidden&&settings.classList.contains("open"))cfgDraw();
+      }
       const onlineLabel=document.querySelector("#online");
       if(onlineLabel)onlineLabel.setAttribute("aria-label","Pessoas");
     },
@@ -4170,6 +4176,23 @@ refresh();
           });
         }
       };
+
+      // Blocking is server-authoritative; local toggles must never claim success.
+      document.addEventListener("click",event=>{
+        const target=event.target.closest("#cfg [data-cfg='block'],#blkbar #unb");
+        if(!target)return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const id=cur,room=conv(id);
+        if(!room||room.type!=="dm")return;
+        if(room.blocked||target.closest("#blkbar")){
+          void hooks?.block?.(id,false);
+        }else{
+          confirmSheet("Bloquear "+title(room)+"?",
+            "O envio de mensagens será impedido pelo servidor até você desbloquear.",
+            "Bloquear",()=>{void hooks?.block?.(id,true);});
+        }
+      },true);
 
       // Real Neon activity history replaces the demonstration activity store.
       document.addEventListener("click",event=>{
