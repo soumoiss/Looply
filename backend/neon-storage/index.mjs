@@ -274,8 +274,28 @@ export default { async fetch(request) {
     const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
       || (inspectObject(bucket,path)?.type!=="wallpaper" && await canAdminSignObject(request.headers.get("authorization"),bucket,path));
     if (!permitted) return json({ error: "object_not_visible" }, 403, headers);
-    const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
-    return json({ signedUrl: signed.url }, 200, headers);
+    const payload=await request.json().catch(()=>({}));
+    const object=inspectObject(bucket,path);
+    let allowedLifetime=1800;
+    // Message access is rechecked on each signing request. Even a caller who
+    // deliberately requests 1800 s cannot prolong an expiring chat attachment.
+    if(object?.type==="chat"){
+      const parents=await rowsFor(request.headers.get("authorization"),"chat_messages",{
+        id:"eq."+object.record,conversation_id:"eq."+object.conversation,select:"expires_at"
+      });
+      if(!parents.length)return json({error:"object_not_visible"},403,headers);
+      const deadline=parents[0].expires_at;
+      if(deadline){
+        const seconds=Math.floor((Date.parse(deadline)-Date.now())/1000);
+        if(!Number.isFinite(seconds)||seconds<2)return json({error:"object_expired"},403,headers);
+        allowedLifetime=Math.min(allowedLifetime,seconds);
+      }
+    }
+    const requested=Number(payload.expiresIn);
+    const lifetime=Math.min(allowedLifetime,
+      Math.max(object?.type==="chat"?2:60,Math.min(1800,Number.isFinite(requested)&&requested>0?Math.floor(requested):1800)));
+    const signed=await signedRequest({method:"GET",bucket,path,presignSeconds:lifetime});
+    return json({signedUrl:signed.url,expiresIn:lifetime},200,headers);
   }
   return json({ error: "not_found" }, 404, headers);
 } };
