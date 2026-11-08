@@ -11,6 +11,7 @@ import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js
 import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
 import { createUltraPreferenceService } from "../../src/chat-ultra-preferences.js?v=20261108-r1";
 import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../src/chat-ultra-history.js";
+import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -21,7 +22,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -94,7 +95,12 @@ async function refreshThread(id){
     if(error)throw error;
     const recent=(data||[]).reverse();
     if(!olderPages.has(id))hasMoreHistory.set(id,hasChatHistoryPage(recent));
-    const messages=mergeChatHistory(olderPages.get(id)||[],recent);
+    // "Apagar só para mim" is an authenticated per-account tombstone. Never
+    // delete another participant's message just to hide it locally.
+    const hiddenResult=await client.rpc("v41_hidden_chat_messages",{p_conversation_id:id});
+    if(hiddenResult.error)throw hiddenResult.error;
+    const hidden=new Set((hiddenResult.data||[]).map(row=>row.message_id));
+    const messages=mergeChatHistory(olderPages.get(id)||[],recent).filter(message=>!hidden.has(message.id));
     // Read the genuine sticker attachments. A sticker belongs to the chat message;
     // a local file name must never be sent as its message body.
     const ids=messages.map(m=>m.id);
@@ -233,6 +239,7 @@ async function postBody(conversationId,body,replyTo=null){
     runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
     const {requestImmediateMessagePush}=await import("../../src/chat-push-alert.js");
     void requestImmediateMessagePush(client,data.id);
+    typingSession?.stop();
     await refreshThread(conversationId);
     planRefresh(450);
   }finally{busy=false;}
@@ -339,6 +346,23 @@ async function votePoll(conversationId,messageId,index){
     await refreshThread(conversationId);
     planRefresh(500);
   }catch(error){console.error("Chat Ultra: voto não confirmado",error);say("Não foi possível registrar o voto.");}
+}
+async function hideMessageForSelf(conversationId,messageId){
+  if(!roomIds.has(conversationId))return false;
+  try{
+    const {data,error}=await client.rpc("v41_hide_chat_message",{p_message_id:messageId});
+    if(error||data!==true)throw error||Error("not_authorized");
+    // Re-query from the backend; never fake a successful deletion.
+    lastRender="";
+    await refreshThread(conversationId);
+    planRefresh(350);
+    say("Mensagem removida apenas da sua visualização.");
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra: per-user deletion rejected",error?.code||"offline");
+    say("Não foi possível remover a mensagem para você.");
+    return false;
+  }
 }
 async function removeMessage(conversationId,messageId){
   if(!roomIds.has(conversationId))return;
@@ -483,7 +507,9 @@ function bindEvents(){
     const poll=event.target.closest("#msgs [data-poll-vote]");
     if(poll){event.preventDefault();event.stopImmediatePropagation();void votePoll(visual.current(),poll.dataset.pollVote,Number(poll.dataset.option));return;}
     const destructive=event.target.closest("#shBox [data-d]");
-    if(destructive){event.preventDefault();event.stopImmediatePropagation();const item=window.LooplyVisual.pendingDelete?.();document.querySelector("#sh")?.close();if(destructive.dataset.d==="all"&&item)void removeMessage(item.conversationId,item.messageId);else say("Esta exclusão não está disponível para você.");return;}
+    if(destructive){event.preventDefault();event.stopImmediatePropagation();const item=window.LooplyVisual.pendingDelete?.();document.querySelector("#sh")?.close();if(item&&destructive.dataset.d==="all")void removeMessage(item.conversationId,item.messageId);
+      else if(item&&destructive.dataset.d==="me")void hideMessageForSelf(item.conversationId,item.messageId);
+      else say("Esta exclusão não está disponível para você.");return;}
     const go=event.target.closest("#shBox #go");
     if(go){
       event.preventDefault();event.stopImmediatePropagation();
@@ -540,6 +566,12 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
+  typingSession=setupUltraTyping({
+    client,input:document.querySelector("#inp"),
+    getConversationId:()=>visual.current(),
+    onUpdate:(id,users)=>visual.showTyping(id,users)
+  });
+  window.addEventListener("pagehide",()=>typingSession?.dispose(),{once:true});
   mountUltraStickerPicker({client,getUserId:()=>selfId,getConversationId:()=>visual.current(),onSaved:()=>{
     const id=visual.current();if(id)void refreshThread(id);
     planRefresh(350);
