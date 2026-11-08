@@ -3791,6 +3791,8 @@ refresh();
 (() => {
   "use strict";
   let hooks=null;
+  const prefSnapshots=new Map(),remoteSnapshots=new Map();
+  const prefShape=c=>({wallpaper:c.wallpaper||"",wallpaperPath:c.wallpaperPath||"",wallpaperTint:c.wallpaperTint??.18,color:c.color||"",pin:Boolean(c.pin),mute:Boolean(c.mute),arch:Boolean(c.arch),fav:Boolean(c.fav)});
   const originalHead=head,originalOpen=open,originalClose=closeConv,originalCav=cav,originalMsgMenu=msgMenu;
   let pendingDeleteId="";
   head=function liveHead(){
@@ -3852,6 +3854,17 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     open:id=>open(id),
+    persistPreferences(rows){
+      for(const c of rows||[]){
+        if(!c?.id)continue;
+        const serialized=JSON.stringify(prefShape(c));
+        if(prefSnapshots.get(c.id)===serialized)continue;
+        prefSnapshots.set(c.id,serialized);
+        hooks?.savePrefs?.(c);
+      }
+    },
+    resolveWallpaper:(id,path)=>hooks?.resolveWallpaper?.(id,path)||Promise.resolve(""),
+    uploadWallpaper:(id,blob)=>hooks?.uploadWallpaper?.(id,blob)||Promise.reject(Error("Serviço de fundo indisponível.")),
     nativeCall(video=false){
       if(!cur||!hooks?.call)return toast("Abra uma conversa para iniciar uma chamada.");
       return hooks.call(cur,Boolean(video));
@@ -3864,7 +3877,7 @@ refresh();
       if(!cur||!hooks?.schedule)return toast("Abra uma conversa para agendar.");
       return hooks.schedule(cur);
     },
-    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[]}){
+    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={}}){
       ME=selfId;
       const onlineNow=new Set(onlineUserIds);
       let userPreferences={};
@@ -3880,22 +3893,29 @@ refresh();
       if(selfAvatar)photos[ME]=selfAvatar;
       const old=new Map(C.map(c=>[c.id,c]));
       C=conversations.map(c=>{
-        const existing=old.get(c.id),pref=userPreferences[c.id]||{};
-        return {...c,
-          pin:existing?.pin??pref.pin??0,
-          mute:existing?.mute??pref.mute??0,
-          fav:existing?.fav??pref.fav??0,
-          arch:existing?.arch??pref.arch??0,
+        const existing=old.get(c.id),server=remotePreferences[c.id]||null;
+        const freshServer=server&&JSON.stringify(server)!==remoteSnapshots.get(c.id);
+        const pref={...(userPreferences[c.id]||{}),...(server||{})};
+        if(server)remoteSnapshots.set(c.id,JSON.stringify(server));
+        const original=freshServer?null:existing;
+        const result={...c,
+          pin:original?.pin??pref.pin??0,
+          mute:original?.mute??pref.mute??0,
+          fav:original?.fav??pref.fav??0,
+          arch:original?.arch??pref.arch??0,
           nick:existing?.nick??pref.nick??"",
-          wallpaper:existing?.wallpaper??pref.wallpaper??"",
-          wallpaperTint:existing?.wallpaperTint??pref.wallpaperTint??.18,
-          color:existing?.color??pref.color??"",
+          wallpaper:original?.wallpaper??pref.wallpaper??"",
+          wallpaperPath:original?.wallpaperPath??pref.wallpaperPath??"",
+          wallpaperTint:original?.wallpaperTint??pref.wallpaperTint??.18,
+          color:original?.color??pref.color??"",
           msgs:existing&&c.id===cur?existing.msgs:c.msgs
         };
+        if(freshServer||!prefSnapshots.has(c.id))prefSnapshots.set(c.id,JSON.stringify(prefShape(result)));
+        return result;
       });
       refresh();
       if(cur&&!conv(cur)){originalClose();}
-      else if(cur){topbar();}
+      else if(cur){topbar();if(typeof applyWallpaper==="function")void applyWallpaper(conv(cur));}
       const onlineLabel=document.querySelector("#online");
       if(onlineLabel)onlineLabel.setAttribute("aria-label","Pessoas");
     },
