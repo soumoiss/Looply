@@ -864,7 +864,19 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   window.addEventListener("pagehide",()=>browse.dispose(),{once:true});
   activityService=setupUltraActivities({
     client,userId:selfId,visual,
-    onOpen:id=>{if(roomIds.has(id))visual.open(id);}
+    getProfile:id=>knownProfiles.find(p=>p.id===id)||null,
+    onOpen:async(id,messageId)=>{
+      if(!roomIds.has(id))return;
+      if(messageId){
+        try{
+          const {data,error}=await client.from("chat_messages").select("id,created_at")
+            .eq("id",messageId).eq("conversation_id",id).maybeSingle();
+          if(!error&&data?.created_at){await navigateToHistoryResult(id,{
+            message_id:data.id,created_at:data.created_at});return;}
+        }catch(error){console.warn("Chat Ultra notification deep link unavailable",error?.code||"offline");}
+      }
+      visual.open(id);
+    }
   });
   window.addEventListener("pagehide",()=>activityService?.dispose(),{once:true});
   typingSession=setupUltraTyping({
