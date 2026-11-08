@@ -32,6 +32,7 @@ const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerun
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
 const pendingSendIds=createUltraSendIds();
+const nicknameByRoom=new Map();
 async function signedMedia(bucket,path,requestedSeconds=1800){
   if(!path||requestedSeconds<=1)return "";
   const seconds=Math.max(2,Math.min(1800,Math.floor(requestedSeconds)));
@@ -45,6 +46,16 @@ async function signedMedia(bucket,path,requestedSeconds=1800){
     return url;
   }
   return "";
+}
+async function loadPrivateNicknames(){
+  try{
+    const {data,error}=await client.from("conversation_nicknames")
+      .select("conversation_id,nickname").eq("user_id",selfId).limit(1000);
+    if(error)throw error;
+    nicknameByRoom.clear();
+    for(const row of data||[])if(row?.conversation_id&&row.nickname)
+      nicknameByRoom.set(row.conversation_id,String(row.nickname).slice(0,120));
+  }catch(error){console.warn("Chat Ultra private nicknames unavailable",error?.code||"offline");}
 }
 async function onlineIds(profiles){
   const ids=(profiles||[]).map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id)).slice(0,120);
@@ -87,6 +98,7 @@ function mapConversations(data,blocks=new Map()){
   return (data.conversations||[]).filter(c=>!states?.isHidden(c)).map(c=>({
     id:c.id,type:c.kind==="group"?"group":"dm",kind:c.kind,
     name:c.subject||"Grupo",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
+    nick:nicknameByRoom.get(c.id)||"",
     members:(c.participants||[]).map(p=>p.user_id),
     pin:0,mute:0,unread:Math.max(c.unreadCount||0,states?.get(c.id)?.reminder?1:0),
     reminder:states?.get(c.id)?.reminder||false,ttl:(states?.get(c.id)?.ttl||0)*1000,
@@ -100,6 +112,7 @@ async function refreshRooms(){
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
+    await loadPrivateNicknames();
     const blocks=await loadChatBlocks(data.conversations||[]);
     try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
@@ -571,6 +584,20 @@ async function applyRealMemberChange(button){
   say(confirmed?(adding?"Participantes adicionados: ":"Participantes removidos: ")+confirmed+
     (failed?" · "+failed+" não autorizados.":""):"Nenhuma alteração foi autorizada pelo servidor.");
 }
+async function removePrivateNickname(){
+  const id=visual.current(),room=visual.conversations().find(c=>c.id===id);
+  if(!room||room.type!=="dm")return false;
+  try{
+    const result=await client.from("conversation_nicknames").delete()
+      .eq("conversation_id",id).eq("user_id",selfId);
+    if(result.error)throw result.error;
+    nicknameByRoom.delete(id);
+    document.querySelector("#sh")?.close();
+    await refreshRooms();
+    say("Apelido removido.");
+    return true;
+  }catch(error){say("Não foi possível remover o apelido.");return false;}
+}
 async function saveRealConversationName(button){
   const id=visual.current(),group=visual.conversations().find(c=>c.id===id);
   if(!group)return;
@@ -578,14 +605,18 @@ async function saveRealConversationName(button){
   if(!name){say("Informe o nome.");return;}
   button.disabled=true;
   try{
-    const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
-      await client.from("conversation_nicknames").upsert({
+    if(group.type==="group"){
+      const result=await client.rpc("v46_chat_rename_group",{
+        p_conversation_id:id,p_subject:name
+      });
+      if(result.error||result.data!==true)throw result.error||Error("not_authorized");
+    }else{
+      const result=await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
-    if(group.type==="dm")group.nick=name;
+      if(result.error||!result.data)throw result.error||Error("not_confirmed");
+      nicknameByRoom.set(id,name);
+    }
     document.querySelector("#sh")?.close();
     await refreshRooms();
     say("Nome salvo na sua conta.");
@@ -723,6 +754,8 @@ function bindEvents(){
     }
     const membership=event.target.closest("#shBox #memberCommit");
     if(membership){event.preventDefault();event.stopImmediatePropagation();void applyRealMemberChange(membership);return;}
+    const removeNickname=event.target.closest("#shBox #nkr");
+    if(removeNickname){event.preventDefault();event.stopImmediatePropagation();void removePrivateNickname();return;}
     const nameSave=event.target.closest("#shBox #nks");
     if(nameSave){event.preventDefault();event.stopImmediatePropagation();void saveRealConversationName(nameSave);return;}
     const report=event.target.closest("#shBox #rs");
@@ -807,6 +840,7 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   window.addEventListener("pagehide",()=>cancelAnimationFrame(nativeFrame),{once:true});
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
+  await loadPrivateNicknames();
   const blocks=await loadChatBlocks(initial.conversations||[]);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
