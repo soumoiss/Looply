@@ -4001,6 +4001,7 @@ refresh();
         hooks?.opened(id);
       };
       closeConv=function liveClose(){
+        if(recording)stopRec(true);
         if(cur)saveDraft(cur,inp.value);
         originalClose();
         inp.value="";grow();btn();
@@ -4010,6 +4011,81 @@ refresh();
         if(cur&&!editing){saveDraft(cur,inp.value);inbox();}
       });
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
+
+      // Real MediaRecorder -> authenticated Neon/R2 attachment upload.
+      // Never save fake audio locally or synthesize voice messages on failure.
+      let activeVoice=null;
+      startRec=async function startAuthenticatedVoice(){
+        if(!cur||recording||activeVoice)return;
+        if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==="undefined"){
+          toast("Este aparelho não permite gravar áudio.");return;
+        }
+        let stream;
+        try{
+          stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+          const supported=["audio/webm;codecs=opus","audio/mp4","audio/webm","audio/ogg"];
+          const mime=supported.find(v=>MediaRecorder.isTypeSupported?.(v))||"";
+          const recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+          const chunks=[];
+          recorder.addEventListener("dataavailable",e=>{if(e.data?.size)chunks.push(e.data)});
+          const context={recorder,stream,chunks,id:cur,started:Date.now(),cancelled:false};
+          activeVoice=context;
+          recorder.addEventListener("stop",()=>{
+            stream.getTracks().forEach(track=>track.stop());
+            if(context.cancelled||!chunks.length)return;
+            const type=recorder.mimeType.split(";")[0]||"audio/webm";
+            const extension=type==="audio/mp4"?"mp4":type==="audio/ogg"?"ogg":"webm";
+            const file=new File([new Blob(chunks,{type})],"voz-"+Date.now()+"."+extension,{type,lastModified:Date.now()});
+            if(!file.size){toast("A gravação ficou vazia.");return;}
+            if(file.size>25*1024*1024){toast("A gravação ultrapassou 25 MiB.");return;}
+            toast("Enviando mensagem de voz…");
+            void Promise.resolve(hooks?.uploadAudio?.(context.id,file)).then(accepted=>{
+              if(!accepted)toast("A mensagem de voz não foi enviada.");
+            }).catch(()=>toast("Falha ao enviar o áudio. Tente novamente."));
+          },{once:true});
+          recorder.start(250);
+          recording={real:true};
+          rsec=0;
+          document.querySelector("#rt").textContent="00:00";
+          document.querySelector("#comp").classList.add("rc");
+          document.querySelector("#send").classList.add("rec");
+          document.querySelector("#send").innerHTML=ic("send");
+          clearInterval(rtm);
+          rtm=setInterval(()=>{
+            if(activeVoice!==context)return;
+            rsec=Math.ceil((Date.now()-context.started)/1000);
+            document.querySelector("#rt").textContent=mmss(rsec);
+            if(rsec>=180)stopRec(false);
+          },300);
+        }catch(error){
+          stream?.getTracks().forEach(track=>track.stop());
+          activeVoice=null;
+          recording=null;
+          clearInterval(rtm);
+          document.querySelector("#comp")?.classList.remove("rc");
+          document.querySelector("#send")?.classList.remove("rec");
+          btn();
+          toast(error?.name==="NotAllowedError"?"Permissão de microfone negada.":"Não foi possível iniciar a gravação.");
+        }
+      };
+      stopRec=function finishAuthenticatedVoice(cancel){
+        const context=activeVoice;
+        if(!context)return;
+        context.cancelled=Boolean(cancel)||cur!==context.id;
+        activeVoice=null;recording=null;
+        clearInterval(rtm);
+        document.querySelector("#comp")?.classList.remove("rc");
+        document.querySelector("#send")?.classList.remove("rec");
+        btn();
+        try{
+          if(context.recorder.state!=="inactive")context.recorder.stop();
+          else context.stream.getTracks().forEach(track=>track.stop());
+        }catch{
+          context.stream.getTracks().forEach(track=>track.stop());
+        }
+      };
+      window.addEventListener("pagehide",()=>{if(activeVoice)stopRec(true);},{once:true});
+
       // The original schedule() mutates a local array and cannot deliver with
       // the app closed. Replace it with the authenticated server scheduler.
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
