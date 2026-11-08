@@ -60,13 +60,31 @@ function mapPreview(message){
       card?.type==="note"?card.body:card?.type==="music"?"🎵 "+card.title:
       String(message.body||""),kind:"text",react:{},st:message.read_at?"read":message.delivered_at?"deliv":"sent"}];
 }
-function mapConversations(data){
+async function loadChatBlocks(conversations){
+  const blocks=new Map();
+  const ids=(conversations||[]).filter(room=>room.kind==="direct"||room.kind==="letter").map(room=>room.id);
+  for(let i=0;i<ids.length;i+=100){
+    try{
+      const {data,error}=await client.rpc("v43_chat_block_states",{p_conversation_ids:ids.slice(i,i+100)});
+      if(error)throw error;
+      for(const row of data||[])blocks.set(row.conversation_id,{
+        blocked_by_me:row.blocked_by_me===true,can_chat:row.can_chat===true
+      });
+    }catch(error){
+      console.warn("Chat Ultra: block permissions temporarily unavailable",error?.code||"offline");
+      for(const id of ids.slice(i,i+100))blocks.set(id,{blocked_by_me:false,can_chat:false});
+    }
+  }
+  return blocks;
+}
+function mapConversations(data,blocks=new Map()){
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
   return (data.conversations||[]).map(c=>({
     id:c.id,type:c.kind==="group"?"group":"dm",kind:c.kind,
     name:c.subject||"Grupo",coverUrl:c.coverUrl||"",
     members:(c.participants||[]).map(p=>p.user_id),
     pin:0,mute:0,unread:c.unreadCount||0,
+    blocked:Boolean(blocks.get(c.id)?.blocked_by_me),canChat:blocks.get(c.id)?.can_chat!==false,
     msgs:mapPreview(c.lastMessage)
   }));
 }
@@ -76,9 +94,10 @@ async function refreshRooms(){
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
+    const blocks=await loadChatBlocks(data.conversations||[]);
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
-    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data),onlineUserIds:active,remotePreferences:preferences});
+    visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
@@ -271,6 +290,7 @@ async function postBody(conversationId,body,replyTo=null){
 }
 async function sendModel(c,m){
   if(!c?.id)return;
+  if(c.canChat===false){say("Não é possível enviar mensagens nesta conversa.");return false;}
   try{
     let body=String(m?.text||"");
     if(m?.kind==="letter")body=makePremiumLetter({title:m.title,body:m.text,signature:m.signature,paper:m.paper,seal:m.seal});
@@ -331,6 +351,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
   try{
     const id=targetConversation;
     if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
+    if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
     if(!input)throw Error("O envio de anexos não está disponível.");
@@ -438,6 +459,7 @@ function launchActualFeature(conversationId,selector,label){
 }
 function startRealCall(conversationId,video=false){
   const room=visual.conversations().find(c=>c.id===conversationId);
+  if(room?.canChat===false){say("A ligação está indisponível nesta conversa.");return;}
   if(!room||room.type!=="dm"){say("Chamadas diretas exigem uma conversa privada.");return;}
   launchActualFeature(conversationId,video?"[data-call-video]":"[data-call-audio]","Chamada");
 }
@@ -445,6 +467,24 @@ function openRealGames(conversationId){
   launchActualFeature(conversationId,"[data-v2-game]","Games");
 }
 
+async function changeBlock(conversationId,enabled){
+  const room=visual.conversations().find(c=>c.id===conversationId);
+  const other=room?.type==="dm"?room.members.find(id=>id!==selfId):null;
+  if(!other){say("Bloqueio disponível apenas em conversas privadas.");return false;}
+  try{
+    const {data,error}=await client.rpc("v43_set_chat_block",{
+      p_target_user_id:other,p_block:enabled
+    });
+    if(error||data!==true)throw error||Error("not_authorized");
+    await refreshRooms();
+    say(enabled?"Contato bloqueado.":"Contato desbloqueado.");
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra: server block failed",error?.code||"permission");
+    say("Não foi possível modificar o bloqueio no servidor.");
+    return false;
+  }
+}
 async function applyRealMemberChange(button){
   const id=visual.current();
   const group=visual.conversations().find(c=>c.id===id);
@@ -512,6 +552,7 @@ function bindEvents(){
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     activities:()=>activityService?.open(),
+    block:changeBlock,
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
@@ -619,7 +660,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   window.addEventListener("pagehide",()=>cancelAnimationFrame(nativeFrame),{once:true});
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  const blocks=await loadChatBlocks(initial.conversations||[]);
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
   window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
   visual.mediaRenderer(renderUltraPlayableMedia);
