@@ -260,14 +260,15 @@ async function sendModel(c,m){
   }catch(error){console.error("Chat Ultra: envio falhou",error);say(error?.message||errorMessage);return false;}
 }
 async function editModel(c,m,body){
-  if(!c?.id||!m?.id||m.from!==selfId||!body.trim())return;
+  if(!c?.id||!m?.id||m.from!==selfId||!String(body||"").trim()||body.length>5000)return false;
   try{
     const {data,error}=await client.from("chat_messages").update({body:body.trim()})
       .eq("id",m.id).eq("conversation_id",c.id).eq("sender_id",selfId).select("id").maybeSingle();
     if(error||!data?.id)throw error||Error("Edição não autorizada");
     runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId:c.id}}));
     lastRender="";await refreshThread(c.id);
-  }catch(error){console.error("Chat Ultra: edição falhou",error);say(errorMessage);}
+    return true;
+  }catch(error){console.error("Chat Ultra: edição falhou",error);say(errorMessage);return false;}
 }
 async function openDirect(targetId){
   if(!knownProfiles.some(p=>p.id===targetId)||targetId===selfId)return;
