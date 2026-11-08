@@ -112,7 +112,7 @@ test("both mobile HTML routes parse and intercept simulated lifecycle actions",(
     scripts.forEach((match,i)=>assert.doesNotThrow(()=>new Script(match[1],{filename:path+"#"+i})));
     assert.match(html,/data-ultra-room-choice/);
     assert.match(html,/data-ultra-transfer/);
-    assert.match(html,/data-ultra-export-go/);
+    assert.match(html,/data-feature="export"/);
     assert.match(html,/hooks\?\.roomAction\?\./);
     assert.match(html,/applyRemoteDrafts/);
   }
@@ -121,5 +121,6 @@ test("both mobile HTML routes parse and intercept simulated lifecycle actions",(
     assert.ok(auth.includes(rpc),rpc);
   assert.match(adapter,/createUltraRoomService/);
   assert.match(adapter,/exportUltraHistory/);
+  assert.match(adapter,/data-ultra-export-go/);
   assert.match(adapter,/createUltraDraftSync/);
 });
