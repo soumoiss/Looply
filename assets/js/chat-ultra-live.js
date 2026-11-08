@@ -628,6 +628,60 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const exportOpen=event.target.closest("#cfg [data-feature='export']");
+    if(exportOpen){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=visual.current();
+      if(!id||!roomIds.has(id))return;
+      const dialog=document.querySelector("#sh"),panel=document.querySelector("#shBox");
+      if(!dialog||!panel)return;
+      delete panel.dataset.looplyContextMenu;
+      delete panel.dataset.looplyRoomChoice;
+      delete panel.dataset.looplyTtlRoom;
+      panel.dataset.ultraExportConversation=id;
+      panel.innerHTML='<div class="grab"></div><h2>Exportar histórico</h2>'+
+        '<label class="feature-row">Formato <select class="fi" data-ultra-export-format>'+
+        '<option value="json">JSON</option><option value="txt">Texto</option><option value="zip">ZIP</option></select></label>'+
+        '<label class="feature-row">Período <select class="fi" data-ultra-export-days>'+
+        '<option value="0">Todo o histórico disponível</option><option value="30">Últimos 30 dias</option>'+
+        '<option value="7">Últimos 7 dias</option></select></label>'+
+        '<label class="feature-row"><input type="checkbox" data-ultra-export-media> Incluir anexos disponíveis no ZIP</label>'+
+        '<p class="mobile-note">Somente mensagens autorizadas para sua conta; mídias expiradas ou indisponíveis não serão exportadas.</p>'+
+        '<p role="status" data-ultra-export-status></p>'+
+        '<button type="button" class="btn main" data-ultra-export-go>Exportar</button>'+
+        '<button type="button" class="btn" data-ultra-export-cancel>Cancelar</button>';
+      if(!dialog.open)dialog.showModal();
+      return;
+    }
+    const cancelExport=event.target.closest("#shBox [data-ultra-export-cancel]");
+    if(cancelExport){event.preventDefault();event.stopImmediatePropagation();document.querySelector("#sh")?.close();return;}
+    const exportGo=event.target.closest("#shBox [data-ultra-export-go]");
+    if(exportGo){
+      event.preventDefault();event.stopImmediatePropagation();
+      const panel=document.querySelector("#shBox");
+      const id=panel?.dataset.ultraExportConversation;
+      if(!id||!roomIds.has(id))return;
+      const room=visual.conversations().find(c=>c.id===id);
+      const format=panel.querySelector("[data-ultra-export-format]")?.value||"json";
+      const days=Number(panel.querySelector("[data-ultra-export-days]")?.value||0);
+      const includeMedia=Boolean(panel.querySelector("[data-ultra-export-media]")?.checked);
+      const status=panel.querySelector("[data-ultra-export-status]");
+      exportGo.disabled=true;
+      void exportUltraHistory({
+        client,conversationId:id,conversationName:room?.name||"Conversa",days,format,
+        includeMedia:format==="zip"&&includeMedia,
+        onProgress:message=>{if(status)status.textContent=String(message);}
+      }).then(summary=>{
+        say("Histórico exportado: "+summary.count+" mensagens"+
+          (summary.media.included?" · "+summary.media.included+" anexos.":".")+
+          (summary.media.unavailable?" · "+summary.media.unavailable+" mídias indisponíveis.":""));
+        document.querySelector("#sh")?.close();
+      }).catch(error=>{
+        console.warn("Chat Ultra: export failed",error?.code||"offline");
+        if(status)status.textContent=error?.message||"Não foi possível exportar. Tente novamente.";
+      }).finally(()=>{exportGo.disabled=false;});
+      return;
+    }
     const older=event.target.closest("#msgs [data-ultra-history-more]");
     if(older){
       event.preventDefault();event.stopImmediatePropagation();
