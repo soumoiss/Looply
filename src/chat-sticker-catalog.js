@@ -86,7 +86,7 @@ function renderItems(picker, rows, append, client=null) {
     if(url){
       const picture=document.createElement("img");
       picture.src=url;picture.alt=entry.title;
-      picture.loading="lazy";picture.decoding="async";
+      picture.loading = "lazy";picture.decoding = "async";
       let retried=false;
       picture.addEventListener("error",async()=>{
         if(!retried&&safeUpload(entry.storage_path)&&client){
