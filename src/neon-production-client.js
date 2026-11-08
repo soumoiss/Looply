@@ -1,4 +1,4 @@
-import { createNeonRestQuery } from "./neon-rest-bridge.js";
+import { createNeonRestQuery } from "./neon-rest-bridge.js?v=chat-ultra-20261108-r1";
 import { accounts, emailOf } from "./neon-login-identity.js";
 export { accounts, emailOf };
 import {createClient,SupabaseAuthAdapter} from "https://esm.sh/@neondatabase/neon-js@0.7.0-beta?bundle";
