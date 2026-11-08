@@ -196,7 +196,8 @@ const protectedArchiveRpcNames = new Set([
    "v45_chat_read_drafts","v45_chat_save_draft",
    "v38_vote_chat_poll","v38_chat_poll_votes",
    "v39_schedule_chat_message","v39_cancel_chat_schedule","v39_list_chat_schedules",
-   "v36_add_group_member","v36_remove_group_member"
+   "v36_add_group_member","v36_remove_group_member",
+  "v46_chat_search","v46_chat_saved_items","v46_chat_media_items","v46_chat_rename_group","v46_chat_notifications","v46_chat_unread_activity_count","v46_chat_mark_all_activities_read","v46_chat_message_receipts","v46_chat_receipts"
 ]);
 const galleryRpcNames = new Set(["set_gallery_media_adjustment","set_gallery_media_pinned","set_gallery_media_private","set_gallery_media_permissions","create_community_gallery_comment","create_archive_media_comment","v8_delete_gallery_media","v8_create_gallery_comment"]);
 async function galleryRpc(name,args) {
