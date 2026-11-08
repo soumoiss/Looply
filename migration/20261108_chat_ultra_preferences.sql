@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.chat_ultra_preferences (
 );
 CREATE INDEX IF NOT EXISTS chat_ultra_preferences_user_idx ON public.chat_ultra_preferences(user_id);
 ALTER TABLE public.chat_ultra_preferences ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.chat_ultra_preferences FROM PUBLIC, anon;
+REVOKE ALL ON public.chat_ultra_preferences FROM PUBLIC;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.chat_ultra_preferences TO authenticated;
 CREATE POLICY chat_ultra_preferences_select ON public.chat_ultra_preferences
   FOR SELECT TO authenticated USING (
