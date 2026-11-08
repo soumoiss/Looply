@@ -39,6 +39,7 @@ function inspectObject(bucket, path) {
   const media = /^(posts|stories)\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm)$/i.exec(path);
   const comment = /^comments\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm)$/i.exec(path);
   const chat = /^conversations\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|mp4|webm|mp3|ogg|pdf|txt|csv|doc|docx|rtf)$/i.exec(path);
+  const wallpaper = /^chat-wallpapers\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.]webp$/i.exec(path);
   const sticker = /^stickers\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.]webp$/i.exec(path);
   const letter = /^([0-9a-f-]{36})\/([0-9a-f-]{36})-([A-Za-z0-9._-]{1,120})$/.exec(path);
   const announcement = /^announcements\/([0-9a-f-]{36})\/([0-9a-f-]{36})[.](jpg|jpeg|png|webp|gif|mp4|webm)$/i.exec(path);
@@ -50,6 +51,7 @@ function inspectObject(bucket, path) {
   if (bucket === "looply-media" && media) return { type:media[1],record:media[2] };
   if (bucket === "looply-media" && comment) return { type:"comments",record:comment[2],post:comment[1] };
   if (bucket === "looply-chat" && chat) return { type:"chat",conversation:chat[1],record:chat[2] };
+  if (bucket === "looply-chat" && wallpaper) return { type:"wallpaper",owner:wallpaper[1],conversation:wallpaper[2] };
   if (bucket === "looply-letters" && letter) return { type:"letter",record:letter[1] };
   if (bucket === "looply-announcements" && announcement) return { type:"announcement",owner:announcement[1] };
   if (bucket === "looply-secret-messages" && secret) return { type:"secret",owner:secret[1] };
@@ -61,6 +63,7 @@ function allowedFile(bucket,path,mime,size,profileId) {
   if (!object || size<=0 || size>maxBytes(bucket)) return false;
   if (object.owner && object.owner!==profileId) return false;
   if (object.type==="avatar") return ["image/jpeg","image/png","image/webp"].includes(mime);
+  if (object.type==="wallpaper") return mime==="image/webp" && size<=3*1024*1024;
   if (object.type==="sticker") return mime==="image/webp";
   if (object.type==="announcement") return /^(image\/(jpeg|png|webp|gif)|video\/(mp4|webm))$/.test(mime);
   if (object.type==="secret") return /^image\/(jpeg|png|webp|gif)$/.test(mime);
@@ -85,6 +88,8 @@ async function rowsFor(token,table,params) {
 async function canUploadObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
+  if(object.type==="wallpaper")return object.owner===profileId &&
+    (await rowsFor(token,"conversation_participants",{conversation_id:"eq."+object.conversation,user_id:"eq."+profileId})).length>0;
   if(object.owner)return object.owner===profileId;
   if(object.type==="archive")return isAuthenticatedAdmin(token);
   const mapping={
@@ -124,6 +129,9 @@ async function canAdminSignObject(token,bucket,path) {
 async function canSignObject(token,profileId,bucket,path) {
   const object=inspectObject(bucket,path);
   if(!object)return false;
+  if(object.type==="wallpaper")return object.owner===profileId &&
+    (await rowsFor(token,"chat_ultra_preferences",{user_id:"eq."+profileId,
+      conversation_id:"eq."+object.conversation,wallpaper_path:"eq."+path})).length>0;
   const tableByType={avatar:"profiles",sticker:"sticker_catalog",gallery:"community_gallery_media",posts:"post_media",
     stories:"story_media",comments:"comment_media",chat:"chat_media",letter:"community_letters",
     announcement:"global_announcements",secret:"secret_messages",archive:"archive_media"};
@@ -264,7 +272,7 @@ export default { async fetch(request) {
   }
   if (url.pathname.endsWith("/storage/sign") && request.method === "POST") {
     const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
-      || await canAdminSignObject(request.headers.get("authorization"),bucket,path);
+      || (inspectObject(bucket,path)?.type!=="wallpaper" && await canAdminSignObject(request.headers.get("authorization"),bucket,path));
     if (!permitted) return json({ error: "object_not_visible" }, 403, headers);
     const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
     return json({ signedUrl: signed.url }, 200, headers);
