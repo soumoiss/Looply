@@ -78,7 +78,7 @@ export function createUltraPreferenceService(client,userId,onError=()=>{}){
     clearTimeout(timers.get(row.id));
     timers.set(row.id,setTimeout(()=>{timers.delete(row.id);void write(normalized);},450));
   }
-  async function uploadPhoto(conversationId,blob){
+  async function uploadPhoto(conversationId,blob,visualRow={}){
     if(!active(conversationId)||!(blob instanceof Blob)||blob.type!=="image/webp"||
        blob.size<=0||blob.size>3*1024*1024)throw Error("Foto inválida ou acima de 3 MB.");
     const path=wallpaperPathFor(userId,conversationId,crypto.randomUUID());
@@ -87,10 +87,8 @@ export function createUltraPreferenceService(client,userId,onError=()=>{}){
     });
     if(uploaded.error||uploaded.data?.path!==path)throw uploaded.error||Error("Upload not confirmed");
     const row={
-      id:conversationId,wallpaper:"gallery",wallpaperPath:path,
-      wallpaperTint:.18,color:cache.get(conversationId)?.color||"",
-      pin:Boolean(cache.get(conversationId)?.pin),mute:Boolean(cache.get(conversationId)?.mute),
-      arch:Boolean(cache.get(conversationId)?.arch),fav:Boolean(cache.get(conversationId)?.fav)
+      ...cache.get(conversationId),...visualRow,
+      id:conversationId,wallpaper:"gallery",wallpaperPath:path,wallpaperTint:.18
     };
     const saved=await write(row);
     if(!saved)throw Error("Foto enviada, mas a conversa não confirmou o fundo. Tente novamente.");
