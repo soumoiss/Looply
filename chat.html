@@ -468,8 +468,9 @@ function refresh(){head();chips();online();inbox();dock()}
 
 /* ── sheets ── */
 const sh=$("#sh");sh.addEventListener("click",e=>{if(e.target===sh)sh.close()});
-function sheet(html){$("#shBox").innerHTML='<div class="grab"></div>'+html;if(!sh.open)sh.showModal()}
+function sheet(html){delete $("#shBox").dataset.looplyContextMenu;delete $("#shBox").dataset.looplyTtlRoom;delete $("#shBox").dataset.looplyRoomChoice;$("#shBox").innerHTML='<div class="grab"></div>'+html;if(!sh.open)sh.showModal()}
 function rowMenu(c){sheet(`<h2>${esc(title(c))}</h2><button class="act" data-a="pin">${ic("pin")}${c.pin?"Desafixar":"Fixar no topo"}</button><button class="act" data-a="mute">${ic("mute")}${c.mute?"Reativar notificações":"Silenciar"}</button><button class="act" data-a="read">${ic("c2")}${c.unread?"Marcar como lida":"Marcar como não lida"}</button><button class="act dg" data-a="clear">${ic("trash")}Limpar conversa</button>`);
+ $("#shBox").dataset.looplyContextMenu=c.id;
  $("#shBox").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;if(a==="pin")c.pin=c.pin?0:1;if(a==="mute")c.mute=c.mute?0:1;if(a==="read")c.unread=c.unread?0:1;if(a==="clear"){c.msgs=[];if(cur===c.id)renderMsgs()}save();sh.close();refresh();toast("Pronto")}}
 function newChat(){const sel=new Set();const o=Object.keys(USERS).filter(k=>k!==ME);
  const draw=()=>{const sc=$("#shBox").scrollTop;$("#shBox").innerHTML=`<div class="grab"></div><h2>Nova conversa</h2><input class="fi" id="nq" placeholder="Buscar pessoas" value="${esc(newChat.q||"")}">${o.filter(k=>U(k).n.toLowerCase().includes((newChat.q||"").toLowerCase())).map(k=>`<button class="pk ${sel.has(k)?"on":""}" data-k="${k}">${av(k,48,1)}<span>${esc(U(k).n)}<small>${U(k).on?"online":"offline"}</small></span><span class="ck">${sel.has(k)?ic("c1"):""}</span></button>`).join("")}
@@ -618,7 +619,7 @@ function cfgDraw(){const c=conv(cur);if(!c)return;const sc=$("#cfg").scrollTop,g
  <div class="crow static"><span class="ci">${ic("palette")}</span><span class="ct"><b>Cor das mensagens</b></span></div>
  <div class="sws">${COLORS.map(x=>`<button class="swc ${x===col?"on":""}" style="background:${x};color:${x}" data-col="${x}" aria-label="Cor ${x}"></button>`).join("")}</div>
  ${g?`<h6>Participantes</h6>${c.members.map(k=>`<div class="crow static">${av(k,42,1)}<span class="ct"><b>${esc(U(k).n)}${k===ME?" (você)":""}</b><small>${U(k).on?"online":"offline"}</small></span></div>`).join("")}`:""}
- <h6>Preferências</h6>${row("mute","mute","Silenciar notificações","Sem avisos desta conversa",tgl(c.mute))}${row("pin","pin","Fixar no topo","Mantém no início da lista",tgl(c.pin))}${row("arch","archive","Arquivar","Move para Arquivadas",tgl(c.arch))}${row("ttl","clock","Mensagens temporárias",ttlLbl(c.ttl||0))}
+ <h6>Preferências</h6>${row("mute","mute","Silenciar notificações","Sem avisos desta conversa",tgl(c.mute))}${row("pin","pin","Fixar no topo","Mantém no início da lista",tgl(c.pin))}${row("arch","archive","Arquivar","Move para Arquivadas",tgl(c.arch))}${row("ttl","clock","Mensagens temporárias",ttlLbl(c.ttl||0))}${g&&c.createdBy===ME?row("transfer","users","Transferir administração","Escolher novo responsável"):""}
  <h6>Privacidade</h6>${row("unread","dot","Marcar como não lida")}${g?"":row("block","block",c.blocked?"Desbloquear contato":"Bloquear contato","","","dg")}${row("report","flag","Denunciar","","","dg")}${row("clear","trash","Limpar conversa","","","dg")}${row("del","trash",g?"Sair e excluir grupo":"Excluir conversa","","","dg")}</div>`;
  $("#cfg").scrollTop=sc}
 function confirmSheet(t,txt,ok,fn){sheet(`<h2>${esc(t)}</h2><p style="margin:0 4px 16px;color:var(--muted);line-height:1.45">${esc(txt)}</p><button class="btn dgb" id="cok">${esc(ok)}</button><button class="btn" id="cno" style="margin-top:8px">Cancelar</button>`);
@@ -3809,6 +3810,7 @@ refresh();
     if(value.trim())drafts[id]=value;
     else delete drafts[id];
     try{localStorage.setItem(draftStorage(),JSON.stringify(drafts));}catch{}
+    hooks?.draft?.(id,value);
   }
   function restoreDraft(id){
     inp.value=typeof drafts[id]==="string"?drafts[id]:"";
@@ -3948,7 +3950,25 @@ refresh();
     current:()=>cur,
     conversations:()=>C,
     draftPreview:id=>drafts[id]||"",
+    applyRemoteDrafts(rows=[]){
+      if(!Array.isArray(rows)||!draftOwner)return;
+      let changed=false;
+      for(const row of rows){
+        if(!/^[0-9a-f-]{36}$/i.test(row?.id||""))continue;
+        // An unsynced local draft is never overwritten by a remote read.
+        if(typeof drafts[row.id]==="string"&&drafts[row.id].trim())continue;
+        if(typeof row.body!=="string"||!row.body.trim())continue;
+        drafts[row.id]=row.body.slice(0,12000);
+        changed=true;
+      }
+      if(changed){
+        try{localStorage.setItem(draftStorage(),JSON.stringify(drafts));}catch{}
+        if(cur&&!inp.value.trim()&&!editing)restoreDraft(cur);
+        inbox();
+      }
+    },
     open:id=>open(id),
+    closeCurrent:()=>closeConv(),
     hasOlder:id=>Boolean(hooks?.hasOlder?.(id)),
     persistPreferences(rows){
       for(const c of rows||[]){
@@ -4176,6 +4196,90 @@ refresh();
           });
         }
       };
+
+      // Privileged room actions only execute after a positive Neon RPC result.
+      document.addEventListener("click",event=>{
+        const target=event.target;
+        const settings=target.closest("#cfg [data-cfg]");
+        const action=settings?.dataset.cfg;
+        if(["ttl","unread","clear","del","transfer"].includes(action)){
+          event.preventDefault();event.stopImmediatePropagation();
+          const c=conv(cur);
+          if(!c)return;
+          if(action==="ttl"){
+            ttlSheet(c);
+            document.querySelector("#shBox").dataset.looplyTtlRoom=c.id;
+            return;
+          }
+          if(action==="unread"){void hooks?.roomAction?.("unread",c.id);return;}
+          if(action==="clear"){
+            confirmSheet("Limpar conversa?","As mensagens anteriores serão ocultadas somente para sua conta. Outros participantes mantêm o histórico.","Limpar",()=>{
+              void hooks?.roomAction?.("clear",c.id);
+            });
+            return;
+          }
+          if(action==="del"){
+            if(c.type==="group"){
+              sheet('<h2>Grupo</h2><button class="act dg" type="button" data-ultra-room-choice="leave">Sair do grupo</button>'+
+                '<button class="act" type="button" data-ultra-room-choice="hide">Ocultar da minha lista</button>'+
+                '<button class="btn" type="button" data-ultra-room-choice="cancel">Cancelar</button>');
+              document.querySelector("#shBox").dataset.looplyRoomChoice=c.id;
+            }else{
+              confirmSheet("Ocultar conversa?","A conversa sairá da sua lista, sem apagar mensagens de outros participantes.","Ocultar",()=>{
+                void hooks?.roomAction?.("hide",c.id);
+              });
+            }
+            return;
+          }
+          if(action==="transfer"&&c.type==="group"&&c.createdBy===ME){
+            const options=c.members.filter(id=>id!==ME);
+            sheet('<h2>Transferir administração</h2>'+
+              (options.length?options.map(id=>'<button class="pk" type="button" data-ultra-transfer="'+esc(id)+'">'+av(id,38,1)+'<span>'+esc(U(id).n)+'</span></button>').join(""):'<p class="empty">Nenhum outro participante.</p>'));
+            document.querySelector("#shBox").dataset.looplyRoomChoice=c.id;
+            return;
+          }
+        }
+        const panel=document.querySelector("#shBox");
+        const context=target.closest("#shBox [data-a='read'],#shBox [data-a='clear']");
+        if(context&&panel?.dataset.looplyContextMenu){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyContextMenu,row=conv(id);
+          if(context.dataset.a==="read"){
+            document.querySelector("#sh")?.close();
+            void hooks?.roomAction?.(row?.unread?"read":"unread",id);
+          }else confirmSheet("Limpar conversa?","O histórico será ocultado apenas para sua conta.","Limpar",()=>{
+            void hooks?.roomAction?.("clear",id);
+          });
+          return;
+        }
+        const ttlChoice=target.closest("#shBox [data-v]");
+        if(ttlChoice&&panel?.dataset.looplyTtlRoom){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyTtlRoom;
+          void Promise.resolve(hooks?.roomAction?.("ttl",id,Number(ttlChoice.dataset.v))).then(ok=>{
+            if(ok){document.querySelector("#sh")?.close();if(cur===id)cfgDraw();}
+          });
+          return;
+        }
+        const roomChoice=target.closest("#shBox [data-ultra-room-choice]");
+        if(roomChoice&&panel?.dataset.looplyRoomChoice){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyRoomChoice,type=roomChoice.dataset.ultraRoomChoice;
+          if(type==="cancel"){document.querySelector("#sh")?.close();return;}
+          confirmSheet(type==="leave"?"Sair do grupo?":"Ocultar conversa?",
+            type==="leave"?"Você deixará o grupo. O histórico continuará disponível aos demais membros.":"A conversa sairá da sua lista sem excluir mensagens.",
+            type==="leave"?"Sair":"Ocultar",()=>{void hooks?.roomAction?.(type,id);});
+          return;
+        }
+        const transfer=target.closest("#shBox [data-ultra-transfer]");
+        if(transfer&&panel?.dataset.looplyRoomChoice){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyRoomChoice,recipient=transfer.dataset.ultraTransfer;
+          confirmSheet("Transferir administração?","O participante escolhido passará a administrar este grupo.","Transferir",()=>{
+            void hooks?.roomAction?.("transfer",id,recipient);
+          });
+        }
+      },true);
 
       // Blocking is server-authoritative; local toggles must never claim success.
       document.addEventListener("click",event=>{

@@ -14,6 +14,9 @@ import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../s
 import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
 import { setupUltraActivities } from "../../src/chat-ultra-activities.js?v=20261108-v1";
 import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-v1";
+import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=20261108-v44";
+import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
+import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -24,20 +27,21 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
-const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
+const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
 const pendingSendIds=createUltraSendIds();
-async function signedMedia(bucket,path){
-  if(!path)return "";
-  const key=bucket+":"+path,old=signedMediaCache.get(key),now=Date.now();
+async function signedMedia(bucket,path,requestedSeconds=1800){
+  if(!path||requestedSeconds<=1)return "";
+  const seconds=Math.max(2,Math.min(1800,Math.floor(requestedSeconds)));
+  const key=bucket+":"+path+":"+seconds,old=signedMediaCache.get(key),now=Date.now();
   if(old?.validUntil>now)return old.url;
-  const result=await client.storage.from(bucket).createSignedUrl(path,1800);
+  const result=await client.storage.from(bucket).createSignedUrl(path,seconds);
   const url=result.error?"":String(result.data?.signedUrl||"");
   if(/^https:\/\//i.test(url)){
     if(signedMediaCache.size>350)signedMediaCache.clear();
-    signedMediaCache.set(key,{url,validUntil:now+25*60*1000});
+    signedMediaCache.set(key,{url,validUntil:now+Math.max(500,seconds*1000-2000)});
     return url;
   }
   return "";
@@ -78,12 +82,14 @@ async function loadChatBlocks(conversations){
   return blocks;
 }
 function mapConversations(data,blocks=new Map()){
+  const states=roomService;
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
-  return (data.conversations||[]).map(c=>({
+  return (data.conversations||[]).filter(c=>!states?.isHidden(c)).map(c=>({
     id:c.id,type:c.kind==="group"?"group":"dm",kind:c.kind,
-    name:c.subject||"Grupo",coverUrl:c.coverUrl||"",
+    name:c.subject||"Grupo",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
     members:(c.participants||[]).map(p=>p.user_id),
-    pin:0,mute:0,unread:c.unreadCount||0,
+    pin:0,mute:0,unread:Math.max(c.unreadCount||0,states?.get(c.id)?.reminder?1:0),
+    reminder:states?.get(c.id)?.reminder||false,ttl:states?.get(c.id)?.ttl||0,
     blocked:Boolean(blocks.get(c.id)?.blocked_by_me),canChat:blocks.get(c.id)?.can_chat!==false,
     msgs:mapPreview(c.lastMessage)
   }));
@@ -95,6 +101,8 @@ async function refreshRooms(){
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
     const blocks=await loadChatBlocks(data.conversations||[]);
+    try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
+    catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
     visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
@@ -182,7 +190,9 @@ async function refreshThread(id){
       let media=files[0];
       let url="";
       if(media?.storage_path){
-        url=await signedMedia("looply-chat",media.storage_path);
+        const expires=message.expires_at?Date.parse(message.expires_at):Infinity;
+        const lifetime=Number.isFinite(expires)?Math.floor((expires-Date.now())/1000):1800;
+        if(lifetime>1)url=await signedMedia("looply-chat",media.storage_path,lifetime);
       }
       const kind=nativeSticker||bundled?"sticker":card?.type==="letter"?"letter":card?.type==="poll"?"poll":
         media?.mime_type?.startsWith("image/")?"img":
@@ -190,7 +200,7 @@ async function refreshThread(id){
         media?.mime_type?.startsWith("video/")?"video":
         media?"file":["contact","location","music","note"].includes(card?.type)?card.type:"text";
       const base={
-        id:message.id,from:message.sender_id,t:safeTime(message.created_at),
+        id:message.id,from:message.sender_id,t:safeTime(message.created_at),expiresAt:message.expires_at||null,
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
         text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
         stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null,
@@ -215,7 +225,7 @@ async function refreshThread(id){
       if(card?.type==="game")base.text="🎮 Convite para jogar";
       return base;
     }));
-    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes,m.starred,m.pinned]));
+    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes,m.starred,m.pinned,m.expiresAt]));
     if(visual.current()===id&&signature!==lastRender){
       visual.messages(id,mapped);
       lastRender=signature;
@@ -250,6 +260,7 @@ async function openBackend(id){
   runtime.dispatchEvent(new CustomEvent("looply:open-conversation",{detail:{conversationId:id}}));
   void refreshThread(id);
   const {error}=await client.rpc("mark_conversation_read",{p_conversation_id:id});
+  if(!error)void roomService?.unread(id,false);
   if(error)console.warn("Chat Ultra: leitura não confirmada",error);
   else planRefresh(200);
 }
@@ -322,6 +333,7 @@ async function openDirect(targetId){
     if(existing){visual.open(existing.id);return;}
     const {data,error}=await client.functions.invoke("looply-chat",{body:{action:"create_direct",targetId}});
     if(error||!data?.conversationId)throw error||Error(data?.errorCode||"Conversa indisponível");
+    await roomService?.hide(data.conversationId,false);
     await refreshRooms();
     visual.open(data.conversationId);
   }catch(error){console.error("Chat Ultra: conversa não criada",error);say(errorMessage);}
@@ -485,6 +497,53 @@ async function changeBlock(conversationId,enabled){
     return false;
   }
 }
+async function performRealRoomAction(action,id,value=null){
+  if(!id||!roomIds.has(id)||!roomService)return false;
+  const room=visual.conversations().find(c=>c.id===id);
+  let ok=false;
+  try{
+    if(action==="ttl")ok=await roomService.expiry(id,Number(value));
+    else if(action==="unread")ok=await roomService.unread(id,true);
+    else if(action==="read"){
+      const confirmed=await client.rpc("mark_conversation_read",{p_conversation_id:id});
+      ok=!confirmed.error&&confirmed.data===true&&await roomService.unread(id,false);
+    }
+    else if(action==="clear")ok=await roomService.clear(id);
+    else if(action==="hide")ok=await roomService.hide(id,true);
+    else if(action==="show")ok=await roomService.hide(id,false);
+    else if(action==="leave")ok=await roomService.leave(id);
+    else if(action==="transfer")ok=await roomService.transfer(id,String(value||""));
+    if(!ok){
+      say(action==="leave"&&room?.createdBy===selfId?
+        "Transfira a administração do grupo antes de sair.":"A alteração não foi autorizada pelo servidor.");
+      return false;
+    }
+    if(action==="clear"){
+      olderPages.delete(id);
+      hasMoreHistory.delete(id);
+      lastRender="";
+      visual.storeMessages(id,[]);
+    }
+    if(["hide","leave","unread"].includes(action)&&visual.current()===id)
+      visual.closeCurrent?.();
+    await refreshRooms();
+    if(["clear","ttl"].includes(action)&&visual.current()===id){
+      lastRender="";await refreshThread(id);
+    }
+    const labels={
+      ttl:"Prazo das novas mensagens atualizado.",unread:"Conversa marcada como não lida para você.",
+      read:"Conversa marcada como lida.",clear:"Histórico ocultado apenas para sua conta.",
+      hide:"Conversa removida da sua lista.",show:"Conversa restaurada.",
+      leave:"Você saiu do grupo.",transfer:"Administração transferida."
+    };
+    say(labels[action]||"Alteração confirmada.");
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra room action failed",action,error?.code||"offline");
+    say("Não foi possível concluir a ação no servidor.");
+    return false;
+  }
+}
 async function applyRealMemberChange(button){
   const id=visual.current();
   const group=visual.conversations().find(c=>c.id===id);
@@ -553,6 +612,8 @@ function bindEvents(){
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     activities:()=>activityService?.open(),
     block:changeBlock,
+    roomAction:performRealRoomAction,
+    draft:(id,value)=>draftSync?.queue(id,value,!value),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
@@ -567,6 +628,60 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const exportOpen=event.target.closest("#cfg [data-feature='export']");
+    if(exportOpen){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=visual.current();
+      if(!id||!roomIds.has(id))return;
+      const dialog=document.querySelector("#sh"),panel=document.querySelector("#shBox");
+      if(!dialog||!panel)return;
+      delete panel.dataset.looplyContextMenu;
+      delete panel.dataset.looplyRoomChoice;
+      delete panel.dataset.looplyTtlRoom;
+      panel.dataset.ultraExportConversation=id;
+      panel.innerHTML='<div class="grab"></div><h2>Exportar histórico</h2>'+
+        '<label class="feature-row">Formato <select class="fi" data-ultra-export-format>'+
+        '<option value="json">JSON</option><option value="txt">Texto</option><option value="zip">ZIP</option></select></label>'+
+        '<label class="feature-row">Período <select class="fi" data-ultra-export-days>'+
+        '<option value="0">Todo o histórico disponível</option><option value="30">Últimos 30 dias</option>'+
+        '<option value="7">Últimos 7 dias</option></select></label>'+
+        '<label class="feature-row"><input type="checkbox" data-ultra-export-media> Incluir anexos disponíveis no ZIP</label>'+
+        '<p class="mobile-note">Somente mensagens autorizadas para sua conta; mídias expiradas ou indisponíveis não serão exportadas.</p>'+
+        '<p role="status" data-ultra-export-status></p>'+
+        '<button type="button" class="btn main" data-ultra-export-go>Exportar</button>'+
+        '<button type="button" class="btn" data-ultra-export-cancel>Cancelar</button>';
+      if(!dialog.open)dialog.showModal();
+      return;
+    }
+    const cancelExport=event.target.closest("#shBox [data-ultra-export-cancel]");
+    if(cancelExport){event.preventDefault();event.stopImmediatePropagation();document.querySelector("#sh")?.close();return;}
+    const exportGo=event.target.closest("#shBox [data-ultra-export-go]");
+    if(exportGo){
+      event.preventDefault();event.stopImmediatePropagation();
+      const panel=document.querySelector("#shBox");
+      const id=panel?.dataset.ultraExportConversation;
+      if(!id||!roomIds.has(id))return;
+      const room=visual.conversations().find(c=>c.id===id);
+      const format=panel.querySelector("[data-ultra-export-format]")?.value||"json";
+      const days=Number(panel.querySelector("[data-ultra-export-days]")?.value||0);
+      const includeMedia=Boolean(panel.querySelector("[data-ultra-export-media]")?.checked);
+      const status=panel.querySelector("[data-ultra-export-status]");
+      exportGo.disabled=true;
+      void exportUltraHistory({
+        client,conversationId:id,conversationName:room?.name||"Conversa",days,format,
+        includeMedia:format==="zip"&&includeMedia,
+        onProgress:message=>{if(status)status.textContent=String(message);}
+      }).then(summary=>{
+        say("Histórico exportado: "+summary.count+" mensagens"+
+          (summary.media.included?" · "+summary.media.included+" anexos.":".")+
+          (summary.media.unavailable?" · "+summary.media.unavailable+" mídias indisponíveis.":""));
+        document.querySelector("#sh")?.close();
+      }).catch(error=>{
+        console.warn("Chat Ultra: export failed",error?.code||"offline");
+        if(status)status.textContent=error?.message||"Não foi possível exportar. Tente novamente.";
+      }).finally(()=>{exportGo.disabled=false;});
+      return;
+    }
     const older=event.target.closest("#msgs [data-ultra-history-more]");
     if(older){
       event.preventDefault();event.stopImmediatePropagation();
@@ -631,6 +746,11 @@ function bindEvents(){
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
   const initial=await loadChatData(client,selfId);
+  roomService=createUltraRoomService(client,code=>console.warn("Chat Ultra room action not confirmed",code));
+  draftSync=createUltraDraftSync(client,{onError:code=>console.warn("Chat Ultra draft retained locally",code)});
+  window.addEventListener("pagehide",()=>{void draftSync?.flush();},{once:true});
+  try{await roomService.load((initial.conversations||[]).map(c=>c.id));}
+  catch(error){console.warn("Chat Ultra room state unavailable",error?.code||"offline");}
   preferenceService=createUltraPreferenceService(client,selfId,(message,error)=>{
     console.warn("Chat Ultra visual sync failed",error?.code||"offline");say(message);
   });
@@ -662,6 +782,8 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
+    .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
   window.addEventListener("pagehide",()=>scheduler?.dispose(),{once:true});
   visual.mediaRenderer(renderUltraPlayableMedia);
@@ -691,6 +813,21 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
       const id=payload.new?.conversation_id||payload.old?.conversation_id;
       if(roomIds.has(id)){void refreshThread(id);planRefresh(650);}
     }).subscribe();
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)planRefresh(500);});
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden)return;
+    planRefresh(500);
+    void draftSync?.load().then(rows=>visual.applyRemoteDrafts(rows)).catch(()=>{});
+  });
   window.setInterval(()=>{if(!document.hidden)planRefresh(200);},30000);
+  // Time-limited messages vanish when Neon stops authorizing their rows.
+  // This timer only re-queries the server: it never deletes chat data locally
+  // as an ersatz expiration or purges a fellow participant's message.
+  const expirationRefresh=window.setInterval(()=>{
+    if(document.hidden)return;
+    const id=visual.current();
+    const messages=visual.conversations().find(c=>c.id===id)?.msgs||[];
+    if(id&&messages.some(m=>m.expiresAt))void refreshThread(id);
+  },6500);
+  window.addEventListener("pagehide",()=>window.clearInterval(expirationRefresh),{once:true});
+
 }});
