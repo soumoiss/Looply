@@ -50,3 +50,11 @@ $f$;
 REVOKE ALL ON FUNCTION public.v46_chat_message_receipts(uuid,uuid) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.v46_chat_message_receipts(uuid,uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.v46_chat_unread_activity_count() RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path TO '' AS $f$
+ WITH actor AS MATERIALIZED (SELECT public.looply_legacy_uid() AS id)
+ SELECT COUNT(*)::integer FROM public.chat_notifications notifications CROSS JOIN actor
+ WHERE actor.id IS NOT NULL AND notifications.user_id=actor.id AND notifications.read_at IS NULL;
+$f$;
+REVOKE ALL ON FUNCTION public.v46_chat_unread_activity_count() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.v46_chat_unread_activity_count() TO authenticated;
