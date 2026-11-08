@@ -186,3 +186,16 @@ body.looply-chat-ultra-live .chat-ultra-voice audio{display:none}
 /* QA simulations are not product actions and cannot inject fake notifications. */
 body.looply-chat-ultra-live #shBox [data-activity-sim],
 body.looply-chat-ultra-live #cfg [data-ultra-setting="incoming"]{display:none!important}
+
+/* Authenticated history pagination and per-conversation draft affordances. */
+body.looply-chat-ultra-live #msgs .ultra-load-older {
+  display:block;align-self:center;flex:none;margin:5px auto 12px;
+  min-height:44px;max-width:calc(100% - 20px);padding:10px 17px;
+  border:1px solid var(--line);border-radius:999px;
+  background:color-mix(in srgb,var(--strong) 90%,transparent);
+  color:var(--primary);font-size:13px;font-weight:750;
+  box-shadow:0 4px 12px rgba(70,30,120,.08);
+}
+body.looply-chat-ultra-live #msgs .ultra-load-older:disabled{opacity:.58;cursor:wait}
+body.looply-chat-ultra-live .ultra-draft-mark{color:var(--primary);font-weight:800}
+body.looply-chat-ultra-live .row .rp:has(.ultra-draft-mark){color:var(--primary)}

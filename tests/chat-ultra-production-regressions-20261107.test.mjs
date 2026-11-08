@@ -12,7 +12,7 @@ test("approved Ultra UI has no local-demo badge on either production entrypoint"
     assert.match(html,/chat-ultra-live-fixes\.css/);
     assert.doesNotMatch(html,/testChip\.textContent\s*=\s*"MODELO LOCAL"/);
     assert.match(html,/looply-chat-visual-v4:/);
-    assert.match(html,/wallpaper:existing\?\.wallpaper\?\?pref\.wallpaper/);
+    assert.match(html,/wallpaper:original\?\.wallpaper\?\?pref\.wallpaper/);
     assert.match(html,/onlineNow\.has\(person\.id\)/);
     assert.match(html,/chat-live-dot/);
     assert.doesNotMatch(html,/Entregue \(simulado\)|Lida \(simulado\)/);
