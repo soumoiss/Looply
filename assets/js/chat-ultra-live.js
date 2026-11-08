@@ -14,6 +14,7 @@ import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../s
 import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
 import { setupUltraActivities } from "../../src/chat-ultra-activities.js?v=20261108-v1";
 import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-v1";
+import { createUltraLibrary } from "../../src/chat-ultra-library.js?v=20261108-v48";
 import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=20261108-v44";
 import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
 import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
@@ -27,7 +28,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null,libraryService=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -267,6 +268,30 @@ async function loadOlderHistory(id){
   }catch(error){console.warn("Chat Ultra older messages unavailable",error?.code||"offline");say("Não foi possível carregar mensagens anteriores.");return false;}
   finally{olderLoading.delete(id);}
 }
+async function jumpToRealMessage(roomId,messageId){
+  if(!roomIds.has(roomId)||!UUIDish(messageId))return false;
+  try{
+    if(visual.current()!==roomId)visual.open(roomId);
+    let node=document.querySelector('#msgs [data-id="'+messageId+'"]');
+    if(!node){
+      const {data,error}=await client.from("chat_messages").select(CHAT_SELECT)
+        .eq("conversation_id",roomId).eq("id",messageId).maybeSingle();
+      if(error||!data)throw error||Error("message_unavailable");
+      const old=olderPages.get(roomId)||[];
+      olderPages.set(roomId,mergeChatHistory(old,[data]));
+      lastRender="";
+      await refreshThread(roomId);
+      node=document.querySelector('#msgs [data-id="'+messageId+'"]');
+    }
+    if(!node)throw Error("message_not_rendered");
+    requestAnimationFrame(()=>{
+      node.scrollIntoView({block:"center",behavior:"smooth"});
+      node.animate?.([{filter:"brightness(1)"},{filter:"brightness(1.5)"},{filter:"brightness(1)"}],{duration:850});
+    });
+    return true;
+  }catch(error){say("A mensagem não está mais disponível para sua conta.");return false;}
+}
+const UUIDish=value=>/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(value||""));
 async function openBackend(id){
   if(!roomIds.has(id))return;
   lastRender="";
@@ -686,6 +711,14 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const libraryFeature=event.target.closest('#cfg [data-feature="media"],#cfg [data-feature="starred"],#bSearch,#cfg [data-cfg="search"]');
+    if(libraryFeature){
+      event.preventDefault();event.stopImmediatePropagation();
+      const mode=libraryFeature.id==="bSearch"||libraryFeature.dataset.cfg==="search"?
+        "search":libraryFeature.dataset.feature==="starred"?"saved":"media";
+      libraryService?.open(mode);
+      return;
+    }
     const exportOpen=event.target.closest("#cfg [data-feature='export']");
     if(exportOpen){
       event.preventDefault();event.stopImmediatePropagation();
@@ -850,6 +883,10 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   visual.mediaRenderer(renderUltraPlayableMedia);
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
+  libraryService=createUltraLibrary({
+    client,getRoom:()=>visual.current(),onJump:jumpToRealMessage,notice:say
+  });
+  window.addEventListener("pagehide",()=>libraryService?.dispose(),{once:true});
   bindEvents();
   activityService=setupUltraActivities({
     client,userId:selfId,visual,
