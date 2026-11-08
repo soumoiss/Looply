@@ -672,6 +672,49 @@ function bindEvents(){
     void uploadFiles(files);
   },true);
   document.addEventListener("click",event=>{
+    const target=event.target;
+    const remote=target.closest("#cfg [data-feature='media'],#cfg [data-feature='starred'],#bSearch");
+    if(remote){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=visual.current();
+      if(!id||!roomIds.has(id)){say("Abra uma conversa.");return;}
+      browserService?.open(remote.id==="bSearch"?"search":
+        remote.dataset.feature==="starred"?"saved":"media",id);
+      return;
+    }
+    const detail=target.closest("#shBox [data-ultra-details]");
+    if(detail){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=visual.current(),mid=detail.dataset.ultraDetails;
+      const msg=visual.conversations().find(c=>c.id===id)?.msgs?.find(m=>m.id===mid);
+      if(!id||!msg)return;
+      document.querySelector("#sh")?.close();
+      browserService?.open("receipts",id,{
+        messageId:mid,createdAt:new Date(msg.t).toISOString()
+      });
+      return;
+    }
+    const share=target.closest("#attachFan [data-fan='share']");
+    if(share){
+      event.preventDefault();event.stopImmediatePropagation();
+      const id=visual.current();
+      if(!roomIds.has(id))return;
+      const link=new URL("conversa.html",location.href);
+      link.searchParams.set("conversation",id);
+      const room=visual.conversations().find(c=>c.id===id);
+      const label="Conversa Looply · "+(room?.type==="group"?room.name:"Mensagem privada");
+      document.querySelector("#attachFan")?.classList.remove("open");
+      if(document.querySelector("#bPlus"))document.querySelector("#bPlus").setAttribute("aria-expanded","false");
+      if(navigator.share){
+        void navigator.share({title:label,url:link.href})
+          .catch(error=>{if(error?.name!=="AbortError")say("Compartilhamento indisponível.");});
+      }else if(navigator.clipboard){
+        void navigator.clipboard.writeText(link.href)
+          .then(()=>say("Link copiado."))
+          .catch(()=>say("Não foi possível copiar o link."));
+      }else say(link.href);
+      return;
+    }
     const exportOpen=event.target.closest("#cfg [data-feature='export']");
     if(exportOpen){
       event.preventDefault();event.stopImmediatePropagation();
