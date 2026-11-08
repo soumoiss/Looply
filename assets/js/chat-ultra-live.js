@@ -384,10 +384,37 @@ async function uploadFiles(files,targetConversation=visual.current()){
     const transfer=new DataTransfer();
     files.forEach(file=>transfer.items.add(file));
     input.files=transfer.files;
+    // Native upload performs the R2 PUT and Neon chat_media INSERT. A submit
+    // request is NOT a successful send: wait for its verified completion event.
+    const completed=new Promise(resolve=>{
+      let settled=false;
+      const finish=(ok,detail)=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        runtime.removeEventListener("looply:chat-message-saved",onSaved);
+        runtime.removeEventListener("looply:chat-message-failed",onFailed);
+        window.removeEventListener("pagehide",onHide);
+        if(!ok)say(detail||"Não foi possível confirmar o anexo. Confira a conversa antes de reenviar.");
+        resolve(ok);
+      };
+      const onSaved=event=>{
+        if(event.detail?.conversationId===id&&event.detail?.messageId)finish(true);
+      };
+      const onFailed=event=>{
+        if(event.detail?.conversationId===id)finish(false,event.detail?.reason);
+      };
+      const onHide=()=>finish(false);
+      const timer=window.setTimeout(()=>finish(false,"Envio sem confirmação. Verifique o histórico antes de tentar novamente."),180000);
+      runtime.addEventListener("looply:chat-message-saved",onSaved);
+      runtime.addEventListener("looply:chat-message-failed",onFailed);
+      window.addEventListener("pagehide",onHide,{once:true});
+    });
     form.requestSubmit();
     say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
-    return true;
+    const confirmed=await completed;
+    if(confirmed){lastRender="";await refreshThread(id);planRefresh(300);}
+    return confirmed;
   }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
 }
 
