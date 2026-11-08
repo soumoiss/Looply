@@ -3831,6 +3831,11 @@ refresh();
     ).join("");
   };
   status=function liveStatus(c){
+    const active=typingRoster.get(c.id)||[];
+    if(active.length){
+      if(c.type==="group")return '<small class="ty">'+(active.length===1?esc(U(active[0]).n):active.length+" participantes")+' digitando…</small>';
+      return '<small class="ty">digitando…</small>';
+    }
     if(c.type==="group")return '<small>'+c.members.length+' participantes</small>';
     const other=c.members.find(id=>id!==ME);
     return U(other)?.on?'<small><span class="chat-live-dot"></span>online agora</small>':'<small>Não está online agora</small>';
@@ -3840,6 +3845,26 @@ refresh();
     return '<span class="av grp" style="--s:'+Number(size)+'px"><img src="'+esc(c.coverUrl)+'" alt=""></span>';
   };
   settle=function noFakeReplies(){};
+  const typingRoster=new Map();
+  function paintLiveTyping(id){
+    if(cur!==id)return;
+    const messages=document.querySelector("#msgs");
+    if(!messages)return;
+    messages.querySelector('[data-ultra-live-typing]')?.remove();
+    const active=typingRoster.get(id)||[];
+    if(!active.length)return;
+    const near=messages.scrollHeight-messages.scrollTop-messages.clientHeight<100;
+    const container=document.createElement("div");
+    container.className="m th f l";
+    container.dataset.ultraLiveTyping="true";
+    container.setAttribute("aria-label","Alguém está digitando");
+    const box=document.createElement("div");box.className="col";
+    const bubbleNode=document.createElement("div");bubbleNode.className="b tyb";
+    for(let i=0;i<3;i++)bubbleNode.append(document.createElement("i"));
+    box.appendChild(bubbleNode);container.appendChild(box);
+    messages.appendChild(container);
+    if(near)messages.scrollTop=messages.scrollHeight;
+  }
   // Render R2-backed stickers inside the Ultra visual bubble without
   // exposing the raw placeholder "Figurinha" or injecting message HTML.
   let ultraMediaDecorator=null;
@@ -3872,6 +3897,16 @@ refresh();
   window.LooplyVisual={
     notice:m=>toast(m),
     mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
+    showTyping(id,users=[]){
+      const room=C.find(c=>c.id===id);
+      if(!room)return;
+      const people=[...new Set(users.filter(userId=>userId!==ME&&room.members.includes(userId)))];
+      const previous=typingRoster.get(id)||[];
+      if(previous.join(",")===people.join(","))return;
+      if(people.length)typingRoster.set(id,people);
+      else typingRoster.delete(id);
+      if(cur===id){topbar();paintLiveTyping(id);}
+    },
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
@@ -3951,6 +3986,7 @@ refresh();
       if(cur===id){
         const list=document.querySelector("#msgs"),near=list.scrollHeight-list.scrollTop-list.clientHeight<150;
         renderMsgs(near);
+        paintLiveTyping(id);
       }
       inbox();
     },
@@ -3960,6 +3996,7 @@ refresh();
         if(!conv(id))return;
         if(cur)saveDraft(cur,inp.value);
         originalOpen(id);
+        paintLiveTyping(id);
         restoreDraft(id);
         hooks?.opened(id);
       };
