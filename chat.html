@@ -3129,10 +3129,30 @@ refresh();
       <div class="feature-heading">Papel</div>
       <div class="inline-actions" id="letterPapers">${Object.entries(letterPapers).map(([key,color])=>`<button class="letter-color-choice" type="button" aria-pressed="${key===letterPaper}" data-paper="${key}" style="background:${color}" title="Papel ${key}">${key==="cream"?"✉️":key==="rose"?"🌷":key==="lavender"?"💜":"🕊️"}</button>`).join("")}</div>
       <div class="feature-heading">Selo</div>
-      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div><label class="feature-row">Selo personalizado <input class="feature-input" id="letterSealCustom" maxlength="16" inputmode="text" aria-label="Emoji do selo" placeholder="Escolher emoji no teclado"></label>
+      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div><label class="feature-row">Selo personalizado <input class="feature-input" id="letterSealCustom" maxlength="16" inputmode="text" aria-label="Emoji do selo" placeholder="Escolher emoji no teclado"></label><button type="button" class="btn" data-letter-emoji-open>Escolher emoji</button>
+      <div id="letterEmojiPicker" hidden><input class="feature-input" type="search" data-letter-emoji-search placeholder="Buscar emoji"><select class="feature-input" data-letter-emoji-category><option value="todos">Todos</option>${[...emojiGroups].map(([key,group])=>'<option value="'+esc(key)+'">'+esc(group.label)+'</option>').join("")}</select><div data-letter-emoji-grid style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-height:180px;overflow:auto"></div><button class="btn" type="button" data-letter-emoji-more>Mostrar mais</button></div>
       <div class="feature-heading">Prévia</div>
       <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>${esc(U(ME).n)}</footer></div>
       <div class="sfoot"><button class="btn main" data-letter-send>${ic("mail")} Selar e enviar carta</button></div>`);
+    let sealPage=112;
+    const drawSealEmoji=()=>{
+      const panel=$u("#letterEmojiPicker"),grid=$u("[data-letter-emoji-grid]",panel);
+      if(!panel||!grid)return;
+      const category=$u("[data-letter-emoji-category]",panel)?.value||"todos";
+      const query=$u("[data-letter-emoji-search]",panel)?.value.trim().toLocaleLowerCase("pt-BR")||"";
+      const candidates=category==="todos"?allEmoji:(emojiGroups.get(category)?.entries||[]);
+      const aliases=query?Object.entries(EMOJI_ALIAS).filter(([name])=>name.includes(query)).flatMap(([,symbols])=>symbols):[];
+      const chosen=query?[...new Set([...aliases,...candidates.filter(value=>value.includes(query))])]:candidates;
+      grid.replaceChildren();
+      for(const symbol of chosen.slice(0,sealPage)){
+        const button=document.createElement("button");button.type="button";button.textContent=symbol;
+        button.dataset.letterEmoji=symbol;
+        button.setAttribute("aria-label","Usar selo "+symbol);
+        button.style.cssText="font-size:24px;min-height:36px;border-radius:10px";
+        grid.append(button);
+      }
+      const more=$u("[data-letter-emoji-more]",panel);if(more)more.hidden=sealPage>=chosen.length;
+    };
     const sync = () => {
       const preview=$u("#letterLivePreview");
       if(!preview) return;
@@ -3141,8 +3161,25 @@ refresh();
       $u(".letter-body",preview).textContent=$u("#letterBody").value || "Sua carta aparecerá aqui…";
       $u("footer",preview).textContent=$u("#letterSign").value || "Sem assinatura";
     };
-    $u("#shBox").oninput=sync;
+    $u("#shBox").oninput=event=>{
+      if(event.target.matches("[data-letter-emoji-search]")){sealPage=112;drawSealEmoji();return;}
+      sync();
+    };
+    $u("#shBox").onchange=event=>{
+      if(event.target.matches("[data-letter-emoji-category]")){sealPage=112;drawSealEmoji();}
+    };
     $u("#shBox").onclick = event => {
+      if(event.target.closest("[data-letter-emoji-open]")){
+        const picker=$u("#letterEmojiPicker");picker.hidden=!picker.hidden;
+        if(!picker.hidden)drawSealEmoji();return;
+      }
+      if(event.target.closest("[data-letter-emoji-more]")){sealPage+=112;drawSealEmoji();return;}
+      const emoji=event.target.closest("[data-letter-emoji]");
+      if(emoji){
+        letterSeal=emoji.dataset.letterEmoji;
+        $u("#letterSealCustom").value=letterSeal;
+        $u("#letterEmojiPicker").hidden=true;return;
+      }
       const paper = event.target.closest("[data-paper]");
       if (paper) {
         letterPaper=paper.dataset.paper;
