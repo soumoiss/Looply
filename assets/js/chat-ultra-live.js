@@ -89,7 +89,7 @@ function mapConversations(data,blocks=new Map()){
     name:c.subject||"Grupo",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
     members:(c.participants||[]).map(p=>p.user_id),
     pin:0,mute:0,unread:Math.max(c.unreadCount||0,states?.get(c.id)?.reminder?1:0),
-    reminder:states?.get(c.id)?.reminder||false,ttl:states?.get(c.id)?.ttl||0,
+    reminder:states?.get(c.id)?.reminder||false,ttl:(states?.get(c.id)?.ttl||0)*1000,
     blocked:Boolean(blocks.get(c.id)?.blocked_by_me),canChat:blocks.get(c.id)?.can_chat!==false,
     msgs:mapPreview(c.lastMessage)
   }));
@@ -502,7 +502,7 @@ async function performRealRoomAction(action,id,value=null){
   const room=visual.conversations().find(c=>c.id===id);
   let ok=false;
   try{
-    if(action==="ttl")ok=await roomService.expiry(id,Number(value));
+    if(action==="ttl")ok=await roomService.expiry(id,Math.floor(Number(value)/1000));
     else if(action==="unread")ok=await roomService.unread(id,true);
     else if(action==="read"){
       const confirmed=await client.rpc("mark_conversation_read",{p_conversation_id:id});
