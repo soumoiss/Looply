@@ -145,7 +145,8 @@ async function canSignObject(token,profileId,bucket,path) {
     });
     return reply.ok && (await reply.json().catch(()=>[])).length>0;
   }
-  const params=object.type==="archive"?{storage_path:"eq."+path}:
+  const params=object.type==="chat"?{storage_path:"eq."+path,conversation_id:"eq."+object.conversation,message_id:"eq."+object.record}:
+    object.type==="archive"?{storage_path:"eq."+path}:
     object.type==="announcement" || object.type==="secret"?{media_url:"eq."+path}:
     object.type==="sticker"?{storage_path:"eq."+path}:
     object.type==="avatar"?{avatar_path:"eq."+path}:
@@ -274,8 +275,31 @@ export default { async fetch(request) {
     const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
       || (inspectObject(bucket,path)?.type!=="wallpaper" && await canAdminSignObject(request.headers.get("authorization"),bucket,path));
     if (!permitted) return json({ error: "object_not_visible" }, 403, headers);
-    const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
-    return json({ signedUrl: signed.url }, 200, headers);
+    const payload=await request.json().catch(()=>({}));
+    const requested=Number(payload.expiresIn);
+    let seconds=Number.isFinite(requested)&&requested>0?Math.floor(requested):1800;
+    seconds=Math.max(2,Math.min(1800,seconds));
+    // Temporary chat media must never inherit a long URL from an older app.
+    // Derive the expiry from the authorized Neon row, not from untrusted input.
+    const object=inspectObject(bucket,path);
+    if(object?.type==="chat"){
+      const params=new URLSearchParams({select:"expires_at",id:"eq."+object.record,
+        conversation_id:"eq."+object.conversation,limit:"1"});
+      const reply=await fetch(process.env.NEON_DATA_API_URL+"/chat_messages?"+params,{
+        headers:{authorization:request.headers.get("authorization"),accept:"application/json"},cache:"no-store"
+      });
+      if(!reply.ok)return json({error:"media_permission_unavailable"},403,headers);
+      const records=await reply.json().catch(()=>[]);
+      if(!Array.isArray(records)||records.length!==1)return json({error:"message_not_visible"},403,headers);
+      const expires=records[0].expires_at;
+      if(expires){
+        const remaining=Math.floor((Date.parse(expires)-Date.now())/1000);
+        if(!Number.isFinite(remaining)||remaining<2)return json({error:"message_expired"},403,headers);
+        seconds=Math.min(seconds,remaining);
+      }
+    }else seconds=Math.max(60,seconds);
+    const signed=await signedRequest({method:"GET",bucket,path,presignSeconds:seconds});
+    return json({signedUrl:signed.url,expiresIn:seconds},200,{...headers,"cache-control":"private, no-store"});
   }
   return json({ error: "not_found" }, 404, headers);
 } };
