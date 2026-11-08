@@ -370,17 +370,17 @@ async function legacyComposer(id){
   }
   throw Error("O editor de anexos não está disponível.");
 }
-async function uploadFiles(files,targetConversation=visual.current()){
+async function uploadFiles(files,targetConversation=visual.current(),messageBody=""){
   if(!files.length)return false;
   try{
     const id=targetConversation;
-    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
+    if(!roomIds.has(id))throw Error("A conversa de destino não está disponível.");
     if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
     if(!input)throw Error("O envio de anexos não está disponível.");
     const body=form.querySelector('textarea[name="body"]');
-    if(body)body.value="";
+    if(body)body.value=String(messageBody||"").slice(0,5000);
     const transfer=new DataTransfer();
     files.forEach(file=>transfer.items.add(file));
     input.files=transfer.files;
@@ -416,6 +416,59 @@ async function uploadFiles(files,targetConversation=visual.current()){
     if(confirmed){lastRender="";await refreshThread(id);planRefresh(300);}
     return confirmed;
   }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+}
+
+const FORWARD_MARKER="↪ Encaminhada/1\n";
+async function forwardRealMessage(sourceConversationId,messageId,destinations,note=""){
+  const unique=[...new Set((destinations||[]).filter(id=>roomIds.has(id)))].slice(0,12);
+  if(!sourceConversationId||!roomIds.has(sourceConversationId)||!unique.length)
+    return {sent:0,failed:unique.length,reason:"Selecione um destino autorizado."};
+  try{
+    const {data:source,error}=await client.from("chat_messages")
+      .select(CHAT_SELECT).eq("id",messageId).eq("conversation_id",sourceConversationId).maybeSingle();
+    if(error||!source)throw error||Error("Mensagem não está disponível para encaminhamento.");
+    if(source.expires_at||parsePremiumChatBody(source.body||"")?.type==="letter")
+      throw Error("Cartas lacradas e mensagens temporárias não podem ser encaminhadas.");
+    const plain=String(source.body||"").startsWith(FORWARD_MARKER)
+      ?String(source.body).slice(FORWARD_MARKER.length):String(source.body||"");
+    const text=FORWARD_MARKER+plain;
+    if(!plain.trim()||text.length>5000)throw Error("O conteúdo ultrapassa o limite para encaminhar.");
+    const originals=Array.isArray(source.media)?source.media:[];
+    if(originals.length>8)throw Error("Há anexos demais nesta mensagem.");
+    const files=[];
+    if(originals.length){
+      let total=0;
+      for(const media of originals){
+        if(!media?.storage_path||!media.mime_type)throw Error("Anexo de origem indisponível.");
+        const url=await signedMedia("looply-chat",media.storage_path,180);
+        if(!url)throw Error("Você não tem acesso a um dos anexos.");
+        const response=await fetch(url,{cache:"no-store"});
+        if(!response.ok)throw Error("Não foi possível recuperar o anexo original.");
+        const blob=await response.blob();
+        total+=blob.size;
+        if(!blob.size||blob.size>25*1024*1024||total>70*1024*1024)
+          throw Error("Arquivos muito grandes para encaminhar. Envie-os separadamente.");
+        const filename=String(media.file_name||"anexo").replace(/[/\\\x00-\x1f]/g,"_").slice(0,100)||"anexo";
+        files.push(new File([blob],filename,{type:media.mime_type,lastModified:Date.now()}));
+      }
+    }
+    let sent=0,failed=0;
+    for(const targetId of unique){
+      const target=visual.conversations().find(c=>c.id===targetId);
+      if(!target||target.canChat===false){failed++;continue;}
+      try{
+        if(files.length){
+          if(!await uploadFiles(files,targetId,text)){failed++;continue;}
+        }else await postBody(targetId,text);
+        sent++;
+        if(note.trim())try{await postBody(targetId,note.trim().slice(0,2000));}
+          catch(error){say("Encaminhamento concluído, mas a nota não foi enviada.");}
+      }catch(error){console.warn("Forward destination failed",error?.code||"offline");failed++;}
+    }
+    return {sent,failed};
+  }catch(error){
+    return {sent:0,failed:unique.length,reason:error?.message||"Encaminhamento indisponível."};
+  }
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
@@ -651,6 +704,7 @@ function bindEvents(){
     activities:()=>activityService?.open(),
     block:changeBlock,
     roomAction:performRealRoomAction,
+    forward:forwardRealMessage,
     draft:(id,value)=>draftSync?.queue(id,value,!value),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
@@ -718,6 +772,24 @@ function bindEvents(){
         console.warn("Chat Ultra: export failed",error?.code||"offline");
         if(status)status.textContent=error?.message||"Não foi possível exportar. Tente novamente.";
       }).finally(()=>{exportGo.disabled=false;});
+      return;
+    }
+    const forwardSubmit=event.target.closest("#shBox [data-ultra-forward-send]");
+    if(forwardSubmit){
+      event.preventDefault();event.stopImmediatePropagation();
+      const panel=document.querySelector("#shBox"),sourceId=panel?.dataset.ultraForwardSource;
+      const sourceRoom=panel?.dataset.ultraForwardRoom;
+      const targets=[...panel.querySelectorAll("[data-ultra-forward-target].on")].map(n=>n.dataset.ultraForwardTarget);
+      const note=panel.querySelector("[data-ultra-forward-note]")?.value||"";
+      if(!sourceId||!sourceRoom||!targets.length){say("Escolha pelo menos uma conversa.");return;}
+      forwardSubmit.disabled=true;forwardSubmit.textContent="Encaminhando…";
+      void forwardRealMessage(sourceRoom,sourceId,targets,note).then(result=>{
+        if(result.sent){
+          say("Encaminhada para "+result.sent+" conversa"+(result.sent===1?"":"s")+
+            (result.failed?" · "+result.failed+" falha(s).":"."));
+          document.querySelector("#sh")?.close();
+        }else{say(result.reason||"Nenhuma conversa confirmou o encaminhamento.");}
+      }).finally(()=>{forwardSubmit.disabled=false;forwardSubmit.textContent="Encaminhar";});
       return;
     }
     const older=event.target.closest("#msgs [data-ultra-history-more]");
