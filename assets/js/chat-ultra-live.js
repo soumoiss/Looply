@@ -101,6 +101,9 @@ async function refreshThread(id){
     const hiddenResult=await client.rpc("v41_hidden_chat_messages",{p_conversation_id:id});
     if(hiddenResult.error)throw hiddenResult.error;
     const hidden=new Set((hiddenResult.data||[]).map(row=>row.message_id));
+    const flagResult=await client.rpc("v42_chat_message_flags",{p_conversation_id:id});
+    if(flagResult.error)throw flagResult.error;
+    const flags=new Map((flagResult.data||[]).map(row=>[row.message_id,row]));
     const messages=mergeChatHistory(olderPages.get(id)||[],recent).filter(message=>!hidden.has(message.id));
     // Read the genuine sticker attachments. A sticker belongs to the chat message;
     // a local file name must never be sent as its message body.
@@ -169,7 +172,8 @@ async function refreshThread(id){
         id:message.id,from:message.sender_id,t:safeTime(message.created_at),
         kind,react:reactByMessage.get(message.id)||{},st:message.read_at?"read":message.delivered_at?"deliv":"sent",
         text:kind==="sticker"?"Figurinha":String(message.body||""),url,name:media?.file_name||"",reply:message.reply_to||null,
-        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null
+        stickerSrc:bundled?.asset_path||nativeSticker||"",stickerUrl:nativeSticker||"",card:card||null,
+        starred:Boolean(flags.get(message.id)?.saved),pinned:Boolean(flags.get(message.id)?.pinned)
       };
       if(card?.type==="letter")Object.assign(base,{title:card.title,text:card.body,signature:card.signature,paper:card.paper,seal:card.seal});
       if(card?.type==="poll"){
@@ -190,7 +194,7 @@ async function refreshThread(id){
       if(card?.type==="game")base.text="🎮 Convite para jogar";
       return base;
     }));
-    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes]));
+    const signature=JSON.stringify(mapped.map(m=>[m.id,m.text,m.st,m.react,m.url,m.stickerUrl,m.votes,m.starred,m.pinned]));
     if(visual.current()===id&&signature!==lastRender){
       visual.messages(id,mapped);
       lastRender=signature;
@@ -354,6 +358,24 @@ async function votePoll(conversationId,messageId,index){
     planRefresh(500);
   }catch(error){console.error("Chat Ultra: voto não confirmado",error);say("Não foi possível registrar o voto.");}
 }
+async function toggleMessageFlag(conversationId,messageId,kind){
+  if(!roomIds.has(conversationId)||!["saved","pinned"].includes(kind))return;
+  const current=visual.conversations().find(c=>c.id===conversationId)?.msgs?.find(m=>m.id===messageId);
+  if(!current)return;
+  const enabled=kind==="saved"?!current.starred:!current.pinned;
+  try{
+    const {data,error}=await client.rpc("v42_set_chat_message_flag",{
+      p_message_id:messageId,p_flag:kind,p_enabled:enabled
+    });
+    if(error||data!==true)throw error||Error("not_authorized");
+    lastRender="";
+    await refreshThread(conversationId);
+    say(kind==="saved"?(enabled?"Mensagem salva.":"Mensagem removida das salvas."):(enabled?"Mensagem fixada.":"Mensagem desafixada."));
+  }catch(error){
+    console.warn("Chat Ultra: message flag denied",error?.code||"permission");
+    say("Não foi possível alterar esta mensagem no servidor.");
+  }
+}
 async function hideMessageForSelf(conversationId,messageId){
   if(!roomIds.has(conversationId))return false;
   try{
@@ -515,6 +537,15 @@ function bindEvents(){
     if(fakeSimulation){event.preventDefault();event.stopImmediatePropagation();say("Eventos de demonstração não estão disponíveis na produção.");return;}
     const poll=event.target.closest("#msgs [data-poll-vote]");
     if(poll){event.preventDefault();event.stopImmediatePropagation();void votePoll(visual.current(),poll.dataset.pollVote,Number(poll.dataset.option));return;}
+    const flagButton=event.target.closest("#shBox [data-enhanced-msg='star'],#shBox [data-enhanced-msg='pin']");
+    if(flagButton){
+      event.preventDefault();event.stopImmediatePropagation();
+      const info=visual.pendingDelete?.();
+      if(info)void toggleMessageFlag(info.conversationId,info.messageId,
+        flagButton.dataset.enhancedMsg==="star"?"saved":"pinned");
+      document.querySelector("#sh")?.close();
+      return;
+    }
     const destructive=event.target.closest("#shBox [data-d]");
     if(destructive){event.preventDefault();event.stopImmediatePropagation();const item=window.LooplyVisual.pendingDelete?.();document.querySelector("#sh")?.close();if(item&&destructive.dataset.d==="all")void removeMessage(item.conversationId,item.messageId);
       else if(item&&destructive.dataset.d==="me")void hideMessageForSelf(item.conversationId,item.messageId);
