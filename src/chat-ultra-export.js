@@ -6,7 +6,7 @@ const CHUNK=100, MAX_ROWS=50000, MAX_UNCOMPRESSED=240*1024*1024;
 const encoder=new TextEncoder();
 const safeName=value=>String(value||"arquivo").normalize("NFKC")
   .replace(/[\/\\\x00-\x1f:*?"<>|]/g,"_").replace(/^\.+/,"_").slice(0,90)||"arquivo";
-const iso=value=>{const date=new Date(value);return Number.isFinite(date.valueOf())?date.toISOString():null};
+const iso=value=>{if(!value)return null;const date=new Date(value);return Number.isFinite(date.valueOf())?date.toISOString():null};
 function parsePeriod(days=0){return days?new Date(Date.now()-days*86400000).toISOString():null;}
 function header(metadata,rows){
   return {product:"Looply Chat Ultra",schema:"chat-export-v1",exportedAt:new Date().toISOString(),
