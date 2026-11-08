@@ -104,3 +104,21 @@ test("saved and pinned messages are JWT-scoped, and only three can be pinned",()
   assert.match(adapter,/pendingSendIds\.get\(conversationId,body,replyTo\)/);
   assert.match(adapter,/existing\.body!==body/);
 });
+
+test("blocking is scoped to private conversations and enforced before message insert",()=>{
+  const sql=read("migration/20261108_chat_ultra_server_blocks.sql");
+  const adapter=read("assets/js/chat-ultra-live.js");
+  assert.match(sql,/public\.looply_legacy_uid\(\)/);
+  assert.match(sql,/room\.kind IN \('direct','letter'\)/);
+  assert.match(sql,/BEFORE INSERT ON public\.chat_messages/);
+  assert.match(sql,/ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql,/REVOKE ALL ON public\.chat_user_blocks FROM PUBLIC,authenticated/);
+  assert.match(adapter,/v43_set_chat_block/);
+  assert.match(adapter,/v43_chat_block_states/);
+  assert.match(adapter,/room\?\.canChat===false/);
+  for(const html of ["chat.html","conversa.html"]){
+    const source=read(html);
+    assert.match(source,/#cfg \[data-cfg='block'\]/);
+    assert.match(source,/hooks\?\.block\?\.\(id,true\)/);
+  }
+});
