@@ -304,7 +304,7 @@ async function openBackend(id){
 }
 async function postBody(conversationId,body,replyTo=null){
   if(busy||!roomIds.has(conversationId))throw Error("Conversa indisponível.");
-  if(typeof body!=="string"||!body.trim()||body.length>5000)throw Error("Mensagem inválida.");
+  if(typeof body!=="string"||!body.trim()||body.length>14000)throw Error("Mensagem inválida.");
   busy=true;
   try{
     const nonce=pendingSendIds.get(conversationId,body,replyTo);
