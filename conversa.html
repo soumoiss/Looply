@@ -3999,7 +3999,7 @@ refresh();
       if(!cur||!hooks?.schedule)return toast("Abra uma conversa para agendar.");
       return hooks.schedule(cur);
     },
-    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={}}){
+    rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={},remoteNicknames=null}){
       ME=selfId;
       loadDrafts(selfId);
       const onlineNow=new Set(onlineUserIds);
@@ -4026,7 +4026,7 @@ refresh();
           mute:original?.mute??pref.mute??0,
           fav:original?.fav??pref.fav??0,
           arch:original?.arch??pref.arch??0,
-          nick:existing?.nick??pref.nick??"",
+          nick:remoteNicknames?String(remoteNicknames[c.id]||""):existing?.nick??pref.nick??"",
           wallpaper:original?.wallpaper??pref.wallpaper??"",
           wallpaperPath:original?.wallpaperPath??pref.wallpaperPath??"",
           wallpaperTint:original?.wallpaperTint??pref.wallpaperTint??.18,
