@@ -3896,6 +3896,43 @@ refresh();
 
   window.LooplyVisual={
     notice:m=>toast(m),
+
+    updateActivityBadge(count){
+      const button=document.querySelector("#activityBtn");
+      if(!button)return;
+      const safe=Math.max(0,Math.min(100,Number(count)||0));
+      button.innerHTML=ic("bell")+(safe?'<span class="dotb">'+(safe===100?"99+":safe)+'</span>':"");
+      button.setAttribute("aria-label",safe?"Atividades: "+safe+" não vistas":"Atividades");
+    },
+    closeActivityPanel(){document.querySelector("#sh")?.close();},
+    showServerActivities(items,filter,handlers){
+      const safe=Array.isArray(items)?items:[];
+      const button=(name,label)=>'<button type="button" data-ultra-activity-filter="'+name+'" class="'+(filter===name?"on":"")+'">'+label+'</button>';
+      sheet('<h2>Atividades</h2><div class="pre" role="group" aria-label="Filtrar atividades">'+
+        button("all","Todas")+button("unread","Não vistas")+button("calls","Chamadas")+
+        '</div><div class="activity-list">'+
+        (safe.length?safe.map(item=>{
+          const conversation=C.find(c=>c.id===item.conversationId);
+          const titleText=conversation?title(conversation):"Conversa";
+          const at=new Date(item.createdAt);
+          const date=Number.isNaN(at.valueOf())?"":at.toLocaleString("pt-BR");
+          return '<button type="button" class="activity-item '+(item.seen?"":"unseen")+
+            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+esc(item.emoji)+
+            '</span><span class="act-main"><b>'+esc(titleText)+'</b><span>'+esc(item.preview)+
+            '</span><small>'+esc(date)+'</small></span>'+
+            (item.seen?"":'<span class="activity-count" aria-label="Não vista">1</span>')+
+            '</button>';
+        }).join(""):'<div class="empty">Nenhuma atividade nesta categoria</div>')+
+        '</div><div class="inline-actions"><button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
+      const panel=document.querySelector("#shBox");
+      panel.onclick=event=>{
+        const filtering=event.target.closest("[data-ultra-activity-filter]");
+        if(filtering){void handlers?.filter?.(filtering.dataset.ultraActivityFilter);return;}
+        if(event.target.closest("[data-ultra-activity-all]")){void handlers?.markAll?.();return;}
+        const item=event.target.closest("[data-ultra-activity-id]");
+        if(item)void handlers?.select?.(item.dataset.ultraActivityId);
+      };
+    },
     mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
     showTyping(id,users=[]){
       const room=C.find(c=>c.id===id);
@@ -4133,6 +4170,15 @@ refresh();
           });
         }
       };
+
+      // Real Neon activity history replaces the demonstration activity store.
+      document.addEventListener("click",event=>{
+        const trigger=event.target.closest("#activityBtn,[data-fan='events'],[data-ultra-setting='activity']");
+        if(!trigger)return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void hooks?.activities?.();
+      },true);
       const menu=document.querySelector("#menu");
       menu.addEventListener("click",event=>{
         if(event.target.closest('[data-m="photo"]')){
