@@ -3919,17 +3919,18 @@ refresh();
           const at=new Date(item.createdAt);
           const date=Number.isNaN(at.valueOf())?"":at.toLocaleString("pt-BR");
           return '<button type="button" class="activity-item '+(item.seen?"":"unseen")+
-            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+esc(item.emoji)+
-            '</span><span class="act-main"><b>'+esc(titleText)+'</b><span>'+esc(item.preview)+
+            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+(item.avatarUrl?'<img src="'+esc(item.avatarUrl)+'" alt="" class="chat-notice-avatar" loading="lazy">':esc(item.emoji))+
+            '</span><span class="act-main"><b>'+esc(titleText)+'</b>'+(item.senderName?'<small>'+esc(item.senderName)+'</small>':'')+'<span>'+esc(item.preview)+
             '</span><small>'+esc(date)+'</small></span>'+
             (item.seen?"":'<span class="activity-count" aria-label="Não vista">1</span>')+
             '</button>';
         }).join(""):'<div class="empty">Nenhuma atividade nesta categoria</div>')+
-        '</div><div class="inline-actions"><button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
+        '</div><div class="inline-actions">'+(handlers?.hasMore?'<button type="button" class="btn" data-ultra-activity-more>Carregar mais</button>':'')+'<button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
       const panel=document.querySelector("#shBox");
       panel.onclick=event=>{
         const filtering=event.target.closest("[data-ultra-activity-filter]");
         if(filtering){void handlers?.filter?.(filtering.dataset.ultraActivityFilter);return;}
+        if(event.target.closest("[data-ultra-activity-more]")){void handlers?.more?.();return;}
         if(event.target.closest("[data-ultra-activity-all]")){void handlers?.markAll?.();return;}
         const item=event.target.closest("[data-ultra-activity-id]");
         if(item)void handlers?.select?.(item.dataset.ultraActivityId);
