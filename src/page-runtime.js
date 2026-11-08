@@ -1,7 +1,7 @@
 import { bindProfileNavigation } from "./profile-navigation.js";
 import { icon } from "./icons.js";
 import { primaryNavigationMarkup } from "./primary-navigation.js";
-import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice } from "./neon-production-client.js?v=one-session-entry-20261031";
+import { looplyClient as supabase, selfProfile, unregisterAndroidFcmDevice, NEON_DATA_API_URL } from "./neon-production-client.js?v=one-session-entry-20261031";
 import { applyProfilePreferences } from "./theme.js";
 import { setupGlobalCallListener } from "./global-call-listener.js?v=incoming-handoff-20261030";
 import { mountGlobalAnnouncements } from "./global-announcements.js";
@@ -172,6 +172,34 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   if (adminOnly && !isAdmin) {
     window.location.replace("home.html");
     return;
+  }
+
+  // Pages honor the same feature flags that are enforced on server-side inserts.
+  // A network or authorization failure is not silently translated into "enabled".
+  const pageFeature = ({chat:'chat',conversation:'chat',letters:'cartas',
+    music:'music',gallery:'gallery',reels:'reels'})[page];
+  if (!isAdmin && pageFeature) {
+    try {
+      const sessionResult=await supabase.auth.getSession();
+      const token=sessionResult?.data?.session?.access_token;
+      if (!token) throw Error('Sessão expirada');
+      const response=await fetch(NEON_DATA_API_URL+'/rpc/v47_feature_enabled',{
+        method:'POST',cache:'no-store',
+        headers:{authorization:'Bearer '+token,'content-type':'application/json',accept:'application/json'},
+        body:JSON.stringify({p_feature:pageFeature})
+      });
+      if (!response.ok) throw Error('Não foi possível verificar a disponibilidade');
+      const enabled=await response.json();
+      if (enabled === false) {
+        header.replaceChildren();
+        notice(root,'Funcionalidade temporariamente desativada.');
+        return;
+      }
+      if (enabled !== true) throw Error('Resposta de disponibilidade inválida');
+    } catch (error) {
+      notice(root,error?.message||'Serviço indisponível','error');
+      return;
+    }
   }
 
   // Initialize background features only after maintenance access is approved.
