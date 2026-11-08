@@ -1,12 +1,12 @@
 # Looply Chat Ultra — Auditoria fiel das 95 seções (2026-11-08)
 
-**Fonte:** `docs/CHAT_ULTRA_MAPEAMENTO_20261107.md`, 95 seções completas. **Escopo:** código conectado no GitHub `main` e alterações da PR #270. **Este documento NÃO declara paridade 100%.** `Implementado no código` significa presença de código e, quando citado, contrato automatizado; não equivale a teste com dois aparelhos reais. `Parcial` significa que há UI/integração encontrada, mas faltam garantia e/ou casos do mapeamento.
+**Fonte:** `docs/CHAT_ULTRA_MAPEAMENTO_20261107.md`, 95 seções completas. **Escopo:** código conectado no GitHub `main` e alterações das PRs #270 e #271. **Este documento NÃO declara paridade 100%.** `Implementado no código` significa presença de código e, quando citado, contrato automatizado; não equivale a teste com dois aparelhos reais. `Parcial` significa que há UI/integração encontrada, mas faltam garantia e/ou casos do mapeamento.
 
 ## Resultado da revisão
 
 - Implementados nesta PR: digitação autenticada e temporária, exclusão somente para mim, mensagens salvas/fixadas por conta, bloqueios diretos obrigatórios no servidor, voice note R2 real, preservação da edição após erro, central de atividades Neon, UUID de envio estável.
 - Já presentes na base: histórico paginado, mensagens e mídia Neon/R2, chamada WebRTC, 8 opções de enquete no banco, cron de mensagens programadas, games Neon/Cloudflare, papel de parede por conta, notificações FCM (sem E2E de aparelho nesta análise).
-- Lacunas de maior impacto: mensagens temporárias remotas (#42), marcar não lida real (#69), limpar/excluir com política por usuário (#72-73), exportar histórico completo (#76), rascunhos em vários aparelhos (#84), segurança/auditoria total (#86), validação de voz/vídeo entre dois aparelhos (#50-53).
+- Evolução nesta PR #271: TTL autenticado via trigger Neon (#42), lembrete remoto de não lida (#69), limite por conta para limpar e ocultar (#72-73), transferência e saída de grupo, exportação paginada JSON/TXT/ZIP com mídia opcional (#76), rascunhos remotos e recuperação local (#84). Essas integrações ainda exigem testes E2E reais. Lacunas mais críticas: chamadas/FCM/jogos em dois dispositivos (#43-53, #89-90), acessibilidade/teclado e auditoria integral de privacidade (#86).
 
 ## Matriz de 95 seções
 
@@ -53,7 +53,7 @@
 | 39 | Compartilhar contato | Parcial/integrado; E2E pendente | Compartilhamento de perfil autorizado, cartão real; validar deep-link. |
 | 40 | Enquetes, alternativas, porcentagens e voto | Parcial/integrado; E2E pendente | Até 8 opções com votos Neon v38; validar múltiplos dispositivos e sincronização. |
 | 41 | Agendar mensagem | Parcial/integrado; E2E pendente | Cloudflare Cron e Neon chat_scheduled_messages; testar app fechado. |
-| 42 | Mensagens temporárias | Lacuna confirmada | Configuração temporária no HTML ainda é local/simulada: NÃO cumpre expiração remota. |
+| 42 | Mensagens temporárias | Implementado no servidor; E2E pendente | Trigger define expires_at nas novas mensagens por prazo da conversa; SELECT RLS oculta expiradas. URLs assinadas são limitadas ao tempo restante. Caches, pushes já entregues e bytes baixados não são revogáveis retroativamente. |
 | 43 | Central `Looply Games`: acesso, janelas e estados compartilhados | Parcial/integrado; E2E pendente | Menu Games usa integração Neon; validar experiência desde convite até fim. |
 | 44 | Jogo da Velha — criar e enviar convite | Parcial/integrado; E2E pendente | Jogo da Velha usa convite validado no servidor; testar duas contas. |
 | 45 | Jogo da Velha — tabuleiro, jogadas, pontuação e bot | Parcial/integrado; E2E pendente | Tabuleiro/jogadas Neon; IA/bot e recuperação offline precisam verificação. |
@@ -80,25 +80,25 @@
 | 66 | Silenciar notificações da conversa | Parcial/integrado; E2E pendente | Silenciar preferências por conta via Neon; verificar FCM e avisos locais. |
 | 67 | Fixar conversa no topo | Parcial/integrado; E2E pendente | Fixar conversa em preferências Neon; diferenciar de fixar mensagem. |
 | 68 | Arquivar e restaurar conversa | Parcial/integrado; E2E pendente | Arquivar conversa em preferências Neon; validar notificações e retorno. |
-| 69 | Marcar como não lida | Lacuna confirmada | Marcar como não lida no modelo ainda não tem cursor persistido autoritativo. |
+| 69 | Marcar como não lida | Implementado no servidor; E2E pendente | Flag de lembrete por conta via v44_chat_mark_unread, separada dos recibos já enviados. |
 | 70 | Bloquear e desbloquear contato | Implementado no código nesta PR; E2E pendente | Bloqueio Neon v43 + gatilho antes do envio direto/letter; chamadas E2E pendentes. |
 | 71 | Denunciar conversa ou contato | Parcial/integrado; E2E pendente | Denúncias reais em chat_conversation_reports; validar moderação. |
-| 72 | Limpar conversa | Lacuna confirmada | Limpar conversa no modelo ainda pode esconder localmente, sem regra remota completa. |
-| 73 | Excluir conversa individual; sair e excluir grupo | Lacuna confirmada | Excluir/sair do grupo: existem rotas de backend; falta unificar estados do modelo. |
+| 72 | Limpar conversa | Implementado no servidor; E2E pendente | Cutoff individual por usuário; RLS oculta mensagens anteriores sem apagar mensagens dos demais. Confirmação na configuração e no menu longo. |
+| 73 | Excluir conversa individual; sair e excluir grupo | Implementado no servidor; E2E pendente | Ocultar lista por usuário, sair do grupo por RPC, dono transfere administração antes de sair se houver outros membros. |
 | 74 | Ferramenta `Fotos e arquivos` das configurações | Parcial/integrado; E2E pendente | Galeria de fotos/arquivos da conversa parcial, busca não paginada por tipo. |
 | 75 | Ferramenta `Mensagens salvas` | Parcial/integrado; E2E pendente | Mensagens salvas via Neon v42; lista visual precisa verificar filtragem entre páginas. |
-| 76 | `Exportar histórico` | Lacuna confirmada | Exportar histórico ainda não é exportação segura, completa e paginada. |
+| 76 | `Exportar histórico` | Implementado no código; E2E pendente | Exportação paginada RLS com JSON, texto ou ZIP; ZIP pode incluir anexos R2 ainda disponíveis. Limite de 240 MiB/50 mil mensagens, disponibilidade/CORS dependem do dispositivo. |
 | 77 | Seção `Experiência Premium` das configurações | Parcial/integrado; E2E pendente | Experiência Premium visual; ações de fundo e atividades já são reais. |
 | 78 | Folhas modais, janelas, confirmações e fechamento | Parcial/integrado; E2E pendente | Folhas/modais mantêm handlers locais; revisão de confirmação/fechamento pendente. |
 | 79 | Gestos do smartphone | Parcial/integrado; E2E pendente | Gestos mobile presentes; validação Android sem scroll involuntário pendente. |
 | 80 | Animações e efeitos visuais existentes | Parcial/integrado; E2E pendente | Animações CSS presentes; acessibilidade e redução de movimento parcial. |
 | 81 | Teclado, altura da viewport e rolagem estável | Parcial/integrado; E2E pendente | visualViewport e teclado tratados; teste físico WebView pendente. |
 | 82 | Botões de estado vazio, alertas e indicadores auxiliares | Parcial/integrado; E2E pendente | Estados de vazio/erro ainda precisam política consistente de offline e retentativas. |
-| 83 | Persistência: localStorage, IndexedDB, URIs e limitações | Lacuna confirmada | Mensagens não devem residir no localStorage; uso residual do protótipo deve ser removido. |
-| 84 | Rascunhos por conversa | Lacuna confirmada | Rascunhos por conversa locais; sincronização entre aparelhos pendente. |
+| 83 | Persistência: localStorage, IndexedDB, URIs e limitações | Parcial/integrado; E2E pendente | Histórico vem do Neon e uploads do R2; há estado local legado e cache a revisar. Cutoff e lembretes no servidor, drafts remotos com recuperação local. |
+| 84 | Rascunhos por conversa | Implementado no código; E2E pendente | Rascunho privado via v45_chat_read_drafts/save_draft; debounce e fallback local. Conflitos entre duas edições concorrentes ainda dependem de política de reconciliação. |
 | 85 | Informações da mensagem | Parcial/integrado; E2E pendente | Informações usam timestamp e recibos reais; grupo por membro ainda parcial. |
-| 86 | Privacidade, dados pessoais e segurança — o que não está implementado | Lacuna confirmada | Segurança JWT/RLS ampliada, mas sem promessa de E2EE e auditoria total. |
-| 87 | Arquitetura mínima para levar este modelo ao Looply online | Parcial/integrado; E2E pendente | Infra Neon/R2/Cloudflare usada, migrações v41-v43 adicionadas. |
+| 86 | Privacidade, dados pessoais e segurança — o que não está implementado | Parcial, auditoria pendente | Controles RLS de leitura, expiração e edição de autor; acesso a anexos e autenticação Neon. Não há E2EE auditado nem teste de penetração/IDOR completo. |
+| 87 | Arquitetura mínima para levar este modelo ao Looply online | Parcial/integrado; E2E pendente | Neon/R2/Cloudflare, migrações v41-v45; separação de estado autoritativo do protótipo avançou, ainda restam handlers legados. |
 | 88 | Contrato funcional esperado das mensagens em produção | Parcial/integrado; E2E pendente | Envio idempotente por UUID e leitura real; filas offline/delivery completo pendentes. |
 | 89 | Eventos de chamada que o outro usuário deve realmente receber | Parcial/integrado; E2E pendente | WebRTC com sinalização; testes two-device e TURN/cobertura FCM pendentes. |
 | 90 | Comportamento das notificações que o outro usuário deve receber | Parcial/integrado; E2E pendente | Chat notifications e FCM; auditoria de latência, privacidade e usuário ausente pendente. |
