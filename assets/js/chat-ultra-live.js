@@ -21,7 +21,7 @@ import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultr
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
-import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
+import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote, makePremiumMusic } from "../../src/chat-premium-cards.js";
 
 const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
@@ -310,6 +310,10 @@ async function sendModel(c,m){
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
+    if(m?.kind==="music"){
+      if(!/^https:\/\//i.test(String(m.text||"")))throw Error("Informe o link HTTPS da música.");
+      body="🎵 Música: "+String(m.title||"").trim().slice(0,100)+" — "+String(m.artist||"").trim().slice(0,90)+"\n"+String(m.text).trim();
+    }
     if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
     await postBody(c.id,body,m?.replyTo||null);
     return true;
@@ -379,7 +383,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
   }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
 }
 
-const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
+const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍","🔥"];
 async function setReaction(conversationId,messageId,emoji){
   if(!roomIds.has(conversationId)||!POLL_VOTES.includes(emoji))return;
   try{
@@ -606,8 +610,31 @@ async function submitRealReport(button){
   finally{button.disabled=false;}
 }
 
+async function forwardRealMessage(source,targetId){
+  if(!source?.id||!roomIds.has(targetId))return false;
+  const original=visual.conversations().find(c=>c.id===visual.current())?.msgs?.find(m=>m.id===source.id);
+  if(!original){say("Mensagem original indisponível.");return false;}
+  if(["img","video","audio","file","sticker"].includes(original.kind)){
+    say("O encaminhamento de anexos requer uma cópia autorizada da mídia.");return false;
+  }
+  try{
+    const {data,error}=await client.from("chat_messages").select("body,expires_at")
+      .eq("id",source.id).eq("conversation_id",visual.current()).maybeSingle();
+    if(error||!data?.body)throw error||Error("Mensagem original indisponível.");
+    if(data.expires_at&&Date.parse(data.expires_at)<=Date.now())throw Error("Mensagem expirada.");
+    await postBody(targetId,data.body);
+    say("Mensagem encaminhada.");
+    planRefresh(300);
+    return true;
+  }catch(error){
+    console.warn("Chat Ultra: forwarding rejected",error?.code||"offline");
+    say(error?.message||"Não foi possível encaminhar.");
+    return false;
+  }
+}
+
 function bindEvents(){
-  visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
+  visual.install({send:sendModel,forward:forwardRealMessage,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     activities:()=>activityService?.open(),
