@@ -22,7 +22,7 @@ export function makePremiumNote(text){
   if(!value)throw Error("Escreva um bilhete antes de enviar.");
   return NOTE+value;
 }
-/** Envelope payload fits the existing 5k-character authenticated chat_messages.body limit. */
+/** Envelope payload is safely serialized within the 12k Neon body constraint. */
 export function makePremiumLetter({title,body,signature="",paper="cream",seal="💌"}={}) {
   const record={v:1,
     title:String(title??"").trim().slice(0,100),
@@ -30,21 +30,21 @@ export function makePremiumLetter({title,body,signature="",paper="cream",seal="�
     signature:String(signature??"").trim().slice(0,80),
     paper:Object.hasOwn(PAPER_COLORS,paper)?paper:"cream",
     seal:String(seal??"💌").trim().slice(0,16)||"💌"};
-  if(record.body.length<2||record.body.length>4200)throw Error("A carta precisa ter entre 2 e 4.200 caracteres.");
+  if(record.body.length<2||record.body.length>10000)throw Error("A carta precisa ter entre 2 e 10.000 caracteres.");
   if(!record.title)throw Error("Dê um título à carta.");
   const encoded=LETTER+JSON.stringify(record);
-  if(encoded.length>5000)throw Error("Reduza o texto da carta para enviá-la.");
+  if(encoded.length>12000)throw Error("Reduza o texto da carta para enviá-la.");
   return encoded;
 }
 export function parsePremiumLetter(value){
   const text=String(value??"");
-  if(!text.startsWith(LETTER)||text.length>5000)return null;
+  if(!text.startsWith(LETTER)||text.length>12000)return null;
   try {
     const data=JSON.parse(text.slice(LETTER.length));
     if(!data||data.v!==1||typeof data.body!=="string"||typeof data.title!=="string"||
        typeof data.signature!=="string"||typeof data.seal!=="string"||
        !Object.hasOwn(PAPER_COLORS,data.paper)||!data.title.trim()||
-       data.title.length>100||data.body.trim().length<2||data.body.length>4200||
+       data.title.length>100||data.body.trim().length<2||data.body.length>10000||
        data.signature.length>80||data.seal.length>16) return null;
     return {type:"letter",title:data.title,body:data.body,signature:data.signature,paper:data.paper,seal:data.seal};
   }catch{return null;}
