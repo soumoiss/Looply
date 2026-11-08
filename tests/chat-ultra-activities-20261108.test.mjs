@@ -29,12 +29,16 @@ test("remote notifications show real unread count and filter from trusted user d
     {id:messageId,conversation_id:conversationId,kind:"message",
      preview:"Mensagem de verdade",created_at:"2026-11-08T01:00:00Z",read_at:null}
   ];
-  const client={from(table){
+  const client={rpc:async name=>{
+    if(name==="v46_chat_unread_activity_count")return {data:1,error:null};
+    if(name==="v46_chat_mark_all_activity_seen")return {data:1,error:null};
+    return {data:null,error:Error("unexpected_rpc")};
+  },from(table){
     assert.equal(table,"chat_notifications");
     const q={
       select(){return q;},eq(key,value){if(key==="user_id")assert.equal(value,userId);return q;},
-      order(){return q;},is(){return q;},
-      limit(){return Promise.resolve({data:notifications,error:null});},
+      order(){return q;},is(){return q;},in(){return q;},
+      range(){return Promise.resolve({data:notifications,error:null});},
       update(){return q;},maybeSingle(){return Promise.resolve({data:{id:messageId},error:null});}
     };
     return q;
@@ -49,6 +53,7 @@ test("remote notifications show real unread count and filter from trusted user d
   assert.equal(rendered.at(-1).items.length,1);
   assert.equal(rendered.at(-1).filter,"unread");
   assert.equal(rendered.at(-1).items[0].preview,"Mensagem de verdade");
+  await state.refreshBadge();
   assert.equal(badges.at(-1),1);
   state.dispose();
 });
