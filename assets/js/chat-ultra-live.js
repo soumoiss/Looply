@@ -21,7 +21,7 @@ import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultr
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
 import { cc0StickerFromMessage } from "../../src/chat-sticker-catalog.js";
-import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote } from "../../src/chat-premium-cards.js";
+import { parsePremiumChatBody, makePremiumLetter, makePremiumPoll, makePremiumLocation, makePremiumContact, makePremiumNote, makePremiumMusic } from "../../src/chat-premium-cards.js";
 
 const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
@@ -308,9 +308,10 @@ async function sendModel(c,m){
     if(m?.kind==="poll")body=makePremiumPoll({question:m.text,options:m.options});
     if(m?.kind==="location")body=makePremiumLocation(m.text);
     if(m?.kind==="contact")body=makePremiumContact({id:m.userId,name:m.name,username:m.username});
+    if(m?.kind==="music")body=makePremiumMusic({title:m.title,artist:m.artist,url:m.text,provider:m.provider||""});
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
-    if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
+    if(["audio","img","video","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return false;}
     await postBody(c.id,body,m?.replyTo||null);
     return true;
   }catch(error){console.error("Chat Ultra: envio falhou",error);say(error?.message||errorMessage);return false;}
@@ -381,7 +382,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
 async function setReaction(conversationId,messageId,emoji){
-  if(!roomIds.has(conversationId)||!POLL_VOTES.includes(emoji))return;
+  if(!roomIds.has(conversationId)||!["❤️","😂","😮","😢","🙏","👍","🔥"].includes(emoji))return;
   try{
     const {data,error}=await client.from("chat_message_reactions")
       .select("emoji").eq("conversation_id",conversationId)
@@ -575,12 +576,11 @@ async function saveRealConversationName(button){
   button.disabled=true;
   try{
     const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
+      await client.rpc("v46_chat_rename_group",{p_conversation_id:id,p_subject:name}):
       await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
+    if(result.error||(group.type==="group"?result.data!==true:!result.data))throw result.error||Error("not_confirmed");
     if(group.type==="dm")group.nick=name;
     document.querySelector("#sh")?.close();
     await refreshRooms();
