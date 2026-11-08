@@ -34,7 +34,9 @@ function cardNode(message){
     a.href="perfil.html?usuario="+encodeURIComponent(card.id);
     head.textContent="👤";name.textContent=card.name;sub.textContent="@"+card.username;
   }else if(card.type==="location"){
-    a.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(card.label||"");
+    a.href=Number.isFinite(card.latitude)&&Number.isFinite(card.longitude)?
+      "https://www.google.com/maps?q="+encodeURIComponent(card.latitude+","+card.longitude):
+      "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(card.label||"");
     a.target="_blank";a.rel="noopener noreferrer";
     head.textContent="📍";name.textContent=card.label;sub.textContent="Abrir no mapa";
   }else{
