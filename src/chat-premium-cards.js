@@ -55,10 +55,18 @@ export function makePremiumContact({id,name,username}={}){
     throw Error("Selecione um perfil válido da lista.");
   return CONTACT+JSON.stringify(record);
 }
-export function makePremiumLocation(place){
+export function makePremiumLocation(place,coordinates=null){
   const label=String(place??"").trim().slice(0,180);
   if(label.length<3)throw Error("Digite um local ou endereço.");
-  return LOCATION+JSON.stringify({v:1,label});
+  const loc={v:1,label};
+  if(coordinates){
+    const latitude=Number(coordinates.latitude),longitude=Number(coordinates.longitude);
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)
+      throw Error("Coordenadas inválidas.");
+    // Static location only. Approximation limits unnecessary precision stored.
+    loc.lat=Number(latitude.toFixed(5));loc.lon=Number(longitude.toFixed(5));
+  }
+  return LOCATION+JSON.stringify(loc);
 }
 export function makePremiumPoll({question,options}={}){
   const q=String(question??"").trim().slice(0,240);
@@ -105,8 +113,13 @@ export function parsePremiumChatBody(value){
   if(text.startsWith(LOCATION)&&text.length<=500){
     try {
       const d=JSON.parse(text.slice(LOCATION.length));
-      if(d.v===1&&typeof d.label==="string"&&d.label.trim().length>=3&&d.label.length<=180)
-        return {type:"location",label:d.label};
+      if(d.v===1&&typeof d.label==="string"&&d.label.trim().length>=3&&d.label.length<=180){
+        const hasCoordinates=Object.hasOwn(d,"lat")||Object.hasOwn(d,"lon");
+        if(hasCoordinates&&(!Number.isFinite(d.lat)||!Number.isFinite(d.lon)||
+          Math.abs(d.lat)>90||Math.abs(d.lon)>180))return null;
+        return {type:"location",label:d.label,
+          ...(hasCoordinates?{latitude:d.lat,longitude:d.lon}:{})};
+      }
     }catch{return null;}
     return null;
   }
