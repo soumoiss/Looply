@@ -188,6 +188,7 @@ const protectedArchiveRpcNames = new Set([
    "v37_chat_presence_heartbeat","v37_chat_presence_visible",
    "v41_chat_typing_update","v41_chat_typing_visible",
    "v41_hide_chat_message","v41_hidden_chat_messages",
+   "v42_set_chat_message_flag","v42_chat_message_flags",
    "v38_vote_chat_poll","v38_chat_poll_votes",
    "v39_schedule_chat_message","v39_cancel_chat_schedule","v39_list_chat_schedules",
    "v36_add_group_member","v36_remove_group_member"
