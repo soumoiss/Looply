@@ -83,7 +83,7 @@ export function setupUltraActivities({client,userId,visual,onOpen,profiles=()=>[
       hasMore
     });
   }
-  async function open(nextFilter="all",more=false){
+  async function open(nextFilter=filter,more=false){
     if(disposed||loading)return;
     filter=["all","unread","calls"].includes(nextFilter)?nextFilter:filter;
     loading=true;const current=++nonce;
