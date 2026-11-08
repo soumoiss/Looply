@@ -322,8 +322,15 @@ async function sendModel(c,m){
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
     if(m?.kind==="music"){
-      if(!/^https:\/\//i.test(String(m.text||"")))throw Error("Informe o link HTTPS da música.");
-      body="🎵 Música: "+String(m.title||"").trim().slice(0,100)+" — "+String(m.artist||"").trim().slice(0,90)+"\n"+String(m.text).trim();
+      const raw=String(m.text||"");
+      let url;
+      try{url=new URL(raw);}catch{throw Error("Insira o link oficial da música.");}
+      const host=url.hostname.toLowerCase();
+      const provider=host==="music.apple.com"?"apple":
+        host==="open.spotify.com"?"spotify":
+        host==="www.deezer.com"||host==="deezer.com"?"deezer":"";
+      if(!provider)throw Error("Escolha um link oficial Apple Music, Spotify ou Deezer.");
+      body=makePremiumMusic({provider,title:m.title,artist:m.artist,url:raw});
     }
     if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
     await postBody(c.id,body,m?.replyTo||null);
