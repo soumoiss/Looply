@@ -978,8 +978,8 @@ async function insertChatMessage(client, conversationId, userId, body, replyTo =
   return data;
 }
 
-function publishChatMessage(root, client, conversationId, messageId) {
-  root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId } }));
+function publishChatMessage(root, client, conversationId, messageId, extra={}) {
+  root.dispatchEvent(new CustomEvent("looply:chat-message-saved", { detail: { conversationId,messageId,...extra } }));
   void requestImmediateMessagePush(client, messageId);
 }
 
@@ -1933,10 +1933,20 @@ export function bindChatEvents(root, client, getUserId) {
         form._looplyStickerFile = null;
         form.reset();
         setStatus(form, files.length ? "Mensagem e anexos enviados." : "Mensagem enviada.");
-        publishChatMessage(root, client, conversationId, message.id);
+        publishChatMessage(root, client, conversationId, message.id,
+          {ultraUploadRequestId:form.dataset.ultraUploadRequestId||""});
+        delete form.dataset.ultraUploadRequestId;
         await openConversation(root, client, conversationId, userId);
       }
     } catch (error) {
+      // An Ultra upload promise is resolved only after the native backend
+      // confirms all files. A failed native submission must be reported too.
+      if(form.matches("[data-chat-send]")&&form.dataset.ultraUploadRequestId){
+        root.dispatchEvent(new CustomEvent("looply:chat-upload-result",{
+          detail:{ultraUploadRequestId:form.dataset.ultraUploadRequestId,success:false}
+        }));
+        delete form.dataset.ultraUploadRequestId;
+      }
       console.error("Looply chat action failed", error);
       let message;
       if (/invalid group/.test(String(error?.message || ""))) message = "Informe um nome e selecione de duas a 49 pessoas para o grupo.";
