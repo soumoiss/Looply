@@ -3791,7 +3791,7 @@ refresh();
 /* Translates authenticated Looply data into the Ultra visual primitives. */
 (() => {
   "use strict";
-  let hooks=null;
+  let hooks=null,ultraEditBusy=false;
   const prefSnapshots=new Map(),remoteSnapshots=new Map();
   let draftOwner="",drafts={};
   const draftStorage=()=> "looply-ultra-drafts-v1:"+ME;
@@ -3831,6 +3831,11 @@ refresh();
     ).join("");
   };
   status=function liveStatus(c){
+    const active=typingRoster.get(c.id)||[];
+    if(active.length){
+      if(c.type==="group")return '<small class="ty">'+(active.length===1?esc(U(active[0]).n):active.length+" participantes")+' digitando…</small>';
+      return '<small class="ty">digitando…</small>';
+    }
     if(c.type==="group")return '<small>'+c.members.length+' participantes</small>';
     const other=c.members.find(id=>id!==ME);
     return U(other)?.on?'<small><span class="chat-live-dot"></span>online agora</small>':'<small>Não está online agora</small>';
@@ -3840,6 +3845,26 @@ refresh();
     return '<span class="av grp" style="--s:'+Number(size)+'px"><img src="'+esc(c.coverUrl)+'" alt=""></span>';
   };
   settle=function noFakeReplies(){};
+  const typingRoster=new Map();
+  function paintLiveTyping(id){
+    if(cur!==id)return;
+    const messages=document.querySelector("#msgs");
+    if(!messages)return;
+    messages.querySelector('[data-ultra-live-typing]')?.remove();
+    const active=typingRoster.get(id)||[];
+    if(!active.length)return;
+    const near=messages.scrollHeight-messages.scrollTop-messages.clientHeight<100;
+    const container=document.createElement("div");
+    container.className="m th f l";
+    container.dataset.ultraLiveTyping="true";
+    container.setAttribute("aria-label","Alguém está digitando");
+    const box=document.createElement("div");box.className="col";
+    const bubbleNode=document.createElement("div");bubbleNode.className="b tyb";
+    for(let i=0;i<3;i++)bubbleNode.append(document.createElement("i"));
+    box.appendChild(bubbleNode);container.appendChild(box);
+    messages.appendChild(container);
+    if(near)messages.scrollTop=messages.scrollHeight;
+  }
   // Render R2-backed stickers inside the Ultra visual bubble without
   // exposing the raw placeholder "Figurinha" or injecting message HTML.
   let ultraMediaDecorator=null;
@@ -3871,7 +3896,54 @@ refresh();
 
   window.LooplyVisual={
     notice:m=>toast(m),
+
+    updateActivityBadge(count){
+      const button=document.querySelector("#activityBtn");
+      if(!button)return;
+      const safe=Math.max(0,Math.min(100,Number(count)||0));
+      button.innerHTML=ic("bell")+(safe?'<span class="dotb">'+(safe===100?"99+":safe)+'</span>':"");
+      button.setAttribute("aria-label",safe?"Atividades: "+safe+" não vistas":"Atividades");
+    },
+    closeActivityPanel(){document.querySelector("#sh")?.close();},
+    showServerActivities(items,filter,handlers){
+      const safe=Array.isArray(items)?items:[];
+      const button=(name,label)=>'<button type="button" data-ultra-activity-filter="'+name+'" class="'+(filter===name?"on":"")+'">'+label+'</button>';
+      sheet('<h2>Atividades</h2><div class="pre" role="group" aria-label="Filtrar atividades">'+
+        button("all","Todas")+button("unread","Não vistas")+button("calls","Chamadas")+
+        '</div><div class="activity-list">'+
+        (safe.length?safe.map(item=>{
+          const conversation=C.find(c=>c.id===item.conversationId);
+          const titleText=conversation?title(conversation):"Conversa";
+          const at=new Date(item.createdAt);
+          const date=Number.isNaN(at.valueOf())?"":at.toLocaleString("pt-BR");
+          return '<button type="button" class="activity-item '+(item.seen?"":"unseen")+
+            '" data-ultra-activity-id="'+esc(item.id)+'"><span class="act-emoji">'+esc(item.emoji)+
+            '</span><span class="act-main"><b>'+esc(titleText)+'</b><span>'+esc(item.preview)+
+            '</span><small>'+esc(date)+'</small></span>'+
+            (item.seen?"":'<span class="activity-count" aria-label="Não vista">1</span>')+
+            '</button>';
+        }).join(""):'<div class="empty">Nenhuma atividade nesta categoria</div>')+
+        '</div><div class="inline-actions"><button type="button" class="btn" data-ultra-activity-all>Marcar todas como vistas</button></div>');
+      const panel=document.querySelector("#shBox");
+      panel.onclick=event=>{
+        const filtering=event.target.closest("[data-ultra-activity-filter]");
+        if(filtering){void handlers?.filter?.(filtering.dataset.ultraActivityFilter);return;}
+        if(event.target.closest("[data-ultra-activity-all]")){void handlers?.markAll?.();return;}
+        const item=event.target.closest("[data-ultra-activity-id]");
+        if(item)void handlers?.select?.(item.dataset.ultraActivityId);
+      };
+    },
     mediaRenderer(render){ultraMediaDecorator=typeof render==="function"?render:null;},
+    showTyping(id,users=[]){
+      const room=C.find(c=>c.id===id);
+      if(!room)return;
+      const people=[...new Set(users.filter(userId=>userId!==ME&&room.members.includes(userId)))];
+      const previous=typingRoster.get(id)||[];
+      if(previous.join(",")===people.join(","))return;
+      if(people.length)typingRoster.set(id,people);
+      else typingRoster.delete(id);
+      if(cur===id){topbar();paintLiveTyping(id);}
+    },
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
@@ -3940,7 +4012,13 @@ refresh();
       });
       refresh();
       if(cur&&!conv(cur)){originalClose();}
-      else if(cur){topbar();if(typeof applyWallpaper==="function")void applyWallpaper(conv(cur));}
+      else if(cur){
+        topbar();
+        if(typeof applyBlock==="function")applyBlock();
+        if(typeof applyWallpaper==="function")void applyWallpaper(conv(cur));
+        const settings=document.querySelector("#cfg");
+        if(settings&&!settings.hidden&&settings.classList.contains("open"))cfgDraw();
+      }
       const onlineLabel=document.querySelector("#online");
       if(onlineLabel)onlineLabel.setAttribute("aria-label","Pessoas");
     },
@@ -3951,6 +4029,7 @@ refresh();
       if(cur===id){
         const list=document.querySelector("#msgs"),near=list.scrollHeight-list.scrollTop-list.clientHeight<150;
         renderMsgs(near);
+        paintLiveTyping(id);
       }
       inbox();
     },
@@ -3960,10 +4039,12 @@ refresh();
         if(!conv(id))return;
         if(cur)saveDraft(cur,inp.value);
         originalOpen(id);
+        paintLiveTyping(id);
         restoreDraft(id);
         hooks?.opened(id);
       };
       closeConv=function liveClose(){
+        if(recording)stopRec(true);
         if(cur)saveDraft(cur,inp.value);
         originalClose();
         inp.value="";grow();btn();
@@ -3973,6 +4054,81 @@ refresh();
         if(cur&&!editing){saveDraft(cur,inp.value);inbox();}
       });
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
+
+      // Real MediaRecorder -> authenticated Neon/R2 attachment upload.
+      // Never save fake audio locally or synthesize voice messages on failure.
+      let activeVoice=null;
+      startRec=async function startAuthenticatedVoice(){
+        if(!cur||recording||activeVoice)return;
+        if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==="undefined"){
+          toast("Este aparelho não permite gravar áudio.");return;
+        }
+        let stream;
+        try{
+          stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+          const supported=["audio/webm;codecs=opus","audio/mp4","audio/webm","audio/ogg"];
+          const mime=supported.find(v=>MediaRecorder.isTypeSupported?.(v))||"";
+          const recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+          const chunks=[];
+          recorder.addEventListener("dataavailable",e=>{if(e.data?.size)chunks.push(e.data)});
+          const context={recorder,stream,chunks,id:cur,started:Date.now(),cancelled:false};
+          activeVoice=context;
+          recorder.addEventListener("stop",()=>{
+            stream.getTracks().forEach(track=>track.stop());
+            if(context.cancelled||!chunks.length)return;
+            const type=recorder.mimeType.split(";")[0]||"audio/webm";
+            const extension=type==="audio/mp4"?"mp4":type==="audio/ogg"?"ogg":"webm";
+            const file=new File([new Blob(chunks,{type})],"voz-"+Date.now()+"."+extension,{type,lastModified:Date.now()});
+            if(!file.size){toast("A gravação ficou vazia.");return;}
+            if(file.size>25*1024*1024){toast("A gravação ultrapassou 25 MiB.");return;}
+            toast("Enviando mensagem de voz…");
+            void Promise.resolve(hooks?.uploadAudio?.(context.id,file)).then(accepted=>{
+              if(!accepted)toast("A mensagem de voz não foi enviada.");
+            }).catch(()=>toast("Falha ao enviar o áudio. Tente novamente."));
+          },{once:true});
+          recorder.start(250);
+          recording={real:true};
+          rsec=0;
+          document.querySelector("#rt").textContent="00:00";
+          document.querySelector("#comp").classList.add("rc");
+          document.querySelector("#send").classList.add("rec");
+          document.querySelector("#send").innerHTML=ic("send");
+          clearInterval(rtm);
+          rtm=setInterval(()=>{
+            if(activeVoice!==context)return;
+            rsec=Math.ceil((Date.now()-context.started)/1000);
+            document.querySelector("#rt").textContent=mmss(rsec);
+            if(rsec>=180)stopRec(false);
+          },300);
+        }catch(error){
+          stream?.getTracks().forEach(track=>track.stop());
+          activeVoice=null;
+          recording=null;
+          clearInterval(rtm);
+          document.querySelector("#comp")?.classList.remove("rc");
+          document.querySelector("#send")?.classList.remove("rec");
+          btn();
+          toast(error?.name==="NotAllowedError"?"Permissão de microfone negada.":"Não foi possível iniciar a gravação.");
+        }
+      };
+      stopRec=function finishAuthenticatedVoice(cancel){
+        const context=activeVoice;
+        if(!context)return;
+        context.cancelled=Boolean(cancel)||cur!==context.id;
+        activeVoice=null;recording=null;
+        clearInterval(rtm);
+        document.querySelector("#comp")?.classList.remove("rc");
+        document.querySelector("#send")?.classList.remove("rec");
+        btn();
+        try{
+          if(context.recorder.state!=="inactive")context.recorder.stop();
+          else context.stream.getTracks().forEach(track=>track.stop());
+        }catch{
+          context.stream.getTracks().forEach(track=>track.stop());
+        }
+      };
+      window.addEventListener("pagehide",()=>{if(activeVoice)stopRec(true);},{once:true});
+
       // The original schedule() mutates a local array and cannot deliver with
       // the app closed. Replace it with the authenticated server scheduler.
       schedule=function serverOnlyChatSchedule(){return window.LooplyVisual.nativeSchedule();};
@@ -3983,9 +4139,24 @@ refresh();
         const c=conv(cur),message=inp.value.trim();
         if(!c||!message)return;
         if(editing){
-          const target=editing;
-          editing=null;reply=null;ctx();inp.value="";grow();btn();
-          void hooks?.edit(c,target,message);
+          if(ultraEditBusy)return;
+          const target=editing,editingConversation=c.id;
+          ultraEditBusy=true;
+          // Preserve the draft and edit context until Neon confirms the change.
+          void Promise.resolve(hooks?.edit(c,target,message)).then(saved=>{
+            if(saved!==true){
+              toast("Edição não confirmada. O texto foi preservado para tentar novamente.");
+              return;
+            }
+            if(cur===editingConversation&&editing?.id===target.id){
+              editing=null;reply=null;ctx();
+              if(inp.value.trim()===message)inp.value="";
+              grow();btn();
+              if(!inp.value.trim())saveDraft(editingConversation,"");
+            }
+          }).catch(()=>{
+            toast("Sem conexão para editar. O texto permanece na caixa.");
+          }).finally(()=>{ultraEditBusy=false;});
         }else{
           inp.value="";grow();btn();document.querySelector("#pan")?.classList.remove("open");
           const replyTo=reply?.id||null;
@@ -4005,6 +4176,32 @@ refresh();
           });
         }
       };
+
+      // Blocking is server-authoritative; local toggles must never claim success.
+      document.addEventListener("click",event=>{
+        const target=event.target.closest("#cfg [data-cfg='block'],#blkbar #unb");
+        if(!target)return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const id=cur,room=conv(id);
+        if(!room||room.type!=="dm")return;
+        if(room.blocked||target.closest("#blkbar")){
+          void hooks?.block?.(id,false);
+        }else{
+          confirmSheet("Bloquear "+title(room)+"?",
+            "O envio de mensagens será impedido pelo servidor até você desbloquear.",
+            "Bloquear",()=>{void hooks?.block?.(id,true);});
+        }
+      },true);
+
+      // Real Neon activity history replaces the demonstration activity store.
+      document.addEventListener("click",event=>{
+        const trigger=event.target.closest("#activityBtn,[data-fan='events'],[data-ultra-setting='activity']");
+        if(!trigger)return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void hooks?.activities?.();
+      },true);
       const menu=document.querySelector("#menu");
       menu.addEventListener("click",event=>{
         if(event.target.closest('[data-m="photo"]')){
