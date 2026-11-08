@@ -300,19 +300,24 @@ async function legacyComposer(id){
   }
   throw Error("O editor de anexos não está disponível.");
 }
-async function uploadFiles(files){
-  if(!files.length)return;
+async function uploadFiles(files,targetConversation=visual.current()){
+  if(!files.length)return false;
   try{
-    const id=visual.current();
+    const id=targetConversation;
+    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
     const form=await legacyComposer(id);
     const input=form.querySelector('input[name="files"]');
+    if(!input)throw Error("O envio de anexos não está disponível.");
+    const body=form.querySelector('textarea[name="body"]');
+    if(body)body.value="";
     const transfer=new DataTransfer();
     files.forEach(file=>transfer.items.add(file));
     input.files=transfer.files;
     form.requestSubmit();
     say("Enviando anexo…");
     setTimeout(()=>void refreshThread(id),1100);
-  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);}
+    return true;
+  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍"];
@@ -461,6 +466,7 @@ async function submitRealReport(button){
 function bindEvents(){
   visual.install({send:sendModel,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
+    uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     schedule:()=>scheduler?.open(),
     hasOlder:id=>Boolean(hasMoreHistory.get(id)),loadOlder:loadOlderHistory,
     savePrefs:row=>preferenceService?.queue(row),
