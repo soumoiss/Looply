@@ -60,7 +60,7 @@ async function panelAction(action,payload={}){
  });const body=await response.json().catch(()=>null);
  if(!response.ok)throw Error(String(body?.message||`Operação indisponível: ${action}`));return body;
 }
-async function readResource(resource,offset=0){if(!rawResources.has(resource))throw Error('Recurso não permitido');const response=await callAction('read',{resourceType:resource,offset,purpose:'Consulta administrativa verificada no Painel Looply'});return Array.isArray(response?.data)?response.data:Array.isArray(response?.data?.data)?response.data.data:Array.isArray(response?.records)?response.records:Array.isArray(response?.items)?response.items:[]}
+async function readResource(resource,offset=0){if(!rawResources.has(resource))throw Error('Recurso não permitido');const response=await callAction('read',{resourceType:resource,offset,purpose:'Consulta administrativa verificada no Painel Looply'});return Array.isArray(response?.data)?response.data:Array.isArray(response?.data?.data)?response.data.data:Array.isArray(response?.records)?response.records:Array.isArray(response?.items)?response.items:(()=>{throw Error(`Resposta administrativa inválida: ${resource}`)})()}
 /** Consulta de projeção explícita no servidor: nunca busca registro integral. */
 async function safeQuery(resource,offset=0){
  if(!['profiles','community_letters','audit'].includes(resource))throw Error('Consulta não autorizada');
@@ -114,7 +114,34 @@ async function broadcasts(root){waiting(root);const result=await callAction('bro
 function recordInline(root,row){const pre=el('pre','js');pre.textContent=JSON.stringify(cleanRecord(row),null,2);root.append(pre)}
 async function secrets(root){waiting(root);const result=await callAction('secret_list');root.replaceChildren();const list=el('div');root.append(makeButton('Novo recado secreto',()=>openView('Recado VIP',b=>form(b,[{key:'recipientId',label:'UUID destinatário',required:true},{key:'title',label:'Título'},{key:'content',label:'Recado',type:'textarea',required:true}],'Enviar',d=>callAction('secret_create',d))),'main'));root.append(list);presentRows(list,result.messages||[],row=>openView('Recado',b=>{recordInline(b,row);if(!row.is_read)b.append(makeButton('Cancelar',()=>confirmAction('Cancelar recado?',()=>callAction('secret_cancel',{secretId:row.id})),'dg'))}),{label:'recados'})}
 function appearance(root){root.append(makeButton('Alternar tema',toggleTheme),makeButton('Alternar Matrix',toggleMatrix))}
-async function dbHealth(root){waiting(root);try{const rows=await Promise.all([callAction('users_list'),callAction('broadcast_list')]);root.replaceChildren();for(const [name,value] of [['Usuários',rows[0].users?.length],['Comunicados',rows[1].announcements?.length]]){const card=el('div','card');card.innerHTML=`<span class="mono">${esc(name)}</span> <b>${Number.isInteger(value)?value:'—'}</b>`;root.append(card)}}catch(error){showFailure(root,error)}}
+/** Diagnóstico somente de leitura, com verificações reais e sem tokens nos resultados. */
+async function dbHealth(root){
+ waiting(root);
+ const probes=[
+  ['Identidade ADM',async()=>{const status=await callAction('status');if(status?.isAdmin!==true)throw Error('Sessão sem autorização');return 'Verificada'}],
+  ['Usuários',async()=>{const data=await callAction('users_list');if(!Array.isArray(data?.users))throw Error('Resposta inválida');return `${data.users.length} registros`}],
+  ['Comunicados',async()=>{const data=await callAction('broadcast_list');if(!Array.isArray(data?.announcements))throw Error('Resposta inválida');return `${data.announcements.length} registros`}],
+  ['Trilha de auditoria',async()=>{const rows=await readResource('audit');return `${rows.length} registros na página`}],
+  ['Leituras privadas',async()=>{const rows=await directRead('looply_admin_letter_access_log','id,actor_id,event_kind,created_at');return `${rows.length} registros acessíveis`}],
+  ['Denúncias',async()=>{const rows=await panelAction('reports_list');if(!Array.isArray(rows))throw Error('Resposta inválida');return `${rows.length} registros`}],
+  ['Filtro de palavras',async()=>{const rows=await panelAction('word_list');if(!Array.isArray(rows))throw Error('Resposta inválida');return `${rows.length} termos`}],
+  ['Consulta segura',async()=>{await safeQuery('profiles');return 'RPC disponível'}]
+ ];
+ root.replaceChildren();
+ const list=el('div','rows');root.append(makeButton('Verificar novamente',()=>dbHealth(root)),list);
+ const results=await Promise.all(probes.map(async([label,probe])=>{
+  try{return {label,ok:true,detail:await probe()}}
+  catch(error){return {label,ok:false,detail:String(error?.message||'Indisponível').slice(0,140)}}
+ }));
+ for(const item of results){
+  const row=el('div','r');row.style.cursor='default';
+  const symbol=el('span','chip '+(item.ok?'ok':'bad'),item.ok?'OK':'ERRO');
+  const content=el('span','tx');content.append(el('b',null,item.label),el('small',null,item.detail));
+  row.append(symbol,content);list.append(row);
+ }
+ const succeeded=results.filter(x=>x.ok).length;
+ root.append(el('div','cnt',`${succeeded}/${probes.length} integrações confirmadas`));
+}
 function stickers(root){root.append(makeButton('Importar pacotes ZIP',()=>window.location.assign('admin-importar-figurinhas.html?origem=admin'),'main'))}
 const runModule = async(item,root)=>{
  const kind=item.kind;
