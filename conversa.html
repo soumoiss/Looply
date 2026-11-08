@@ -3070,7 +3070,14 @@ refresh();
       <div class="feature-heading">Papel</div>
       <div class="inline-actions" id="letterPapers">${Object.entries(letterPapers).map(([key,color])=>`<button class="letter-color-choice" type="button" aria-pressed="${key===letterPaper}" data-paper="${key}" style="background:${color}" title="Papel ${key}">${key==="cream"?"✉️":key==="rose"?"🌷":key==="lavender"?"💜":"🕊️"}</button>`).join("")}</div>
       <div class="feature-heading">Selo</div>
-      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}</div>
+      <div class="inline-actions" id="letterSeals">${["💜","💌","🌷","🦋","🌙","⭐","🕊️","❤️"].map(emoji=>`<button type="button" class="letter-seal-choice ${emoji===letterSeal?"on":""}" data-seal="${emoji}" aria-label="Selo ${emoji}">${emoji}</button>`).join("")}
+      <button type="button" class="letter-seal-choice" data-seal-open title="Mais emojis" aria-label="Escolher qualquer emoji">＋</button></div>
+      <div id="letterEmojiPicker" hidden style="max-height:min(40dvh,300px);overflow:auto;padding:6px;border-radius:14px;background:var(--strong)">
+        <input class="fi" type="search" data-seal-search placeholder="Buscar emoji">
+        <div id="letterEmojiGrid" class="grid" style="grid-template-columns:repeat(7,minmax(0,1fr));gap:3px"></div>
+        <button type="button" class="btn" data-seal-more>Mostrar mais emojis</button>
+        <input class="fi" type="text" data-seal-custom placeholder="Ou escolha pelo teclado de emojis do celular" maxlength="32">
+      </div>
       <div class="feature-heading">Prévia</div>
       <div class="letter-preview" id="letterLivePreview" data-paper="cream"><small>Para: ${esc(receiver)}</small><h3>Minha carta</h3><div class="letter-body">Sua carta aparecerá aqui…</div><footer>${esc(U(ME).n)}</footer></div>
       <div class="sfoot"><button class="btn main" data-letter-send>${ic("mail")} Selar e enviar carta</button></div>`);
@@ -3082,7 +3089,32 @@ refresh();
       $u(".letter-body",preview).textContent=$u("#letterBody").value || "Sua carta aparecerá aqui…";
       $u("footer",preview).textContent=$u("#letterSign").value || "Sem assinatura";
     };
-    $u("#shBox").oninput=sync;
+    let sealPage=0;
+    function paintLetterEmojis(reset=false){
+      if(reset)sealPage=0;
+      const pick=$u("#letterEmojiPicker"),grid=$u("#letterEmojiGrid");
+      if(!pick||!grid)return;
+      const query=String($u("[data-seal-search]",pick)?.value||"").trim().toLocaleLowerCase("pt-BR");
+      const aliases=[...new Set(Object.entries(EMOJI_ALIAS).filter(([key])=>key.includes(query)).flatMap(([,items])=>items))];
+      const options=query?[...new Set([...aliases,...allEmoji.filter(x=>x.includes(query))])]:allEmoji;
+      const max=(++sealPage)*175;
+      grid.innerHTML=options.slice(0,max).map(emoji=>'<button type="button" data-seal="'+esc(emoji)+'" aria-label="Selo '+esc(emoji)+'" class="letter-seal-choice" style="width:100%;font-size:22px">'+emoji+'</button>').join("");
+      pick.querySelector("[data-seal-more]").hidden=options.length<=max;
+    }
+    $u("#shBox").oninput=event=>{
+      sync();
+      if(event.target.matches("[data-seal-search]"))paintLetterEmojis(true);
+      if(event.target.matches("[data-seal-custom]")){
+        const raw=event.target.value.trim();
+        const segments=typeof Intl.Segmenter==="function"?
+          [...new Intl.Segmenter("pt",{granularity:"grapheme"}).segment(raw)].map(x=>x.segment):[...raw];
+        const glyph=segments[0]||"";
+        if(/\\p{Extended_Pictographic}/u.test(glyph)){
+          letterSeal=glyph.slice(0,32);
+          $u("[data-seal]").forEach(node=>node.classList.toggle("on",node.dataset.seal===letterSeal));
+        }
+      }
+    };
     $u("#shBox").onclick = event => {
       const paper = event.target.closest("[data-paper]");
       if (paper) {
@@ -3090,6 +3122,13 @@ refresh();
         $$u("[data-paper]").forEach(node=>node.setAttribute("aria-pressed",String(node===paper)));
         return sync();
       }
+      if(event.target.closest("[data-seal-open]")){
+        const picker=$u("#letterEmojiPicker");
+        picker.hidden=!picker.hidden;
+        if(!picker.hidden)paintLetterEmojis(true);
+        return;
+      }
+      if(event.target.closest("[data-seal-more]")){paintLetterEmojis();return;}
       const seal = event.target.closest("[data-seal]");
       if (seal) {
         letterSeal=seal.dataset.seal;
@@ -3102,10 +3141,14 @@ refresh();
         const title=$u("#letterTitle").value.trim() || "Uma carta para você";
         const signature=$u("#letterSign").value.trim() || "Anônimo";
         if (text.length<2) return toast("Escreva sua carta");
-        sh.close();
-        push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:letterSeal});
-        createActivity({kind:"letter",conversationId:c.id,from:ME,body:`Carta selada: ${title}`,outgoing:true,seen:true});
-        toast("Carta enviada em envelope 💌");
+        const sendButton=event.target.closest("[data-letter-send]");
+        sendButton.disabled=true;
+        void Promise.resolve(push(c,{kind:"letter",text,title,signature,paper:letterPaper,seal:letterSeal}))
+          .then(ok=>{
+            if(ok===true){sh.close();toast("Carta enviada em envelope 💌");}
+            else toast("Não foi possível enviar. Seu texto foi preservado.");
+          }).catch(()=>toast("Falha de conexão. Sua carta não foi apagada."))
+          .finally(()=>{if(sendButton.isConnected)sendButton.disabled=false;});
       }
     };
   }
