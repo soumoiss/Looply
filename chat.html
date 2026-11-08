@@ -4179,6 +4179,90 @@ refresh();
         }
       };
 
+      // Privileged room actions only execute after a positive Neon RPC result.
+      document.addEventListener("click",event=>{
+        const target=event.target;
+        const settings=target.closest("#cfg [data-cfg]");
+        const action=settings?.dataset.cfg;
+        if(["ttl","unread","clear","del","transfer"].includes(action)){
+          event.preventDefault();event.stopImmediatePropagation();
+          const c=conv(cur);
+          if(!c)return;
+          if(action==="ttl"){
+            ttlSheet(c);
+            document.querySelector("#shBox").dataset.looplyTtlRoom=c.id;
+            return;
+          }
+          if(action==="unread"){void hooks?.roomAction?.("unread",c.id);return;}
+          if(action==="clear"){
+            confirmSheet("Limpar conversa?","As mensagens anteriores serão ocultadas somente para sua conta. Outros participantes mantêm o histórico.","Limpar",()=>{
+              void hooks?.roomAction?.("clear",c.id);
+            });
+            return;
+          }
+          if(action==="del"){
+            if(c.type==="group"){
+              sheet('<h2>Grupo</h2><button class="act dg" type="button" data-ultra-room-choice="leave">Sair do grupo</button>'+
+                '<button class="act" type="button" data-ultra-room-choice="hide">Ocultar da minha lista</button>'+
+                '<button class="btn" type="button" data-ultra-room-choice="cancel">Cancelar</button>');
+              document.querySelector("#shBox").dataset.looplyRoomChoice=c.id;
+            }else{
+              confirmSheet("Ocultar conversa?","A conversa sairá da sua lista, sem apagar mensagens de outros participantes.","Ocultar",()=>{
+                void hooks?.roomAction?.("hide",c.id);
+              });
+            }
+            return;
+          }
+          if(action==="transfer"&&c.type==="group"&&c.createdBy===ME){
+            const options=c.members.filter(id=>id!==ME);
+            sheet('<h2>Transferir administração</h2>'+
+              (options.length?options.map(id=>'<button class="pk" type="button" data-ultra-transfer="'+esc(id)+'">'+av(id,38,1)+'<span>'+esc(U(id).n)+'</span></button>').join(""):'<p class="empty">Nenhum outro participante.</p>'));
+            document.querySelector("#shBox").dataset.looplyRoomChoice=c.id;
+            return;
+          }
+        }
+        const panel=document.querySelector("#shBox");
+        const context=target.closest("#shBox [data-a='read'],#shBox [data-a='clear']");
+        if(context&&panel?.dataset.looplyContextMenu){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyContextMenu,row=conv(id);
+          if(context.dataset.a==="read"){
+            document.querySelector("#sh")?.close();
+            void hooks?.roomAction?.(row?.unread?"read":"unread",id);
+          }else confirmSheet("Limpar conversa?","O histórico será ocultado apenas para sua conta.","Limpar",()=>{
+            void hooks?.roomAction?.("clear",id);
+          });
+          return;
+        }
+        const ttlChoice=target.closest("#shBox [data-v]");
+        if(ttlChoice&&panel?.dataset.looplyTtlRoom){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyTtlRoom;
+          void Promise.resolve(hooks?.roomAction?.("ttl",id,Number(ttlChoice.dataset.v))).then(ok=>{
+            if(ok){document.querySelector("#sh")?.close();if(cur===id)cfgDraw();}
+          });
+          return;
+        }
+        const roomChoice=target.closest("#shBox [data-ultra-room-choice]");
+        if(roomChoice&&panel?.dataset.looplyRoomChoice){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyRoomChoice,type=roomChoice.dataset.ultraRoomChoice;
+          if(type==="cancel"){document.querySelector("#sh")?.close();return;}
+          confirmSheet(type==="leave"?"Sair do grupo?":"Ocultar conversa?",
+            type==="leave"?"Você deixará o grupo. O histórico continuará disponível aos demais membros.":"A conversa sairá da sua lista sem excluir mensagens.",
+            type==="leave"?"Sair":"Ocultar",()=>{void hooks?.roomAction?.(type,id);});
+          return;
+        }
+        const transfer=target.closest("#shBox [data-ultra-transfer]");
+        if(transfer&&panel?.dataset.looplyRoomChoice){
+          event.preventDefault();event.stopImmediatePropagation();
+          const id=panel.dataset.looplyRoomChoice,recipient=transfer.dataset.ultraTransfer;
+          confirmSheet("Transferir administração?","O participante escolhido passará a administrar este grupo.","Transferir",()=>{
+            void hooks?.roomAction?.("transfer",id,recipient);
+          });
+        }
+      },true);
+
       // Blocking is server-authoritative; local toggles must never claim success.
       document.addEventListener("click",event=>{
         const target=event.target.closest("#cfg [data-cfg='block'],#blkbar #unb");
