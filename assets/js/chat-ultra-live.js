@@ -258,7 +258,8 @@ async function editModel(c,m,body){
     const {data,error}=await client.from("chat_messages").update({body:body.trim()})
       .eq("id",m.id).eq("conversation_id",c.id).eq("sender_id",selfId).select("id").maybeSingle();
     if(error||!data?.id)throw error||Error("Edição não autorizada");
-    await refreshThread(c.id);
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId:c.id}}));
+    lastRender="";await refreshThread(c.id);
   }catch(error){console.error("Chat Ultra: edição falhou",error);say(errorMessage);}
 }
 async function openDirect(targetId){
@@ -320,7 +321,8 @@ async function setReaction(conversationId,messageId,emoji){
       :client.from("chat_message_reactions").upsert({conversation_id:conversationId,message_id:messageId,user_id:selfId,emoji},{onConflict:"message_id,user_id"});
     const result=await op;
     if(result.error)throw result.error;
-    await refreshThread(conversationId);
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+    lastRender="";await refreshThread(conversationId);
   }catch(error){console.error("Chat Ultra: reação não persistida",error);say(errorMessage);}
 }
 async function votePoll(conversationId,messageId,index){
@@ -332,6 +334,7 @@ async function votePoll(conversationId,messageId,index){
       p_message_id:messageId,p_option:selected===index?-1:index
     });
     if(error||data!==true)throw error||Error("Voto não confirmado");
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
     lastRender="";
     await refreshThread(conversationId);
     planRefresh(500);
@@ -344,7 +347,8 @@ async function removeMessage(conversationId,messageId){
       .eq("conversation_id",conversationId).eq("id",messageId)
       .eq("sender_id",selfId).select("id").maybeSingle();
     if(error||!data?.id)throw error||Error("Exclusão não autorizada");
-    await refreshThread(conversationId);
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId}}));
+    lastRender="";await refreshThread(conversationId);
   }catch(error){console.error("Chat Ultra: exclusão falhou",error);say(errorMessage);}
 }
 
@@ -515,6 +519,18 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   setupChatCalls(root,client,selfId);
   setupOfficialMessagesModel(root,client,selfId,initial);
   setupChatRealtime(client,selfId,root);
+  // The authenticated Cloudflare channel invalidates the native thread;
+  // mirror its confirmed refresh into the approved Ultra visual timeline.
+  let nativeFrame=0;
+  root.addEventListener("looply:chat-rendered",()=>{
+    if(nativeFrame)return;
+    nativeFrame=requestAnimationFrame(()=>{
+      nativeFrame=0;
+      const id=visual.current();
+      if(id&&roomIds.has(id))void refreshThread(id);
+    });
+  });
+  window.addEventListener("pagehide",()=>cancelAnimationFrame(nativeFrame),{once:true});
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
