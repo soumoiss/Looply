@@ -460,7 +460,8 @@ function inbox(){let it=C.filter(c=>flt==="arch"?c.arch:!c.arch);if(flt==="unrea
  if(!it.length){L.innerHTML=`<div class="empty">${ic("chat")}<p>${qry?"Nenhuma conversa encontrada.":"Nada por aqui ainda.<br>Toque em “Nova conversa”."}</p></div>`;return}
  it.forEach((c,i)=>{const m=last(c),r=document.createElement("button");r.className="row"+(c.unread?" unr":"")+(inboxAnim?" an":"");r.style.setProperty("--i",Math.min(i,9));r.dataset.c=c.id;
   const ty=typing[c.id],who=m&&c.type==="group"&&m.from!==ME?U(m.from).n.split(" ")[0]+": ":"";
-  r.innerHTML=`${cav(c,54)}<div class="rb"><div class="rt"><b>${esc(title(c))}</b><time>${m?listTime(m.t):""}</time></div><div class="rp">${ty?`<span class="ty">digitando…</span>`:`${m&&m.from===ME?tick(m):""}<span>${esc(who+prev(m))}</span>`}${c.pin?`<span style="flex:none;color:var(--muted)">${ic("pin")}</span>`:""}${c.mute?`<span style="flex:none;color:var(--muted)">${ic("mute")}</span>`:""}${c.unread?`<i class="bdg">${c.unread}</i>`:""}</div></div>`;
+   const draft=window.LooplyVisual?.draftPreview?.(c.id)||"";
+  r.innerHTML=`${cav(c,54)}<div class="rb"><div class="rt"><b>${esc(title(c))}</b><time>${m?listTime(m.t):""}</time></div><div class="rp">${ty?`<span class="ty">digitando…</span>`:`${m&&m.from===ME?tick(m):""}<span>${draft?`<strong class="ultra-draft-mark">Rascunho</strong> · ${esc(draft.slice(0,75))}`:esc(who+prev(m))}</span>`}${c.pin?`<span style="flex:none;color:var(--muted)">${ic("pin")}</span>`:""}${c.mute?`<span style="flex:none;color:var(--muted)">${ic("mute")}</span>`:""}${c.unread?`<i class="bdg">${c.unread}</i>`:""}</div></div>`;
   let lp,moved=0,px=0,py=0;r.onpointerdown=e=>{moved=0;px=e.clientX;py=e.clientY;lp=setTimeout(()=>{lp=null;moved=1;rowMenu(c)},480)};r.onpointermove=e=>{if(Math.hypot(e.clientX-px,e.clientY-py)>8){moved=1;clearTimeout(lp)}};r.onpointerup=r.onpointerleave=r.onpointercancel=()=>clearTimeout(lp);
   r.onclick=()=>{if(!moved)open(c.id)};r.oncontextmenu=e=>{e.preventDefault();rowMenu(c)};L.append(r)});inboxAnim=false}
 function refresh(){head();chips();online();inbox();dock()}
@@ -3792,6 +3793,27 @@ refresh();
   "use strict";
   let hooks=null;
   const prefSnapshots=new Map(),remoteSnapshots=new Map();
+  let draftOwner="",drafts={};
+  const draftStorage=()=> "looply-ultra-drafts-v1:"+ME;
+  function loadDrafts(owner){
+    if(draftOwner===owner)return;
+    draftOwner=owner;
+    try {
+      const saved=JSON.parse(localStorage.getItem("looply-ultra-drafts-v1:"+owner)||"{}");
+      drafts=saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{};
+    }catch{drafts={};}
+  }
+  function saveDraft(id,text){
+    if(!/^[0-9a-f-]{36}$/i.test(id||"")||!draftOwner)return;
+    const value=String(text||"").slice(0,5000);
+    if(value.trim())drafts[id]=value;
+    else delete drafts[id];
+    try{localStorage.setItem(draftStorage(),JSON.stringify(drafts));}catch{}
+  }
+  function restoreDraft(id){
+    inp.value=typeof drafts[id]==="string"?drafts[id]:"";
+    grow();btn();
+  }
   const prefShape=c=>({wallpaper:c.wallpaper||"",wallpaperPath:c.wallpaperPath||"",wallpaperTint:c.wallpaperTint??.18,color:c.color||"",pin:Boolean(c.pin),mute:Boolean(c.mute),arch:Boolean(c.arch),fav:Boolean(c.fav)});
   const originalHead=head,originalOpen=open,originalClose=closeConv,originalCav=cav,originalMsgMenu=msgMenu;
   let pendingDeleteId="";
@@ -3853,6 +3875,7 @@ refresh();
     pendingDelete:()=>pendingDeleteId&&cur?{conversationId:cur,messageId:pendingDeleteId}:null,
     current:()=>cur,
     conversations:()=>C,
+    draftPreview:id=>drafts[id]||"",
     open:id=>open(id),
     hasOlder:id=>Boolean(hooks?.hasOlder?.(id)),
     persistPreferences(rows){
@@ -3880,6 +3903,7 @@ refresh();
     },
     rooms({selfId,profiles,conversations,selfAvatar,onlineUserIds=[],remotePreferences={}}){
       ME=selfId;
+      loadDrafts(selfId);
       const onlineNow=new Set(onlineUserIds);
       let userPreferences={};
       try{userPreferences=JSON.parse(localStorage.getItem("looply-chat-visual-v4:"+selfId)||"{}")||{};}catch{}
@@ -3934,9 +3958,20 @@ refresh();
       hooks=callbacks;
       open=function liveOpen(id){
         if(!conv(id))return;
+        if(cur)saveDraft(cur,inp.value);
         originalOpen(id);
+        restoreDraft(id);
         hooks?.opened(id);
       };
+      closeConv=function liveClose(){
+        if(cur)saveDraft(cur,inp.value);
+        originalClose();
+        inp.value="";grow();btn();
+      };
+      document.querySelector("#back").onclick=()=>closeConv();
+      inp.addEventListener("input",()=>{
+        if(cur&&!editing){saveDraft(cur,inp.value);inbox();}
+      });
       openDm=function liveDirect(id){if(USERS[id]&&id!==ME)hooks?.direct(id);};
       // The original schedule() mutates a local array and cannot deliver with
       // the app closed. Replace it with the authenticated server scheduler.
@@ -3958,12 +3993,13 @@ refresh();
           // Do not lose typed text if Neon rejects a send.
           const sendingConversation=c.id;
           void Promise.resolve(hooks?.send(c,{kind:"text",text:message,replyTo})).then(saved=>{
+            if(saved===true){saveDraft(sendingConversation,"");inbox();}
             if(saved===false&&cur===sendingConversation&&!inp.value.trim()){
-              inp.value=message;grow();btn();toast("Envio não confirmado. Tente novamente.");
+              inp.value=message;grow();btn();saveDraft(sendingConversation,message);toast("Envio não confirmado. Tente novamente.");
             }
           }).catch(()=>{
             if(cur===sendingConversation&&!inp.value.trim()){
-              inp.value=message;grow();btn();
+              inp.value=message;grow();btn();saveDraft(sendingConversation,message);
             }
             toast("Falha de conexão. Mensagem preservada para reenvio.");
           });
