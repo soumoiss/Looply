@@ -17,6 +17,7 @@ import { createUltraSendIds } from "../../src/chat-ultra-send-ids.js?v=20261108-
 import { createUltraRoomService } from "../../src/chat-ultra-room-service.js?v=20261108-v44";
 import { createUltraDraftSync } from "../../src/chat-ultra-drafts.js?v=20261108-v45";
 import { exportUltraHistory } from "../../src/chat-ultra-export.js?v=20261108-v1";
+import { setupUltraRemoteBrowser } from "../../src/chat-ultra-remote-browser.js?v=20261108-v48";
 import { mountUltraNativeOverlays } from "./chat-ultra-native-overlays.js?v=ultra-real-20261107";
 import { renderUltraPlayableMedia, bindUltraPlayableMedia } from "./chat-ultra-media.js?v=ultra-r2-20261107";
 import { setupUltraChatSchedules } from "./chat-ultra-scheduled.js?v=ultra-cron-20261107";
@@ -27,11 +28,12 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
+let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null,browserService=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
 const pendingSendIds=createUltraSendIds();
+let nicknameMap=new Map();
 async function signedMedia(bucket,path,requestedSeconds=1800){
   if(!path||requestedSeconds<=1)return "";
   const seconds=Math.max(2,Math.min(1800,Math.floor(requestedSeconds)));
@@ -81,12 +83,20 @@ async function loadChatBlocks(conversations){
   }
   return blocks;
 }
+async function fetchNicknames(){
+  try{
+    const {data,error}=await client.from("conversation_nicknames")
+      .select("conversation_id,nickname").eq("user_id",selfId).limit(500);
+    if(error)throw error;
+    nicknameMap=new Map((data||[]).map(row=>[row.conversation_id,String(row.nickname||"")]));
+  }catch(error){console.warn("Chat Ultra nicknames unavailable",error?.code||"offline");}
+}
 function mapConversations(data,blocks=new Map()){
   const states=roomService;
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
   return (data.conversations||[]).filter(c=>!states?.isHidden(c)).map(c=>({
     id:c.id,type:c.kind==="group"?"group":"dm",kind:c.kind,
-    name:c.subject||"Grupo",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
+    name:c.subject||"Grupo",nick:nicknameMap.get(c.id)||"",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
     members:(c.participants||[]).map(p=>p.user_id),
     pin:0,mute:0,unread:Math.max(c.unreadCount||0,states?.get(c.id)?.reminder?1:0),
     reminder:states?.get(c.id)?.reminder||false,ttl:(states?.get(c.id)?.ttl||0)*1000,
@@ -101,6 +111,7 @@ async function refreshRooms(){
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
     const blocks=await loadChatBlocks(data.conversations||[]);
+    await fetchNicknames();
     try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
@@ -578,10 +589,15 @@ async function saveRealConversationName(button){
   if(!name){say("Informe o nome.");return;}
   button.disabled=true;
   try{
-    const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
-      await client.from("conversation_nicknames").upsert({
+    if(group.type==="group"){
+      const {data,error}=await client.rpc("v46_chat_rename_group",{p_conversation_id:id,p_subject:name});
+      if(error||data!==true)throw error||Error("Apenas o administrador pode alterar o nome.");
+      document.querySelector("#sh")?.close();
+      await refreshRooms();
+      say("Nome do grupo atualizado.");
+      return;
+    }
+    const result=await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
     if(result.error||!result.data)throw result.error||Error("not_confirmed");
@@ -634,7 +650,8 @@ async function forwardRealMessage(source,targetId){
 }
 
 function bindEvents(){
-  visual.install({send:sendModel,forward:forwardRealMessage,edit:editModel,direct:openDirect,opened:openBackend,group:createGroup,
+  visual.install({send:sendModel,forward:forwardRealMessage,edit:editModel,
+    remoteList:(mode,id,options)=>browserService?.open(mode,id,options),direct:openDirect,opened:openBackend,group:createGroup,
     react:setReaction,vote:votePoll,remove:removeMessage,call:startRealCall,games:openRealGames,
     uploadAudio:(conversationId,file)=>uploadFiles([file],conversationId),
     activities:()=>activityService?.open(),
@@ -808,6 +825,7 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
+  await fetchNicknames();
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
@@ -817,6 +835,26 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   const unbindMedia=bindUltraPlayableMedia(document.querySelector("#msgs"));
   window.addEventListener("pagehide",unbindMedia,{once:true});
   bindEvents();
+  browserService=setupUltraRemoteBrowser({
+    client,
+    getRoom:id=>visual.conversations().find(c=>c.id===id),
+    getUserName:id=>knownProfiles.find(p=>p.id===id)?.display_name||
+      knownProfiles.find(p=>p.id===id)?.username||"Participante",
+    onOpen:async(id,messageId)=>{
+      visual.open(id);
+      for(let step=0;step<20;step++){
+        await refreshThread(id);
+        const node=document.querySelector('#msgs [data-id="'+CSS.escape(messageId)+'"]');
+        if(node){node.scrollIntoView({block:"center",behavior:"smooth"});node.classList.add("chat-highlighted");return;}
+        if(!hasMoreHistory.get(id))break;
+        const continued=await loadOlderHistory(id);
+        if(!continued)break;
+      }
+      say("Mensagem fora do histórico carregado.");
+    },
+    notice:say,signMedia:signedMedia
+  });
+  window.addEventListener("pagehide",()=>browserService?.dispose(),{once:true});
   activityService=setupUltraActivities({
     client,userId:selfId,visual,
     onOpen:id=>{if(roomIds.has(id))visual.open(id);}
