@@ -423,8 +423,9 @@ const save=()=>{if(!/^[0-9a-f-]{36}$/i.test(ME))return;
  try {const preferences=Object.fromEntries(C.map(c=>[c.id,{
  wallpaper:c.wallpaper||"",wallpaperTint:c.wallpaperTint??.18,
  color:c.color||"",pin:c.pin||0,mute:c.mute||0,arch:c.arch||0,
- fav:c.fav||0,nick:c.nick||""}]));
- localStorage.setItem("looply-chat-visual-v4:"+ME,JSON.stringify(preferences));}catch{}};
+ fav:c.fav||0,nick:c.nick||"",wallpaperPath:c.wallpaperPath||""}]));
+ localStorage.setItem("looply-chat-visual-v4:"+ME,JSON.stringify(preferences));
+ window.LooplyVisual?.persistPreferences?.(C);}catch{}};
 let seenM=new Set(),inboxAnim=true,cur=null,flt="all",qry="",reply=null,editing=null,recording=null,typing={},uMark=null;
 const conv=id=>C.find(c=>c.id===id),peers=c=>c.members.filter(k=>k!==ME);
 const title=c=>c.type==="group"?c.name:(c.nick||U(peers(c)[0]).n);
@@ -3325,7 +3326,7 @@ refresh();
     const context=canvas.getContext("2d");
     context.drawImage(bitmap,0,0,canvas.width,canvas.height);
     bitmap.close();
-    return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Falha ao processar imagem")),"image/jpeg",.84));
+    return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?.type==="image/webp"?resolve(blob):reject(new Error("Este aparelho não conseguiu gerar uma imagem WebP")),"image/webp",.83));
   }
   async function applyWallpaper(c) {
     const surface=$u("#conv");
@@ -3335,8 +3336,12 @@ refresh();
     if(c.wallpaper==="gallery") {
       try {
         let url=wallpaperUrls.get(c.id);
+        if(c.wallpaperPath){
+          const signed=await window.LooplyVisual?.resolveWallpaper?.(c.id,c.wallpaperPath);
+          if(signed){url=signed;wallpaperUrls.set(c.id,signed);}
+        }
         if(!url) {
-          const blob=await loadWallpaperBlob(`wallpaper:${c.id}`);
+          const blob=await loadWallpaperBlob(`wallpaper:${ME}:${c.id}`);
           if(!blob) throw new Error("Imagem ausente");
           url=URL.createObjectURL(blob);
           wallpaperUrls.set(c.id,url);
@@ -3369,7 +3374,7 @@ refresh();
       <div class="wallpaper-tools"><button class="btn main" data-ultra-pick>🖼️ Foto da galeria</button><button class="btn" data-ultra-reset>Restaurar padrão</button></div>
       <label class="mobile-note" for="wallpaperTintRange" style="display:block;margin:15px 0 6px">Escurecer imagem</label>
       <input id="wallpaperTintRange" type="range" min="4" max="65" step="1" value="${Math.round(Number(c.wallpaperTint??.18)*100)}" style="width:100%;accent-color:var(--primary)">
-      <p class="mobile-note">Personalização salva somente neste navegador. Fotos podem exigir permissão de acesso à galeria.</p>`);
+      <p class="mobile-note">O fundo é sincronizado com sua conta quando o servidor confirma a alteração.</p>`);
     const preview=$u("#wallpaperPreview");
     if(c.wallpaper==="gallery"&&wallpaperUrls.get(c.id)) preview.style.backgroundImage=`url("${wallpaperUrls.get(c.id)}")`;
     else if(c.wallpaper?.startsWith("#")) preview.style.backgroundColor=c.wallpaper;
@@ -3382,12 +3387,14 @@ refresh();
       const swatch=event.target.closest("[data-ultra-wall]");
       if(swatch) {
         c.wallpaper=swatch.dataset.ultraWall||"";
+        c.wallpaperPath="";
         save();
         await applyWallpaper(c);
         return wallpaperChoiceSheet();
       }
       if(event.target.closest("[data-ultra-reset]")) {
         c.wallpaper="";
+        c.wallpaperPath="";
         c.wallpaperTint=.18;
         save();
         await applyWallpaper(c);
@@ -3411,11 +3418,14 @@ refresh();
       const id=c.id;
       try {
         const compressed=await makeSmallBackground(file);
-        await storeWallpaperBlob(`wallpaper:${id}`,compressed);
+        const remotePath=await window.LooplyVisual?.uploadWallpaper?.(id,compressed);
+        if(!remotePath)throw new Error("A foto não foi confirmada no armazenamento online");
+        try{await storeWallpaperBlob(`wallpaper:${ME}:${id}`,compressed);}catch{}
         const old=wallpaperUrls.get(id);
-        if(old) URL.revokeObjectURL(old);
+        if(old?.startsWith("blob:"))URL.revokeObjectURL(old);
         wallpaperUrls.set(id,URL.createObjectURL(compressed));
         c.wallpaper="gallery";
+        c.wallpaperPath=remotePath;
         c.wallpaperTint=.18;
         save();
         await applyWallpaper(c);
