@@ -104,7 +104,7 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(login, /Quem és\?/);
   assert.match(login, /código secreto/);
   assert.match(login, /Avante!/);
-  for (const page of [home, music, chat, profile, admin]) {
+  for (const page of [home, music, chat, profile]) {
     assert.match(page, /data-site-header/);
     assert.match(page, /assets\/js\//);
   }
@@ -112,7 +112,7 @@ test("the application pages keep navigation and responsive layout and include th
   assert.match(music, /music\.js/);
   assert.match(chat, /chat-ultra-live\.js/);
   assert.match(profile, /profile\.js/);
-  assert.match(admin, /admin\.js/);
+  assert.match(admin, /admin-model-live\.js/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(build, /galeria\.html/);

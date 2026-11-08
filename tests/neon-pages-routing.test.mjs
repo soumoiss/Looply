@@ -12,6 +12,7 @@ test("GitHub Pages keeps the recovered original controllers and uses Neon for au
   assert.match(html,/src="src\/maintenance-bootstrap\.js\?build=[a-f0-9]{16}"/);
   if(filename==="index.html") assert.match(html,/data-looply-entry="src\/neon-production-splash\.js"/);
   else if(filename==="login.html") assert.match(html,/data-looply-entry="src\/neon-production-login\.js"/);
+  else if(filename==="admin.html") assert.match(html,/data-looply-entry="src\/admin-model-live\.js/);
   else assert.match(html,/data-looply-entry="assets\/js\/[^"]+\.js/);
  }
  const runtime=await readFile(path.join(dist,"src/page-runtime.js"),"utf8");

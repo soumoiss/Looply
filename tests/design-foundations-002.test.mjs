@@ -32,7 +32,7 @@ test("Prompt 002 styles use scoped theme tokens and preserve motion accessibilit
 });
 
 test("All principal authenticated routes load the shared stylesheet without changing modules", () => {
-  const pages = ["home","cartas","musicas","galeria","chat","conversa","perfil","usuarios","notificacoes","configuracoes","admin"];
+  const pages = ["home","cartas","musicas","galeria","chat","conversa","perfil","usuarios","notificacoes","configuracoes"];
   for (const name of pages) {
     const html=read(name+".html");
     if(["chat","conversa"].includes(name)){
