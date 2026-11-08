@@ -27,6 +27,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
+let nicknameByRoom=new Map();
 let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
@@ -81,12 +82,20 @@ async function loadChatBlocks(conversations){
   }
   return blocks;
 }
+async function loadPersonalNicknames(){
+  try{
+    const {data,error}=await client.from("conversation_nicknames")
+      .select("conversation_id,nickname").eq("user_id",selfId).limit(2000);
+    if(error)throw error;
+    nicknameByRoom=new Map((data||[]).map(x=>[x.conversation_id,String(x.nickname||"")]));
+  }catch(error){console.warn("Chat Ultra: apelidos não sincronizados",error?.code||"offline");}
+}
 function mapConversations(data,blocks=new Map()){
   const states=roomService;
   roomIds=new Set((data.conversations||[]).map(c=>c.id));
   return (data.conversations||[]).filter(c=>!states?.isHidden(c)).map(c=>({
     id:c.id,type:c.kind==="group"?"group":"dm",kind:c.kind,
-    name:c.subject||"Grupo",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
+    name:c.subject||"Grupo",nick:nicknameByRoom.get(c.id)||"",coverUrl:c.coverUrl||"",createdBy:c.created_by||"",
     members:(c.participants||[]).map(p=>p.user_id),
     pin:0,mute:0,unread:Math.max(c.unreadCount||0,states?.get(c.id)?.reminder?1:0),
     reminder:states?.get(c.id)?.reminder||false,ttl:(states?.get(c.id)?.ttl||0)*1000,
@@ -101,7 +110,8 @@ async function refreshRooms(){
     knownProfiles=data.profiles||[];
     const active=await onlineIds(knownProfiles);
     const blocks=await loadChatBlocks(data.conversations||[]);
-    try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
+    await loadPersonalNicknames();
+    try{await roomService?.load((data.conversations||[]).map(c=>c.id));
     catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
     try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
@@ -266,7 +276,7 @@ async function openBackend(id){
 }
 async function postBody(conversationId,body,replyTo=null){
   if(busy||!roomIds.has(conversationId))throw Error("Conversa indisponível.");
-  if(typeof body!=="string"||!body.trim()||body.length>5000)throw Error("Mensagem inválida.");
+  if(typeof body!=="string"||!body.trim()||body.length>12000)throw Error("Mensagem inválida.");
   busy=true;
   try{
     const nonce=pendingSendIds.get(conversationId,body,replyTo);
@@ -311,8 +321,11 @@ async function sendModel(c,m){
     if(m?.kind==="sticker"){say("Escolha a figurinha no catálogo da conversa.");return false;}
     if(m?.kind==="note")body=makePremiumNote([m.title,m.text].filter(Boolean).join("\n\n"));
     if(m?.kind==="music"){
-      if(!/^https:\/\//i.test(String(m.text||"")))throw Error("Informe o link HTTPS da música.");
-      body="🎵 Música: "+String(m.title||"").trim().slice(0,100)+" — "+String(m.artist||"").trim().slice(0,90)+"\n"+String(m.text).trim();
+      const url=String(m.text||"").trim();
+      if(!/^https:\/\//i.test(url))throw Error("Informe o link oficial HTTPS da música.");
+      const host=new URL(url).hostname.toLowerCase();
+      const provider=host.includes("spotify")?"spotify":host.includes("deezer")?"deezer":"apple";
+      body=makePremiumMusic({provider,title:m.title,artist:m.artist,url});
     }
     if(["audio","img","file"].includes(m?.kind)){say("Escolha o arquivo pelo seletor de anexos.");return;}
     await postBody(c.id,body,m?.replyTo||null);
@@ -578,14 +591,18 @@ async function saveRealConversationName(button){
   if(!name){say("Informe o nome.");return;}
   button.disabled=true;
   try{
-    const result=group.type==="group"?
-      await client.from("conversations").update({subject:name,updated_at:new Date().toISOString()})
-        .eq("id",id).eq("created_by",selfId).select("id").maybeSingle():
-      await client.from("conversation_nicknames").upsert({
+    if(group.type==="group"){
+      const {data,error}=await client.rpc("v46_chat_rename_group",{
+        p_conversation_id:id,p_subject:name
+      });
+      if(error||data!==true)throw error||Error("not_authorized");
+    }else{
+      const {data,error}=await client.from("conversation_nicknames").upsert({
         user_id:selfId,conversation_id:id,nickname:name,updated_at:new Date().toISOString()
       },{onConflict:"user_id,conversation_id"}).select("conversation_id").maybeSingle();
-    if(result.error||!result.data)throw result.error||Error("not_confirmed");
-    if(group.type==="dm")group.nick=name;
+      if(error||!data?.conversation_id)throw error||Error("not_confirmed");
+      nicknameByRoom.set(id,name);
+    }
     document.querySelector("#sh")?.close();
     await refreshRooms();
     say("Nome salvo na sua conta.");
@@ -808,6 +825,7 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   knownProfiles=initial.profiles||[];
   const active=await onlineIds(knownProfiles);
   const blocks=await loadChatBlocks(initial.conversations||[]);
+  await loadPersonalNicknames();
   visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
