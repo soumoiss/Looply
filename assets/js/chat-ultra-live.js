@@ -425,16 +425,16 @@ async function uploadFiles(files,targetConversation=visual.current()){
     return true;
   }catch(error){
     console.error("Chat Ultra attachment failed",error);
-    if(messageId){
-      // No orphaned parent messages on failed uploads. Never delete someone
-      // else's content; Postgres RLS confirms the sender on this row.
-      const deleted=await client.from("chat_messages").delete()
-        .eq("id",messageId).eq("conversation_id",id).eq("sender_id",selfId);
-      if(deleted.error)console.warn("Attachment cleanup pending",deleted.error);
-    }
+    // Storage authorization depends on the parent message: remove uploaded
+    // objects first, then remove only our own failed parent message.
     for(const path of savedMedia){
       const result=await client.storage.from("looply-chat").remove([path]);
       if(result.error)console.warn("Unconfirmed media cleanup",result.error);
+    }
+    if(messageId){
+      const deleted=await client.from("chat_messages").delete()
+        .eq("id",messageId).eq("conversation_id",id).eq("sender_id",selfId);
+      if(deleted.error)console.warn("Attachment cleanup pending",deleted.error);
     }
     say(error?.message||"Não foi possível enviar o anexo.");
     return false;
