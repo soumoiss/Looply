@@ -353,13 +353,19 @@ body[data-ultra-loading="true"] #list:after{
  content:"Carregando conversas…";display:block;padding:24px;text-align:center;
  font-size:13px;font-weight:600;color:var(--muted)
 }
+/* Guard against stale WebView CSS: no sticker may grow the composer. */
+#ultraStickerHost[hidden],#ultraStickerHost [hidden]{display:none!important}
+#ultraStickerHost{position:fixed!important;inset:0!important;z-index:10500!important}
+#ultraStickerHost .chat-catalog-grid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important}
+#ultraStickerHost .chat-catalog-item{min-width:0!important;max-width:100%!important;overflow:hidden!important}
+#ultraStickerHost .chat-catalog-item img{display:block!important;max-width:100%!important;max-height:100%!important;width:100%!important;height:100%!important;object-fit:contain!important}
 /* Closed legacy panes must occupy absolutely no composer height. */
 #comp>#pan:not(.open),#comp>#attachFan:not(.open),
 #comp>#attachFan[aria-hidden="true"],#comp>#ctx[hidden],
 #comp>#blkbar[hidden],#comp>#ctx:empty,#comp>#blkbar:empty{display:none!important}
 #comp>#ctx:not(:has(b)),#comp>#blkbar:not(:has(span)){display:none!important}
 </style>
-<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=real-games-calls-20261107">
+<link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=sticker-modal-5col-20261109">
 <link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
 <link rel="stylesheet" href="assets/css/pages/chat-gartic.css?v=real-games-calls-20261107">
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
