@@ -343,12 +343,24 @@ body.cv #banner.on{transform:translate(-50%,0)}
 .test-mode{display:none!important}
 #bStickers{color:var(--primary)}
 #conv .who .chat-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1dbd67;box-shadow:0 0 0 2px color-mix(in srgb,#1dbd67 20%,transparent);margin-right:4px;vertical-align:middle}
+/* Loading is not the same as having no conversations. */
+body[data-ultra-loading="true"] #list>.empty{display:none!important}
+body[data-ultra-loading="true"] #sub{visibility:hidden}
+body[data-ultra-loading="true"] #list:after{
+ content:"Carregando conversas…";display:block;padding:24px;text-align:center;
+ font-size:13px;font-weight:600;color:var(--muted)
+}
+/* Closed legacy panes must occupy absolutely no composer height. */
+#comp>#pan:not(.open),#comp>#attachFan:not(.open),
+#comp>#attachFan[aria-hidden="true"],#comp>#ctx[hidden],
+#comp>#blkbar[hidden],#comp>#ctx:empty,#comp>#blkbar:empty{display:none!important}
+#comp>#ctx:not(:has(b)),#comp>#blkbar:not(:has(span)){display:none!important}
 </style>
 <link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=real-games-calls-20261107">
 <link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
 <link rel="stylesheet" href="assets/css/pages/chat-gartic.css?v=real-games-calls-20261107">
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
-<body class="looply-chat-ultra-live">
+<body class="looply-chat-ultra-live" data-ultra-loading="true">
 <header class="gh glass" id="gh">
   <a class="brand" href="#" aria-label="Looply, início"><span class="mark"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="50" r="35" stroke="currentColor" stroke-opacity=".18" stroke-width="7"/></svg></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
   <button class="acc" id="accBtn" aria-haspopup="true" aria-label="Menu da conta"></button>
@@ -2975,7 +2987,7 @@ refresh();
       case "video": $u("#fAny").accept = "video/*";return $u("#fAny").click();
       case "file": $u("#fAny").accept = "";return $u("#fAny").click();
       case "audio": return startRec();
-      case "sticker": $u("#pan").classList.add("open");return fillGrid("s");
+      case "sticker": return ($u("#bStickers")||$u("#bEmo"))?.click();
       case "note": return showNoteEditorProxy();
       case "music": return showMusicEditorProxy();
       case "games": return $u("#bGames")?.click();

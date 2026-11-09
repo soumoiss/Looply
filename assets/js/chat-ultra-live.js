@@ -3,7 +3,7 @@
  * remain the source of truth; no demo conversations are published.
  */
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
-import { loadChatData, chatMarkup, bindChatEvents, disposeChatRealtime, setupChatRealtime } from "../../src/chat.js?v=ultra-20261107-r1";
+import { loadChatData, loadChatOverview, chatMarkup, bindChatEvents, disposeChatRealtime, setupChatRealtime } from "../../src/chat.js?v=ultra-20261107-r1";
 import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
@@ -27,7 +27,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
+let busy=false,loading=null,refreshTimer=0,roomsRefreshing=null,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -96,19 +96,23 @@ function mapConversations(data,blocks=new Map()){
 }
 async function refreshRooms(){
   if(!client||!selfId||document.hidden)return;
+  if(roomsRefreshing)return roomsRefreshing;
+  roomsRefreshing=(async()=>{
   try{
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
-    const active=await onlineIds(knownProfiles);
-    const blocks=await loadChatBlocks(data.conversations||[]);
-    try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
-    catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
-    try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
+    const [active,blocks]=await Promise.all([
+      onlineIds(knownProfiles),loadChatBlocks(data.conversations||[]),
+      roomService?.load((data.conversations||[]).map(c=>c.id)).catch(error=>console.warn("Room state unavailable",error)),
+      preferenceService?.load().then(value=>{preferences=value||{};}).catch(error=>console.warn("Chat preferences unavailable",error))
+    ]);
     visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
+  })();
+  try{return await roomsRefreshing;}finally{roomsRefreshing=null;}
 }
 function planRefresh(delay=300){
   clearTimeout(refreshTimer);
@@ -362,25 +366,81 @@ async function legacyComposer(id){
   }
   throw Error("O editor de anexos não está disponível.");
 }
+const ultraUploadExtensions=new Map([
+  ["image/jpeg","jpg"],["image/png","png"],["image/webp","webp"],
+  ["video/mp4","mp4"],["video/webm","webm"],
+  ["audio/mp4","mp4"],["audio/mpeg","mp3"],["audio/ogg","ogg"],["audio/webm","webm"],
+  ["application/pdf","pdf"],["text/plain","txt"],["text/csv","csv"],
+  ["application/msword","doc"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document","docx"],
+  ["application/rtf","rtf"]
+]);
+let uploadingAttachment=false;
 async function uploadFiles(files,targetConversation=visual.current()){
-  if(!files.length)return false;
+  if(!files?.length||uploadingAttachment)return false;
+  const id=targetConversation,conversation=visual.conversations().find(room=>room.id===id);
+  if(!roomIds.has(id)||conversation?.canChat===false||id!==visual.current()){
+    say("A conversa não está disponível para anexos.");return false;
+  }
+  if(files.length>8){say("Envie no máximo oito arquivos por mensagem.");return false;}
+  for(const file of files){
+    const mime=String(file?.type||"").split(";")[0].toLowerCase();
+    if(!(file instanceof File)||!ultraUploadExtensions.has(mime)||file.size<=0||file.size>25*1024*1024){
+      say("Arquivo não permitido ou maior que 25 MiB.");return false;
+    }
+  }
+  uploadingAttachment=true;
+  let messageId="",savedMedia=[],stored=false;
   try{
-    const id=targetConversation;
-    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
-    if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
-    const form=await legacyComposer(id);
-    const input=form.querySelector('input[name="files"]');
-    if(!input)throw Error("O envio de anexos não está disponível.");
-    const body=form.querySelector('textarea[name="body"]');
-    if(body)body.value="";
-    const transfer=new DataTransfer();
-    files.forEach(file=>transfer.items.add(file));
-    input.files=transfer.files;
-    form.requestSubmit();
-    say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
+    // Create the actual parent before authorizing R2 uploads. The Neon storage
+    // function requires the authenticated sender to own this precise message.
+    const voice=files.every(file=>file.type.startsWith("audio/"));
+    const label=voice?"Mensagem de voz":"Compartilhou arquivos.";
+    const {data,error}=await client.from("chat_messages")
+      .insert({conversation_id:id,sender_id:selfId,body:label})
+      .select("id").single();
+    if(error||!data?.id)throw error||Error("Mensagem não confirmada no Neon.");
+    messageId=data.id;
+    for(let index=0;index<files.length;index++){
+      const file=files[index],mime=file.type.split(";")[0].toLowerCase();
+      const path="conversations/"+id+"/"+messageId+"/"+crypto.randomUUID()+"."+ultraUploadExtensions.get(mime);
+      say("Enviando arquivo "+(index+1)+" de "+files.length+"…");
+      const uploaded=await client.storage.from("looply-chat").upload(path,file,{contentType:mime,upsert:false});
+      if(uploaded.error||uploaded.data?.path!==path)throw uploaded.error||Error("Upload do arquivo não confirmado.");
+      savedMedia.push(path);
+      const safeName=String(file.name||"arquivo").replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120);
+      const media=await client.from("chat_media").insert({
+        conversation_id:id,message_id:messageId,created_by:selfId,storage_path:path,
+        mime_type:mime,byte_size:file.size,file_name:safeName||"arquivo"
+      }).select("id").maybeSingle();
+      if(media.error||!media.data?.id)throw media.error||Error("Arquivo não registrado no Neon.");
+    }
+    stored=true;
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId:id}}));
+    void import("../../src/chat-push-alert.js").then(({requestImmediateMessagePush})=>
+      requestImmediateMessagePush(client,messageId)).catch(()=>{});
+    lastRender="";
+    await refreshThread(id);
+    planRefresh(300);
+    say(voice?"Áudio enviado.":"Arquivo enviado.");
     return true;
-  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+  }catch(error){
+    console.error("Chat Ultra attachment failed",error);
+    if(stored){say("Arquivo enviado; atualize a conversa para visualizar.");return true;}
+    // Storage authorization depends on the parent message: remove uploaded
+    // objects first, then remove only our own failed parent message.
+    for(const path of savedMedia){
+      const result=await client.storage.from("looply-chat").remove([path]);
+      if(result.error)console.warn("Unconfirmed media cleanup",result.error);
+    }
+    if(messageId){
+      const deleted=await client.from("chat_messages").delete()
+        .eq("id",messageId).eq("conversation_id",id).eq("sender_id",selfId);
+      if(deleted.error)console.warn("Attachment cleanup pending",deleted.error);
+    }
+    say(error?.message||"Não foi possível enviar o anexo.");
+    return false;
+  }finally{uploadingAttachment=false;}
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍","🔥"];
@@ -771,17 +831,15 @@ function bindEvents(){
 }
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
-  const initial=await loadChatData(client,selfId);
+  const initial=await loadChatOverview(client,selfId);
   roomService=createUltraRoomService(client,code=>console.warn("Chat Ultra room action not confirmed",code));
   draftSync=createUltraDraftSync(client,{onError:code=>console.warn("Chat Ultra draft retained locally",code)});
   window.addEventListener("pagehide",()=>{void draftSync?.flush();},{once:true});
-  try{await roomService.load((initial.conversations||[]).map(c=>c.id));}
-  catch(error){console.warn("Chat Ultra room state unavailable",error?.code||"offline");}
+  // Render first; the secure room/presence/preference details hydrate asynchronously.
   preferenceService=createUltraPreferenceService(client,selfId,(message,error)=>{
     console.warn("Chat Ultra visual sync failed",error?.code||"offline");say(message);
   });
-  let firstPreferences={};
-  try{firstPreferences=await preferenceService.load();}catch(error){console.warn("Chat Ultra visual preferences unavailable",error?.code||"offline");}
+  const firstPreferences={};
   window.addEventListener("pagehide",()=>preferenceService?.dispose(),{once:true});
   root.innerHTML=chatMarkup(initial,selfId);
   const stopNativeOverlays=mountUltraNativeOverlays(document.getElementById("looplyLiveRuntime"),root);
@@ -805,9 +863,12 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   });
   window.addEventListener("pagehide",()=>cancelAnimationFrame(nativeFrame),{once:true});
   knownProfiles=initial.profiles||[];
-  const active=await onlineIds(knownProfiles);
-  const blocks=await loadChatBlocks(initial.conversations||[]);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  // The actual conversations become visible before any avatar/media signature
+  // or background delivery receipt resolves.
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,new Map()),
+    selfAvatar:profile.avatarUrl||"",onlineUserIds:[],remotePreferences:firstPreferences});
+  document.body.removeAttribute("data-ultra-loading");
+  window.setTimeout(()=>void refreshRooms(),0);
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
