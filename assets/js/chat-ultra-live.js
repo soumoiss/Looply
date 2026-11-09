@@ -390,7 +390,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
     }
   }
   uploadingAttachment=true;
-  let messageId="",savedMedia=[];
+  let messageId="",savedMedia=[],stored=false;
   try{
     // Create the actual parent before authorizing R2 uploads. The Neon storage
     // function requires the authenticated sender to own this precise message.
@@ -415,6 +415,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
       }).select("id").maybeSingle();
       if(media.error||!media.data?.id)throw media.error||Error("Arquivo não registrado no Neon.");
     }
+    stored=true;
     runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId:id}}));
     void import("../../src/chat-push-alert.js").then(({requestImmediateMessagePush})=>
       requestImmediateMessagePush(client,messageId)).catch(()=>{});
@@ -425,6 +426,7 @@ async function uploadFiles(files,targetConversation=visual.current()){
     return true;
   }catch(error){
     console.error("Chat Ultra attachment failed",error);
+    if(stored){say("Arquivo enviado; atualize a conversa para visualizar.");return true;}
     // Storage authorization depends on the parent message: remove uploaded
     // objects first, then remove only our own failed parent message.
     for(const path of savedMedia){
