@@ -154,7 +154,7 @@ export async function loadChatData(client, userId) {
   void (async()=>{
     for(let start=0;start<ids.length;start+=50){
       const {data:delivered,error}=await client.rpc("mark_conversations_delivered",{
-        p_conversation_ids:ids.slice(start,start+50)
+        p_conversation_ids: ids.slice(start, start + 50)
       });
       if(error||delivered!==true)console.warn("Looply delivery receipt update failed",error||{message:"conversation_unavailable"});
     }
