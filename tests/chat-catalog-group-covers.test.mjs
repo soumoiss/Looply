@@ -75,7 +75,7 @@ test("favorites are per-user in Neon, and separate send and star controls", asyn
   assert.match(picker,/event\.stopPropagation\(\)/);
 });
 
-test("Neon REST pagination requests 36 of 1200 catalog items, not the full collection", async () => {
+test("Neon REST pagination requests 40 of 1200 catalog items, not the full collection", async () => {
   const items = Array.from({length:1200},(_,i)=>({id:"item-"+i}));
   const requests=[];
   const client = createNeonRestQuery("sticker_catalog",{
@@ -89,11 +89,11 @@ test("Neon REST pagination requests 36 of 1200 catalog items, not the full colle
       return Response.json(items.slice(from,from+limit));
     }
   });
-  const first=await client.select("id").order("slug").range(0,35);
-  assert.equal(first.data.length,36);
-  assert.deepEqual(requests,[{limit:36,offset:0}]);
+  const first=await client.select("id").order("slug").range(0,39);
+  assert.equal(first.data.length,40);
+  assert.deepEqual(requests,[{limit:40,offset:0}]);
   const source=await read("src/chat-sticker-catalog.js");
-  assert.match(source,/const PAGE_SIZE = 36/);
+  assert.match(source,/const PAGE_SIZE = 40/);
   assert.match(source,/\.range\(offset,offset\+PAGE_SIZE-1\)/);
   assert.match(source,/picture\.loading = "lazy"/);
   assert.match(source,/state\.queued/);
