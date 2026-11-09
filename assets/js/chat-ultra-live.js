@@ -3,7 +3,7 @@
  * remain the source of truth; no demo conversations are published.
  */
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
-import { loadChatData, chatMarkup, bindChatEvents, disposeChatRealtime, setupChatRealtime } from "../../src/chat.js?v=ultra-20261107-r1";
+import { loadChatData, loadChatOverview, chatMarkup, bindChatEvents, disposeChatRealtime, setupChatRealtime } from "../../src/chat.js?v=ultra-20261107-r1";
 import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1";
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
@@ -27,7 +27,7 @@ const visual=window.LooplyVisual;
 const runtime=document.querySelector("#pageContent");
 const errorMessage="Não foi possível concluir a ação. Confira a conexão e tente novamente.";
 let client=null,selfId="",knownProfiles=[],roomIds=new Set(),lastRender="",channel=null;
-let busy=false,loading=null,refreshTimer=0,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
+let busy=false,loading=null,refreshTimer=0,roomsRefreshing=null,scheduler=null,preferenceService=null,typingSession=null,activityService=null,roomService=null,draftSync=null;
 const olderPages=new Map(),hasMoreHistory=new Map(),olderLoading=new Set(),rerunPending=new Set();
 const CHAT_SELECT="id,conversation_id,sender_id,reply_to,body,created_at,expires_at,delivered_at,read_at,media:chat_media!chat_media_message_fk(id,storage_path,mime_type,file_name,byte_size)";
 const signedMediaCache=new Map();
@@ -96,19 +96,23 @@ function mapConversations(data,blocks=new Map()){
 }
 async function refreshRooms(){
   if(!client||!selfId||document.hidden)return;
+  if(roomsRefreshing)return roomsRefreshing;
+  roomsRefreshing=(async()=>{
   try{
     const data=await loadChatData(client,selfId);
     knownProfiles=data.profiles||[];
-    const active=await onlineIds(knownProfiles);
-    const blocks=await loadChatBlocks(data.conversations||[]);
-    try{await roomService?.load((data.conversations||[]).map(c=>c.id));}
-    catch(error){console.warn("Chat Ultra room preferences unavailable",error?.code||"offline");}
     let preferences={};
-    try{preferences=await preferenceService?.load()||{};}catch(error){console.warn("Chat Ultra preferences temporarily unavailable",error?.code||"offline");}
+    const [active,blocks]=await Promise.all([
+      onlineIds(knownProfiles),loadChatBlocks(data.conversations||[]),
+      roomService?.load((data.conversations||[]).map(c=>c.id)).catch(error=>console.warn("Room state unavailable",error)),
+      preferenceService?.load().then(value=>{preferences=value||{};}).catch(error=>console.warn("Chat preferences unavailable",error))
+    ]);
     visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(data,blocks),onlineUserIds:active,remotePreferences:preferences});
     const current=visual.current();
     if(current&&roomIds.has(current))await refreshThread(current);
   }catch(error){console.error("Chat Ultra: conversas indisponíveis",error);say("Não foi possível atualizar as conversas.");}
+  })();
+  try{return await roomsRefreshing;}finally{roomsRefreshing=null;}
 }
 function planRefresh(delay=300){
   clearTimeout(refreshTimer);
@@ -771,17 +775,15 @@ function bindEvents(){
 }
 await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
   client=sessionClient;selfId=user.id;
-  const initial=await loadChatData(client,selfId);
+  const initial=await loadChatOverview(client,selfId);
   roomService=createUltraRoomService(client,code=>console.warn("Chat Ultra room action not confirmed",code));
   draftSync=createUltraDraftSync(client,{onError:code=>console.warn("Chat Ultra draft retained locally",code)});
   window.addEventListener("pagehide",()=>{void draftSync?.flush();},{once:true});
-  try{await roomService.load((initial.conversations||[]).map(c=>c.id));}
-  catch(error){console.warn("Chat Ultra room state unavailable",error?.code||"offline");}
+  // Render first; the secure room/presence/preference details hydrate asynchronously.
   preferenceService=createUltraPreferenceService(client,selfId,(message,error)=>{
     console.warn("Chat Ultra visual sync failed",error?.code||"offline");say(message);
   });
-  let firstPreferences={};
-  try{firstPreferences=await preferenceService.load();}catch(error){console.warn("Chat Ultra visual preferences unavailable",error?.code||"offline");}
+  const firstPreferences={};
   window.addEventListener("pagehide",()=>preferenceService?.dispose(),{once:true});
   root.innerHTML=chatMarkup(initial,selfId);
   const stopNativeOverlays=mountUltraNativeOverlays(document.getElementById("looplyLiveRuntime"),root);
@@ -805,9 +807,12 @@ await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,pro
   });
   window.addEventListener("pagehide",()=>cancelAnimationFrame(nativeFrame),{once:true});
   knownProfiles=initial.profiles||[];
-  const active=await onlineIds(knownProfiles);
-  const blocks=await loadChatBlocks(initial.conversations||[]);
-  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,blocks),selfAvatar:profile.avatarUrl||"",onlineUserIds:active,remotePreferences:firstPreferences});
+  // The actual conversations become visible before any avatar/media signature
+  // or background delivery receipt resolves.
+  visual.rooms({selfId,profiles:knownProfiles,conversations:mapConversations(initial,new Map()),
+    selfAvatar:profile.avatarUrl||"",onlineUserIds:[],remotePreferences:firstPreferences});
+  document.body.removeAttribute("data-ultra-loading");
+  window.setTimeout(()=>void refreshRooms(),0);
   void draftSync.load().then(rows=>visual.applyRemoteDrafts(rows))
     .catch(error=>console.warn("Chat Ultra server drafts unavailable",error?.code||"offline"));
   scheduler=setupUltraChatSchedules({client,getConversationId:()=>visual.current(),notice:say,onChange:()=>planRefresh(350)});
