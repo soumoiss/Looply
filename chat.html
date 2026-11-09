@@ -2987,7 +2987,7 @@ refresh();
       case "video": $u("#fAny").accept = "video/*";return $u("#fAny").click();
       case "file": $u("#fAny").accept = "";return $u("#fAny").click();
       case "audio": return startRec();
-      case "sticker": $u("#pan").classList.add("open");return fillGrid("s");
+      case "sticker": return ($u("#bStickers")||$u("#bEmo"))?.click();
       case "note": return showNoteEditorProxy();
       case "music": return showMusicEditorProxy();
       case "games": return $u("#bGames")?.click();
