@@ -366,25 +366,79 @@ async function legacyComposer(id){
   }
   throw Error("O editor de anexos não está disponível.");
 }
+const ultraUploadExtensions=new Map([
+  ["image/jpeg","jpg"],["image/png","png"],["image/webp","webp"],
+  ["video/mp4","mp4"],["video/webm","webm"],
+  ["audio/mp4","mp4"],["audio/mpeg","mp3"],["audio/ogg","ogg"],["audio/webm","webm"],
+  ["application/pdf","pdf"],["text/plain","txt"],["text/csv","csv"],
+  ["application/msword","doc"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document","docx"],
+  ["application/rtf","rtf"]
+]);
+let uploadingAttachment=false;
 async function uploadFiles(files,targetConversation=visual.current()){
-  if(!files.length)return false;
+  if(!files?.length||uploadingAttachment)return false;
+  const id=targetConversation,conversation=visual.conversations().find(room=>room.id===id);
+  if(!roomIds.has(id)||conversation?.canChat===false||id!==visual.current()){
+    say("A conversa não está disponível para anexos.");return false;
+  }
+  if(files.length>8){say("Envie no máximo oito arquivos por mensagem.");return false;}
+  for(const file of files){
+    const mime=String(file?.type||"").split(";")[0].toLowerCase();
+    if(!(file instanceof File)||!ultraUploadExtensions.has(mime)||file.size<=0||file.size>25*1024*1024){
+      say("Arquivo não permitido ou maior que 25 MiB.");return false;
+    }
+  }
+  uploadingAttachment=true;
+  let messageId="",savedMedia=[];
   try{
-    const id=targetConversation;
-    if(id!==visual.current())throw Error("A conversa mudou antes de enviar o anexo.");
-    if(visual.conversations().find(c=>c.id===id)?.canChat===false)throw Error("Envio bloqueado nesta conversa.");
-    const form=await legacyComposer(id);
-    const input=form.querySelector('input[name="files"]');
-    if(!input)throw Error("O envio de anexos não está disponível.");
-    const body=form.querySelector('textarea[name="body"]');
-    if(body)body.value="";
-    const transfer=new DataTransfer();
-    files.forEach(file=>transfer.items.add(file));
-    input.files=transfer.files;
-    form.requestSubmit();
-    say("Enviando anexo…");
-    setTimeout(()=>void refreshThread(id),1100);
+    // Create the actual parent before authorizing R2 uploads. The Neon storage
+    // function requires the authenticated sender to own this precise message.
+    const voice=files.every(file=>file.type.startsWith("audio/"));
+    const label=voice?"Mensagem de voz":"Compartilhou arquivos.";
+    const {data,error}=await client.from("chat_messages")
+      .insert({conversation_id:id,sender_id:selfId,body:label})
+      .select("id").single();
+    if(error||!data?.id)throw error||Error("Mensagem não confirmada no Neon.");
+    messageId=data.id;
+    for(let index=0;index<files.length;index++){
+      const file=files[index],mime=file.type.split(";")[0].toLowerCase();
+      const path="conversations/"+id+"/"+messageId+"/"+crypto.randomUUID()+"."+ultraUploadExtensions.get(mime);
+      say("Enviando arquivo "+(index+1)+" de "+files.length+"…");
+      const uploaded=await client.storage.from("looply-chat").upload(path,file,{contentType:mime,upsert:false});
+      if(uploaded.error||uploaded.data?.path!==path)throw uploaded.error||Error("Upload do arquivo não confirmado.");
+      savedMedia.push(path);
+      const safeName=String(file.name||"arquivo").replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120);
+      const media=await client.from("chat_media").insert({
+        conversation_id:id,message_id:messageId,created_by:selfId,storage_path:path,
+        mime_type:mime,byte_size:file.size,file_name:safeName||"arquivo"
+      }).select("id").maybeSingle();
+      if(media.error||!media.data?.id)throw media.error||Error("Arquivo não registrado no Neon.");
+    }
+    runtime.dispatchEvent(new CustomEvent("looply:chat-message-saved",{detail:{conversationId:id}}));
+    void import("../../src/chat-push-alert.js").then(({requestImmediateMessagePush})=>
+      requestImmediateMessagePush(client,messageId)).catch(()=>{});
+    lastRender="";
+    await refreshThread(id);
+    planRefresh(300);
+    say(voice?"Áudio enviado.":"Arquivo enviado.");
     return true;
-  }catch(error){console.error("Chat Ultra: anexo indisponível",error);say(error?.message||errorMessage);return false;}
+  }catch(error){
+    console.error("Chat Ultra attachment failed",error);
+    if(messageId){
+      // No orphaned parent messages on failed uploads. Never delete someone
+      // else's content; Postgres RLS confirms the sender on this row.
+      const deleted=await client.from("chat_messages").delete()
+        .eq("id",messageId).eq("conversation_id",id).eq("sender_id",selfId);
+      if(deleted.error)console.warn("Attachment cleanup pending",deleted.error);
+    }
+    for(const path of savedMedia){
+      const result=await client.storage.from("looply-chat").remove([path]);
+      if(result.error)console.warn("Unconfirmed media cleanup",result.error);
+    }
+    say(error?.message||"Não foi possível enviar o anexo.");
+    return false;
+  }finally{uploadingAttachment=false;}
 }
 
 const POLL_VOTES=["❤️","😂","😮","😢","🙏","👍","🔥"];
