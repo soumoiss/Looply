@@ -76,7 +76,9 @@ function allowedFile(bucket,path,mime,size,profileId) {
 }
 async function rowsFor(token,table,params) {
   const qs = new URLSearchParams(params);
-  qs.set("select","id");
+  // Membership has a composite key (conversation_id,user_id), not an id.
+  // Selecting id here used to return HTTP 400 and falsely reject all wallpaper uploads.
+  qs.set("select",table==="conversation_participants"?"conversation_id":"id");
   qs.set("limit","1");
   const reply = await fetch(process.env.NEON_DATA_API_URL+"/"+table+"?"+qs, {
     headers:{authorization:token,accept:"application/json"},cache:"no-store"
@@ -274,7 +276,7 @@ export default { async fetch(request) {
     const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
       || (inspectObject(bucket,path)?.type!=="wallpaper" && await canAdminSignObject(request.headers.get("authorization"),bucket,path));
     if (!permitted) return json({ error: "object_not_visible" }, 403, headers);
-    const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(60, Math.min(1800, Number(payload.expiresIn) || 1800)) });
+    const payload = await request.json().catch(() => ({})), signed = await signedRequest({ method: "GET", bucket, path, presignSeconds: Math.max(2, Math.min(1800, Number(payload.expiresIn) || 1800)) });
     return json({ signedUrl: signed.url }, 200, headers);
   }
   return json({ error: "not_found" }, 404, headers);
