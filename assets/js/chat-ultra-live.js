@@ -8,7 +8,7 @@ import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1"
 import { setupChatEnhancements } from "../../src/chat-enhancements.js?v=ttt-clean-20261103-premium";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
-import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=chat-real-20261107";
+import { mountUltraStickerPicker } from "./chat-ultra-stickers.js?v=sticker-modal-5col-20261109";
 import { createUltraPreferenceService } from "../../src/chat-ultra-preferences.js?v=20261108-r1";
 import { mergeChatHistory,oldestChatTimestamp,hasChatHistoryPage } from "../../src/chat-ultra-history.js";
 import { setupUltraTyping } from "../../src/chat-ultra-typing.js?v=20261108-v41";
