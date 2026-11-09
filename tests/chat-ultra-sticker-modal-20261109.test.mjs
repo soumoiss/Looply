@@ -22,6 +22,7 @@ test("mobile sticker picker has five columns, constrained thumbnails and scrolli
   for(const html of ["chat.html","conversa.html"]){
     const file=read(html);
     assert.match(file,/chat-ultra-live-fixes\.css\?v=sticker-modal-5col-20261109/);
+    assert.match(file,/chat-ultra-live\.js\?v=sticker-modal-5col-20261109/);
     assert.match(file,/#ultraStickerHost \.chat-catalog-grid\{display:grid!important;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)!important\}/);
   }
 });
