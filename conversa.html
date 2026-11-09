@@ -117,6 +117,9 @@ dialog::backdrop{background:rgba(20,10,35,.5);-webkit-backdrop-filter:blur(8px);
 .fi{width:100%;min-height:50px;padding:0 15px;border-radius:16px;border:1px solid var(--line);background:var(--strong);font-size:16px;outline:0;margin:6px 0 10px;color:var(--text)}.fi:focus{box-shadow:0 0 0 3px rgba(112,16,176,.2)}
 .pre{display:flex;gap:7px;flex-wrap:wrap;margin:6px 0 10px}.pre button{min-height:42px;padding:0 15px;border-radius:14px;border:1px solid var(--line);background:var(--strong);font-weight:700;font-size:13.5px}.pre button.on{background:var(--primary);color:#fff}
 .banner{position:fixed;z-index:200;left:50%;top:calc(env(safe-area-inset-top) + 8px);width:min(calc(100vw - 20px),430px);transform:translate(-50%,-130%);display:flex;align-items:center;gap:12px;padding:10px 8px 10px 10px;border-radius:24px;transition:transform .55s var(--spring);text-decoration:none;color:var(--text)}
+/* Prevent the notification shell from becoming a phantom glass pill. */
+#banner[hidden],#banner:empty{display:none!important}
+#banner:not(.on){visibility:hidden!important;pointer-events:none!important}
 .banner.on{transform:translate(-50%,0)}.banner .t{flex:1;min-width:0}.banner b{display:flex;justify-content:space-between;gap:8px;font-size:14px}.banner b small{font-weight:600;color:var(--muted);font-size:11px}.banner span.p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;opacity:.85;overflow-wrap:anywhere}
 #toast{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));z-index:210;transform:translate(-50%,24px) scale(.92);opacity:0;max-width:92vw;padding:12px 18px;border-radius:18px;font-weight:700;font-size:14px;transition:.45s var(--spring);pointer-events:none;text-align:center;background:var(--text);color:var(--bg)}#toast.on{transform:translate(-50%,0) scale(1);opacity:1}
 .tg{position:relative;flex:none;display:block;width:56px;height:34px;border-radius:99px;background:color-mix(in srgb,var(--muted) 28%,transparent);transition:background .3s}
@@ -392,7 +395,7 @@ body[data-ultra-loading="true"] #list:after{
 <section class="cfg" id="cfg" hidden aria-label="Configurações da conversa"></section>
 <div class="call" id="call" hidden></div>
 <dialog id="sh"><div class="sheet" id="shBox"></div></dialog>
-<div class="banner glass" id="banner" role="status"></div>
+<div class="banner glass" id="banner" role="status" aria-hidden="true" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -602,8 +605,18 @@ function incoming(id,text){const c=conv(id);if(!c||c.blocked)return;const from=p
  if(cur===id){renderMsgs();if(msgsEl.scrollHeight-msgsEl.scrollTop-msgsEl.clientHeight>260){const t=$("#toB");let d=t.querySelector(".dotb");if(!d){d=document.createElement("i");d.className="dotb";d.textContent="0";t.append(d)}d.textContent=+d.textContent+1}}else{c.unread++;banner(c,m)}save();refresh()}
 /* notificação estilo Instagram: foto, nome e prévia */
 let bt;function banner(c,m){if(c.mute||c.arch)return;const b=$("#banner"),h=host();if(b.parentNode!==h)h.append(b);const nm=title(c),pv=(c.type==="group"?U(m.from).n.split(" ")[0]+": ":"")+prev(m);
- b.innerHTML=`${av(m.from,46)}<span class="t"><b>${esc(nm)}<small>agora</small></b><span class="p">${esc(pv)}</span></span>`;b.onclick=()=>{b.classList.remove("on");sh.open&&sh.close();open(c.id)};
- requestAnimationFrame(()=>b.classList.add("on"));navigator.vibrate&&navigator.vibrate(15);clearTimeout(bt);bt=setTimeout(()=>b.classList.remove("on"),5000)}
+ // A notification shell is created only with real content and removed at dismissal.
+ const dismiss=()=>{
+   b.classList.remove("on");b.hidden=true;
+   b.setAttribute("aria-hidden","true");b.replaceChildren();
+ };
+ b.innerHTML=`${av(m.from,46)}<span class="t"><b>${esc(nm)}<small>agora</small></b><span class="p">${esc(pv)}</span></span>`;
+ b.hidden=false;b.setAttribute("aria-hidden","false");
+ b.onclick=()=>{clearTimeout(bt);dismiss();sh.open&&sh.close();open(c.id)};
+ requestAnimationFrame(()=>{if(!b.hidden&&b.childElementCount)b.classList.add("on")});
+ navigator.vibrate&&navigator.vibrate(15);
+ clearTimeout(bt);bt=setTimeout(dismiss,5000)
+}
 /* menu da conversa e busca */
 $("#bCall").onclick=()=>startCall(false);
 $("#bMore").onclick=cfgOpen;$("#who").onclick=cfgOpen;
