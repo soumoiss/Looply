@@ -341,3 +341,8 @@ body.looply-chat-ultra-live #ultraStickerHost .chat-ultra-sticker-import button{
   body.looply-chat-ultra-live #ultraStickerHost,
   body.looply-chat-ultra-live #ultraStickerHost *{scroll-behavior:auto!important;transition:none!important}
 }
+
+body.looply-chat-ultra-live #ultraStickerHost .chat-catalog-image-fallback{
+  display:grid;place-items:center;width:100%;height:100%;
+  font-size:23px;opacity:.48;color:var(--muted);
+}
