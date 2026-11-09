@@ -32,6 +32,7 @@ export function mountUltraStickerPicker({client,getUserId,getConversationId,onSa
   const form=document.createElement("form");
   form.setAttribute("data-chat-send","");
   form.className="ultra-sticker-form";
+  form.addEventListener("submit",event=>event.preventDefault());
   const load=document.createElement("button");
   load.type="button";
   load.setAttribute("data-chat-choose-sticker","");
