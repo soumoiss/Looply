@@ -38,6 +38,9 @@ test("favorite and import flows remain connected to the authenticated catalog",(
   assert.match(catalog,/data-chat-sticker-favorite/);
   assert.match(catalog,/client\.from\("sticker_favorites"\)/);
   assert.match(catalog,/prepareImages\(client,rows\)/);
+  assert.match(catalog,/const PAGE_SIZE = 40/);
+  assert.match(catalog,/chat-catalog-image-fallback/);
+  assert.match(catalog,/Sticker preview temporarily unavailable/);
   assert.match(catalog,/client\.storage\.from\("looply-stickers"\)/);
 });
 test("modal closes safely and restores keyboard focus",()=>{
