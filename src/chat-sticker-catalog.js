@@ -1,6 +1,6 @@
 // Persistent sticker catalog. Bundled entries are license-reviewed CC0 assets
 // committed with Looply, so they do not depend on an external sticker site.
-const PAGE_SIZE = 36;
+const PAGE_SIZE = 40;
 const safeAsset = value => /^assets\/stickers\/[a-z0-9_-]{3,80}\.svg$/.test(String(value || ""));
 const safeUpload = value => /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(String(value || ""));
 const safeBundledAsset = value => /^assets\/stickers\/cc0\/[a-z0-9-]{3,80}\.webp$/.test(String(value || ""));
@@ -22,8 +22,13 @@ async function prepareImages(client,rows) {
   return Promise.all(rows.map(async row => {
     if (safeAsset(row.asset_path) || safeBundledAsset(row.asset_path)) return row;
     if (!safeUpload(row.storage_path)) return {...row,imageUrl:null};
-    const result = await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
-    return {...row,imageUrl:result.error ? null : result.data?.signedUrl||null};
+    try {
+      const result = await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
+      return {...row,imageUrl:result.error ? null : result.data?.signedUrl||null};
+    } catch(error) {
+      console.warn("Sticker preview temporarily unavailable",error?.code||"offline");
+      return {...row,imageUrl:null};
+    }
   }));
 }
 function stickerSrc(row) {
@@ -84,6 +89,16 @@ function renderItems(picker, rows, append) {
     picture.alt = entry.title;
     picture.loading = "lazy";
     picture.decoding = "async";
+    picture.addEventListener("error",()=>{
+      picture.hidden=true;
+      send.disabled=true;
+      send.setAttribute("aria-label","Prévia indisponível: "+entry.title);
+      const fallback=document.createElement("span");
+      fallback.className="chat-catalog-image-fallback";
+      fallback.setAttribute("aria-hidden","true");
+      fallback.textContent="🖼️";
+      send.append(fallback);
+    },{once:true});
     send.append(picture);
     const favorite = document.createElement("button");
     favorite.type = "button";
@@ -299,7 +314,9 @@ export function bindStickerCatalog(root, client, getUserId) {
       const userId = getUserId?.();
       if (!picker || !userId) return;
       const state = stateFor(picker);
-      const saved = JSON.parse(localStorage.getItem(`looply:cc0-sticker-favorites:${userId}`) || "[]");
+      let saved=[];
+      try { saved=JSON.parse(localStorage.getItem(`looply:cc0-sticker-favorites:${userId}`) || "[]"); }
+      catch { saved=[]; }
       state.favoriteIds = new Set(Array.isArray(saved) ? saved.filter(id => /^cc0:[a-z0-9-]+$/.test(id)) : []);
       if (picker.isConnected) {
         void loadPackOptions(picker,client);
