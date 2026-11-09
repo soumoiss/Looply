@@ -96,6 +96,35 @@ async function loadUnreadChatNotifications(client, userId, conversationIds) {
   return countUnreadNotificationsByConversation(notifications);
 }
 
+// Fast first paint: fetch actual conversation membership and people, but do not
+// block the Ultra inbox on hundreds of avatar signatures, preview lookups or receipts.
+// The fully detailed loadChatData() is hydrated after the real list becomes visible.
+export async function loadChatOverview(client,userId){
+  const [membersResult,profilesResult]=await Promise.all([
+    client.from("conversation_participants")
+      .select("conversation_id,last_read_at").eq("user_id",userId)
+      .order("conversation_id").limit(500),
+    client.from("profiles").select("id,username,display_name,avatar_path").order("username").limit(100)
+  ]);
+  if(membersResult.error)throw membersResult.error;
+  if(profilesResult.error)throw profilesResult.error;
+  const members=membersResult.data||[],ids=members.map(m=>m.conversation_id);
+  const reads=new Map(members.map(m=>[m.conversation_id,m.last_read_at]));
+  const blocks=[];
+  for(let i=0;i<ids.length;i+=50){
+    const batch=ids.slice(i,i+50);
+    blocks.push(client.from("conversations")
+      .select("id,kind,subject,created_by,created_at,updated_at,participants:conversation_participants(user_id,profile:profiles!conversation_participants_user_id_fkey(id,username,display_name,avatar_path))")
+      .in("id",batch).order("updated_at",{ascending:false}).limit(50));
+  }
+  const results=await Promise.all(blocks);
+  for(const result of results)if(result.error)throw result.error;
+  const conversations=results.flatMap(result=>result.data||[])
+    .sort((a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0))
+    .map(c=>({...c,coverUrl:null,lastMessage:null,lastReadAt:reads.get(c.id)||null,unreadCount:0}));
+  return {conversations,profiles:profilesResult.data||[],notifications:[]};
+}
+
 export async function loadChatData(client, userId) {
   const [participantResult, notificationResult, profilesResult] = await Promise.all([
     (async () => {
@@ -120,10 +149,16 @@ export async function loadChatData(client, userId) {
   const participants = participantResult.data || [];
   const ids = participants.map((row) => row.conversation_id);
   const unreadByConversation = await loadUnreadChatNotifications(client, userId, ids);
-  for (let start = 0; start < ids.length; start += 50) {
-    const { data: delivered, error: deliveredError } = await client.rpc("mark_conversations_delivered", { p_conversation_ids: ids.slice(start, start + 50) });
-    if (deliveredError || delivered !== true) console.warn("Looply delivery receipt update failed", deliveredError || { message: "conversation_unavailable" });
-  }
+  // Delivery receipt updates do not belong in the critical inbox rendering path.
+  // They remain authenticated, but cannot delay or blank the conversation list.
+  void (async()=>{
+    for(let start=0;start<ids.length;start+=50){
+      const {data:delivered,error}=await client.rpc("mark_conversations_delivered",{
+        p_conversation_ids:ids.slice(start,start+50)
+      });
+      if(error||delivered!==true)console.warn("Looply delivery receipt update failed",error||{message:"conversation_unavailable"});
+    }
+  })().catch(error=>console.warn("Looply delivery receipt update unavailable",error));
   let conversations = [];
   let latestMessages = [];
   if (ids.length) {
