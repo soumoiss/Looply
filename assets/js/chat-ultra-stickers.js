@@ -178,6 +178,7 @@ export function mountUltraStickerPicker({client,getUserId,getConversationId,onSa
 
   const form=document.createElement("form");
   form.setAttribute("data-chat-send","");
+  form.addEventListener("submit",event=>event.preventDefault());
   const head=document.createElement("div");
   head.className="ultra-sticker-sheet-head";
   head.innerHTML='<div class="ultra-sticker-heading"><b>Figurinhas</b><small>Escolha para enviar ou salve suas favoritas</small></div>'+
