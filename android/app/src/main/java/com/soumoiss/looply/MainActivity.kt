@@ -345,7 +345,7 @@ class MainActivity : Activity() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         val script = """
             (() => {
-              if (!/^\\/(?:reel|p|tv)\\/[^/]+\\/embed(?:\\/|$)/i.test(location.pathname)) return;
+              if (!/^\/(?:reel|p|tv)\/[^\/]+\/embed(?:\/|$)/i.test(location.pathname)) return;
               const parents = new Set([
                 'https://soumoiss.github.io',
                 'https://appassets.androidplatform.net'
