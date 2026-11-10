@@ -15,10 +15,15 @@ test("Spotify configuration diagnostic exposes only a boolean to the trusted ori
   assert.deepEqual(data,{configured:Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET)});
   assert.equal(JSON.stringify(data).includes("client_secret"),false);
   assert.equal(response.headers.get("access-control-allow-origin"),"https://soumoiss.github.io");
-  const blocked=await backend.fetch(new Request(base+"/spotify/configuration",{
+  const outsider=await backend.fetch(new Request(base+"/spotify/configuration",{
     headers:{origin:"https://untrusted.example"}
   }));
-  assert.equal(blocked.status,403);
+  assert.equal(outsider.status,200);
+  assert.equal(outsider.headers.get("access-control-allow-origin"),"null");
+  assert.deepEqual(await outsider.json(),data);
+  const noOrigin=await backend.fetch(new Request(base+"/spotify/configuration"));
+  assert.equal(noOrigin.status,200);
+  assert.deepEqual(await noOrigin.json(),data);
 });
 
 test("Spotify backend failures keep distinct actionable messages in catalog UI", async () => {
