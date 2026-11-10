@@ -6,7 +6,7 @@ const SHELL = [
   "home.html","chat.html","conversa.html","cartas.html",
   "musicas.html","galeria.html","notificacoes.html","perfil.html",
   "assets/css/app.css","assets/css/pages/shared.css",
-  "reels.html","assets/css/pages/home-reels-model-v3.css","src/home-reels-premium.js"
+  "reels.html","assets/css/pages/home-reels.css","src/home-reels-premium.js"
 ];
 const scopePath = new URL(self.registration.scope).pathname;
 const cacheable = (request) => {
