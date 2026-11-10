@@ -1,4 +1,4 @@
-# DESIGN.md — Looply (contrato visual de preservação)
+# DESIGN.md — Looply (contrato visual por superfície)
 
 > Data: 2026-11-01. Origem: `soumoiss/Looply`, baseline `521b4ed5e3520a9ce3f8e440af0a59c754cc6dab`. Documento do Prompt 02.
 
@@ -48,3 +48,27 @@ Cartas: papel `#f5f1e9`, tinta `#171717` e acento interno `#20b99a` na folha `le
 - Testar `npm test` e workflows relevantes antes de mesclar; screenshots e testes reais não executados devem constar como **não verificados**.
 - Contraste observado na paleta preexistente: alguns pares `muted/surfaceStrong` não atingem 4.5:1; **não trocar cores unilateralmente**. Ver relatório técnico específico.
 - O APK EXTRA 3.0.4 é intocável e sua correspondência exata com o SHA do código permanece sem confirmação criptográfica do binário.
+
+## Substituição de Início e Reels — 10/11/2026 (precedência específica)
+
+Para \`home.html\` e \`reels.html\`, o arquivo \`looply-inicio-reels-premium-v3.html\`
+é a referência visual aprovada e substitui integralmente as orientações antigas
+deste documento sobre a apresentação dessas duas telas. Não existem dois modos
+visuais e as páginas não carregam CSS próprio do layout anterior.
+
+- Estilos: \`assets/css/pages/home-reels.css\`, extraídos do modelo e adaptados
+  aos tokens globais e preferências de fonte/tamanho; integrações:
+  \`src/home-reels-premium.js\`.
+- Dados e ações de Início: \`assets/js/home.js\`, \`src/social.js\`,
+  \`src/why-now-integration.js\`, \`src/secret-messages.js\` e \`app_settings\`.
+- Dados e ações de Reels: \`assets/js/reels.js\`,
+  \`src/home-hybrid-reels.js\`, \`src/social.js\`.
+- Cabeçalho e única barra de seis destinos continuam sendo renderizados por
+  \`src/page-runtime.js\` e \`src/primary-navigation.js\`, com sua estrutura
+  existente. Autenticação, Neon, Cloudflare, FCM e rotas não foram substituídos.
+- Reações, salvos e quem curtiu requerem a migração aditiva
+  \`migration/20261110_home_reels_premium.sql\` **antes de uso em produção**.
+
+Todas as demais páginas continuam sujeitas às regras de preservação específicas
+deste documento. Homologação visual e operações reais devem ser verificadas com
+sessão de teste antes de mesclar para \`main\`.
