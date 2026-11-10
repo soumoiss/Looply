@@ -158,7 +158,7 @@ test("regressão: compositor premium abre dialog real sem remover form ou upload
 });
 test("regressão: modal de compartilhamento envia múltiplos usuários com mensagem opcional",()=>{
  const js=read("src/home-reels-send.js"),css=read("assets/css/pages/home-reels.css");
- const edge=read("supabase/functions/looply-chat/index.ts");
+ const neon=read("src/neon-production-client.js");
  assert.match(js,/selected=new Set\(\)/);
  assert.match(js,/looply-send-grid/);
  assert.match(js,/data-send-person/);
@@ -166,7 +166,7 @@ test("regressão: modal de compartilhamento envia múltiplos usuários com mensa
  assert.match(js,/mode:"share",targetId:id,postId,body:message\|\|undefined/);
  assert.match(js,/event\.stopImmediatePropagation\(\)/);
  assert.match(css,/\.looply-send-grid\{display:grid/);
- assert.match(edge,/replyBody\.slice\(0,2000\)/);
+ assert.match(neon,/p_message:message/);
 });
 test("regressão: Reels exibe autor depois do reparenting visual do Feed",()=>{
  const js=read("src/home-hybrid-reels.js");
