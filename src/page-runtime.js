@@ -314,6 +314,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
   }).catch((error) => console.warn("Looply profile avatar load failed", error));
 
   const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") {
+      try { window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"})); }
+      catch {}
+    }
     if (event === "SIGNED_OUT" || !session) window.location.replace("login.html");
   });
 
