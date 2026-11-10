@@ -198,7 +198,7 @@ test("coleção Salvos consulta o Neon por páginas, sem depender de posts rende
  for(const part of ['from("post_saves")','range(offset,offset+pageSize-1)','from("posts")','from("post_media")','signPeople(client','createSignedUrls','v13_set_post_saved','premium-saved-detail'])
   assert.ok(js.includes(part),part);
  assert.match(shell,/mountSavedLibrary\(\{root,client,userId:ownId\}\)/);
- assert.match(shell,/data\.premiumSaved/);
+ assert.match(shell,/savedButton\.dataset\.premiumSaved/);
  assert.match(css,/dialog\.premium-saved-dialog\[open\]/);
  assert.match(css,/\.psaved-grid\{display:grid/);
 });
