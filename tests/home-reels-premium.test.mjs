@@ -146,3 +146,30 @@ test("modelo original v3: sem controles nativos expostos nem embeds externos que
  assert.match(src,/if\(caption&&\(media\|\|external\)\)/);
  assert.doesNotMatch(src,/Simular nova publicação/);
 });
+
+
+test("regressão: compositor premium abre dialog real sem remover form ou upload",()=>{
+ const js=read("src/home-reels-premium.js"),css=read("assets/css/pages/home-reels.css");
+ assert.match(js,/composeDialog\.showModal\(\)/);
+ assert.match(js,/composeDialog\.append\(composeFields\)/);
+ assert.match(js,/event\.stopImmediatePropagation\(\);openCompose\(\)/);
+ assert.match(css,/dialog\.premium-compose-dialog\[open\]/);
+ assert.match(css,/dialog\.premium-compose-dialog::backdrop/);
+});
+test("regressão: modal de compartilhamento envia múltiplos usuários com mensagem opcional",()=>{
+ const js=read("src/home-reels-send.js"),css=read("assets/css/pages/home-reels.css");
+ const edge=read("supabase/functions/looply-chat/index.ts");
+ assert.match(js,/selected=new Set\(\)/);
+ assert.match(js,/looply-send-grid/);
+ assert.match(js,/data-send-person/);
+ assert.match(js,/data-send-message/);
+ assert.match(js,/mode:"share",targetId:id,postId,body:message\|\|undefined/);
+ assert.match(js,/event\.stopImmediatePropagation\(\)/);
+ assert.match(css,/\.looply-send-grid\{display:grid/);
+ assert.match(edge,/replyBody\.slice\(0,2000\)/);
+});
+test("regressão: Reels exibe autor depois do reparenting visual do Feed",()=>{
+ const js=read("src/home-hybrid-reels.js");
+ assert.match(js,/\.post-header \.post-author-profile/);
+ assert.match(js,/looply-reels-creator-profile/);
+});
