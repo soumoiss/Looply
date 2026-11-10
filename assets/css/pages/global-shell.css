@@ -121,3 +121,72 @@
 @media(prefers-reduced-motion:reduce){
  .looply-page .page-header[data-site-header] .brand-mark-animated .circle{animation:none}
 }
+
+
+/* The three-bar account menu is an essential navigation control. Earlier rules
+   hid every child span except the avatar, including the actual hamburger icon.
+   Keep one 46px target while retaining all original permitted destinations. */
+.looply-page .page-header[data-site-header] .looply-account-menu > summary{
+  display:grid!important;
+  place-items:center!important;
+  cursor:pointer;
+  color:var(--primary)!important;
+  width:48px!important;height:48px!important;
+  min-width:48px!important;min-height:48px!important;
+  border-radius:15px!important;
+  padding:0!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu > summary > .account-menu-caret{
+  display:grid!important;
+  place-items:center!important;
+  width:100%;height:100%;margin:0!important;
+  color:var(--primary)!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu > summary > .account-menu-caret svg{
+  display:block!important;width:25px!important;height:25px!important;
+  fill:none!important;stroke:currentColor!important;stroke-width:2.2px!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu[open] > summary{
+  background:color-mix(in srgb,var(--primary) 12%,var(--surface-strong))!important;
+  border-color:color-mix(in srgb,var(--primary) 33%,var(--line))!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu > summary:focus-visible{
+  outline:2px solid var(--primary)!important;outline-offset:2px!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .account-menu-popover{
+  z-index:1600!important;
+  width:min(272px,calc(100vw - 30px));
+  max-height:min(72dvh,560px);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .looply-menu-identity{
+  display:flex;align-items:center;gap:11px;min-width:0;
+  margin:0 0 5px;padding:8px 7px 12px;
+  border-bottom:1px solid var(--line);color:var(--text);
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .looply-menu-identity > span{
+  display:grid;gap:2px;min-width:0;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .looply-menu-identity strong{
+  display:block;font-size:13px;font-weight:800;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .looply-menu-identity small{
+  color:var(--muted);font-size:11px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .account-menu-link,
+.looply-page .page-header[data-site-header] .looply-account-menu [data-admin-mode-toggle]{
+  min-height:43px;display:flex;align-items:center;gap:9px;
+  padding:10px 12px;border-radius:11px;text-decoration:none;
+  font-family:var(--looply-font-family,Inter,sans-serif)!important;
+}
+.looply-page .page-header[data-site-header] .looply-account-menu .account-menu-link svg{
+  flex:none;width:18px;height:18px;
+}
+@media(max-width:390px){
+  .looply-page .page-header[data-site-header] .looply-account-menu > summary{
+    width:44px!important;height:44px!important;
+    min-width:44px!important;min-height:44px!important;
+  }
+}

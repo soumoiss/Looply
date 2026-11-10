@@ -11,11 +11,19 @@ const fixture='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'+
   '<meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<script src="src/theme-bootstrap.js"></script>'+
   '<link rel="stylesheet" href="assets/css/app.css">'+
-  '<link rel="stylesheet" href="assets/css/global-theme-typography.css"></head>'+
+  '<link rel="stylesheet" href="assets/css/pages/global-shell.css">'+
+  '<link rel="stylesheet" href="assets/css/global-theme-typography.css">'+
+  '<style>.legacy-card,.legacy-card span{font-family:Georgia!important}</style></head>'+
   '<body class="looply-page page-settings"><div class="container-page">'+
-  '<header class="page-header" data-site-header><a class="brand-inline"><strong>Looply</strong></a></header>'+
+  '<header class="page-header" data-site-header><a class="brand-inline"><strong>Looply</strong></a>'+
+  '<details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu">'+
+  '<span class="account-menu-caret"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span></summary>'+
+  '<div class="account-menu-popover"><a class="account-menu-link" href="usuarios.html">Pessoas</a>'+
+  '<a class="account-menu-link" href="configuracoes.html">Configurações</a>'+
+  '<a class="account-menu-link" href="admin.html">Administração</a></div></details></header>'+
   '<main><section class="hero-panel page-title-panel"><h1 class="hero-title">Configurações</h1>'+
-  '<p>Texto de exemplo</p><button class="primary-button">Salvar</button></section></main></div></body></html>';
+  '<p>Texto de exemplo</p><div class="legacy-card">Cartão <span class="legacy-copy">Mensagem antiga</span></div>'+
+  '<button class="primary-button">Salvar</button></section></main></div></body></html>';
 const server=createServer(async(req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,"http://local").pathname);
   if(!pathname.startsWith("/Looply/")){res.writeHead(404);return res.end();}
@@ -51,10 +59,13 @@ try{
       const button=getComputedStyle(document.querySelector(".primary-button"));
       const heading=getComputedStyle(document.querySelector("h1"));
       const brand=getComputedStyle(document.querySelector(".brand-inline strong"));
+      const oldCard=getComputedStyle(document.querySelector(".legacy-card"));
+      const oldCopy=getComputedStyle(document.querySelector(".legacy-copy"));
       records.push({id,selected:root.dataset.theme,
         color:computed.getPropertyValue("--primary").trim(),
         foreground:button.color,background:button.backgroundColor,
         font:heading.fontFamily,brand:brand.fontFamily,
+        cardFont:oldCard.fontFamily,copyFont:oldCopy.fontFamily,
         base:computed.fontSize});
     }
     return records;
@@ -64,8 +75,20 @@ try{
     assert.ok(row.color.startsWith("#"),row.id);
     assert.match(row.font,/Orbitron/i,row.id);
     assert.match(row.brand,/Cabin Sketch/i,row.id);
+    assert.match(row.cardFont,/Orbitron/i,row.id+" inherited DIV font");
+    assert.match(row.copyFont,/Orbitron/i,row.id+" nested SPAN with override");
     assert.equal(row.base,"17.92px",row.id);
   }
+  const menu=page.locator(".looply-account-menu");
+  const hamburger=menu.locator("summary .account-menu-caret svg");
+  assert.ok(await hamburger.isVisible(),"Three-bar account icon must remain visible");
+  assert.ok((await hamburger.boundingBox()).width>=22,"Hamburger tap target is real");
+  await menu.locator("summary").click();
+  assert.ok(await menu.evaluate(el=>el.open),"Account menu did not open");
+  for(const link of ["usuarios.html","configuracoes.html","admin.html"])
+    assert.equal(await menu.locator('a[href="'+link+'"]').count(),1,link);
+  await menu.locator("summary").click();
+  assert.ok(!(await menu.evaluate(el=>el.open)),"Account menu did not close");
   await page.evaluate(()=>{
     window.looplyApplyAppearance({theme:"hacker",font_family:"fredoka",font_size:"normal"},true);
   });

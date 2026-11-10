@@ -43,8 +43,8 @@ function headerMarkup(page, profile, admin, unreadCount) {
   return `${page === "home" ? "" : `<a class="header-action header-back-button" href="home.html" data-page-back aria-label="Voltar para o início" title="Voltar para o início"><span aria-hidden="true">${icon("back")}</span><span class="back-label">Início</span></a>`}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>
     ${primaryNavigationMarkup(page, unreadCount)}
     <a class="header-action header-notifications" href="notificacoes.html" aria-label="Avisos"${page === "notifications" ? ' aria-current="page"' : ""}>${icon("bell")}${notificationBadge}</a>
-    <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span><span class="account-menu-caret" aria-hidden="true">${icon("menu")}</span></summary>
-      <div class="account-menu-popover">${accountLinks}<button class="header-action" type="button" data-sign-out>${icon("logout")}Sair</button></div></details>`;
+    <details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu: Pessoas, Configurações e conta" title="Menu" aria-haspopup="menu"><span class="account-menu-caret" aria-hidden="true">${icon("menu")}</span></summary>
+      <div class="account-menu-popover"><div class="looply-menu-identity">${avatar}<span><strong>${name}</strong><small>@${username}${admin ? " · administrador" : ""}</small></span></div>${accountLinks}<button class="header-action" type="button" data-sign-out>${icon("logout")}Sair</button></div></details>`;
 }
 
 async function loadProfile(userId) {
