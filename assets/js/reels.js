@@ -1,10 +1,11 @@
-import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110-v4";
+import { openHybridReels } from "../../src/home-hybrid-reels.js";
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=faithful-20261110";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 captureIncomingSharedLink();
-await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
+await mountAppPage({page:"reels",render:async({root,client,user,profile,isAdmin})=>{
   root.dataset.socialStream="external";
   const socialData=await loadSocialData(client,"external").catch(error=>({
     people:[],peopleError:error,posts:[],postsError:error
@@ -28,7 +29,21 @@ await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
       requestAnimationFrame(()=>{input.focus({preventScroll:true});fields.scrollIntoView({block:"start",behavior:"smooth"});});
     }
   }
-  mountPremiumSurface({root, client, user, mode:"external", refresh:()=>root.__looplyRefreshData?.()});
+  mountPremiumSurface({root, client, user, profile, mode:"external", refresh:()=>root.__looplyRefreshData?.()});
+  // No modelo visual original a aba Reels ABRE diretamente o visualizador vertical.
+  // Não renderizamos posts falsos: usamos somente links autorizados do Neon.
+  if(!sharedUrl){
+    const target=location.hash.match(/^#post-([0-9a-f-]{36})$/i)?.[1];
+    requestAnimationFrame(()=>{
+      if(!root.isConnected)return;
+      const viewer=openHybridReels(root,target?"external-"+target:undefined);
+      if(viewer){
+        root.addEventListener("looply:reels-closed",()=>{
+          if(location.pathname.endsWith("/reels.html"))location.assign("home.html");
+        },{once:true});
+      }
+    });
+  }
   if(location.hash){
     requestAnimationFrame(()=>{
       try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({block:"center"});}

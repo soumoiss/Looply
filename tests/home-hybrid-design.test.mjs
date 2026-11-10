@@ -88,5 +88,5 @@ test("new CSS styles actual story list and existing viewer, not fake story media
   assert.match(css,/\.premium-sheet/);
   assert.match(css,/\.hybrid-comments-dialog/);
   assert.match(css,/\.post-card/);
-  assert.match(css,/\.premium-composer/);
+  assert.match(css,/#composer\.cardx/);
 });

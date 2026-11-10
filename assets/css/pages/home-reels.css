@@ -1,3 +1,4 @@
+/* Looply Home/Reels — modelo visual v3 autorizado. Base fiel à folha CSS do HTML original; abaixo, apenas adaptação aos nós reais. */
 
 /* Tokens cromáticos definidos pelo tema global; nenhum tema é sobrescrito. */
 :root{--danger:#e63232;--success:#35c878;
@@ -277,153 +278,361 @@ body{background-attachment:fixed;letter-spacing:-.003em}
 .rvheart{position:absolute;left:50%;top:50%;font-size:110px;transform:translate(-50%,-50%) scale(0);pointer-events:none;z-index:2;filter:drop-shadow(0 8px 24px rgba(0,0,0,.4));font-style:normal}.rvheart.go{animation:hrt .8s var(--spring)}
 .rvcount{position:fixed;z-index:97;top:calc(env(safe-area-inset-top) + 20px);right:14px;padding:6px 13px;border-radius:99px;background:rgba(0,0,0,.4);color:#fff;font-size:12.5px;font-weight:800;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 
-/* Integração real com cabeçalho, navegação, feed, Why Now e Reels do Looply. */
 
-body.looply-premium .container-page{width:min(calc(100% - 22px),720px);padding-top:0;padding-bottom:calc(115px + env(safe-area-inset-bottom))}
-body.looply-premium .page-header.gh{position:sticky;top:calc(env(safe-area-inset-top) + 8px);z-index:700;min-height:62px;display:flex;align-items:center;gap:10px;padding:9px 12px;margin:8px auto 14px;width:min(100%,700px);border-radius:26px;border:1px solid var(--lens-edge);background:linear-gradient(135deg,var(--lens-a),var(--lens-b));backdrop-filter:blur(14px) saturate(180%);-webkit-backdrop-filter:blur(14px) saturate(180%);box-shadow:var(--pm-s2)}
-body.looply-premium .page-header.gh .brand-inline{min-height:44px}
-body.looply-premium .page-header.gh .brand-inline strong{font-family:"Cabin Sketch",cursive;color:var(--primary);font-weight:400;font-size:29px}
-body.looply-premium .page-header.gh .looply-account-menu>summary{min-width:44px;min-height:44px}
-body.looply-premium .page-header.gh .looply-account-menu>summary>span:not(:first-child){display:none}
-body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover}
-body.looply-premium .page-header.gh .header-notifications{min-width:44px;min-height:44px;border-radius:14px}
-body.looply-premium .page-navigation{z-index:900}
-@media(max-width:760px){
-body.looply-premium .page-navigation{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(calc(100vw - 20px),560px);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;padding:5px;border:1px solid var(--lens-edge);border-radius:30px;background:linear-gradient(135deg,var(--lens-a),var(--lens-b));backdrop-filter:blur(17px) saturate(190%);-webkit-backdrop-filter:blur(17px) saturate(190%);box-shadow:0 22px 50px color-mix(in srgb,var(--primary) 22%,transparent)}
-body.looply-premium .page-navigation .header-action{min-height:54px;min-width:0;width:100%;padding:4px 1px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;border:0;border-radius:20px;background:transparent;font-size:10px}
-body.looply-premium .page-navigation .header-action[aria-current="page"]{color:var(--primary);background:color-mix(in srgb,var(--primary) 13%,var(--surface-strong))}
-}
-body.looply-premium .shell{width:100%;margin:0 auto;padding-bottom:20px}
-body.looply-premium .page-content{width:100%;max-width:100%;padding:0;margin:0}
+
+/* MODEL V3 ADAPTER — runtime Neon/Cloudflare; classes and proportions from the supplied HTML.
+   No legacy page overrides, synthetic posts, or duplicated navigation. */
+html:has(body.looply-premium){max-width:100%;overflow-x:hidden}
+body.looply-premium{margin:0;max-width:100%;overflow-x:clip;font-family:var(--ui);background:var(--bg);color:var(--text)}
+body.looply-premium .container-page{width:100%;max-width:none;margin:0;padding:0 0 calc(100px + env(safe-area-inset-bottom));overflow:visible}
+body.looply-premium .container-page>main{width:100%;max-width:none;margin:0;padding:0;min-width:0;overflow:visible}
+body.looply-premium .page-content.shell{width:min(calc(100% - 22px),680px);max-width:680px;margin:0 auto;padding:0;overflow:visible}
+body.looply-premium .premium-scene{width:100%;min-width:0;margin:0;padding:0 0 24px}
 body.looply-premium .looply-footer{display:none}
-body.looply-premium .hero-panel{margin:0 0 12px;padding:18px;min-height:102px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px}
-body.looply-premium .hero-panel .home-welcome-avatar{width:58px;height:58px;border-radius:50%;background:var(--lilac);display:grid;place-items:center;overflow:hidden;color:var(--primary);font-weight:800;font-size:24px}
-body.looply-premium .home-welcome-avatar img{width:100%;height:100%;object-fit:cover;grid-area:1/1}
-body.looply-premium .hero-panel .home-welcome-copy{min-width:0}
-body.looply-premium .hero-panel .home-welcome-copy h1{font-family:var(--serif);font-size:clamp(20px,4.6vw,28px);line-height:1.07;overflow-wrap:anywhere;margin:0}
-body.looply-premium .home-profile-shortcut{display:flex;justify-content:center;align-items:center;white-space:nowrap;min-width:96px}
-body.looply-premium .premium-why-now{margin:0 0 12px}
-body.looply-premium .premium-why-now .why-now-people{display:flex;gap:14px;overflow-x:auto;scrollbar-width:none;padding:4px 4px 14px}
-body.looply-premium .premium-why-now .why-now-person{flex:0 0 70px;width:70px;font-size:11.5px;font-weight:700;display:grid;justify-items:center;gap:6px}
-body.looply-premium .premium-why-now .why-now-person-ring{position:relative;display:grid;place-items:center;padding:3px;width:66px;height:66px;border-radius:50%;background:conic-gradient(from 210deg,var(--primary),#e05bb5,#f59e0b,var(--primary))}
-body.looply-premium .premium-why-now .why-now-person-ring.is-seen{background:var(--line)}
-body.looply-premium .premium-why-now .why-now-person-face{width:58px;height:58px;border-radius:50%;background:var(--surface-strong);color:var(--primary);display:grid;place-items:center;font-weight:800;overflow:hidden}
-body.looply-premium .premium-why-now .why-now-person-face img{width:100%;height:100%;object-fit:cover}
-body.looply-premium .premium-why-now .why-now-own-plus{position:absolute;right:0;bottom:0;width:21px;height:21px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;box-shadow:0 0 0 2px var(--bg)}
-body.looply-premium .premium-music{display:flex;align-items:center;gap:14px;padding:14px;text-decoration:none;color:inherit}
-body.looply-premium .premium-music .cv{width:56px;height:56px;border-radius:18px;background:var(--lilac);color:var(--primary);display:grid;place-items:center}
-body.looply-premium .premium-music .tx{flex:1;min-width:0}
-body.looply-premium .premium-music .tx strong{display:block;font-family:var(--serif);font-size:19px}
-body.looply-premium .premium-music .tx small{display:block;text-transform:uppercase;letter-spacing:.12em;color:var(--primary);font-size:10.5px;font-weight:800}
-body.looply-premium .premium-music .pl{width:48px;height:48px}
-body.looply-premium .social-area{display:contents}
-body.looply-premium .social-heading{display:none}
-body.looply-premium .premium-composer{margin-bottom:14px;border-radius:var(--r-lg);background:var(--surface-strong);border:1px solid var(--line);box-shadow:var(--pm-s1);padding:12px 14px}
-body.looply-premium .post-composer-heading{display:flex;align-items:center;gap:12px;min-height:48px}
-body.looply-premium .post-composer-heading:before{content:"";display:none}
-body.looply-premium .post-composer-heading strong{flex:1;display:flex;align-items:center;min-height:46px;padding:0 16px;border-radius:99px;border:1px solid var(--line);background:var(--surface-soft);color:var(--muted);font-size:14px;font-weight:500}
-body.looply-premium .post-compose-pen{width:40px;height:40px;border-radius:50%;background:var(--lilac);display:grid;place-items:center;color:var(--primary)}
-body.looply-premium .post-composer-fields:not([hidden]){margin-top:12px;padding:12px;border-radius:var(--r-md);background:var(--surface-soft)}
-body.looply-premium .post-composer-fields textarea,body.looply-premium .post-composer-fields input,body.looply-premium .post-composer-fields select{max-width:100%;font-size:16px}
-body.looply-premium .feed-list{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:0;margin:0}
-body.looply-premium .feed-list.is-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-body.looply-premium .feed-list.is-grid .post-card{margin:0}
-body.looply-premium .feed-list.is-grid .post-card>:not(.post-media-grid):not(.post-external):not(.post-body){display:none}
-body.looply-premium .feed-list.is-grid .post-media-grid{margin:0}
-body.looply-premium .feed-list.is-grid .post-media{margin:0}
-body.looply-premium .feed-list.is-grid .post-card .post-body{font-size:13px}
-@media(min-width:760px){body.looply-premium .feed-list.is-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-body.looply-premium .post-card{padding:0;margin:0;background:var(--surface-strong);border:1px solid var(--pm-line);border-radius:var(--r-lg);box-shadow:var(--pm-s1);min-width:0;overflow:hidden}
-body.looply-premium .post-header{display:flex;align-items:center;gap:10px;padding:12px 10px 10px 12px;border:0}
-body.looply-premium .post-author{flex:1;min-width:0}
-body.looply-premium .post-author-profile{display:flex;align-items:center;gap:10px;min-width:0;text-align:left;background:transparent;border:0;padding:0;min-height:44px}
-body.looply-premium .post-avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--lilac);color:var(--primary);font-weight:800;flex:none}
-body.looply-premium .post-avatar img{width:100%;height:100%;object-fit:cover}
-body.looply-premium .post-author-profile strong{display:block;color:var(--text);font-size:14.5px}
-body.looply-premium .post-author-profile time{color:var(--muted);display:block;font-size:12px}
-body.looply-premium .post-controls{display:flex;align-items:center;gap:6px}
-body.looply-premium .post-delete-button{min-height:40px;border:0;background:none;color:var(--danger);font-size:12px}
-body.looply-premium .post-media-grid{position:relative;display:flex;gap:0;overflow:hidden;margin:0 12px 8px;border-radius:22px;background:var(--surface-soft);box-shadow:0 10px 28px rgba(40,20,70,.14)}
-body.looply-premium .post-media{flex:0 0 100%;width:100%;min-width:0;margin:0;border:0;border-radius:0;overflow:hidden}
-body.looply-premium .post-media img{width:100%;height:auto;max-height:none;object-fit:contain;display:block}
-body.looply-premium .post-media video{width:100%;height:auto;object-fit:contain;display:block;background:#000;max-height:78dvh}
-body.looply-premium .post-body{padding:0 14px 12px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15.5px;line-height:1.5}
-body.looply-premium .post-interactions{display:flex;align-items:center;gap:0;padding:8px 6px 0;flex-wrap:wrap}
-body.looply-premium .post-interactions .post-icon-button{min-width:44px;min-height:44px;padding:0 10px;display:flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font-weight:700;font-size:13.5px;border-radius:14px}
-body.looply-premium .post-interactions .post-like-button.is-liked{color:var(--danger)}
-body.looply-premium .post-interactions .post-icon-button svg{width:22px;height:22px}
-body.looply-premium .post-comments{display:none}
-body.looply-premium .post-comments[data-comments-expanded="true"]{display:block}
-body.looply-premium .hybrid-comments-dialog .post-comments{display:block}
-body.looply-premium .premium-like-summary{width:calc(100% - 28px);margin:0 14px 8px;border:0;background:transparent;padding:7px 0;min-height:42px;text-align:left;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-body.looply-premium .premium-like-summary small{margin-left:8px;font-weight:500;color:var(--muted)}
-body.looply-premium .premium-save{margin-left:auto}
-body.looply-premium .premium-save[aria-pressed="true"]{color:var(--primary)}
-body.looply-premium .premium-sheet{border:0;border-radius:30px 30px 0 0;padding:0;margin:auto auto 0;width:min(100%,560px);max-width:100%;max-height:90dvh;background:var(--bg);color:var(--text);box-shadow:0 -20px 60px rgba(20,10,40,.3)}
-body.looply-premium .premium-sheet::backdrop{background:rgba(20,10,35,.5);backdrop-filter:blur(8px)}
-body.looply-premium .premium-sheet-content{padding:12px 14px calc(22px + env(safe-area-inset-bottom));overflow:auto;max-height:89dvh}
-body.looply-premium .premium-sheet-head{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:5px 2px 12px}
-body.looply-premium .premium-sheet-head h2{font-size:24px;margin:0}
-body.looply-premium .premium-sheet-head button{border:0;background:transparent;min-width:44px;min-height:44px;font-size:24px}
-body.looply-premium .premium-like-row{display:flex;align-items:center;gap:12px;min-height:62px;border-bottom:1px solid var(--line)}
-body.looply-premium .premium-like-row .tx{flex:1;min-width:0}
-body.looply-premium .premium-like-row a{font-weight:750;color:var(--text);text-decoration:none}
-body.looply-premium .premium-like-row small{display:block;color:var(--muted);font-size:12px}
-body.looply-premium .premium-like-row img{width:40px;height:40px;border-radius:50%;object-fit:cover}
-body.looply-premium .premium-like-row .fallback{width:40px;height:40px;border-radius:50%;background:var(--lilac);display:grid;place-items:center}
-body.looply-premium .premium-reaction-picker{position:fixed;z-index:130;display:flex;gap:2px;padding:6px;background:var(--surface-strong);border:1px solid var(--line);border-radius:99px;box-shadow:var(--pm-s2)}
-body.looply-premium .premium-reaction-picker button{width:44px;height:44px;border:0;background:transparent;border-radius:50%;font-size:24px}
-body.looply-premium .premium-top{position:fixed;right:14px;bottom:calc(94px + env(safe-area-inset-bottom));z-index:60;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;background:var(--surface-strong);color:var(--primary);box-shadow:var(--pm-s1)}
-body.looply-premium .premium-filters{position:sticky;top:calc(env(safe-area-inset-top) + 88px);z-index:35;display:flex;align-items:center;gap:8px;padding:8px 0 12px;background:linear-gradient(var(--bg) 80%,transparent)}
-body.looply-premium .premium-filters button{min-height:44px}
-body.looply-premium .premium-filters .fc{min-height:42px}
-body.looply-premium .premium-filter-search{flex:1;min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--surface-strong);min-height:44px;padding:0 12px;color:var(--text);font-size:14px}
-body.looply-premium .premium-error{padding:24px;border-radius:var(--r-md);background:var(--surface-strong);color:var(--text);text-align:center}
-body.looply-premium .premium-error button{margin:10px auto 0}
-body.looply-premium .looply-reels-scroll .looply-reels-track{scroll-snap-type:y mandatory}
-body.looply-premium .looply-reels-scroll .looply-reel-video{object-fit:contain;background:#000}
-body.looply-premium .looply-reels-scroll .looply-reel-embed{border:0}
-body.looply-premium .looply-reels-scroll .looply-reel-slide{scroll-snap-align:start}
-body.looply-premium .looply-reels-scroll .looply-reels-rail button{min-width:44px;min-height:44px}
-body.looply-premium .looply-reels-scroll .looply-reels-rail button{border:1px solid rgba(255,255,255,.22);border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(10px)}
-body.looply-premium .looply-reels-scroll .looply-reels-bottom{background:linear-gradient(transparent,rgba(0,0,0,.35));color:#fff}
-body.looply-premium .looply-reels-scroll .looply-reels-audio{border-radius:99px;background:rgba(255,255,255,.14)}
-body.looply-premium .reels-section{margin:16px 0;padding:12px 0}
-body.looply-premium .premium-reel-strip{display:flex;gap:12px;overflow-x:auto;padding:4px 12px 8px}
-body.looply-premium .premium-reel-tile{position:relative;flex:0 0 150px;aspect-ratio:9/16;border:0;border-radius:24px;overflow:hidden;background:#000;color:#fff;text-align:left;cursor:pointer}
-body.looply-premium .premium-reel-tile video,body.looply-premium .premium-reel-tile img{width:100%;height:100%;object-fit:contain;background:#000}
-body.looply-premium .premium-reel-tile span{position:absolute;inset:auto 0 0;padding:12px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:12px;font-weight:700}
-body.looply-premium .post-external iframe{max-width:100%;border:0}
-body.looply-premium .story-area:not(.why-now-hidden){display:none}
-body.looply-premium [hidden]{display:none}
-@media(max-width:380px){body.looply-premium .hero-panel{grid-template-columns:auto minmax(0,1fr)}body.looply-premium .hero-panel .home-profile-shortcut{grid-column:1/-1}}
-@media(prefers-reduced-motion:reduce){body.looply-premium *,body.looply-premium *:before,body.looply-premium *:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+body.looply-premium [hidden]{display:none!important}
+body.looply-premium :where(button,a,input,textarea,select){font-family:var(--ui)}
+body.looply-premium button{cursor:pointer}
 
-/* Correções de encaixe estrutural com o runtime compartilhado. */
-body.looply-premium .story-area{display:block}
-body.looply-premium .premium-why-now .why-now-mount{margin:0;background:transparent;border:0;box-shadow:none;padding:0}
-body.looply-premium .premium-why-now .why-now-header{display:none}
-body.looply-premium [data-global-welcome]{display:none}
-body.looply-premium .premium-why-now .why-now-person-ring:not(.is-seen){animation:spin 8s linear infinite}
-body.looply-premium .premium-why-now .why-now-person-ring:not(.is-seen) .why-now-person-face{animation:spin 8s linear infinite reverse}
-body.looply-premium .premium-toast{position:fixed;z-index:200;left:50%;bottom:calc(108px + env(safe-area-inset-bottom));max-width:calc(100vw - 30px);padding:13px 18px;border-radius:18px;background:var(--text);color:var(--bg);font-size:14px;font-weight:700;box-shadow:0 14px 34px rgba(0,0,0,.22);transform:translate(-50%,15px) scale(.9);opacity:0;pointer-events:none;transition:transform .28s var(--spring),opacity .28s}
-body.looply-premium .premium-toast.on{transform:translate(-50%,0) scale(1);opacity:1}
-body.looply-premium .premium-toast[data-error="true"]{background:var(--danger);color:#fff}
-body.looply-premium .post-interactions .premium-save{margin-left:auto}
-body.looply-premium .post-interactions .premium-save[aria-pressed="true"]{color:var(--primary)}
-body.looply-premium .premium-like-row .fbtn{min-width:84px;min-height:40px}
-body.looply-premium .premium-like-row .fbtn[data-following="true"]{background:var(--surface-strong);border:1px solid var(--line);color:var(--text)}
-body.looply-premium .premium-sheet [data-like-status]{font-size:13px;color:var(--muted);text-align:center;min-height:25px}
-body.looply-premium .premium-sheet .fi{min-height:48px}
+/* The actual shared authenticated header, styled as the reference's .gh. */
+body.looply-premium .page-header.gh{
+ position:sticky;z-index:700;top:calc(env(safe-area-inset-top) + 8px);
+ width:min(calc(100% - 20px),700px);max-width:700px;
+ margin:8px auto 14px;padding:8px 10px;min-height:62px;
+ display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:10px;
+ border:1px solid var(--lens-edge);border-radius:22px;
+ background:linear-gradient(135deg,var(--lens-a),var(--lens-b));
+ box-shadow:inset 0 1.5px 0 #fffd,inset 0 -1px 0 #fff3,0 14px 34px #4620782e;
+}
+body.looply-premium .page-header.gh .brand-inline.brand{
+ display:flex;align-items:center;gap:11px;min-height:44px;flex:1 1 auto;min-width:0;
+ text-decoration:none;color:var(--text);padding:0;background:none;border:0;
+}
+body.looply-premium .page-header.gh .brand-inline .brand-mark{
+ width:42px;height:42px;flex:none;border-radius:14px;
+ background:var(--surface-strong);border:1px solid var(--line);
+ display:grid;place-items:center;
+}
+body.looply-premium .page-header.gh .brand-mark .circle{width:26px;height:26px;display:grid;place-items:center}
+body.looply-premium .page-header.gh .brand-inline strong{
+ display:block;color:var(--primary);font-family:"Cabin Sketch",cursive;
+ font-size:29px;font-weight:400;line-height:1;
+}
+body.looply-premium .page-header.gh .brand-inline strong+span{
+ display:block;color:var(--text);opacity:.65;font-size:11px;letter-spacing:.04em;
+}
+body.looply-premium .page-header.gh .header-notifications.ib{
+ position:relative;flex:0 0 44px;width:44px;height:44px;
+ display:grid;place-items:center;margin:0;border-radius:14px;
+ background:var(--surface-strong);border:1px solid var(--line);
+ color:var(--muted);
+}
+body.looply-premium .page-header.gh .header-notifications.ib svg{width:22px;height:22px}
+body.looply-premium .page-header.gh .looply-account-menu{flex:0 0 auto;position:relative;margin:0}
+body.looply-premium .page-header.gh .looply-account-menu>summary{
+ display:flex;align-items:center;justify-content:center;
+ width:50px;height:50px;min-height:50px;min-width:50px;
+ padding:3px;margin:0;border:1px solid var(--line);border-radius:99px;
+ background:var(--surface-strong);
+}
+body.looply-premium .page-header.gh .looply-account-menu>summary>span:not(:first-child){display:none}
+body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-avatar{
+ display:block;width:42px;height:42px;border-radius:50%;object-fit:cover;
+}
+body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-initial{display:grid;place-items:center;width:42px;height:42px;border-radius:50%}
+body.looply-premium .page-header.gh .looply-account-menu .account-menu-popover{z-index:1500}
+body.looply-premium .page-header.gh .header-back-button{display:none}
+/* Keep the same six global destinations and handlers, but render the MODEL dock at the bottom. */
+body.looply-premium .page-header.gh .page-navigation.dock{
+ position:fixed;z-index:1000;left:50%;right:auto;top:auto;
+ bottom:calc(10px + env(safe-area-inset-bottom));
+ width:min(calc(100% - 20px),560px);max-width:560px;
+ min-width:0;padding:5px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+ gap:2px;margin:0;border-radius:28px;border:1px solid var(--lens-edge);
+ background:linear-gradient(135deg,var(--lens-a),var(--lens-b));
+ transform:translateX(-50%);box-shadow:inset 0 1.5px 0 #fffd,0 22px 50px #7010b02e;
+ isolation:isolate;overflow:visible;
+}
+body.looply-premium .page-header.gh .page-navigation.dock .header-action{
+ display:flex;position:relative;flex-direction:column;justify-content:center;
+ align-items:center;gap:2px;min-height:54px;height:54px;width:100%;min-width:0;
+ padding:3px 1px;margin:0;border:0;border-radius:20px;
+ background:transparent;color:var(--muted);
+ font:700 10px/1.1 var(--ui);text-align:center;box-shadow:none;
+}
+body.looply-premium .page-header.gh .page-navigation.dock .header-action[aria-current="page"]{color:var(--primary)}
+body.looply-premium .page-header.gh .page-navigation.dock .page-navigation-label{font:700 10px/1.1 var(--ui);max-width:100%}
+body.looply-premium .page-header.gh .page-navigation.dock .page-navigation-icon svg{width:22px;height:22px}
+body.looply-premium .page-header.gh .page-navigation.dock .nav-liquid{border-radius:20px;z-index:-1}
+@media(max-width:760px){
+ body.looply-premium .page-header.gh{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  transform:none!important;filter:none!important;will-change:auto!important;
+  isolation:auto!important;contain:none!important;
+ }
+ body.looply-premium .page-header.gh::before{
+  content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;pointer-events:none;
+  -webkit-backdrop-filter:saturate(190%) blur(17px);
+  backdrop-filter:saturate(190%) blur(17px);
+ }
+ body.looply-premium .page-header.gh .page-navigation.dock{
+  position:fixed!important;left:50%!important;top:auto!important;right:auto!important;
+  bottom:calc(10px + env(safe-area-inset-bottom))!important;
+  transform:translateX(-50%)!important;
+  width:min(calc(100vw - 20px),560px)!important;max-width:560px!important;
+ }
+}
+@media(min-width:761px){
+ body.looply-premium .page-header.gh{width:min(calc(100% - 20px),700px)!important;max-width:700px!important;transform:none;margin-inline:auto}
+ body.looply-premium .page-header.gh .page-navigation.dock{position:fixed;left:50%;top:auto;bottom:12px}
+}
+
+/* Headline, Why Now, song of day, and composer directly reflect model semantics. */
+body.looply-premium .hero-panel.home-welcome{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:18px;margin:0 0 12px;min-height:92px}
+body.looply-premium .hero-panel .home-welcome-avatar.av{
+ width:64px;height:64px;flex:none;display:grid;place-items:center;
+ overflow:hidden;--s:64px;background:linear-gradient(135deg,var(--primary),var(--lilac));
+}
+body.looply-premium .hero-panel .home-welcome-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+body.looply-premium .hero-panel .home-welcome-copy{min-width:0}
+body.looply-premium .hero-panel .home-welcome-copy h1{font:700 26px/1.08 var(--serif);letter-spacing:0;margin:2px 0 4px}
+body.looply-premium .hero-panel .home-profile-shortcut{display:grid;place-items:center;min-width:92px;min-height:42px;border-radius:14px;padding:0 12px;background:var(--primary);color:#fff;font-weight:750;font-size:12px;text-decoration:none}
+body.looply-premium .h2{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 1px 10px}
+body.looply-premium .h2 h2{font-size:19px;font-weight:750;letter-spacing:-.02em;margin:0}
+body.looply-premium .premium-why-now{margin:0 0 6px;padding:0;border:0;background:transparent;box-shadow:none}
+body.looply-premium .premium-why-now .why-now-mount,
+body.looply-premium .premium-why-now #stories{display:block!important;width:100%!important;min-height:0!important;max-height:none!important;background:transparent!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+body.looply-premium .premium-why-now #stories> :not(.why-now-mount){display:none!important}
+body.looply-premium .premium-why-now .why-now-header{display:none!important}
+body.looply-premium .premium-why-now .why-now-people.stories{
+ display:flex!important;flex-direction:row!important;gap:14px!important;
+ align-items:flex-start!important;min-height:0!important;max-height:none!important;
+ overflow-x:auto!important;overflow-y:hidden!important;
+ margin:0 -4px 6px!important;padding:4px 4px 14px!important;
+ background:transparent!important;border:0!important;
+}
+body.looply-premium .premium-why-now .why-now-person.st1{
+ flex:0 0 70px!important;min-width:70px!important;max-width:70px!important;
+ width:70px!important;min-height:0!important;display:grid!important;justify-items:center!important;
+ padding:0!important;gap:6px!important;border:0!important;background:transparent!important;
+ font:700 11.5px/1.2 var(--ui)!important;
+}
+body.looply-premium .premium-why-now .why-now-person-ring.ring{
+ display:grid!important;place-items:center!important;width:65px!important;height:65px!important;
+ padding:3px!important;flex:none;border-radius:50%!important;
+ animation:none!important;box-shadow:none!important;
+}
+body.looply-premium .premium-why-now .why-now-person-ring:not(.is-seen){background:conic-gradient(var(--primary),#e05bb5,#f59e0b,var(--primary))}
+body.looply-premium .premium-why-now .why-now-person-face.av{--s:58px;width:58px!important;height:58px!important;border-radius:50%!important;overflow:hidden;animation:none!important}
+body.looply-premium .premium-why-now .why-now-own-plus{right:0;bottom:0}
+body.looply-premium .premium-why-now .why-now-person-label{max-width:70px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;font-size:11.5px}
+body.looply-premium #extras{min-width:0}
+body.looply-premium .premium-music{
+ margin:0 0 12px;display:flex;align-items:center;gap:14px;padding:14px;
+ border-radius:var(--r-lg);background:var(--surface-strong);color:var(--text);
+ text-decoration:none;border:1px solid var(--line);box-shadow:var(--sh-sm);
+}
+body.looply-premium .premium-music .tx{flex:1;min-width:0}
+body.looply-premium .premium-music .tx strong{display:block;font:700 19px/1.2 var(--serif);margin:2px 0}
+body.looply-premium .premium-music .tx small{display:block;font-size:10.5px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase}
+body.looply-premium .premium-music .cv{width:56px;height:56px;display:grid;place-items:center;border-radius:18px;background:var(--lilac);color:var(--primary);font-size:25px}
+body.looply-premium .premium-music .pl{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;background:var(--primary);color:#fff}
+body.looply-premium .sec1{width:100%;min-height:76px}
+body.looply-premium #composer.cardx{margin:0 0 12px;min-width:0}
+body.looply-premium #composer .post-composer{border:0;background:transparent;box-shadow:none;margin:0;padding:0;min-width:0}
+body.looply-premium #composer .post-composer-heading.comp1{
+ display:flex;align-items:center;gap:12px;width:100%;min-height:0;
+ padding:12px 14px;margin:0;border:0;background:transparent;box-shadow:none;
+ cursor:pointer;
+}
+body.looply-premium #composer .post-composer-heading.comp1 .av{width:44px;height:44px;--s:44px;overflow:hidden}
+body.looply-premium #composer .post-composer-heading.comp1 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+body.looply-premium #composer .post-composer-heading.comp1 .fk{
+ display:flex;align-items:center;flex:1;min-width:0;min-height:46px;
+ padding:0 16px;border:1px solid var(--line);border-radius:99px;
+ background:var(--surface-soft);color:var(--muted);font-size:15px;font-weight:500;
+}
+body.looply-premium #composer .post-composer-heading.comp1 .ci{
+ flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;
+ padding:0;display:grid;place-items:center;border:0;border-radius:14px;
+ background:var(--lilac);color:var(--primary);box-shadow:none;
+}
+body.looply-premium #composer .post-composer-heading.comp1 .ci svg{width:22px;height:22px;stroke:currentColor}
+body.looply-premium .post-composer-fields:not([hidden]){
+ position:fixed;left:50%;bottom:0;z-index:1300;top:auto;
+ transform:translateX(-50%);width:min(100vw,560px);max-width:100vw;
+ max-height:90dvh;overflow-y:auto;overscroll-behavior:contain;
+ margin:0;padding:18px 16px calc(30px + env(safe-area-inset-bottom));
+ border-radius:30px 30px 0 0;border:1px solid var(--line);
+ background:var(--bg);box-shadow:0 -16px 60px #12092044;
+}
+body.looply-premium:has(.post-composer-fields:not([hidden])):before{content:"";position:fixed;inset:0;background:#190c2b88;z-index:1250;backdrop-filter:blur(6px)}
+body.looply-premium .post-composer-fields :where(textarea,input,select){max-width:100%;font-size:16px}
+body.looply-premium .post-composer-fields :where(button){min-height:44px;border-radius:14px}
+body.looply-premium .post-composer-fields button[type=submit]{background:var(--primary);color:#fff;border:0}
+body.looply-premium .post-composer-fields .post-create-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+body.looply-premium .post-composer-fields .post-create-header strong{font-size:18px}
+body.looply-premium .post-composer-fields .post-create-header button{padding:0 12px}
+body.looply-premium #composer .post-composer-fields[hidden]{display:none!important}
+body.looply-premium .post-composer-fields .feed-external-hint{display:none}
+body.looply-premium .post-composer-fields .post-create-preview{max-height:30dvh;overflow:auto}
+
+/* Original model toolbar: .ftool > .chips, search button and .vt. */
+body.looply-premium .ftool{position:sticky;top:calc(env(safe-area-inset-top) + 74px);z-index:20;display:flex;align-items:center;gap:8px}
+body.looply-premium .ftool .chips{display:flex;flex:1;min-width:0;gap:6px;padding:2px;overflow-x:auto}
+body.looply-premium .ftool .fc{flex:none;min-height:38px;padding:0 15px;border-radius:99px;border:1px solid var(--line);background:var(--surface-strong);color:var(--muted);font-size:13.5px;font-weight:700}
+body.looply-premium .ftool .fc.on{background:var(--primary);color:#fff;border-color:transparent;box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 35%,transparent)}
+body.looply-premium .ftool .ib{width:44px;height:44px;min-width:44px;padding:0;border-radius:14px;background:var(--surface-strong)}
+body.looply-premium .ftool .vt{display:flex;flex:none;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:14px;background:var(--surface-strong)}
+body.looply-premium .ftool .vt button{display:grid;place-items:center;min-height:36px;width:36px;border:0;border-radius:11px;background:transparent;color:var(--muted)}
+body.looply-premium .ftool .vt button.on{background:var(--lilac);color:var(--primary)}
+body.looply-premium .srch{display:flex;align-items:center;gap:10px;width:100%;min-width:0}
+body.looply-premium .srch:not(.on){display:none}
+body.looply-premium .srch input{flex:1;min-width:0;width:100%;font-size:15px}
+body.looply-premium .feed-list.feed{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin:0;padding:0;min-width:0}
+body.looply-premium #feed{min-width:0}
+body.looply-premium .feed-list.feed.mos{display:block;column-count:2;column-gap:10px}
+body.looply-premium .feed-list.feed.mos>.post{break-inside:avoid;margin-bottom:10px}
+@media(min-width:760px){body.looply-premium .feed-list.feed.mos{column-count:3}}
+
+/* Actual post markup is adapted to the model's postHtml skeleton. */
+body.looply-premium .post-card.post{position:relative;display:block;min-width:0;max-width:100%;margin:0;overflow:hidden;background:var(--surface-strong);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-sm);padding:0}
+body.looply-premium .post-card .post-header.ph{
+ display:flex;align-items:center;gap:10px;margin:0;padding:12px 10px 10px 12px;border:0;
+ min-height:68px;background:transparent;
+}
+body.looply-premium .post-card .ph>.post-author-profile{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;text-align:left;cursor:pointer}
+body.looply-premium .post-card .ph>.post-author-profile .tx{flex:1;min-width:0;display:block}
+body.looply-premium .post-card .ph>.post-author-profile .tx strong{display:block;font-size:14.5px;color:var(--text);line-height:1.2}
+body.looply-premium .post-card .ph>.post-author-profile .tx small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+body.looply-premium .post-card .ph>.post-author-profile .av{flex:0 0 44px;width:44px;height:44px;--s:44px;background:linear-gradient(135deg,var(--primary),var(--lilac));overflow:hidden}
+body.looply-premium .post-card .ph>.post-author-profile .av img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+body.looply-premium .post-card .ph>.ib{flex:0 0 40px;width:40px;height:40px;min-width:40px;min-height:40px;padding:0;border:0;background:transparent;border-radius:12px;box-shadow:none}
+body.looply-premium .post-card .ph>.ib svg{width:20px;height:20px;stroke:currentColor}
+body.looply-premium .post-card .post-controls{display:none}
+body.looply-premium .post-card .post-body.pt{margin:0;padding:0 14px 12px;font-size:15.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+body.looply-premium .post-card .post-body.pt.big{padding:6px 16px 18px;font:400 23px/1.28 var(--serif)}
+body.looply-premium .post-card .qt .post-body.pt{padding:0;color:var(--deep);font:400 23px/1.28 var(--serif)}
+body.looply-premium .post-card .post-media-grid.med{
+ position:relative;display:flex;gap:0;min-width:0;
+ width:calc(100% - 24px);max-width:calc(100% - 24px);height:auto;
+ margin:0 12px 12px;border-radius:var(--r-md);background:var(--surface-soft);
+ overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;box-shadow:none;
+}
+body.looply-premium .post-card .post-media{position:relative;flex:0 0 100%;width:100%;min-width:100%;max-width:100%;margin:0;padding:0;border:0;border-radius:0;overflow:hidden;scroll-snap-align:start}
+body.looply-premium .post-card .post-media :is(img,video){
+ display:block;width:100%;max-width:100%;height:auto;max-height:min(76dvh,750px);object-fit:contain;aspect-ratio:auto;border:0;border-radius:0;
+}
+body.looply-premium .post-card .post-media video{background:#000}
+body.looply-premium .post-card .post-media figcaption{padding:5px 10px;font-size:11px;color:var(--muted)}
+body.looply-premium .post-card .reel-expand-button{position:absolute;right:9px;top:9px;border:0;border-radius:12px;padding:7px;background:#0008;color:#fff}
+body.looply-premium .post-card .post-carousel-navigation{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 5px}
+body.looply-premium .post-card .post-carousel-navigation button{min-width:40px;min-height:36px;background:var(--surface-soft);border:1px solid var(--line);border-radius:50%}
+body.looply-premium .post-card .post-carousel-dots{display:flex;justify-content:center;gap:5px;margin:0 0 7px}
+body.looply-premium .post-card .post-carousel-dots span{width:6px;height:6px;border-radius:50%;background:var(--line)}
+body.looply-premium .post-card .post-carousel-dots span.is-active{background:var(--primary)}
+body.looply-premium .post-card .post-external{display:none!important}
+body.looply-premium .post-card .lnk{
+ display:flex;align-items:center;gap:12px;min-height:72px;margin:0 12px 12px;padding:12px;
+ border:1px solid var(--line);border-radius:var(--r-md);
+ background:var(--surface-soft);text-decoration:none;color:var(--text);
+}
+body.looply-premium .post-card .lnk .li{width:50px;height:50px;flex:none;border-radius:14px;background:var(--primary);color:#fff;display:grid;place-items:center}
+body.looply-premium .post-card .lnk .tx{flex:1;min-width:0}
+body.looply-premium .post-card .lnk .tx b{display:block;font-size:14px}
+body.looply-premium .post-card .lnk .tx small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.looply-premium .post-card .post-interactions.pa{display:flex;align-items:center;gap:0;flex-wrap:nowrap;margin:0;padding:8px 6px 0;min-width:0}
+body.looply-premium .post-card .post-interactions.pa button{
+ display:flex;justify-content:center;align-items:center;gap:6px;flex:0 0 auto;
+ width:auto;min-width:40px;min-height:44px;height:44px;
+ padding:0 9px;margin:0;border:0;border-radius:14px;
+ background:transparent;color:var(--text);box-shadow:none;
+ font:700 13px/1 var(--ui);
+}
+body.looply-premium .post-card .post-interactions.pa button svg{display:block;width:21px;height:21px;stroke:currentColor;flex:none}
+body.looply-premium .post-card .post-interactions.pa button.post-like-button.is-liked{color:var(--danger)}
+body.looply-premium .post-card .post-interactions.pa button.premium-save{margin-left:auto}
+body.looply-premium .post-card .post-interactions.pa button.premium-save[aria-pressed=true]{color:var(--primary)}
+body.looply-premium .post-card .post-interactions.pa button.premium-save[aria-pressed=true] svg{fill:currentColor}
+body.looply-premium .post-card .post-interactions.pa .post-action-status{display:none}
+body.looply-premium .post-card .post-interactions.pa button[data-private-reply]{display:none}
+body.looply-premium .post-card .lb.premium-like-summary{
+ display:flex;align-items:center;gap:8px;
+ min-width:0;width:calc(100% - 28px);min-height:35px;
+ padding:2px 0;margin:0 14px;background:none;border:0;
+ color:var(--text);font-size:13px;font-weight:550;text-align:left;cursor:pointer;
+}
+body.looply-premium .post-card .lb.premium-like-summary b{font-weight:800}
+body.looply-premium .post-card .lb.premium-like-summary .stk{display:flex;align-items:center;flex:none;padding-left:6px}
+body.looply-premium .post-card .lb.premium-like-summary .av{--s:23px;width:23px;height:23px;margin-left:-6px;border-radius:50%;background:var(--lilac);box-shadow:0 0 0 2px var(--surface-strong)}
+body.looply-premium .post-card .lb.premium-like-summary .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+body.looply-premium .post-card .cap{margin:0;padding:6px 14px 0;font-size:14.5px;line-height:1.4;overflow-wrap:anywhere}
+body.looply-premium .post-card .cap b{margin-right:6px}
+body.looply-premium .post-card .vc{min-height:36px;border:0;background:none;padding:6px 14px 0;font-size:13.5px;color:var(--muted)}
+body.looply-premium .post-card .ts{padding:7px 14px 12px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+body.looply-premium .post-card .post-comments{display:none}
+body.looply-premium .post-card .post-comments[data-comments-expanded=true]{display:block}
+body.looply-premium .post-card .post-caption-editor[hidden]{display:none!important}
+body.looply-premium .post-card .post-owner-menu:not([open]) .post-owner-menu-actions{display:none}
+body.looply-premium .post-card [hidden]{display:none!important}
+body.looply-premium .feed-list.feed.mos>.post{aspect-ratio:4/5;min-height:0}
+body.looply-premium .feed-list.feed.mos>.post>:not(.med):not(.lnk):not(.qt){display:none!important}
+body.looply-premium .feed-list.feed.mos>.post .med,
+body.looply-premium .feed-list.feed.mos>.post .lnk,
+body.looply-premium .feed-list.feed.mos>.post .qt{width:100%;height:100%;margin:0;max-width:100%;border-radius:0}
+body.looply-premium .feed-list.feed.mos>.post .med img,
+body.looply-premium .feed-list.feed.mos>.post .med video{height:100%;max-height:none;object-fit:cover}
+
+/* The model's horizontal reels strip, with real post thumbnails, not generated imagery. */
+body.looply-premium .reels-section{margin:14px 0;min-width:0}
+body.looply-premium .reels-section .h2{padding:0 2px}
+body.looply-premium .reels{display:flex;gap:12px;overflow-x:auto;padding:4px 12px 8px;scrollbar-width:none}
+body.looply-premium .reels .rl{flex:0 0 140px;width:140px;aspect-ratio:9/16;padding:0;position:relative;display:block;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-md);background:#120a1d}
+body.looply-premium .reels .rl :is(img,video){width:100%;height:100%;object-fit:cover;display:block}
+body.looply-premium .reels .rl .pi{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff}
+body.looply-premium .reels .rl .ov{position:absolute;inset:auto 0 0;padding:12px 10px;min-height:42px;background:linear-gradient(transparent,#000c);display:flex;flex-direction:column;gap:3px}
+body.looply-premium .reels .rl .ov .cap{font-size:12px;line-height:1.3;color:#fff;padding:0}
+body.looply-premium .reels .rl .ov .uinfo{font-size:11px;color:#fff;font-weight:700}
+body.looply-premium .premium-reel-strip{display:contents}
+body.looply-premium .premium-reel-tile{display:contents}
+
+/* Keep original functional sheets and fullscreen viewer, independent of model card styling. */
+body.looply-premium dialog.premium-sheet[open]{position:fixed;inset:auto 0 0;z-index:1500;width:min(100%,560px);max-width:100%;max-height:88dvh;margin:0 auto;padding:0;border:0;border-radius:30px 30px 0 0;background:var(--bg);color:var(--text)}
+body.looply-premium dialog.premium-sheet .premium-sheet-content{max-height:88dvh;overflow:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+body.looply-premium .premium-reaction-picker{position:fixed;z-index:2000}
+body.looply-premium dialog.hybrid-comments-dialog[open]{position:fixed;inset:auto 0 0;margin:0 auto;width:min(100%,560px);max-width:100%;max-height:80dvh;background:var(--bg);border-radius:30px 30px 0 0}
+body.looply-premium .hybrid-comments-shell{display:flex;flex-direction:column;height:100%}
+body.looply-premium .hybrid-comments-content{flex:1;overflow-y:auto;min-height:0}
+body.looply-premium dialog.looply-reels-scroll[open]{position:fixed!important;inset:0!important;z-index:1600!important;width:100vw!important;max-width:100vw!important;height:100dvh!important;max-height:100dvh!important;transform:none!important;margin:0!important;padding:0!important;background:#000!important;color:#fff;border:0!important;border-radius:0!important;overflow:hidden!important}
+body.looply-premium .looply-reels-scroll .looply-reels-track{width:100%;height:100%;overflow-y:auto;scroll-snap-type:y mandatory}
+body.looply-premium .looply-reels-scroll .looply-reel-slide{position:relative;width:100%;height:100dvh;min-height:100dvh;scroll-snap-align:start;overflow:hidden}
+body.looply-premium .looply-reels-scroll .looply-reel-video{width:100%;height:100%;object-fit:contain;background:#000}
+body.looply-premium .looply-reels-scroll .looply-reel-embed{border:0}
+body.looply-premium .looply-reels-scroll .looply-reels-rail{z-index:10}
+body.looply-premium .looply-reels-scroll .looply-reels-bottom{z-index:8}
+body.looply-premium .looply-reels-scroll .looply-reels-comments[hidden]{display:none}
+body.looply-premium .looply-reels-scroll .premium-viewer-save[aria-pressed=true]{color:#ddb9ff}
+body.looply-premium .premium-top{position:fixed;right:14px;bottom:calc(95px + env(safe-area-inset-bottom));z-index:50}
+body.looply-premium .premium-toast{position:fixed;z-index:1800;left:50%;bottom:calc(106px + env(safe-area-inset-bottom));transform:translate(-50%,15px);opacity:0;padding:11px 16px;border-radius:15px;color:#fff;background:var(--deep);box-shadow:var(--sh-md);pointer-events:none;transition:all .25s}
+body.looply-premium .premium-toast.on{opacity:1;transform:translate(-50%,0)}
 body.looply-premium .newpill{pointer-events:none}
 body.looply-premium .newpill.on{pointer-events:auto}
-body.looply-premium .post-icon-button .premium-emoji{font-size:21px;line-height:1}
-body.looply-premium .post-icon-button[data-toggle-like] .premium-emoji+svg{display:none}
-body.looply-premium .post-card[hidden]{display:none}
-body.looply-premium .premium-top[hidden]{display:none}
-body.looply-premium .premium-why-now .why-now-people{min-height:90px}
-body.looply-premium .premium-why-now .why-now-person{min-height:90px}
-body.looply-premium .premium-reel-strip .premium-reel-tile{min-height:210px}
+body.looply-premium .post-card .post-comments .comment-item{display:flex;gap:10px;padding:9px 0}
+body.looply-premium .post-card .post-comments .comment-avatar img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+@media(max-width:380px){
+ body.looply-premium .hero-panel{gap:9px;padding:12px}
+ body.looply-premium .hero-panel .home-welcome-avatar.av{--s:52px;width:52px;height:52px}
+ body.looply-premium .hero-panel .home-welcome-copy h1{font-size:21px}
+ body.looply-premium .hero-panel .home-profile-shortcut{min-width:76px;font-size:11px}
+ body.looply-premium .ftool .fc{padding:0 12px;font-size:12px}
+ body.looply-premium .ftool .vt button{width:32px}
+ body.looply-premium .ftool .ib{width:40px;height:40px;min-width:40px}
+ body.looply-premium .post-card .post-interactions.pa button{min-width:36px;padding:0 7px}
+}
+@media(prefers-reduced-motion:reduce){
+ body.looply-premium .post,body.looply-premium .hero-panel{animation:none!important}
+ body.looply-premium *,body.looply-premium *::before,body.looply-premium *::after{scroll-behavior:auto!important}
+}
+
 body.looply-premium dialog.hybrid-comments-dialog{position:fixed;inset:auto 0 0;margin:0 auto;width:min(100%,560px);height:min(78dvh,740px);max-width:100vw;max-height:90dvh;border:1px solid var(--line);border-radius:30px 30px 0 0;background:var(--bg);color:var(--text);padding:0;overflow:hidden;box-shadow:0 -20px 60px rgba(20,10,40,.3)}
 body.looply-premium .hybrid-comments-shell{display:flex;flex-direction:column;height:100%}
 body.looply-premium .hybrid-comments-heading{display:flex;align-items:center;justify-content:space-between;min-height:60px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--surface-strong);flex:none}
@@ -490,519 +699,68 @@ body.looply-premium .looply-reels-scroll .looply-reels-audio{color:#fff}
 body.looply-premium dialog.looply-reels-scroll[open]{animation:none;transform:none}
 
 
-/* ===== v4 — PARIDADE VISUAL MOBILE-FIRST / MODELO V3 =====
-   Correções estritamente limitadas às páginas Início e Reels.
-   A navegação de seis destinos é preservada e jamais recriada.
-*/
-body.looply-premium{
-  --premium-ease:cubic-bezier(.22,1,.36,1);
-  --premium-border:color-mix(in srgb,var(--primary) 9%,var(--line));
-  --premium-shadow:0 8px 26px color-mix(in srgb,var(--deep) 9%,transparent);
-  background:var(--bg);
-  background-image:radial-gradient(70vmax 45vmax at -4% -10%,color-mix(in srgb,var(--primary) 11%,transparent),transparent 72%),radial-gradient(52vmax 34vmax at 98% 6%,color-mix(in srgb,var(--primary) 6%,transparent),transparent 72%);
-  overflow-x:clip;
-}
-body.looply-premium .container-page{
-  width:min(calc(100% - 24px),704px);
-  max-width:704px;
-  overflow:visible;
-  margin-inline:auto;
-  padding-inline:0;
-  padding-bottom:calc(106px + env(safe-area-inset-bottom));
-}
-body.looply-premium .container-page > main,
-body.looply-premium .page-content,
-body.looply-premium .premium-scene{
-  min-width:0;max-width:100%;overflow:visible;
-}
-body.looply-premium .premium-scene{
-  width:100%;display:flex;flex-direction:column;gap:0;margin-inline:auto;padding:0 0 12px;
-}
+
+
+/* Functional screens use the original Looply viewer and comment binding,
+   styled separately from the unchanged v3 post/card hierarchy. */
+body.looply-premium .post-card .cap .post-body.pt{display:inline;margin:0;padding:0;font:inherit;white-space:pre-wrap}
+body.looply-premium .premium-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:5px 0 12px}
+body.looply-premium .premium-sheet-head h2{margin:0;font:700 24px/1.2 var(--serif)}
+body.looply-premium .premium-sheet-head button{width:44px;height:44px;border:0;background:transparent;font-size:25px}
+body.looply-premium .premium-like-row{display:flex;align-items:center;gap:12px;min-height:63px;border-bottom:1px solid var(--line)}
+body.looply-premium .premium-like-row img,body.looply-premium .premium-like-row .fallback{width:42px;height:42px;flex:none;border-radius:50%;object-fit:cover}
+body.looply-premium .premium-like-row .fallback{display:grid;place-items:center;background:var(--lilac);color:var(--primary)}
+body.looply-premium .premium-like-row .tx{flex:1;min-width:0}
+body.looply-premium .premium-like-row .tx a{display:block;text-decoration:none;color:var(--text);font-weight:750}
+body.looply-premium .premium-like-row .tx small{display:block;font-size:12px;color:var(--muted)}
+body.looply-premium .premium-like-row .fbtn{min-height:40px;min-width:75px;padding:0 12px;border-radius:12px;background:var(--primary);color:#fff;border:0}
+body.looply-premium .premium-like-row .fbtn[data-following=true]{background:var(--surface-soft);color:var(--text);border:1px solid var(--line)}
+body.looply-premium .premium-reaction-picker{display:flex;align-items:center;gap:2px;padding:6px;border:1px solid var(--line);border-radius:99px;background:var(--surface-strong);box-shadow:var(--sh-md)}
+body.looply-premium .premium-reaction-picker button{width:44px;height:44px;border:0;border-radius:50%;background:none;font-size:23px}
+body.looply-premium .premium-sheet .fi{width:100%;min-height:46px}
+body.looply-premium .premium-sheet [data-like-status]{color:var(--muted);font-size:12px;text-align:center}
+body.looply-premium .post-card .post-interactions.pa .premium-emoji{font-size:21px}
+body.looply-premium .post-card .post-interactions.pa .premium-emoji+svg{display:none}
+body.looply-premium .post-card .post-owner-menu-actions{z-index:30}
+body.looply-premium dialog.premium-actions-sheet[open]{z-index:1800}
+body.looply-premium .premium-actions-sheet .act{min-height:52px}
+body.looply-premium .premium-actions-sheet .act.dg{color:var(--danger)}
+
+
+/* Dados de curtidas e últimas respostas — sem avatares de demonstração. */
+body.looply-premium .post-card .lb .av .fallback{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;font-size:10px;background:var(--lilac);color:var(--primary)}
+body.looply-premium .post-card .lb .stk:empty{display:none}
+body.looply-premium .post-card .lc{display:block;padding:4px 14px 0;line-height:1.4;font-size:13.5px;overflow-wrap:anywhere;color:var(--text)}
+body.looply-premium .post-card .lc b{margin-right:4px;font-weight:750}
+body.looply-premium .post-card .vc{display:block;width:auto;text-align:left;cursor:pointer}
+
+
+/* Teste 768px revelou que backdrop-filter do header ainda capturava a dock
+   no desktop/tablet; neutralização global mantém o vidro no pseudo-elemento. */
 body.looply-premium .page-header.gh{
-  width:100%;
-  min-width:0;
-  margin:6px auto 12px;
-  display:flex;flex-wrap:nowrap;justify-content:space-between;
-  gap:8px;padding:8px 12px;border-radius:24px;
-  box-shadow:0 10px 30px color-mix(in srgb,var(--primary) 11%,transparent);
-}
-body.looply-premium .page-header.gh .brand-inline{flex:1 1 auto;min-width:0;justify-content:flex-start}
-body.looply-premium .page-header.gh .brand-inline strong{font-size:clamp(26px,6vw,31px)}
-body.looply-premium .page-header.gh .header-notifications,
-body.looply-premium .page-header.gh .looply-account-menu>summary{
-  flex-shrink:0;background:color-mix(in srgb,var(--surface-strong) 80%,transparent);
-  border:1px solid var(--premium-border);
-  border-radius:16px;box-shadow:none;
-}
-body.looply-premium .page-header.gh .looply-account-menu{flex:0 0 auto}
-body.looply-premium .page-header.gh .header-notifications{display:grid;place-items:center}
-body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-avatar{height:42px;width:42px}
-body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-initial{height:42px;width:42px}
-
-/* CRÍTICO: backdrop-filter de um antepassado converte position:fixed
-   da navegação em posição relativa ao cabeçalho. O vidro passa para o
-   pseudo-elemento, sem criar um containing block. */
-@media(max-width:760px){
- body.looply-premium .page-header.gh{
-   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
-   filter:none!important;transform:none!important;
-   contain:none!important;will-change:auto!important;
-   isolation:auto!important;
- }
- body.looply-premium .page-header.gh::before{
-   content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;
-   -webkit-backdrop-filter:saturate(175%) blur(18px);
-   backdrop-filter:saturate(175%) blur(18px);
-   pointer-events:none;
- }
- body.looply-premium .page-header.gh > .page-navigation{
-   position:fixed!important;top:auto!important;right:auto!important;
-   bottom:calc(9px + env(safe-area-inset-bottom))!important;
-   left:50%!important;transform:translateX(-50%)!important;
-   width:min(calc(100vw - 18px),560px)!important;max-width:560px!important;
-   padding:5px!important;display:grid!important;
-   grid-template-columns:repeat(6,minmax(0,1fr))!important;
-   align-items:stretch;gap:2px;
-   margin:0!important;min-height:62px!important;
-   z-index:1000;border-radius:25px;
-   -webkit-backdrop-filter:saturate(180%) blur(22px);
-   backdrop-filter:saturate(180%) blur(22px);
-   box-shadow:0 12px 36px color-mix(in srgb,var(--primary) 16%,transparent);
- }
- body.looply-premium .page-header.gh > .page-navigation .header-action{
-   padding:6px 2px!important;min-height:55px!important;max-height:66px;
-   border-radius:18px!important;line-height:1.1;text-align:center;
-   font-size:10px!important;gap:4px;
- }
- body.looply-premium .page-header.gh > .page-navigation .page-navigation-icon svg{width:23px;height:23px}
- body.looply-premium .page-header.gh > .page-navigation .page-navigation-label{font-size:10px;line-height:1.1}
- body.looply-premium .page-header.gh > .page-navigation .nav-liquid{pointer-events:none}
-}
-
-/* Início: boas-vindas e Why Now sem blocos vazios ou altura artificial. */
-body.looply-premium .hero-panel{
-  min-height:88px;padding:13px 14px;margin-bottom:14px;
-  border-radius:24px;background:var(--surface-strong);
-  border:1px solid var(--premium-border);
-  box-shadow:var(--premium-shadow);
-  overflow:hidden;
-}
-body.looply-premium .hero-panel .home-welcome-avatar{width:52px;height:52px}
-body.looply-premium .hero-panel .home-welcome-copy h1{
-  font-family:var(--ui);font-size:clamp(17px,4vw,22px);
-  font-weight:780;line-height:1.25;letter-spacing:-.025em;
-}
-body.looply-premium .hero-panel .home-profile-shortcut{
-  width:auto;min-width:84px;min-height:39px;padding:0 13px;
-  border-radius:14px;background:var(--primary);
-  color:#fff;border:0;font-size:12px;font-weight:750;box-shadow:none;
-}
-body.looply-premium .premium-why-now{padding:0;margin-bottom:12px;border:0;background:none;box-shadow:none}
-body.looply-premium .premium-why-now .h2{
-  display:flex;align-items:center;justify-content:space-between;
-  min-height:38px;padding:0 4px;
-}
-body.looply-premium .premium-why-now .h2 h2{
-  margin:0;color:var(--text);font:800 18px/1.2 var(--ui);
-  letter-spacing:-.025em;
-}
-body.looply-premium .premium-why-now [data-premium-stories],
-body.looply-premium .premium-why-now #stories,
-body.looply-premium .premium-why-now .story-area,
-body.looply-premium .premium-why-now .why-now-mount{
-  display:block!important;width:100%!important;min-width:0!important;
-  min-height:0!important;max-height:none!important;
-  margin:0!important;padding:0!important;
-  background:transparent!important;border:0!important;
-  box-shadow:none!important;filter:none!important;
-}
-body.looply-premium .premium-why-now #stories > :not(.why-now-mount){display:none!important}
-body.looply-premium .premium-why-now .why-now-people{
-  min-height:91px!important;max-height:112px!important;
-  padding:5px 4px 7px!important;margin:0!important;align-items:start;
-  gap:14px;overflow-x:auto;overflow-y:hidden;
-}
-body.looply-premium .premium-why-now .why-now-person{
-  min-width:68px;max-width:70px;min-height:83px;white-space:normal;
-}
-body.looply-premium .premium-why-now .why-now-person-ring{
-  width:63px!important;height:63px!important;
-  animation:none!important;box-shadow:none!important;
-}
-body.looply-premium .premium-why-now .why-now-person-face{width:55px!important;height:55px!important;animation:none!important}
-body.looply-premium .premium-why-now .why-now-create{
-  min-height:36px;padding:4px 10px;border-radius:14px;
-}
-body.looply-premium .premium-why-now .why-now-identity,
-body.looply-premium .premium-why-now .why-now-branddot{display:none}
-
-/* Composer: formato do card do modelo, nenhum retângulo sem estilo. */
-body.looply-premium .premium-composer{
-  display:block;max-width:100%;margin:1px 0 14px;
-  padding:9px 11px;border-radius:24px;
-  background:var(--surface-strong);border:1px solid var(--premium-border);
-  box-shadow:var(--premium-shadow);overflow:visible;
-}
-body.looply-premium .premium-composer .post-composer-heading{
-  display:grid;grid-template-columns:44px minmax(0,1fr) 44px;
-  align-items:center;gap:10px;min-height:48px;padding:0;
-  cursor:pointer;
-}
-body.looply-premium .premium-composer .post-compose-pen{
-  display:grid;place-items:center;width:44px;height:44px;
-  font-size:19px;border-radius:50%;background:var(--lilac);color:var(--primary);
-}
-body.looply-premium .premium-composer .post-composer-heading strong{
-  min-width:0;min-height:44px;
-  display:flex;align-items:center;justify-content:flex-start;
-  border:1px solid var(--premium-border);border-radius:22px;
-  background:var(--surface-soft);padding:0 16px;
-  font:600 14px/1.2 var(--ui);color:var(--muted);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-body.looply-premium .premium-composer .post-add-button{
-  display:grid!important;place-items:center!important;
-  width:44px!important;height:44px!important;
-  min-width:44px!important;min-height:44px!important;
-  max-width:44px!important;max-height:44px!important;
-  padding:0!important;margin:0!important;border:0!important;
-  border-radius:16px!important;background:var(--primary)!important;
-  color:#fff!important;box-shadow:0 4px 13px color-mix(in srgb,var(--primary) 26%,transparent)!important;
-  overflow:hidden;aspect-ratio:1;line-height:1;
-}
-body.looply-premium .premium-composer .post-add-button svg{
-  width:22px!important;height:22px!important;
-  min-width:22px!important;min-height:22px!important;
-  stroke:currentColor!important;display:block;
-}
-body.looply-premium .premium-composer .post-composer-fields:not([hidden]){
-  margin-top:12px;padding:12px;
-  border:1px solid var(--premium-border);border-radius:18px;
-  background:var(--surface-soft);max-width:100%;
-}
-body.looply-premium .premium-composer :where(input,textarea,select){
-  width:100%;max-width:100%;box-sizing:border-box;
-}
-body.looply-premium .premium-composer :where(button,select,input,textarea):focus-visible{
-  outline:2px solid var(--primary);outline-offset:2px;
-}
-body.looply-premium .premium-composer .post-create-header{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-}
-body.looply-premium .premium-composer .post-create-header button{
-  min-height:42px;border-radius:12px;padding-inline:12px;
-}
-body.looply-premium .premium-composer .post-create-header button[type="submit"]{
-  background:var(--primary);color:#fff;border:0;
-}
-body.looply-premium .premium-composer .post-create-preview{max-height:48dvh;overflow:auto}
-
-/* Filtros e busca com tamanho uniforme, abaixo do cabeçalho. */
-body.looply-premium .premium-filters{
-  position:relative;top:auto;z-index:10;
-  display:grid;grid-template-columns:auto auto minmax(0,1fr) 44px;
-  gap:7px;align-items:center;padding:0 0 14px;margin:0;
-  background:none!important;min-height:0;
-}
-body.looply-premium .premium-filters .fc{
-  display:grid;place-items:center;
-  min-width:0!important;height:42px!important;min-height:42px!important;
-  max-height:42px;padding:0 13px!important;
-  border-radius:22px;font-weight:750;font-size:12.5px;
-  line-height:1;box-shadow:none;
-}
-body.looply-premium .premium-filters .fc.on{
-  color:#fff;background:var(--primary);border-color:transparent;
-  box-shadow:0 5px 15px color-mix(in srgb,var(--primary) 22%,transparent);
-  transform:none;
-}
-body.looply-premium .premium-filters [data-premium-grid]{
-  height:42px;width:44px;padding:0!important;
-  border:1px solid var(--premium-border);border-radius:15px;
-  background:var(--surface-strong);font-size:19px;color:var(--muted);
-}
-body.looply-premium .premium-filters .premium-filter-search{
-  width:100%;height:42px;min-height:42px;
-  background:var(--surface-strong);border:1px solid var(--premium-border);
-  border-radius:15px;padding:0 12px;font-size:13px;
-  box-shadow:none;outline-offset:2px;
-}
-@media(max-width:380px){
- body.looply-premium .premium-filters{gap:5px;grid-template-columns:auto auto minmax(0,1fr) 40px}
- body.looply-premium .premium-filters .fc{padding:0 10px!important;font-size:11.5px}
- body.looply-premium .premium-filters [data-premium-grid]{width:40px}
- body.looply-premium .premium-filters .premium-filter-search{padding-inline:10px}
-}
-
-/* Cards: hierarquia idêntica ao modelo, sem estilos nativos de botões. */
-body.looply-premium .feed-list{
-  display:grid;grid-template-columns:minmax(0,1fr);gap:14px;
-  padding:0;margin:0;min-width:0;
-}
-body.looply-premium .post-card{
-  display:block;max-width:100%;min-width:0;
-  margin:0;padding:0 0 5px;
-  border-radius:26px;background:var(--surface-strong);
-  border:1px solid var(--premium-border);
-  box-shadow:var(--premium-shadow);overflow:hidden;
-}
-body.looply-premium .post-card > :not([hidden]){min-width:0}
-body.looply-premium .post-card .post-header{
-  display:flex;align-items:center;gap:8px;padding:12px 12px 9px;
-  min-height:67px;margin:0;background:transparent;border:0;
-}
-body.looply-premium .post-card .post-author-profile{
-  display:flex;align-items:center;gap:10px;
-  min-width:0;max-width:100%;padding:0;
-  border:0;background:transparent;text-align:left;cursor:pointer;
-}
-body.looply-premium .post-card .post-author-profile > div{flex:1;min-width:0}
-body.looply-premium .post-card .post-author-profile strong{
-  display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;font:800 14px/1.3 var(--ui);
-}
-body.looply-premium .post-card .post-author-profile time{
-  display:block;color:var(--muted);white-space:nowrap;font-size:11.5px;
-}
-body.looply-premium .post-card .post-avatar{
-  width:42px;height:42px;min-width:42px;border-radius:50%;
-  overflow:hidden;border:1px solid var(--premium-border);
-}
-body.looply-premium .post-card .post-controls{display:flex;align-items:center;flex:0 0 auto;gap:5px}
-body.looply-premium .post-card .visibility-pill{
-  display:inline-flex;align-items:center;justify-content:center;
-  min-height:25px;padding:0 8px;border-radius:99px;
-  background:var(--lilac);color:var(--primary);
-  border:1px solid color-mix(in srgb,var(--primary) 12%,transparent);
-  font:750 10px/1 var(--ui);
-}
-body.looply-premium .post-card .post-delete-button{
-  display:grid;place-items:center;min-width:38px;width:38px;height:38px;
-  min-height:38px;padding:0;border:0;border-radius:12px;
-  background:transparent;color:var(--muted);box-shadow:none;
-}
-body.looply-premium .post-card .post-delete-button svg{width:19px;height:19px}
-body.looply-premium .post-card .post-owner-menu summary{
-  display:grid;place-items:center;height:38px;width:32px;
-  border-radius:12px;background:transparent;color:var(--muted);
-  list-style:none;cursor:pointer;font-size:22px;
-}
-body.looply-premium .post-card .post-owner-menu-actions{
-  position:absolute;right:12px;z-index:10;
-  background:var(--surface-strong);border:1px solid var(--premium-border);
-  border-radius:14px;box-shadow:var(--premium-shadow);padding:7px;
-}
-body.looply-premium .post-card .post-body{
-  padding:0 14px 10px;margin:0;color:var(--text);
-  font:400 14.5px/1.5 var(--ui);
-  white-space:pre-wrap;overflow-wrap:anywhere;
-}
-/* Mídia de Feed permanece nativa e sem corte. */
-body.looply-premium .post-card .post-media-grid{
-  display:flex;gap:0;width:calc(100% - 24px);max-width:calc(100% - 24px);
-  margin:3px 12px 10px;border-radius:18px;
-  overflow:hidden;min-width:0;
-  background:var(--surface-soft);box-shadow:none;
-  scroll-snap-type:x mandatory;
-}
-body.looply-premium .post-card .post-media-grid:has(> .post-media:only-child){
-  height:auto!important;min-height:0!important;
-}
-body.looply-premium .post-card .post-media{position:relative;flex:0 0 100%;min-width:100%;max-width:100%;width:100%;padding:0;scroll-snap-align:center}
-body.looply-premium .post-card .post-media img,
-body.looply-premium .post-card .post-media video{
-  display:block;width:100%;max-width:100%;
-  height:auto;max-height:min(76dvh,740px);object-fit:contain;
-  margin:0;border-radius:0;
-}
-body.looply-premium .post-card .post-media video{background:#111}
-body.looply-premium .post-card .post-carousel-navigation{display:flex;justify-content:center;align-items:center;gap:8px}
-body.looply-premium .post-card .post-carousel-navigation button{
-  min-width:36px;min-height:36px;border-radius:50%;
-  border:1px solid var(--premium-border);background:var(--surface-soft);
-}
-body.looply-premium .post-card .post-carousel-dots{display:flex;justify-content:center;gap:5px;margin:4px 0 8px}
-body.looply-premium .post-card .post-carousel-dots span{height:5px;width:5px;border-radius:50%;background:var(--line)}
-body.looply-premium .post-card .post-carousel-dots span.is-active{background:var(--primary);width:15px;border-radius:5px}
-
-/* Fonte externa: embutido contido e comandos no padrão do modelo. */
-body.looply-premium .post-card .post-external{
-  display:flex;flex-direction:column;min-width:0;
-  margin:0 12px 10px;padding:0;background:transparent;border:0;
-  box-shadow:none;overflow:hidden;
-}
-body.looply-premium .post-card .post-external-credit{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  min-width:0;padding:0 1px 9px;
-}
-body.looply-premium .post-card .hybrid-provider-label{
-  flex:0 0 auto;display:inline-flex;align-items:center;
-  min-height:28px;padding:0 10px;border-radius:10px;
-  font:750 11px/1 var(--ui);color:var(--primary);
-  background:color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
-}
-body.looply-premium .post-card .hybrid-provider-tools{
-  display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px;
-}
-body.looply-premium .post-card .hybrid-provider-tools :is(a,button){
-  display:inline-flex;align-items:center;justify-content:center;gap:4px;
-  width:auto;max-width:100%;min-width:0;min-height:32px;
-  padding:0 9px;white-space:nowrap;text-overflow:ellipsis;
-  overflow:hidden;border-radius:10px;border:1px solid var(--premium-border);
-  font:750 11px/1.2 var(--ui);
-  text-decoration:none;color:var(--text);
-  background:var(--surface-soft);
-}
-body.looply-premium .post-card .hybrid-provider-tools a svg{width:14px;height:14px}
-body.looply-premium .post-card .hybrid-external-frame{
-  display:block;position:relative;min-width:0;width:100%;
-  padding:0;margin:0;overflow:hidden;background:var(--surface-soft);
-  border-radius:18px;border:1px solid var(--premium-border);
-}
-body.looply-premium .post-card .post-external-embed{
-  display:block;position:relative;width:100%;height:auto;
-  aspect-ratio:4 / 5;max-height:min(74dvh,720px);
-  overflow:hidden;background:var(--surface-soft);
-  border:0;margin:0;padding:0;
-}
-body.looply-premium .post-card .post-instagram-embed,
-body.looply-premium .post-card .post-tiktok-embed{aspect-ratio:9/14;max-height:min(72dvh,710px)}
-body.looply-premium .post-card .post-external iframe,
-body.looply-premium .post-card .post-external-embed iframe{
-  display:block;position:absolute;inset:0;
-  width:100%!important;height:100%!important;
-  min-height:0!important;max-width:100%!important;
-  margin:0!important;padding:0!important;border:0!important;
-  border-radius:0;box-sizing:border-box;background:transparent;
-}
-body.looply-premium .post-card .hybrid-external-watch{
-  position:absolute;z-index:4;right:10px;bottom:10px;
-  display:flex;align-items:center;gap:6px;
-  min-height:39px;max-width:calc(100% - 20px);
-  padding:0 13px;border-radius:14px;border:1px solid #ffffff77;
-  background:#201528cf;color:#fff;
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-  box-shadow:0 4px 16px #0003;font:750 12px/1 var(--ui);
-}
-body.looply-premium .post-card .post-external-unavailable{
-  padding:18px;font-size:13px;color:var(--muted);text-align:center;
-}
-body.looply-premium .post-card .post-interactions{
-  display:flex;align-items:center;gap:1px;
-  padding:2px 10px 0;margin:0;
-  flex-wrap:nowrap;overflow:visible;min-width:0;
-}
-body.looply-premium .post-card .post-interactions button.post-icon-button{
-  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
-  width:auto;height:42px;min-height:42px;min-width:39px;
-  padding:0 6px;margin:0;border:0;border-radius:12px;
-  background:transparent;color:var(--text);box-shadow:none;
-  font:750 12px/1 var(--ui);
-}
-body.looply-premium .post-card .post-interactions .post-like-button.is-liked{color:var(--primary)}
-body.looply-premium .post-card .post-interactions .post-icon-button svg{display:block;width:21px;height:21px;flex:none}
-body.looply-premium .post-card .post-interactions [data-share-post] span,
-body.looply-premium .post-card .post-interactions [data-share-in-app] span{
-  display:none;
-}
-body.looply-premium .post-card .post-interactions .premium-save{
-  margin-left:auto;width:40px;min-width:40px;
-}
-body.looply-premium .post-card .post-interactions .premium-save[aria-pressed="true"]{
-  color:var(--primary);
-}
-body.looply-premium .post-card .post-interactions .premium-save[aria-pressed="true"] svg{
-  fill:color-mix(in srgb,var(--primary) 17%,transparent);
-}
-body.looply-premium .post-card .post-action-status:empty{display:none}
-body.looply-premium .post-card .post-action-status{font-size:11px;max-width:70px}
-body.looply-premium .post-card .premium-like-summary{
-  display:flex;align-items:center;gap:9px;
-  width:calc(100% - 28px);min-height:34px;
-  margin:0 14px 6px;padding:2px 0;
-  background:transparent;border:0;text-align:left;
-  font-size:12px;font-weight:800;color:var(--text);
-}
-body.looply-premium .post-card .premium-like-summary small{
-  margin:0;font:500 11px/1.3 var(--ui);color:var(--muted);
-}
-body.looply-premium .post-card .post-comments{margin:0 12px 10px;border-radius:16px}
-body.looply-premium .post-card .post-comments:not([data-comments-expanded="true"]){display:none}
-body.looply-premium .post-card .post-comments[data-comments-expanded="true"]{display:block}
-body.looply-premium .post-card [hidden]{display:none!important}
-body.looply-premium .feed-list.is-grid{
-  grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
-}
-body.looply-premium .feed-list.is-grid .post-card{
-  min-width:0;min-height:0;aspect-ratio:4/5;
-}
-body.looply-premium .feed-list.is-grid .post-card > :not(.post-media-grid):not(.post-external):not(.post-body){display:none!important}
-body.looply-premium .feed-list.is-grid .post-media-grid,
-body.looply-premium .feed-list.is-grid .post-external{
-  margin:0;width:100%;height:100%;max-width:100%;border-radius:0;
-}
-body.looply-premium .feed-list.is-grid .post-media-grid img,
-body.looply-premium .feed-list.is-grid .post-media-grid video{
-  height:100%!important;max-height:none;object-fit:cover;
-}
-body.looply-premium .feed-list.is-grid .post-external-credit{display:none}
-body.looply-premium .feed-list.is-grid .hybrid-external-frame,
-body.looply-premium .feed-list.is-grid .post-external-embed{height:100%;max-height:none;border-radius:0}
-body.looply-premium .feed-list.is-grid .post-body{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
-
-/* Janelas e viewer sempre independentes do layout da lista. */
-body.looply-premium dialog.premium-sheet[open]{
-  position:fixed;inset:auto 0 0;z-index:1400;
-  max-width:560px;width:100%;max-height:88dvh;
-  margin:auto auto 0;padding:0;transform:none;
-  border-radius:24px 24px 0 0;
-}
-body.looply-premium dialog.premium-sheet .premium-sheet-content{
-  max-height:87dvh;overflow:auto;padding:12px 16px calc(22px + env(safe-area-inset-bottom));
-}
-body.looply-premium .premium-reaction-picker{z-index:1600}
-body.looply-premium dialog.looply-reels-scroll[open]{
-  position:fixed;inset:0;z-index:1500;
-  margin:0!important;width:100vw!important;height:100dvh!important;
-  max-width:100vw!important;max-height:100dvh!important;
-  padding:0!important;border:0!important;border-radius:0!important;
-  overflow:hidden!important;background:#09070d;color:#fff;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  filter:none!important;transform:none!important;will-change:auto!important;
+  contain:none!important;isolation:auto!important;
 }
-body.looply-premium .looply-reels-scroll .looply-reels-track{
-  width:100%;height:100%;max-height:100dvh;overflow-y:auto;
-  scroll-snap-type:y mandatory;
+body.looply-premium .page-header.gh::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  border-radius:inherit;
+  -webkit-backdrop-filter:blur(17px) saturate(190%);
+  backdrop-filter:blur(17px) saturate(190%);
 }
-body.looply-premium .looply-reels-scroll .looply-reel-slide{
-  display:grid;place-items:center;width:100%;height:100dvh;
-  min-height:100dvh;scroll-snap-align:start;overflow:hidden;
-}
-body.looply-premium .looply-reels-scroll .looply-reel-video{
-  width:100%;height:100%;max-height:100dvh;
-  object-fit:contain;background:#000;
-}
-body.looply-premium .looply-reels-scroll .looply-reels-bottom{
-  padding-bottom:calc(18px + env(safe-area-inset-bottom));pointer-events:none;
-}
-body.looply-premium .looply-reels-scroll .looply-reels-rail{z-index:11}
-body.looply-premium .looply-reels-scroll .looply-reels-top{z-index:11}
-body.looply-premium .premium-top{z-index:90}
-@media(min-width:760px){
- body.looply-premium .container-page{max-width:704px}
- body.looply-premium .feed-list.is-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
- body.looply-premium .page-header.gh{max-width:704px}
-}
-@media(prefers-reduced-motion:reduce){
- body.looply-premium .post-card,
- body.looply-premium .hero-panel,
- body.looply-premium .premium-composer{animation:none!important}
+body.looply-premium .page-header.gh>.page-navigation.dock{
+  position:fixed!important;left:50%!important;right:auto!important;top:auto!important;
+  bottom:calc(10px + env(safe-area-inset-bottom))!important;
+  transform:translateX(-50%)!important;max-width:560px!important;
 }
 
-/* Eliminar o scroll horizontal residual causado por decoradores/pseudo-elementos
-   do shell, mesmo quando nenhum elemento DOM excede a viewport. */
-html:has(body.looply-premium){max-width:100%;overflow-x:hidden}
-body.looply-premium{max-width:100%;overflow-x:clip}
-body.looply-premium .container-page{min-width:0;max-width:min(100%,704px)}
-body.looply-premium .page-header.gh{max-width:100%;box-sizing:border-box}
-body.looply-premium .premium-scene,
-body.looply-premium .page-content{box-sizing:border-box;max-width:100%;min-width:0}
+
+/* O avatar do compositor não pode desaparecer se o perfil estiver sem foto. */
+body.looply-premium #composer .post-composer-heading.comp1 .av{
+  display:grid!important;place-items:center!important;color:#fff;
+  background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 40%,var(--lilac)))!important;
+  font-size:18px!important;font-weight:800!important;opacity:1!important;
+}
+body.looply-premium #composer .post-composer-heading.comp1 .av img{
+  width:100%;height:100%;object-fit:cover;border-radius:50%;
+}

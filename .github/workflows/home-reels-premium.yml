@@ -13,6 +13,7 @@ on:
       - "tests/**"
       - "scripts/check-reels-immersive-visual.mjs"
       - "scripts/check-primary-nav-visual.mjs"
+      - "scripts/check-home-reels-model-visual.mjs"
       - ".github/workflows/home-reels-premium.yml"
   workflow_dispatch:
 permissions:
@@ -49,6 +50,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Validar dock único e iframes/video sem corte
         run: |
+          node scripts/check-home-reels-model-visual.mjs
           node scripts/check-primary-nav-visual.mjs
           node scripts/check-reels-immersive-visual.mjs
       - name: Guardar capturas visuais
@@ -59,5 +61,6 @@ jobs:
           path: |
             smoke-results/navigation-20261031/
             smoke-results/reels-immersive-20261103/
+            smoke-results/model-v3-20261110/
           retention-days: 14
           if-no-files-found: warn
