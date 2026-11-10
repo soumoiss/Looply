@@ -15,7 +15,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <style>html,body{padding:0;margin:0}.diagnostic{position:fixed;top:50%;left:50%;z-index:0}</style>
 </head><body class="looply-page page-home page-reels looply-premium">
-<dialog class="looply-reels-scroll" data-reels-scroll open>
+<dialog class="looply-reels-scroll" data-reels-scroll data-reels-provider="instagram" open>
 <div class="looply-reels-track">
 <section class="looply-reel-slide is-external-embed is-instagram-embed is-instagram-reel-clean is-portrait-player">
 <div class="looply-reel-media-stage"><div class="looply-instagram-video-window"><iframe class="looply-reel-embed" title="Player de teste do Instagram"
@@ -66,6 +66,7 @@ try{
         slide.classList.remove("is-portrait-player","is-instagram-embed","is-instagram-reel-clean");slide.classList.add("is-landscape-player");
         const stage=slide.querySelector(".looply-reel-media-stage");
         stage.replaceChildren(slide.querySelector(".looply-reel-embed"));
+        document.querySelector("dialog.looply-reels-scroll").dataset.reelsProvider="looply";
       });
       const result=await page.evaluate(()=>{
         const frame=document.querySelector(".looply-reel-embed");
@@ -84,6 +85,7 @@ try{
           slide:box(slide),footer:box(footer),name:box(name),time:box(time),
           creator:color(creator),nameColor:color(name),timeColor:color(time),
           frameObjectFit:getComputedStyle(frame).objectFit,
+          audioDisplay:getComputedStyle(document.querySelector(".looply-reels-audio")).display,
           controls:[...document.querySelectorAll(".looply-reel-action")].map(box)};
       });
       const actual=(result.mediaWindow||result.frame).w/(result.mediaWindow||result.frame).h;
@@ -102,6 +104,7 @@ try{
         assert.ok(mediaY>=win.y-2&&mediaY+content.h<=win.bottom+2,"portrait video vertically clipped");
         assert.ok(win.x>=-2&&win.right<=width+2&&win.y>=-2&&win.bottom<=height+2,"matte outside viewport");
         assert.ok(result.frame.w>win.w&&result.frame.h>win.h,"external chrome not outside matte");
+        assert.equal(result.audioDisplay,"none","Instagram audio provider label should not duplicate native Reel content");
       }else{
         assert.ok(result.frame.w<=width+2&&result.frame.h<=height+2,"media escapes viewport");
         assert.ok(result.frame.x>=-2&&result.frame.y>=-2,"player starts outside viewport");
