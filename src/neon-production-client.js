@@ -559,6 +559,28 @@ async function adminFunctionInvoke(options = {}) {
     }
   }
   if (action === "user_create_with_password") return adminCreateUser(body);
+  // Account lifecycle is enforced by an audited SECURITY DEFINER RPC.
+  // Never modify auth flags/sessions from the browser or use old v12 ban paths.
+  if (["user_set_suspended","user_restore_access",
+       "user_delete_preview","user_delete_permanently"].includes(action)) {
+    try {
+      const session=await activeSession();
+      if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+      const response=await fetch(config.data+"/rpc/v53_admin_account_action",{
+        method:"POST",cache:"no-store",
+        headers:{authorization:"Bearer "+session.access_token,
+          accept:"application/json","content-type":"application/json"},
+        body:JSON.stringify({p_action:action,p_payload:body})
+      });
+      const result=await response.json().catch(()=>null);
+      if(!response.ok||!result||typeof result!=="object"||result.error)
+        return {data:null,error:{message:String(result?.message||result?.error||
+          "neon_account_lifecycle_failed"),status:response.status,code:String(result?.code||"")}};
+      return {data:result,error:null};
+    }catch(error){
+      return {data:null,error:{message:String(error?.message||"neon_account_lifecycle_unavailable")}};
+    }
+  }
   if (action === "verify_archive_media_upload") {
     const path=String(body?.storagePath || body?.path || body?.media?.storage_path || "");
     if (!/^legacy-archive\/midia\/(?:[A-Za-z0-9_.-]+|(?:misol|yara)\/[A-Za-z0-9_.-]+)$/.test(path)
