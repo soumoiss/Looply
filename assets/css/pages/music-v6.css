@@ -416,3 +416,23 @@
   .page-music .music-v6 .music-single-track-card{grid-template-columns:1fr}
   .page-music .music-v6 .music-single-track-card .music-player-button{justify-self:start}
 }
+
+/* The provider picker has extra controls; keep results and footer visible on phones. */
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) {
+  display:flex;flex-direction:column;max-height:90dvh;overflow:hidden;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-results {
+  flex:1 1 auto;min-height:72px;overflow:auto;overscroll-behavior:contain;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-spotify-link {
+  flex:0 1 auto;max-height:205px;overflow-y:auto;overscroll-behavior:contain;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-preview {
+  flex:0 0 auto;max-height:156px;overflow:hidden;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-preview iframe {
+  min-height:152px;height:152px;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) footer {
+  flex:0 0 auto;
+}
