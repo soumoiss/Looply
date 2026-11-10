@@ -35,7 +35,7 @@ test("legacy text stories keep their font envelope and new text editor exports r
   assert.match(story, /caption\.style\.fontSize = !media && storyText\.styled/);
   assert.match(admin, /decodeStoryBody\(item\.body \|\| ""\)\.text/);
   assert.match(css, /\.studio-overlay/);
-  assert.match(html, /story-studio\.css/);
+  assert.match(html, /home-reels\.css/);
 });
 test("Stories persist only valid Spotify track embeds and preserve the styled text", () => {
   const url = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=preview";

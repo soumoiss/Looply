@@ -13,12 +13,12 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
-<link rel="stylesheet" href="/assets/css/pages/home-hybrid.css">
+<link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
 <link rel="stylesheet" href="/assets/css/theme-complete.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
-</head><body class="looply-page page-home"><div class="container-page">
-<header class="page-header" data-site-header></header>
+</head><body class="looply-page page-home looply-premium"><div class="container-page">
+<header class="page-header gh glass" data-site-header></header>
 <main><h1>Looply</h1><p>Visualização de navegação e áreas seguras</p>
 <div class="chat-message-form" style="margin-top:300px"><textarea aria-label="Digitar"></textarea></div></main>
 <footer class="looply-footer">Looply</footer></div><div class="fixture-modal"></div>
@@ -86,7 +86,7 @@ try{
    assert.equal(errors.length,0,errors.join(" | "));
    assert.equal(data.navs,1,"exactly one nav at "+width);
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
-   assert.equal(data.links.length,7,"exactly seven tabs at "+width);
+   assert.equal(data.links.length,6,"exactly six tabs at "+width);
    assert.deepEqual(data.active,["home.html"]);
    assert.ok(data.overflow<=1,"no horizontal scroll at "+width+": "+data.overflow);
    assert.ok(data.rect.x>=-1 && data.rect.right<=width+1,"nav within viewport at "+width);
@@ -110,7 +110,7 @@ try{
      await page.screenshot({path:join(OUT,"navigation-390-dark-modal.png")});
      await page.evaluate(()=>{
        document.querySelector(".fixture-modal").classList.remove("is-open");
-       document.body.classList.remove("page-home");
+       document.body.classList.remove("page-home","looply-premium");
        document.body.classList.add("page-chat");
        document.querySelector("textarea").focus();
      });

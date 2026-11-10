@@ -128,5 +128,5 @@ test("existing story editor really imports gesture controller and embeds text in
  assert.match(css,/font-family/); // via Google import and specific font cards
  assert.match(css,/family=Caveat/);
  assert.match(css,/studio-overlays \.studio-overlay\.is-selected/);
- assert.match(home,/story-studio\.css/);
+ assert.match(home,/home-reels\.css/);
 });

@@ -11,14 +11,10 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
-<link rel="stylesheet" href="/assets/css/pages/home.css">
-<link rel="stylesheet" href="/assets/css/pages/feed-reels-experience.css">
-<link rel="stylesheet" href="/assets/css/pages/home-hybrid.css">
 <link rel="stylesheet" href="/assets/css/theme-complete.css">
-<link rel="stylesheet" href="/assets/css/pages/reels-tab.css">
-<link rel="stylesheet" href="/assets/css/pages/reels-immersive-fix.css">
+<link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <style>html,body{padding:0;margin:0}.diagnostic{position:fixed;top:50%;left:50%;z-index:0}</style>
-</head><body class="looply-page page-home page-reels">
+</head><body class="looply-page page-home page-reels looply-premium">
 <dialog class="looply-reels-scroll" data-reels-scroll open>
 <div class="looply-reels-track">
 <section class="looply-reel-slide is-external-embed is-instagram-embed is-portrait-player">

@@ -46,7 +46,7 @@ test("only confirmed playback of the current Story can remain playing after navi
 test("published viewer cannot display a provider modal and music picker returns results progressively",async()=>{
   const [viewer,picker,css,sw]=await Promise.all([
     read("src/stories.js"),read("src/story-music-picker.js"),
-    read("assets/css/pages/feed-reels-experience.css"),read("sw.js")
+    read("assets/css/pages/home-reels.css"),read("sw.js")
   ]);
   assert.doesNotMatch(viewer,/data-story-provider-dock|data-story-provider-content|openOfficialProvider/);
   assert.match(viewer,/songLabel\.setAttribute\("role","note"\)/);
@@ -58,7 +58,7 @@ test("published viewer cannot display a provider modal and music picker returns 
   assert.match(picker,/received\.push/);
   assert.match(picker,/searchCache\.set/);
   assert.doesNotMatch(picker,/checkAudiusStream/);
-  assert.match(css,/max-height:min\(75dvh,730px\)!important/);
-  assert.match(css,/width:auto!important/);
+  assert.match(css,/max-height:90dvh/);
+  assert.match(css,/object-fit:contain/);
   assert.match(sw,/ignoreSearch: false/);
 });

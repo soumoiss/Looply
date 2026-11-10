@@ -5,6 +5,8 @@ on:
       - "src/pull-to-refresh.js"
       - "src/page-runtime.js"
       - "assets/css/pages/shared.css"
+      - "assets/css/pages/home-reels.css"
+      - "src/home-reels-premium.js"
       - "scripts/check-pull-refresh-visual.mjs"
       - ".github/workflows/pull-refresh-visual.yml"
   push:

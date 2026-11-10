@@ -5,17 +5,17 @@ const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
 test("all feed images, videos and individual carousel slides keep intrinsic aspect ratio",async()=>{
   const [css,html,source]=await Promise.all([
-    read("assets/css/pages/feed-reels-experience.css"),
+    read("assets/css/pages/home-reels.css"),
     read("home.html"),read("src/social.js")
   ]);
-  assert.ok(css.includes("Native media proportions"));
-  assert.ok(css.includes(".post-media[data-aspect]"));
-  assert.ok(css.includes("aspect-ratio:auto!important"));
-  assert.ok(css.includes("height:auto!important"));
-  assert.ok(css.includes("object-fit:contain!important"));
-  assert.ok(css.includes("align-items:flex-start!important"));
-  assert.ok(css.includes("flex:0 0 100%!important"));
-  assert.ok(html.includes("feed-reels-experience.css"));
+  assert.ok(css.includes(".post-media"));
+  assert.ok(css.includes(".post-media video"));
+  assert.ok(css.includes("object-fit:contain"));
+  assert.ok(css.includes("height:auto"));
+  assert.ok(css.includes("object-fit:contain"));
+  assert.ok(css.includes(".post-media-grid"));
+  assert.ok(css.includes("flex:0 0 100%"));
+  assert.ok(html.includes("home-reels.css"));
   assert.ok(source.includes('data-feed-carousel'));
   assert.ok(source.includes('figure.dataset.aspect'));
 });

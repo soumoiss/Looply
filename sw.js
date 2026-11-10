@@ -1,11 +1,12 @@
 /* Looply's public app shell is cacheable; signed Neon URLs and private API
    responses are not. Serve the shell immediately and refresh in background. */
-const CACHE = "looply-shell-v48-admin-20261108";
+const CACHE = "looply-shell-v49-home-reels-20261110";
 const STATIC = /\.(?:html|css|js|svg|png|jpg|jpeg|webp|woff2?)$/i;
 const SHELL = [
   "home.html","chat.html","conversa.html","cartas.html",
   "musicas.html","galeria.html","notificacoes.html","perfil.html",
-  "assets/css/app.css","assets/css/pages/shared.css"
+  "assets/css/app.css","assets/css/pages/shared.css",
+  "reels.html","assets/css/pages/home-reels.css","src/home-reels-premium.js"
 ];
 const scopePath = new URL(self.registration.scope).pathname;
 const cacheable = (request) => {

@@ -1,0 +1,63 @@
+name: Homologação — Início e Reels premium
+on:
+  pull_request:
+    paths:
+      - "home.html"
+      - "reels.html"
+      - "assets/js/home.js"
+      - "assets/js/reels.js"
+      - "src/home-reels-premium.js"
+      - "src/home-hybrid-reels.js"
+      - "assets/css/pages/home-reels.css"
+      - "migration/20261110_home_reels_premium.sql"
+      - "tests/**"
+      - "scripts/check-reels-immersive-visual.mjs"
+      - "scripts/check-primary-nav-visual.mjs"
+      - ".github/workflows/home-reels-premium.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: npm test (build + node --test)
+        run: npm test
+      - name: Verificar distribuição sem modelo fictício
+        run: |
+          test -s dist/home.html
+          test -s dist/reels.html
+          test -s dist/src/home-reels-premium.js
+          test -s dist/assets/css/pages/home-reels.css
+          ! grep -E 'Simular nova publicação|Modelo: só a aba' dist/src/home-reels-premium.js
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Validar dock único e iframes/video sem corte
+        run: |
+          node scripts/check-primary-nav-visual.mjs
+          node scripts/check-reels-immersive-visual.mjs
+      - name: Guardar capturas visuais
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-reels-premium-visual
+          path: |
+            smoke-results/navigation-20261031/
+            smoke-results/reels-immersive-20261103/
+          retention-days: 14
+          if-no-files-found: warn

@@ -127,6 +127,7 @@ export function openHybridReels(root, startKey) {
     return { ...source, slide, video: source.kind === "video" ? media : null, frame: source.kind === "embed" ? media : null };
   });
   let activeIndex = -1, soundOn = false, closed = false, scrollTimer = null;
+  try { soundOn = localStorage.getItem('looply-premium-reels-sound-on') === 'true'; } catch {}
   const previousOverflow = document.body.style.overflow;
   const cardFor = source => root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
   const status = message => { by(dialog, "[data-reels-message]").textContent = message || ""; };
@@ -268,6 +269,7 @@ export function openHybridReels(root, startKey) {
     if (event.target.closest("[data-close-reels-comments]")) { by(dialog, "[data-reels-comments]").hidden = true; return; }
     if (event.target.closest("[data-reels-sound]")) {
       soundOn = !soundOn;
+      try { localStorage.setItem('looply-premium-reels-sound-on',String(soundOn)); } catch {}
       const activeVideo = slides[activeIndex]?.video;
       if (!activeVideo) return;
       activeVideo.muted = !soundOn;
