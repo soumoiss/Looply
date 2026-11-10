@@ -165,7 +165,9 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
       const label=document.createElement("span");label.className="why-now-person-label";label.textContent=name;
       item.append(ring,label);
       item.onclick=()=> {
-        if(ownAccount&&!recent.length){open("open-create");return;}
+        // Own avatar/plus always opens creation, regardless of published moments.
+        // Previous moments remain accessible from the source sheet.
+        if(ownAccount){open("open-create");return;}
         if(recent.length)open("open-story",{storyId:recent[0].id});
       };
       people.append(item);
