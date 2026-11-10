@@ -35,8 +35,8 @@ android {
         applicationId = "com.looply.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 310
-        versionName = "3.0.10"
+        versionCode = 311
+        versionName = "3.0.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
