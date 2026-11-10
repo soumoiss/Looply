@@ -1,6 +1,6 @@
 /** Looply — Painel ADM real. Nenhuma informação de exemplo, nenhuma mutação local. */
 import { looplyClient, activeSession, selfProfile, NEON_DATA_API_URL } from './neon-production-client.js';
-import {adminExtendedKinds,renderAdminExtended} from './admin-model-extensions.js';
+import {adminExtendedKinds,renderAdminExtended,adminExtra,adminFinal} from './admin-model-extensions.js';
 
 const $ = selector => document.querySelector(selector);
 const el = (tag, className, text) => { const node=document.createElement(tag); if(className)node.className=className; if(text!==undefined)node.textContent=text; return node; };
@@ -229,12 +229,60 @@ async function dbHealth(root){
   ['Filtro de palavras',async()=>{const rows=await panelAction('word_list');if(!Array.isArray(rows))throw Error('Resposta inválida');return `${rows.length} termos`}],
   ['Consulta segura',async()=>{await safeQuery('profiles');return 'RPC disponível'}]
  ];
+ const checkArray=(label,action,payload={},kind='extended',endpoint='')=>[
+  label,async()=>{
+    const result=kind==='extended'?await adminExtra(action,payload):
+      kind==='final'?await adminFinal(action,payload):
+      await adminFinal(action,payload,endpoint);
+    if(!Array.isArray(result))throw Error('Resposta inválida: '+action);
+    return result.length+' registros (leitura)';
+  }
+ ];
+ probes.push(
+  checkArray('VIP','vip_list'),
+  checkArray('Sessões','sessions_list',{offset:0}),
+  checkArray('Convites','invites_list',{offset:0}),
+  checkArray('Funcionalidades','features_list'),
+  checkArray('Figurinhas','stickers_list',{offset:0}),
+  checkArray('Partidas','games_list',{offset:0}),
+  checkArray('Permissões','roles_list',{offset:0}),
+  checkArray('Mapa de calor','heatmap'),
+  checkArray('Login','login_attempts_list',{offset:0},'final'),
+  checkArray('Bloqueio de IP','ip_list',{},'final'),
+  checkArray('Limites','limits_list',{},'final'),
+  checkArray('Notificações push','push_list',{offset:0},'final'),
+  checkArray('Grupos','groups_list',{},'groups','v48_admin_groups_calls'),
+  checkArray('Chamadas','calls_list',{},'groups','v48_admin_groups_calls'),
+  ['Estatísticas',async()=>{
+    const value=await adminExtra('stats');
+    if(!value||typeof value!=='object'||!value.checked_at)
+      throw Error('Estatísticas não confirmadas');
+    return 'Servidor respondeu';
+  }],
+  ['Suspensão / sessão',async()=>{
+    const session=await activeSession();
+    if(!session?.access_token)throw Error('Sessão expirada');
+    const response=await fetch(NEON_DATA_API_URL+'/rpc/v54_self_account_access',{
+      method:'POST',cache:'no-store',
+      headers:{authorization:'Bearer '+session.access_token,
+        accept:'application/json','content-type':'application/json'},body:'{}'
+    });
+    const data=await response.json().catch(()=>null);
+    if(!response.ok||data?.allowed!==true)
+      throw Error('Proteção de contas não confirmada');
+    return 'Identidade ativa verificada';
+  }]
+ );
  root.replaceChildren();
  const list=el('div','rows');root.append(makeButton('Verificar novamente',()=>dbHealth(root)),list);
- const results=await Promise.all(probes.map(async([label,probe])=>{
-  try{return {label,ok:true,detail:await probe()}}
-  catch(error){return {label,ok:false,detail:String(error?.message||'Indisponível').slice(0,140)}}
- }));
+ const results=[];
+ for(let i=0;i<probes.length;i+=5){
+  const batch=await Promise.all(probes.slice(i,i+5).map(async([label,probe])=>{
+   try{return {label,ok:true,detail:await probe()}}
+   catch(error){return {label,ok:false,detail:String(error?.message||'Indisponível').slice(0,140)}}
+  }));
+  results.push(...batch);
+ }
  for(const item of results){
   const row=el('div','r');row.style.cursor='default';
   const symbol=el('span','chip '+(item.ok?'ok':'bad'),item.ok?'OK':'ERRO');
