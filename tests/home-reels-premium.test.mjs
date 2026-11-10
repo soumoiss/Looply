@@ -11,7 +11,7 @@ const legacy=["home-hybrid.css","feed-reels-refresh.css","feed-reels-experience.
 test("os dois destinos carregam exclusivamente o novo CSS de página, sem modo antigo",()=>{
   for(const p of pages){
     const html=read(p);
-    assert.match(html,/assets\/css\/pages\/home-reels\.css\?v=/);
+    assert.match(html,/assets\/css\/pages\/home-reels-model-v3\.css\?v=/);
     assert.match(html,/data-site-header/);
     assert.match(html,/src\/theme-bootstrap\.js/);
     for(const old of legacy)assert.ok(!html.includes(old),p+": "+old);
@@ -65,7 +65,7 @@ test("salvos são persistentes e idempotentes, com rollback visível",()=>{
 });
 
 test("Reels usam progresso real do vídeo, vídeo sem corte, gestos, teclado e som persistido",()=>{
-  const js=read("src/home-reels-premium.js"),viewer=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels.css");
+  const js=read("src/home-reels-premium.js"),viewer=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels-model-v3.css");
   for(const fragment of ["timeupdate","video.currentTime/video.duration","arrowdown","arrowup",
      '"j"','"k"','key===" "', 'key==="l"', 'key==="m"', 'key==="escape"',
      "last<310","premiumViewerSave"])assert.ok(js.includes(fragment),fragment);
@@ -86,14 +86,14 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
   assert.match(src,/data-social-post/);
   assert.match(src,/data-social-feed/);
   assert.match(src,/data-premium-filter/);
-  assert.match(src,/premiumGrid/);
+  assert.match(src,/data-premium-grid/);
   assert.match(src,/premiumReels/);
 });
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v50-home-reels-polish-20261110/);
-  assert.match(sw,/home-reels\.css/);
+  assert.match(sw,/looply-shell-v51-home-reels-faithful-20261110/);
+  assert.match(sw,/home-reels-model-v3\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "assets"\)/);
@@ -101,13 +101,26 @@ test("service worker e build referenciam os artefatos sem chaves no front",()=>{
 });
 
 
-test("regressão v4: dock não pode ser capturado pelo backdrop-filter do cabeçalho",()=>{
-  const css=read("assets/css/pages/home-reels.css");
-  assert.match(css,/v4 — PARIDADE VISUAL MOBILE-FIRST/);
-  assert.match(css,/\.page-header\.gh\{\s*-webkit-backdrop-filter:none!important;backdrop-filter:none!important/);
-  assert.match(css,/\.page-header\.gh > \.page-navigation\{\s*position:fixed!important;top:auto!important/);
-  assert.match(css,/bottom:calc\(9px \+ env\(safe-area-inset-bottom\)\)!important/);
-  assert.match(css,/\.page-header\.gh::before\{[\s\S]{0,200}backdrop-filter/);
+test("modelo v3: preservar dock de seis destinos separado do cabeçalho",()=>{
+  const css=read("assets/css/pages/home-reels-model-v3.css");
+  for(const rule of [".gh{",".dock{",".hero-panel{",".stories{",".comp1{",".ftool{",".feed{",".post{",".ph{",".pa{",".lb{",".lnk{",".rv{"])assert.ok(css.includes(rule),rule);
+  assert.match(css,/body\.looply-premium \.page-header\.gh \.page-navigation\.dock\{/);
+  assert.match(css,/-webkit-backdrop-filter:none!important;backdrop-filter:none!important/);
+  assert.match(css,/position:fixed!important;left:50%!important;top:auto!important/);
+  assert.match(css,/grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+});
+
+test("modelo v3: componentes reais são transformados em markup do original",()=>{
+ const src=read("src/home-reels-premium.js");
+ for(const x of ["class=\"ftool\"","class=\"chips\"","class=\"vt\"","class=\"srch\"",
+ "class=\"cardx\"","data-premium-stories","head.classList.add(\"comp1\")",
+ "head.classList.add(\"ph\")","media?.classList.add(\"med\")",
+ "actions.classList.add(\"pa\")","summary.dataset.premiumLikers",
+ "element(\"div\",\"lnk\")","element(\"div\",\"qt\")",
+ "element(\"div\",\"cap\")","element(\"div\",\"ts\")","element(\"div\",\"reels\")"])
+  assert.ok(src.includes(x),x);
+ assert.match(src,/social\?\.remove\(\)/);
+ assert.match(src,/root\.dataset/);
 });
 
 test("regressão v4: curtir alterna para descurtir e o teclado não cria recursão de eventos",()=>{
@@ -118,14 +131,18 @@ test("regressão v4: curtir alterna para descurtir e o teclado não cria recurs�
   assert.doesNotMatch(js,/dispatchEvent\(new KeyboardEvent\("keydown"/);
 });
 
-test("regressão v4: controles e embeds são compactos, responsivos e não criam scroll horizontal",()=>{
-  const css=read("assets/css/pages/home-reels.css"),src=read("src/home-reels-premium.js");
-  assert.match(css,/\.premium-composer \.post-add-button\{[\s\S]{0,230}width:44px!important/);
-  assert.match(css,/\.premium-filters\{[\s\S]{0,200}grid-template-columns:auto auto minmax\(0,1fr\) 44px/);
-  assert.match(css,/\.post-instagram-embed,/);
-  assert.match(css,/\.post-card \.post-external iframe,/);
-  assert.match(css,/\.post-card \.post-interactions\{/);
-  assert.match(css,/\.post-media-grid:has\(> \.post-media:only-child\)/);
-  assert.match(src,/const del=by\(card,"\[data-delete-post\]"\)/);
-  assert.match(src,/const shared=by\(card,"\[data-share-in-app\]"\)/);
+test("modelo original v3: sem controles nativos expostos nem embeds externos quebrando cards",()=>{
+ const css=read("assets/css/pages/home-reels-model-v3.css");
+ const src=read("src/home-reels-premium.js");
+ assert.match(css,/\.post-card \.post-controls\{display:none\}/);
+ assert.match(css,/\.post-card \.post-external\{display:none!important\}/);
+ assert.match(css,/\.post-card \.lnk\{/);
+ assert.match(css,/\.post-card \.post-media-grid\.med\{/);
+ assert.match(css,/\.post-card \.post-interactions\.pa\{/);
+ assert.match(css,/\.premium-why-now \.why-now-people\.stories\{/);
+ assert.match(src,/openPostMenu\(card\)/);
+ assert.match(src,/target\.click\(\)/);
+ assert.match(src,/strip\.append\(logo,body\)/);
+ assert.match(src,/if\(caption&&\(media\|\|external\)\)/);
+ assert.doesNotMatch(src,/Simular nova publicação/);
 });
