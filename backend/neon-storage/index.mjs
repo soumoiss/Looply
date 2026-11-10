@@ -213,12 +213,52 @@ async function spotifyAccessToken() {
   spotifyToken = { value: payload.access_token, expiresAt: Date.now() + Math.max(60, Number(payload.expires_in) || 3600) * 1000 };
   return spotifyToken.value;
 }
+/**
+ * Keyless, read-only catalog search from an independent public metadata service.
+ * No anonymous Spotify tokens, streaming links, passwords or user JWTs are
+ * requested, stored, forwarded or sent to the provider. Only title/artist query.
+ * Persist a validated Spotify track ID; playback uses Spotify's official embed.
+ */
+export async function searchSpotifyPublicCatalog(query, headers = {}, fetcher = fetch) {
+  const term = String(query || "").trim().slice(0, 120);
+  if (term.length < 2) return json({ error: "invalid_search_query" }, 400, headers);
+  const params = new URLSearchParams({ q: term, type: "track", limit: "10" });
+  try {
+    const response = await fetcher("https://spotify.xwolf.space/api/search?" + params, {
+      method: "GET", headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(10000), cache: "no-store"
+    });
+    if (!response.ok) throw new Error("public_catalog_http_" + response.status);
+    const payload = await response.json();
+    if (payload?.success !== true || !Array.isArray(payload.results)) throw new Error("public_catalog_invalid");
+    const unique = new Set();
+    const items = payload.results.map(track => {
+      const id = String(track?.id || "");
+      const name = String(track?.title || "").trim().slice(0, 180);
+      const artist = String(track?.artist || "").trim().slice(0, 180);
+      if (!/^[A-Za-z0-9]{22}$/.test(id) || !name || !artist || unique.has(id)) return null;
+      unique.add(id);
+      const cover = String(track?.thumbnail || "");
+      return {
+        id, name, artist,
+        image: /^https:\/\/i\.scdn\.co\/image\/[A-Za-z0-9]+$/.test(cover) ? cover : "",
+        previewUrl: null
+      };
+    }).filter(Boolean).slice(0, 10);
+    return json({ items, source: "spotify_public_catalog" }, 200, {
+      ...headers, "cache-control": "private, max-age=45"
+    });
+  } catch (error) {
+    console.warn("Spotify public catalog unavailable", String(error?.message || error).slice(0, 110));
+    return json({ error: "spotify_public_catalog_unavailable" }, 503, headers);
+  }
+}
 async function spotifySearch(request, headers) {
   const query = new URL(request.url).searchParams.get("q")?.trim() || "";
   if (query.length < 2 || query.length > 120) return json({ error: "invalid_search_query" }, 400, headers);
   try {
     const token = await spotifyAccessToken();
-    if (!token) return json({ error: "spotify_not_configured" }, 503, headers);
+    if (!token) return searchSpotifyPublicCatalog(query, headers);
     const params = new URLSearchParams({ q: query, type: "track", market: "BR", limit: "10" });
     const response = await fetch("https://api.spotify.com/v1/search?" + params, { headers: { authorization: "Bearer " + token }, signal: AbortSignal.timeout(10000) });
     const payload = await response.json().catch(() => ({}));
@@ -243,6 +283,15 @@ export default { async fetch(request) {
   // sending an Origin header; CORS stays restricted to the Looply website.
   if (new URL(request.url).pathname === "/spotify/configuration" && request.method === "GET")
     return json({ configured: Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) }, 200, headers);
+  // Independent live smoke check without a login, query data or secrets.
+  // Caller receives only availability and count, not metadata or an access token.
+  if (new URL(request.url).pathname === "/spotify/catalog-health" && request.method === "GET") {
+    const check = await searchSpotifyPublicCatalog("Anitta", headers);
+    if (!check.ok) return json({ available: false, source: "spotify_public_catalog" }, 503, headers);
+    const payload = await check.json();
+    return json({ available: payload.items.length > 0, source: "spotify_public_catalog",
+      tracks: payload.items.length }, payload.items.length ? 200 : 503, headers);
+  }
   if (origin !== allowedOrigin) return json({ error: "origin_not_allowed" }, 403, headers);
   if (![process.env.NEON_DATA_API_URL, process.env.AWS_ENDPOINT_URL_S3, process.env.AWS_ACCESS_KEY_ID, process.env.AWS_SECRET_ACCESS_KEY, process.env.AWS_REGION].every(Boolean)) return json({ error: "storage_not_configured" }, 503, headers);
   const profileId = await identity(request); if (!profileId) return json({ error: "unauthorized" }, 401, headers);
