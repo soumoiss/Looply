@@ -4,18 +4,18 @@ import { readFile } from "node:fs/promises";
 
 const source = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
-test("Android packaging identifies the experimental 3.0.12 package under review", async () => {
+test("Android packaging identifies the experimental 3.0.13 package under review", async () => {
   const [gradle, workflow] = await Promise.all([
     source("android/app/build.gradle.kts"),
     source(".github/workflows/android-apk.yml")
   ]);
   assert.match(gradle, /applicationId\s*=\s*"com\.looply\.app"/);
-  assert.match(gradle, /versionCode\s*=\s*312\b/);
-  assert.match(gradle, /versionName\s*=\s*"3\.0\.12"/);
-  assert.match(workflow, /versionCode='312'/);
-  assert.match(workflow, /versionName='3\.0\.12'/);
-  assert.match(workflow, /name:\s*Looply-3\.0\.12-debug-apk/);
-  assert.match(workflow, /name:\s*Looply-3\.0\.12-signed-release/);
+  assert.match(gradle, /versionCode\s*=\s*313\b/);
+  assert.match(gradle, /versionName\s*=\s*"3\.0\.13"/);
+  assert.match(workflow, /versionCode='313'/);
+  assert.match(workflow, /versionName='3\.0\.13'/);
+  assert.match(workflow, /name:\s*Looply-3\.0\.13-debug-apk/);
+  assert.match(workflow, /name:\s*Looply-3\.0\.13-signed-release/);
   assert.doesNotMatch(workflow, /Looply-3\.0\.3-signed-release/);
 });
 

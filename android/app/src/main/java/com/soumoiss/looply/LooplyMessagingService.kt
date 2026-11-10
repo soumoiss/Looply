@@ -5,6 +5,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
+import java.util.UUID
+import androidx.core.app.RemoteInput
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -88,7 +91,44 @@ class LooplyMessagingService : FirebaseMessagingService() {
             builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setStyle(NotificationCompat.MessagingStyle(Person.Builder().setName("Você").build())
                     .addMessage(body,System.currentTimeMillis(),person.build()))
-                .addAction(R.drawable.ic_launcher_monochrome,"Responder",pending)
+                .apply {
+                    if (conversationId != null) {
+                        val replyId = UUID.randomUUID().toString()
+                        val replyIntent = Intent(
+                            this@LooplyMessagingService, NativeInlineReplyReceiver::class.java
+                        ).apply {
+                            action = NativeInlineReplyReceiver.ACTION_REPLY
+                            this.data = Uri.parse("looply-native://reply/$replyId")
+                            putExtra(NativeInlineReplyReceiver.EXTRA_CONVERSATION, conversationId)
+                            putExtra(NativeInlineReplyReceiver.EXTRA_MESSAGE_ID, replyId)
+                            putExtra(
+                                NativeInlineReplyReceiver.EXTRA_CREATED_AT,
+                                System.currentTimeMillis()
+                            )
+                        }
+                        // RemoteInput requires a mutable PendingIntent on Android 12+.
+                        // The intent is explicit and its receiver is not exported.
+                        val replyFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+                            (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE
+                             else 0)
+                        val replyPending = PendingIntent.getBroadcast(
+                            this@LooplyMessagingService, replyId.hashCode(),
+                            replyIntent, replyFlags
+                        )
+                        val remoteInput = RemoteInput.Builder(
+                            NativeInlineReplyReceiver.KEY_REPLY
+                        ).setLabel("Mensagem").build()
+                        addAction(
+                            NotificationCompat.Action.Builder(
+                                R.drawable.ic_launcher_monochrome, "Responder", replyPending
+                            ).addRemoteInput(remoteInput).setAllowGeneratedReplies(true).build()
+                        )
+                    } else {
+                        addAction(
+                            R.drawable.ic_launcher_monochrome, "Abrir conversa", pending
+                        )
+                    }
+                }
         }else builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
         val notification=builder.build()
         manager.notify((message.messageId ?: (System.currentTimeMillis().toString()+route)).hashCode(),
