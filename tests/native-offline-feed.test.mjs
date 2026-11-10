@@ -42,7 +42,7 @@ test("native feed is a separate Android Activity with no WebView or HTML runtime
   const db = await readFile(new URL("../android/app/src/main/java/com/soumoiss/looply/NativeFeedStore.kt", import.meta.url), "utf8");
   const main = await readFile(new URL("../android/app/src/main/java/com/soumoiss/looply/MainActivity.kt", import.meta.url), "utf8");
   assert.match(activity, /RecyclerView/);
-  assert.doesNotMatch(activity, /import android\\.webkit\\.WebView|WebView\\(|\\.loadUrl\\(|soumoiss\\.github\\.io/);
+  assert.doesNotMatch(activity, /import android\.webkit\.WebView|WebView\(|\.loadUrl\(|soumoiss\.github\.io/);
   assert.match(db, /SQLiteOpenHelper/);
   assert.match(db, /visibility.*public/);
   assert.match(db, /RETENTION_MS = 7L/);
