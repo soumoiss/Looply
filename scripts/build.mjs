@@ -39,9 +39,9 @@ for (const route of ["cartas", "musicas"]) {
 
 await cp(path.join(projectRoot, "src"), path.join(outputDirectory, "src"), { recursive: true });
 await cp(path.join(projectRoot, "assets"), path.join(outputDirectory, "assets"), { recursive: true });
-// Inclui assets/css/pages/home-reels-model-v3.css e src/home-reels-premium.js em produção.
+// Inclui assets/css/pages/home-reels.css e src/home-reels-premium.js em produção.
 // Nunca copiar o protótipo com dados fictícios nem gerar dois entrypoints por página.
-for (const relative of ["assets/css/pages/home-reels-model-v3.css", "src/home-reels-premium.js"]) {
+for (const relative of ["assets/css/pages/home-reels.css", "src/home-reels-premium.js"]) {
   await readFile(path.join(outputDirectory, relative), "utf8");
 }
 // The approved Chat Ultra sticker library lives in Stickers/, outside assets/.
