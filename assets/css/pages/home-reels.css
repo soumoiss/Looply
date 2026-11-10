@@ -451,8 +451,8 @@ body.looply-premium .looply-reels-scroll .looply-reel-slide{position:relative;wi
 body.looply-premium .looply-reels-scroll .looply-reel-slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 body.looply-premium .looply-reels-scroll .looply-reel-media-stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#000}
 body.looply-premium .looply-reels-scroll .looply-reel-embed{display:block;max-width:100%;border:0;background:#000}
-body.looply-premium .looply-reels-scroll .is-portrait-player .looply-reel-embed{width:min(100vw,calc(100dvh * 9 / 16));height:100dvh}
-body.looply-premium .looply-reels-scroll .is-landscape-player .looply-reel-embed{width:100vw;height:min(100dvh,calc(100vw * 9 / 16))}
+body.looply-premium .looply-reels-scroll .is-portrait-player .looply-reel-embed{width:min(100vw,calc(100dvh * 9 / 16));height:min(100dvh,calc(100vw * 16 / 9))}
+body.looply-premium .looply-reels-scroll .is-landscape-player .looply-reel-embed{width:min(100vw,calc(100dvh * 16 / 9));height:min(100dvh,calc(100vw * 9 / 16))}
 body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane{position:absolute;z-index:3;top:15%;bottom:18%;width:8%;touch-action:pan-y}
 body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane.is-left{left:0}
 body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane.is-right{right:0}
@@ -479,3 +479,10 @@ body.looply-premium .looply-reels-scroll .rvcount{position:absolute;top:calc(env
 body.looply-premium .looply-reels-scroll .premium-viewer-save[aria-pressed="true"]{color:#e5afff}
 body.looply-premium .premium-video-progress{transition:width .1s linear}
 @media(max-width:380px){body.looply-premium .looply-reels-scroll .looply-reels-bottom{right:80px}body.looply-premium .looply-reels-scroll .looply-reels-rail{gap:8px;bottom:calc(env(safe-area-inset-bottom) + 115px)}}
+
+body.looply-premium .looply-reels-scroll [data-reels-creator] .post-author-profile{display:flex;align-items:center;gap:8px;min-height:44px;background:transparent;color:#fff;border:0;text-align:left}
+body.looply-premium .looply-reels-scroll [data-reels-creator] strong{color:#fff;font-weight:800;font-size:14px}
+body.looply-premium .looply-reels-scroll [data-reels-creator] time{display:block;color:#fff;opacity:.85;font-size:12px}
+body.looply-premium .looply-reels-scroll [data-reels-creator] .post-avatar{width:40px;height:40px;border-radius:50%;overflow:hidden}
+body.looply-premium .looply-reels-scroll [data-reels-creator] .post-avatar img{width:100%;height:100%;object-fit:cover}
+body.looply-premium .looply-reels-scroll .looply-reels-audio{color:#fff}
