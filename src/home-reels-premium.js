@@ -470,31 +470,46 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     return min<1?"agora":min<60?min+" min":min<1440?Math.floor(min/60)+" h":Math.floor(min/1440)+" d";
   }
   let reelSignature="";
+
   function updateReelsStrip(){
     if(!isHome)return;
-    const signature=all(root,'[data-post-card][data-has-reel="true"]').map(card=>card.dataset.postCard).join('|');
+    const cards=all(root,'[data-post-card][data-has-reel="true"]');
+    const signature=cards.map(card=>card.dataset.postCard).join("|");
     if(signature===reelSignature)return;
     reelSignature=signature;
     let section=by(scene,"[data-premium-reels]");
     if(!section){
       section=element("section","reels-section");section.dataset.premiumReels="";
-      const heading=element("div","h2");const title=element("h2","", "Reels");
-      heading.append(title);section.append(heading,element("div","premium-reel-strip"));
+      const heading=element("div","h2");
+      const title=element("h2","","Reels em alta");
+      const more=element("a","", "Assistir todos ↗");more.href="reels.html";
+      more.style.cssText="font-size:12px;color:var(--muted);text-decoration:none;font-weight:700";
+      heading.append(title,more);section.append(heading,element("div","reels"));
       by(scene,"#feed").after(section);
     }
-    const strip=by(section,".premium-reel-strip");strip.replaceChildren();
-    for(const card of all(root,'[data-post-card][data-has-reel="true"]').slice(0,15)){
+    const strip=by(section,".reels");strip.replaceChildren();
+    for(const card of cards.slice(0,15)){
       const open=by(card,"[data-open-reel],[data-open-external-reel]");
-      const media=by(card,"video,img");
-      if(!open || !media)continue;
-      const tile=makeButton("","premium-reel-tile","Assistir reel");
+      const media=by(card,".post-media video,.post-media img");
+      if(!open)continue;
+      const tile=makeButton("","rl","Assistir Reel");
       tile.dataset.premiumOpenReel=open.getAttribute("data-open-reel")||open.getAttribute("data-open-external-reel");
-      const preview=media.cloneNode(false);preview.removeAttribute("id");preview.removeAttribute("autoplay");preview.removeAttribute("controls");preview.removeAttribute("data-feed-reel-id");preview.removeAttribute("data-feed-video");preview.removeAttribute("data-open-reel");preview.removeAttribute("src");
-      if(media.tagName==="IMG")preview.src=media.currentSrc||media.src;
-      else{preview.poster=media.poster||"";preview.preload="none";}
-      tile.append(preview);
-      const name=by(card,".post-author strong")?.textContent||"Reel";
-      tile.append(element("span","",name));strip.append(tile);
+      if(media){
+        let preview;
+        if(media.tagName==="IMG"){
+          preview=media.cloneNode(false);preview.removeAttribute("id");
+        }else if(media.poster){
+          preview=document.createElement("img");preview.src=media.poster;preview.alt="";
+        }
+        if(preview)tile.append(preview);
+      }
+      const play=element("span","pi");play.innerHTML=ICONS.play;tile.append(play);
+      const overlay=element("span","ov");
+      const author=by(card,".post-author-profile strong")?.textContent?.trim()||"Reel";
+      const caption=by(card,".cap")?.textContent?.trim()||"";
+      overlay.append(element("span","uinfo",author));
+      if(caption)overlay.append(element("span","cap",caption.slice(0,90)));
+      tile.append(overlay);strip.append(tile);
     }
     section.hidden=!strip.children.length;
   }
