@@ -92,7 +92,7 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v53-salvos-share-20261110/);
+  assert.match(sw,/looply-shell-v54-reels-clean-autoplay-20261110/);
   assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
