@@ -62,6 +62,20 @@
       seen: Boolean(story.seen), catalogMusic: story.music || null, duration: story.duration || 15, items: [], strokes: [], filter: "none"
     };
   }
+  // The create sheet can always reach previously published moments without
+  // making the owner avatar open the viewer by default.
+  function ownPublishedRecords() {
+    const group = ownGroup();
+    return group ? storiesOf(group).filter(st => st.url).map(st => contentRecord(st, group)) : [];
+  }
+  window.whyNowOwnPublishedCount = () => ownPublishedRecords().length;
+  window.whyNowShowOwnPublished = () => {
+    const published = ownPublishedRecords();
+    if (!published.length) return false;
+    openViewer(published, 0, "home");
+    return true;
+  };
+
   function avatarNode(g) {
     const el = document.createElement("span");
     el.className = "avatar";
@@ -92,11 +106,11 @@
       const ring = document.createElement("span");
       ring.className = "ring" + (stories.length && stories.every(st => st.seen) ? " seen" : "") + (own && !stories.length ? " own" : "");
       const inner = document.createElement("span"); inner.className = "inner"; inner.append(avatarNode(group)); ring.append(inner);
-      if (own && !stories.length) { const plus = document.createElement("span"); plus.className = "own-plus"; plus.textContent = "+"; ring.append(plus); }
+      if (own) { const plus = document.createElement("span"); plus.className = "own-plus"; plus.textContent = "+"; ring.append(plus); }
       const name = document.createElement("span"); name.textContent = own ? (stories.length ? "Seu Why Now" : "Criar agora") : group.name;
       item.append(ring, name);
       item.onclick = () => {
-        if (!stories.length && own) { openCreateSourcePicker(); return; }
+        if (own) { openCreateSourcePicker(); return; }
         const records = stories.filter(st => st.url).map(st => contentRecord(st, group));
         if (records.length) openViewer(records, 0, "home");
       };
