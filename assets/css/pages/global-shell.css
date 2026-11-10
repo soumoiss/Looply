@@ -360,3 +360,34 @@ body.looply-admin-premium .app{padding-bottom:calc(165px + env(safe-area-inset-b
   body.looply-chat-ultra-live #gh .brand .mark svg,
   body.looply-admin-premium #gh .brand .mark svg{animation:none!important}
 }
+
+
+/* Hide the shared dock while the real chat composer owns the keyboard. */
+body.looply-page.page-chat:has(textarea:focus) .page-header[data-site-header] > nav.page-navigation,
+body.looply-page.page-conversation:has(.chat-keyboard-open) .page-header[data-site-header] > nav.page-navigation{
+  display:none!important;
+}
+
+/* Match the Music tab's original ring structure in standalone Chat and ADM. */
+body.looply-chat-ultra-live #gh .brand .mark > .circle,
+body.looply-admin-premium #gh .brand .mark > .circle{
+  width:36px!important;height:36px!important;
+  display:grid!important;place-items:center!important;
+  margin:0!important;padding:0!important;
+  border:4px solid var(--primary)!important;border-radius:50%!important;
+  color:var(--primary)!important;
+  background:transparent!important;
+  animation:looply-global-mark-rotate 3s linear infinite!important;
+}
+body.looply-chat-ultra-live #gh .brand .mark .circle > svg,
+body.looply-admin-premium #gh .brand .mark .circle > svg{
+  width:20px!important;height:20px!important;
+  padding:0!important;border:0!important;border-radius:0!important;
+  color:inherit!important;animation:none!important;
+}
+@media(prefers-reduced-motion:reduce){
+  body.looply-chat-ultra-live #gh .brand .mark > .circle,
+  body.looply-admin-premium #gh .brand .mark > .circle{
+    animation:none!important;
+  }
+}
