@@ -58,8 +58,8 @@ test("Editor and viewer new actions have production handlers instead of dead dem
 test("Visual system loads last with full-screen contain media, owner and reply toolbars",()=>{
   const css=read("assets/css/pages/stories-four-screens.css");
   const home=read("home.html");
-  assert.match(home,/stories-four-screens\.css/);
-  assert.ok(home.indexOf("stories-four-screens.css") > home.indexOf("story-studio.css"));
+  assert.match(home,/home-reels\.css/);
+  assert.doesNotMatch(home,/href="[^"]*stories-four-screens\.css/);
   assert.match(css,/\.story-viewer-dialog \.story-viewer-owner-actions/);
   assert.match(css,/\.story-viewer-dialog \.story-viewer-reply-actions/);
   assert.match(css,/\.story-studio \.studio-capture-row/);
