@@ -21,7 +21,7 @@ function fixture(){
  '<section class="story-area" id="stories"><div class="why-now-mount"><div class="why-now-header">Why Now</div><div class="why-now-people"><button class="why-now-person"><span class="why-now-person-ring"><span class="why-now-person-face">T</span></span><span class="why-now-person-label">Seu Why Now</span></button><button class="why-now-person"><span class="why-now-person-ring"><span class="why-now-person-face">A</span></span><span class="why-now-person-label">Amiga</span></button></div></div></section>',
  '<a class="looply-music-of-day" data-global-music href="musicas.html"><span class="looply-music-of-day-copy"><strong>Música do dia</strong></span></a>',
  '<section class="social-area"><div class="social-heading"><h2>Publicações</h2></div>',
- '<form class="post-composer" data-social-post><header class="post-composer-heading"><span class="post-compose-pen">✒</span><strong>Nova publicação</strong><button type="button" data-toggle-composer class="post-add-button">+</button></header><div class="post-composer-fields" data-composer-fields hidden><textarea name="body"></textarea></div></form>',
+ '<form class="post-composer" data-social-post><header class="post-composer-heading"><span class="post-compose-pen">✒</span><strong>Nova publicação</strong><button type="button" data-toggle-composer class="post-add-button">+</button></header><div class="post-composer-fields" data-composer-fields hidden><div class="post-create-header"><button type="button" data-close-composer>Fechar</button><strong>Nova publicação</strong><button type="submit">Publicar</button></div><div class="post-create-preview"><p class="post-preview-empty">Preview</p></div><button type="button" data-select-post-media>Selecionar fotos e vídeos</button><label for="postBody">Legenda</label><textarea id="postBody" name="body"></textarea><input id="postFiles" name="media" type="file"><div class="composer-options"><label for="postVisibility">Quem pode ver?</label><select id="postVisibility" name="visibility"><option value="public">Público</option><option value="private">Só eu</option><option value="selected">Pessoas escolhidas</option></select><button type="submit">Publicar</button></div><div class="recipient-picker" data-recipient-picker hidden><label for="postRecipients">Pessoas</label><select id="postRecipients" name="recipientIds" multiple><option value="friend-a">Amiga · @amiga</option><option value="friend-b">Colega · @colega</option></select></div><div data-status></div></div></form>',
  '<div class="feed-list" data-social-feed><article class="post-card" data-post-card="post-a">',
  '<header class="post-header"><div class="post-author"><button type="button" class="post-author-profile" data-profile-open="me"><span class="post-avatar">T</span><div><strong>Teste @teste</strong><time>Hoje</time></div></button></div><div class="post-controls"><span class="visibility-pill">Público</span><button type="button" data-delete-post="post-a">Excluir</button></div></header>',
  '<div class="post-media-grid" data-feed-carousel><figure class="post-media"><img src="'+IMG+'" alt="Foto"></figure></div><p class="post-body">Legenda da publicação</p>',
@@ -33,7 +33,7 @@ function fixture(){
  '<script type="module">',
  'import {mountPremiumSurface} from "/src/home-reels-premium.js";',
  'function q(table){const x={select(){return x},eq(){return x},neq(){return x},order(){return x},limit(){return x},in(){return Promise.resolve({data:[],error:null})},maybeSingle(){return Promise.resolve({data:null,error:null})},then(resolve,reject){return Promise.resolve({data:table==="profiles"?[{id:"friend-a",username:"amiga",display_name:"Amiga"},{id:"friend-b",username:"colega",display_name:"Colega"}]:[],error:null}).then(resolve,reject)}};return x;}',
- 'window.shareCalls=[];const client={from:q,functions:{invoke:async(name,{body})=>{window.shareCalls.push(body);return {data:{conversationId:"conv-"+body.targetId},error:null}}},rpc:async(name,args)=>({data:name==="v13_set_post_reaction"?{emoji:args.p_emoji,count:args.p_emoji?2:1}:name==="v13_post_engagement_page"?{total:1,summary:{"❤️":1},items:[{id:"friend-a",username:"amiga",display_name:"Amiga",emoji:"❤️"}]}:{},error:null})};',
+ 'window.shareCalls=[];const client={from:q,functions:{invoke:async(name,{body})=>{window.shareCalls.push(body);return {data:{conversationId:"conv-"+body.targetId},error:null}}},rpc:async(name,args)=>({data:name==="v13_set_post_reaction"?{emoji:args.p_emoji,count:args.p_emoji?2:1}:name==="v13_post_engagement_page"?{total:1,summary:{"❤️":1},items:[{id:"friend-a",username:"amiga",display_name:"Amiga",emoji:"❤️"}]}:name==="v13_set_post_saved"?Boolean(args.p_saved):{},error:null})};',
  'mountPremiumSurface({root:document.querySelector("#pageContent"),client,user:{id:"me"},profile:{username:"teste",display_name:"Teste"},mode:"native",refresh:async()=>true});',
  'window.modelFixtureReady=true;',
  '</script></body></html>'
@@ -45,6 +45,7 @@ const server=createServer(async(req,res)=>{
   if(pathname==="/__model__"){res.writeHead(200,{"content-type":"text/html; charset=utf-8"});res.end(fixture());return;}
   if(pathname==="/src/profile-api.js"){res.writeHead(200,{"content-type":"text/javascript"});res.end("export async function signPeople(c,items){return items}");return;}
   if(pathname==="/src/secret-messages.js"){res.writeHead(200,{"content-type":"text/javascript"});res.end("export async function mountSecretMessages(){}");return;}
+  if(pathname==="/src/social.js"){res.writeHead(200,{"content-type":"text/javascript"});res.end('export async function loadSavedSocialPage(c,id,offset){return {posts:offset?[]:[{id:"post-a",body:"Foto salva",external_url:null,author:{id:"friend-a",username:"amiga",display_name:"Amiga"},media:[]}],nextOffset:offset+1,hasMore:false}}');return;}
   if(!/^\/(?:src\/[a-zA-Z0-9_./-]+\.js|assets\/css\/[a-zA-Z0-9_./-]+\.css|styles\.css)$/.test(pathname)||pathname.includes("..")){res.writeHead(404);res.end();return;}
   const data=await readFile(join(ROOT,pathname.slice(1)));
   res.writeHead(200,{"content-type":extname(pathname)===".css"?"text/css":"text/javascript"});res.end(data);
@@ -129,6 +130,20 @@ try{
    await page.locator("[data-premium-save=post-a]").click();
    await page.waitForTimeout(80);
    assert.equal(await page.locator("[data-premium-save=post-a]").getAttribute("aria-pressed"),"true");
+   await page.locator("[data-open-saved]").click();
+   await page.locator(".looply-saved-item").first().waitFor();
+   assert.equal(await page.locator(".looply-saved-person small").textContent(),"@amiga");
+   await page.locator("[data-saved-remove=post-a]").click();
+   await page.waitForFunction(()=>document.querySelector("[data-saved-grid]")?.children.length===0);
+   assert.equal(await page.locator("[data-saved-status]").textContent(),"Nenhum salvo");
+   await page.locator("[data-saved-close]").click();
+   await page.locator("[data-premium-compose]").click();
+   await page.locator("#postVisibility").selectOption("selected");
+   await page.locator("[data-compose-person=friend-a]").click();
+   await page.locator("[data-compose-person=friend-b]").click();
+   assert.deepEqual(await page.locator("#postRecipients option:checked").evaluateAll(items=>items.map(i=>i.value)),["friend-a","friend-b"]);
+   assert.equal(await page.locator(".looply-compose-person[aria-pressed=true]").count(),2);
+   await page.keyboard.press("Escape");
    await page.screenshot({path:join(OUT,"native-390-interactions.png")});
   }
   await ctx.close();
