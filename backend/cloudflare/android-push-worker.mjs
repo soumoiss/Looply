@@ -360,7 +360,11 @@ export async function dispatchImmediateChat(env,{
     "access-control-allow-methods":"POST,OPTIONS",
     "access-control-allow-headers":"authorization,content-type",
     "cache-control":"no-store","vary":"Origin"};
-  if(request.headers.get("origin")!==CALL_ORIGIN)
+  // Android's authenticated Direct Reply POST has no browser Origin.
+  // Keep browser origins restricted, but authorize originless native requests
+  // strictly through the Neon JWT/RLS RPC below.
+  const origin=request.headers.get("origin");
+  if(origin && origin!==CALL_ORIGIN)
     return Response.json({error:"forbidden_origin"},{status:403});
   if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
   if(request.method!=="POST")
