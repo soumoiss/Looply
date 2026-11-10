@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { dedicationTrackFromUrl, normalizeDedicationTrack, spotifyTrackFromLink, searchDedicationProvider } from "../src/music-track-dedications.js";
+import { dedicationTrackFromUrl, normalizeDedicationTrack, searchDedicationProvider } from "../src/music-track-dedications.js";
 import { musicEmbedForUrl, musicPlayerMarkup, musicMarkup } from "../src/music.js";
 import { deleteOwnDedication } from "../src/music-dedication-delete.js";
 
@@ -19,11 +19,9 @@ test("Spotify: only one track, never an album, playlist, artist or remote host",
     assert.equal(musicEmbedForUrl("https://open.spotify.com/" + kind + "/" + spotifyId),null);
   }
   assert.equal(dedicationTrackFromUrl("https://open.spotify.com.evil.example/track/" + spotifyId), null);
-  const song = spotifyTrackFromLink(spotifyUrl,"Canção","Artista");
+  const song = normalizeDedicationTrack({provider:"spotify",id:spotifyId,title:"Canção",artist:"Artista",url:spotifyUrl});
   assert.equal(song?.provider,"spotify");
   assert.equal(song?.url,spotifyUrl);
-  assert.equal(spotifyTrackFromLink(spotifyUrl,"","Artista"),null);
-  assert.equal(spotifyTrackFromLink("https://open.spotify.com/playlist/" + spotifyId,"Canção","Artista"),null);
   const widget = musicPlayerMarkup({title:"Canção",artist:"Artista",listen_url:spotifyUrl});
   assert.match(widget,/open\.spotify\.com\/embed\/track\//);
   assert.doesNotMatch(widget,/embed\/(?:album|playlist)/);
@@ -124,4 +122,26 @@ test("SQL exposes no direct REST deletion and authenticates sender_id inside a D
   assert.match(controller,/data-music-provider="spotify"/);
   assert.match(controller,/data-music-provider="apple"/);
   assert.match(controller,/deleteOwnDedication\(client,dedicationId,userId\)/);
+});
+
+test("Spotify dedication UI uses only the search, official preview and selection — never a URL form", async () => {
+  const data={
+    people:[],peopleError:null,dedications:[],dedicationsError:null,
+    library:[],libraryError:null,generalComments:[],generalCommentsError:null
+  };
+  const html=musicMarkup(data,"sender");
+  assert.match(html,/data-music-provider="spotify"/);
+  assert.match(html,/data-music-catalog-query/);
+  assert.match(html,/data-music-search-results/);
+  assert.match(html,/data-music-song-preview|data-music-search-preview/);
+  assert.match(html,/data-music-picker-confirm/);
+  assert.doesNotMatch(html,/data-music-spotify-link|data-music-spotify-url|data-music-spotify-title|data-music-spotify-artist|data-music-spotify-use/);
+  assert.doesNotMatch(html,/Colar faixa do Spotify|Link da música|Usar esta faixa/);
+  const controller=await source("src/music.js");
+  assert.match(controller,/searchDedicationProvider\(normalized, musicProvider, client/);
+  assert.match(controller,/officialSongPreview\(song\)/);
+  assert.match(controller,/applySelectedSong\(catalogSongs\[selectedCatalogIndex\]\)/);
+  assert.doesNotMatch(controller,/spotifyTrackFromLink|Cole o link|data-music-spotify-use/);
+  const module=await source("src/music-track-dedications.js");
+  assert.doesNotMatch(module,/spotifyTrackFromLink/);
 });
