@@ -75,6 +75,17 @@ async function loadUnreadNotifications(client) {
 
 async function refreshUnreadBadge(header, client) {
   const count = await loadUnreadNotifications(client);
+  // The Ultra chat has a visible custom header; its authenticated runtime
+  // lives outside the viewport. Reflect the SAME real notifications count.
+  const ultraNotice=document.querySelector("body.looply-chat-ultra-live #gh .global-chat-notification");
+  if(ultraNotice){
+    let badge=ultraNotice.querySelector(".navigation-badge");
+    if(count>0){
+      if(!badge){badge=document.createElement("span");badge.className="navigation-badge";ultraNotice.append(badge);}
+      badge.textContent=count>99?"99+":String(count);
+      badge.setAttribute("aria-label",count+" avisos não lidos");
+    }else badge?.remove();
+  }
   const link = header.querySelector('.header-notifications[href="notificacoes.html"]');
   if (!link) return;
   let badge = link.querySelector(".navigation-badge");

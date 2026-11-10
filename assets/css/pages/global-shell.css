@@ -1,0 +1,427 @@
+/* Looply canonical global shell, 2026-11-10.
+   Header geometry and six-destination dock = Início.
+   Animated mark + Cabin Sketch letterforms = Músicas.
+   Everything uses the actual profile theme variables; never hardcode a palette. */
+@keyframes looply-global-mark-rotate{to{transform:rotate(360deg)}}
+
+body.looply-page .page-header[data-site-header]{
+  position:sticky!important;
+  top:calc(env(safe-area-inset-top,0px) + 8px)!important;
+  z-index:700!important;
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  gap:8px!important;
+  box-sizing:border-box!important;
+  width:min(700px,calc(100vw - 20px))!important;
+  min-width:0!important;
+  max-width:700px!important;
+  min-height:62px!important;
+  height:auto!important;
+  margin:8px auto 14px!important;
+  padding:8px 10px!important;
+  border:1px solid color-mix(in srgb,var(--surface-strong,#fff) 58%,transparent)!important;
+  border-radius:22px!important;
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--surface-strong,#fff) 76%,transparent),
+    color-mix(in srgb,var(--bg,#f5f0fa) 59%,transparent))!important;
+  box-shadow:inset 0 1.5px 0 color-mix(in srgb,#fff 60%,transparent),
+    0 14px 34px color-mix(in srgb,var(--primary,#7010b0) 14%,transparent)!important;
+  /* A filter/backdrop on a HEADER captures fixed descendants, causing the
+     dock to appear at the top. Glass blur lives on ::before instead. */
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  transform:none!important;
+  filter:none!important;
+  will-change:auto!important;
+  contain:none!important;
+  isolation:auto!important;
+}
+body.looply-page .page-header[data-site-header]::before{
+  content:"";
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  border-radius:inherit;
+  background:linear-gradient(112deg,
+    color-mix(in srgb,#fff 16%,transparent),
+    transparent 35%,transparent 75%,
+    color-mix(in srgb,#fff 8%,transparent));
+  -webkit-backdrop-filter:blur(17px) saturate(190%);
+  backdrop-filter:blur(17px) saturate(190%);
+}
+body.looply-page .page-header[data-site-header] > :not(.page-navigation){
+  position:relative;z-index:1;
+}
+body.looply-page .page-header[data-site-header] > .header-back-button{
+  display:none!important; /* Home is already one of the six global destinations. */
+}
+
+/* Exactly the Músicas brand text and animated ring, also on Home. */
+body.looply-page .page-header[data-site-header] .brand-inline{
+  display:flex!important;align-items:center!important;gap:11px!important;
+  flex:1 1 auto!important;min-width:0!important;min-height:44px!important;
+  margin:0!important;padding:0!important;border:0!important;
+  background:none!important;box-shadow:none!important;
+  text-decoration:none!important;color:var(--text)!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline > .brand-mark.brand-mark-animated{
+  flex:0 0 42px!important;
+  width:42px!important;height:42px!important;
+  display:grid!important;place-items:center!important;
+  padding:0!important;margin:0!important;
+  border:0!important;border-radius:50%!important;
+  color:var(--primary)!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  animation:none!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline .brand-mark-animated > .circle{
+  width:36px!important;height:36px!important;max-width:36px!important;
+  display:grid!important;place-items:center!important;
+  margin:0!important;padding:0!important;
+  border:4px solid currentColor!important;border-radius:50%!important;
+  background:transparent!important;color:var(--primary)!important;
+  box-shadow:none!important;
+  animation:looply-global-mark-rotate 3s linear infinite!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline .brand-mark-animated svg{
+  width:20px!important;height:20px!important;
+  color:inherit!important;
+  animation:none!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline > span:not(.brand-mark){
+  display:block!important;min-width:0!important;margin:0!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline > span:not(.brand-mark) > strong{
+  display:block!important;
+  font-family:"Cabin Sketch",cursive!important;
+  font-size:29px!important;
+  font-weight:700!important;
+  letter-spacing:0!important;
+  line-height:1!important;
+  color:var(--primary)!important;
+}
+body.looply-page .page-header[data-site-header] .brand-inline > span:not(.brand-mark) > span{
+  display:block!important;
+  margin-top:1px!important;
+  font-family:var(--looply-font-family,Inter,sans-serif)!important;
+  font-size:11px!important;line-height:1.15!important;
+  font-weight:500!important;letter-spacing:.04em!important;
+  color:var(--muted)!important;
+}
+body.looply-page .page-header[data-site-header] .header-notifications{
+  flex:0 0 44px!important;
+  width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;
+  display:grid!important;place-items:center!important;
+  padding:0!important;margin:0!important;
+  border:1px solid var(--line)!important;border-radius:14px!important;
+  background:var(--surface-strong)!important;
+  box-shadow:none!important;color:var(--muted)!important;
+  text-decoration:none!important;
+}
+body.looply-page .page-header[data-site-header] .header-notifications .looply-icon,
+body.looply-page .page-header[data-site-header] .header-notifications svg{
+  width:21px!important;height:21px!important;
+}
+body.looply-page .page-header[data-site-header] .header-notifications .navigation-badge{
+  top:0!important;right:0!important;z-index:2;
+}
+body.looply-page .page-header[data-site-header] .looply-account-menu{
+  flex:0 0 auto!important;position:relative!important;
+  margin:0!important;z-index:3!important;
+}
+body.looply-page .page-header[data-site-header] .looply-account-menu > summary{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  width:50px!important;height:50px!important;min-width:50px!important;min-height:50px!important;
+  padding:3px!important;margin:0!important;
+  border:1px solid var(--line)!important;border-radius:99px!important;
+  background:var(--surface-strong)!important;
+}
+body.looply-page .page-header[data-site-header] .looply-account-menu > summary > span:not(:first-child){
+  display:none!important;
+}
+body.looply-page .page-header[data-site-header] .looply-account-menu .looply-user-avatar,
+body.looply-page .page-header[data-site-header] .looply-account-menu .looply-user-initial{
+  display:grid!important;place-items:center!important;
+  width:42px!important;height:42px!important;border-radius:50%!important;
+  object-fit:cover!important;flex:0 0 42px!important;
+}
+body.looply-page .page-header[data-site-header] .account-menu-popover{
+  z-index:1800!important;
+}
+
+/* Six canonical destinations, matching Home on every signed-in page. */
+body.looply-page .page-header[data-site-header] > nav.page-navigation{
+  position:fixed!important;z-index:1000!important;
+  left:50%!important;right:auto!important;top:auto!important;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%)!important;
+  display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  justify-content:stretch!important;align-items:center!important;
+  flex:none!important;
+  gap:2px!important;
+  width:min(calc(100vw - 20px),560px)!important;
+  max-width:560px!important;min-width:0!important;
+  height:auto!important;max-height:none!important;
+  padding:5px!important;margin:0!important;
+  overflow:visible!important;
+  border:1px solid color-mix(in srgb,var(--surface-strong,#fff) 58%,transparent)!important;
+  border-radius:28px!important;
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--surface-strong,#fff) 81%,transparent),
+    color-mix(in srgb,var(--bg,#f5f0fa) 76%,transparent))!important;
+  -webkit-backdrop-filter:blur(20px) saturate(190%)!important;
+  backdrop-filter:blur(20px) saturate(190%)!important;
+  box-shadow:inset 0 1.5px 0 color-mix(in srgb,#fff 60%,transparent),
+    0 16px 40px color-mix(in srgb,var(--primary,#7010b0) 18%,transparent)!important;
+  isolation:isolate!important;
+}
+body.looply-page .page-header[data-site-header] > nav.page-navigation .header-action{
+  display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;
+  gap:2px!important;
+  position:relative!important;z-index:1!important;
+  flex:0 0 auto!important;
+  width:100%!important;min-width:0!important;
+  height:54px!important;min-height:54px!important;
+  margin:0!important;padding:3px 1px!important;
+  border:0!important;border-radius:20px!important;
+  background:transparent!important;
+  color:var(--muted)!important;
+  font:700 10px/1.1 var(--looply-font-family,Inter,sans-serif)!important;
+  text-align:center!important;
+  box-shadow:none!important;
+  text-decoration:none!important;
+}
+body.looply-page .page-header[data-site-header] > nav.page-navigation .header-action[aria-current="page"]{
+  color:var(--primary)!important;
+}
+body.looply-page .page-header[data-site-header] > nav.page-navigation .page-navigation-label{
+  display:block!important;max-width:100%!important;min-width:0!important;
+  font:700 10px/1.1 var(--looply-font-family,Inter,sans-serif)!important;
+  overflow:hidden!important;white-space:nowrap!important;text-overflow:ellipsis!important;
+}
+body.looply-page .page-header[data-site-header] > nav.page-navigation .page-navigation-icon,
+body.looply-page .page-header[data-site-header] > nav.page-navigation .page-navigation-icon .looply-icon{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:22px!important;height:22px!important;flex:0 0 22px!important;
+  color:inherit!important;
+}
+body.looply-page .page-header[data-site-header] > nav.page-navigation .nav-liquid{
+  z-index:0!important;border-radius:20px!important;
+}
+body.looply-page .container-page{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
+body.looply-page .looply-footer{padding-bottom:0!important}
+body.looply-page .header-notifications:focus-visible,
+body.looply-page .page-navigation a:focus-visible,
+body.looply-page .brand-inline:focus-visible,
+body.looply-page .looply-account-menu > summary:focus-visible{
+  outline:3px solid var(--primary)!important;outline-offset:2px!important;
+}
+@media(max-width:360px){
+  body.looply-page .page-header[data-site-header]{
+    gap:6px!important;padding-inline:8px!important;
+  }
+  body.looply-page .page-header[data-site-header] .brand-inline{gap:7px!important}
+  body.looply-page .page-header[data-site-header] .brand-inline > span:not(.brand-mark) > strong{font-size:26px!important}
+  body.looply-page .page-header[data-site-header] > nav.page-navigation .page-navigation-label{font-size:9px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  body.looply-page .page-header[data-site-header] .brand-mark-animated > .circle{animation:none!important}
+}
+
+/* Keep the music FAB above the global dock on desktop AND mobile. */
+body.looply-page.page-music .music-v6 .music-v6-fab{
+  bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;
+}
+
+/* The Chat is a standalone Ultra UI and has its own visible .gh/#dock.
+   Reuse the same brand+theme/nav geometry without changing its message backend. */
+body.looply-chat-ultra-live #gh .brand{min-width:0!important}
+body.looply-chat-ultra-live #gh .brand .mark{
+  flex:0 0 42px!important;width:42px!important;height:42px!important;
+  display:grid!important;place-items:center!important;
+  margin:0!important;padding:0!important;
+  background:transparent!important;border:0!important;border-radius:50%!important;
+  box-shadow:none!important;color:var(--primary)!important;
+}
+body.looply-chat-ultra-live #gh .brand .mark svg{
+  width:36px!important;height:36px!important;
+  padding:3px!important;border:4px solid currentColor!important;border-radius:50%!important;
+  color:var(--primary)!important;
+  animation:looply-global-mark-rotate 3s linear infinite!important;
+}
+body.looply-chat-ultra-live #gh .brand strong{
+  font-family:"Cabin Sketch",cursive!important;font-size:29px!important;
+  font-weight:700!important;line-height:1!important;color:var(--primary)!important;
+}
+body.looply-chat-ultra-live #gh .global-chat-notification{
+  flex:0 0 44px!important;width:44px;height:44px;min-height:44px;
+  display:grid;place-items:center;position:relative;
+  border:1px solid var(--line);border-radius:14px;
+  background:var(--strong);color:var(--muted);text-decoration:none;
+}
+body.looply-chat-ultra-live #gh .global-chat-notification svg{width:21px;height:21px}
+body.looply-chat-ultra-live #gh .global-chat-notification .navigation-badge{
+  position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;
+  display:grid;place-items:center;padding:0 4px;border-radius:50%;
+  font-size:10px;font-weight:800;color:#fff;background:#cf3154;
+}
+body.looply-chat-ultra-live #dock{
+  z-index:1000!important;
+  display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:2px!important;width:min(calc(100vw - 20px),560px)!important;
+  padding:5px!important;bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
+}
+body.looply-chat-ultra-live #dock a.header-action{
+  position:relative;z-index:1;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:2px;min-width:0;
+  height:54px;min-height:54px;padding:3px 1px;border:0;border-radius:20px;
+  background:transparent;color:var(--muted);box-shadow:none;
+  font:700 10px/1.1 var(--ui,Inter,sans-serif);text-align:center;text-decoration:none;
+}
+body.looply-chat-ultra-live #dock a.header-action[aria-current="page"]{color:var(--primary)}
+body.looply-chat-ultra-live #dock .page-navigation-icon,
+body.looply-chat-ultra-live #dock .page-navigation-icon svg{
+  width:22px;height:22px;display:grid;place-items:center;flex:0 0 22px;
+}
+body.looply-chat-ultra-live #dock .page-navigation-label{
+  display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-size:10px;
+}
+body.looply-chat-ultra-live #dock .liq{z-index:0}
+body.looply-chat-ultra-live #gh .brand:focus-visible,
+body.looply-chat-ultra-live #dock a:focus-visible,
+body.looply-chat-ultra-live #gh .global-chat-notification:focus-visible{
+  outline:3px solid var(--primary);outline-offset:2px;
+}
+/* Chat message thread remains immersive with its own contact header/keyboard. */
+body.looply-chat-ultra-live:has(#conv[style*="display: flex"]) #dock,
+body.looply-chat-ultra-live:has(#conv[style*="display:flex"]) #dock{
+  display:none!important;
+}
+
+/* The ADM panel has its own four-module internal navigation. Keep it usable,
+   but add the SAME six global destinations beneath, instead of replacing modules. */
+body.looply-admin-premium #gh .brand .mark{
+  display:grid!important;place-items:center!important;
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  width:42px!important;height:42px!important;color:var(--primary)!important;
+}
+body.looply-admin-premium #gh .brand .mark svg{
+  width:36px!important;height:36px!important;padding:3px!important;
+  border:4px solid currentColor!important;border-radius:50%!important;
+  color:var(--primary)!important;
+  animation:looply-global-mark-rotate 3s linear infinite!important;
+}
+body.looply-admin-premium #gh .brand strong{
+  font-family:"Cabin Sketch",cursive!important;font-size:29px!important;
+  font-weight:700!important;color:var(--primary)!important;
+}
+body.looply-admin-premium #gh .global-chat-notification{
+  display:grid;place-items:center;flex:0 0 44px;
+  width:44px;height:44px;border:1px solid var(--line);border-radius:14px;
+  color:var(--muted);background:var(--strong);text-decoration:none;
+}
+body.looply-admin-premium #gh .global-chat-notification svg{width:21px;height:21px}
+body.looply-admin-premium #dock:not(.looply-adm-global-nav){
+  bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;
+  width:min(calc(100vw - 20px),520px)!important;
+}
+body.looply-admin-premium nav.looply-adm-global-nav{
+  position:fixed!important;z-index:1500!important;
+  left:50%!important;bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%)!important;
+  display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  width:min(calc(100vw - 20px),560px)!important;max-width:560px!important;
+  padding:5px!important;gap:2px!important;margin:0!important;
+  border:1px solid var(--line)!important;border-radius:28px!important;
+  background:color-mix(in srgb,var(--strong,#21142b) 85%,transparent)!important;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 14px 34px color-mix(in srgb,var(--primary) 20%,transparent);
+}
+body.looply-admin-premium .looply-adm-global-nav a.header-action{
+  display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;
+  min-width:0;width:100%;height:54px;padding:3px 1px;
+  border:0;border-radius:20px;color:var(--muted);background:transparent;
+  font:700 10px/1.1 Inter,sans-serif;text-decoration:none;
+}
+body.looply-admin-premium .looply-adm-global-nav a .page-navigation-icon,
+body.looply-admin-premium .looply-adm-global-nav a .page-navigation-icon svg{
+  display:grid;place-items:center;width:22px;height:22px;
+}
+body.looply-admin-premium .looply-adm-global-nav a .page-navigation-label{
+  display:block;max-width:100%;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+body.looply-admin-premium .app{padding-bottom:calc(165px + env(safe-area-inset-bottom,0px))}
+@media(prefers-reduced-motion:reduce){
+  body.looply-chat-ultra-live #gh .brand .mark svg,
+  body.looply-admin-premium #gh .brand .mark svg{animation:none!important}
+}
+
+
+/* Hide the shared dock while the real chat composer owns the keyboard. */
+body.looply-page.page-chat:has(textarea:focus) .page-header[data-site-header] > nav.page-navigation,
+body.looply-page.page-conversation:has(.chat-keyboard-open) .page-header[data-site-header] > nav.page-navigation{
+  display:none!important;
+}
+
+/* Match the Music tab's original ring structure in standalone Chat and ADM. */
+body.looply-chat-ultra-live #gh .brand .mark > .circle,
+body.looply-admin-premium #gh .brand .mark > .circle{
+  width:36px!important;height:36px!important;
+  display:grid!important;place-items:center!important;
+  margin:0!important;padding:0!important;
+  border:4px solid var(--primary)!important;border-radius:50%!important;
+  color:var(--primary)!important;
+  background:transparent!important;
+  animation:looply-global-mark-rotate 3s linear infinite!important;
+}
+body.looply-chat-ultra-live #gh .brand .mark .circle > svg,
+body.looply-admin-premium #gh .brand .mark .circle > svg{
+  width:20px!important;height:20px!important;
+  padding:0!important;border:0!important;border-radius:0!important;
+  color:inherit!important;animation:none!important;
+}
+@media(prefers-reduced-motion:reduce){
+  body.looply-chat-ultra-live #gh .brand .mark > .circle,
+  body.looply-admin-premium #gh .brand .mark > .circle{
+    animation:none!important;
+  }
+}
+
+
+/* Contain legacy horizontal overflow without turning the body into a
+   transformed/filtered ancestor of the viewport-fixed six-button dock. */
+html:has(body.looply-page){max-width:100%;overflow-x:clip}
+body.looply-page{max-width:100%;overflow-x:clip}
+
+
+/* ADM controls stay accessible but no longer crowd the global header. */
+body.looply-admin-premium #gh{
+  width:min(calc(100vw - 20px),700px)!important;
+  max-width:700px!important;
+}
+body.looply-admin-premium #gh .looply-adm-tools{
+  position:relative;z-index:50;flex:0 0 44px;min-width:44px;
+}
+body.looply-admin-premium #gh .looply-adm-tools>summary{
+  display:grid;place-items:center;width:44px;height:44px;
+  border:1px solid var(--line);border-radius:14px;
+  background:var(--strong);color:var(--muted);
+  list-style:none;cursor:pointer;
+}
+body.looply-admin-premium #gh .looply-adm-tools>summary::-webkit-details-marker{display:none}
+body.looply-admin-premium #gh .looply-adm-tools>summary svg{width:21px;height:21px}
+body.looply-admin-premium #gh .looply-adm-tools-popover{
+  position:absolute;z-index:2000;right:0;top:calc(100% + 8px);
+  display:flex;gap:8px;padding:9px;border:1px solid var(--line);
+  border-radius:17px;background:var(--strong);
+  box-shadow:0 12px 30px #0005;
+}
+body.looply-admin-premium #gh .looply-adm-tools:not([open]) .looply-adm-tools-popover{display:none}
+body.looply-admin-premium #gh .looply-adm-tools-popover .ib{
+ width:44px;height:44px;flex:0 0 44px;
+}

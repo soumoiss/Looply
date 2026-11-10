@@ -1,11 +1,14 @@
 import "./theme.js";
 import { neon, activeSession, selfProfile, escapeText, unregisterAndroidFcmDevice } from "./neon-production-client.js";
 import { icon } from "./icons.js";
+import { primaryNavigationMarkup } from "./primary-navigation.js";
+import { mountIosMotion } from "./ios-motion.js";
 
 const pages = [
-  ["home", "Início", "home.html", "home"], ["letters", "Cartas", "cartas.html", "mail"],
-  ["music", "Músicas", "musicas.html", "music"], ["gallery", "Galeria", "galeria.html", "camera"],
-  ["chat", "Chat", "chat.html", "chat"], ["notifications", "Notificações", "notificacoes.html", "bell"],
+  ["home", "Início", "home.html", "home"], ["reels", "Reels", "reels.html", "video"],
+  ["letters", "Cartas", "cartas.html", "mail"], ["music", "Músicas", "musicas.html", "music"],
+  ["gallery", "Galeria", "galeria.html", "camera"], ["chat", "Chat", "chat.html", "chat"],
+  ["notifications", "Notificações", "notificacoes.html", "bell"],
 ];
 const current = location.pathname.split("/").pop() || "home.html";
 const root = document.getElementById("pageContent");
@@ -26,9 +29,11 @@ function renderHeader(profile, isAdmin) {
   const avatar = profile.avatar_path
     ? `<img class="looply-user-avatar" src="${escapeText(profile.avatar_path)}" alt="" referrerpolicy="no-referrer">`
     : `<span class="looply-user-initial" aria-hidden="true">${escapeText(name.slice(0, 1).toLocaleUpperCase("pt-BR"))}</span>`;
-  const links = pages.map(navigationLink).join("");
+  const pageKey=pages.find(([, ,href])=>href===current)?.[0] || "home";
+  const links = primaryNavigationMarkup(pageKey);
   const accountLinks = `<a class="account-menu-link" href="perfil.html">${icon("user")}Meu perfil</a><a class="account-menu-link" href="usuarios.html">${icon("users")}Pessoas</a><a class="account-menu-link" href="configuracoes.html">${icon("settings")}Configurações</a>${isAdmin ? `<a class="account-menu-link" href="admin.html">${icon("shield")}Administração</a>` : ""}`;
-  header.innerHTML = `${current !== "home.html" ? `<a class="header-action header-back-button" href="home.html" aria-label="Voltar para o início"><span>${icon("back")}</span><span class="back-label">Início</span></a>` : ""}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a><nav class="header-actions page-navigation" aria-label="Navegação principal">${links}</nav><details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${isAdmin ? " · administrador" : ""}</small></span><span class="account-menu-caret">⌄</span></summary><div class="account-menu-popover">${accountLinks}<button class="header-action" id="neonLogout" type="button">Sair</button></div></details>`;
+  header.innerHTML = `${current !== "home.html" ? `<a class="header-action header-back-button" href="home.html" aria-label="Voltar para o início"><span>${icon("back")}</span><span class="back-label">Início</span></a>` : ""}<a class="brand-inline" href="home.html" aria-label="Looply, início"><span class="brand-mark brand-mark-animated" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>${links}<a class="header-action header-notifications" href="notificacoes.html" aria-label="Avisos"${current==="notificacoes.html" ? ' aria-current="page"' : ""}>${icon("bell")}</a><details class="looply-account-menu"><summary class="looply-account" aria-label="Abrir menu da conta">${avatar}<span><strong>${name}</strong><small>@${username}${isAdmin ? " · administrador" : ""}</small></span><span class="account-menu-caret">⌄</span></summary><div class="account-menu-popover">${accountLinks}<button class="header-action" id="neonLogout" type="button">Sair</button></div></details>`;
+  mountIosMotion(header);
   document.getElementById("neonLogout")?.addEventListener("click", async () => {
     await unregisterAndroidFcmDevice().catch(() => false);
     const result = await neon.auth.signOut();
