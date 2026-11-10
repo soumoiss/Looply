@@ -89,15 +89,15 @@ for (const filename of assetFiles.filter(value => /\.html$/i.test(value))) {
   // needs the same appearance before first paint. Keep exactly one bootstrap.
   const appearanceScript = (parent ? parent + "/" : "") + "src/theme-bootstrap.js";
   const appearanceCss = (parent ? parent + "/" : "") + "assets/css/global-theme-typography.css";
-  const originalBootstrap = /(<script\\b[^>]*\\bsrc=["'])([^"']*src\\/theme-bootstrap\\.js(?:\\?[^"']*)?)(["'][^>]*><\\/script>)/i;
+  const originalBootstrap = /(<script\b[^>]*\bsrc=["'])([^"']*src\/theme-bootstrap\.js(?:\?[^"']*)?)(["'][^>]*><\/script>)/i;
   if(originalBootstrap.test(html)) {
     html=html.replace(originalBootstrap,(_match,a,_old,c)=>a+appearanceScript+"?v=global-appearance-20261110"+c);
   }else{
-    html=html.replace(/<head\\b[^>]*>/i,match=>match+
+    html=html.replace(/<head\b[^>]*>/i,match=>match+
       '<script src="'+appearanceScript+'?v=global-appearance-20261110" data-looply-appearance-bootstrap></script>');
   }
   if(!html.includes('data-looply-appearance-styles')){
-    html=html.replace(/<\\/head>/i,
+    html=html.replace(/<\/head>/i,
       '<link rel="stylesheet" href="'+appearanceCss+'?v=global-appearance-20261110" data-looply-appearance-styles></head>');
   }
   const conceal = `<style id="looply-maintenance-conceal">
