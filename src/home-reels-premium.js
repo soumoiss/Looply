@@ -33,7 +33,6 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   if (!root || root.__premiumBound) return;
   root.__premiumBound=true;
   const ownId=user.id, isHome=mode!=="external";
-  const initial={};
   const scene=element("div","premium-scene");
   scene.innerHTML=(isHome?'<div id="hello"></div><section class="premium-why-now"><div class="h2"><h2>Why Now</h2></div><div data-premium-stories></div></section><div id="extras"></div>':'<div class="h2"><h2>Reels</h2></div>')+
     '<div id="composer"></div><div class="premium-filters" id="ftool"><button type="button" class="fc on" data-premium-filter="all" aria-pressed="true">Para você</button><button type="button" class="fc" data-premium-filter="following" aria-pressed="false">Seguindo</button><input type="search" class="premium-filter-search" placeholder="Buscar" aria-label="Buscar publicações"></div><div id="feed"></div><div id="sent"></div>';
@@ -91,7 +90,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     }catch(e){/* Após aplicar a migração, o botão passa a refletir o banco. */}
   }
   function decorateMusic(link){
-    if(!link || link.hidden || link.tagName!=="A")return;
+    if(!link || link.hidden || link.tagName!=="A" || link.classList.contains("premium-music"))return;
     const title=by(link,".looply-music-of-day-copy strong")?.textContent?.trim()||"Música do dia";
     link.className="cardx premium-music";
     link.innerHTML='<span class="cv" aria-hidden="true">♫</span><span class="tx"><small>Música do dia</small><strong></strong></span><span class="pl" aria-hidden="true">▶</span>';
@@ -258,7 +257,6 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   }
   function openLikes(postId) {
     if(!postId)return;selectedPost=postId;likerTab="all";likerSearch="";sheet();
-    text(by(dialog,"[data-like-search]"),"");
     by(dialog,"[data-like-search]").value="";
     all(dialog,"[data-like-tab]").forEach(b=>b.classList.toggle("on",b.dataset.likeTab==="all"));
     if(!dialog.open)dialog.showModal();
@@ -319,8 +317,12 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     const min=Math.max(0,Math.floor((Date.now()-t)/60000));
     return min<1?"agora":min<60?min+" min":min<1440?Math.floor(min/60)+" h":Math.floor(min/1440)+" d";
   }
+  let reelSignature="";
   function updateReelsStrip(){
     if(!isHome)return;
+    const signature=all(root,'[data-post-card][data-has-reel="true"]').map(card=>card.dataset.postCard).join('|');
+    if(signature===reelSignature)return;
+    reelSignature=signature;
     let section=by(scene,"[data-premium-reels]");
     if(!section){
       section=element("section","reels-section");section.dataset.premiumReels="";
