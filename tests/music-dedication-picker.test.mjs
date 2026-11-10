@@ -115,11 +115,11 @@ test("catalog selector uses the existing official unified search and only normal
   assert.equal(normalizeStorySong({ ...items[0], url: "https://attacker.example/track" }), null);
 });
 
-test("dedication saves only the selected normalized catalog song, not editable manual metadata", async () => {
+test("dedication validates a single Apple/Spotify track before saving", async () => {
   const source = await (await import("node:fs/promises")).readFile(new URL("../src/music.js", import.meta.url), "utf8");
-  assert.match(source, /const song = normalizeStorySong\(selectedDedicationSong\)/);
+  assert.match(source, /const song = normalizeDedicationTrack\(selectedDedicationSong\)/);
   assert.match(source, /listen_url: listenUrl/);
-  assert.match(source, /searchStorySongs\(normalized, \{ signal: catalogSearchController.signal \}\)/);
+  assert.match(source, /searchDedicationProvider\(normalized, musicProvider, client/);
   assert.match(source, /catalogSearchSequence/);
   assert.match(source, /catalogSearchController\?\.abort\(\)/);
   assert.match(source, /safeMusicArtwork/);

@@ -339,3 +339,100 @@
 .page-music .music-v6 .music-v6-admin .music-admin-playlists {
   margin:14px 0 0;border-radius:16px;box-shadow:none;
 }
+
+/* Dedicatórias V7: ações do autor e cartões de faixa individual */
+.page-music .music-v6 .music-own-actions {
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:9px 0 12px;
+}
+.page-music .music-v6 .music-own-actions .music-dedication-edit-button,
+.page-music .music-v6 .music-own-actions .music-dedication-delete-button {
+  min-height:39px;padding:8px 12px;margin:0;border-radius:12px;
+}
+.page-music .music-v6 .music-own-actions .music-dedication-delete-button {
+  color:#b64b66;background:color-mix(in srgb,#b64b66 8%,var(--music-surface));
+  border:1px solid color-mix(in srgb,#b64b66 22%,transparent);
+}
+.page-music .music-v6 .music-own-actions .music-dedication-delete-button:hover {
+  background:color-mix(in srgb,#b64b66 16%,var(--music-surface));
+}
+.page-music .music-v6 .music-own-actions [data-music-delete-status] {flex-basis:100%;font-size:11px}
+.page-music .music-v6 .music-single-track-card {
+  display:grid;align-items:center;grid-template-columns:minmax(0,1fr) auto;gap:9px;
+  padding:13px;min-height:83px;
+  border:1px solid color-mix(in srgb,var(--primary) 15%,var(--music-line));
+  background:color-mix(in srgb,var(--primary) 5%,var(--music-surface));
+}
+.page-music .music-v6 .music-single-track-info {min-width:0;display:grid;gap:4px}
+.page-music .music-v6 .music-single-track-info span {
+  color:var(--text);font-size:12px;font-weight:800;
+}
+.page-music .music-v6 .music-single-track-info small {font-size:10px;color:var(--muted)}
+.page-music .music-v6 .music-single-track-card audio {
+  position:static!important;width:100%!important;height:42px!important;
+  opacity:1!important;pointer-events:auto!important;grid-column:1/-1;display:block;
+}
+.page-music .music-v6 .music-single-track-card audio[hidden],
+.page-music .music-v6 .music-single-track-card [hidden] {display:none!important}
+.page-music .music-v6 .music-single-track-card [data-music-apple-status]{
+  grid-column:1/-1;margin:0;font-size:10px;color:var(--muted);
+}
+.page-music .music-v6 .music-single-track-card [data-music-apple-status]:empty{display:none}
+.page-music .music-v6 .music-player-embed[data-provider="spotify"]{
+  padding:0;background:transparent;border:0;overflow:hidden;box-shadow:none;
+}
+.page-music .music-v6 .music-player-embed[data-provider="spotify"] iframe{
+  display:block;width:100%;height:152px;min-height:152px;border:0;border-radius:16px;
+}
+.page-music .music-v6 .music-provider-tabs{
+  display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;
+  border-radius:15px;border:1px solid var(--music-line);
+  background:color-mix(in srgb,var(--primary) 5%,var(--music-surface));
+}
+.page-music .music-v6 .music-provider-tabs button{
+  min-height:42px;padding:8px 12px;border:0;border-radius:12px;
+  background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:760;cursor:pointer;
+}
+.page-music .music-v6 .music-provider-tabs button[aria-pressed="true"]{
+  color:var(--primary);background:var(--music-surface);
+  box-shadow:0 3px 10px color-mix(in srgb,var(--primary) 10%,transparent);
+}
+.page-music .music-v6 .music-spotify-link{
+  display:grid;gap:9px;padding:12px;border:1px solid var(--music-line);
+  background:var(--surface-soft,var(--music-surface));border-radius:15px;
+}
+.page-music .music-v6 .music-spotify-link[hidden] {display:none!important}
+.page-music .music-v6 .music-spotify-link strong{font-size:12px}
+.page-music .music-v6 .music-spotify-link label{display:grid;gap:5px;font-size:11px}
+.page-music .music-v6 .music-spotify-link input{
+  display:block;width:100%;min-width:0;min-height:42px;border:1px solid var(--music-line);
+  border-radius:11px;padding:9px 11px;color:var(--text);background:var(--music-surface);font:inherit;font-size:12px;
+}
+.page-music .music-v6 .music-spotify-link .music-form-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+}
+.page-music .music-v6 .music-spotify-link [data-music-spotify-status] {font-size:11px}
+@media(max-width:430px){
+  .page-music .music-v6 .music-spotify-link .music-form-grid{grid-template-columns:1fr}
+  .page-music .music-v6 .music-single-track-card{grid-template-columns:1fr}
+  .page-music .music-v6 .music-single-track-card .music-player-button{justify-self:start}
+}
+
+/* The provider picker has extra controls; keep results and footer visible on phones. */
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) {
+  display:flex;flex-direction:column;max-height:90dvh;overflow:hidden;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-results {
+  flex:1 1 auto;min-height:72px;overflow:auto;overscroll-behavior:contain;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-spotify-link {
+  flex:0 1 auto;max-height:205px;overflow-y:auto;overscroll-behavior:contain;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-preview {
+  flex:0 0 auto;max-height:156px;overflow:hidden;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) .music-picker-preview iframe {
+  min-height:152px;height:152px;
+}
+.page-music .music-v6 .music-picker-dialog:not(.music-recipient-dialog) footer {
+  flex:0 0 auto;
+}
