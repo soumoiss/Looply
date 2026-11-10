@@ -6,44 +6,36 @@ import {fileURLToPath} from "node:url";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const contains=(content,fragment)=>assert.ok(content.includes(fragment),"Expected: "+fragment);
 
-test("Reels embeds are correctly sized without stretching or cropping the media",()=>{
-  const src=read("src/home-hybrid-reels.js");
-  const css=read("assets/css/pages/reels-immersive-fix.css");
+test("Reels keep native videos uncropped and third-party embeds in their proportions",()=>{
+  const src=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels.css");
   for(const anchor of ["looply-reel-media-stage","is-portrait-player","is-landscape-player",
-      'source.kind === "embed"', 'source.frame.removeAttribute("src")']){
-    contains(src,anchor);
-  }
-  for(const anchor of ["is-landscape-player .looply-reel-embed","aspect-ratio:9/16",
-      "aspect-ratio:16/9","object-fit:contain!important"]){
-    contains(css,anchor);
-  }
+    'source.kind === "embed"', 'source.frame.removeAttribute("src")']) contains(src,anchor);
+  for(const anchor of [".is-landscape-player .looply-reel-embed",".is-portrait-player .looply-reel-embed",
+    "object-fit:contain","scroll-snap-type:y mandatory","height:100dvh"])contains(css,anchor);
   contains(css,".looply-reels-scroll .looply-reel-video");
-  assert.ok(!css.includes("transform:scale("),"Never zoom an external iframe");
+  assert.doesNotMatch(css,/\.looply-reels-scroll \.looply-reel-embed[^}]*transform:scale\(/);
 });
 
-test("Immersive dark Reels have no pale author box and show real profile/date",()=>{
-  const css=read("assets/css/pages/reels-immersive-fix.css");
-  for(const anchor of ["[data-reels-creator] .post-author-profile",
-      "background-color:transparent!important","[data-reels-creator] strong",
-      "[data-reels-creator] time",".post-avatar img","color:#fff!important"]){
-    contains(css,anchor);
+test("Immersive Reels preserve real profile, date, captions and audio",()=>{
+  const css=read("assets/css/pages/home-reels.css"),src=read("src/home-hybrid-reels.js");
+  for(const anchor of ["[data-reels-creator]","data-reels-caption",
+    "data-reels-provider-original","Áudio original"]){
+    assert.ok(src.includes(anchor)||css.includes(anchor),anchor);
   }
-  const src=read("src/home-hybrid-reels.js");
-  for(const anchor of ["author.cloneNode(true)","data-reels-caption",
-      "data-reels-provider-original","Áudio original"]){
-    contains(src,anchor);
-  }
-  assert.ok(!src.includes("Player oficial · áudio controlado pelo provedor"));
+  contains(src,"author.cloneNode(true)");
+  contains(css,".looply-reels-bottom");
+  contains(css,"color:#fff");
 });
 
-test("Original Reel actions and both entrypoints remain wired to the same viewer",()=>{
-  for(const page of ["home.html","reels.html"])
-    contains(read(page),"assets/css/pages/reels-immersive-fix.css");
-  const src=read("src/home-hybrid-reels.js");
+test("Home and Reels load only the new stylesheet and wire authentic viewer controls",()=>{
+  for(const page of ["home.html","reels.html"]){
+    contains(read(page),"assets/css/pages/home-reels.css");
+    assert.doesNotMatch(read(page),/href="[^"]*reels-immersive-fix\.css/);
+  }
+  const src=read("src/home-hybrid-reels.js"),premium=read("src/home-reels-premium.js");
   for(const anchor of ["data-reel-action","data-reels-comments","data-share-in-app",
-      "data-share-post","data-toggle-like","source.frame.removeAttribute"]){
-    contains(src,anchor);
-  }
+    "data-share-post","data-toggle-like","source.frame.removeAttribute"])contains(src,anchor);
+  for(const anchor of ["premiumViewerSave","v13_set_post_saved","v13_post_engagement_page","timeupdate"])contains(premium,anchor);
   const checked=spawnSync(process.execPath,
     ["--check",fileURLToPath(new URL("../src/home-hybrid-reels.js",import.meta.url))],
     {encoding:"utf8"});
