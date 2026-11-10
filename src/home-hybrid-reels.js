@@ -29,6 +29,35 @@ function safeSource(video) {
     return ["https:", "blob:"].includes(url.protocol) ? url.href : "";
   } catch { return ""; }
 }
+// Only TikTok and YouTube offer a documented cross-origin player control API.
+// The Instagram iframe never accepts an invented play/pause postMessage contract.
+export function commandEmbeddedPlayer(frame, action) {
+  const raw=frame?.getAttribute("src");
+  if(!raw || !frame?.contentWindow) return false;
+  let url;
+  try {url=new URL(raw,location.href);} catch {return false;}
+  const host=url.hostname.toLowerCase();
+  let payload=null,origin="";
+  if(host==="www.tiktok.com" && ["play","pause","mute","unMute"].includes(action)) {
+    origin="https://www.tiktok.com";
+    payload={"x-tiktok-player":true,type:action,value:null};
+  } else if(host==="www.youtube-nocookie.com" && ["play","pause","mute","unMute"].includes(action)) {
+    origin="https://www.youtube-nocookie.com";
+    const func={play:"playVideo",pause:"pauseVideo",mute:"mute",unMute:"unMute"}[action];
+    payload=JSON.stringify({event:"command",func,args:[]});
+  } else return false;
+  try {frame.contentWindow.postMessage(payload,origin);return true;} catch {return false;}
+}
+export function activeEmbedUrl(source) {
+  try{
+    const url=new URL(source);
+    if(url.hostname==="www.youtube-nocookie.com"){
+      url.searchParams.set("autoplay","1");
+      url.searchParams.set("playsinline","1");
+    }
+    return url.href;
+  }catch{return source;}
+}
 export function openHybridReels(root, startKey) {
   const prior = by(root, "[data-reels-scroll]");
   if (prior) { prior.__reelsOpenAt?.(startKey); return; }
@@ -70,23 +99,38 @@ export function openHybridReels(root, startKey) {
     const sourceCard = root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
     const originalUrl = sourceCard?.querySelector(".hybrid-provider-tools a[href]")?.href || "";
     const isShort = providerClass.includes("youtube") && /\/shorts\//i.test(originalUrl);
+    const instagramReel=providerClass.includes("instagram") && /\/reel\//i.test(new URL(source.source).pathname);
     const orientation = providerClass.includes("instagram") || providerClass.includes("tiktok") || isShort
       ? " is-portrait-player" : providerClass.includes("youtube") ? " is-landscape-player" : "";
     const slide = make("section", "looply-reel-slide" +
-      (source.kind === "embed" ? " is-external-embed" + providerClass + orientation : ""));
+      (source.kind === "embed" ? " is-external-embed" + providerClass + orientation + (instagramReel?" is-instagram-reel-clean":"") : ""));
     slide.dataset.reelsKey = source.key;
     slide.setAttribute("aria-label", "Vídeo " + (index + 1) + " de " + sources.length);
     const media = source.kind === "video" ? make("video", "looply-reel-video") : make("iframe", "looply-reel-embed");
     if (source.kind === "video") {
       media.playsInline = true; media.preload = "none"; media.loop = true;
       media.setAttribute("aria-label", "Vídeo da publicação");
-      media.addEventListener("click", () => { if (media.paused) void media.play().catch(() => {}); else media.pause(); });
+      media.addEventListener("click", () => {
+        if(media.paused || (media.muted && soundOn)) {
+          media.muted=!soundOn;
+          if(!media.muted){
+            by(dialog,"[data-reels-sound]").dataset.audioBlocked="false";
+            status("");
+          }
+          void media.play().catch(()=>status("Toque em Som para ativar o áudio."));
+        } else media.pause();
+      });
       media.addEventListener("error", () => {
         if (index === activeIndex) status("Não foi possível reproduzir este vídeo. Verifique a conexão ou o formato.");
       });
     } else {
-      media.title = "Publicação externa no player oficial";
+      media.title = "Vídeo externo";
       media.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+      media.addEventListener("load",()=>{
+        if(closed || activeIndex!==index || document.hidden)return;
+        commandEmbeddedPlayer(media,"play");
+        if(soundOn)commandEmbeddedPlayer(media,"unMute");
+      });
       media.setAttribute("scrolling","no");
       media.referrerPolicy = "strict-origin-when-cross-origin";
       media.allowFullscreen = true;
@@ -96,7 +140,13 @@ export function openHybridReels(root, startKey) {
       // document its own correctly proportioned stage instead of stretching
       // the document across the entire phone height.
       const stage = make("div", "looply-reel-media-stage");
-      stage.append(media);
+      if(instagramReel){
+        // Chrome-only matte around the official reel player. The central window
+        // keeps the 9:16 media fully visible; surrounding embed header/footer
+        // are outside this window, not overlaid on top of the video.
+        const cleanWindow=make("div","looply-instagram-video-window");
+        cleanWindow.append(media);stage.append(cleanWindow);
+      }else stage.append(media);
       slide.append(stage);
     } else {
       slide.append(media);
@@ -126,8 +176,9 @@ export function openHybridReels(root, startKey) {
     track.append(slide);
     return { ...source, slide, video: source.kind === "video" ? media : null, frame: source.kind === "embed" ? media : null };
   });
-  let activeIndex = -1, soundOn = false, closed = false, scrollTimer = null;
-  try { soundOn = localStorage.getItem('looply-premium-reels-sound-on') === 'true'; } catch {}
+  let activeIndex = -1, soundOn = true, closed = false, scrollTimer = null;
+  // Reels start with sound requested; a previous explicit mute still takes precedence.
+  try { soundOn = localStorage.getItem('looply-premium-reels-sound-on') !== 'false'; } catch {}
   const previousOverflow = document.body.style.overflow;
   const cardFor = source => root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
   const status = message => { by(dialog, "[data-reels-message]").textContent = message || ""; };
@@ -164,6 +215,7 @@ export function openHybridReels(root, startKey) {
         : source.source.includes("youtube-nocookie.com") ? "YouTube"
         : "Vídeo externo"
       : "Looply";
+    dialog.dataset.reelsProvider=providerName.toLowerCase().includes("instagram")?"instagram":providerName.toLowerCase().includes("tiktok")?"tiktok":providerName.toLowerCase().includes("youtube")?"youtube":"looply";
     by(dialog, "[data-reels-audio]").textContent = "Áudio original · " + providerName;
     const like = by(card, "[data-toggle-like]");
     const externalShare = by(card, "[data-share-post]");
@@ -190,28 +242,63 @@ export function openHybridReels(root, startKey) {
           if (player.hasAttribute("src")) { player.removeAttribute("src"); player.load(); }
         }
       } else if (source.frame) {
-        // Unload inactive third-party players: no hidden audio can continue behind the current slide.
-        if (i === index) { if (!source.frame.getAttribute("src")) source.frame.src = source.source; }
-        else if (source.frame.hasAttribute("src")) source.frame.removeAttribute("src");
+        // A different origin cannot be paused by inspecting its internal DOM.
+        // Remove the iframe document as soon as the slide becomes inactive.
+        if(i===index) {
+          if(!source.frame.getAttribute("src"))source.frame.src=activeEmbedUrl(source.source);
+          else {commandEmbeddedPlayer(source.frame,"play");if(soundOn)commandEmbeddedPlayer(source.frame,"unMute");}
+        } else if(source.frame.hasAttribute("src")) {
+          commandEmbeddedPlayer(source.frame,"pause");
+          source.frame.removeAttribute("src");
+        }
       }
     });
+  };
+  const startNative = async(player)=>{
+    if(!player || closed || document.hidden)return;
+    player.muted=!soundOn;
+    try {await player.play();if(slides[activeIndex]?.video===player)status("");}
+    catch(error) {
+      if(closed || slides[activeIndex]?.video!==player)return;
+      // Chromium may reject audio autoplay until the first touch.
+      // Keep the visible Reel playing muted rather than leaving a frozen poster.
+      if(soundOn && error?.name==="NotAllowedError"){
+        player.muted=true;
+        try{
+          await player.play();
+          const sound=by(dialog,"[data-reels-sound]");
+          sound.dataset.audioBlocked="true";
+          sound.textContent="♪ Ativar som";
+          sound.setAttribute("aria-label","Ativar som");
+          status("");
+        }catch{status("Toque no vídeo para reproduzir.");}
+      } else status("Toque no vídeo para reproduzir.");
+    }
   };
   const activate = (index) => {
     if (closed || index < 0 || index >= slides.length) return;
     if (activeIndex === index) return;
-    activeIndex = index;
-    for (let i = 0; i < slides.length; i++) { if (i !== index) slides[i].video?.pause(); }
-    loadNear(index);
-    const player = slides[index].video;
-    status("");
-    by(dialog, "[data-reels-comments]").hidden = true;
-    sync();
-    const soundButton = by(dialog, "[data-reels-sound]");
-    soundButton.hidden = !player;
-    if (player) {
-      player.muted = !soundOn;
-      void player.play().catch(() => status("Toque no vídeo para iniciar a reprodução."));
+    // Stop audio synchronously, before loading/activating the incoming video.
+    for(let i=0;i<slides.length;i++){
+      if(i!==index)slides[i].video?.pause();
+      if(i!==index&&slides[i].frame?.hasAttribute("src")) {
+        commandEmbeddedPlayer(slides[i].frame,"pause");
+        slides[i].frame.removeAttribute("src");
+      }
     }
+    activeIndex=index;
+    loadNear(index);
+    const player=slides[index].video;
+    status("");
+    by(dialog,"[data-reels-comments]").hidden=true;
+    sync();
+    const soundButton=by(dialog,"[data-reels-sound]");
+    const controllableFrame=slides[index].frame && /(?:tiktok\.com|youtube-nocookie\.com)/.test(new URL(slides[index].source).hostname);
+    soundButton.hidden=!player&&!controllableFrame;
+    soundButton.dataset.audioBlocked="false";
+    soundButton.textContent=soundOn?"♫ Som ligado":"♪ Ativar som";
+    soundButton.setAttribute("aria-label",soundOn?"Silenciar som":"Ativar som");
+    if(player)void startNative(player);
   };
   const navigate = index => {
     slides[Math.min(slides.length - 1, Math.max(0, index))]?.slide.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -247,6 +334,32 @@ export function openHybridReels(root, startKey) {
       activate(Math.max(0, Math.min(slides.length - 1, idx)));
     });
   }, { passive: true });
+  const onFrameMessage=event=>{
+    const current=slides[activeIndex]?.frame;
+    if(!current || event.source!==current.contentWindow || event.origin!=="https://www.tiktok.com")return;
+    if(event.data?.["x-tiktok-player"] && event.data?.type==="onPlayerReady") {
+      commandEmbeddedPlayer(current,"play");
+      if(soundOn)commandEmbeddedPlayer(current,"unMute");
+    }
+  };
+  window.addEventListener("message",onFrameMessage);
+  const onVisibility=()=>{
+    if(closed)return;
+    if(document.hidden){
+      slides.forEach(source=>{
+        source.video?.pause();
+        if(source.frame?.hasAttribute("src")){
+          commandEmbeddedPlayer(source.frame,"pause");
+          source.frame.removeAttribute("src");
+        }
+      });
+    }else if(dialog.open && activeIndex>=0){
+      loadNear(activeIndex);
+      const video=slides[activeIndex]?.video;
+      if(video)void startNative(video);
+    }
+  };
+  document.addEventListener("visibilitychange",onVisibility);
   const mutation = new MutationObserver(() => {
     if (!closed) sync();
   });
@@ -260,10 +373,14 @@ export function openHybridReels(root, startKey) {
   const close = () => {
     if (closed) return;
     closed = true; observer?.disconnect(); mutation.disconnect();
+    document.removeEventListener("visibilitychange",onVisibility);
+    window.removeEventListener("message",onFrameMessage);
     if (scrollTimer !== null) cancelAnimationFrame(scrollTimer);
     for (const source of slides) {
       if (source.video) { source.video.pause(); source.video.removeAttribute("src"); source.video.load(); }
-      source.frame?.removeAttribute("src");
+      if(source.frame?.hasAttribute("src")) {
+        commandEmbeddedPlayer(source.frame,"pause");source.frame.removeAttribute("src");
+      }
     }
     // Restore official embeds in the feed only after closing the immersive viewer.
     for (const item of feedFrames) { if (item.frame.isConnected) item.frame.src = item.src; }
@@ -276,15 +393,20 @@ export function openHybridReels(root, startKey) {
     if (event.target.closest("[data-reels-close]")) { close(); return; }
     if (event.target.closest("[data-close-reels-comments]")) { by(dialog, "[data-reels-comments]").hidden = true; return; }
     if (event.target.closest("[data-reels-sound]")) {
-      soundOn = !soundOn;
+      const soundControl=by(dialog,"[data-reels-sound]");
+      const wasBlocked=soundControl.dataset.audioBlocked==="true";
+      soundOn=wasBlocked?true:!soundOn;
+      soundControl.dataset.audioBlocked="false";
       try { localStorage.setItem('looply-premium-reels-sound-on',String(soundOn)); } catch {}
-      const activeVideo = slides[activeIndex]?.video;
-      if (!activeVideo) return;
-      activeVideo.muted = !soundOn;
-      const button = by(dialog, "[data-reels-sound]");
-      button.textContent = soundOn ? "♫ Som ligado" : "♪ Ativar som";
-      button.setAttribute("aria-label", soundOn ? "Silenciar som" : "Ativar som");
-      if (soundOn) void activeVideo.play().catch(() => status("Toque no vídeo para ativar o áudio."));
+      const activeVideo=slides[activeIndex]?.video;
+      const activeFrame=slides[activeIndex]?.frame;
+      const button=by(dialog,"[data-reels-sound]");
+      button.textContent=soundOn?"♫ Som ligado":"♪ Ativar som";
+      button.setAttribute("aria-label",soundOn?"Silenciar som":"Ativar som");
+      if(activeVideo){
+        activeVideo.muted=!soundOn;
+        if(soundOn)void startNative(activeVideo);
+      }else if(activeFrame)commandEmbeddedPlayer(activeFrame,soundOn?"unMute":"mute");
       return;
     }
     const control = event.target.closest("[data-reel-action]");

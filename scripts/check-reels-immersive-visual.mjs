@@ -15,11 +15,11 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <style>html,body{padding:0;margin:0}.diagnostic{position:fixed;top:50%;left:50%;z-index:0}</style>
 </head><body class="looply-page page-home page-reels looply-premium">
-<dialog class="looply-reels-scroll" data-reels-scroll open>
+<dialog class="looply-reels-scroll" data-reels-scroll data-reels-provider="instagram" open>
 <div class="looply-reels-track">
-<section class="looply-reel-slide is-external-embed is-instagram-embed is-portrait-player">
-<div class="looply-reel-media-stage"><iframe class="looply-reel-embed" title="Player de teste do Instagram"
-srcdoc="&lt;style&gt;html,body{margin:0;height:100%;background:linear-gradient(160deg,#41334d,#201827);color:#fff;font-family:sans-serif} .mock{height:100%;display:grid;place-items:center;font-size:22px}&lt;/style&gt;&lt;div class=mock&gt;VIDEO 9:16&lt;/div&gt;"></iframe></div>
+<section class="looply-reel-slide is-external-embed is-instagram-embed is-instagram-reel-clean is-portrait-player">
+<div class="looply-reel-media-stage"><div class="looply-instagram-video-window"><iframe class="looply-reel-embed" title="Player de teste do Instagram"
+srcdoc="&lt;style&gt;html,body{margin:0;background:#fff;color:#fff;font-family:sans-serif}.whitehead{height:48px;background:white}.mock{box-sizing:border-box;width:calc(100% - 104px);aspect-ratio:9/16;margin:0 auto;background:linear-gradient(160deg,#41334d,#201827);display:grid;place-items:center;font-size:22px}.whitefoot{height:190px;background:white}&lt;/style&gt;&lt;div class=whitehead&gt;&lt;/div&gt;&lt;div class=mock&gt;VIDEO 9:16&lt;/div&gt;&lt;div class=whitefoot&gt;&lt;/div&gt;"></iframe></div></div>
 </section></div>
 <header class="looply-reels-top"><button type="button" data-reels-close aria-label="Fechar">←</button><a href="#" class="looply-reels-original">Abrir original ↗</a></header>
 <aside class="looply-reels-rail">
@@ -63,10 +63,15 @@ try{
     for(const orientation of ["portrait","landscape"]){
       if(orientation==="landscape")await page.evaluate(()=>{
         const slide=document.querySelector(".looply-reel-slide");
-        slide.classList.remove("is-portrait-player");slide.classList.add("is-landscape-player");
+        slide.classList.remove("is-portrait-player","is-instagram-embed","is-instagram-reel-clean");slide.classList.add("is-landscape-player");
+        const stage=slide.querySelector(".looply-reel-media-stage");
+        stage.replaceChildren(slide.querySelector(".looply-reel-embed"));
+        document.querySelector("dialog.looply-reels-scroll").dataset.reelsProvider="looply";
       });
       const result=await page.evaluate(()=>{
         const frame=document.querySelector(".looply-reel-embed");
+        const mediaWindow=document.querySelector(".looply-instagram-video-window");
+        const syntheticVideo=frame.contentDocument?.querySelector(".mock");
         const creator=document.querySelector("[data-reels-creator] .post-author-profile");
         const name=document.querySelector("[data-reels-creator] strong");
         const time=document.querySelector("[data-reels-creator] time");
@@ -75,18 +80,36 @@ try{
         const box=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};};
         const color=el=>{const s=getComputedStyle(el);return {color:s.color,background:s.backgroundColor,bgImage:s.backgroundImage};};
         return {vw:innerWidth,vh:innerHeight,documentW:document.documentElement.scrollWidth,
-          frame:box(frame),slide:box(slide),footer:box(footer),name:box(name),time:box(time),
+          frame:box(frame),mediaWindow:mediaWindow?box(mediaWindow):null,
+          syntheticVideo:syntheticVideo?box(syntheticVideo):null,
+          slide:box(slide),footer:box(footer),name:box(name),time:box(time),
           creator:color(creator),nameColor:color(name),timeColor:color(time),
           frameObjectFit:getComputedStyle(frame).objectFit,
+          audioDisplay:getComputedStyle(document.querySelector(".looply-reels-audio")).display,
           controls:[...document.querySelectorAll(".looply-reel-action")].map(box)};
       });
-      const actual=result.frame.w/result.frame.h;
+      const actual=(result.mediaWindow||result.frame).w/(result.mediaWindow||result.frame).h;
       const expected=orientation==="portrait"?9/16:16/9;
       console.log("REELS_VIEWPORT_DIAGNOSTIC",JSON.stringify({width,height,orientation,result,ratio:actual}));
-      assert.ok(Math.abs(actual-expected)<.007,"wrong player ratio "+width+" "+orientation);
-      assert.ok(result.frame.w<=width+2&&result.frame.h<=height+2,"media escapes viewport");
-      assert.ok(result.frame.x>=-2&&result.frame.y>=-2,"player starts outside viewport");
-      assert.ok(result.frame.right<=width+2&&result.frame.bottom<=height+2,"player clipped by viewport");
+      assert.ok(Math.abs(actual-expected)<.007,"wrong video viewport ratio "+width+" "+orientation);
+      if(orientation==="portrait"){
+        // The fake Instagram embed has 48px header, centered 9:16 video and white footer.
+        // Both its top and bottom chrome must be outside the matte, while the ENTIRE
+        // video remains inside without scaling, cutting or zoom.
+        const win=result.mediaWindow;
+        const content=result.syntheticVideo;
+        assert.ok(win&&content,"Instagram matte and video are available");
+        const mediaX=result.frame.x+content.x,mediaY=result.frame.y+content.y;
+        assert.ok(mediaX>=win.x-2&&mediaX+content.w<=win.right+2,"portrait video horizontally clipped");
+        assert.ok(mediaY>=win.y-2&&mediaY+content.h<=win.bottom+2,"portrait video vertically clipped");
+        assert.ok(win.x>=-2&&win.right<=width+2&&win.y>=-2&&win.bottom<=height+2,"matte outside viewport");
+        assert.ok(result.frame.w>win.w&&result.frame.h>win.h,"external chrome not outside matte");
+        assert.equal(result.audioDisplay,"none","Instagram audio provider label should not duplicate native Reel content");
+      }else{
+        assert.ok(result.frame.w<=width+2&&result.frame.h<=height+2,"media escapes viewport");
+        assert.ok(result.frame.x>=-2&&result.frame.y>=-2,"player starts outside viewport");
+        assert.ok(result.frame.right<=width+2&&result.frame.bottom<=height+2,"player clipped by viewport");
+      }
       assert.equal(result.creator.background,"rgba(0, 0, 0, 0)","white author card regressed");
       assert.equal(result.nameColor.color,"rgb(255, 255, 255)","username contrast regressed");
       assert.ok(result.footer.x>=-2&&result.footer.bottom<=height+2,"caption outside screen");

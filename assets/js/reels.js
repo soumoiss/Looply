@@ -1,5 +1,5 @@
-import { openHybridReels } from "../../src/home-hybrid-reels.js";
-import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=salvos-share-20261110";
+import { openHybridReels } from "../../src/home-hybrid-reels.js?v=reels-clean-20261110";
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=reels-clean-20261110";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
