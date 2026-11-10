@@ -239,11 +239,11 @@ async function spotifySearch(request, headers) {
 export default { async fetch(request) {
   const origin = request.headers.get("origin") || "", headers = cors(origin === allowedOrigin ? origin : "null");
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
-  if (origin !== allowedOrigin) return json({ error: "origin_not_allowed" }, 403, headers);
-  // Read-only diagnostic, no tokens or secrets exposed. Helps the app tell a
-  // missing integration from a transient Spotify outage before requesting login.
+  // This endpoint reveals only a boolean. Allow direct diagnostics without
+  // sending an Origin header; CORS stays restricted to the Looply website.
   if (new URL(request.url).pathname === "/spotify/configuration" && request.method === "GET")
     return json({ configured: Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) }, 200, headers);
+  if (origin !== allowedOrigin) return json({ error: "origin_not_allowed" }, 403, headers);
   if (![process.env.NEON_DATA_API_URL, process.env.AWS_ENDPOINT_URL_S3, process.env.AWS_ACCESS_KEY_ID, process.env.AWS_SECRET_ACCESS_KEY, process.env.AWS_REGION].every(Boolean)) return json({ error: "storage_not_configured" }, 503, headers);
   const profileId = await identity(request); if (!profileId) return json({ error: "unauthorized" }, 401, headers);
   if (new URL(request.url).pathname.endsWith("/youtube/playlist") && request.method === "GET") return youtubePlaylist(request,headers);
