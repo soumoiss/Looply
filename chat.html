@@ -366,7 +366,8 @@ body[data-ultra-loading="true"] #list:after{
 </head>
 <body class="looply-chat-ultra-live" data-ultra-loading="true">
 <header class="gh glass" id="gh">
-  <a class="brand" href="#" aria-label="Looply, início"><span class="mark"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="50" r="35" stroke="currentColor" stroke-opacity=".18" stroke-width="7"/></svg></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
+  <a class="brand" href="home.html" aria-label="Looply, início"><span class="mark"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="50" r="35" stroke="currentColor" stroke-opacity=".18" stroke-width="7"/></svg></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
+  <a class="global-chat-notification" href="notificacoes.html" aria-label="Avisos" title="Avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/></svg></a>
   <button class="acc" id="accBtn" aria-haspopup="true" aria-label="Menu da conta"></button>
 </header>
 <div class="menu glass" id="menu" hidden></div>
@@ -460,8 +461,8 @@ $("#menu").onclick=e=>{const b=e.target.closest("[data-m]");if(!b)return;const k
  if(k==="theme"){const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme:dark)").matches);r.dataset.theme=d?"light":"dark"}
  if(k==="sim"){$("#menu").hidden=true;const o=C.filter(c=>c.id!==cur&&!c.blocked&&peers(c).some(x=>U(x).on));const c=o[Math.floor(Math.random()*o.length)];if(c)incoming(c.id,["Oi! Tá por aí? 👀","Acabei de lembrar de você 💜","Olha só o que eu achei!","Bora conversar mais tarde?"][Math.floor(Math.random()*4)])}};
 $("#menu").onchange=e=>{const f=e.target.files?.[0];if(f){photos[ME]=URL.createObjectURL(f);head();toast("Foto atualizada")}};
-const NAV=[["home","Início"],["reels","Reels"],["mail","Cartas"],["music","Músicas"],["img","Galeria"],["chat","Chat"],["bell","Avisos"]];
-function dock(){const d=$("#dock");d.querySelectorAll("button").forEach(b=>b.remove());NAV.forEach(([k,l])=>{const b=document.createElement("button");b.className=k==="chat"?"on":"";const n=unreadTotal();b.innerHTML=`<span class="bw">${ic(k)}${k==="chat"&&n?`<i class="dotb">${n}</i>`:""}</span>${l}`;b.onclick=()=>{liq(b);if(k!=="chat"){toast("Modelo: só a aba Chat é interativa");setTimeout(()=>liq($("#dock .on")),900)}};d.append(b)});liq($("#dock .on"),1)}
+const NAV=[["home","Início","home.html"],["reels","Reels","reels.html"],["mail","Cartas","cartas.html"],["music","Músicas","musicas.html"],["img","Galeria","galeria.html"],["chat","Chat","chat.html"]];
+function dock(){const d=$("#dock");d.querySelectorAll("button,a").forEach(b=>b.remove());NAV.forEach(([k,l,href])=>{const b=document.createElement("a");b.className="header-action"+(k==="chat"?" on":"");b.href=href;b.setAttribute("aria-label",l);if(k==="chat")b.setAttribute("aria-current","page");const n=unreadTotal();b.innerHTML=`<span class="page-navigation-icon">${ic(k)}${k==="chat"&&n?`<i class="dotb">${n}</i>`:""}</span><span class="page-navigation-label">${l}</span>`;d.append(b)});liq($("#dock .on"),1)}
 function liq(b,now){const l=$("#dock .liq");if(now)l.style.transition="none";l.style.width=b.offsetWidth+"px";l.style.transform=`translateX(${b.offsetLeft}px)`;if(now)requestAnimationFrame(()=>l.style.transition="")}
 
 /* ── caixa de entrada ── */
