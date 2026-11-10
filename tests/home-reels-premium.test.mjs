@@ -125,7 +125,7 @@ test("modelo v3: componentes reais são transformados em markup do original",()=
 
 test("regressão v4: curtir alterna para descurtir e o teclado não cria recursão de eventos",()=>{
   const js=read("src/home-reels-premium.js");
-  assert.match(js,/void react\(id,like\.dataset\.premiumEmoji\|\|"❤️"\)/);
+  assert.match(js,/void react\(id,like\.getAttribute\("aria-pressed"\)/);
   assert.doesNotMatch(js,/void react\(id,emoji\|\|like\.dataset\.premiumEmoji/);
   assert.match(js,/track\?\.scrollBy\(\{top:/);
   assert.doesNotMatch(js,/dispatchEvent\(new KeyboardEvent\("keydown"/);
