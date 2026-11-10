@@ -66,7 +66,7 @@ test("salvos são persistentes e idempotentes, com rollback visível",()=>{
 
 test("Reels usam progresso real do vídeo, vídeo sem corte, gestos, teclado e som persistido",()=>{
   const js=read("src/home-reels-premium.js"),viewer=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels.css");
-  for(const fragment of ["timeupdate","video.currentTime/video.duration","ArrowDown","ArrowUp",
+  for(const fragment of ["timeupdate","video.currentTime/video.duration","arrowdown","arrowup",
      '"j"','"k"','key===" "', 'key==="l"', 'key==="m"', 'key==="escape"',
      "last<310","premiumViewerSave"])assert.ok(js.includes(fragment),fragment);
   assert.match(viewer,/localStorage\.setItem\('looply-premium-reels-sound-on'/);
