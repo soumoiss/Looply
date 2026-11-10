@@ -41,10 +41,12 @@ test("preview removes fallback blur and contains the complete camera frame", asy
   assert.match(css,/\.studio-camera-backdrop\s*\{\s*display:none !important/);
   assert.match(css,/\.studio-camera-framing \.studio-lens\s*\{[\s\S]*?object-fit:contain!important/);
 });
-test("Reels only expose like, comments, external share and chat, no save button", async () => {
+test("Reels preserve share actions and add persistent save in premium integration", async () => {
   const js=await read("src/home-hybrid-reels.js");
   assert.match(js,/const actions = \["like", "comment", "external", "chat"\]/);
-  assert.doesNotMatch(js,/data-reel-action="save"|const actions = \[[^\]]*?"save"/);
+  const premium=await read("src/home-reels-premium.js");
+  assert.match(premium,/v13_set_post_saved/);
+  assert.match(premium,/data\.premiumViewerSave/);
   assert.match(js,/\[data-toggle-like\]/);
   assert.match(js,/\[data-share-post\]/);
   assert.match(js,/\[data-share-in-app\]/);
@@ -66,7 +68,8 @@ test("immersive viewer stops former provider iframe audio and supports vertical 
 });
 test("Home loads viewport corrections last but preserves its global header", async () => {
   const html=await read("home.html");
-  assert.ok(html.indexOf("story-reels-viewport-fix.css")>html.indexOf("home-hybrid.css"));
+  assert.match(html,/home-reels\.css/);
+  assert.doesNotMatch(html,/href="[^"]*story-reels-viewport-fix\.css/);
   assert.match(html,/data-site-header/);
 });
 test("official Instagram iframe is not zoomed, cropped or scraped into a fake native video", async () => {
