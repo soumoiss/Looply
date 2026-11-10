@@ -74,3 +74,16 @@ test("extended admin modules reject server errors and unconfirmed writes",()=>{
     assert.ok(extended.includes(action+":()=>"),action);
   assert.match(extended,/O Neon não confirmou a alteração administrativa/);
 });
+
+test("account provisioning uses a verified availability RPC and the active Better Auth admin client",()=>{
+  assert.match(bridge,/\/rpc\/v12_admin_action/);
+  assert.match(bridge,/p_action:"user_check_availability"/);
+  assert.match(bridge,/available\.usernameAvailable/);
+  assert.match(bridge,/available\.emailAvailable/);
+  assert.match(bridge,/getBetterAuthInstance\?\.\(\)\?\.admin/);
+  assert.doesNotMatch(bridge,/const alternateAuth=createClient\(/);
+  assert.match(bridge,/adminApi\.createUser\(/);
+  assert.match(bridge,/\/rpc\/v12_admin_finish_signup/);
+  assert.match(bridge,/linkedData\?\.created!==true/);
+  assert.match(read("src/admin-model-extensions.js"),/getBetterAuthInstance\?\.\(\)\?\.admin/);
+});
