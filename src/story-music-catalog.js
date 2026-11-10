@@ -149,7 +149,8 @@ export async function searchSpotifyStoryMetadata(value,{
       storage_not_configured:"Serviço de músicas Neon indisponível.",
       origin_not_allowed:"Origem do aplicativo não autorizada para pesquisar no Spotify.",
       spotify_search_unavailable:"O serviço de busca do Spotify não respondeu.",
-      spotify_search_failed:"Não foi possível consultar o catálogo do Spotify."
+      spotify_search_failed:"Não foi possível consultar o catálogo do Spotify.",
+      spotify_public_catalog_unavailable:"O catálogo público do Spotify está temporariamente indisponível. Tente novamente."
     }[code] || (response.status===401?"Sessão expirada. Entre novamente no Looply.":"Busca do Spotify falhou (HTTP "+response.status+").");
     const error=new Error(message);
     error.code=code||"spotify_http_"+response.status;
