@@ -221,12 +221,34 @@ async function dbRequest(mode,operation){if(!db)return null;return new Promise((
 async function loadMoments(){try{moments=await dbRequest('readonly',s=>s.getAll())||[];let expired=moments.filter(m=>Date.now()-m.created>864e5);for(const m of expired)await dbRequest('readwrite',s=>s.delete(m.id));moments=moments.filter(m=>Date.now()-m.created<=864e5).sort((a,b)=>a.created-b.created)}catch(e){console.error(e);showToast('Não foi possível ler os instantes locais')}renderHome()}
 function ownMoments(){return moments.filter(x=>Date.now()-x.created<864e5)}
 function avatarHtml(p){return `<div class="avatar ${p.ava||'ava-me'}">${escapeHtml(p.initial||'W')}</div>`}
-function renderHome(){const hasOwn=ownMoments().length>0;const row=$('#moment-row');row.innerHTML=`<button class="moment-item" id="story-self"><span class="ring ${hasOwn?'':'own'}"><span class="inner">${avatarHtml({ava:'ava-me',initial:'W'})}</span>${hasOwn?'':`<span class="own-plus">${icon('plus','ic') }</span>`}</span><span>${hasOwn?'Seu Why Now':'Criar agora'}</span></button>`+DEMOS.map(d=>`<button class="moment-item" data-demo="${d.id}"><span class="ring ${viewedDemo.has(d.id)?'seen':''}"><span class="inner">${avatarHtml(d)}</span></span><span>${escapeHtml(d.name)}</span></button>`).join('');$('#story-self').onclick=()=>hasOwn?openViewer(ownMoments(),0,'home'):openCamera();row.querySelectorAll('[data-demo]').forEach(b=>b.onclick=()=>openViewer(DEMOS,DEMOS.findIndex(d=>d.id===b.dataset.demo),'home'))}
+function renderHome(){const hasOwn=ownMoments().length>0;const row=$('#moment-row');row.innerHTML=`<button class="moment-item" id="story-self"><span class="ring ${hasOwn?'':'own'}"><span class="inner">${avatarHtml({ava:'ava-me',initial:'W'})}</span>${hasOwn?'':`<span class="own-plus">${icon('plus','ic') }</span>`}</span><span>${hasOwn?'Seu Why Now':'Criar agora'}</span></button>`+DEMOS.map(d=>`<button class="moment-item" data-demo="${d.id}"><span class="ring ${viewedDemo.has(d.id)?'seen':''}"><span class="inner">${avatarHtml(d)}</span></span><span>${escapeHtml(d.name)}</span></button>`).join('');$('#story-self').onclick=()=>hasOwn?openViewer(ownMoments(),0,'home'):openCreateSourcePicker();row.querySelectorAll('[data-demo]').forEach(b=>b.onclick=()=>openViewer(DEMOS,DEMOS.findIndex(d=>d.id===b.dataset.demo),'home'))}
 function renderProfile(){$('#profile-stat').textContent=`${ownMoments().length} instante${ownMoments().length!==1?'s':''} publicado${ownMoments().length!==1?'s':''}`}
 function sheetOpen(html){$('#sheet-body').innerHTML=html;$('#backdrop').classList.add('visible');$('#sheet').classList.add('open')}
 function sheetClose(){$('#sheet').classList.remove('open');$('#backdrop').classList.remove('visible');setTimeout(()=>{if(!$('#sheet').classList.contains('open'))$('#sheet-body').innerHTML=''},370)}
-$('#backdrop').onclick=()=>{sheetClose();if(screen==='viewer'&&viewerPaused)pauseViewer(false)};
-function navCamera(){sheetClose();openCamera()}
+$('#backdrop').onclick=()=>{if(createSourceSheetOpen){closeCreateSourcePicker();return}sheetClose();if(screen==='viewer'&&viewerPaused)pauseViewer(false)};
+let createSourceSheetOpen=false;
+function closeCreateSourcePicker(){
+  createSourceSheetOpen=false;
+  sheetClose();
+  showScreen('home');
+}
+function openCreateSourcePicker(){
+  if(recording)return;
+  // Do not acquire getUserMedia or launch an Android intent before a source is chosen.
+  createSourceSheetOpen=true;
+  sheetOpen(`<h2 class="sheet-title">Novo Right Now</h2>
+    <button type="button" class="option-card" id="wn-source-app">${icon('camera')} <span><strong>Câmera do aplicativo</strong><small>Fotografar ou gravar dentro do Looply</small></span></button>
+    <button type="button" class="option-card" id="wn-source-photo">${icon('camera')} <span><strong>Câmera do celular · foto</strong><small>Abrir o aplicativo de câmera do dispositivo</small></span></button>
+    <button type="button" class="option-card" id="wn-source-video">${icon('video')} <span><strong>Câmera do celular · vídeo</strong><small>Gravar usando a câmera do dispositivo</small></span></button>
+    <button type="button" class="option-card" id="wn-source-gallery">${icon('photo')} <span><strong>Galeria</strong><small>Selecionar uma foto ou um vídeo existente</small></span></button>
+    <div class="sheet-foot"><button type="button" class="btn ghost" id="wn-source-cancel">Cancelar</button></div>`);
+  $('#wn-source-app').onclick=()=>{createSourceSheetOpen=false;sheetClose();void openCamera()};
+  $('#wn-source-photo').onclick=()=>nativeCapture('image');
+  $('#wn-source-video').onclick=()=>nativeCapture('video');
+  $('#wn-source-gallery').onclick=()=>$('#file-picker').click();
+  $('#wn-source-cancel').onclick=closeCreateSourcePicker;
+}
+function navCamera(){openCreateSourcePicker()}
 ['#btn-top-create','#btn-feed-create','#nav-create','#btn-profile-create','#nav-profile-create'].forEach(s=>$(s).onclick=navCamera);
 $('#nav-profile').onclick=()=>showScreen('profile');$('#btn-profile-back').onclick=()=>showScreen('home');$('#nav-profile-home').onclick=()=>showScreen('home');$('#nav-home').onclick=()=>showScreen('home');
 $('#nav-discover').onclick=()=>{sheetOpen(`<h2 class="sheet-title">Descobrir o agora ✳</h2><p class="sheet-desc">Nesta demonstração, os perfis acima são fictícios. Toque em qualquer um deles para experimentar a navegação de outros instantes.</p><button class="btn dark" style="width:100%" id="discover-go">Explorar exemplos</button>`);$('#discover-go').onclick=()=>{sheetClose();openViewer(DEMOS,0,'home')}};
@@ -354,11 +376,17 @@ function nativeCapture(kind='image'){
   else nativeImageInput.click();
 }
 document.querySelector('#btn-native-capture').onclick=()=>nativeCapture(cameraMode==='video'?'video':'image');
+// Preserve the native/gallery picker on cancellation; close the source sheet only on selection.
+// Capture-phase listener runs before the existing onchange handler clears input.value.
+document.querySelector('#file-picker').addEventListener('change',event=>{
+  if(event.target.files?.length){createSourceSheetOpen=false;sheetClose();}
+},true);
 for(const [input,kind] of [[nativeImageInput,'image'],[nativeVideoInput,'video']]){
   input.addEventListener('change',()=>{
     const file=input.files?.[0];input.value='';if(!file)return;
     if(!file.type.startsWith(kind+'/')){showToast(`Escolha ${kind==='image'?'uma foto':'um vídeo'}`);return;}
     if(file.size>160*1024*1024){showToast('Arquivo maior que 160 MB');return;}
+    createSourceSheetOpen=false;sheetClose();
     enterEditor({blob:file,type:kind,mime:file.type});
   });
 }
