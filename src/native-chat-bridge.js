@@ -44,7 +44,8 @@ export function cacheThreadForNative(account, conversation, participants, messag
 }
 
 export function mountNativeChatShortcut(root) {
-  if (typeof window?.LooplyNativeChat?.postMessage !== "function") return;
+  if (typeof window === "undefined" ||
+      typeof window.LooplyNativeChat?.postMessage !== "function") return;
   const header = root?.querySelector(".chat-sidebar .chat-heading");
   if (!header || header.querySelector("[data-native-chats]")) return;
   const button = document.createElement("a");
