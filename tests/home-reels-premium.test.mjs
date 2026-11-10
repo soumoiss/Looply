@@ -173,3 +173,19 @@ test("regressão: Reels exibe autor depois do reparenting visual do Feed",()=>{
  assert.match(js,/\.post-header \.post-author-profile/);
  assert.match(js,/looply-reels-creator-profile/);
 });
+
+test("produção: RPCs de curtidas/salvos são permitidas no cliente Neon real",()=>{
+ const src=read("src/neon-production-client.js");
+ for(const name of ["v13_post_engagement_page","v13_set_post_reaction","v13_set_post_saved"])
+   assert.ok(src.includes('"'+name+'"'));
+ assert.match(src,/premiumPostRpcNames\.has\(name\) \? premiumPostRpc\(name,args\)/);
+ assert.match(src,/if\(action==="share_post" && body\.mode==="share"\)return premiumSharePost\(options\)/);
+ assert.match(src,/galleryRpc\("v52_share_post"/);
+ const migration=read("migration/20261110_home_reels_share_post.sql");
+ assert.match(migration,/public\.v52_share_post/);
+ assert.match(migration,/public\.v3_can_view_post\(p_post_id\)/);
+ assert.match(migration,/public\.chat_user_blocks/);
+ assert.match(migration,/public\.post_recipients/);
+ assert.match(migration,/public\.v4_create_conversation/);
+ assert.match(migration,/GRANT EXECUTE ON FUNCTION public\.v52_share_post/);
+});
