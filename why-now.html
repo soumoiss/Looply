@@ -221,7 +221,7 @@ async function dbRequest(mode,operation){if(!db)return null;return new Promise((
 async function loadMoments(){try{moments=await dbRequest('readonly',s=>s.getAll())||[];let expired=moments.filter(m=>Date.now()-m.created>864e5);for(const m of expired)await dbRequest('readwrite',s=>s.delete(m.id));moments=moments.filter(m=>Date.now()-m.created<=864e5).sort((a,b)=>a.created-b.created)}catch(e){console.error(e);showToast('Não foi possível ler os instantes locais')}renderHome()}
 function ownMoments(){return moments.filter(x=>Date.now()-x.created<864e5)}
 function avatarHtml(p){return `<div class="avatar ${p.ava||'ava-me'}">${escapeHtml(p.initial||'W')}</div>`}
-function renderHome(){const hasOwn=ownMoments().length>0;const row=$('#moment-row');row.innerHTML=`<button class="moment-item" id="story-self"><span class="ring ${hasOwn?'':'own'}"><span class="inner">${avatarHtml({ava:'ava-me',initial:'W'})}</span>${hasOwn?'':`<span class="own-plus">${icon('plus','ic') }</span>`}</span><span>${hasOwn?'Seu Why Now':'Criar agora'}</span></button>`+DEMOS.map(d=>`<button class="moment-item" data-demo="${d.id}"><span class="ring ${viewedDemo.has(d.id)?'seen':''}"><span class="inner">${avatarHtml(d)}</span></span><span>${escapeHtml(d.name)}</span></button>`).join('');$('#story-self').onclick=()=>hasOwn?openViewer(ownMoments(),0,'home'):openCreateSourcePicker();row.querySelectorAll('[data-demo]').forEach(b=>b.onclick=()=>openViewer(DEMOS,DEMOS.findIndex(d=>d.id===b.dataset.demo),'home'))}
+function renderHome(){const hasOwn=ownMoments().length>0;const row=$('#moment-row');row.innerHTML=`<button class="moment-item" id="story-self"><span class="ring ${hasOwn?'':'own'}"><span class="inner">${avatarHtml({ava:'ava-me',initial:'W'})}</span><span class="own-plus">${icon('plus','ic') }</span></span><span>${hasOwn?'Seu Why Now':'Criar agora'}</span></button>`+DEMOS.map(d=>`<button class="moment-item" data-demo="${d.id}"><span class="ring ${viewedDemo.has(d.id)?'seen':''}"><span class="inner">${avatarHtml(d)}</span></span><span>${escapeHtml(d.name)}</span></button>`).join('');$('#story-self').onclick=()=>openCreateSourcePicker();row.querySelectorAll('[data-demo]').forEach(b=>b.onclick=()=>openViewer(DEMOS,DEMOS.findIndex(d=>d.id===b.dataset.demo),'home'))}
 function renderProfile(){$('#profile-stat').textContent=`${ownMoments().length} instante${ownMoments().length!==1?'s':''} publicado${ownMoments().length!==1?'s':''}`}
 function sheetOpen(html){$('#sheet-body').innerHTML=html;$('#backdrop').classList.add('visible');$('#sheet').classList.add('open')}
 function sheetClose(){$('#sheet').classList.remove('open');$('#backdrop').classList.remove('visible');setTimeout(()=>{if(!$('#sheet').classList.contains('open'))$('#sheet-body').innerHTML=''},370)}
@@ -236,16 +236,28 @@ function openCreateSourcePicker(){
   if(recording)return;
   // Do not acquire getUserMedia or launch an Android intent before a source is chosen.
   createSourceSheetOpen=true;
+  const existingCount=typeof window.whyNowOwnPublishedCount==='function'
+    ? window.whyNowOwnPublishedCount() : ownMoments().length;
   sheetOpen(`<h2 class="sheet-title">Novo Right Now</h2>
     <button type="button" class="option-card" id="wn-source-app">${icon('camera')} <span><strong>Câmera do aplicativo</strong><small>Fotografar ou gravar dentro do Looply</small></span></button>
     <button type="button" class="option-card" id="wn-source-photo">${icon('camera')} <span><strong>Câmera do celular · foto</strong><small>Abrir o aplicativo de câmera do dispositivo</small></span></button>
     <button type="button" class="option-card" id="wn-source-video">${icon('camera')} <span><strong>Câmera do celular · vídeo</strong><small>Gravar usando a câmera do dispositivo</small></span></button>
     <button type="button" class="option-card" id="wn-source-gallery">${icon('photo')} <span><strong>Galeria</strong><small>Selecionar uma foto ou um vídeo existente</small></span></button>
+    ${existingCount ? `<button type="button" class="option-card" id="wn-source-existing">${icon('eye')} <span><strong>Ver meus Right Now</strong><small>Momentos já publicados</small></span></button>` : ''}
     <div class="sheet-foot"><button type="button" class="btn ghost" id="wn-source-cancel">Cancelar</button></div>`);
   $('#wn-source-app').onclick=()=>{createSourceSheetOpen=false;sheetClose();void openCamera()};
   $('#wn-source-photo').onclick=()=>nativeCapture('image');
   $('#wn-source-video').onclick=()=>nativeCapture('video');
   $('#wn-source-gallery').onclick=()=>$('#file-picker').click();
+  $('#wn-source-existing')?.addEventListener('click',()=>{
+    createSourceSheetOpen=false;sheetClose();
+    if(typeof window.whyNowShowOwnPublished==='function') {
+      window.whyNowShowOwnPublished();
+    } else {
+      const published=ownMoments();
+      if(published.length)openViewer(published,0,'home');
+    }
+  });
   $('#wn-source-cancel').onclick=closeCreateSourcePicker;
 }
 function navCamera(){openCreateSourcePicker()}
