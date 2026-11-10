@@ -1,3 +1,4 @@
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
@@ -8,12 +9,7 @@ await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
   const socialData=await loadSocialData(client,"external").catch(error=>({
     people:[],peopleError:error,posts:[],postsError:error
   }));
-  root.innerHTML='<header class="reels-destination-heading" aria-label="Reels do Looply">'+
-    '<div class="reels-destination-symbol" aria-hidden="true">▶</div>'+
-    '<div><span class="section-kicker">Links compartilhados</span><h1>Reels</h1>'+
-    '<p>Vídeos e publicações do Instagram, TikTok e YouTube compartilhados no Looply.</p></div>'+
-    '</header>'+
-    socialMarkup(socialData,user.id,isAdmin,"external");
+  root.innerHTML=socialMarkup(socialData,user.id,isAdmin,"external");
   bindSocialEvents(root,client,()=>user.id,isAdmin);
   bindHomeCommentsSheet(root);
   setupSocialRealtime(client,user.id,root,isAdmin);
@@ -32,6 +28,7 @@ await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
       requestAnimationFrame(()=>{input.focus({preventScroll:true});fields.scrollIntoView({block:"start",behavior:"smooth"});});
     }
   }
+  mountPremiumSurface({root, client, user, mode:"external", refresh:()=>root.__looplyRefreshData?.()});
   if(location.hash){
     requestAnimationFrame(()=>{
       try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({block:"center"});}
