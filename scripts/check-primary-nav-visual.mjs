@@ -139,16 +139,30 @@ try{
        return color;
      });
      assert.equal(theme,"rgb(8, 127, 189)","brand color must follow selected theme");
-     await page.evaluate(()=>{
-       const nav=document.querySelector(".page-navigation");
-       for(const label of ["reels","cartas","musicas","galeria","chat","home"]){
-         nav.querySelectorAll("a").forEach(a=>{
-           if(a.getAttribute("href")===label+".html")a.setAttribute("aria-current","page");
+     for(const view of ["reels","letters","music","gallery","chat","settings","notifications","home"]){
+       const layout=await page.evaluate(name=>{
+         document.body.className="looply-page page-"+name+(name==="home"||name==="reels"?" looply-premium":"");
+         const mapped={letters:"cartas",music:"musicas",gallery:"galeria",chat:"chat",home:"home",reels:"reels"};
+         document.querySelectorAll(".page-navigation a").forEach(a=>{
+           if(a.getAttribute("href")===mapped[name]+".html")a.setAttribute("aria-current","page");
            else a.removeAttribute("aria-current");
          });
-         if(nav.querySelectorAll('[aria-current="page"]').length!==1)throw Error("active nav mismatch "+label);
-       }
-     });
+         const nav=document.querySelector(".page-navigation").getBoundingClientRect();
+         const header=document.querySelector(".page-header").getBoundingClientRect();
+         const buttons=[...document.querySelectorAll(".page-navigation a")];
+         return {navCount:document.querySelectorAll(".page-navigation").length,
+           anchors:buttons.length,hrefs:buttons.map(a=>a.getAttribute("href")),
+           navY:nav.y,navBottom:nav.bottom,headerBottom:header.bottom,
+           overflow:document.documentElement.scrollWidth-innerWidth};
+       },view);
+       assert.equal(layout.navCount,1,view+" duplicated nav");
+       assert.equal(layout.anchors,6,view+" missing links");
+       assert.deepEqual(layout.hrefs,["home.html","reels.html","cartas.html","musicas.html","galeria.html","chat.html"]);
+       assert.ok(layout.navY>layout.headerBottom+20,view+" nav overlaps global header");
+       assert.ok(layout.navBottom>760&&layout.navBottom<=800.5,view+" nav not anchored");
+       assert.ok(layout.overflow<=1,view+" horizontal overflow");
+       if(view==="music"||view==="letters")await page.screenshot({path:join(OUT,"global-"+view+"-390.png")});
+     }
      await page.evaluate(()=>{document.documentElement.dataset.theme="noite";document.querySelector(".fixture-modal").classList.add("is-open");});
      const overlay=await page.evaluate(()=>{
        const modal=document.querySelector(".fixture-modal"),nav=document.querySelector(".page-navigation");
