@@ -77,6 +77,7 @@ android {
 dependencies {
     implementation("androidx.webkit:webkit:1.15.0")
     implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
     androidTestImplementation("androidx.test:core:1.6.1")
