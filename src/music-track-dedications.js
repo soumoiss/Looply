@@ -1,5 +1,6 @@
 import { normalizeStorySong, searchAppleMusicPublic, searchSpotifyStoryMetadata } from "./story-music-catalog.js";
-import { neonFunctionsBase } from "./neon-production-client.js";
+// Same authenticated Neon Functions host used by the official YouTube playlist API.
+const neonFunctionsBase = "https://br-round-fog-b7pseu7j-looplystorage.compute.c-13.us-east-1.aws.neon.tech";
 
 /**
  * A dedication refers to exactly one recording. Album/playlist URLs are
