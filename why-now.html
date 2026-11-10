@@ -239,7 +239,7 @@ function openCreateSourcePicker(){
   sheetOpen(`<h2 class="sheet-title">Novo Right Now</h2>
     <button type="button" class="option-card" id="wn-source-app">${icon('camera')} <span><strong>Câmera do aplicativo</strong><small>Fotografar ou gravar dentro do Looply</small></span></button>
     <button type="button" class="option-card" id="wn-source-photo">${icon('camera')} <span><strong>Câmera do celular · foto</strong><small>Abrir o aplicativo de câmera do dispositivo</small></span></button>
-    <button type="button" class="option-card" id="wn-source-video">${icon('video')} <span><strong>Câmera do celular · vídeo</strong><small>Gravar usando a câmera do dispositivo</small></span></button>
+    <button type="button" class="option-card" id="wn-source-video">${icon('camera')} <span><strong>Câmera do celular · vídeo</strong><small>Gravar usando a câmera do dispositivo</small></span></button>
     <button type="button" class="option-card" id="wn-source-gallery">${icon('photo')} <span><strong>Galeria</strong><small>Selecionar uma foto ou um vídeo existente</small></span></button>
     <div class="sheet-foot"><button type="button" class="btn ghost" id="wn-source-cancel">Cancelar</button></div>`);
   $('#wn-source-app').onclick=()=>{createSourceSheetOpen=false;sheetClose();void openCamera()};
