@@ -2,6 +2,8 @@
 import { signPeople } from "./profile-api.js";
 import { mountSecretMessages } from "./secret-messages.js";
 import { mountInternalShareDialog } from "./home-reels-send.js";
+import { mountSavedCollection } from "./home-reels-saved.js";
+import { enhancePublicationComposer } from "./home-reels-composer.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMOJIS = Object.freeze(["❤️","😂","😮","😢","🔥","👏"]);
@@ -130,6 +132,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(composeFields.hidden&&composeDialog.open)closeCompose();
     }).observe(composeFields,{attributes:true,attributeFilter:["hidden"]});
   }
+  if(composer)enhancePublicationComposer({form:composer,client,userId:ownId,profile,external:!isHome});
   if(feed){feed.classList.add("feed");by(scene,"#feed")?.append(feed);}
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
   social?.remove();
@@ -159,6 +162,18 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   const gridButton=by(toolbar,"[data-premium-grid]");
   const listButton=by(toolbar,"[data-premium-list]");
   const searchPanel=by(scene,"#srch");
+  const savedCollection=mountSavedCollection({root,client,userId:ownId});
+  const savedButton=makeButton("Salvos","premium-saved-open","Ver publicações salvas");
+  savedButton.dataset.openSaved="";
+  savedButton.innerHTML='<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg><span>Salvos</span>';
+  toolbar.insertBefore(savedButton,by(toolbar,"[data-premium-search]"));
+  savedButton.onclick=()=>savedCollection.open();
+  root.addEventListener("looply:saved-change",event=>{
+    const postId=event.detail?.postId;
+    if(!postId)return;
+    if(event.detail.saved)saved.add(postId);else saved.delete(postId);
+    all(root,'[data-premium-save="'+postId+'"]').forEach(btn=>btn.setAttribute("aria-pressed",String(!!event.detail.saved)));
+  });
   by(toolbar,"[data-premium-search]").onclick=()=>{
     searchPanel.classList.toggle("on");
     if(searchPanel.classList.contains("on"))search.focus();
@@ -412,6 +427,8 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     try{
       await call(client,"v13_set_post_saved",{p_post_id:postId,p_saved:next});
       notify(next?"Publicação salva.":"Publicação removida dos salvos.");
+      root.dispatchEvent(new CustomEvent("looply:saved-change",{detail:{postId,saved:next}}));
+      savedCollection.refresh();
     }catch(error){
       if(before)saved.add(postId);else saved.delete(postId);
       buttons.forEach(b=>b.setAttribute("aria-pressed",String(before)));
