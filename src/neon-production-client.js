@@ -501,11 +501,12 @@ async function adminCreateUser(body) {
     const existingProfiles=await existing.json();
     if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
     if(existingProfiles.length)throw Error("username_already_exists");
-    // Neon Auth Better Auth admin API performs the password hashing and never
-    // signs into the new account in place of the current administrator.
-    const nativeAdmin=neon.auth?.admin;
-    const alternateAuth=createClient({auth:{url:config.auth},dataApi:{url:config.data}});
-    const adminApi=typeof nativeAdmin?.createUser==="function"?nativeAdmin:alternateAuth.auth?.admin;
+    // The SupabaseAuthAdapter exposes an undefined .admin facade; its own
+    // Better Auth instance carries the authenticated browser session and the
+    // real Admin plugin. A new unauthenticated createClient() cannot safely
+    // issue admin calls on behalf of the currently signed-in Peixinho.
+    const adminApi=neon.auth?.getBetterAuthInstance?.()?.admin ||
+      neon.auth?.admin;
     if(typeof adminApi?.createUser!=="function")
       throw Error("neon_auth_admin_create_user_unavailable");
     const created=await adminApi.createUser({
