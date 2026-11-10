@@ -30,19 +30,19 @@ import java.util.concurrent.Executors
 class NativeFeedActivity : Activity() {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private val violet = Color.rgb(95, 62, 167)
-    private val background = Color.rgb(247, 244, 250)
+    private val pageBackground = Color.rgb(247, 244, 250)
     private val ink = Color.rgb(34, 28, 45)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        window.statusBarColor = pageBackground
+        window.navigationBarColor = pageBackground
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(background)
+            setBackgroundColor(pageBackground)
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
