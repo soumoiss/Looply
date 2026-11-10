@@ -36,7 +36,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   const ownId=user.id, isHome=mode!=="external";
   const scene=element("div","premium-scene");
   scene.innerHTML=(isHome?'<div id="hello"></div><section class="premium-why-now"><div class="h2"><h2>Why Now</h2></div><div data-premium-stories></div></section><div id="extras"></div>':'<div class="h2"><h2>Reels</h2></div>')+
-    '<div id="composer"></div><div class="premium-filters" id="ftool"><button type="button" class="fc on" data-premium-filter="all" aria-pressed="true">Para você</button><button type="button" class="fc" data-premium-filter="following" aria-pressed="false">Seguindo</button><input type="search" class="premium-filter-search" placeholder="Buscar" aria-label="Buscar publicações"></div><div id="feed"></div><div id="sent"></div>';
+    '<div id="composer" class="cardx"></div><div class="ftool" id="ftool"><div class="chips"><button type="button" class="fc on" data-premium-filter="all" aria-pressed="true">Para você</button><button type="button" class="fc" data-premium-filter="following" aria-pressed="false">Seguindo</button><button type="button" class="fc" data-premium-filter="photo" aria-pressed="false">Fotos</button><button type="button" class="fc" data-premium-filter="video" aria-pressed="false">Vídeos</button><button type="button" class="fc" data-premium-filter="link" aria-pressed="false">Links</button></div><button type="button" class="ib" data-premium-search aria-label="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 5 5"/></svg></button><div class="vt"><button type="button" class="on" data-premium-list aria-label="Lista" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" data-premium-grid aria-label="Mosaico" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button></div></div><label class="srch" id="srch"><span aria-hidden="true">⌕</span><input type="search" id="q" placeholder="Buscar publicações e pessoas" aria-label="Buscar publicações"></label><div id="feed"></div><div id="sent"></div>';
   const hero=by(root,".home-welcome");
   const storyHost=by(root,"#stories");
   const welcome=by(root,"[data-global-welcome]");
@@ -46,15 +46,52 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   const composer=by(root,"[data-social-post]");
   const feed=by(root,"[data-social-feed]");
   root.append(scene);
-  if(hero)by(scene,"#hello")?.append(hero);
+  if(hero){
+    by(scene,"#hello")?.append(hero);
+    by(hero,".home-welcome-avatar")?.classList.add("av");
+    const copy=by(hero,".home-welcome-copy");
+    if(copy&&!by(copy,".eyebrow"))copy.prepend(element("span","eyebrow","✦"));
+  }
+  const globalHeader=document.querySelector("[data-site-header]");
+  if(globalHeader){
+    by(globalHeader,".brand-inline")?.classList.add("brand");
+    by(globalHeader,".header-notifications")?.classList.add("ib");
+    by(globalHeader,".page-navigation")?.classList.add("dock","glass");
+  }
   if(storyHost){
     by(scene,"[data-premium-stories]")?.append(storyHost);
     all(storyHost,":scope > :not(.why-now-mount)").forEach(n=>{n.hidden=true;});
+    function skinStoryPeople(){
+      by(storyHost,".why-now-people")?.classList.add("stories");
+      all(storyHost,".why-now-person").forEach((item,index)=>{
+        item.classList.add("st1");item.style.setProperty("--i",String(index));
+        by(item,".why-now-person-ring")?.classList.add("ring");
+        const face=by(item,".why-now-person-face");if(face){face.classList.add("av");face.style.setProperty("--s","58px");}
+      });
+    }
+    skinStoryPeople();
+    new MutationObserver(skinStoryPeople).observe(storyHost,{childList:true,subtree:true});
   }
   if(welcome){welcome.hidden=true;by(scene,"#extras")?.append(welcome);}
   if(music)by(scene,"#extras")?.append(music);
-  if(composer){composer.classList.add("premium-composer");by(scene,"#composer")?.append(composer);}
-  if(feed)by(scene,"#feed")?.append(feed);
+  if(composer){
+    by(scene,"#composer")?.append(composer);
+    const head=by(composer,".post-composer-heading"),toggle=by(head||composer,"[data-toggle-composer]");
+    if(head&&toggle){
+      head.classList.add("comp1");
+      head.replaceChildren();
+      const face=element("span","av",String(profile?.display_name||profile?.username||"L").charAt(0).toUpperCase());
+      face.style.setProperty("--s","44px");
+      if(/^https:\/\//.test(profile?.avatarUrl||"")){
+        const img=document.createElement("img");img.src=profile.avatarUrl;img.alt="";img.referrerPolicy="no-referrer";face.replaceChildren(img);
+      }
+      head.append(face,element("span","fk",isHome?"No que você está pensando?":"Compartilhar link"),toggle);
+      toggle.className="ci";
+      toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m4 17 5-5 4 4 3-3 5 5"/></svg>';
+      toggle.setAttribute("aria-label","Criar publicação");
+    }
+  }
+  if(feed){feed.classList.add("feed");by(scene,"#feed")?.append(feed);}
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
   social?.remove();
   if(isHome && music)decorateMusic(music);
@@ -79,9 +116,15 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
         by(scene,"#extras")?.append(button);
       }).catch(()=>{});
   }
-  const toolbar=by(scene,"#ftool"),search=by(toolbar,"input");
-  const gridButton=makeButton("▦","fc","Alternar lista e grade");gridButton.dataset.premiumGrid="";
-  toolbar.append(gridButton);
+  const toolbar=by(scene,"#ftool"),search=by(scene,"#q");
+  const gridButton=by(toolbar,"[data-premium-grid]");
+  const listButton=by(toolbar,"[data-premium-list]");
+  const searchPanel=by(scene,"#srch");
+  by(toolbar,"[data-premium-search]").onclick=()=>{
+    searchPanel.classList.toggle("on");
+    if(searchPanel.classList.contains("on"))search.focus();
+    else{search.value="";applyFilters();}
+  };
   let following=new Set(), saved=new Set(), filter="all", grid=false;
   let pendingLikes=new Set(), pendingSaves=new Set(), dialog=null, picker=null;
   let likePage=0,likeBusy=false,likeDone=false,likeGeneration=0,selectedPost="",likerTab="all",likerSearch="";
@@ -122,8 +165,9 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   function authorId(card){return by(card,"[data-profile-open]")?.dataset.profileOpen||"";}
   function applyFilters(){
     for(const card of all(root,"[data-post-card]")){
-      const visible=(filter==="all"||authorId(card)===ownId||following.has(authorId(card))) &&
-        (card.textContent||"").toLocaleLowerCase("pt-BR").includes(search.value.trim().toLocaleLowerCase("pt-BR"));
+      const category=by(card,".post-external")?"link":by(card,"video[data-feed-video]")?"video":by(card,".post-media img")?"photo":"text";
+      const matching=filter==="all"||(filter==="following"?(authorId(card)===ownId||following.has(authorId(card))):filter===category);
+      const visible=matching&&(card.textContent||"").toLocaleLowerCase("pt-BR").includes(search.value.trim().toLocaleLowerCase("pt-BR"));
       card.hidden=!visible;
     }
     const visible=all(root,"[data-post-card]").some(card=>!card.hidden);
@@ -376,7 +420,16 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     if(button){filter=button.dataset.premiumFilter;all(toolbar,"[data-premium-filter]").forEach(b=>{const active=b===button;b.classList.toggle("on",active);b.setAttribute("aria-pressed",String(active));});applyFilters();}
   });
   search.addEventListener("input",applyFilters);
-  gridButton.onclick=()=>{grid=!grid;by(root,"[data-social-feed]")?.classList.toggle("is-grid",grid);gridButton.classList.toggle("on",grid);gridButton.setAttribute("aria-pressed",String(grid));};
+  function setGrid(next){
+    grid=next;
+    by(root,"[data-social-feed]")?.classList.toggle("mos",grid);
+    gridButton.classList.toggle("on",grid);
+    listButton.classList.toggle("on",!grid);
+    gridButton.setAttribute("aria-pressed",String(grid));
+    listButton.setAttribute("aria-pressed",String(!grid));
+  }
+  gridButton.onclick=()=>setGrid(true);
+  listButton.onclick=()=>setGrid(false);
   const topButton=makeButton("↑","premium-top","Voltar ao topo");topButton.hidden=true;root.append(topButton);
   topButton.onclick=()=>window.scrollTo({top:0,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"});
   window.addEventListener("scroll",()=>{topButton.hidden=window.scrollY<480;},{passive:true});
