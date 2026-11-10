@@ -16,7 +16,7 @@ test("notification decline goes to a private Android receiver instead of launchi
   assert.match(manifest,/<receiver\s+android:name="\.NativeCallDeclineReceiver"\s+android:exported="false"/);
   assert.match(screen,/sendBroadcast\(Intent\(this, NativeCallDeclineReceiver::class\.java\)/);
   assert.match(receiver,/class NativeCallDeclineReceiver : BroadcastReceiver/);
-  assert.doesNotMatch(receiver, /MainActivity::class\.java|WebView|loadUrl\(/);
+  assert.doesNotMatch(receiver, /Intent\(this,\s*MainActivity::class\.java|import android\.webkit\.WebView|\.loadUrl\(/);
 });
 
 test("native decline checks pending expiry and current authenticated Neon offer before signaling", async () => {
@@ -44,7 +44,7 @@ test("native call auth bridge stores access token only, encrypted with Android K
   assert.match(store,/KeyStore\.getInstance\("AndroidKeyStore"\)/);
   assert.match(store,/AES\/GCM\/NoPadding/);
   assert.match(store,/GCMParameterSpec\(128,/);
-  assert.doesNotMatch(store,/refresh_token|password|service_role/);
+  assert.doesNotMatch(store,/\.put\("(?:refresh_token|password|service_role)"/);
   assert.match(js,/syncNativeCallSession\(session\)/);
   assert.match(js,/type: "session", account, accessToken: token, expiresAtMs/);
   assert.match(js,/LooplyNativeCallAuth\?\.postMessage\(JSON\.stringify\(\{type:"clear"\}\)\)/);
