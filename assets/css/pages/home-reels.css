@@ -995,11 +995,11 @@ body.looply-premium .ftool .premium-library-shortcut span{font:750 9px/1.05 var(
    transform-scale, or crop the video. Keep original post attribution in Looply.
    Offsets match the official mobile embed header (48px), side frame (52px),
    and footer, and are isolated to Instagram rather than all Reels. */
-body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-reel-media-stage{
+body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-reel-media-stage{
   display:grid;place-items:center;background:#000;
   overflow:hidden;
 }
-body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window{
+body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instagram-video-window{
   --ig-side:52px;
   --ig-top:48px;
   position:relative;
@@ -1014,7 +1014,7 @@ body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-v
   border-radius:0;
   isolation:isolate;
 }
-body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window>.looply-reel-embed{
+body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instagram-video-window>.looply-reel-embed{
   position:absolute;
   display:block;
   inset:calc(-1 * var(--ig-top)) auto auto calc(-1 * var(--ig-side));
@@ -1028,11 +1028,11 @@ body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-v
   transform:none;
   background:#000;
 }
-body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-reels-audio{
+body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-reels-audio{
   display:none;
 }
 @media(max-width:600px){
-  body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window{
+  body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instagram-video-window{
     transform:translateX(-10px);
   }
 }
