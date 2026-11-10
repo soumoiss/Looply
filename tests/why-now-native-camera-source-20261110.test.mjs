@@ -27,7 +27,7 @@ test("Both embedded create entry points open source chooser without auto-startin
   const integration = read("src/why-now-integration.js");
   assert.match(adapter, /window\.whyNowOpenCreate=\(\)=>\{openCreateSourcePicker\(\);\};/);
   assert.match(adapter, /if \(data\.type === "open-create"\) \{\s*openCreateSourcePicker\(\);/);
-  assert.match(adapter, /if \(!stories\.length && own\) \{ openCreateSourcePicker\(\); return; \}/);
+  assert.match(adapter, /if \(own\) \{ openCreateSourcePicker\(\); return; \}/);
   assert.match(integration, /\["create","camera","editor","viewer"\]/);
   assert.match(integration, /screen\(type==="open-create"\?"create":"viewer"\)/);
 });
