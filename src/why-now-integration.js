@@ -6,6 +6,7 @@ import { encodeStorySong, decodeStorySong } from "./story-music-catalog.js?v=sto
 import { decodeStoryBody } from "./story-text-style.js";
 import { cachedSignedUrls } from "./storage-url-cache.js";
 import { recordStoryView } from "./story-view-receipt.js";
+import { neonFunctionsBase } from "./neon-production-client.js";
 
 const CHANNEL = "looply-why-now-v1";
 const EXT = Object.freeze({
@@ -527,6 +528,43 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     return {items:items.filter(Boolean),nextOffset:offset+(tab==="favorites"?Math.min(limit,Math.max(0,total-offset)):rows.length),
       hasMore:offset+limit<total};
   }
+  async function stickerImage(_ignored,payload){
+    const id=String(payload?.id||"");
+    if(!validStoryId(id))throw Error("sticker_invalid_id");
+    const result=await client.from("sticker_catalog")
+      .select("id,asset_path,storage_path").eq("id",id).maybeSingle();
+    if(result.error||!result.data)throw Error("sticker_not_visible");
+    const sticker=result.data;
+    if(safeStickerAsset(sticker.asset_path)){
+      const local=await fetch(new URL(sticker.asset_path,location.href),{cache:"no-store"});
+      if(!local.ok)throw Error("sticker_asset_unavailable");
+      const blob=await local.blob();
+      if(!blob.size||blob.size>1024*1024||!["image/webp","image/png","image/svg+xml"].includes(blob.type))
+        throw Error("sticker_asset_invalid");
+      return {blob};
+    }
+    if(!safeStickerPath(sticker.storage_path))throw Error("sticker_path_invalid");
+    const sessionResult=await client.auth.getSession();
+    const token=sessionResult?.data?.session?.access_token;
+    if(!token)throw Error("sticker_session_required");
+    // No R2 cross-origin fetch on the browser: the authenticated Neon Function
+    // checks sticker_catalog visibility and streams a bounded WebP response.
+    const response=await fetch(neonFunctionsBase+"/storage/read",{
+      method:"POST",cache:"no-store",
+      headers:{
+        authorization:"Bearer "+token,
+        "content-type":"application/json",
+        "x-looply-bucket":"looply-stickers",
+        "x-looply-path":sticker.storage_path
+      },
+      body:"{}"
+    });
+    if(!response.ok)throw Error("sticker_read_failed_"+response.status);
+    const blob=await response.blob();
+    if(blob.type!=="image/webp"||!blob.size||blob.size>1024*1024)
+      throw Error("sticker_read_invalid");
+    return {blob};
+  }
   async function stickerFavorite(_ignored,payload){
     const id=String(payload.id||"");
     if(!validStoryId(id))throw Error("Figurinha inválida");
@@ -541,7 +579,8 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   }
   const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,
     "share-send":sendShare,"sticker-metadata":stickerMetadata,
-    "sticker-page":stickerPage,"sticker-favorite":stickerFavorite};
+    "sticker-page":stickerPage,"sticker-favorite":stickerFavorite,
+    "sticker-image":stickerImage};
   async function onMessage(event) {
     if (destroyed || event.origin !== location.origin || event.source !== frame.contentWindow) return;
     const message = event.data;

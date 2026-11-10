@@ -5,7 +5,7 @@ import { setupChatPremium } from "../../src/chat-premium.js?v=ultra-20261107-r1"
 import { setupOfficialMessagesModel } from "../../src/chat-reference-complete.js?v=official-model-20261104-r1";
 import { setupChatCalls } from "../../src/chat-calls.js?v=fast-ice-20261031";
 import { loadStories, storiesMarkup } from "../../src/stories.js?v=visible-repost-seen-20261031";
-import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261102";
+import { mountWhyNowStories } from "../../src/why-now-integration.js?v=20261110-sticker-read-fix";
 import { loadSocialData } from "../../src/social.js";
 
 const chatRoot = document.getElementById("pageContent");

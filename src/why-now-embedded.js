@@ -49,7 +49,7 @@
   }
   // Expose only the authenticated parent message channel to the editor.
   window.whyNowStickerBridge = (action, payload={}) => {
-    if (!["sticker-metadata","sticker-page","sticker-favorite"].includes(action))
+    if (!["sticker-metadata","sticker-page","sticker-favorite","sticker-image"].includes(action))
       return Promise.reject(Error("Unsupported sticker action"));
     return request(action,payload);
   };
