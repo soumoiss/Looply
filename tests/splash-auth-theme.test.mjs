@@ -38,7 +38,7 @@ test("Supabase Auth explicitly persists the session in browser storage and refre
 
 test("login and splash share the persisted global theme tokens", async () => {
   const [login, loginCss, theme] = await Promise.all([
-    read("login.html"), read("assets/css/login.css"), read("src/theme.js")
+    read("login.html"), read("assets/css/login.css"), read("src/theme-bootstrap.js")
   ]);
   assert.match(login, /assets\/css\/app\.css/);
   assert.match(login, /assets\/css\/login\.css/);
