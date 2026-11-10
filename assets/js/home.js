@@ -1,3 +1,4 @@
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
@@ -18,7 +19,7 @@ function escapeSettingsHtml(value) {
 }
 
 function renderGlobalHomeSettings(settings = {}) {
-  const welcome = String(settings.welcome_banner_text || "").trim();
+  // A saudação oficial é exclusivamente a identidade do usuário; sem banners textuais.
   const title = String(settings.music_of_the_day_title || "").trim();
   const rawUrl = String(settings.music_of_the_day_url || "").trim();
   let musicUrl = "";
@@ -26,7 +27,7 @@ function renderGlobalHomeSettings(settings = {}) {
     const url = new URL(rawUrl);
     if (url.protocol === "https:" && (/(^|\.)youtube\.com$/.test(url.hostname) || /(^|\.)youtu\.be$/.test(url.hostname))) musicUrl = url.href;
   } catch {}
-  return `${welcome ? `<section class="looply-welcome-banner" data-global-welcome>${escapeSettingsHtml(welcome)}</section>` : `<section data-global-welcome hidden></section>`}${musicUrl ? `<a class="looply-music-of-day" data-global-music href="${escapeSettingsHtml(musicUrl)}" target="_blank" rel="noopener noreferrer"><span class="looply-music-of-day-icon" aria-hidden="true">♫</span><span class="looply-music-of-day-copy"><small>MÚSICA DO DIA</small><strong>${escapeSettingsHtml(title || "Ouça a música de hoje")}</strong></span><span class="looply-music-of-day-play" aria-hidden="true">▶</span></a>` : `<section data-global-music hidden></section>`}`;
+  return `<section data-global-welcome hidden></section>${musicUrl ? `<a class="looply-music-of-day" data-global-music href="${escapeSettingsHtml(musicUrl)}" target="_blank" rel="noopener noreferrer"><span class="looply-music-of-day-icon" aria-hidden="true">♫</span><span class="looply-music-of-day-copy"><small>MÚSICA DO DIA</small><strong>${escapeSettingsHtml(title || "Ouça a música de hoje")}</strong></span><span class="looply-music-of-day-play" aria-hidden="true">▶</span></a>` : `<section data-global-music hidden></section>`}`;
 }
 
 function renderWelcome(profile) {
@@ -34,7 +35,7 @@ function renderWelcome(profile) {
   const avatar = profile.avatarUrl;
   const markup = `<section class="hero-panel home-welcome" aria-labelledby="homeWelcomeTitle">
     <div class="home-welcome-avatar" data-home-avatar aria-hidden="true"><span data-home-avatar-initial></span></div>
-    <div class="home-welcome-copy"><div class="eyebrow">✦</div><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1><p>Feed conectado com atualizações ao vivo</p></div>
+    <div class="home-welcome-copy"><h1 class="hero-title" id="homeWelcomeTitle" data-home-welcome-title></h1></div>
     <a class="header-action home-profile-shortcut" href="perfil.html">Meu perfil</a>
   </section>`;
   const template = document.createElement("template");
@@ -122,6 +123,7 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     return storyOk && feedOk && !settingsResult.error;
   };
   setupSocialRealtime(client, user.id, root, isAdmin);
+  mountPremiumSurface({root, client, user, profile, mode:"native", refresh:()=>root.__looplyRefreshData?.()});
   window.addEventListener("pagehide", () => {
     disposeSocialRealtime(client);
   }, { once: true });
