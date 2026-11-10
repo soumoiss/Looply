@@ -57,6 +57,27 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
   social?.remove();
   if(isHome && music)decorateMusic(music);
+
+  // Exibir Recado secreto apenas quando há uma mensagem real e ainda não lida.
+  // O modal e o recibo de leitura continuam pertencendo a secret-messages.js.
+  if(isHome){
+    void client.from("secret_messages").select("id,title,created_at")
+      .eq("recipient_id",ownId).eq("is_read",false)
+      .order("created_at",{ascending:true}).limit(1).maybeSingle()
+      .then(({data,error})=>{
+        if(error||!data||!root.isConnected)return;
+        const button=makeButton("","sec1","Abrir recado secreto");
+        button.innerHTML='<span class="wx" aria-hidden="true">✉</span><span><b>Recado secreto</b><small></small></span>';
+        text(by(button,"small"),data.title||"");
+        button.onclick=()=>{
+          const existing=document.querySelector("[data-secret-vip-modal]");
+          if(existing){
+            existing.querySelector("button")?.focus();
+          }else{notify("Recado indisponível. Atualize a página.",true);}
+        };
+        by(scene,"#extras")?.append(button);
+      }).catch(()=>{});
+  }
   const toolbar=by(scene,"#ftool"),search=by(toolbar,"input");
   const gridButton=makeButton("▦","fc","Alternar lista e grade");gridButton.dataset.premiumGrid="";
   toolbar.append(gridButton);
