@@ -15,7 +15,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
 <link rel="stylesheet" href="/assets/css/theme-complete.css">
 <link rel="stylesheet" href="/assets/css/pages/ios-redesign.css">
-<link rel="stylesheet" href="/assets/css/pages/home-reels-model-v3.css">
+<link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
 </head><body class="looply-page page-home looply-premium"><div class="container-page">
