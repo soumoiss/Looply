@@ -1,6 +1,7 @@
 /** Looply — Painel ADM real. Nenhuma informação de exemplo, nenhuma mutação local. */
 import { looplyClient, activeSession, selfProfile, NEON_DATA_API_URL } from './neon-production-client.js';
 import {adminExtendedKinds,renderAdminExtended} from './admin-model-extensions.js';
+import {primaryNavigationMarkup} from './primary-navigation.js';
 
 const $ = selector => document.querySelector(selector);
 const el = (tag, className, text) => { const node=document.createElement(tag); if(className)node.className=className; if(text!==undefined)node.textContent=text; return node; };
@@ -191,6 +192,16 @@ function drawMatrix(){if(!matrixEnabled||animation)return;const canvas=$('#mx');
  const frame=now=>{if(!matrixEnabled){cancelAnimationFrame(animation);animation=0;return}if(now-last>110){last=now;const width=window.innerWidth,height=window.innerHeight;if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;columns=Array.from({length:Math.ceil(width/18)},()=>0)}ctx.fillStyle='rgba(8,5,15,.13)';ctx.fillRect(0,0,width,height);ctx.font='12px monospace';ctx.fillStyle='#39ff9c';columns.forEach((v,i)=>{ctx.fillText(String.fromCharCode(0x30a0+((i*17+Math.floor(now/600))%90)),i*18,v*18);columns[i]=v*18>height&&Math.random()>.985?0:v+1})}animation=requestAnimationFrame(frame)};animation=requestAnimationFrame(frame)}
 function setupPalette(){const palette=$('#pal'),query=$('#palQ'),results=$('#palR');const close=()=>palette.hidden=true;const open=()=>{palette.hidden=false;query.value='';search();query.focus()};const search=()=>{results.replaceChildren();for(const item of catalog.filter(x=>x.name.toLowerCase().includes(query.value.toLowerCase())).slice(0,25)){const b=el('button');b.innerHTML=`${ico(item.icon)}<span>${esc(item.name)}</span>`;b.onclick=()=>{close();openModule(item)};results.append(b)}};query.oninput=search;palette.onclick=e=>{if(e.target===palette)close()};$('#bPal').onclick=open;document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();open()}if(e.key==='Escape')close()});}
 function authorizedLayout(){verified=true;try{document.documentElement.dataset.theme=localStorage.getItem('looply-adm-theme')==='light'?'light':'dark';matrixEnabled=localStorage.getItem('looply-adm-matrix')!=='0'}catch{}$('#mx').style.display=matrixEnabled?'block':'none';if(matrixEnabled)drawMatrix();$('#bPal').innerHTML=ico('search');$('#bMx').innerHTML=ico('grid');$('#bTh').innerHTML=ico('moon');$('#bMx').onclick=toggleMatrix;$('#bTh').onclick=toggleTheme;$('#mback').innerHTML=ico('back');$('#mx2').innerHTML=ico('x');$('#palI').innerHTML=ico('search');
+ // Distinct internal module tabs stay functional above the canonical six-app dock.
+ let globalDock=document.querySelector('nav.looply-adm-global-nav');
+ if(!globalDock){
+   const holder=document.createElement('template');
+   holder.innerHTML=primaryNavigationMarkup('admin');
+   globalDock=holder.content.firstElementChild;
+   globalDock.classList.add('looply-adm-global-nav');
+   globalDock.setAttribute('aria-label','Navegação global do Looply');
+   document.querySelector('.app')?.append(globalDock);
+ }
  const dock=$('#dock');for(const [id,label,icon] of [['home','Painel','grid'],['mods','Módulos','list'],['con','Console','term'],['log','Registro','clock']]){const b=el('button');b.type='button';b.dataset.tab=id;b.innerHTML=ico(icon)+`<span>${label}</span>`;b.onclick=()=>changeTab(id);dock.append(b)}setupPalette();changeTab('home');}
 async function boot(){const overlay=$('#boot');overlay.textContent='LOOPLY // NEON AUTH';try{
  const session=await activeSession();if(!session?.access_token)throw Error('Sessão expirada');const status=await looplyClient.functions.invoke('looply-admin',{body:{action:'status'}});
