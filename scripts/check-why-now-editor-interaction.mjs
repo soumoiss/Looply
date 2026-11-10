@@ -90,6 +90,49 @@ try{
   });
   if(exported.type!=="image/png"||exported.size<300)
     fail("Composited image export is invalid: "+JSON.stringify(exported));
+  // Regression: a remote R2 image preview can load while fetch() is denied
+  // by CORS. Click must use authenticated parent Blob handoff, not signed URL.
+  await page.evaluate(async()=>{
+    const asset=await fetch("/assets/stickers/cc0/cat-scared.webp");
+    const blob=await asset.blob();
+    const original=window.fetch.bind(window);
+    window.__r2DirectFetches=0;
+    window.fetch=(url,...args)=>{
+      if(String(url).includes("r2.example.invalid")){
+        window.__r2DirectFetches++;
+        return Promise.reject(new TypeError("CORS blocked direct R2 fetch"));
+      }
+      return original(url,...args);
+    };
+    window.__remoteBlobRequests=0;
+    window.whyNowStickerBridge=async(action)=>{
+      if(action==="sticker-metadata")return {packs:["Pacote real"],favorites:[]};
+      if(action==="sticker-page")return {items:[{
+        id:"11111111-1111-4111-8111-111111111111",
+        title:"Figurinha do Chat",src:"https://r2.example.invalid/signed-private.webp",
+        storage_path:"stickers/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp"
+      }],nextOffset:1,hasMore:false};
+      if(action==="sticker-image"){
+        window.__remoteBlobRequests++;
+        return {blob};
+      }
+      throw Error("unexpected sticker action: "+action);
+    };
+    window.whyNowStickerCurrentUser=()=> "22222222-2222-4222-8222-222222222222";
+  });
+  const previousStickerCount=await page.evaluate(()=>editorItems.filter(x=>x.type==="sticker-image").length);
+  await page.locator("#tool-sticker").click();
+  await page.waitForSelector('#wn-sticker-grid [data-wn-sticker-id="11111111-1111-4111-8111-111111111111"]',{timeout:10000});
+  await page.locator('#wn-sticker-grid [data-wn-sticker-id="11111111-1111-4111-8111-111111111111"]').click();
+  await page.waitForFunction(count=>editorItems.filter(x=>x.type==="sticker-image").length>count,previousStickerCount);
+  const remote=await page.evaluate(()=>({
+    directFetches:window.__r2DirectFetches,
+    authenticatedRequests:window.__remoteBlobRequests,
+    count:editorItems.filter(x=>x.type==="sticker-image").length
+  }));
+  if(remote.directFetches!==0||remote.authenticatedRequests!==1)
+    fail("Remote R2 image used unauthenticated browser fetch: "+JSON.stringify(remote));
+
   await mkdir("smoke-results",{recursive:true});
   await page.screenshot({path:"smoke-results/why-now-editor-20261110.png",fullPage:true});
   if(errors.length)fail("Uncaught page error");
