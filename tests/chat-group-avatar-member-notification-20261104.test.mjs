@@ -55,9 +55,9 @@ test('Android message notifications include text previews, avatar caching and a 
   assert.match(service,/\.setVisibility\(NotificationCompat\.VISIBILITY_PRIVATE\)/);
   // The Android action is now an actual RemoteInput reply broadcast, not a
   // label that only opens MainActivity.
-  assert.match(service,/RemoteInput\\.Builder/);
-  assert.match(service,/NativeInlineReplyReceiver::class\\.java/);
-  assert.match(service,/addRemoteInput\\(remoteInput\\)/);
+  assert.match(service,/RemoteInput\.Builder/);
+  assert.match(service,/NativeInlineReplyReceiver::class\.java/);
+  assert.match(service,/addRemoteInput\(remoteInput\)/);
   assert.doesNotMatch(service,/"Responder",pending/);
   assert.match(cache,/WEB_MESSAGE_LISTENER/);
   assert.match(cache,/isMainFrame/);
