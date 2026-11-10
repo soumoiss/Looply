@@ -293,7 +293,7 @@ function musicContent(data, userId) {
         <label for="musicEditDedicationNote">Texto da dedicatória</label>
         <textarea id="musicEditDedicationNote" name="note" rows="9" maxlength="1000" spellcheck="true"></textarea>
         <p class="form-status" data-music-edit-status role="status" aria-live="polite"></p>
-        <footer><button type="button" class="text-button" data-music-dedication-edit-close>Cancelar</button><button type="submit" class="primary-button compact-button">Salvar alterações</button></footer>
+        <footer><button type="button" class="text-button music-dedication-delete-button" data-music-delete-current data-music-delete-dedication="">Excluir dedicatória</button><button type="button" class="text-button" data-music-dedication-edit-close>Cancelar</button><button type="submit" class="primary-button compact-button">Salvar alterações</button></footer>
       </form>
     </dialog>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
@@ -472,6 +472,8 @@ export function bindMusicEvents(root, client, getUserId) {
       form.elements.note.value = own.dedication_note;
       form.querySelector("[data-music-edit-status]").textContent = "";
       dedicationEdit = { id, userId: getUserId?.() };
+      const deleteButton = dialog.querySelector("[data-music-delete-current]");
+      if (deleteButton) deleteButton.dataset.musicDeleteDedication = id;
       dialog.addEventListener("close", () => {
         if (dedicationEdit?.id === id) {
           ++dedicationEditRequest;
@@ -882,10 +884,12 @@ export function bindMusicEvents(root, client, getUserId) {
     if (!dedicationId || !userId) return;
     if (!window.confirm("Excluir esta dedicatória? Ela desaparecerá também para quem a recebeu.")) return;
     button.disabled = true;
-    const status = button.closest("[data-dedication]")?.querySelector("[data-music-delete-status]");
+    const status = button.closest("[data-dedication]")?.querySelector("[data-music-delete-status]")
+      || button.closest("[data-music-dedication-edit-dialog]")?.querySelector("[data-music-edit-status]");
     if (status) status.textContent = "Excluindo…";
     try {
       await deleteOwnDedication(client,dedicationId,userId);
+      if (button.closest("[data-music-dedication-edit-dialog]")) cancelDedicationEdit();
       if (!await refreshMusic(root,client,userId,{force:true})) {
         if (status) status.textContent = "Dedicatória excluída. Atualize a página para recarregar a lista.";
       }
