@@ -12,7 +12,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
 <link rel="stylesheet" href="/assets/css/theme-complete.css">
-<link rel="stylesheet" href="/assets/css/pages/home-reels-model-v3.css">
+<link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <style>html,body{padding:0;margin:0}.diagnostic{position:fixed;top:50%;left:50%;z-index:0}</style>
 </head><body class="looply-page page-home page-reels looply-premium">
 <dialog class="looply-reels-scroll" data-reels-scroll open>
