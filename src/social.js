@@ -1321,15 +1321,21 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       const external=root.dataset.socialStream==="external" || Boolean(shareButton.closest("[data-post-card]")?.querySelector(".post-external"));
       const url = new URL((external?"reels.html":"home.html")+"#post-" + encodeURIComponent(postId), window.location.href).href;
       try {
-        if (navigator.share) await navigator.share({ title: "Publicação no Looply", url });
-        else if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
-        else window.prompt("Copie o link da publicação", url);
+        // Compartilhar externamente SEM copiar link: navegador usa Web Share,
+        // WebView Android atualizado abre Intent.ACTION_SEND no sistema.
+        const androidWebView=/Android/i.test(navigator.userAgent||"") && /\\bwv\\b/i.test(navigator.userAgent||"");
+        if (androidWebView) {
+          window.location.assign("looply-share://external?url="+encodeURIComponent(url));
+        } else if (typeof navigator.share === "function") {
+          await navigator.share({ title: "Publicação no Looply", text:"Veja esta publicação no Looply", url });
+        } else throw new Error("native_share_unavailable");
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
-        if (status) status.textContent = "Link pronto para compartilhar.";
+        if (status) status.textContent = "";
       } catch (error) {
         if (error?.name !== "AbortError") {
+          console.warn("Looply external share unavailable",error);
           const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
-          if (status) status.textContent = "Não foi possível compartilhar agora.";
+          if (status) status.textContent = "Compartilhamento de aplicativos indisponível neste navegador.";
         }
       }
       return;
