@@ -1,0 +1,154 @@
+name: Publish Looply Android 3.0.9 Right Now interactive editor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-publish-309-right-now-editor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: looply-signed-right-now-editor-309
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-v3.0.9-right-now-editor-20261110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify only reviewed main builds are released
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git branch --show-current)" = main || test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Run all Looply regressions and produce bundled web resources
+        run: |
+          npm run build
+          npm test
+          test -s dist/share.html
+          test -s dist/src/share-audience.js
+          grep -Fq 'v24_publish_shared_post' dist/share.html
+          grep -Fq 'looply:reels-media' dist/src/home-hybrid-reels.js
+      - name: Validate production signing secrets exist
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing signing secret $name"
+              exit 1
+            fi
+          done
+      - name: Preserve official Looply launcher artwork
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 android/tools/prepare_icon.py
+      - name: Build update signed with the existing production key
+        env:
+          KEYSTORE_B64: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_B64 }}
+          LOOPLY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEYSTORE_PASSWORD }}
+          LOOPLY_ANDROID_KEY_ALIAS: ${{ secrets.LOOPLY_ANDROID_KEY_ALIAS }}
+          LOOPLY_ANDROID_KEY_PASSWORD: ${{ secrets.LOOPLY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/looply-signer"
+          export LOOPLY_ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/looply-signer/release.jks"
+          printf %s "$KEYSTORE_B64" | base64 --decode > "$LOOPLY_ANDROID_KEYSTORE_FILE"
+          (cd android && ./gradlew --no-daemon --stacktrace assembleRelease)
+          rm -f "$LOOPLY_ANDROID_KEYSTORE_FILE"
+      - name: Check Why Now editor assets, installability and official signing
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$tools/apksigner" verify --verbose "$apk"
+          # Compare against our previously signed, publicly released APK
+          # to preserve in-place upgrades even if no certificate secret exists.
+          mkdir -p previous-release
+          gh release download android-v3.0.8-salvos-share-20261110 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk' --dir previous-release
+          test -s previous-release/Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk
+          old_cert=$("$tools/apksigner" verify --print-certs previous-release/Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          new_cert=$("$tools/apksigner" verify --print-certs "$apk" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$old_cert" && test "$old_cert" = "$new_cert"
+          badging=$("$tools/aapt" dump badging "$apk")
+          grep -Fq "name='com.looply.app'" <<< "$badging"
+          grep -Fq "versionCode='309'" <<< "$badging"
+          grep -Fq "versionName='3.0.9'" <<< "$badging"
+          grep -Fq "sdkVersion:'24'" <<< "$badging"
+          unzip -Z1 "$apk" | grep -Fxq 'assets/share.html'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/share-audience.js'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/home-saved-library.js'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/home-composer-premium.js'
+          grep -Fq 'Intent.createChooser' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          grep -Fq 'params.isCaptureEnabled' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          grep -Fq 'MediaStore.ACTION_IMAGE_CAPTURE' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          grep -Fq 'MediaStore.ACTION_VIDEO_CAPTURE' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          grep -Fq 'FileProvider.getUriForFile' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          test -s dist/src/why-now-editor-premium.js
+          test -s dist/assets/css/pages/why-now-editor-premium.css
+          grep -Fq 'why-now-editor-premium.js' dist/why-now.html
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/why-now-editor-premium.js'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/assets/css/pages/why-now-editor-premium.css'
+          grep -Fq 'openCreateSourcePicker' why-now.html
+          grep -Fq 'android:authorities="${applicationId}.fileprovider"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'WebViewCompat.addDocumentStartJavaScript' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          grep -Fq 'mediaPlaybackRequiresUserGesture = false' android/app/src/main/java/com/soumoiss/looply/MainActivity.kt
+          unzip -Z1 "$apk" | grep -Fxq 'assets/src/home-hybrid-reels.js'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/assets/css/pages/share-external.css'
+          mkdir -p release
+          cp "$apk" release/Looply-3.0.9-RIGHT-NOW-EDITOR-ASSINADO.apk
+          (cd release && sha256sum Looply-3.0.9-RIGHT-NOW-EDITOR-ASSINADO.apk > SHA256SUMS.txt)
+      - name: Publish permanent public GitHub APK
+        run: |
+          set -euo pipefail
+          cat > RELEASE-NOTES.md <<'EOF'
+          Looply Android 3.0.9 — editor interativo de Right Now.
+          Edição direta de texto: alterar conteúdo, cor, fonte e tamanho,
+          arrastar com um dedo, redimensionar com dois dedos e remover.
+          Integra o catálogo de figurinhas do Chat, favoritos e pacotes.
+          As figurinhas são incorporadas às exportações de foto e vídeo.
+          Mantém a câmera nativa e as demais funcionalidades anteriores.
+          APK assinado com a chave oficial e o pacote com.looply.app.
+          Build e testes automatizados aprovados, com smoke de navegador.
+          É uma atualização de manutenção com versionCode 309 (mesmo da
+          versão 3.0.9 anterior). Instale por cima sem desinstalar nem apagar dados.
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/Looply-3.0.9-RIGHT-NOW-EDITOR-ASSINADO.apk release/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" release/Looply-3.0.9-RIGHT-NOW-EDITOR-ASSINADO.apk release/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Looply Android 3.0.9 — Editor interativo Right Now" \
+              --notes-file RELEASE-NOTES.md --latest
+          fi
+      - name: Verify published release asset exists
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name=="Looply-3.0.9-RIGHT-NOW-EDITOR-ASSINADO.apk") | select(.size > 1000000) | .browser_download_url' | grep '^https://github.com/'
