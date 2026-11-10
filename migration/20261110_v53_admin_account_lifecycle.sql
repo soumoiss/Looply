@@ -175,3 +175,31 @@ REVOKE ALL ON FUNCTION public.v53_admin_account_action(text,jsonb)
   FROM PUBLIC, anonymous;
 GRANT EXECUTE ON FUNCTION public.v53_admin_account_action(text,jsonb)
   TO authenticated;
+
+
+-- Lightweight account-level gate. Called before every page controller and
+-- polled while the app is open, so previously rendered tabs cannot keep
+-- working after an ADM suspension.
+CREATE OR REPLACE FUNCTION public.v54_self_account_access()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog'
+AS $function$
+ SELECT jsonb_build_object(
+   'allowed', EXISTS (
+     SELECT 1 FROM neon_auth."user" u
+     JOIN looply_migration.verified_identity_links l ON l.neon_user_id=u.id
+     JOIN public.profiles p ON p.id=l.legacy_user_id
+     WHERE u.id=auth.uid()
+       AND coalesce(u.banned,false)=false
+       AND p.username NOT LIKE 'deleted_%'
+   ),
+   'suspended', EXISTS (
+     SELECT 1 FROM neon_auth."user" u
+     WHERE u.id=auth.uid() AND coalesce(u.banned,false)=true
+   )
+ )
+$function$;
+
+REVOKE ALL ON FUNCTION public.v54_self_account_access()
+  FROM PUBLIC, anonymous;
+GRANT EXECUTE ON FUNCTION public.v54_self_account_access()
+  TO authenticated;
