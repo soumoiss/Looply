@@ -17,7 +17,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 </head><body class="looply-page page-home page-reels looply-premium">
 <dialog class="looply-reels-scroll" data-reels-scroll open>
 <div class="looply-reels-track">
-<section class="looply-reel-slide is-external-embed is-instagram-embed is-portrait-player">
+<section class="looply-reel-slide is-external-embed is-instagram-embed is-instagram-reel-clean is-portrait-player">
 <div class="looply-reel-media-stage"><div class="looply-instagram-video-window"><iframe class="looply-reel-embed" title="Player de teste do Instagram"
 srcdoc="&lt;style&gt;html,body{margin:0;background:#fff;color:#fff;font-family:sans-serif}.whitehead{height:48px;background:white}.mock{box-sizing:border-box;width:calc(100% - 104px);aspect-ratio:9/16;margin:0 auto;background:linear-gradient(160deg,#41334d,#201827);display:grid;place-items:center;font-size:22px}.whitefoot{height:190px;background:white}&lt;/style&gt;&lt;div class=whitehead&gt;&lt;/div&gt;&lt;div class=mock&gt;VIDEO 9:16&lt;/div&gt;&lt;div class=whitefoot&gt;&lt;/div&gt;"></iframe></div></div>
 </section></div>
@@ -63,7 +63,7 @@ try{
     for(const orientation of ["portrait","landscape"]){
       if(orientation==="landscape")await page.evaluate(()=>{
         const slide=document.querySelector(".looply-reel-slide");
-        slide.classList.remove("is-portrait-player","is-instagram-embed");slide.classList.add("is-landscape-player");
+        slide.classList.remove("is-portrait-player","is-instagram-embed","is-instagram-reel-clean");slide.classList.add("is-landscape-player");
         const stage=slide.querySelector(".looply-reel-media-stage");
         stage.replaceChildren(slide.querySelector(".looply-reel-embed"));
       });
