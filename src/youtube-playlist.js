@@ -48,7 +48,12 @@ export function playlistMarkup(profile) {
   const title = escapeHtml(profile.display_name || profile.username || "Usuário");
   const embed = `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&listType=playlist`;
   return `<section class="panel youtube-playlist" aria-labelledby="youtubePlaylistTitle" data-youtube-playlist="${escapeHtml(id)}">
-    <div class="eyebrow">Playlist de ${title}</div><h2 id="youtubePlaylistTitle">Playlist</h2>
+    <div class="music-v6-playlist-hero">
+      <span class="music-v6-feature-label">Playlist</span>
+      <h2 id="youtubePlaylistTitle">De ${title}</h2>
+      <p>Ouça as faixas da sua playlist</p>
+      <div class="music-v6-vinyl" aria-hidden="true"><span></span></div>
+    </div>
     <div class="youtube-playlist-layout">
       <iframe class="youtube-playlist-player" src="${embed}" title="Playlist de ${title}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
       <section class="youtube-track-panel" aria-label="Lista de músicas">
