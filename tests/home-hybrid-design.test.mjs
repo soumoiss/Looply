@@ -11,7 +11,8 @@ const post = {
 };
 test("supplied hybrid layout is loaded ONLY on Home", async () => {
   const [home, chat, profile] = await Promise.all([read("home.html"),read("chat.html"),read("perfil.html")]);
-  assert.match(home,/home-hybrid\.css/);
+  assert.match(home,/home-reels\.css/);
+  assert.doesNotMatch(home,/href="[^"]*home-hybrid\.css/);
   assert.doesNotMatch(chat,/home-hybrid\.css/);
   assert.doesNotMatch(profile,/home-hybrid\.css/);
   assert.match(home,/data-site-header/);
@@ -82,10 +83,10 @@ test("home reuses one global navigation with all six labels, never a separate fe
   assert.doesNotMatch(feed,/looply-feed-nav|aria-label="Navegação rápida"/);
 });
 test("new CSS styles actual story list and existing viewer, not fake story media", async () => {
-  const css = await read("assets/css/pages/home-hybrid.css");
-  assert.match(css,/\.page-home \.story-list/);
-  assert.match(css,/\.page-home \.story-viewer-dialog/);
-  assert.match(css,/\.page-home \.ig-post-header/);
-  assert.match(css,/\.page-home \.hybrid-external-watch/);
-  assert.match(css,/\.page-home \.post-create-preview/);
+  const css = await read("assets/css/pages/home-reels.css");
+  assert.match(css,/\.premium-why-now/);
+  assert.match(css,/\.premium-sheet/);
+  assert.match(css,/\.hybrid-comments-dialog/);
+  assert.match(css,/\.post-card/);
+  assert.match(css,/\.premium-composer/);
 });
