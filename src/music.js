@@ -641,22 +641,92 @@ export function bindMusicEvents(root, client, getUserId) {
     catalogSearchTimer = setTimeout(async () => {
       catalogSearchController = new AbortController();
       try {
-        const result = await searchStorySongs(normalized, { signal: catalogSearchController.signal });
+        const result = await searchDedicationProvider(normalized, musicProvider, client, { signal: catalogSearchController.signal });
         if (sequence !== catalogSearchSequence) return;
-        catalogSongs = result.items.map(normalizeStorySong).filter(Boolean);
+        catalogSongs = result.map(normalizeDedicationTrack).filter(Boolean);
         renderCatalogResults(catalogSongs);
         if (status) status.textContent = catalogSongs.length
           ? "Selecione uma música. A prévia, quando disponível, usa o player oficial."
-          : "Nenhuma música encontrada. Tente buscar pelo nome do artista.";
+          : (musicProvider === "spotify" ? "Nenhuma música encontrada. Cole o link de uma faixa Spotify abaixo." : "Nenhuma música encontrada. Tente buscar pelo nome do artista.");
       } catch (error) {
         if (error?.name === "AbortError" || sequence !== catalogSearchSequence) return;
-        if (status) status.textContent = "A busca está indisponível agora. Tente novamente em instantes.";
+        if (status) status.textContent = musicProvider === "spotify" ? "Busca Spotify indisponível. Use o link de uma faixa individual abaixo." : "A busca está indisponível agora. Tente novamente em instantes.";
         if (list) list.replaceChildren();
       }
     }, 260);
   };
 
+  const applySelectedSong = (value) => {
+    const song = normalizeDedicationTrack(value);
+    const form = root.querySelector("form[data-music-send]");
+    if (!song || !form) return false;
+    selectedDedicationSong = song;
+    form.elements.title.value = song.title;
+    form.elements.artist.value = song.artist;
+    form.elements.listenUrl.value = song.url;
+    const selected = form.querySelector("[data-music-selected-song]");
+    if (selected) {
+      selected.hidden = false;
+      selected.textContent = song.title + " · " + song.artist + " · " + PROVIDER_NAMES[song.provider];
+    }
+    closeCatalogPicker();
+    return true;
+  };
+
   root.addEventListener("click", async (event) => {
+    const providerButton = event.target.closest("[data-music-provider]");
+    if (providerButton) {
+      musicProvider = providerButton.dataset.musicProvider === "spotify" ? "spotify" : "apple";
+      root.querySelectorAll("[data-music-provider]").forEach(button =>
+        button.setAttribute("aria-pressed", String(button === providerButton)));
+      const spotifyLink = root.querySelector("[data-music-spotify-link]");
+      if (spotifyLink) spotifyLink.hidden = musicProvider !== "spotify";
+      const query = root.querySelector("[data-music-catalog-query]");
+      if (query) query.placeholder = musicProvider === "spotify" ? "Buscar no Spotify" : "Buscar no Apple Music";
+      searchCatalog(query?.value || "", ++catalogSearchSequence);
+      return;
+    }
+    const spotifyLinkButton = event.target.closest("[data-music-spotify-use]");
+    if (spotifyLinkButton) {
+      const song = spotifyTrackFromLink(
+        root.querySelector("[data-music-spotify-url]")?.value,
+        root.querySelector("[data-music-spotify-title]")?.value,
+        root.querySelector("[data-music-spotify-artist]")?.value
+      );
+      if (!song) {
+        const status = root.querySelector("[data-music-spotify-status]");
+        if (status) { status.textContent = "Informe um link Spotify de faixa, seu título e artista."; status.dataset.kind = "error"; }
+        return;
+      }
+      applySelectedSong(song);
+      return;
+    }
+    const applePlay = event.target.closest("[data-music-apple-play]");
+    if (applePlay) {
+      const card = applePlay.closest("[data-music-apple-preview]");
+      const id = card?.dataset.musicApplePreview;
+      const audio = card?.querySelector("[data-music-apple-audio]");
+      const status = card?.querySelector("[data-music-apple-status]");
+      if (!/^[0-9]{5,18}$/.test(id || "") || !audio) return;
+      applePlay.disabled = true;
+      if (status) status.textContent = "Carregando prévia…";
+      try {
+        const url = await resolveAppleStoryPreview({
+          provider:"apple", id, url:"https://music.apple.com/br/song/" + id,
+          title:"Música", artist:"Apple Music"
+        });
+        if (!url) throw Error("apple-preview-unavailable");
+        root.querySelectorAll("audio").forEach(other => { if (other !== audio) other.pause(); });
+        audio.src = url;
+        audio.hidden = false;
+        applePlay.hidden = true;
+        if (status) status.textContent = "";
+        audio.play().catch(() => { if (status) status.textContent = "Toque no reprodutor para ouvir."; });
+      } catch {
+        if (status) status.textContent = "Prévia indisponível. Abra a faixa no Apple Music.";
+      } finally { applePlay.disabled = false; }
+      return;
+    }
     const openPicker = event.target.closest("[data-music-open-search]");
     if (openPicker) {
       const picker = root.querySelector("[data-music-picker]");
@@ -772,19 +842,7 @@ export function bindMusicEvents(root, client, getUserId) {
     }
     const confirmPicker = event.target.closest("[data-music-picker-confirm]");
     if (confirmPicker) {
-      const song = normalizeStorySong(catalogSongs[selectedCatalogIndex]);
-      const form = root.querySelector("form[data-music-send]");
-      if (!song || !form) return;
-      selectedDedicationSong = song;
-      form.elements.title.value = song.title;
-      form.elements.artist.value = song.artist;
-      form.elements.listenUrl.value = song.url;
-      const selected = form.querySelector("[data-music-selected-song]");
-      if (selected) {
-        selected.hidden = false;
-        selected.textContent = song.title + " · " + song.artist + " · " + (PROVIDER_NAMES[song.provider] || "Catálogo");
-      }
-      closeCatalogPicker();
+      applySelectedSong(catalogSongs[selectedCatalogIndex]);
       return;
     }
     const playButton = event.target.closest("[data-music-play]");
@@ -874,7 +932,7 @@ export function bindMusicEvents(root, client, getUserId) {
         setStatus(form, "A música foi salva na sua coleção.");
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-send]")) {
-        const song = normalizeStorySong(selectedDedicationSong);
+        const song = normalizeDedicationTrack(selectedDedicationSong);
         const title = song?.title || "";
         const artist = song?.artist || "";
         const note = String(values.get("note") || "").trim();
