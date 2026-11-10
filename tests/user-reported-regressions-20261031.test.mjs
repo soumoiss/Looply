@@ -46,6 +46,7 @@ test("Reposts verify a mention and upload a distinct copy", () => {
 test("Theme and font bootstraps exist on all main pages", () => {
   for (const page of ["home.html","chat.html","cartas.html","conversa.html","configuracoes.html","notificacoes.html","usuarios.html","galeria.html","musicas.html","perfil.html"])
     assert.match(read(page), /src\/theme-bootstrap\.js/,page);
-  assert.match(read("src/theme.js"), /localStorage\.setItem\("looply_font_family"/);
+  assert.match(read("src/theme.js"), /looplyApplyAppearance/);
+  assert.match(read("src/theme-bootstrap.js"), /set\(fontKey,font\)/);
   assert.match(read("assets/css/app.css"), /font-family:var\(--looply-font-family/);
 });
