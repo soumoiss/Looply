@@ -7,7 +7,8 @@ export function cacheThreadForNative(account, conversation, participants, messag
   const bridge = typeof window !== "undefined" ? window.LooplyNativeChat : null;
   if (typeof bridge?.postMessage !== "function" ||
       !UUID.test(String(account || "")) || !UUID.test(String(conversation?.id || "")) ||
-      !Array.isArray(messages) || !Array.isArray(participants)) return false;
+      !Array.isArray(messages) || !Array.isArray(participants) ||
+      !participants.some(item => item?.user_id === account)) return false;
 
   // Chat membership and RLS have already been verified by the caller; no
   // private content may be published without a complete online thread result.
