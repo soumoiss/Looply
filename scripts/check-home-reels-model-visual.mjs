@@ -21,7 +21,7 @@ function fixture(){
  '<section class="story-area" id="stories"><div class="why-now-mount"><div class="why-now-header">Why Now</div><div class="why-now-people"><button class="why-now-person"><span class="why-now-person-ring"><span class="why-now-person-face">T</span></span><span class="why-now-person-label">Seu Why Now</span></button><button class="why-now-person"><span class="why-now-person-ring"><span class="why-now-person-face">A</span></span><span class="why-now-person-label">Amiga</span></button></div></div></section>',
  '<a class="looply-music-of-day" data-global-music href="musicas.html"><span class="looply-music-of-day-copy"><strong>Música do dia</strong></span></a>',
  '<section class="social-area"><div class="social-heading"><h2>Publicações</h2></div>',
- '<form class="post-composer" data-social-post><header class="post-composer-heading"><span class="post-compose-pen">✒</span><strong>Nova publicação</strong><button type="button" data-toggle-composer class="post-add-button">+</button></header><div class="post-composer-fields" data-composer-fields hidden><textarea name="body"></textarea></div></form>',
+ '<form class="post-composer" data-social-post><header class="post-composer-heading"><span class="post-compose-pen">✒</span><strong>Nova publicação</strong><button type="button" data-toggle-composer class="post-add-button">+</button></header><div class="post-composer-fields" data-composer-fields hidden><div class="post-create-header"><button type="button" data-close-composer>×</button><strong>Nova publicação</strong><button type="submit">Publicar</button></div><div class="post-create-preview" data-post-preview><p class="post-preview-empty">Prévia</p></div><button type="button" data-select-post-media>Escolher foto</button><label for="postBody">Legenda</label><textarea id="postBody" name="body"></textarea><input type="file" id="postFiles" name="media" hidden><div class="composer-options"><label for="postVisibility">Visibilidade</label><select id="postVisibility" name="visibility"><option value="public">Público</option><option value="private">Só eu</option><option value="selected">Pessoas</option></select><button type="submit">Publicar</button></div><div class="recipient-picker" data-recipient-picker hidden><label for="postRecipients">Pessoas</label><select id="postRecipients" name="recipientIds" multiple></select></div><div class="form-status" data-status></div></div></form>',
  '<div class="feed-list" data-social-feed><article class="post-card" data-post-card="post-a">',
  '<header class="post-header"><div class="post-author"><button type="button" class="post-author-profile" data-profile-open="me"><span class="post-avatar">T</span><div><strong>Teste @teste</strong><time>Hoje</time></div></button></div><div class="post-controls"><span class="visibility-pill">Público</span><button type="button" data-delete-post="post-a">Excluir</button></div></header>',
  '<div class="post-media-grid" data-feed-carousel><figure class="post-media"><img src="'+IMG+'" alt="Foto"></figure></div><p class="post-body">Legenda da publicação</p>',
@@ -32,7 +32,7 @@ function fixture(){
  '</div></main></div>',
  '<script type="module">',
  'import {mountPremiumSurface} from "/src/home-reels-premium.js";',
- 'function q(table){const x={select(){return x},eq(){return x},neq(){return x},order(){return x},limit(){return x},in(){return Promise.resolve({data:[],error:null})},maybeSingle(){return Promise.resolve({data:null,error:null})},then(resolve,reject){return Promise.resolve({data:table==="profiles"?[{id:"friend-a",username:"amiga",display_name:"Amiga"},{id:"friend-b",username:"colega",display_name:"Colega"}]:[],error:null}).then(resolve,reject)}};return x;}',
+ 'function q(table){const x={select(){return x},eq(){return x},neq(){return x},order(){return x},limit(){return x},range(){return x},in(){return x},maybeSingle(){return Promise.resolve({data:null,error:null})},then(resolve,reject){const savedId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";const data=table==="profiles"?[{id:"friend-a",username:"amiga",display_name:"Amiga"},{id:"friend-b",username:"colega",display_name:"Colega"}]:table==="post_saves"?[{post_id:savedId,created_at:"2026-11-10T09:00:00Z"}]:table==="posts"?[{id:savedId,author_id:"friend-a",body:"Minha publicação salva",external_url:null,created_at:"2026-11-10T09:00:00Z"}]:[];return Promise.resolve({data,error:null,count:table==="post_saves"?1:null}).then(resolve,reject)}};return x;}',
  'window.shareCalls=[];const client={from:q,functions:{invoke:async(name,{body})=>{window.shareCalls.push(body);return {data:{conversationId:"conv-"+body.targetId},error:null}}},rpc:async(name,args)=>({data:name==="v13_set_post_reaction"?{emoji:args.p_emoji,count:args.p_emoji?2:1}:name==="v13_post_engagement_page"?{total:1,summary:{"❤️":1},items:[{id:"friend-a",username:"amiga",display_name:"Amiga",emoji:"❤️"}]}:{},error:null})};',
  'mountPremiumSurface({root:document.querySelector("#pageContent"),client,user:{id:"me"},profile:{username:"teste",display_name:"Teste"},mode:"native",refresh:async()=>true});',
  'window.modelFixtureReady=true;',
@@ -126,6 +126,25 @@ try{
    assert.deepEqual(shares.map(x=>x.targetId),["friend-a","friend-b"]);
    assert.ok(shares.every(x=>x.body==="Veja esta publicação"));
    await page.locator("[data-send-close]").click();
+   // Tela Salvos deve buscar posts do banco, não somente cards já renderizados.
+   await page.locator("[data-premium-saved]").click();
+   await page.locator(".premium-saved-dialog[open] .psaved-item").waitFor();
+   assert.equal(await page.locator(".psaved-item").count(),1);
+   assert.match(await page.locator(".psaved-item").innerText(),/Minha publicação salva/);
+   await page.locator("[data-psaved-open]").first().click();
+   assert.equal(await page.locator(".premium-saved-detail[open]").count(),1);
+   await page.locator("[data-detail-back]").click();
+   await page.locator("[data-psaved-close]").click();
+   // Publicação premium: grade de pessoas, fotos/arrobas, multi-seleção de destino.
+   await page.locator("[data-premium-compose]").click();
+   await page.locator('[data-cp-visibility="selected"]').click();
+   await page.locator(".cp-recipient").first().waitFor();
+   assert.equal(await page.locator(".cp-recipient").count(),2);
+   await page.locator('[data-cp-person="friend-a"]').click();
+   await page.locator('[data-cp-person="friend-b"]').click();
+   const selected=await page.locator('form[data-social-post]').evaluate(form=>new FormData(form).getAll("recipientIds"));
+   assert.deepEqual(selected,["friend-a","friend-b"]);
+   await page.keyboard.press("Escape");
    await page.locator("[data-premium-save=post-a]").click();
    await page.waitForTimeout(80);
    assert.equal(await page.locator("[data-premium-save=post-a]").getAttribute("aria-pressed"),"true");
