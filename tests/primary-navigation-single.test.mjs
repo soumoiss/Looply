@@ -68,8 +68,8 @@ test("canonical renderer is the only runtime route source and badge stays intact
 
 test("mobile layout fits six links within 320px without horizontal scroll",async()=>{
   const [shared,hybrid,reels,ios]=await Promise.all([
-    read("assets/css/pages/shared.css"),read("assets/css/pages/home-hybrid.css"),
-    read("assets/css/pages/feed-reels-experience.css"),read("assets/css/pages/ios-redesign.css")
+    read("assets/css/pages/shared.css"),read("assets/css/pages/home-reels.css"),
+    read("assets/css/pages/home-reels.css"),read("assets/css/pages/ios-redesign.css")
   ]);
   assert.match(ios,/grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(shared,/\.page-navigation \{ position: fixed/);
