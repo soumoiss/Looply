@@ -98,7 +98,7 @@ class LooplyMessagingService : FirebaseMessagingService() {
                             this@LooplyMessagingService, NativeInlineReplyReceiver::class.java
                         ).apply {
                             action = NativeInlineReplyReceiver.ACTION_REPLY
-                            data = Uri.parse("looply-native://reply/$replyId")
+                            this.data = Uri.parse("looply-native://reply/$replyId")
                             putExtra(NativeInlineReplyReceiver.EXTRA_CONVERSATION, conversationId)
                             putExtra(NativeInlineReplyReceiver.EXTRA_MESSAGE_ID, replyId)
                             putExtra(
