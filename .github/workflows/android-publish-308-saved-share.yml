@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/android-publish-308-saved-share.yml"
+      - "tests/android-stage1-release-gates.test.mjs"
   workflow_dispatch:
 
 permissions:
