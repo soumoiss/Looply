@@ -99,10 +99,11 @@ export function openHybridReels(root, startKey) {
     const sourceCard = root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
     const originalUrl = sourceCard?.querySelector(".hybrid-provider-tools a[href]")?.href || "";
     const isShort = providerClass.includes("youtube") && /\/shorts\//i.test(originalUrl);
+    const instagramReel=providerClass.includes("instagram") && /\/reel\//i.test(new URL(source.source).pathname);
     const orientation = providerClass.includes("instagram") || providerClass.includes("tiktok") || isShort
       ? " is-portrait-player" : providerClass.includes("youtube") ? " is-landscape-player" : "";
     const slide = make("section", "looply-reel-slide" +
-      (source.kind === "embed" ? " is-external-embed" + providerClass + orientation : ""));
+      (source.kind === "embed" ? " is-external-embed" + providerClass + orientation + (instagramReel?" is-instagram-reel-clean":"") : ""));
     slide.dataset.reelsKey = source.key;
     slide.setAttribute("aria-label", "Vídeo " + (index + 1) + " de " + sources.length);
     const media = source.kind === "video" ? make("video", "looply-reel-video") : make("iframe", "looply-reel-embed");
@@ -135,7 +136,7 @@ export function openHybridReels(root, startKey) {
       // document its own correctly proportioned stage instead of stretching
       // the document across the entire phone height.
       const stage = make("div", "looply-reel-media-stage");
-      if(providerClass.includes("instagram")){
+      if(instagramReel){
         // Chrome-only matte around the official reel player. The central window
         // keeps the 9:16 media fully visible; surrounding embed header/footer
         // are outside this window, not overlaid on top of the video.
