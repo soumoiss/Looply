@@ -5,6 +5,16 @@
 export function mountMusicV6Ui(root) {
   const shell = root.querySelector("[data-music-v6]");
   if (!shell) return;
+  const adminPanel = shell.querySelector(".music-admin-playlists");
+  if (adminPanel) {
+    const group = document.createElement("details");
+    group.className = "music-v6-admin";
+    const title = document.createElement("summary");
+    title.textContent = "Playlists dos usuários";
+    group.append(title);
+    adminPanel.before(group);
+    group.append(adminPanel);
+  }
   const available = new Set(["playlist", "dedications", "collection"]);
   const getComposer = () => shell.querySelector("details.music-composer");
   const getComments = () => shell.querySelector(".music-general-comments");
@@ -38,6 +48,11 @@ export function mountMusicV6Ui(root) {
       button.tabIndex = selected ? 0 : -1;
       if (selected && focus) button.focus();
     });
+    const admin = shell.querySelector(".music-v6-admin");
+    if (admin) {
+      admin.hidden = view !== "playlist";
+      if (view !== "playlist") admin.open = false;
+    }
     const library = shell.querySelector("details.music-library-panel");
     if (library) library.open = view === "collection";
     const fab = shell.querySelector("[data-music-v6-compose]");
@@ -58,6 +73,15 @@ export function mountMusicV6Ui(root) {
     const tab = event.target.closest("[data-music-v6-tab]");
     if (tab && shell.contains(tab)) {
       setView(tab.dataset.musicV6Tab, true);
+      return;
+    }
+    const toggleComments = event.target.closest("[data-music-v6-toggle-comments]");
+    if (toggleComments && shell.contains(toggleComments)) {
+      const panel = shell.querySelector("#" + toggleComments.getAttribute("aria-controls"));
+      if (panel) {
+        panel.hidden = !panel.hidden;
+        toggleComments.setAttribute("aria-expanded", String(!panel.hidden));
+      }
       return;
     }
     if (event.target.closest("[data-music-v6-compose]")) {
