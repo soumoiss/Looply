@@ -26,6 +26,15 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/right_now_file_paths" />
+        </provider>
         <activity
             android:name=".IncomingCallActivity"
             android:exported="false"
