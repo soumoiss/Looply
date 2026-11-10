@@ -974,3 +974,16 @@ body.looply-premium .cp-no-people{grid-column:1/-1;display:grid;place-items:cent
  body.looply-premium dialog.premium-compose-dialog .cp-caption{width:calc(100% - 24px);margin-inline:12px!important}
  body.looply-premium .cp-recipient-grid{gap:6px}
 }
+
+
+/* Acesso permanente aos Salvos: ação fixa na barra de filtros, inclusive 320px. */
+body.looply-premium .ftool .premium-library-shortcut{
+ flex:0 0 44px!important;display:flex!important;flex-direction:column!important;
+ align-items:center!important;justify-content:center!important;gap:1px!important;
+ min-width:44px!important;width:44px!important;height:44px!important;
+ padding:2px!important;color:var(--primary)!important;
+ border:1px solid var(--line)!important;border-radius:14px!important;
+ background:var(--surface-strong)!important;
+}
+body.looply-premium .ftool .premium-library-shortcut svg{width:17px!important;height:17px!important}
+body.looply-premium .ftool .premium-library-shortcut span{font:750 9px/1.05 var(--ui);white-space:nowrap}
