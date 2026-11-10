@@ -134,9 +134,34 @@ export async function searchSpotifyStoryMetadata(value,{
   const response=await fetcher(base.origin+"/spotify/search?q="+encodeURIComponent(q),{
     headers:{authorization:"Bearer "+accessToken},signal,cache:"no-store"
   });
-  if(!response.ok)throw Error("Spotify metadata: HTTP "+response.status);
-  const data=await response.json();
-  return (Array.isArray(data.items)?data.items:[]).map(item=>{
+  const data=await response.json().catch(()=>null);
+  if(!response.ok){
+    const code=String(data?.error||"");
+    const message={
+      spotify_not_configured:"Spotify sem credenciais de API no Neon. Configure SPOTIFY_CLIENT_ID e SPOTIFY_CLIENT_SECRET.",
+      spotify_credentials_rejected:"O Spotify recusou as credenciais configuradas. Verifique o aplicativo Spotify Developer.",
+      spotify_access_denied:"O Spotify bloqueou o acesso ao catálogo. Verifique as permissões e a modalidade do aplicativo Spotify Developer.",
+      spotify_rate_limited:"Spotify atingiu o limite de consultas. Tente novamente mais tarde.",
+      spotify_quota_exceeded:"A cota da API Spotify foi esgotada. Aguarde a liberação pelo Spotify.",
+      spotify_invalid_token:"A sessão da API Spotify expirou. Tente novamente.",
+      spotify_token_unavailable:"Não foi possível autenticar no Spotify. Tente novamente.",
+      unauthorized:"Sessão do Looply não reconhecida. Entre novamente.",
+      storage_not_configured:"Serviço de músicas Neon indisponível.",
+      origin_not_allowed:"Origem do aplicativo não autorizada para pesquisar no Spotify.",
+      spotify_search_unavailable:"O serviço de busca do Spotify não respondeu.",
+      spotify_search_failed:"Não foi possível consultar o catálogo do Spotify."
+    }[code] || (response.status===401?"Sessão expirada. Entre novamente no Looply.":"Busca do Spotify falhou (HTTP "+response.status+").");
+    const error=new Error(message);
+    error.code=code||"spotify_http_"+response.status;
+    error.status=response.status;
+    throw error;
+  }
+  if(!Array.isArray(data?.items)){
+    const error=new Error("Resposta inválida do catálogo Spotify.");
+    error.code="spotify_invalid_response";
+    throw error;
+  }
+  return data.items.map(item=>{
     const id=String(item.id||"");
     if(!/^[A-Za-z0-9]{22}$/.test(id))return null;
     return normalizeStorySong({provider:"spotify",id,title:item.name,artist:item.artist,
