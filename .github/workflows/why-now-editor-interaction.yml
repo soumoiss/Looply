@@ -1,0 +1,42 @@
+name: Right Now interactive editor browser validation
+on:
+  pull_request:
+    paths:
+      - "why-now.html"
+      - "src/why-now-editor-premium.js"
+      - "src/why-now-embedded.js"
+      - "src/why-now-integration.js"
+      - "assets/css/pages/why-now-editor-premium.css"
+      - "tests/why-now-editor-interactive-20261110.test.mjs"
+      - "scripts/check-why-now-editor-interaction.mjs"
+      - ".github/workflows/why-now-editor-interaction.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build Looply and run editor unit tests
+        run: |
+          npm run build
+          node --test tests/why-now-editor-interactive-20261110.test.mjs
+      - name: Install isolated Chromium browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Verify actual gestures and sticker export in browser
+        run: node scripts/check-why-now-editor-interaction.mjs
+      - name: Save editor screenshot for visual inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: right-now-editor-interactive-visual
+          path: smoke-results/why-now-editor-20261110.png
+          if-no-files-found: warn
+          retention-days: 14

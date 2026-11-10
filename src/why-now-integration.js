@@ -459,7 +459,89 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     if(message.error||!message.data?.id)throw message.error||Error("Envio não confirmado");
     return {sent:true};
   }
-  const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,"share-send":sendShare};
+  // Right Now reads the SAME sticker_catalog, sticker_favorites and R2 bucket
+  // as the Chat picker. Only image metadata and time-limited URLs cross the iframe.
+  const safeStickerPath = path => /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/i.test(String(path||""));
+  const safeStickerAsset = path => /^assets\/stickers\/(?:cc0\/[a-z0-9-]{3,80}\.webp|[a-z0-9_-]{3,80}\.svg)$/i.test(String(path||""));
+  async function stickerFavorites() {
+    const ids=[];
+    for(let offset=0;offset<10000;offset+=500){
+      const result=await client.from("sticker_favorites").select("sticker_id")
+        .eq("user_id",user.id).order("created_at",{ascending:false}).range(offset,offset+499);
+      if(result.error)throw result.error;
+      ids.push(...(result.data||[]).map(row=>row.sticker_id).filter(id=>validStoryId(id)));
+      if((result.data||[]).length<500)break;
+    }
+    return ids;
+  }
+  async function stickerMetadata(){
+    const packs=await client.from("sticker_catalog").select("slug,source_name")
+      .neq("slug","amostra-coracao").range(0,999);
+    if(packs.error)throw packs.error;
+    const sources=[...new Set((packs.data||[]).map(row=>row.source_name)
+      .filter(name=>typeof name==="string"&&name.trim()&&name.length<=80))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    return {packs:sources,favorites:await stickerFavorites(),userId:user.id};
+  }
+  async function stickerPage(_ignored,payload){
+    const tab=payload.tab==="favorites"?"favorites":"all";
+    const pack=typeof payload.pack==="string"?payload.pack.slice(0,80):"";
+    const search=typeof payload.query==="string"?payload.query.trim().slice(0,60):"";
+    const offset=Number.isInteger(payload.offset)?Math.max(0,Math.min(5000,payload.offset)):0;
+    const limit=36;
+    let rows=[],total=0;
+    if(tab==="favorites"){
+      const favorites=await stickerFavorites();
+      const ids=favorites.slice(offset,offset+limit);
+      total=favorites.length;
+      if(ids.length){
+        const lookup=await client.from("sticker_catalog")
+          .select("id,slug,title,asset_path,storage_path,source_name").in("id",ids).limit(limit);
+        if(lookup.error)throw lookup.error;
+        const map=new Map((lookup.data||[]).map(row=>[row.id,row]));
+        rows=ids.map(id=>map.get(id)).filter(row=>row&&row.slug!=="amostra-coracao");
+      }
+      rows=rows.filter(row=>(!pack||pack===row.source_name)
+        &&(!search||String(row.title||"").toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))));
+    } else {
+      let query=client.from("sticker_catalog")
+        .select("id,slug,title,asset_path,storage_path,source_name")
+        .neq("slug","amostra-coracao").order("slug");
+      if(pack)query=query.eq("source_name",pack);
+      if(search)query=query.ilike("title","%"+search+"%");
+      const result=await query.range(offset,offset+limit-1);
+      if(result.error)throw result.error;
+      rows=result.data||[];
+      total=rows.length===limit?offset+limit+1:offset+rows.length;
+    }
+    const items=await Promise.all(rows.map(async row=>{
+      let src="";
+      if(safeStickerAsset(row.asset_path))src=new URL(row.asset_path,location.href).href;
+      else if(safeStickerPath(row.storage_path)){
+        const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
+        if(!signed.error&&/^https:\/\//i.test(signed.data?.signedUrl||""))src=signed.data.signedUrl;
+      }
+      return src?{id:row.id,title:String(row.title||"Figurinha").slice(0,120),
+        source_name:String(row.source_name||"").slice(0,80),asset_path:row.asset_path||"",
+        storage_path:row.storage_path||"",src}:null;
+    }));
+    return {items:items.filter(Boolean),nextOffset:offset+(tab==="favorites"?Math.min(limit,Math.max(0,total-offset)):rows.length),
+      hasMore:offset+limit<total};
+  }
+  async function stickerFavorite(_ignored,payload){
+    const id=String(payload.id||"");
+    if(!validStoryId(id))throw Error("Figurinha inválida");
+    const selected=Boolean(payload.favorite);
+    const response=selected
+      ? await client.from("sticker_favorites").insert({user_id:user.id,sticker_id:id})
+        .select("sticker_id").maybeSingle()
+      : await client.from("sticker_favorites").delete().eq("user_id",user.id).eq("sticker_id",id)
+        .select("sticker_id").maybeSingle();
+    if(response.error)throw response.error;
+    return {id,favorite:selected};
+  }
+  const actions = {publish,delete:remove,seen,reply,like,views,mention,permissions,repost,people:listPeople,
+    "share-send":sendShare,"sticker-metadata":stickerMetadata,
+    "sticker-page":stickerPage,"sticker-favorite":stickerFavorite};
   async function onMessage(event) {
     if (destroyed || event.origin !== location.origin || event.source !== frame.contentWindow) return;
     const message = event.data;
