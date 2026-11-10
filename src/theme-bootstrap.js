@@ -186,7 +186,8 @@ const FONT_SIZES = Object.freeze({ small: "14.4px", normal: "16px", large: "17.9
     link.href=url;
   }
   function apply(input={},persist=false){
-    const savedTheme=choose(THEMES,input.theme||get(themeKey,"lilas"),"lilas");
+    const themeValue=input.theme||get(themeKey,"lilas");
+    const savedTheme=themeValue==="system"?"system":choose(THEMES,themeValue,"lilas");
     const font=choose(FONT_FAMILIES,input.font_family||get(fontKey,"system"),"system");
     const size=choose(FONT_SIZES,input.font_size||get(sizeKey,"normal"),"normal");
     const resolved=savedTheme==="system"?
