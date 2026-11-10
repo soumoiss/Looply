@@ -135,7 +135,13 @@ export function openHybridReels(root, startKey) {
       // document its own correctly proportioned stage instead of stretching
       // the document across the entire phone height.
       const stage = make("div", "looply-reel-media-stage");
-      stage.append(media);
+      if(providerClass.includes("instagram")){
+        // Chrome-only matte around the official reel player. The central window
+        // keeps the 9:16 media fully visible; surrounding embed header/footer
+        // are outside this window, not overlaid on top of the video.
+        const cleanWindow=make("div","looply-instagram-video-window");
+        cleanWindow.append(media);stage.append(cleanWindow);
+      }else stage.append(media);
       slide.append(stage);
     } else {
       slide.append(media);
