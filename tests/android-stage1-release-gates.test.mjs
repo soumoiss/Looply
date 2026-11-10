@@ -37,3 +37,12 @@ test("Android APK build explicitly checks its packaged local share route", async
   assert.match(workflow, /assets\/src\/neon-production-client\.js/);
   assert.match(build, /"share\.html"/);
 });
+
+test("Android 3.0.9 compara certificado anterior e publica somente o APK novo", async () => {
+  const workflow = await source(".github/workflows/android-publish-309-reels-autoplay.yml");
+  assert.match(workflow, /--pattern 'Looply-3\.0\.8-SALVOS-SHARESHEET-ASSINADO\.apk' --dir previous-release/);
+  assert.match(workflow, /test -s previous-release\/Looply-3\.0\.8-SALVOS-SHARESHEET-ASSINADO\.apk/);
+  assert.match(workflow, /--print-certs previous-release\/Looply-3\.0\.8-SALVOS-SHARESHEET-ASSINADO\.apk/);
+  assert.match(workflow, /sha256sum Looply-3\.0\.9-REELS-AUTOPLAY-ASSINADO\.apk > SHA256SUMS\.txt/);
+  assert.match(workflow, /select\(\.name=="Looply-3\.0\.9-REELS-AUTOPLAY-ASSINADO\.apk"\)/);
+});
