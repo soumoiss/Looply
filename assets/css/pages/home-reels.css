@@ -733,3 +733,23 @@ body.looply-premium .post-card .lb .stk:empty{display:none}
 body.looply-premium .post-card .lc{display:block;padding:4px 14px 0;line-height:1.4;font-size:13.5px;overflow-wrap:anywhere;color:var(--text)}
 body.looply-premium .post-card .lc b{margin-right:4px;font-weight:750}
 body.looply-premium .post-card .vc{display:block;width:auto;text-align:left;cursor:pointer}
+
+
+/* Teste 768px revelou que backdrop-filter do header ainda capturava a dock
+   no desktop/tablet; neutralização global mantém o vidro no pseudo-elemento. */
+body.looply-premium .page-header.gh{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  filter:none!important;transform:none!important;will-change:auto!important;
+  contain:none!important;isolation:auto!important;
+}
+body.looply-premium .page-header.gh::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  border-radius:inherit;
+  -webkit-backdrop-filter:blur(17px) saturate(190%);
+  backdrop-filter:blur(17px) saturate(190%);
+}
+body.looply-premium .page-header.gh>.page-navigation.dock{
+  position:fixed!important;left:50%!important;right:auto!important;top:auto!important;
+  bottom:calc(10px + env(safe-area-inset-bottom))!important;
+  transform:translateX(-50%)!important;max-width:560px!important;
+}
