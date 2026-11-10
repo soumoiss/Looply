@@ -338,6 +338,35 @@ export default { async fetch(request) {
     if (!response.ok) { console.error("S3 object removal failed", response.status); return json({ error: "storage_remove_failed" }, 502, headers); }
     return json({ path }, 200, headers);
   }
+  // Authenticated same-origin-readable sticker bytes. Image previews can use
+  // signed R2 URLs, but fetch() in a canvas editor cannot bypass R2 CORS.
+  // Enforce the SAME RLS visibility rule as /storage/sign, avoid redirecting
+  // the browser to R2, and never proxy arbitrary user-selected URLs.
+  if (url.pathname.endsWith("/storage/read") && request.method === "POST") {
+    if (bucket !== "looply-stickers" || inspectObject(bucket,path)?.type !== "sticker")
+      return json({error:"invalid_sticker_path"},400,headers);
+    if (!(await canSignObject(request.headers.get("authorization"),profileId,bucket,path)))
+      return json({error:"object_not_visible"},403,headers);
+    try {
+      const signed = await signedRequest({method:"GET",bucket,path});
+      const upstream = await fetch(signed.url,{method:"GET",headers:signed.headers,cache:"no-store"});
+      if (!upstream.ok) return json({error:"sticker_unavailable"},502,headers);
+      const length = Number(upstream.headers.get("content-length")||0);
+      const type = (upstream.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+      if ((length && length>maxBytes(bucket)) || (type && type!=="image/webp"))
+        return json({error:"sticker_invalid_media"},415,headers);
+      const bytes = await upstream.arrayBuffer();
+      if (!bytes.byteLength || bytes.byteLength>maxBytes(bucket))
+        return json({error:"sticker_invalid_size"},413,headers);
+      return new Response(bytes,{status:200,headers:{
+        ...headers,"content-type":"image/webp","cache-control":"private, no-store",
+        "x-content-type-options":"nosniff","content-length":String(bytes.byteLength)
+      }});
+    } catch(error) {
+      console.error("Authenticated sticker read failed",error?.message||error);
+      return json({error:"sticker_read_unavailable"},502,headers);
+    }
+  }
   if (url.pathname.endsWith("/storage/sign") && request.method === "POST") {
     const permitted=await canSignObject(request.headers.get("authorization"),profileId,bucket,path)
       || (inspectObject(bucket,path)?.type!=="wallpaper" && await canAdminSignObject(request.headers.get("authorization"),bucket,path));
