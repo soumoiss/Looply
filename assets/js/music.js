@@ -1,6 +1,6 @@
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
-import { bindMusicEvents, disposeMusicRealtime, loadMusicData, refreshMusicInPlace, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-member-discovery-20261028";
-import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js?v=live-index-20261031";
+import { bindMusicEvents, disposeMusicRealtime, loadMusicData, refreshMusicInPlace, musicMarkup, setupMusicRealtime } from "../../src/music.js?v=music-v6-20261110";
+import { bindYouTubePlaylist, playlistMarkup } from "../../src/youtube-playlist.js?v=music-v6-20261110";
 import { mountMusicAdminPlaylistPanel } from "../../src/music-admin-playlists.js?v=live-index-20261031";
 import { mountMusicV6Ui } from "../../src/music-v6-ui.js?v=music-v6-20261110";
 
