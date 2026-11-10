@@ -23,6 +23,7 @@ function makeBrowser(saved={}) {
   const metas=[{setAttribute:()=>{}}],head={append:()=>{}};
   const document={
     documentElement:root,head,
+    createElement:()=>({dataset:{},rel:"",href:""}),
     querySelector:query=>query.includes("theme-color")?metas[0]:null,
     addEventListener:(name,callback)=>{listeners.set("doc:"+name,callback)}
   };
@@ -119,8 +120,8 @@ test("brand stays Cabin Sketch 700; media editor and stickers remain isolated",(
   assert.match(css,/Cabin Sketch/);
   assert.match(css,/font-weight:700!important/);
   assert.match(css,/--looply-font-family/);
-  assert.match(css,/\\.edit-overlay \\.overlay-item/);
-  assert.match(css,/\\.view-overlay \\.overlay-item/);
+  assert.ok(css.includes(".edit-overlay .overlay-item"));
+  assert.ok(css.includes(".view-overlay .overlay-item"));
   assert.match(css,/prefers-reduced-motion/);
   const chat=read("chat.html");
   assert.ok(chat.includes('location.href="configuracoes.html"'));
