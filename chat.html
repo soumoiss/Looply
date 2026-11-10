@@ -59,8 +59,8 @@ box-shadow:inset 0 1.5px 0 rgba(255,255,255,.8),inset 0 -1px 0 rgba(255,255,255,
 .empty{text-align:center;padding:56px 16px;color:var(--muted);line-height:1.5}.empty svg{width:64px;height:64px;color:var(--primary);opacity:.5;animation:float 3.2s ease-in-out infinite}@keyframes float{50%{transform:translateY(-9px) rotate(-4deg)}}
 .fab{position:fixed;right:max(16px,calc(50% - 324px));bottom:calc(98px + env(safe-area-inset-bottom));z-index:30;height:56px;padding:0 22px 0 18px;border-radius:99px;color:#fff;font-weight:800;display:flex;gap:9px;align-items:center;background:linear-gradient(120deg,var(--primary),#c04fd0);box-shadow:0 16px 36px rgba(112,16,176,.45);transition:transform .35s var(--spring)}.fab:active{transform:scale(.92)}
 .dock{position:fixed;z-index:35;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));width:min(calc(100% - 20px),560px);display:flex;padding:5px;border-radius:28px}
-.dock button{position:relative;z-index:1;flex:1;min-height:54px;display:grid;place-items:center;gap:1px;align-content:center;font-size:10px;font-weight:700;color:var(--muted);border-radius:20px;transition:color .3s}
-.dock button.on{color:var(--primary)}.dock button.on svg{transform:translateY(-1px) scale(1.1)}.dock svg{transition:transform .4s var(--spring)}.dock .liq{position:absolute;z-index:0;top:5px;bottom:5px;left:0;border-radius:20px;background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 18%,var(--strong)),color-mix(in srgb,var(--primary) 8%,var(--strong)));box-shadow:0 4px 14px rgba(112,16,176,.22);transition:transform .55s var(--spring),width .55s var(--spring)}
+.dock button,.dock a{position:relative;z-index:1;flex:1;min-width:0;min-height:54px;display:grid;place-items:center;gap:1px;align-content:center;font-size:10px;font-weight:700;color:var(--muted);border-radius:20px;transition:color .3s;text-decoration:none}
+.dock button.on,.dock a.on{color:var(--primary)}.dock button.on svg,.dock a.on svg{transform:translateY(-1px) scale(1.1)}.dock svg{transition:transform .4s var(--spring)}.dock .liq{position:absolute;z-index:0;top:5px;bottom:5px;left:0;border-radius:20px;background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 18%,var(--strong)),color-mix(in srgb,var(--primary) 8%,var(--strong)));box-shadow:0 4px 14px rgba(112,16,176,.22);transition:transform .55s var(--spring),width .55s var(--spring)}
 .dock .bw{position:relative;display:grid;place-items:center}.dock .dotb{top:-6px;right:-9px}
 /* Conversa */
 .conv{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);transform:translateX(104%);transition:transform .52s var(--ease);height:100dvh;
@@ -358,6 +358,26 @@ body[data-ultra-loading="true"] #list:after{
 #comp>#attachFan[aria-hidden="true"],#comp>#ctx[hidden],
 #comp>#blkbar[hidden],#comp>#ctx:empty,#comp>#blkbar:empty{display:none!important}
 #comp>#ctx:not(:has(b)),#comp>#blkbar:not(:has(span)){display:none!important}
+
+/* The same music identity and six-tab home dock in the standalone chat. */
+#gh.gh{width:min(calc(100% - 20px),700px);max-width:700px;min-height:62px;z-index:40;gap:10px;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;transform:none!important;filter:none!important}
+#gh.gh::before{-webkit-backdrop-filter:blur(17px) saturate(175%);backdrop-filter:blur(17px) saturate(175%)}
+#gh .brand{min-width:0;flex:1}
+#gh .brand .mark{width:42px;height:42px;background:transparent;border:0;box-shadow:none;color:var(--primary)}
+#gh .brand .mark .circle{display:grid;place-items:center;width:36px;height:36px;border:4px solid currentColor;border-radius:50%;animation:looply-chat-brand-spin 3s linear infinite}
+#gh .brand .mark svg{width:20px;height:20px;animation:none;color:inherit}
+#gh .brand strong{font-family:"Cabin Sketch",cursive;font-size:29px;font-weight:400;color:var(--primary)}
+#gh .chat-global-notices{display:grid;place-items:center;flex:none;width:44px;height:44px;min-width:44px;border:1px solid var(--line);border-radius:14px;background:var(--strong);color:var(--muted)}
+#gh .chat-global-notices svg{width:22px;height:22px}
+#gh .acc{width:50px;height:50px;min-width:50px;justify-content:center}
+#dock.dock{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;
+  background:color-mix(in srgb,var(--strong) 88%,transparent);border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%)}
+#dock.dock a{min-width:0;width:100%;min-height:54px;text-align:center}
+#dock.dock a:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+@keyframes looply-chat-brand-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#gh .brand .mark .circle{animation:none}}
 </style>
 <link rel="stylesheet" href="assets/css/pages/chat-ultra-live-fixes.css?v=sticker-dialog-five-col-20261109">
 <link rel="stylesheet" href="assets/css/pages/chat-features.css?v=real-games-calls-20261107">
@@ -365,7 +385,8 @@ body[data-ultra-loading="true"] #list:after{
 <script src="config.js"></script><script src="src/theme-bootstrap.js?v=20261031-global"></script></head>
 <body class="looply-chat-ultra-live" data-ultra-loading="true">
 <header class="gh glass" id="gh">
-  <a class="brand" href="#" aria-label="Looply, início"><span class="mark"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="50" r="35" stroke="currentColor" stroke-opacity=".18" stroke-width="7"/></svg></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
+  <a class="brand" href="home.html" aria-label="Looply, início"><span class="mark" aria-hidden="true"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><small>MoissWorld</small></span></a>
+  <a class="ib chat-global-notices" href="notificacoes.html" aria-label="Avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
   <button class="acc" id="accBtn" aria-haspopup="true" aria-label="Menu da conta"></button>
 </header>
 <div class="menu glass" id="menu" hidden></div>
@@ -459,8 +480,8 @@ $("#menu").onclick=e=>{const b=e.target.closest("[data-m]");if(!b)return;const k
  if(k==="theme"){const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme:dark)").matches);r.dataset.theme=d?"light":"dark"}
  if(k==="sim"){$("#menu").hidden=true;const o=C.filter(c=>c.id!==cur&&!c.blocked&&peers(c).some(x=>U(x).on));const c=o[Math.floor(Math.random()*o.length)];if(c)incoming(c.id,["Oi! Tá por aí? 👀","Acabei de lembrar de você 💜","Olha só o que eu achei!","Bora conversar mais tarde?"][Math.floor(Math.random()*4)])}};
 $("#menu").onchange=e=>{const f=e.target.files?.[0];if(f){photos[ME]=URL.createObjectURL(f);head();toast("Foto atualizada")}};
-const NAV=[["home","Início"],["reels","Reels"],["mail","Cartas"],["music","Músicas"],["img","Galeria"],["chat","Chat"],["bell","Avisos"]];
-function dock(){const d=$("#dock");d.querySelectorAll("button").forEach(b=>b.remove());NAV.forEach(([k,l])=>{const b=document.createElement("button");b.className=k==="chat"?"on":"";const n=unreadTotal();b.innerHTML=`<span class="bw">${ic(k)}${k==="chat"&&n?`<i class="dotb">${n}</i>`:""}</span>${l}`;b.onclick=()=>{liq(b);if(k!=="chat"){toast("Modelo: só a aba Chat é interativa");setTimeout(()=>liq($("#dock .on")),900)}};d.append(b)});liq($("#dock .on"),1)}
+const NAV=[["home","Início","home.html"],["reels","Reels","reels.html"],["mail","Cartas","cartas.html"],["music","Músicas","musicas.html"],["img","Galeria","galeria.html"],["chat","Chat","chat.html"]];
+function dock(){const d=$("#dock");d.querySelectorAll("button").forEach(b=>b.remove());NAV.forEach(([k,l,href])=>{const b=document.createElement("a");b.href=href;b.className=k==="chat"?"on":"";b.setAttribute("aria-label",l);if(k==="chat")b.setAttribute("aria-current","page");const n=unreadTotal();b.innerHTML=`<span class="bw">${ic(k)}${k==="chat"&&n?`<i class="dotb">${n}</i>`:""}</span>${l}`;d.append(b)});liq($("#dock .on"),1)}
 function liq(b,now){const l=$("#dock .liq");if(now)l.style.transition="none";l.style.width=b.offsetWidth+"px";l.style.transform=`translateX(${b.offsetLeft}px)`;if(now)requestAnimationFrame(()=>l.style.transition="")}
 
 /* ── caixa de entrada ── */
