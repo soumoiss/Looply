@@ -7,7 +7,7 @@ const source=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("Why Now editor scripts and scoped CSS are distributed",()=>{
   const html=source("why-now.html");
-  assert.ok(html.includes('src="src/why-now-editor-premium.js?v=20261110"'));
+  assert.ok(html.includes('src="src/why-now-editor-premium.js?v=20261110-sticker-read-fix"'));
   assert.ok(html.includes('href="assets/css/pages/why-now-editor-premium.css?v=20261110"'));
   assert.ok(html.indexOf('src="src/why-now-editor-premium.js')<
     html.indexOf('src="src/why-now-embedded.js'));
