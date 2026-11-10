@@ -607,6 +607,30 @@ class MainActivity : Activity() {
     }
 
     private fun routeTopLevelUrl(uri: Uri): Boolean {
+        // Somente a página principal do Looply pode pedir o seletor nativo.
+        // Não expomos JavascriptInterface a iframes de terceiros.
+        if (uri.scheme.equals("looply-share", ignoreCase = true)) {
+            val page = webView.url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            val currentTrusted = page != null && isTrustedWebOrigin(page) &&
+                page.path?.startsWith("/Looply/") == true
+            val target = uri.getQueryParameter("url")?.let {
+                runCatching { Uri.parse(it) }.getOrNull()
+            }
+            if (currentTrusted && uri.host.equals("external", ignoreCase = true) &&
+                target != null && isShareableLooplyPost(target)) {
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, target.toString())
+                    putExtra(Intent.EXTRA_SUBJECT, "Publicação no Looply")
+                }
+                try {
+                    startActivity(Intent.createChooser(send, "Compartilhar publicação"))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Nenhum aplicativo de compartilhamento disponível.", Toast.LENGTH_LONG).show()
+                }
+            }
+            return true
+        }
         if (isTrustedWebOrigin(uri)) return false
         if (uri.scheme.equals("https", ignoreCase = true) ||
             uri.scheme.equals("mailto", ignoreCase = true) ||
@@ -615,6 +639,16 @@ class MainActivity : Activity() {
             launchExternal(uri)
         }
         return true
+    }
+
+    private fun isShareableLooplyPost(uri: Uri): Boolean {
+        if (!uri.scheme.equals("https", ignoreCase = true) ||
+            !uri.host.equals(GITHUB_PAGES_HOST, ignoreCase = true) ||
+            uri.path !in setOf("/Looply/home.html", "/Looply/reels.html") ||
+            !uri.query.isNullOrEmpty()
+        ) return false
+        val id = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+        return uri.fragment?.matches(Regex("post-$id")) == true
     }
 
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
