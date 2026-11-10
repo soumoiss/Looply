@@ -315,8 +315,10 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
 
   const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
-      try { window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"})); }
-      catch {}
+      try {
+        window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"}));
+        window.LooplyNativeCallAuth?.postMessage(JSON.stringify({type:"clear"}));
+      } catch {}
     }
     if (event === "SIGNED_OUT" || !session) window.location.replace("login.html");
   });
