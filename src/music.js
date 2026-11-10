@@ -293,7 +293,7 @@ function musicContent(data, userId) {
         <label for="musicEditDedicationNote">Texto da dedicatória</label>
         <textarea id="musicEditDedicationNote" name="note" rows="9" maxlength="1000" spellcheck="true"></textarea>
         <p class="form-status" data-music-edit-status role="status" aria-live="polite"></p>
-        <footer><button type="button" class="text-button music-dedication-delete-button" data-music-delete-current data-music-delete-dedication="">Excluir dedicatória</button><button type="button" class="text-button" data-music-dedication-edit-close>Cancelar</button><button type="submit" class="primary-button compact-button">Salvar alterações</button></footer>
+        <footer><button type="button" class="text-button" data-music-dedication-edit-close>Cancelar</button><button type="submit" class="primary-button compact-button">Salvar alterações</button></footer>
       </form>
     </dialog>
     <span class="realtime-state" data-music-realtime role="status">Conectando atualizações...</span>
@@ -472,8 +472,17 @@ export function bindMusicEvents(root, client, getUserId) {
       form.elements.note.value = own.dedication_note;
       form.querySelector("[data-music-edit-status]").textContent = "";
       dedicationEdit = { id, userId: getUserId?.() };
-      const deleteButton = dialog.querySelector("[data-music-delete-current]");
-      if (deleteButton) deleteButton.dataset.musicDeleteDedication = id;
+      // Create the action only after the server has authenticated the sender.
+      let deleteButton = dialog.querySelector("[data-music-delete-current]");
+      if (!deleteButton) {
+        deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "text-button music-dedication-delete-button";
+        deleteButton.dataset.musicDeleteCurrent = "";
+        deleteButton.textContent = "Excluir dedicatória";
+        form.querySelector("footer")?.prepend(deleteButton);
+      }
+      deleteButton.dataset.musicDeleteDedication = id;
       dialog.addEventListener("close", () => {
         if (dedicationEdit?.id === id) {
           ++dedicationEditRequest;
