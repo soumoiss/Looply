@@ -215,6 +215,7 @@ export function openHybridReels(root, startKey) {
         : source.source.includes("youtube-nocookie.com") ? "YouTube"
         : "Vídeo externo"
       : "Looply";
+    dialog.dataset.reelsProvider=providerName.toLowerCase().includes("instagram")?"instagram":providerName.toLowerCase().includes("tiktok")?"tiktok":providerName.toLowerCase().includes("youtube")?"youtube":"looply";
     by(dialog, "[data-reels-audio]").textContent = "Áudio original · " + providerName;
     const like = by(card, "[data-toggle-like]");
     const externalShare = by(card, "[data-share-post]");
