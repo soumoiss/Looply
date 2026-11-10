@@ -86,8 +86,8 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
   assert.match(src,/data-social-post/);
   assert.match(src,/data-social-feed/);
   assert.match(src,/data-premium-filter/);
-  assert.match(src,/data-premium-grid/);
-  assert.match(src,/data-premium-reels/);
+  assert.match(src,/premiumGrid/);
+  assert.match(src,/premiumReels/);
 });
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
