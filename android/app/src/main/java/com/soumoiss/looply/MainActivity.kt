@@ -45,6 +45,8 @@ import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.util.UUID
@@ -330,6 +332,87 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
+    /**
+     * Android WebView allows origin-scoped document-start code in cross-origin
+     * frames. This is the only supported Looply-side path to REQUEST audible
+     * playback of <video> inside an Instagram embed. Instagram can still decline
+     * to create a video element or reject play(); no silent download is attempted.
+     *
+     * The script is inert on ordinary Instagram pages and until the trusted
+     * Looply parent explicitly activates this particular iframe.
+     */
+    private fun installInstagramReelAutoplayAdapter() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
+        val script = """
+            (() => {
+              if (!/^\\/(?:reel|p|tv)\\/[^/]+\\/embed(?:\\/|$)/i.test(location.pathname)) return;
+              const parents = new Set([
+                'https://soumoiss.github.io',
+                'https://appassets.androidplatform.net'
+              ]);
+              let active = false, withSound = true;
+              const prepared = new WeakSet();
+              const videos = () => document.querySelectorAll('video');
+              function playVisible() {
+                if (!active || document.hidden) return;
+                for (const video of videos()) {
+                  if (!prepared.has(video)) {
+                    prepared.add(video);
+                    video.addEventListener('canplay', () => {
+                      if (active && !document.hidden) playVisible();
+                    }, {passive:true});
+                  }
+                  video.autoplay = true;
+                  video.playsInline = true;
+                  video.defaultMuted = !withSound;
+                  video.muted = !withSound;
+                  video.volume = withSound ? 1 : 0;
+                  if (video.paused) {
+                    try {
+                      const pending = video.play();
+                      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+                    } catch {}
+                  }
+                }
+              }
+              const changes = new MutationObserver(() => {
+                if (active) playVisible();
+              });
+              changes.observe(document, {childList:true, subtree:true});
+              window.addEventListener('message', event => {
+                if (event.source !== window.parent || !parents.has(event.origin)) return;
+                const data = event.data;
+                if (!data || data.type !== 'looply:reels-media') return;
+                if (data.action === 'play') {
+                  active = true;
+                  playVisible();
+                } else if (data.action === 'unMute') {
+                  withSound = true;
+                  playVisible();
+                } else if (data.action === 'mute') {
+                  withSound = false;
+                  playVisible();
+                } else if (data.action === 'pause') {
+                  active = false;
+                  for (const video of videos()) video.pause();
+                }
+              });
+              document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                  for (const video of videos()) video.pause();
+                } else {
+                  playVisible();
+                }
+              });
+            })();
+        """.trimIndent()
+        runCatching {
+            WebViewCompat.addDocumentStartJavaScript(
+                webView, script, setOf("https://www.instagram.com")
+            )
+        }
+    }
+
     private fun configureWebView() {
         webView.settings.apply {
             javaScriptEnabled = true
@@ -358,6 +441,9 @@ class MainActivity : Activity() {
             }
         }
         CookieManager.getInstance().setAcceptCookie(true)
+        // Instalar ANTES de navegar: o script precisa existir quando cada iframe
+        // oficial do Instagram nasce. Origem restrita; sem scraping nem downloads.
+        installInstagramReelAutoplayAdapter()
         ChatAvatarCache.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
