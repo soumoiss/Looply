@@ -32,8 +32,8 @@ function fixture(){
  '</div></main></div>',
  '<script type="module">',
  'import {mountPremiumSurface} from "/src/home-reels-premium.js";',
- 'function q(){const x={select(){return x},eq(){return x},order(){return x},limit(){return x},in(){return Promise.resolve({data:[],error:null})},maybeSingle(){return Promise.resolve({data:null,error:null})},then(resolve,reject){return Promise.resolve({data:[],error:null}).then(resolve,reject)}};return x;}',
- 'const client={from:q,rpc:async(name,args)=>({data:name==="v13_set_post_reaction"?{emoji:args.p_emoji,count:args.p_emoji?2:1}:{},error:null})};',
+ 'function q(table){const x={select(){return x},eq(){return x},neq(){return x},order(){return x},limit(){return x},in(){return Promise.resolve({data:[],error:null})},maybeSingle(){return Promise.resolve({data:null,error:null})},then(resolve,reject){return Promise.resolve({data:table==="profiles"?[{id:"friend-a",username:"amiga",display_name:"Amiga"},{id:"friend-b",username:"colega",display_name:"Colega"}]:[],error:null}).then(resolve,reject)}};return x;}',
+ 'window.shareCalls=[];const client={from:q,functions:{invoke:async(name,{body})=>{window.shareCalls.push(body);return {data:{conversationId:"conv-"+body.targetId},error:null}}},rpc:async(name,args)=>({data:name==="v13_set_post_reaction"?{emoji:args.p_emoji,count:args.p_emoji?2:1}:name==="v13_post_engagement_page"?{total:1,summary:{"❤️":1},items:[{id:"friend-a",username:"amiga",display_name:"Amiga",emoji:"❤️"}]}:{},error:null})};',
  'mountPremiumSurface({root:document.querySelector("#pageContent"),client,user:{id:"me"},profile:{username:"teste",display_name:"Teste"},mode:"native",refresh:async()=>true});',
  'window.modelFixtureReady=true;',
  '</script></body></html>'
@@ -101,6 +101,34 @@ try{
    await page.locator("[data-toggle-like=post-a]").click();
    await page.waitForTimeout(90);
    assert.equal(await page.locator("[data-toggle-like=post-a]").getAttribute("aria-pressed"),"false");
+   // O formulário deve abrir em top layer, mas continuar ligado ao form original.
+   await page.locator("[data-premium-compose]").click();
+   assert.equal(await page.locator("dialog.premium-compose-dialog[open]").count(),1);
+   assert.equal(await page.locator("dialog.premium-compose-dialog [data-composer-fields]:visible").count(),1);
+   assert.equal(await page.locator("form[data-social-post] dialog.premium-compose-dialog").count(),1);
+   await page.keyboard.press("Escape");
+   assert.equal(await page.locator("dialog.premium-compose-dialog[open]").count(),0);
+   // Quem curtiu, avatar e nome reais no modal.
+   await page.locator("[data-premium-likers=post-a]").click();
+   await page.locator(".premium-like-row").first().waitFor();
+   assert.equal(await page.locator(".premium-like-row").count(),1);
+   await page.locator("[data-close-likes]").click();
+   // Envio interno: grade, seleção múltipla, mensagem e duas entregas.
+   await page.locator("[data-share-in-app=post-a]").click();
+   await page.locator(".looply-send-person").first().waitFor();
+   assert.equal(await page.locator(".looply-send-person").count(),2);
+   await page.locator('[data-send-person="friend-a"]').click();
+   await page.locator('[data-send-person="friend-b"]').click();
+   await page.locator("[data-send-message]").fill("Veja esta publicação");
+   await page.locator("[data-send-submit]").click();
+   await page.waitForFunction(()=>window.shareCalls.length===2);
+   const shares=await page.evaluate(()=>window.shareCalls);
+   assert.deepEqual(shares.map(x=>x.targetId),["friend-a","friend-b"]);
+   assert.ok(shares.every(x=>x.body==="Veja esta publicação"));
+   await page.locator("[data-send-close]").click();
+   await page.locator("[data-premium-save=post-a]").click();
+   await page.waitForTimeout(80);
+   assert.equal(await page.locator("[data-premium-save=post-a]").getAttribute("aria-pressed"),"true");
    await page.screenshot({path:join(OUT,"native-390-interactions.png")});
   }
   await ctx.close();
