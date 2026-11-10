@@ -17,6 +17,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/ios-redesign.css">
 <link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
+<link rel="stylesheet" href="/assets/css/pages/global-shell.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
 </head><body class="looply-page page-home looply-premium"><div class="container-page">
 <header class="page-header gh glass" data-site-header></header>
@@ -26,7 +27,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <script type="module">
 import {primaryNavigationMarkup} from "/src/primary-navigation.js";
 const page=new URLSearchParams(location.search).get("page")||"home";
-document.querySelector("[data-site-header]").innerHTML='<a class="brand-inline brand" href="home.html"><span class="brand-mark"><span class="circle">◌</span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>'+primaryNavigationMarkup(page,7)+'<a href="notificacoes.html" class="header-action header-notifications ib">♧</a><details class="looply-account-menu"><summary class="looply-account"><span class="looply-user-initial">M</span></summary></details>';
+document.querySelector("[data-site-header]").innerHTML='<a class="brand-inline brand" href="home.html"><span class="brand-mark brand-mark-animated"><span class="circle"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>'+primaryNavigationMarkup(page,7)+'<a href="notificacoes.html" class="header-action header-notifications ib">♧</a><details class="looply-account-menu"><summary class="looply-account"><span class="looply-user-initial">M</span></summary></details>';
 document.querySelector(".page-navigation").classList.add("dock","glass");
 window.navigationReady=true;
 </script></body></html>`;
@@ -72,6 +73,24 @@ try{
        positions:getComputedStyle(nav).position,
        active:links.filter(x=>x.active).map(x=>x.href)};
    });
+   const brand=await page.evaluate(()=>{
+     const name=document.querySelector(".brand-inline strong");
+     const ring=document.querySelector(".brand-mark-animated .circle");
+     const bell=document.querySelector(".header-notifications");
+     const profile=document.querySelector(".looply-account-menu > summary");
+     const computed=getComputedStyle(name),circle=getComputedStyle(ring);
+     const header=document.querySelector("[data-site-header]").getBoundingClientRect();
+     const bellBox=bell.getBoundingClientRect(),profileBox=profile.getBoundingClientRect();
+     return {font:computed.fontFamily,weight:computed.fontWeight,size:computed.fontSize,
+       markColor:circle.color,animation:circle.animationDuration,border:circle.borderTopWidth,
+       bellX:bellBox.x,bellRight:bellBox.right,profileRight:profileBox.right,headerRight:header.right};
+   });
+   assert.match(brand.font,/Cabin Sketch/,"music logo typeface at "+width);
+   assert.equal(brand.weight,"700","music logo weight at "+width);
+   assert.equal(brand.animation,"3s","music mark rotation at "+width);
+   assert.equal(brand.border,"4px","music ring stroke at "+width);
+   assert.ok(brand.bellX>=0&&brand.bellRight<=width+1&&brand.profileRight<=width+1,"header controls within viewport "+width);
+   console.log("GLOBAL_BRAND_DIAGNOSTICS",JSON.stringify({width,...brand}));
    console.log("NAV_VIEWPORT_DIAGNOSTICS",JSON.stringify(data));
    const svgDebug=await page.evaluate(()=>{
      const el=document.querySelector(".page-navigation a svg");
@@ -111,6 +130,25 @@ try{
    }
    await page.screenshot({path:join(OUT,"navigation-"+width+".png")});
    if(width===390){
+     // Theme must recolor LOGO/animation immediately, without rerendering.
+     const theme=await page.evaluate(()=>{
+       const ring=document.querySelector(".brand-mark-animated .circle");
+       document.documentElement.style.setProperty("--primary","#087fbd");
+       const color=getComputedStyle(ring).color;
+       document.documentElement.style.setProperty("--primary","#7010b0");
+       return color;
+     });
+     assert.equal(theme,"rgb(8, 127, 189)","brand color must follow selected theme");
+     await page.evaluate(()=>{
+       const nav=document.querySelector(".page-navigation");
+       for(const label of ["reels","cartas","musicas","galeria","chat","home"]){
+         nav.querySelectorAll("a").forEach(a=>{
+           if(a.getAttribute("href")===label+".html")a.setAttribute("aria-current","page");
+           else a.removeAttribute("aria-current");
+         });
+         if(nav.querySelectorAll('[aria-current="page"]').length!==1)throw Error("active nav mismatch "+label);
+       }
+     });
      await page.evaluate(()=>{document.documentElement.dataset.theme="noite";document.querySelector(".fixture-modal").classList.add("is-open");});
      const overlay=await page.evaluate(()=>{
        const modal=document.querySelector(".fixture-modal"),nav=document.querySelector(".page-navigation");
