@@ -75,6 +75,9 @@
         <receiver
             android:name=".NativeCallDeclineReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".NativeInlineReplyReceiver"
+            android:exported="false" />
         <service
             android:name=".LooplyMessagingService"
             android:exported="false"
