@@ -473,11 +473,11 @@ const unreadTotal=()=>C.reduce((a,c)=>a+(c.mute||c.arch?0:c.unread),0);
 
 /* ── cabeçalho, menu, dock ── */
 function head(){$("#accBtn").innerHTML=av(ME,38);$("#sIc").innerHTML=ic("search");$("#fab").innerHTML=ic("plus")+"Nova conversa";
- $("#menu").innerHTML=`<button class="mrow" data-m="photo">${ic("cam")}Trocar minha foto</button><button class="mrow" data-m="sim">${ic("bolt")}Simular mensagem recebida</button><button class="mrow" data-m="theme">${ic("moon")}Alternar tema</button><input id="pIn" type="file" accept="image/*" hidden>`;
+ $("#menu").innerHTML=`<button class="mrow" data-m="photo">${ic("cam")}Trocar minha foto</button><button class="mrow" data-m="sim">${ic("bolt")}Simular mensagem recebida</button><button class="mrow" data-m="theme">${ic("moon")}Temas e fontes</button><input id="pIn" type="file" accept="image/*" hidden>`;
  $("#sub").textContent=C.filter(c=>c.type==="dm"&&peers(c).some(k=>U(k).on)).length+" pessoas online · "+unreadTotal()+" mensagens não lidas"}
 $("#accBtn").onclick=e=>{e.stopPropagation();$("#menu").hidden=!$("#menu").hidden};document.addEventListener("click",e=>{if(!e.target.closest("#menu"))$("#menu").hidden=true});
 $("#menu").onclick=e=>{const b=e.target.closest("[data-m]");if(!b)return;const k=b.dataset.m;if(k==="photo")$("#pIn").click();
- if(k==="theme"){const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme:dark)").matches);r.dataset.theme=d?"light":"dark"}
+ if(k==="theme"){location.href="configuracoes.html";return}
  if(k==="sim"){$("#menu").hidden=true;const o=C.filter(c=>c.id!==cur&&!c.blocked&&peers(c).some(x=>U(x).on));const c=o[Math.floor(Math.random()*o.length)];if(c)incoming(c.id,["Oi! Tá por aí? 👀","Acabei de lembrar de você 💜","Olha só o que eu achei!","Bora conversar mais tarde?"][Math.floor(Math.random()*4)])}};
 $("#menu").onchange=e=>{const f=e.target.files?.[0];if(f){photos[ME]=URL.createObjectURL(f);head();toast("Foto atualizada")}};
 const NAV=[["home","Início","home.html"],["reels","Reels","reels.html"],["mail","Cartas","cartas.html"],["music","Músicas","musicas.html"],["img","Galeria","galeria.html"],["chat","Chat","chat.html"]];
@@ -2531,16 +2531,8 @@ refresh();
     if (status) status.textContent = video ? "Simulação de videochamada" : "Simulação de chamada";
   };
 
-  // Recupera preferência de tema salva por este HTML.
-  const savedTheme = localStorage.getItem(THEME_KEY);
-  if (savedTheme === "dark" || savedTheme === "light") {
-    document.documentElement.dataset.theme = savedTheme;
-  }
-  $("#menu").addEventListener("click", event => {
-    if (event.target.closest('[data-m="theme"]')) {
-      localStorage.setItem(THEME_KEY, document.documentElement.dataset.theme || "light");
-    }
-  });
+  // Profile theme and font come from the shared Looply appearance bootstrap.
+  // Chat no longer creates an independent "light/dark" override.
 
   // Corrige bug do viewport: não força rolagem ao fundo quando teclado aparece.
   if (window.visualViewport) {
