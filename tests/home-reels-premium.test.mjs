@@ -92,7 +92,7 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v52-home-reels-engagement-20261110/);
+  assert.match(sw,/looply-shell-v53-salvos-share-20261110/);
   assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
@@ -188,4 +188,43 @@ test("produção: RPCs de curtidas/salvos são permitidas no cliente Neon real",
  assert.match(migration,/public\.post_recipients/);
  assert.match(migration,/public\.v4_create_conversation/);
  assert.match(migration,/GRANT EXECUTE ON FUNCTION public\.v52_share_post/);
+});
+
+
+test("coleção Salvos consulta o Neon por páginas, sem depender de posts renderizados",()=>{
+ const js=read("src/home-saved-library.js");
+ const shell=read("src/home-reels-premium.js");
+ const css=read("assets/css/pages/home-reels.css");
+ for(const part of ['from("post_saves")','range(offset,offset+pageSize-1)','from("posts")','from("post_media")','signPeople(client','createSignedUrls','v13_set_post_saved','premium-saved-detail'])
+  assert.ok(js.includes(part),part);
+ assert.match(shell,/mountSavedLibrary\(\{root,client,userId:ownId\}\)/);
+ assert.match(shell,/savedButton\.dataset\.premiumSaved/);
+ assert.match(css,/dialog\.premium-saved-dialog\[open\]/);
+ assert.match(css,/\.psaved-grid\{display:grid/);
+});
+
+test("compositor premium mantém FormData original e seleciona pessoas em grade",()=>{
+ const js=read("src/home-composer-premium.js");
+ const social=read("src/social.js");
+ const style=read("assets/css/pages/home-reels.css");
+ for(const token of ["cp-visibility","cp-recipient-grid","cp-recipient-check",
+   "postRecipients","option","select.disabled","o.selected=selected.has(o.value)","signPeople","client.from"])
+   assert.ok(js.includes(token),token);
+ assert.match(js,/privacy\.dispatchEvent\(new Event\("change",\{bubbles:true\}\)\)/);
+ assert.match(social,/formData\.getAll\("recipientIds"\)/);
+ assert.match(style,/\.cp-recipient-grid\{display:grid/);
+ assert.match(style,/\.cp-head/);
+});
+
+test("compartilhamento externo usa seletor do SO e jamais copia silenciosamente",()=>{
+ const social=read("src/social.js"),android=read("android/app/src/main/java/com/soumoiss/looply/MainActivity.kt");
+ assert.match(social,/navigator\.share\(/);
+ assert.match(social,/looply-share:\/\/external\?url=/);
+ assert.doesNotMatch(social,/navigator\.clipboard\?\.writeText\(url\)/);
+ assert.doesNotMatch(social,/window\.prompt\("Copie o link da publicação"/);
+ assert.match(android,/Intent\.ACTION_SEND/);
+ assert.match(android,/Intent\.createChooser\(send, "Compartilhar publicação"\)/);
+ assert.match(android,/uri\.scheme\.equals\("looply-share"/);
+ assert.match(android,/isShareableLooplyPost\(target\)/);
+ assert.match(android,/page\.path\?\.startsWith\("\/Looply\/"\)/);
 });

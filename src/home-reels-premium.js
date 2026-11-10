@@ -2,6 +2,8 @@
 import { signPeople } from "./profile-api.js";
 import { mountSecretMessages } from "./secret-messages.js";
 import { mountInternalShareDialog } from "./home-reels-send.js";
+import { mountSavedLibrary } from "./home-saved-library.js";
+import { polishPremiumComposer } from "./home-composer-premium.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMOJIS = Object.freeze(["❤️","😂","😮","😢","🔥","👏"]);
@@ -130,6 +132,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(composeFields.hidden&&composeDialog.open)closeCompose();
     }).observe(composeFields,{attributes:true,attributeFilter:["hidden"]});
   }
+  if(composer)polishPremiumComposer({composer,client,ownId,profile,mode});
   if(feed){feed.classList.add("feed");by(scene,"#feed")?.append(feed);}
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
   social?.remove();
@@ -159,12 +162,26 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   const gridButton=by(toolbar,"[data-premium-grid]");
   const listButton=by(toolbar,"[data-premium-list]");
   const searchPanel=by(scene,"#srch");
+  const savedLibrary=mountSavedLibrary({root,client,userId:ownId});
+  const savedButton=makeButton("Salvos","ib premium-library-shortcut","Ver publicações salvas");
+  savedButton.dataset.premiumSaved="";
+  savedButton.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg><span>Salvos</span>';
+  const externalSearch=by(toolbar,"[data-premium-search]");
+  if(externalSearch)externalSearch.before(savedButton);else toolbar.append(savedButton);
+  savedButton.onclick=()=>void savedLibrary.open();
   by(toolbar,"[data-premium-search]").onclick=()=>{
     searchPanel.classList.toggle("on");
     if(searchPanel.classList.contains("on"))search.focus();
     else{search.value="";applyFilters();}
   };
   let following=new Set(), saved=new Set(), filter="all", grid=false;
+  root.addEventListener("looply:saved-updated",event=>{
+    const {postId,saved:next}=event.detail||{};
+    if(!postId)return;
+    if(next)saved.add(postId);else saved.delete(postId);
+    all(root,'[data-premium-save="'+CSS.escape(postId)+'"]').forEach(b=>
+      b.setAttribute("aria-pressed",String(Boolean(next))));
+  });
   let pendingLikes=new Set(), pendingSaves=new Set(), dialog=null, picker=null;
   let likePage=0,likeBusy=false,likeDone=false,likeGeneration=0,selectedPost="",likerTab="all",likerSearch="";
   let wasFollowingChanged=false, previousIds=new Set();
@@ -411,6 +428,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     buttons.forEach(b=>b.setAttribute("aria-pressed",String(next)));
     try{
       await call(client,"v13_set_post_saved",{p_post_id:postId,p_saved:next});
+      root.dispatchEvent(new CustomEvent("looply:saved-updated",{detail:{postId,saved:next}}));
       notify(next?"Publicação salva.":"Publicação removida dos salvos.");
     }catch(error){
       if(before)saved.add(postId);else saved.delete(postId);
