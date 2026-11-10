@@ -61,7 +61,7 @@ test("salvos são persistentes e idempotentes, com rollback visível",()=>{
   assert.match(sql,/ON CONFLICT DO NOTHING/);
   assert.match(js,/v13_set_post_saved/);
   assert.match(js,/if\(before\)saved\.add\(postId\);else saved\.delete\(postId\)/);
-  assert.match(js,/Não foi possível atualizar os salvos/);
+  assert.match(js,/Não foi possível salvar:/);
 });
 
 test("Reels usam progresso real do vídeo, vídeo sem corte, gestos, teclado e som persistido",()=>{
@@ -92,7 +92,7 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v51-home-reels-faithful-20261110/);
+  assert.match(sw,/looply-shell-v52-home-reels-engagement-20261110/);
   assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
