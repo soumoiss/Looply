@@ -397,3 +397,31 @@ body.looply-admin-premium #gh .brand .mark .circle > svg{
    transformed/filtered ancestor of the viewport-fixed six-button dock. */
 html:has(body.looply-page){max-width:100%;overflow-x:clip}
 body.looply-page{max-width:100%;overflow-x:clip}
+
+
+/* ADM controls stay accessible but no longer crowd the global header. */
+body.looply-admin-premium #gh{
+  width:min(calc(100vw - 20px),700px)!important;
+  max-width:700px!important;
+}
+body.looply-admin-premium #gh .looply-adm-tools{
+  position:relative;z-index:50;flex:0 0 44px;min-width:44px;
+}
+body.looply-admin-premium #gh .looply-adm-tools>summary{
+  display:grid;place-items:center;width:44px;height:44px;
+  border:1px solid var(--line);border-radius:14px;
+  background:var(--strong);color:var(--muted);
+  list-style:none;cursor:pointer;
+}
+body.looply-admin-premium #gh .looply-adm-tools>summary::-webkit-details-marker{display:none}
+body.looply-admin-premium #gh .looply-adm-tools>summary svg{width:21px;height:21px}
+body.looply-admin-premium #gh .looply-adm-tools-popover{
+  position:absolute;z-index:2000;right:0;top:calc(100% + 8px);
+  display:flex;gap:8px;padding:9px;border:1px solid var(--line);
+  border-radius:17px;background:var(--strong);
+  box-shadow:0 12px 30px #0005;
+}
+body.looply-admin-premium #gh .looply-adm-tools:not([open]) .looply-adm-tools-popover{display:none}
+body.looply-admin-premium #gh .looply-adm-tools-popover .ib{
+ width:44px;height:44px;flex:0 0 44px;
+}
