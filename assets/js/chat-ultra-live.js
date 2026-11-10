@@ -829,7 +829,8 @@ function bindEvents(){
   },true);
   window.addEventListener("pagehide",()=>{clearTimeout(refreshTimer);signedMediaCache.clear();olderPages.clear();hasMoreHistory.clear();void channel?.unsubscribe?.();disposeChatRealtime(client);},{once:true});
 }
-await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile})=>{
+await mountAppPage({page:"chat",render:async({root,client:sessionClient,user,profile,isAdmin})=>{
+  document.body.dataset.looplyAdminAccess=isAdmin===true?"true":"false";
   client=sessionClient;selfId=user.id;
   const initial=await loadChatOverview(client,selfId);
   roomService=createUltraRoomService(client,code=>console.warn("Chat Ultra room action not confirmed",code));
