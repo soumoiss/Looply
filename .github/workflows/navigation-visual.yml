@@ -6,8 +6,10 @@ on:
       - "src/page-runtime.js"
       - "src/social.js"
       - "assets/css/pages/shared.css"
-      - "assets/css/pages/home-hybrid.css"
-      - "assets/css/pages/feed-reels-experience.css"
+      - "assets/css/pages/home-reels.css"
+      - "src/home-reels-premium.js"
+      - "home.html"
+      - "reels.html"
       - "scripts/check-primary-nav-visual.mjs"
       - ".github/workflows/navigation-visual.yml"
   push:
