@@ -11,7 +11,7 @@ test("As nove páginas autenticadas carregam o mesmo CSS global por último",()=
  for(const page of pages){
   const html=read(page);
   const head=html.slice(0,html.indexOf("</head>"));
-  const path="assets/css/pages/global-shell.css?v=20261110-unified";
+  const path="assets/css/pages/global-shell.css?v=20261110-unified-bold700";
   assert.equal(head.split(path).length-1,1,page);
   assert.ok(head.lastIndexOf(path)>head.lastIndexOf("ios-redesign.css"),page);
   assert.match(html,/data-site-header/,page);
@@ -30,6 +30,12 @@ test("Cabeçalho preserva as ações, fonte e animação de Músicas com cor do 
  assert.match(runtime,/header-notifications/);
  assert.match(runtime,/looply-account-menu/);
  assert.match(css,/Cabin Sketch/);
+ assert.match(css,/font-weight:700!important;font-size:29px!important/);
+ const chat=read("chat.html");
+ assert.match(chat,/#gh \.brand strong\{[^}]*font-weight:700/);
+ const homeCss=read("assets/css/pages/home-reels.css");
+ assert.match(homeCss,/body\.looply-premium \.page-header\.gh \.brand-inline strong\{[^}]*font-weight:700/);
+ assert.doesNotMatch(css,/font-weight:400!important;font-size:29px!important/);
  assert.match(css,/looply-global-brand-spin/);
  assert.match(css,/color:var\(--primary\)!important/);
  assert.match(css,/prefers-reduced-motion/);
