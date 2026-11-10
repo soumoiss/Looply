@@ -6,7 +6,7 @@ export function mountSavedCollection({root,client,userId}){
   const panel=document.createElement("dialog");panel.className="looply-saved-dialog";panel.setAttribute("aria-label","Salvos");
   panel.innerHTML='<section class="looply-saved-layout"><header class="looply-saved-head"><div><small>MINHA COLEÇÃO</small><h2>Salvos</h2></div><button type="button" data-saved-close aria-label="Fechar">×</button></header><div class="looply-saved-search"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input type="search" data-saved-query placeholder="Buscar nos salvos" aria-label="Buscar salvos"></div><p data-saved-status role="status" aria-live="polite"></p><div class="looply-saved-grid" data-saved-grid></div><button type="button" data-saved-more hidden>Ver mais</button></section>';
   document.body.append(panel);
-  let rows=[],offset=0,busy=false,more=true,token=0;
+  let rows=[],offset=0,busy=false,more=true,token=0,errorMessage="";
   const by=selector=>panel.querySelector(selector),grid=by("[data-saved-grid]");
   const render=()=>{
     const search=by("[data-saved-query]").value.trim().toLocaleLowerCase("pt-BR");
@@ -34,18 +34,19 @@ export function mountSavedCollection({root,client,userId}){
       if(signed){const img=el("img");img.alt="";img.src=signed;img.referrerPolicy="no-referrer";img.loading="lazy";avatar.append(img);}
       else avatar.textContent=String(post.author?.display_name||post.author?.username||"?").slice(0,1).toUpperCase();
       const label=el("span","looply-saved-person");label.append(el("strong","",post.author?.display_name||post.author?.username||"Membro"),el("small","","@"+String(post.author?.username||"")));
-      const remove=el("button","looply-saved-remove","♥");remove.type="button";remove.dataset.savedRemove=post.id;remove.setAttribute("aria-label","Remover dos salvos");remove.title="Remover dos salvos";
+      const remove=el("button","looply-saved-remove");remove.innerHTML=`<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg>`;remove.type="button";remove.dataset.savedRemove=post.id;remove.setAttribute("aria-label","Remover dos salvos");remove.title="Remover dos salvos";
       footer.append(avatar,label,remove);tile.append(footer);grid.append(tile);
     }
     by("[data-saved-more]").hidden=!more||!!search||busy;
     const status=by("[data-saved-status]");
-    if(!busy && !rows.length)status.textContent="Nenhum salvo";
+    if(!busy && errorMessage)status.textContent=errorMessage;
+    else if(!busy && !rows.length)status.textContent="Nenhum salvo";
     else if(!busy&&!visible.length)status.textContent="Nenhum resultado";
     else if(!busy)status.textContent="";
   };
   const fetchNext=async()=>{
     if(busy||!more)return;
-    busy=true;const generation=token;
+    busy=true;errorMessage="";const generation=token;
     by("[data-saved-more]").disabled=true;
     by("[data-saved-status]").textContent="Carregando…";
     try{
@@ -57,7 +58,7 @@ export function mountSavedCollection({root,client,userId}){
     }catch(error){
       if(generation===token){
         more=true;
-        by("[data-saved-status]").textContent="Não foi possível carregar os salvos.";
+        errorMessage="Não foi possível carregar os salvos.";
         console.error("Looply saved collection failed",error);
       }
     }finally{
@@ -65,7 +66,7 @@ export function mountSavedCollection({root,client,userId}){
     }
   };
   const open=()=>{
-    token++;rows=[];offset=0;more=true;busy=false;
+    token++;rows=[];offset=0;more=true;busy=false;errorMessage="";
     by("[data-saved-query]").value="";grid.replaceChildren();
     by("[data-saved-status]").textContent="Carregando…";
     if(!panel.open)panel.showModal();
@@ -89,7 +90,8 @@ export function mountSavedCollection({root,client,userId}){
       render();
     }catch(error){
       console.error("Looply unsave failed",error);
-      by("[data-saved-status]").textContent="Não foi possível remover dos salvos.";
+      errorMessage="Não foi possível remover dos salvos.";
+      by("[data-saved-status]").textContent=errorMessage;
     }finally{button.disabled=false;}
   });
   return {open,refresh:()=>{if(panel.open)open();},close:()=>panel.close()};
