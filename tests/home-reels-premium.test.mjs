@@ -228,3 +228,12 @@ test("compartilhamento externo usa seletor do SO e jamais copia silenciosamente"
  assert.match(android,/isShareableLooplyPost\(target\)/);
  assert.match(android,/page\.path\?\.startsWith\("\/Looply\/"\)/);
 });
+
+test("Reels interrompe iframe externo anterior sem depender de API Instagram",()=>{
+ const src=read("src/home-hybrid-reels.js");
+ assert.match(src,/oldFrame\.src="about:blank"/);
+ assert.match(src,/oldFrame\.removeAttribute\("src"\)/);
+ assert.match(src,/commandEmbeddedPlayer\(oldFrame,"pause"\)/);
+ assert.match(src,/if\(i===index\)continue/);
+ assert.match(src,/activeIndex!==index \|\| document\.hidden/);
+});
