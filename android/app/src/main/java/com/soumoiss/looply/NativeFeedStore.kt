@@ -51,6 +51,7 @@ internal class NativeFeedStore(private val app: Context) :
         ?.takeIf { UUID.matches(it) }
 
     fun hasCachedPosts(): Boolean {
+        pruneExpired()
         val account = activeAccount() ?: return false
         readableDatabase.rawQuery(
             "SELECT 1 FROM feed_posts WHERE account_id=? AND cached_at>? LIMIT 1",
@@ -108,12 +109,15 @@ internal class NativeFeedStore(private val app: Context) :
         // Cache images asynchronously. No HTTP request on the UI thread.
         for ((key, url) in images.take(MAX_IMAGE_DOWNLOADS)) {
             if (!File(directory, key).isFile) {
-                imagePool.execute { downloadImage(key, url) }
+                imagePool.execute {
+                    if (activeAccount() == account) downloadImage(key, url, account)
+                }
             }
         }
     }
 
     fun read(): List<Item> {
+        pruneExpired()
         val account = activeAccount() ?: return emptyList()
         val out = mutableListOf<Item>()
         readableDatabase.rawQuery(
@@ -130,6 +134,14 @@ internal class NativeFeedStore(private val app: Context) :
             }
         }
         return out
+    }
+
+    fun pruneExpired() {
+        writableDatabase.delete(
+            "feed_posts", "cached_at<?",
+            arrayOf((System.currentTimeMillis() - RETENTION_MS).toString())
+        )
+        cleanOrphans()
     }
 
     fun clearAllOnLogout() {
@@ -150,7 +162,7 @@ internal class NativeFeedStore(private val app: Context) :
         }
     }
 
-    private fun downloadImage(key: String, rawUrl: String) {
+    private fun downloadImage(key: String, rawUrl: String, account: String) {
         if (!approvedImageUrl(rawUrl)) return
         val file = File(directory, key)
         val temp = File(directory, "$key.partial")
@@ -178,7 +190,7 @@ internal class NativeFeedStore(private val app: Context) :
                         }
                     }
                 }
-                if (count > 0 && !file.exists()) temp.renameTo(file)
+                if (count > 0 && activeAccount() == account && !file.exists()) temp.renameTo(file)
             } finally { connection.disconnect() }
         } catch (_: Exception) {
             // Failure only omits the thumbnail; never break the feed.
