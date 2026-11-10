@@ -303,7 +303,7 @@
 .page-music .music-v6 .music-library-panel .music-list{padding:0}
 .page-music .music-v6 .music-library-panel .music-list>.music-card{margin:0}
 @keyframes music-v6-rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes music-v6-sheet{from{opacity:.8;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes music-v6-sheet{from{opacity:.8;translate:0 20px}to{opacity:1;translate:0 0}}
 @media(min-width:761px){
   .page-music .music-v6 .music-v6-fab{bottom:28px}
   .page-music .page-content.music-v6{padding-bottom:85px}
@@ -325,4 +325,17 @@
 }
 @media(prefers-reduced-motion:reduce){
  .page-music .music-v6 *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+
+/* Admin conserva as ferramentas reais, mas deixa a navegação principal limpa. */
+.page-music .music-v6 .music-v6-admin {
+  min-width:0;margin:15px 0;padding:13px 15px;border:1px solid var(--music-line);
+  border-radius:19px;background:var(--music-blur);
+}
+.page-music .music-v6 .music-v6-admin[hidden] {display:none!important}
+.page-music .music-v6 .music-v6-admin>summary {
+  cursor:pointer;color:var(--primary);font-size:13px;font-weight:760;
+}
+.page-music .music-v6 .music-v6-admin .music-admin-playlists {
+  margin:14px 0 0;border-radius:16px;box-shadow:none;
 }
