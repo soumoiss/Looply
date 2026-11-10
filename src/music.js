@@ -843,7 +843,7 @@ export function bindMusicEvents(root, client, getUserId) {
         frame.loading = "lazy";
         frame.referrerPolicy = "strict-origin-when-cross-origin";
         frame.allow = "autoplay; encrypted-media";
-        frame.height = "110";
+        frame.height = song.provider === "spotify" ? "152" : "110";
         catalogPreview = frame;
         target.append(frame);
       }
@@ -985,6 +985,13 @@ export function bindMusicEvents(root, client, getUserId) {
         if (selectedSongLabel) { selectedSongLabel.hidden = true; selectedSongLabel.textContent = ""; }
         closeCatalogPicker();
         setStatus(form, "Dedicatória enviada para " + resolvedRecipientIds.length + " pessoa(s).");
+        const composer = form.closest(".music-composer");
+        if (composer) composer.open = false;
+        const selected = root.querySelector('[data-music-direction="sent"]');
+        if (selected) {
+          root.querySelectorAll("[data-music-direction]").forEach(button => button.setAttribute("aria-selected", String(button === selected)));
+          root.querySelectorAll("[data-music-direction-panel]").forEach(panel => { panel.hidden = panel.dataset.musicDirectionPanel !== "sent"; });
+        }
         await refreshMusic(root, client, userId);
       } else if (form.matches("[data-music-general-comment]")) {
         if (!body || body.length > 2000) throw new Error("comment-fields");
