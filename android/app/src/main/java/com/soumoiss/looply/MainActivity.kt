@@ -150,6 +150,8 @@ class MainActivity : Activity() {
             loadLooply()
             if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
                 startActivity(Intent(this, NativeFeedActivity::class.java))
+            } else if (wasOffline && NativeChatStore(this).hasCachedMessages()) {
+                startActivity(Intent(this, NativeChatActivity::class.java))
             }
         }
         handleNotificationRoute(intent)
@@ -460,6 +462,7 @@ class MainActivity : Activity() {
         ChatAvatarCache.register(this, webView)
         NativeFeedBridge.register(this, webView)
         NativeCallAuthBridge.register(this, webView)
+        NativeChatBridge.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -736,10 +739,13 @@ class MainActivity : Activity() {
     private fun routeTopLevelUrl(uri: Uri): Boolean {
         if (uri.scheme.equals("looply-native", ignoreCase = true)) {
             val from = webView.url?.let { runCatching { Uri.parse(it) }.getOrNull() }
-            if (uri.host == "feed" && uri.path.isNullOrEmpty() &&
-                from != null && isTrustedWebOrigin(from) &&
-                from.path?.startsWith("/Looply/") == true) {
-                startActivity(Intent(this, NativeFeedActivity::class.java))
+            if (uri.path.isNullOrEmpty() && from != null &&
+                isTrustedWebOrigin(from) && from.path?.startsWith("/Looply/") == true) {
+                if (uri.host == "feed") {
+                    startActivity(Intent(this, NativeFeedActivity::class.java))
+                } else if (uri.host == "chats") {
+                    startActivity(Intent(this, NativeChatActivity::class.java))
+                }
             }
             return true
         }
