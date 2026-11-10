@@ -176,31 +176,114 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(!empty){empty=element("p","empty","Nenhuma publicação encontrada.");empty.dataset.premiumEmpty="";by(scene,"#feed").append(empty);}
     }else empty?.remove();
   }
+  const ICONS={
+    more:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+    bookmark:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg>',
+    send:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="m21 3-8.6 18-3.6-7.8L1 9.6 21 3Z"/><path d="m9 13 12-10"/></svg>',
+    play:'<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+    heart:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z"/></svg>'
+  };
+  function openPostMenu(card){
+    const menu=document.createElement("dialog");menu.className="premium-sheet premium-actions-sheet";
+    menu.setAttribute("aria-label","Ações da publicação");
+    menu.innerHTML='<div class="premium-sheet-content"><div class="grab"></div><h2>Publicação</h2></div>';
+    const content=by(menu,".premium-sheet-content");
+    const actions=[
+      ["Ver perfil",".post-author-profile"],
+      ["Compartilhar","[data-share-post]"],
+      ["Enviar no Looply","[data-share-in-app]"],
+      ["Responder em particular","[data-private-reply]"],
+      ["Editar legenda","[data-edit-post]"],
+      ["Excluir publicação","[data-delete-post]"]
+    ];
+    for(const [label,selector] of actions){
+      const target=by(card,selector);if(!target)continue;
+      const btn=makeButton(label,"act"+(label==="Excluir publicação"?" dg":""));
+      btn.onclick=()=>{menu.close();menu.remove();target.click();};
+      content.append(btn);
+    }
+    const close=makeButton("Cancelar","act");
+    close.onclick=()=>menu.close();content.append(close);
+    menu.addEventListener("close",()=>menu.remove(),{once:true});
+    root.append(menu);menu.showModal();
+  }
   function decorateCard(card){
     if(card.dataset.premiumReady)return;
-    card.dataset.premiumReady="true";card.classList.add("post");
-    const head=by(card,".post-header"),media=by(card,".post-media-grid"),actions=by(card,".post-interactions");
-    head?.classList.add("ph");media?.classList.add("med");actions?.classList.add("pa");
-    by(card,".post-body")?.classList.add("pt");
-    if(!actions)return;
+    card.dataset.premiumReady="true";
+    card.classList.add("post");
+    const head=by(card,".post-header"),media=by(card,".post-media-grid"),
+      external=by(card,".post-external"),actions=by(card,".post-interactions"),
+      caption=by(card,".post-body");
+    if(!head||!actions)return;
+    head.classList.add("ph");media?.classList.add("med");actions.classList.add("pa");
+    const author=by(head,".post-author-profile");
+    const authorWrap=author?.parentElement;
+    if(author){
+      head.insertBefore(author,head.firstChild);
+      if(authorWrap?.classList.contains("post-author"))authorWrap.remove();
+      const av=by(author,".post-avatar");av?.classList.add("av");if(av)av.style.setProperty("--s","44px");
+      const tx=by(author,"div");tx?.classList.add("tx");
+    }
+    const more=makeButton("","ib","Mais opções da publicação");
+    more.innerHTML=ICONS.more;
+    more.dataset.premiumMenu=card.dataset.postCard;
+    head.append(more);
     const postId=card.dataset.postCard;
-    const summary=makeButton("","premium-like-summary","Ver quem curtiu");
+    const date=by(author||head,"time")?.textContent||"";
+    if(caption){
+      caption.classList.add("pt");
+      if(!media&&!external){
+        const quote=element("div","qt");
+        quote.append(caption);head.after(quote);
+      }
+    }
+    if(external){
+      const source=by(external,".hybrid-provider-tools a");
+      const provider=by(external,".hybrid-provider-label")?.textContent?.trim()||"Link externo";
+      if(source){
+        const strip=element("div","lnk");
+        const logo=element("a","li");logo.href=source.href;logo.target="_blank";logo.rel="noopener noreferrer";logo.setAttribute("aria-label","Abrir original");logo.innerHTML=ICONS.play;
+        const body=element("a","tx");body.href=source.href;body.target="_blank";body.rel="noopener noreferrer";
+        body.append(element("b","",provider),element("small","",source.hostname||source.href));
+        strip.append(logo,body);
+        const origin=by(external,"[data-open-external-reel]");
+        if(origin){
+          const open=makeButton("","ib","Assistir Reel em tela cheia");
+          open.innerHTML=ICONS.play;
+          open.dataset.openExternalReel=origin.dataset.openExternalReel;
+          strip.append(open);
+        }
+        external.before(strip);
+      }
+    }
+    const summary=makeButton("","lb premium-like-summary","Ver quem curtiu");
     summary.dataset.premiumLikers=postId;
     const count=by(card,"[data-toggle-like] span")?.textContent||"0";
-    summary.innerHTML='<b>'+esc(count)+' curtidas</b><small>Ver quem curtiu</small>';
+    summary.innerHTML='<span class="stk" data-premium-like-avatars></span><span><b data-premium-like-total>'+esc(count)+'</b> curtidas · Ver quem curtiu</span>';
     actions.after(summary);
-    const save=makeButton("","post-icon-button premium-save","Salvar publicação");
-    save.dataset.premiumSave=postId;
-    save.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg>';save.setAttribute("aria-pressed",String(saved.has(postId)));
+    const save=makeButton("","post-icon-button premium-save sv","Salvar publicação");
+    save.dataset.premiumSave=postId;save.setAttribute("aria-pressed",String(saved.has(postId)));save.innerHTML=ICONS.bookmark;
     actions.append(save);
-    const shared=by(card,"[data-share-in-app]");if(shared){shared.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 9.6 14.3 4 11.4z"/><path d="m9.6 14.3 2.4 6.2 9-17.5"/></svg>';shared.title="Enviar no Looply";shared.setAttribute("aria-label","Enviar publicação no chat do Looply");}
-    const reply=by(card,"[data-private-reply]");if(reply){reply.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-3.2-.6L4 20l1.2-4A8 8 0 1 1 20 11.5Z"/><path d="M8 12h8m-4-4v8"/></svg>';reply.title="Responder em particular";reply.setAttribute("aria-label","Responder em particular");}
-    const del=by(card,"[data-delete-post]");if(del){del.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6m4-6v6"/></svg>';del.title="Excluir publicação";}
+    const shared=by(card,"[data-share-in-app]");
+    if(shared){shared.innerHTML=ICONS.send;shared.title="Enviar no Looply";shared.setAttribute("aria-label","Enviar publicação no chat do Looply");}
+    const out=by(card,"[data-share-post]");
+    if(out){out.innerHTML=ICONS.send;out.title="Compartilhar publicação";out.setAttribute("aria-label","Compartilhar publicação");}
+    const reply=by(card,"[data-private-reply]");if(reply)reply.title="Responder em particular";
     const liker=by(card,"[data-toggle-like]");
-    if(liker){liker.setAttribute("aria-label","Curtir ou reagir; mantenha pressionado para escolher uma reação");}
-    if(!card.querySelector("[data-open-reel],[data-open-external-reel]"))return;
-    card.dataset.hasReel="true";
+    if(liker){liker.classList.add("lk");liker.setAttribute("aria-label","Curtir ou reagir; mantenha pressionado para escolher uma reação");}
+    const dateStamp=element("div","ts",date);summary.after(dateStamp);
+    if(caption&&(media||external)){
+      const block=element("div","cap");
+      const authorName=by(author||head,"strong")?.textContent?.trim()||"";
+      block.append(element("b","",authorName),caption);
+      summary.after(block); // original model: caption immediately after likes
+    }
+    if(card.querySelector("[data-open-reel],[data-open-external-reel]"))card.dataset.hasReel="true";
   }
+  root.addEventListener("click",event=>{
+    const menu=event.target.closest("[data-premium-menu]");
+    if(menu){event.preventDefault();const card=menu.closest("[data-post-card]");if(card)openPostMenu(card);}
+  });
   function decorateAll(){
     all(root,"[data-post-card]").forEach(decorateCard);
     applyFilters();
@@ -209,7 +292,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   function updateLikeDisplay(postId,like,emoji,count){
     const card=all(root,"[data-post-card]").find(node=>node.dataset.postCard===postId);
     if(!card)return;
-    const button=by(card,"[data-toggle-like]"),counter=by(button||card,"span");
+    const button=by(card,"[data-toggle-like]"),counter=by(button||card,":scope > span:not([data-premium-emoji])");
     if(button){
       button.setAttribute("aria-pressed",String(like));
       button.classList.toggle("is-liked",like);
@@ -223,14 +306,14 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       }else reaction?.remove();
       text(counter,count);
     }
-    const summary=by(card,"[data-premium-likers] b");
-    if(summary)summary.textContent=count+" curtidas";
+    const summary=by(card,"[data-premium-like-total]");
+    if(summary)summary.textContent=String(count);
   }
   async function react(postId,chosen) {
     if(pendingLikes.has(postId))return;
     const card=all(root,"[data-post-card]").find(node=>node.dataset.postCard===postId);
     const button=card&&by(card,"[data-toggle-like]");if(!button)return;
-    const count=Number(by(button,"span")?.textContent)||0;
+    const count=Number(by(button,":scope > span:not([data-premium-emoji])")?.textContent)||0;
     const wasLiked=button.getAttribute("aria-pressed")==="true";
     const prev=wasLiked?(button.dataset.premiumEmoji||"❤️"):null;
     const emoji=chosen===prev?null:chosen;
