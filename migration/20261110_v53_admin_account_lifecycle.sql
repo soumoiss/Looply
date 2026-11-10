@@ -190,20 +190,7 @@ AS $function$
      JOIN public.profiles p ON p.id=l.legacy_user_id
      WHERE u.id=auth.uid()
        AND coalesce(u.banned,false)=false
-       AND p.username !~ '^deleted_[0-9a-f]{20}
-   ),
-   'suspended', EXISTS (
-     SELECT 1 FROM neon_auth."user" u
-     WHERE u.id=auth.uid() AND coalesce(u.banned,false)=true
-   )
- )
-$function$;
-
-REVOKE ALL ON FUNCTION public.v54_self_account_access()
-  FROM PUBLIC, anonymous;
-GRANT EXECUTE ON FUNCTION public.v54_self_account_access()
-  TO authenticated;
-
+       AND NOT (p.username LIKE 'deleted_%' AND length(p.username)=28)
    ),
    'suspended', EXISTS (
      SELECT 1 FROM neon_auth."user" u
