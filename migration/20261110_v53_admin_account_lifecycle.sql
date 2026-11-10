@@ -53,9 +53,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'user_auth_identity_not_found' USING ERRCODE='22023';
   END IF;
-  IF target_role='admin' OR target_username='peixinho'
-    OR EXISTS(SELECT 1 FROM public.looply_admin_memberships WHERE user_id=target_id)
-  THEN
+  IF target_role='admin' OR target_username='peixinho' THEN
     RAISE EXCEPTION 'cannot_change_administrator' USING ERRCODE='42501';
   END IF;
 
