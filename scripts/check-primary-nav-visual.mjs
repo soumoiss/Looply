@@ -13,9 +13,10 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/assets/css/app.css">
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
+<link rel="stylesheet" href="/assets/css/theme-complete.css">
+<link rel="stylesheet" href="/assets/css/pages/ios-redesign.css">
 <link rel="stylesheet" href="/assets/css/pages/home-reels.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
-<link rel="stylesheet" href="/assets/css/theme-complete.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
 </head><body class="looply-page page-home looply-premium"><div class="container-page">
 <header class="page-header gh glass" data-site-header></header>
@@ -64,7 +65,8 @@ try{
      });
      return {width:innerWidth,navs:document.querySelectorAll("nav.page-navigation").length,
        totalNavs:document.querySelectorAll('nav[aria-label="Navegação principal"]').length,
-       rect:{x:rect.x,right:rect.right,width:rect.width,bottom:rect.bottom},
+       rect:{x:rect.x,y:rect.y,right:rect.right,width:rect.width,height:rect.height,bottom:rect.bottom},
+       header:{bottom:document.querySelector(".page-header").getBoundingClientRect().bottom},
        overflow:document.documentElement.scrollWidth-innerWidth,links,
        positions:getComputedStyle(nav).position,
        active:links.filter(x=>x.active).map(x=>x.href)};
@@ -88,6 +90,10 @@ try{
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
    assert.equal(data.links.length,6,"exactly six tabs at "+width);
    assert.deepEqual(data.active,["home.html"]);
+   if(data.overflow>1){
+     const offenders=await page.evaluate(()=>[...document.querySelectorAll("*")].map(el=>{const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {tag:el.tagName,cls:String(el.className||"").slice(0,90),x:Math.round(r.x),right:Math.round(r.right),width:Math.round(r.width),position:cs.position,overflowX:cs.overflowX}}).filter(x=>x.right>innerWidth+1||x.x< -1).slice(0,22));
+     console.log("OVERFLOW_OFFENDERS",JSON.stringify(offenders));
+   }
    assert.ok(data.overflow<=1,"no horizontal scroll at "+width+": "+data.overflow);
    assert.ok(data.rect.x>=-1 && data.rect.right<=width+1,"nav within viewport at "+width);
    for(const item of data.links){
@@ -97,7 +103,11 @@ try{
        assert.ok(item.width>=40 && item.height>=44,"undersized button "+item.name+" at "+width);
      }
    }
-   if(width<=760)assert.equal(data.positions,"fixed","bottom mobile nav at "+width);
+   if(width<=760){
+     assert.equal(data.positions,"fixed","bottom mobile nav at "+width);
+     assert.ok(data.rect.y>data.header.bottom+24,"mobile dock must not overlay header at "+width+": "+JSON.stringify(data));
+     assert.ok(data.rect.bottom>760 && data.rect.bottom<=800.5,"mobile dock must be anchored to viewport bottom at "+width+": "+JSON.stringify(data.rect));
+   }
    await page.screenshot({path:join(OUT,"navigation-"+width+".png")});
    if(width===390){
      await page.evaluate(()=>{document.documentElement.dataset.theme="noite";document.querySelector(".fixture-modal").classList.add("is-open");});

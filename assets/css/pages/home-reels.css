@@ -3,7 +3,7 @@
 :root{--danger:#e63232;--success:#35c878;
 --strong:var(--surface-strong);--soft:var(--surface-soft);--r-sm:var(--radius-sm,14px);--r-md:var(--radius-md,20px);--r-lg:var(--radius-lg,28px);--r-xl:var(--radius-xl,34px);--sh-sm:0 8px 24px rgba(80,56,115,.07);--sh-md:0 18px 44px rgba(80,56,115,.12);
 --ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.5,.64,1);--ui:var(--looply-font-family,Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif);--serif:"Quillen",Georgia,"Times New Roman",serif;
---lens-a:rgba(255,255,255,.32);--lens-b:rgba(255,255,255,.06);--lens-edge:rgba(255,255,255,.62);--lens-blur:7px;--theirs:#fff;--read:#1fa2e0;color-scheme:light}
+--lens-a:rgba(255,255,255,.32);--lens-b:rgba(255,255,255,.06);--lens-edge:rgba(255,255,255,.62);--lens-blur:7px;--theirs:#fff;--read:#1fa2e0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}html{font-size:var(--looply-root-font-size,16px)}
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;
@@ -488,3 +488,521 @@ body.looply-premium .looply-reels-scroll [data-reels-creator] .post-avatar img{w
 body.looply-premium .looply-reels-scroll .looply-reels-audio{color:#fff}
 
 body.looply-premium dialog.looply-reels-scroll[open]{animation:none;transform:none}
+
+
+/* ===== v4 — PARIDADE VISUAL MOBILE-FIRST / MODELO V3 =====
+   Correções estritamente limitadas às páginas Início e Reels.
+   A navegação de seis destinos é preservada e jamais recriada.
+*/
+body.looply-premium{
+  --premium-ease:cubic-bezier(.22,1,.36,1);
+  --premium-border:color-mix(in srgb,var(--primary) 9%,var(--line));
+  --premium-shadow:0 8px 26px color-mix(in srgb,var(--deep) 9%,transparent);
+  background:var(--bg);
+  background-image:radial-gradient(70vmax 45vmax at -4% -10%,color-mix(in srgb,var(--primary) 11%,transparent),transparent 72%),radial-gradient(52vmax 34vmax at 98% 6%,color-mix(in srgb,var(--primary) 6%,transparent),transparent 72%);
+  overflow-x:clip;
+}
+body.looply-premium .container-page{
+  width:min(calc(100% - 24px),704px);
+  max-width:704px;
+  overflow:visible;
+  margin-inline:auto;
+  padding-inline:0;
+  padding-bottom:calc(106px + env(safe-area-inset-bottom));
+}
+body.looply-premium .container-page > main,
+body.looply-premium .page-content,
+body.looply-premium .premium-scene{
+  min-width:0;max-width:100%;overflow:visible;
+}
+body.looply-premium .premium-scene{
+  width:100%;display:flex;flex-direction:column;gap:0;margin-inline:auto;padding:0 0 12px;
+}
+body.looply-premium .page-header.gh{
+  width:100%;
+  min-width:0;
+  margin:6px auto 12px;
+  display:flex;flex-wrap:nowrap;justify-content:space-between;
+  gap:8px;padding:8px 12px;border-radius:24px;
+  box-shadow:0 10px 30px color-mix(in srgb,var(--primary) 11%,transparent);
+}
+body.looply-premium .page-header.gh .brand-inline{flex:1 1 auto;min-width:0;justify-content:flex-start}
+body.looply-premium .page-header.gh .brand-inline strong{font-size:clamp(26px,6vw,31px)}
+body.looply-premium .page-header.gh .header-notifications,
+body.looply-premium .page-header.gh .looply-account-menu>summary{
+  flex-shrink:0;background:color-mix(in srgb,var(--surface-strong) 80%,transparent);
+  border:1px solid var(--premium-border);
+  border-radius:16px;box-shadow:none;
+}
+body.looply-premium .page-header.gh .looply-account-menu{flex:0 0 auto}
+body.looply-premium .page-header.gh .header-notifications{display:grid;place-items:center}
+body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-avatar{height:42px;width:42px}
+body.looply-premium .page-header.gh .looply-account-menu>summary .looply-user-initial{height:42px;width:42px}
+
+/* CRÍTICO: backdrop-filter de um antepassado converte position:fixed
+   da navegação em posição relativa ao cabeçalho. O vidro passa para o
+   pseudo-elemento, sem criar um containing block. */
+@media(max-width:760px){
+ body.looply-premium .page-header.gh{
+   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+   filter:none!important;transform:none!important;
+   contain:none!important;will-change:auto!important;
+   isolation:auto!important;
+ }
+ body.looply-premium .page-header.gh::before{
+   content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;
+   -webkit-backdrop-filter:saturate(175%) blur(18px);
+   backdrop-filter:saturate(175%) blur(18px);
+   pointer-events:none;
+ }
+ body.looply-premium .page-header.gh > .page-navigation{
+   position:fixed!important;top:auto!important;right:auto!important;
+   bottom:calc(9px + env(safe-area-inset-bottom))!important;
+   left:50%!important;transform:translateX(-50%)!important;
+   width:min(calc(100vw - 18px),560px)!important;max-width:560px!important;
+   padding:5px!important;display:grid!important;
+   grid-template-columns:repeat(6,minmax(0,1fr))!important;
+   align-items:stretch;gap:2px;
+   margin:0!important;min-height:62px!important;
+   z-index:1000;border-radius:25px;
+   -webkit-backdrop-filter:saturate(180%) blur(22px);
+   backdrop-filter:saturate(180%) blur(22px);
+   box-shadow:0 12px 36px color-mix(in srgb,var(--primary) 16%,transparent);
+ }
+ body.looply-premium .page-header.gh > .page-navigation .header-action{
+   padding:6px 2px!important;min-height:55px!important;max-height:66px;
+   border-radius:18px!important;line-height:1.1;text-align:center;
+   font-size:10px!important;gap:4px;
+ }
+ body.looply-premium .page-header.gh > .page-navigation .page-navigation-icon svg{width:23px;height:23px}
+ body.looply-premium .page-header.gh > .page-navigation .page-navigation-label{font-size:10px;line-height:1.1}
+ body.looply-premium .page-header.gh > .page-navigation .nav-liquid{pointer-events:none}
+}
+
+/* Início: boas-vindas e Why Now sem blocos vazios ou altura artificial. */
+body.looply-premium .hero-panel{
+  min-height:88px;padding:13px 14px;margin-bottom:14px;
+  border-radius:24px;background:var(--surface-strong);
+  border:1px solid var(--premium-border);
+  box-shadow:var(--premium-shadow);
+  overflow:hidden;
+}
+body.looply-premium .hero-panel .home-welcome-avatar{width:52px;height:52px}
+body.looply-premium .hero-panel .home-welcome-copy h1{
+  font-family:var(--ui);font-size:clamp(17px,4vw,22px);
+  font-weight:780;line-height:1.25;letter-spacing:-.025em;
+}
+body.looply-premium .hero-panel .home-profile-shortcut{
+  width:auto;min-width:84px;min-height:39px;padding:0 13px;
+  border-radius:14px;background:var(--primary);
+  color:#fff;border:0;font-size:12px;font-weight:750;box-shadow:none;
+}
+body.looply-premium .premium-why-now{padding:0;margin-bottom:12px;border:0;background:none;box-shadow:none}
+body.looply-premium .premium-why-now .h2{
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:38px;padding:0 4px;
+}
+body.looply-premium .premium-why-now .h2 h2{
+  margin:0;color:var(--text);font:800 18px/1.2 var(--ui);
+  letter-spacing:-.025em;
+}
+body.looply-premium .premium-why-now [data-premium-stories],
+body.looply-premium .premium-why-now #stories,
+body.looply-premium .premium-why-now .story-area,
+body.looply-premium .premium-why-now .why-now-mount{
+  display:block!important;width:100%!important;min-width:0!important;
+  min-height:0!important;max-height:none!important;
+  margin:0!important;padding:0!important;
+  background:transparent!important;border:0!important;
+  box-shadow:none!important;filter:none!important;
+}
+body.looply-premium .premium-why-now #stories > :not(.why-now-mount){display:none!important}
+body.looply-premium .premium-why-now .why-now-people{
+  min-height:91px!important;max-height:112px!important;
+  padding:5px 4px 7px!important;margin:0!important;align-items:start;
+  gap:14px;overflow-x:auto;overflow-y:hidden;
+}
+body.looply-premium .premium-why-now .why-now-person{
+  min-width:68px;max-width:70px;min-height:83px;white-space:normal;
+}
+body.looply-premium .premium-why-now .why-now-person-ring{
+  width:63px!important;height:63px!important;
+  animation:none!important;box-shadow:none!important;
+}
+body.looply-premium .premium-why-now .why-now-person-face{width:55px!important;height:55px!important;animation:none!important}
+body.looply-premium .premium-why-now .why-now-create{
+  min-height:36px;padding:4px 10px;border-radius:14px;
+}
+body.looply-premium .premium-why-now .why-now-identity,
+body.looply-premium .premium-why-now .why-now-branddot{display:none}
+
+/* Composer: formato do card do modelo, nenhum retângulo sem estilo. */
+body.looply-premium .premium-composer{
+  display:block;max-width:100%;margin:1px 0 14px;
+  padding:9px 11px;border-radius:24px;
+  background:var(--surface-strong);border:1px solid var(--premium-border);
+  box-shadow:var(--premium-shadow);overflow:visible;
+}
+body.looply-premium .premium-composer .post-composer-heading{
+  display:grid;grid-template-columns:44px minmax(0,1fr) 44px;
+  align-items:center;gap:10px;min-height:48px;padding:0;
+  cursor:pointer;
+}
+body.looply-premium .premium-composer .post-compose-pen{
+  display:grid;place-items:center;width:44px;height:44px;
+  font-size:19px;border-radius:50%;background:var(--lilac);color:var(--primary);
+}
+body.looply-premium .premium-composer .post-composer-heading strong{
+  min-width:0;min-height:44px;
+  display:flex;align-items:center;justify-content:flex-start;
+  border:1px solid var(--premium-border);border-radius:22px;
+  background:var(--surface-soft);padding:0 16px;
+  font:600 14px/1.2 var(--ui);color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+body.looply-premium .premium-composer .post-add-button{
+  display:grid!important;place-items:center!important;
+  width:44px!important;height:44px!important;
+  min-width:44px!important;min-height:44px!important;
+  max-width:44px!important;max-height:44px!important;
+  padding:0!important;margin:0!important;border:0!important;
+  border-radius:16px!important;background:var(--primary)!important;
+  color:#fff!important;box-shadow:0 4px 13px color-mix(in srgb,var(--primary) 26%,transparent)!important;
+  overflow:hidden;aspect-ratio:1;line-height:1;
+}
+body.looply-premium .premium-composer .post-add-button svg{
+  width:22px!important;height:22px!important;
+  min-width:22px!important;min-height:22px!important;
+  stroke:currentColor!important;display:block;
+}
+body.looply-premium .premium-composer .post-composer-fields:not([hidden]){
+  margin-top:12px;padding:12px;
+  border:1px solid var(--premium-border);border-radius:18px;
+  background:var(--surface-soft);max-width:100%;
+}
+body.looply-premium .premium-composer :where(input,textarea,select){
+  width:100%;max-width:100%;box-sizing:border-box;
+}
+body.looply-premium .premium-composer :where(button,select,input,textarea):focus-visible{
+  outline:2px solid var(--primary);outline-offset:2px;
+}
+body.looply-premium .premium-composer .post-create-header{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+body.looply-premium .premium-composer .post-create-header button{
+  min-height:42px;border-radius:12px;padding-inline:12px;
+}
+body.looply-premium .premium-composer .post-create-header button[type="submit"]{
+  background:var(--primary);color:#fff;border:0;
+}
+body.looply-premium .premium-composer .post-create-preview{max-height:48dvh;overflow:auto}
+
+/* Filtros e busca com tamanho uniforme, abaixo do cabeçalho. */
+body.looply-premium .premium-filters{
+  position:relative;top:auto;z-index:10;
+  display:grid;grid-template-columns:auto auto minmax(0,1fr) 44px;
+  gap:7px;align-items:center;padding:0 0 14px;margin:0;
+  background:none!important;min-height:0;
+}
+body.looply-premium .premium-filters .fc{
+  display:grid;place-items:center;
+  min-width:0!important;height:42px!important;min-height:42px!important;
+  max-height:42px;padding:0 13px!important;
+  border-radius:22px;font-weight:750;font-size:12.5px;
+  line-height:1;box-shadow:none;
+}
+body.looply-premium .premium-filters .fc.on{
+  color:#fff;background:var(--primary);border-color:transparent;
+  box-shadow:0 5px 15px color-mix(in srgb,var(--primary) 22%,transparent);
+  transform:none;
+}
+body.looply-premium .premium-filters [data-premium-grid]{
+  height:42px;width:44px;padding:0!important;
+  border:1px solid var(--premium-border);border-radius:15px;
+  background:var(--surface-strong);font-size:19px;color:var(--muted);
+}
+body.looply-premium .premium-filters .premium-filter-search{
+  width:100%;height:42px;min-height:42px;
+  background:var(--surface-strong);border:1px solid var(--premium-border);
+  border-radius:15px;padding:0 12px;font-size:13px;
+  box-shadow:none;outline-offset:2px;
+}
+@media(max-width:380px){
+ body.looply-premium .premium-filters{gap:5px;grid-template-columns:auto auto minmax(0,1fr) 40px}
+ body.looply-premium .premium-filters .fc{padding:0 10px!important;font-size:11.5px}
+ body.looply-premium .premium-filters [data-premium-grid]{width:40px}
+ body.looply-premium .premium-filters .premium-filter-search{padding-inline:10px}
+}
+
+/* Cards: hierarquia idêntica ao modelo, sem estilos nativos de botões. */
+body.looply-premium .feed-list{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:14px;
+  padding:0;margin:0;min-width:0;
+}
+body.looply-premium .post-card{
+  display:block;max-width:100%;min-width:0;
+  margin:0;padding:0 0 5px;
+  border-radius:26px;background:var(--surface-strong);
+  border:1px solid var(--premium-border);
+  box-shadow:var(--premium-shadow);overflow:hidden;
+}
+body.looply-premium .post-card > :not([hidden]){min-width:0}
+body.looply-premium .post-card .post-header{
+  display:flex;align-items:center;gap:8px;padding:12px 12px 9px;
+  min-height:67px;margin:0;background:transparent;border:0;
+}
+body.looply-premium .post-card .post-author-profile{
+  display:flex;align-items:center;gap:10px;
+  min-width:0;max-width:100%;padding:0;
+  border:0;background:transparent;text-align:left;cursor:pointer;
+}
+body.looply-premium .post-card .post-author-profile > div{flex:1;min-width:0}
+body.looply-premium .post-card .post-author-profile strong{
+  display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font:800 14px/1.3 var(--ui);
+}
+body.looply-premium .post-card .post-author-profile time{
+  display:block;color:var(--muted);white-space:nowrap;font-size:11.5px;
+}
+body.looply-premium .post-card .post-avatar{
+  width:42px;height:42px;min-width:42px;border-radius:50%;
+  overflow:hidden;border:1px solid var(--premium-border);
+}
+body.looply-premium .post-card .post-controls{display:flex;align-items:center;flex:0 0 auto;gap:5px}
+body.looply-premium .post-card .visibility-pill{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:25px;padding:0 8px;border-radius:99px;
+  background:var(--lilac);color:var(--primary);
+  border:1px solid color-mix(in srgb,var(--primary) 12%,transparent);
+  font:750 10px/1 var(--ui);
+}
+body.looply-premium .post-card .post-delete-button{
+  display:grid;place-items:center;min-width:38px;width:38px;height:38px;
+  min-height:38px;padding:0;border:0;border-radius:12px;
+  background:transparent;color:var(--muted);box-shadow:none;
+}
+body.looply-premium .post-card .post-delete-button svg{width:19px;height:19px}
+body.looply-premium .post-card .post-owner-menu summary{
+  display:grid;place-items:center;height:38px;width:32px;
+  border-radius:12px;background:transparent;color:var(--muted);
+  list-style:none;cursor:pointer;font-size:22px;
+}
+body.looply-premium .post-card .post-owner-menu-actions{
+  position:absolute;right:12px;z-index:10;
+  background:var(--surface-strong);border:1px solid var(--premium-border);
+  border-radius:14px;box-shadow:var(--premium-shadow);padding:7px;
+}
+body.looply-premium .post-card .post-body{
+  padding:0 14px 10px;margin:0;color:var(--text);
+  font:400 14.5px/1.5 var(--ui);
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+/* Mídia de Feed permanece nativa e sem corte. */
+body.looply-premium .post-card .post-media-grid{
+  display:flex;gap:0;width:calc(100% - 24px);max-width:calc(100% - 24px);
+  margin:3px 12px 10px;border-radius:18px;
+  overflow:hidden;min-width:0;
+  background:var(--surface-soft);box-shadow:none;
+  scroll-snap-type:x mandatory;
+}
+body.looply-premium .post-card .post-media-grid:has(> .post-media:only-child){
+  height:auto!important;min-height:0!important;
+}
+body.looply-premium .post-card .post-media{position:relative;flex:0 0 100%;min-width:100%;max-width:100%;width:100%;padding:0;scroll-snap-align:center}
+body.looply-premium .post-card .post-media img,
+body.looply-premium .post-card .post-media video{
+  display:block;width:100%;max-width:100%;
+  height:auto;max-height:min(76dvh,740px);object-fit:contain;
+  margin:0;border-radius:0;
+}
+body.looply-premium .post-card .post-media video{background:#111}
+body.looply-premium .post-card .post-carousel-navigation{display:flex;justify-content:center;align-items:center;gap:8px}
+body.looply-premium .post-card .post-carousel-navigation button{
+  min-width:36px;min-height:36px;border-radius:50%;
+  border:1px solid var(--premium-border);background:var(--surface-soft);
+}
+body.looply-premium .post-card .post-carousel-dots{display:flex;justify-content:center;gap:5px;margin:4px 0 8px}
+body.looply-premium .post-card .post-carousel-dots span{height:5px;width:5px;border-radius:50%;background:var(--line)}
+body.looply-premium .post-card .post-carousel-dots span.is-active{background:var(--primary);width:15px;border-radius:5px}
+
+/* Fonte externa: embutido contido e comandos no padrão do modelo. */
+body.looply-premium .post-card .post-external{
+  display:flex;flex-direction:column;min-width:0;
+  margin:0 12px 10px;padding:0;background:transparent;border:0;
+  box-shadow:none;overflow:hidden;
+}
+body.looply-premium .post-card .post-external-credit{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  min-width:0;padding:0 1px 9px;
+}
+body.looply-premium .post-card .hybrid-provider-label{
+  flex:0 0 auto;display:inline-flex;align-items:center;
+  min-height:28px;padding:0 10px;border-radius:10px;
+  font:750 11px/1 var(--ui);color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 9%,var(--surface-strong));
+}
+body.looply-premium .post-card .hybrid-provider-tools{
+  display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px;
+}
+body.looply-premium .post-card .hybrid-provider-tools :is(a,button){
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  width:auto;max-width:100%;min-width:0;min-height:32px;
+  padding:0 9px;white-space:nowrap;text-overflow:ellipsis;
+  overflow:hidden;border-radius:10px;border:1px solid var(--premium-border);
+  font:750 11px/1.2 var(--ui);
+  text-decoration:none;color:var(--text);
+  background:var(--surface-soft);
+}
+body.looply-premium .post-card .hybrid-provider-tools a svg{width:14px;height:14px}
+body.looply-premium .post-card .hybrid-external-frame{
+  display:block;position:relative;min-width:0;width:100%;
+  padding:0;margin:0;overflow:hidden;background:var(--surface-soft);
+  border-radius:18px;border:1px solid var(--premium-border);
+}
+body.looply-premium .post-card .post-external-embed{
+  display:block;position:relative;width:100%;height:auto;
+  aspect-ratio:4 / 5;max-height:min(74dvh,720px);
+  overflow:hidden;background:var(--surface-soft);
+  border:0;margin:0;padding:0;
+}
+body.looply-premium .post-card .post-instagram-embed,
+body.looply-premium .post-card .post-tiktok-embed{aspect-ratio:9/14;max-height:min(72dvh,710px)}
+body.looply-premium .post-card .post-external iframe,
+body.looply-premium .post-card .post-external-embed iframe{
+  display:block;position:absolute;inset:0;
+  width:100%!important;height:100%!important;
+  min-height:0!important;max-width:100%!important;
+  margin:0!important;padding:0!important;border:0!important;
+  border-radius:0;box-sizing:border-box;background:transparent;
+}
+body.looply-premium .post-card .hybrid-external-watch{
+  position:absolute;z-index:4;right:10px;bottom:10px;
+  display:flex;align-items:center;gap:6px;
+  min-height:39px;max-width:calc(100% - 20px);
+  padding:0 13px;border-radius:14px;border:1px solid #ffffff77;
+  background:#201528cf;color:#fff;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  box-shadow:0 4px 16px #0003;font:750 12px/1 var(--ui);
+}
+body.looply-premium .post-card .post-external-unavailable{
+  padding:18px;font-size:13px;color:var(--muted);text-align:center;
+}
+body.looply-premium .post-card .post-interactions{
+  display:flex;align-items:center;gap:1px;
+  padding:2px 10px 0;margin:0;
+  flex-wrap:nowrap;overflow:visible;min-width:0;
+}
+body.looply-premium .post-card .post-interactions button.post-icon-button{
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:auto;height:42px;min-height:42px;min-width:39px;
+  padding:0 6px;margin:0;border:0;border-radius:12px;
+  background:transparent;color:var(--text);box-shadow:none;
+  font:750 12px/1 var(--ui);
+}
+body.looply-premium .post-card .post-interactions .post-like-button.is-liked{color:var(--primary)}
+body.looply-premium .post-card .post-interactions .post-icon-button svg{display:block;width:21px;height:21px;flex:none}
+body.looply-premium .post-card .post-interactions [data-share-post] span,
+body.looply-premium .post-card .post-interactions [data-share-in-app] span{
+  display:none;
+}
+body.looply-premium .post-card .post-interactions .premium-save{
+  margin-left:auto;width:40px;min-width:40px;
+}
+body.looply-premium .post-card .post-interactions .premium-save[aria-pressed="true"]{
+  color:var(--primary);
+}
+body.looply-premium .post-card .post-interactions .premium-save[aria-pressed="true"] svg{
+  fill:color-mix(in srgb,var(--primary) 17%,transparent);
+}
+body.looply-premium .post-card .post-action-status:empty{display:none}
+body.looply-premium .post-card .post-action-status{font-size:11px;max-width:70px}
+body.looply-premium .post-card .premium-like-summary{
+  display:flex;align-items:center;gap:9px;
+  width:calc(100% - 28px);min-height:34px;
+  margin:0 14px 6px;padding:2px 0;
+  background:transparent;border:0;text-align:left;
+  font-size:12px;font-weight:800;color:var(--text);
+}
+body.looply-premium .post-card .premium-like-summary small{
+  margin:0;font:500 11px/1.3 var(--ui);color:var(--muted);
+}
+body.looply-premium .post-card .post-comments{margin:0 12px 10px;border-radius:16px}
+body.looply-premium .post-card .post-comments:not([data-comments-expanded="true"]){display:none}
+body.looply-premium .post-card .post-comments[data-comments-expanded="true"]{display:block}
+body.looply-premium .post-card [hidden]{display:none!important}
+body.looply-premium .feed-list.is-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+body.looply-premium .feed-list.is-grid .post-card{
+  min-width:0;min-height:0;aspect-ratio:4/5;
+}
+body.looply-premium .feed-list.is-grid .post-card > :not(.post-media-grid):not(.post-external):not(.post-body){display:none!important}
+body.looply-premium .feed-list.is-grid .post-media-grid,
+body.looply-premium .feed-list.is-grid .post-external{
+  margin:0;width:100%;height:100%;max-width:100%;border-radius:0;
+}
+body.looply-premium .feed-list.is-grid .post-media-grid img,
+body.looply-premium .feed-list.is-grid .post-media-grid video{
+  height:100%!important;max-height:none;object-fit:cover;
+}
+body.looply-premium .feed-list.is-grid .post-external-credit{display:none}
+body.looply-premium .feed-list.is-grid .hybrid-external-frame,
+body.looply-premium .feed-list.is-grid .post-external-embed{height:100%;max-height:none;border-radius:0}
+body.looply-premium .feed-list.is-grid .post-body{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Janelas e viewer sempre independentes do layout da lista. */
+body.looply-premium dialog.premium-sheet[open]{
+  position:fixed;inset:auto 0 0;z-index:1400;
+  max-width:560px;width:100%;max-height:88dvh;
+  margin:auto auto 0;padding:0;transform:none;
+  border-radius:24px 24px 0 0;
+}
+body.looply-premium dialog.premium-sheet .premium-sheet-content{
+  max-height:87dvh;overflow:auto;padding:12px 16px calc(22px + env(safe-area-inset-bottom));
+}
+body.looply-premium .premium-reaction-picker{z-index:1600}
+body.looply-premium dialog.looply-reels-scroll[open]{
+  position:fixed;inset:0;z-index:1500;
+  margin:0!important;width:100vw!important;height:100dvh!important;
+  max-width:100vw!important;max-height:100dvh!important;
+  padding:0!important;border:0!important;border-radius:0!important;
+  overflow:hidden!important;background:#09070d;color:#fff;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+body.looply-premium .looply-reels-scroll .looply-reels-track{
+  width:100%;height:100%;max-height:100dvh;overflow-y:auto;
+  scroll-snap-type:y mandatory;
+}
+body.looply-premium .looply-reels-scroll .looply-reel-slide{
+  display:grid;place-items:center;width:100%;height:100dvh;
+  min-height:100dvh;scroll-snap-align:start;overflow:hidden;
+}
+body.looply-premium .looply-reels-scroll .looply-reel-video{
+  width:100%;height:100%;max-height:100dvh;
+  object-fit:contain;background:#000;
+}
+body.looply-premium .looply-reels-scroll .looply-reels-bottom{
+  padding-bottom:calc(18px + env(safe-area-inset-bottom));pointer-events:none;
+}
+body.looply-premium .looply-reels-scroll .looply-reels-rail{z-index:11}
+body.looply-premium .looply-reels-scroll .looply-reels-top{z-index:11}
+body.looply-premium .premium-top{z-index:90}
+@media(min-width:760px){
+ body.looply-premium .container-page{max-width:704px}
+ body.looply-premium .feed-list.is-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ body.looply-premium .page-header.gh{max-width:704px}
+}
+@media(prefers-reduced-motion:reduce){
+ body.looply-premium .post-card,
+ body.looply-premium .hero-panel,
+ body.looply-premium .premium-composer{animation:none!important}
+}
+
+/* Eliminar o scroll horizontal residual causado por decoradores/pseudo-elementos
+   do shell, mesmo quando nenhum elemento DOM excede a viewport. */
+html:has(body.looply-premium){max-width:100%;overflow-x:hidden}
+body.looply-premium{max-width:100%;overflow-x:clip}
+body.looply-premium .container-page{min-width:0;max-width:min(100%,704px)}
+body.looply-premium .page-header.gh{max-width:100%;box-sizing:border-box}
+body.looply-premium .premium-scene,
+body.looply-premium .page-content{box-sizing:border-box;max-width:100%;min-width:0}

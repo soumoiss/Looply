@@ -145,10 +145,13 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     const count=by(card,"[data-toggle-like] span")?.textContent||"0";
     summary.innerHTML='<b>'+esc(count)+' curtidas</b><small>Ver quem curtiu</small>';
     actions.after(summary);
-    const save=makeButton("♧","post-icon-button premium-save","Salvar publicação");
+    const save=makeButton("","post-icon-button premium-save","Salvar publicação");
     save.dataset.premiumSave=postId;
-    save.textContent="♧";save.setAttribute("aria-pressed",String(saved.has(postId)));
+    save.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg>';save.setAttribute("aria-pressed",String(saved.has(postId)));
     actions.append(save);
+    const shared=by(card,"[data-share-in-app]");if(shared){shared.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 9.6 14.3 4 11.4z"/><path d="m9.6 14.3 2.4 6.2 9-17.5"/></svg>';shared.title="Enviar no Looply";shared.setAttribute("aria-label","Enviar publicação no chat do Looply");}
+    const reply=by(card,"[data-private-reply]");if(reply){reply.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-3.2-.6L4 20l1.2-4A8 8 0 1 1 20 11.5Z"/><path d="M8 12h8m-4-4v8"/></svg>';reply.title="Responder em particular";reply.setAttribute("aria-label","Responder em particular");}
+    const del=by(card,"[data-delete-post]");if(del){del.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6m4-6v6"/></svg>';del.title="Excluir publicação";}
     const liker=by(card,"[data-toggle-like]");
     if(liker){liker.setAttribute("aria-label","Curtir ou reagir; mantenha pressionado para escolher uma reação");}
     if(!card.querySelector("[data-open-reel],[data-open-external-reel]"))return;
@@ -237,7 +240,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       const id=like.dataset.toggleLike;
       if((suppressed.get(id)||0)>Date.now())return;
       closePicker();const emoji=like.getAttribute("aria-pressed")==="true"?null:"❤️";
-      void react(id,emoji||like.dataset.premiumEmoji||"❤️");
+      void react(id,like.dataset.premiumEmoji||"❤️");
       return;
     }
     const liker=event.target.closest("[data-premium-likers]");
@@ -385,7 +388,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     const track=by(dialogNode,"[data-reels-track]"),slides=all(dialogNode,"[data-reels-key]");
     const counter=element("span","rvcount");dialogNode.append(counter);
     const rail=by(dialogNode,"[data-reels-rail]");
-    const save=makeButton("♧ Salvar","looply-reel-action premium-viewer-save","Salvar Reel");save.dataset.premiumViewerSave="";
+    const save=makeButton("","looply-reel-action premium-viewer-save","Salvar Reel");save.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg><small>Salvar</small>';save.dataset.premiumViewerSave="";
     const likers=makeButton("Curtidas","looply-reel-action premium-viewer-likes","Ver quem curtiu o reel");likers.dataset.premiumViewerLikes="";
     rail?.append(likers,save);
     const current=()=>{
@@ -420,7 +423,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(!dialogNode.open||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName)||event.target?.isContentEditable)return;
       const key=event.key.toLowerCase();
       if(["arrowdown","arrowup","j","k"].includes(key)){
-        event.preventDefault();dialogNode.dispatchEvent(new KeyboardEvent("keydown",{key:["j","arrowdown"].includes(key)?"ArrowDown":"ArrowUp",bubbles:false}));
+        event.preventDefault();track?.scrollBy({top:(["j","arrowdown"].includes(key)?1:-1)*track.clientHeight,behavior:"smooth"});
       }else if(key===" "){event.preventDefault();const video=by(current().entry||dialogNode,"video");if(video){video.paused?void video.play().catch(()=>{}):video.pause();}}
       else if(key==="l"){event.preventDefault();by(dialogNode,'[data-reel-action="like"]')?.click();}
       else if(key==="m"){event.preventDefault();by(dialogNode,"[data-reels-sound]")?.click();}
@@ -441,7 +444,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     if(!root.isConnected)return;
     decorateAll();
     const ids=new Set(all(feedTarget,"[data-post-card]").map(c=>c.dataset.postCard));
-    if([...ids].some(id=>!previousIds.has(id))&&window.scrollY>400){pill.classList.add("on");}
+    if([...ids].some(id=>!previousIds.has(id))){void loadSaves();if(window.scrollY>400)pill.classList.add("on");}
     previousIds=ids;
     all(root,"dialog[data-reels-scroll]").forEach(decorateViewer);
     if(isHome)decorateMusic(by(scene,"[data-global-music]"));

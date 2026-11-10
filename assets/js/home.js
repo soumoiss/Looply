@@ -1,4 +1,4 @@
-import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110";
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110-v4";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
