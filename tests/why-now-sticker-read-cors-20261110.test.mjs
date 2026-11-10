@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, {after} from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import handler from "../backend/neon-storage/index.mjs";
@@ -90,4 +90,4 @@ test("editor uses authenticated Blob handoff, never remote signed R2 fetch",()=>
   assert.match(readFileSync(new URL("../why-now.html",import.meta.url),"utf8"),
     /why-now-editor-premium\.js\?v=20261110-sticker-read-fix/);
 });
-for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value;
+after(()=>{for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value;});
