@@ -117,10 +117,10 @@ test("modelo v3: componentes reais são transformados em markup do original",()=
  "head.classList.add(\"ph\")","media?.classList.add(\"med\")",
  "actions.classList.add(\"pa\")","summary.dataset.premiumLikers",
  "element(\"div\",\"lnk\")","element(\"div\",\"qt\")",
- "element(\"div\",\"cap\")","element(\"div\",\"ts\")","element(\"div\",\"reels\")"])
+ "element(\"div\",\"cap\")","element(\"div\",\"ts\",date)","element(\"div\",\"reels\")"])
   assert.ok(src.includes(x),x);
  assert.match(src,/social\?\.remove\(\)/);
- assert.match(src,/root\.dataset/);
+ assert.match(src,/root\.__premiumBound/);
 });
 
 test("regressão v4: curtir alterna para descurtir e o teclado não cria recursão de eventos",()=>{
