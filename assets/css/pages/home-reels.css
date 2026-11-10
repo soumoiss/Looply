@@ -987,3 +987,69 @@ body.looply-premium .ftool .premium-library-shortcut{
 }
 body.looply-premium .ftool .premium-library-shortcut svg{width:17px!important;height:17px!important}
 body.looply-premium .ftool .premium-library-shortcut span{font:750 9px/1.05 var(--ui);white-space:nowrap}
+
+
+/* Reels — player-only viewport (10/11/2026)
+   The Instagram embed is cross-origin: its own white chrome cannot be styled.
+   Show its natural 9:16 media area in a same-ratio matte; do not stretch,
+   transform-scale, or crop the video. Keep original post attribution in Looply.
+   Offsets match the official mobile embed header (48px), side frame (52px),
+   and footer, and are isolated to Instagram rather than all Reels. */
+body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-reel-media-stage{
+  display:grid;place-items:center;background:#000;
+  overflow:hidden;
+}
+body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window{
+  --ig-side:52px;
+  --ig-top:48px;
+  position:relative;
+  display:block;
+  flex:none;
+  width:min(calc(100vw - 80px),calc((100dvh - 145px) * 9 / 16),420px);
+  aspect-ratio:9/16;
+  max-height:calc(100dvh - 100px);
+  overflow:hidden;
+  background:#000;
+  border:0;
+  border-radius:0;
+  isolation:isolate;
+}
+body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window>.looply-reel-embed{
+  position:absolute;
+  display:block;
+  inset:calc(-1 * var(--ig-top)) auto auto calc(-1 * var(--ig-side));
+  width:calc(100% + 2 * var(--ig-side));
+  height:calc(100% + 200px);
+  max-width:none;
+  max-height:none;
+  margin:0;
+  border:0;
+  border-radius:0;
+  transform:none;
+  background:#000;
+}
+body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-reels-audio{
+  display:none;
+}
+@media(max-width:600px){
+  body.looply-premium .looply-reels-scroll .is-instagram-embed .looply-instagram-video-window{
+    transform:translateX(-10px);
+  }
+}
+/* Real locally owned videos use the original aspect ratio, with no zoom. */
+body.looply-premium .looply-reels-scroll .looply-reel-slide>.looply-reel-video{
+  width:100%;height:100%;
+  max-width:100%;max-height:100%;
+  object-fit:contain!important;
+  object-position:center;
+  transform:none!important;
+}
+/* System overlays are from Looply only, not duplicated Instagram controls. */
+body.looply-premium .looply-reels-scroll .looply-reels-original{
+  font-size:0;display:grid;place-items:center;width:44px;height:44px;
+  padding:0;border:1px solid #ffffff33;border-radius:50%;
+  background:rgba(12,9,19,.52);
+}
+body.looply-premium .looply-reels-scroll .looply-reels-original::after{
+  content:"↗";font:700 22px/1 var(--ui);
+}
