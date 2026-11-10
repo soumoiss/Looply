@@ -1,0 +1,49 @@
+name: Validate Android Reels autoplay with audio
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "src/home-hybrid-reels.js"
+      - "tests/reels-autoplay-audio.test.mjs"
+      - ".github/workflows/android-autoplay-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "src/home-hybrid-reels.js"
+      - ".github/workflows/android-autoplay-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Compile and execute playback protocol tests
+        run: |
+          npm run build
+          node --test tests/reels-autoplay-audio.test.mjs
+      - name: Compile real Android APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Verify Android artifact has updated version
+        run: |
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -Fq "versionCode='309'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -Fq "versionName='3.0.9'"
