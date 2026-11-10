@@ -1005,7 +1005,7 @@ body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instag
   position:relative;
   display:block;
   flex:none;
-  width:min(calc(100vw - 80px),calc((100dvh - 145px) * 9 / 16),420px);
+  width:min(calc(100vw - 104px),calc((100dvh - 145px) * 9 / 16),420px);
   aspect-ratio:9/16;
   max-height:calc(100dvh - 100px);
   overflow:hidden;
@@ -1030,11 +1030,6 @@ body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instag
 }
 body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-reels-audio{
   display:none;
-}
-@media(max-width:600px){
-  body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instagram-video-window{
-    transform:translateX(-10px);
-  }
 }
 /* Real locally owned videos use the original aspect ratio, with no zoom. */
 body.looply-premium .looply-reels-scroll .looply-reel-slide>.looply-reel-video{
