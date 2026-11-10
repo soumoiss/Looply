@@ -12,6 +12,7 @@ on:
       - "migration/20261110_home_reels_premium.sql"
       - "tests/**"
       - "scripts/check-reels-immersive-visual.mjs"
+      - "scripts/check-reels-playback-lifecycle.mjs"
       - "scripts/check-primary-nav-visual.mjs"
       - "scripts/check-home-reels-model-visual.mjs"
       - ".github/workflows/home-reels-premium.yml"
@@ -53,6 +54,7 @@ jobs:
           node scripts/check-home-reels-model-visual.mjs
           node scripts/check-primary-nav-visual.mjs
           node scripts/check-reels-immersive-visual.mjs
+          node scripts/check-reels-playback-lifecycle.mjs
       - name: Guardar capturas visuais
         if: always()
         uses: actions/upload-artifact@v4
