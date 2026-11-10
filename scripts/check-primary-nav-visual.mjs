@@ -15,7 +15,7 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <link rel="stylesheet" href="/assets/css/pages/shared.css">
 <link rel="stylesheet" href="/assets/css/theme-complete.css">
 <link rel="stylesheet" href="/assets/css/pages/ios-redesign.css">
-<link rel="stylesheet" href="/assets/css/pages/home-reels.css">
+<link rel="stylesheet" href="/assets/css/pages/home-reels-model-v3.css">
 <link rel="stylesheet" href="/assets/css/pages/chat-mobile-reference.css">
 <style>main{min-height:900px;padding:24px 0} .fixture-modal{position:fixed;inset:0;z-index:1500;background:#110b1d99;display:none} .fixture-modal.is-open{display:block}</style>
 </head><body class="looply-page page-home looply-premium"><div class="container-page">
@@ -26,7 +26,8 @@ const fixture=`<!doctype html><html lang="pt-BR" data-theme="lilas"><head>
 <script type="module">
 import {primaryNavigationMarkup} from "/src/primary-navigation.js";
 const page=new URLSearchParams(location.search).get("page")||"home";
-document.querySelector("[data-site-header]").innerHTML=primaryNavigationMarkup(page,7);
+document.querySelector("[data-site-header]").innerHTML='<a class="brand-inline brand" href="home.html"><span class="brand-mark"><span class="circle">◌</span></span><span><strong>Looply</strong><span>MoissWorld</span></span></a>'+primaryNavigationMarkup(page,7)+'<a href="notificacoes.html" class="header-action header-notifications ib">♧</a><details class="looply-account-menu"><summary class="looply-account"><span class="looply-user-initial">M</span></summary></details>';
+document.querySelector(".page-navigation").classList.add("dock","glass");
 window.navigationReady=true;
 </script></body></html>`;
 const server=createServer(async(req,res)=>{
