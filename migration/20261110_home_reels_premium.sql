@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.post_reactions (
 );
 CREATE INDEX IF NOT EXISTS post_reactions_recent_idx ON public.post_reactions(post_id,created_at DESC);
 ALTER TABLE public.post_reactions ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.post_reactions FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON TABLE public.post_reactions FROM PUBLIC,authenticated;
 GRANT SELECT ON public.post_reactions TO authenticated;
 DROP POLICY IF EXISTS premium_post_reactions_read ON public.post_reactions;
 CREATE POLICY premium_post_reactions_read ON public.post_reactions FOR SELECT TO authenticated USING (
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.post_saves (
 );
 CREATE INDEX IF NOT EXISTS post_saves_member_recent_idx ON public.post_saves(user_id,created_at DESC);
 ALTER TABLE public.post_saves ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.post_saves FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON TABLE public.post_saves FROM PUBLIC,authenticated;
 GRANT SELECT ON public.post_saves TO authenticated;
 DROP POLICY IF EXISTS premium_post_saves_read ON public.post_saves;
 CREATE POLICY premium_post_saves_read ON public.post_saves FOR SELECT TO authenticated
@@ -124,9 +124,9 @@ BEGIN
  ) INTO result;
  RETURN result;
 END $$;
-REVOKE ALL ON FUNCTION public.v13_set_post_reaction(uuid,text) FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.v13_set_post_saved(uuid,boolean) FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.v13_post_engagement_page(uuid,integer,integer,text,boolean) FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.v13_set_post_reaction(uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.v13_set_post_saved(uuid,boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.v13_post_engagement_page(uuid,integer,integer,text,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.v13_set_post_reaction(uuid,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.v13_set_post_saved(uuid,boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.v13_post_engagement_page(uuid,integer,integer,text,boolean) TO authenticated;
