@@ -1028,7 +1028,7 @@ body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-instag
   transform:none;
   background:#000;
 }
-body.looply-premium .looply-reels-scroll .is-instagram-reel-clean .looply-reels-audio{
+body.looply-premium .looply-reels-scroll[data-reels-provider="instagram"] .looply-reels-audio{
   display:none;
 }
 /* Real locally owned videos use the original aspect ratio, with no zoom. */
