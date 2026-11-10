@@ -15,7 +15,32 @@ const storageFunction=neonFunctionsBase;
 export const neon=createClient({auth:{url:config.auth,adapter:SupabaseAuthAdapter()},dataApi:{url:config.data}});
 export const escapeText=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export async function selfProfile(session = null){const current=session || await activeSession();const linked=await fetchLinkedNeonProfile({session:current,dataApiUrl:config.data});const full=await readOwnNeonProfile({profileId:linked.id,session:current,dataApiUrl:config.data});return {...linked,...full}}
-export async function activeSession(){const s=await neon.auth.getSession();if(s.error)throw Error("Não foi possível verificar a sessão no Neon.");return s.data?.session||null}
+let lastNativeCallToken = "";
+function syncNativeCallSession(session) {
+  const bridge = typeof window !== "undefined" ? window.LooplyNativeCallAuth : null;
+  if (typeof bridge?.postMessage !== "function") return;
+  const token = session?.access_token;
+  const account = session?.user?.id;
+  const expiresAtMs = Number(session?.expires_at) * 1000;
+  if (typeof token !== "string" || token.length < 25 || token.length > 8192 ||
+      !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(account || "") ||
+      !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now() + 5000 ||
+      expiresAtMs > Date.now() + 70 * 60 * 1000 ||
+      lastNativeCallToken === token) return;
+  try {
+    bridge.postMessage(JSON.stringify({
+      type: "session", account, accessToken: token, expiresAtMs
+    }));
+    lastNativeCallToken = token;
+  } catch {}
+}
+export async function activeSession(){
+  const result = await neon.auth.getSession();
+  if(result.error) throw Error("Não foi possível verificar a sessão no Neon.");
+  const session = result.data?.session || null;
+  if(session) syncNativeCallSession(session);
+  return session;
+}
 
 let androidDeviceId = null;
 let androidRegistrationPending = "";
@@ -646,6 +671,11 @@ export const looplyClient = Object.freeze({
       // account even when a page forgets to explicitly unregister it.
       await unregisterAndroidFcmDevice().catch(() => false);
       principalCache.clear();
+      lastNativeCallToken = "";
+      try {
+        window.LooplyNativeCallAuth?.postMessage(JSON.stringify({type:"clear"}));
+        window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"}));
+      } catch {}
       return neon.auth.signOut();
     },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
