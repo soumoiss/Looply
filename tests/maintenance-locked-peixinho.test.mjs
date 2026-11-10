@@ -7,9 +7,9 @@ const gate = readFileSync(new URL("../src/maintenance-gate.js", import.meta.url)
 const decision = readFileSync(new URL("../src/maintenance-decision.js", import.meta.url), "utf8");
 
 test("maintenance displays only the approved two text strings", () => {
-  const screen = gate.split("function maintenanceScreen() {")[1].split("function loginOrEntryPage()")[0];
-  assert.match(screen, /title\.textContent = "Em manutenção"/);
-  assert.match(screen, /info\.textContent = "Aguarde um tempo\."/);
+  const screen = gate.split("function maintenanceScreen(reason = 'maintenance') {")[1].split("function loginOrEntryPage()")[0];
+  assert.match(screen, /title\.textContent = reason === "suspended" \? "Acesso suspenso" : "Em manutenção"/);
+  assert.match(screen, /info\.textContent = reason === "suspended" \? "Esta conta está suspensa\." : "Aguarde um tempo\."/);
   assert.doesNotMatch(screen, /iconNode|maintenance_message|settings\.maintenance_message/);
   assert.match(screen, /document\.body\.append\(screen\)/);
 });
@@ -25,6 +25,6 @@ test("global maintenance is the sole gate and doesn't double-block Peixinho", ()
 
 test("session errors on login never hide the login form from Peixinho", () => {
   assert.match(gate, /if \(loginOrEntryPage\(\)\) return true;/);
-  assert.match(gate, /if \(!allowed\) maintenanceScreen\(\)/);
+  assert.match(gate, /if \(!allowed\) maintenanceScreen\(suspended \? "suspended" : "maintenance"\)/);
   assert.match(gate, /else if \(blocked\) window\.location\.reload\(\)/);
 });

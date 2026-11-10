@@ -492,20 +492,27 @@ async function adminCreateUser(body) {
     // guard concurrency; this preflight catches the common admin form error.
     const sessionBeforeCreate=await activeSession();
     if(!sessionBeforeCreate?.access_token)throw Error("neon_session_required");
-    const existing=await fetch(config.data+"/profiles?"+new URLSearchParams({
-      select:"id",username:"eq."+username,limit:"1"
-    }),{method:"GET",cache:"no-store",headers:{
-      authorization:"Bearer "+sessionBeforeCreate.access_token,accept:"application/json"
-    }});
-    if(!existing.ok)throw Error("admin_username_preflight_unavailable");
-    const existingProfiles=await existing.json();
-    if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
-    if(existingProfiles.length)throw Error("username_already_exists");
-    // Neon Auth Better Auth admin API performs the password hashing and never
-    // signs into the new account in place of the current administrator.
-    const nativeAdmin=neon.auth?.admin;
-    const alternateAuth=createClient({auth:{url:config.auth},dataApi:{url:config.data}});
-    const adminApi=typeof nativeAdmin?.createUser==="function"?nativeAdmin:alternateAuth.auth?.admin;
+    const availability=await fetch(config.data+"/rpc/v12_admin_action",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+sessionBeforeCreate.access_token,
+        accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_action:"user_check_availability",
+        p_payload:{username,email,purpose:"Conferir disponibilidade antes de cadastrar usuário"}})
+    });
+    if(!availability.ok)throw Error("admin_username_preflight_unavailable");
+    const available=await availability.json().catch(()=>null);
+    if(!available||typeof available!=="object"
+      ||typeof available.usernameAvailable!=="boolean"
+      ||typeof available.emailAvailable!=="boolean")
+      throw Error("admin_username_preflight_invalid");
+    if(!available.usernameAvailable)throw Error("username_already_exists");
+    if(!available.emailAvailable)throw Error("email_already_exists");
+    // The SupabaseAuthAdapter exposes an undefined .admin facade; its own
+    // Better Auth instance carries the authenticated browser session and the
+    // real Admin plugin. A new unauthenticated createClient() cannot safely
+    // issue admin calls on behalf of the currently signed-in Peixinho.
+    const adminApi=neon.auth?.getBetterAuthInstance?.()?.admin ||
+      neon.auth?.admin;
     if(typeof adminApi?.createUser!=="function")
       throw Error("neon_auth_admin_create_user_unavailable");
     const created=await adminApi.createUser({
@@ -559,6 +566,28 @@ async function adminFunctionInvoke(options = {}) {
     }
   }
   if (action === "user_create_with_password") return adminCreateUser(body);
+  // Account lifecycle is enforced by an audited SECURITY DEFINER RPC.
+  // Never modify auth flags/sessions from the browser or use old v12 ban paths.
+  if (["user_set_suspended","user_restore_access",
+       "user_delete_preview","user_delete_permanently"].includes(action)) {
+    try {
+      const session=await activeSession();
+      if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+      const response=await fetch(config.data+"/rpc/v53_admin_account_action",{
+        method:"POST",cache:"no-store",
+        headers:{authorization:"Bearer "+session.access_token,
+          accept:"application/json","content-type":"application/json"},
+        body:JSON.stringify({p_action:action,p_payload:body})
+      });
+      const result=await response.json().catch(()=>null);
+      if(!response.ok||!result||typeof result!=="object"||result.error)
+        return {data:null,error:{message:String(result?.message||result?.error||
+          "neon_account_lifecycle_failed"),status:response.status,code:String(result?.code||"")}};
+      return {data:result,error:null};
+    }catch(error){
+      return {data:null,error:{message:String(error?.message||"neon_account_lifecycle_unavailable")}};
+    }
+  }
   if (action === "verify_archive_media_upload") {
     const path=String(body?.storagePath || body?.path || body?.media?.storage_path || "");
     if (!/^legacy-archive\/midia\/(?:[A-Za-z0-9_.-]+|(?:misol|yara)\/[A-Za-z0-9_.-]+)$/.test(path)
