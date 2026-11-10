@@ -18,7 +18,7 @@ export async function adminExtra(action,payload={}){
   body:JSON.stringify({p_action:action,p_payload:payload})
  });
  const data=await response.json().catch(()=>null);
- if(!response.ok||data===null)throw Error(data?.message||'Ação administrativa indisponível: '+action);
+ if(!response.ok||data===null||data?.error||data?.success===false)throw Error(data?.message||data?.error||'Ação administrativa indisponível: '+action);
  return data;
 }
 
@@ -31,7 +31,7 @@ async function adminFinal(action,payload={},endpoint='v48_admin_final_actions'){
   body:JSON.stringify({p_action:action,p_payload:payload})
  });
  const data=await response.json().catch(()=>null);
- if(!response.ok||data===null)throw Error(data?.message||'Operação indisponível: '+action);
+ if(!response.ok||data===null||data?.error||data?.success===false)throw Error(data?.message||data?.error||'Operação indisponível: '+action);
  return data;
 }
 
@@ -79,6 +79,15 @@ export async function renderAdminExtended(kind,root,ui,offset=0){
  };
  const runMutation=async(action,payload)=>{
   const result=await adminExtra(action,payload);
+  const check=({
+    vip_set:()=>result?.userId===payload.userId&&result.enabled===payload.enabled,
+    features_set:()=>result?.feature===payload.feature&&result.enabled===payload.enabled,
+    sessions_revoke:()=>result?.revoked===true&&result.id===payload.id,
+    stickers_set:()=>result?.id===payload.id&&result.is_active===payload.enabled,
+    groups_rename:()=>result?.id===payload.id&&result.subject===payload.subject,
+    games_finish:()=>result?.id===payload.id&&result.status==='finished'
+  })[action];
+  if(!check||!check())throw Error('O Neon não confirmou a alteração administrativa.');
   toast('Confirmado pelo Neon');
   return result;
  };
