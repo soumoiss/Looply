@@ -398,3 +398,84 @@ body.looply-premium .story-area:not(.why-now-hidden){display:none}
 body.looply-premium [hidden]{display:none}
 @media(max-width:380px){body.looply-premium .hero-panel{grid-template-columns:auto minmax(0,1fr)}body.looply-premium .hero-panel .home-profile-shortcut{grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){body.looply-premium *,body.looply-premium *:before,body.looply-premium *:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Correções de encaixe estrutural com o runtime compartilhado. */
+body.looply-premium .story-area{display:block}
+body.looply-premium .premium-why-now .why-now-mount{margin:0;background:transparent;border:0;box-shadow:none;padding:0}
+body.looply-premium .premium-why-now .why-now-header{display:none}
+body.looply-premium [data-global-welcome]{display:none}
+body.looply-premium .premium-why-now .why-now-person-ring:not(.is-seen){animation:spin 8s linear infinite}
+body.looply-premium .premium-why-now .why-now-person-ring:not(.is-seen) .why-now-person-face{animation:spin 8s linear infinite reverse}
+body.looply-premium .premium-toast{position:fixed;z-index:200;left:50%;bottom:calc(108px + env(safe-area-inset-bottom));max-width:calc(100vw - 30px);padding:13px 18px;border-radius:18px;background:var(--text);color:var(--bg);font-size:14px;font-weight:700;box-shadow:0 14px 34px rgba(0,0,0,.22);transform:translate(-50%,15px) scale(.9);opacity:0;pointer-events:none;transition:transform .28s var(--spring),opacity .28s}
+body.looply-premium .premium-toast.on{transform:translate(-50%,0) scale(1);opacity:1}
+body.looply-premium .premium-toast[data-error="true"]{background:var(--danger);color:#fff}
+body.looply-premium .post-interactions .premium-save{margin-left:auto}
+body.looply-premium .post-interactions .premium-save[aria-pressed="true"]{color:var(--primary)}
+body.looply-premium .premium-like-row .fbtn{min-width:84px;min-height:40px}
+body.looply-premium .premium-like-row .fbtn[data-following="true"]{background:var(--surface-strong);border:1px solid var(--line);color:var(--text)}
+body.looply-premium .premium-sheet [data-like-status]{font-size:13px;color:var(--muted);text-align:center;min-height:25px}
+body.looply-premium .premium-sheet .fi{min-height:48px}
+body.looply-premium .newpill{pointer-events:none}
+body.looply-premium .newpill.on{pointer-events:auto}
+body.looply-premium .post-icon-button .premium-emoji{font-size:21px;line-height:1}
+body.looply-premium .post-icon-button[data-toggle-like] .premium-emoji+svg{display:none}
+body.looply-premium .post-card[hidden]{display:none}
+body.looply-premium .premium-top[hidden]{display:none}
+body.looply-premium .premium-why-now .why-now-people{min-height:90px}
+body.looply-premium .premium-why-now .why-now-person{min-height:90px}
+body.looply-premium .premium-reel-strip .premium-reel-tile{min-height:210px}
+body.looply-premium dialog.hybrid-comments-dialog{position:fixed;inset:auto 0 0;margin:0 auto;width:min(100%,560px);height:min(78dvh,740px);max-width:100vw;max-height:90dvh;border:1px solid var(--line);border-radius:30px 30px 0 0;background:var(--bg);color:var(--text);padding:0;overflow:hidden;box-shadow:0 -20px 60px rgba(20,10,40,.3)}
+body.looply-premium .hybrid-comments-shell{display:flex;flex-direction:column;height:100%}
+body.looply-premium .hybrid-comments-heading{display:flex;align-items:center;justify-content:space-between;min-height:60px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--surface-strong);flex:none}
+body.looply-premium .hybrid-comments-heading strong{font-family:var(--serif);font-size:24px}
+body.looply-premium .hybrid-comments-heading button{width:44px;height:44px;border:0;border-radius:50%;font-size:25px;background:var(--surface-soft)}
+body.looply-premium .hybrid-comments-content{overflow-y:auto;min-height:0;flex:1;padding:12px 16px calc(25px + env(safe-area-inset-bottom))}
+body.looply-premium .hybrid-comments-content .post-comments{display:block}
+body.looply-premium .comment-item{display:flex;align-items:flex-start;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+body.looply-premium .comment-avatar{flex:none;width:40px;height:40px;border-radius:50%;background:var(--lilac);display:grid;place-items:center;overflow:hidden}
+body.looply-premium .comment-avatar img{width:100%;height:100%;object-fit:cover}
+body.looply-premium .comment-content{flex:1;min-width:0}
+body.looply-premium .comment-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+body.looply-premium .comment-content p{margin:3px 0 6px;line-height:1.45;overflow-wrap:anywhere}
+body.looply-premium .comment-content a{color:var(--text);text-decoration:none}
+body.looply-premium .comment-content time{color:var(--muted);font-size:11px}
+body.looply-premium .comment-reply{margin-left:32px}
+body.looply-premium .comment-form textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:16px;background:var(--surface-strong);color:var(--text);font-size:16px;padding:12px}
+body.looply-premium .comment-form button{min-height:44px}
+body.looply-premium .post-comments h3{font-size:20px;margin:6px 0 14px}
+body.looply-premium dialog.looply-reels-scroll{position:fixed;inset:0;margin:0;padding:0;width:100vw;height:100dvh;max-width:100vw;max-height:100dvh;border:0;border-radius:0;background:#000;color:#fff;overflow:hidden}
+body.looply-premium dialog.looply-reels-scroll[open]{display:block}
+body.looply-premium dialog.looply-reels-scroll::backdrop{background:#000}
+body.looply-premium .looply-reels-scroll .looply-reels-track{position:absolute;inset:0;width:100%;height:100%;overflow-x:hidden;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;background:#000}
+body.looply-premium .looply-reels-scroll .looply-reel-slide{position:relative;width:100%;min-height:100dvh;height:100dvh;scroll-snap-align:start;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000}
+body.looply-premium .looply-reels-scroll .looply-reel-slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+body.looply-premium .looply-reels-scroll .looply-reel-media-stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#000}
+body.looply-premium .looply-reels-scroll .looply-reel-embed{display:block;max-width:100%;border:0;background:#000}
+body.looply-premium .looply-reels-scroll .is-portrait-player .looply-reel-embed{width:min(100vw,calc(100dvh * 9 / 16));height:100dvh}
+body.looply-premium .looply-reels-scroll .is-landscape-player .looply-reel-embed{width:100vw;height:min(100dvh,calc(100vw * 9 / 16))}
+body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane{position:absolute;z-index:3;top:15%;bottom:18%;width:8%;touch-action:pan-y}
+body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane.is-left{left:0}
+body.looply-premium .looply-reels-scroll .looply-embed-swipe-lane.is-right{right:0}
+body.looply-premium .looply-reels-scroll .looply-reels-top{position:absolute;top:calc(env(safe-area-inset-top) + 12px);left:12px;right:12px;z-index:7;display:flex;gap:14px;align-items:center;justify-content:space-between;pointer-events:none}
+body.looply-premium .looply-reels-scroll .looply-reels-top>*{pointer-events:auto}
+body.looply-premium .looply-reels-scroll .looply-reels-top button{width:44px;height:44px;border-radius:50%;border:1px solid #ffffff38;background:#0006;color:#fff;font-size:23px;backdrop-filter:blur(8px)}
+body.looply-premium .looply-reels-scroll .looply-reels-original{font-size:12px;text-decoration:none;color:#fff;padding:10px;border-radius:99px;background:#0007}
+body.looply-premium .looply-reels-scroll .looply-reels-rail{position:absolute;z-index:6;right:12px;bottom:calc(env(safe-area-inset-bottom) + 130px);display:flex;flex-direction:column;gap:14px;align-items:center;max-height:65dvh;overflow-y:auto;scrollbar-width:none}
+body.looply-premium .looply-reels-scroll .looply-reels-rail button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:44px;min-height:44px;padding:5px;color:#fff;background:#ffffff24;border:1px solid #ffffff38;border-radius:16px;font-size:11px;font-weight:750;backdrop-filter:blur(10px)}
+body.looply-premium .looply-reels-scroll .looply-reel-glyph{font-size:25px;line-height:1}
+body.looply-premium .looply-reels-scroll .looply-reel-count{font-size:11px;line-height:1}
+body.looply-premium .looply-reels-scroll .looply-reels-bottom{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 14px);left:12px;right:90px;z-index:5;display:grid;gap:8px;padding:20px 0 4px;background:linear-gradient(transparent,#000a);pointer-events:none}
+body.looply-premium .looply-reels-scroll .looply-reels-bottom>*{pointer-events:auto}
+body.looply-premium .looply-reels-scroll .looply-reels-bottom p{font-size:14px;line-height:1.4;max-height:100px;overflow:auto;margin:0}
+body.looply-premium .looply-reels-scroll .looply-reels-audio{width:fit-content;padding:6px 11px;border-radius:99px;background:#ffffff26;font-size:12px}
+body.looply-premium .looply-reels-scroll .looply-reels-mute{position:absolute;z-index:7;right:12px;top:calc(env(safe-area-inset-top) + 68px);width:90px;min-height:44px;border-radius:99px;background:#0007;color:#fff;border:1px solid #ffffff33}
+body.looply-premium .looply-reels-scroll .looply-reels-message{position:absolute;z-index:7;left:12px;top:calc(env(safe-area-inset-top) + 80px);max-width:70vw;color:#fff;font-size:13px}
+body.looply-premium .looply-reels-scroll .looply-reels-comments{position:absolute;z-index:10;inset:auto 0 0;height:min(75dvh,750px);background:var(--bg);color:var(--text);border-radius:30px 30px 0 0;overflow-y:auto;padding:16px 14px calc(20px + env(safe-area-inset-bottom))}
+body.looply-premium .looply-reels-scroll .looply-reels-comments[hidden]{display:none}
+body.looply-premium .looply-reels-scroll .looply-reels-comments header{display:flex;justify-content:space-between;align-items:center}
+body.looply-premium .looply-reels-scroll .looply-reels-comments header button{min-width:44px;min-height:44px;font-size:23px;border:0;background:none;color:var(--text)}
+body.looply-premium .looply-reels-scroll .looply-reels-comments .post-comments{display:block}
+body.looply-premium .looply-reels-scroll .rvcount{position:absolute;top:calc(env(safe-area-inset-top) + 20px);right:12px;z-index:8;padding:6px 12px;border-radius:99px;color:#fff;background:#0007;font-size:12px;font-weight:800}
+body.looply-premium .looply-reels-scroll .premium-viewer-save[aria-pressed="true"]{color:#e5afff}
+body.looply-premium .premium-video-progress{transition:width .1s linear}
+@media(max-width:380px){body.looply-premium .looply-reels-scroll .looply-reels-bottom{right:80px}body.looply-premium .looply-reels-scroll .looply-reels-rail{gap:8px;bottom:calc(env(safe-area-inset-bottom) + 115px)}}
