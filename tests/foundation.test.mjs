@@ -96,7 +96,7 @@ test("the application pages keep navigation and responsive layout and include th
   const [login, home, music, chat, profile, admin, css, theme, runtime, build] = await Promise.all([
     read("login.html"), read("home.html"), read("musicas.html"),
     read("chat.html"), read("perfil.html"), read("admin.html"), read("styles.css"),
-    read("src/theme.js"), read("src/page-runtime.js"), read("scripts/build.mjs")
+    read("src/theme-bootstrap.js"), read("src/page-runtime.js"), read("scripts/build.mjs")
   ]);
   for (const themeName of ["lilas", "noite", "oceano", "rosa", "floresta"]) {
     assert.match(theme, new RegExp("\\b" + themeName + "\\b"));

@@ -1,0 +1,183 @@
+/* Looply global appearance layer — applies after each page stylesheet.
+   Color and type only: does not alter media canvas, playback, overlays or dock geometry. */
+html[data-theme]{
+  font-size:var(--looply-root-font-size,16px)!important;
+  accent-color:var(--primary);
+  --looply-ui-text:var(--text);
+  --looply-ui-border:var(--line);
+}
+html[data-theme] body{
+  font-family:var(--looply-font-family,Inter,system-ui,sans-serif)!important;
+  color:var(--text);
+}
+html[data-theme] :is(button,input,select,textarea,option,summary,label,legend,fieldset,
+  p,h1,h2,h3,h4,h5,h6,small,strong,b,em,blockquote,figcaption,td,th,li,a){
+  font-family:var(--looply-font-family,Inter,system-ui,sans-serif)!important;
+}
+html[data-theme] :is(.hero-title,.page-title-panel h1,.page-title-panel h2,
+  .gallery-title,.chat-panel-heading h2,.notifications-heading h2,
+  .music-heading h1,.settings-form legend,.sheet-title){
+  font-family:var(--looply-heading-font,var(--looply-font-family))!important;
+}
+html[data-theme] :is(.hero-title,.page-title-panel h1,.gallery-title){
+  font-size:clamp(1.6rem,2.15rem,3rem)!important;
+  line-height:1.14;
+  overflow-wrap:anywhere;
+}
+html[data-theme] :is(.page-title-panel h2,.gallery-section-title,.chat-panel-heading h2,
+  .notifications-heading h2,.settings-form legend){
+  font-size:clamp(1rem,1.2rem,1.6rem);
+}
+html[data-theme] :is(.page-content,.panel,.settings-form,.gallery-shell,.music-shell,.chat-shell,
+  .notifications-panel,.community-letter-dialog,.gallery-dialog,.profile-modal){
+  color:var(--text);
+}
+html[data-theme] :is(input,textarea,select,option){
+  caret-color:var(--primary);
+  accent-color:var(--primary);
+}
+html[data-theme] :is(button,input,textarea,select,summary,a):focus-visible{
+  outline-color:var(--primary)!important;
+}
+html[data-theme] :is(.primary-button,.page-chat .fab,.why-now-create){
+  color:var(--on-primary,#fff)!important;
+}
+html[data-theme] .looply-page :is(.page-title-panel,.panel,.chat-panel,.music-card,
+  .gallery-dialog,.notification-row,.settings-form,.community-letter-dialog){
+  border-color:var(--line);
+}
+/* Branded identity is not an account-selected font. Preserve Cabin Sketch 700. */
+html[data-theme] body :is(.page-header,.header,.gh,#gh) .brand-inline strong,
+html[data-theme] body :is(.page-header,.header,.gh,#gh) .brand strong,
+html[data-theme] body .brand-inline strong,
+html[data-theme] body #gh .brand strong{
+  font-family:"Cabin Sketch",cursive!important;
+  font-weight:700!important;
+  letter-spacing:0!important;
+  color:var(--primary)!important;
+}
+/* Keep intentional freeform typography and visual assets untouched. */
+html[data-theme] :is(.edit-overlay .overlay-item,.view-overlay .overlay-item,
+  .letter-editor-canvas,.draw-canvas,.music-lyric-canvas,.chat-emoji,
+  .sticker-catalog-item,.chat-sticker-item,.emoji-visual){
+  font-family:initial;
+}
+html[data-theme] body.page-chat{
+  --ui:var(--looply-font-family,Inter,sans-serif);
+  --serif:var(--looply-heading-font,var(--looply-font-family));
+  --strong:var(--surface-strong);
+  --soft:var(--surface-soft);
+  color:var(--text);background-color:var(--bg);
+}
+html[data-theme] body.page-login,
+html[data-theme] body.page-splash{
+  color:var(--text);background-color:var(--bg);
+}
+html[data-theme] body.page-chat :is(.row,.mrow,.sheet,.modal,.dialog,.settings-panel){
+  border-color:var(--line);
+}
+html[data-theme] body.page-settings :is(.settings-preview,.settings-theme-card){
+  background:var(--surface-soft);color:var(--text);border-color:var(--line);
+}
+html[data-theme] #app #home,
+html[data-theme] #app #profile{
+  background:var(--bg);color:var(--text);
+}
+html[data-theme] #app :is(.sheet,.option-card,.profile-card){
+  border-color:var(--line);
+}
+html[data-theme] #app :is(.sheet-title,.brand,.profile-name) {
+  color:var(--text);
+  font-family:var(--looply-heading-font,var(--looply-font-family))!important;
+}
+html[data-theme] #app .sheet{
+  background:var(--surface-strong);color:var(--text);
+}
+html[data-theme] #app .option-card{
+  background:var(--surface-soft);color:var(--text);
+}
+html[data-theme] #app :is(.sheet-input,.sheet input:not([type=file]),.sheet textarea){
+  background:var(--surface-soft);color:var(--text);
+}
+html[data-theme] #app :is(.btn.purple,.btn.dark){
+  background:var(--primary);color:var(--on-primary,#fff);
+}
+html[data-theme] #app :is(.palette button.on,.pill-row button.on){
+  border-color:var(--primary);
+}
+/* Primary CTA ink automatically adapts for bright pop / neon palettes. */
+html[data-theme] :is(.primary-button,.gallery-primary,.page-home .post-add-button,
+  .page-home .post-create-form button[type=submit],
+  .page-home .post-create-header button[type=submit],
+  .page-home .story-add-mark,.why-now-create){
+  color:var(--on-primary,#fff)!important;
+}
+/* Theme character without copyrighted logos, hero images or heavy animations. */
+html[data-theme="hacker"] body:not(.page-chat):not(.page-login){
+  background-image:linear-gradient(transparent 95%,rgba(67,232,142,.05) 95%),
+    linear-gradient(90deg,transparent 95%,rgba(67,232,142,.05) 95%),
+    linear-gradient(135deg,var(--bg),var(--bg-2));
+  background-size:26px 26px,26px 26px,auto;
+}
+html[data-theme="hacker"] :is(.page-title-panel,.panel,.primary-button):not(:disabled){
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 20%,transparent);
+}
+html[data-theme="bts"] body:not(.page-chat){
+  background-image:radial-gradient(ellipse at 90% -5%,#6650b540,transparent 54%),
+    linear-gradient(145deg,var(--bg),var(--bg-2));
+}
+html[data-theme="blackpink"] body:not(.page-chat){
+  background-image:radial-gradient(ellipse at 4% 0%,#f47eb726,transparent 42%),
+    linear-gradient(155deg,var(--bg),var(--bg-2));
+}
+html[data-theme="bob_esponja"] body:not(.page-chat){
+  background-image:radial-gradient(circle at 16% 20%,#78d5ef48 2px,transparent 5px),
+    radial-gradient(circle at 89% 26%,#66c8e748 4px,transparent 7px),
+    linear-gradient(150deg,var(--bg),var(--bg-2));
+  background-size:80px 92px,130px 130px,auto;
+}
+html[data-theme="jovens_titas"] body:not(.page-chat){
+  background-image:linear-gradient(126deg,#e14c5920,transparent 50%),
+    linear-gradient(160deg,var(--bg),var(--bg-2));
+}
+html[data-theme="teen_wolf"] body:not(.page-chat){
+  background-image:radial-gradient(circle at 86% 4%,#e9b47933,transparent 21%),
+    linear-gradient(160deg,var(--bg),var(--bg-2));
+}
+html[data-theme="cyberpunk"] body:not(.page-chat){
+  background-image:linear-gradient(170deg,#3de1f21b,transparent 30%),
+    linear-gradient(125deg,var(--bg),var(--bg-2));
+}
+html[data-theme="kawaii"] body:not(.page-chat){
+  background-image:radial-gradient(circle at 92% 3%,#e2a2c945,transparent 40%),
+    linear-gradient(145deg,var(--bg),var(--bg-2));
+}
+html[data-theme="vaporwave"] body:not(.page-chat){
+  background-image:linear-gradient(120deg,#7d4cce14,transparent 38%),
+    linear-gradient(155deg,var(--bg),var(--bg-2));
+}
+/* Cross-page settings preview; no visual pollution on other tabs. */
+.page-settings .settings-preview{
+  display:flex;align-items:center;gap:15px;min-width:0;
+  padding:15px;border:1px solid var(--line);border-radius:18px;
+  background:var(--surface-soft);
+}
+.page-settings .settings-preview-swatch{
+  display:flex;align-items:center;gap:3px;flex:none;padding:5px;
+  border:1px solid var(--line);border-radius:16px;
+}
+.page-settings .settings-preview-swatch span{
+  display:block;width:20px;height:31px;border-radius:7px;
+  border:1px solid #00000011;
+}
+.page-settings .settings-preview-copy{display:grid;gap:3px;min-width:0}
+.page-settings .settings-preview-copy strong{font-size:16px;font-weight:800}
+.page-settings .settings-preview-copy small{font-size:12px;color:var(--muted)}
+.page-settings .settings-form select{font-family:var(--looply-font-family)!important}
+html[data-theme] body :is(.page-header,.gh,#gh) .brand-mark-animated,
+html[data-theme] body :is(.page-header,.gh,#gh) .brand-mark-animated svg{
+  color:var(--primary)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-theme] :is(.page-title-panel,.settings-preview){transition:none!important}
+}

@@ -15,8 +15,9 @@ test("Prompt 002 preserves semantic theme aliases and user-selected theme source
     ["--looply-ds-chip-radius", "var(--pill)"],
     ["--looply-ds-dialog-radius", "var(--radius-lg)"],
   ]) assert.ok(tokens.includes(pair[0] + ": " + pair[1]), pair[0]);
-  assert.match(read("src/theme.js"), /lilas/);
-  assert.match(read("src/theme.js"), /grafite/);
+  assert.match(read("src/theme-bootstrap.js"), /lilas/);
+  assert.match(read("src/theme-bootstrap.js"), /grafite/);
+  assert.ok(read("src/theme.js").includes('import "./theme-bootstrap.js"'));
 });
 
 test("Prompt 002 styles use scoped theme tokens and preserve motion accessibility", () => {

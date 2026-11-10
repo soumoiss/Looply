@@ -608,6 +608,10 @@
         "--accent":theme.primaryDark,"--ink":theme.text,"--paper":theme.surface,
         "--muted":theme.muted
       }))if(allowed(value))document.documentElement.style.setProperty(key,value.trim());
+      if(typeof theme.fontFamily==="string"&&theme.fontFamily.length<250)
+        document.documentElement.style.setProperty("--looply-font-family",theme.fontFamily);
+      if(typeof theme.fontSize==="string"&&/^(14\.4|16|17\.92|20)px$/.test(theme.fontSize))
+        document.documentElement.style.setProperty("--looply-root-font-size",theme.fontSize);
       renderHome();preparePreviews();
       if (screen === "viewer" && viewerRecord()?.remoteUrl) {
         const active = storyForId(viewerRecord().id);

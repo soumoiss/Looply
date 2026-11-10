@@ -1,0 +1,67 @@
+-- Looply account themes and font families. Extend only validation; preserve rows and RLS.
+-- Run on Neon production after testing the corresponding frontend selector.
+ALTER TABLE public.profiles
+  DROP CONSTRAINT IF EXISTS profiles_theme_check,
+  DROP CONSTRAINT IF EXISTS profiles_font_family_check,
+  ADD CONSTRAINT profiles_theme_check CHECK (
+    theme IN (
+    'lilas',
+    'noite',
+    'oceano',
+    'rosa',
+    'floresta',
+    'aurora',
+    'coral',
+    'menta',
+    'sunset',
+    'grafite',
+    'system',
+    'hacker',
+    'bts',
+    'blackpink',
+    'bob_esponja',
+    'jovens_titas',
+    'teen_wolf',
+    'cyberpunk',
+    'kawaii',
+    'vaporwave'
+    )
+  ),
+  ADD CONSTRAINT profiles_font_family_check CHECK (
+    font_family IN (
+    'system',
+    'sans',
+    'serif',
+    'rounded',
+    'manrope',
+    'dm_sans',
+    'jakarta',
+    'space_grotesk',
+    'nunito',
+    'quicksand',
+    'montserrat',
+    'cormorant',
+    'playfair',
+    'fraunces',
+    'caveat',
+    'syne',
+    'ibm_plex_mono',
+    'orbitron',
+    'rajdhani',
+    'chakra_petch',
+    'bebas_neue',
+    'anton',
+    'oswald',
+    'fredoka',
+    'baloo_2',
+    'bangers',
+    'permanent_marker',
+    'righteous',
+    'outfit',
+    'urbanist',
+    'cinzel',
+    'special_elite',
+    'vt323',
+    'pixelfy'
+    )
+  );
