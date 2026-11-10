@@ -486,3 +486,5 @@ body.looply-premium .looply-reels-scroll [data-reels-creator] time{display:block
 body.looply-premium .looply-reels-scroll [data-reels-creator] .post-avatar{width:40px;height:40px;border-radius:50%;overflow:hidden}
 body.looply-premium .looply-reels-scroll [data-reels-creator] .post-avatar img{width:100%;height:100%;object-fit:cover}
 body.looply-premium .looply-reels-scroll .looply-reels-audio{color:#fff}
+
+body.looply-premium dialog.looply-reels-scroll[open]{animation:none;transform:none}
