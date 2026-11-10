@@ -461,8 +461,8 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
   }
   // Right Now reads the SAME sticker_catalog, sticker_favorites and R2 bucket
   // as the Chat picker. Only image metadata and time-limited URLs cross the iframe.
-  const safeStickerPath = path => /^stickers\\/[0-9a-f-]{36}\\/[0-9a-f-]{36}\\.webp$/i.test(String(path||""));
-  const safeStickerAsset = path => /^assets\\/stickers\\/(?:cc0\\/[a-z0-9-]{3,80}\\.webp|[a-z0-9_-]{3,80}\\.svg)$/i.test(String(path||""));
+  const safeStickerPath = path => /^stickers\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/i.test(String(path||""));
+  const safeStickerAsset = path => /^assets\/stickers\/(?:cc0\/[a-z0-9-]{3,80}\.webp|[a-z0-9_-]{3,80}\.svg)$/i.test(String(path||""));
   async function stickerFavorites() {
     const ids=[];
     for(let offset=0;offset<10000;offset+=500){
@@ -518,7 +518,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
       if(safeStickerAsset(row.asset_path))src=new URL(row.asset_path,location.href).href;
       else if(safeStickerPath(row.storage_path)){
         const signed=await client.storage.from("looply-stickers").createSignedUrl(row.storage_path,1800);
-        if(!signed.error&&/^https:\\/\\//i.test(signed.data?.signedUrl||""))src=signed.data.signedUrl;
+        if(!signed.error&&/^https:\/\//i.test(signed.data?.signedUrl||""))src=signed.data.signedUrl;
       }
       return src?{id:row.id,title:String(row.title||"Figurinha").slice(0,120),
         source_name:String(row.source_name||"").slice(0,80),asset_path:row.asset_path||"",
