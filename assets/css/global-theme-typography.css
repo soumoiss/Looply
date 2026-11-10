@@ -181,3 +181,48 @@ html[data-theme] body :is(.page-header,.gh,#gh) .brand-mark-animated svg{
 @media(prefers-reduced-motion:reduce){
   html[data-theme] :is(.page-title-panel,.settings-preview){transition:none!important}
 }
+
+
+/* Runtime font repair: legacy page models put explicit font stacks directly on
+   DIVs, SPANs, article text, captions and chat bubbles. Only styling semantic
+   elements left most of the app unchanged when the account selected a font. */
+html[data-theme] body :is(
+  div,span,section,article,aside,main,header,footer,nav,output,time,details,
+  button,input,textarea,select,option,label,legend,summary,
+  p,h1,h2,h3,h4,h5,h6,small,strong,b,em,i,blockquote,
+  figcaption,caption,td,th,li,a,table,code
+):not(.overlay-item):not(.sticker):not(.sticker-image):not(.emoji-visual)
+:not(.chat-emoji):not(.chat-sticker-item):not(.letter-editor-canvas)
+:not(.letter-preview):not(.letter-paper):not(.media-fill){
+  font-family:var(--looply-font-family,Inter,ui-sans-serif,sans-serif)!important;
+}
+/* Preserve recognizable wordmark, monochrome pictograms, image stickers,
+   typographic artwork and overlays authored by the user. */
+html[data-theme] body .page-header[data-site-header] .brand-inline strong,
+html[data-theme] body .brand-inline strong,
+html[data-theme] body #gh .brand strong,
+html[data-theme] body .gh .brand strong,
+html[data-theme] body .login-brand-name,
+html[data-theme] body .splash-brand-name{
+  font-family:"Cabin Sketch",cursive!important;
+  font-weight:700!important;
+}
+html[data-theme] body :is(
+  #edit-overlays .overlay-item,#view-overlays .overlay-item,
+  .edit-overlay .overlay-item,.view-overlay .overlay-item,
+  .sticker,.sticker-image,.emoji-visual,.chat-emoji,.chat-sticker-item,
+  .letter-editor-canvas,.letter-paper,.letter-preview
+){
+  font-family:revert-layer;
+}
+/* Font-family is a real runtime setting, not a CSS-only preview. */
+html[data-theme] body :is(.page-navigation-label,.account-menu-link,.settings-form,
+  .menu,.mrow,.row,.rt,.rp,.bu,.pt,.qt,.title,.title h1,.title p,
+  .card-title,.modal-header,.modal-text,.stext,.section-title,
+  .feed-header,.music-header,.chat-panel,.letter-title,.gallery-title){
+  font-family:var(--looply-font-family,Inter,sans-serif)!important;
+}
+html[data-theme] body .page-header[data-site-header] .brand-inline strong,
+html[data-theme] body #gh .brand strong{
+  font-family:"Cabin Sketch",cursive!important;
+}
