@@ -661,7 +661,9 @@ export function bindMusicEvents(root, client, getUserId) {
           : "Nenhuma música encontrada. Tente buscar outro nome ou artista.";
       } catch (error) {
         if (error?.name === "AbortError" || sequence !== catalogSearchSequence) return;
-        if (status) status.textContent = musicProvider === "spotify" ? "Busca do Spotify indisponível. Tente novamente." : "A busca está indisponível agora. Tente novamente.";
+        if (status) status.textContent = musicProvider === "spotify"
+          ? (error?.message || "Não foi possível consultar o Spotify.")
+          : "A busca está indisponível agora. Tente novamente.";
         if (list) list.replaceChildren();
       }
     }, 260);
