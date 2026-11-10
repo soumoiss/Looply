@@ -62,6 +62,15 @@ class IncomingCallActivity : Activity() {
         setContentView(container)
     }
     private fun handoff(conversation:String,action:String){
+        if (action == "decline") {
+            // Signal Neon directly. Do not launch the WebView to decline.
+            sendBroadcast(Intent(this, NativeCallDeclineReceiver::class.java).apply {
+                this.action = NativeCallDeclineReceiver.ACTION_DECLINE
+                putExtra("conversationId", conversation)
+            })
+            finish()
+            return
+        }
         getSystemService(NotificationManager::class.java).cancel(conversation.hashCode())
         startActivity(Intent(this,MainActivity::class.java).apply {
             this.action="com.looply.app.CALL_"+action.uppercase()
