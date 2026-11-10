@@ -355,7 +355,16 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
     const latest = await loadMusicData(client, userId);
     const readError = latest.dedicationsError || latest.libraryError || latest.generalCommentsError || latest.peopleError;
     if (readError) throw readError;
+    const direction = area.querySelector('[data-music-direction][aria-selected="true"]')?.dataset.musicDirection || "received";
     area.outerHTML = musicMarkup(latest, userId);
+    const selectedDirection = root.querySelector('[data-music-direction="' + direction + '"]');
+    if (selectedDirection) {
+      root.querySelectorAll("[data-music-direction]").forEach(button =>
+        button.setAttribute("aria-selected", String(button === selectedDirection)));
+      root.querySelectorAll("[data-music-direction-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.musicDirectionPanel !== direction;
+      });
+    }
     bindMusicPlayers(root);
     return true;
   } catch (error) {
@@ -862,6 +871,27 @@ export function bindMusicEvents(root, client, getUserId) {
       }
     } else {
       audio.pause();
+    }
+  });
+
+  root.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-music-delete-dedication]");
+    if (!button || !client || button.disabled) return;
+    const dedicationId = button.dataset.musicDeleteDedication;
+    const userId = getUserId?.();
+    if (!dedicationId || !userId) return;
+    if (!window.confirm("Excluir esta dedicatória? Ela desaparecerá também para quem a recebeu.")) return;
+    button.disabled = true;
+    const status = button.closest("[data-dedication]")?.querySelector("[data-music-delete-status]");
+    if (status) status.textContent = "Excluindo…";
+    try {
+      await deleteOwnDedication(client,dedicationId,userId);
+      if (!await refreshMusic(root,client,userId,{force:true})) {
+        if (status) status.textContent = "Dedicatória excluída. Atualize a página para recarregar a lista.";
+      }
+    } catch (error) {
+      if (status) { status.textContent = error?.message || "Não foi possível excluir."; status.dataset.kind = "error"; }
+      button.disabled = false;
     }
   });
 
