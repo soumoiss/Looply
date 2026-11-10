@@ -99,10 +99,10 @@ await mountAppPage({page:"settings",render:async ({root,client,user,profile})=>{
     clearTimeout(timer);
     busy=true;save.disabled=true;
     while(processed<revision){
-      const requested=revision,value=read();
+      const requested=revision,updates=read();
       show("Salvando…");
       try{
-        const {data,error}=await client.from("profiles").update(value).eq("id",user.id)
+        const {data,error}=await client.from("profiles").update(updates).eq("id",user.id)
           .select("theme,font_family,font_size").single();
         if(error||!data)throw error||Error("Preferências não confirmadas");
         committed=normalized(data);
