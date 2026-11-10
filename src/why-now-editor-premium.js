@@ -447,10 +447,23 @@
       if(!row)return;
       chosen.disabled=true;
       try{
-        // Fetch and normalize BEFORE adding; this keeps the final export safe.
-        const res=await fetch(row.src,{mode:"cors",credentials:"omit"});
-        if(!res.ok)throw Error("Imagem indisponível");
-        await addImageSticker(await res.blob(),row.title);
+        // Chat catalog WebP files are on R2. The preview <img> can display a
+        // signed URL, but browser fetch() cannot read it without R2 CORS.
+        // Read authenticated bytes through the parent Neon storage gateway.
+        let stickerBlob;
+        if(row.id.startsWith("cc0:")){
+          const asset=await fetch(row.src,{cache:"no-store",credentials:"omit"});
+          if(!asset.ok)throw Error("sticker_local_asset_"+asset.status);
+          stickerBlob=await asset.blob();
+        }else{
+          if(typeof window.whyNowStickerBridge!=="function")
+            throw Error("sticker_session_required");
+          const payload=await window.whyNowStickerBridge("sticker-image",{id:row.id});
+          stickerBlob=payload?.blob;
+        }
+        if(!(stickerBlob instanceof Blob)||!stickerBlob.size)
+          throw Error("sticker_empty_response");
+        await addImageSticker(stickerBlob,row.title);
         stickerState=null;sheetClose();
       }catch(error){
         console.warn("[Right Now sticker image]",error);
