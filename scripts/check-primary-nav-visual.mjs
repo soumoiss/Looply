@@ -90,6 +90,10 @@ try{
    assert.equal(data.totalNavs,1,"exactly one landmark at "+width);
    assert.equal(data.links.length,6,"exactly six tabs at "+width);
    assert.deepEqual(data.active,["home.html"]);
+   if(data.overflow>1){
+     const offenders=await page.evaluate(()=>[...document.querySelectorAll("*")].map(el=>{const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {tag:el.tagName,cls:String(el.className||"").slice(0,90),x:Math.round(r.x),right:Math.round(r.right),width:Math.round(r.width),position:cs.position,overflowX:cs.overflowX}}).filter(x=>x.right>innerWidth+1||x.x< -1).slice(0,22));
+     console.log("OVERFLOW_OFFENDERS",JSON.stringify(offenders));
+   }
    assert.ok(data.overflow<=1,"no horizontal scroll at "+width+": "+data.overflow);
    assert.ok(data.rect.x>=-1 && data.rect.right<=width+1,"nav within viewport at "+width);
    for(const item of data.links){
