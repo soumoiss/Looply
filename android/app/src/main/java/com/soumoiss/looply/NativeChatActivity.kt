@@ -1,6 +1,7 @@
 package com.soumoiss.looply
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -84,6 +85,19 @@ class NativeChatActivity : Activity() {
             setTextColor(violet)
         })
         bar.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        if (NativeFeedStore(this).hasCachedPosts()) {
+            bar.addView(TextView(this).apply {
+                text = "Feed"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(violet)
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                contentDescription = "Abrir publicações offline"
+                setOnClickListener {
+                    startActivity(Intent(this@NativeChatActivity, NativeFeedActivity::class.java))
+                }
+            })
+        }
         root.addView(bar)
     }
 
