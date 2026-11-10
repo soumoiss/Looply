@@ -47,6 +47,13 @@
       send(type, Object.assign({ requestId: id }, data || {}));
     });
   }
+  // Expose only the authenticated parent message channel to the editor.
+  window.whyNowStickerBridge = (action, payload={}) => {
+    if (!["sticker-metadata","sticker-page","sticker-favorite"].includes(action))
+      return Promise.reject(Error("Unsupported sticker action"));
+    return request(action,payload);
+  };
+  window.whyNowStickerCurrentUser = () => String(me?.id || "");
   function messageError(err) {
     console.error("[Why Now bridge]", err);
     showToast("A operação não foi concluída. Tente novamente.");
