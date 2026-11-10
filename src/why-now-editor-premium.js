@@ -20,7 +20,7 @@
   async function normalizedSticker(blob) {
     if (!(blob instanceof Blob) || !blob.size || blob.size > 12*1024*1024)
       throw Error("Escolha uma imagem de até 12 MB");
-    const allowed = ["image/jpeg","image/png","image/webp"];
+    const allowed = ["image/jpeg","image/png","image/webp","image/svg+xml"];
     if (!allowed.includes(blob.type)) throw Error("Selecione PNG, JPG ou WebP");
     const source = URL.createObjectURL(blob);
     let image = new Image();
