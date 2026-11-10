@@ -9,6 +9,8 @@
   const COLORS = ["#ffffff","#17151c","#f7d98e","#f98fa5","#b797ff","#99e9cd","#6dbaff","#ff7c55"];
   const imageCache = new Map();
   let selectedPointerEl = null;
+  let activePointerGesture = null;
+  let lastTap = {id:null,at:0};
   let pickerSequence = 0;
   let catalog = null;
   let stickerState = null;
@@ -142,8 +144,8 @@
   // Single finger = translation, two fingers = scale + translation.
   function makeDraggable(element,item) {
     const pointers = new Map();
-    let originSize=item.size, originDistance=0, originCenter=null, startX=item.x, startY=item.y;
-    let delta={x:0,y:0}, activeDrag=false, downAt=0, tappedAt=0;
+    let originSize=item.size, originDistance=0;
+    let delta={x:0,y:0}, activeDrag=false;
     const bounds=()=>qs("#edit-stage").getBoundingClientRect();
     const center=(list)=>{
       if(list.length===1)return list[0];
@@ -153,8 +155,7 @@
       const list=[...pointers.values()];
       if(!list.length)return;
       const b=bounds(), c=center(list);
-      startX=item.x;startY=item.y;originSize=item.size;
-      originCenter=c;
+      originSize=item.size;
       delta={x:c.x-(b.left+item.x/100*b.width),y:c.y-(b.top+item.y/100*b.height)};
       originDistance=list.length>1?Math.hypot(list[0].x-list[1].x,list[0].y-list[1].y):0;
     }
@@ -168,10 +169,21 @@
       pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
       try{element.setPointerCapture(ev.pointerId)}catch{}
       if(pointers.size<=2)restartReference();
-      activeDrag=false;downAt=performance.now();
+      activeDrag=false;
+      activePointerGesture={
+        element, pointers, externalIds:new Set(),
+        add(event){
+          pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+          this.externalIds.add(event.pointerId);
+          try{qs("#edit-stage").setPointerCapture(event.pointerId)}catch{}
+          restartReference();
+        },
+        move:event=>movePointer(event),
+        end:event=>finish(event),
+      };
       refreshToolbar();
     });
-    element.addEventListener("pointermove",ev=>{
+    const movePointer=ev=>{
       if(!pointers.has(ev.pointerId))return;
       ev.preventDefault();
       pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
@@ -189,16 +201,20 @@
         if(item.type==="sticker-image")element.style.width=item.size*scale+"px";
         activeDrag=true;
       }
-    });
+    };
+    element.addEventListener("pointermove",movePointer);
     const finish=ev=>{
       if(!pointers.has(ev.pointerId))return;
       pointers.delete(ev.pointerId);
       if(!pointers.size){
-        if(ev.type==="pointerup"&&!activeDrag&&performance.now()-tappedAt<350&&item.type!=="sticker-image")
-          openTextTool(item);
-        tappedAt=performance.now();
+        const now=performance.now();
+        const openEdit=ev.type==="pointerup"&&!activeDrag&&
+          ["text","question"].includes(item.type)&&lastTap.id===item.id&&now-lastTap.at<375;
+        if(!activeDrag)lastTap={id:item.id,at:now};
         selectedPointerEl=null;
+        activePointerGesture=null;
         renderEditorItems();
+        if(openEdit)openTextTool(item);
       } else restartReference();
     };
     element.addEventListener("pointerup",finish);
@@ -230,8 +246,32 @@
   };
   const oldScreen=showScreen;
   showScreen=function(next){oldScreen(next);refreshToolbar();};
-  qs("#edit-stage").addEventListener("pointerdown",ev=>{
-    if(ev.target===qs("#edit-overlays")||ev.target===qs("#edit-stage")){
+  const touchStage=qs("#edit-stage");
+  // A second finger may land OUTSIDE a small text label. Capture it on the
+  // editing stage, so pinch-to-scale still works for 14px text and tiny stickers.
+  touchStage.addEventListener("pointerdown",ev=>{
+    const gesture=activePointerGesture;
+    if(!gesture||ev.pointerType!=="touch"||gesture.pointers.has(ev.pointerId))return;
+    if(gesture.pointers.size>=2)return;
+    ev.preventDefault();ev.stopPropagation();
+    gesture.add(ev);
+  },true);
+  touchStage.addEventListener("pointermove",ev=>{
+    const gesture=activePointerGesture;
+    if(!gesture?.externalIds.has(ev.pointerId))return;
+    gesture.move(ev);
+  },true);
+  for(const type of ["pointerup","pointercancel"]){
+    touchStage.addEventListener(type,ev=>{
+      const gesture=activePointerGesture;
+      if(!gesture?.externalIds.has(ev.pointerId))return;
+      gesture.externalIds.delete(ev.pointerId);
+      gesture.end(ev);
+    },true);
+  }
+  touchStage.addEventListener("pointerdown",ev=>{
+    if(!activePointerGesture &&
+      (ev.target===qs("#edit-overlays")||ev.target===touchStage)){
       selectedId=null;renderEditorItems();
     }
   });
