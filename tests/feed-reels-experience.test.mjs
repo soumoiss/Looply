@@ -75,7 +75,7 @@ test("untrusted social URLs are restricted to supported HTTPS domains", () => {
   assert.equal(normalizeExternalUrl("https://attacker.example.invalid/video"),null);
 });
 test("Reels module contains the mandatory vertical snap and IntersectionObserver", async () => {
-  const [source,css] = await Promise.all([read("src/reels-scroll.js"),read("assets/css/pages/feed-reels-experience.css")]);
+  const [source,css] = await Promise.all([read("src/reels-scroll.js"),read("assets/css/pages/home-reels.css")]);
   assert.match(source,/IntersectionObserver/);
   assert.match(source,/entry\.intersectionRatio >= 0\.7/);
   assert.match(css,/scroll-snap-type:y mandatory/);
@@ -105,12 +105,13 @@ test("original Neon/Cloudflare storage and RPC publication flow is retained", as
 });
 test("Looply homepage loads the new styles without replacing the existing app", async () => {
   const source = await read("home.html");
-  assert.match(source,/feed-reels-experience\.css/);
+  assert.match(source,/home-reels\.css/);
+  assert.doesNotMatch(source,/href="[^"]*feed-reels-experience\.css/);
   assert.match(source,/assets\/js\/home\.js/);
 });
 test("images use loaded intrinsic dimensions and no fixed crop for every image", async () => {
   const source = await read("src/social.js");
-  const css = await read("assets/css/pages/feed-reels-experience.css");
+  const css = await read("assets/css/pages/home-reels.css");
   assert.match(source,/feedMediaDisplayHeight\(carousel\.clientWidth, naturalWidth, naturalHeight/);
   assert.match(source,/media\.videoWidth, media\.videoHeight/);
   assert.match(source,/carousel\.style\.height = height \+ "px"/);
