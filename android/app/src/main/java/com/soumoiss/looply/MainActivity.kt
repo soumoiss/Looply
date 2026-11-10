@@ -45,6 +45,8 @@ import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.util.UUID
@@ -359,6 +361,38 @@ class MainActivity : Activity() {
         }
         CookieManager.getInstance().setAcceptCookie(true)
         ChatAvatarCache.register(this, webView)
+        // Origin-scoped share bridge; Android WebView has no navigator.share.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(
+                webView,
+                "LooplyExternalShare",
+                setOf("https://soumoiss.github.io")
+            ) { _, message, origin, isMainFrame, _ ->
+                if (!isMainFrame || origin.scheme != "https" || origin.host != "soumoiss.github.io") {
+                    return@addWebMessageListener
+                }
+                try {
+                    val body = JSONObject(message.data ?: return@addWebMessageListener)
+                    if (body.optString("type") != "share_url") return@addWebMessageListener
+                    val url = body.optString("url")
+                    val uri = Uri.parse(url)
+                    val allowedPath = uri.path == "/Looply/home.html" || uri.path == "/Looply/reels.html"
+                    val postId = uri.fragment?.removePrefix("post-") ?: ""
+                    if (uri.scheme != "https" || uri.host != "soumoiss.github.io"
+                        || !allowedPath || !postId.matches(Regex("[0-9a-fA-F-]{36}"))) {
+                        return@addWebMessageListener
+                    }
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, url)
+                        putExtra(Intent.EXTRA_TITLE, "Publicação no Looply")
+                    }
+                    startActivity(Intent.createChooser(send, "Compartilhar com"))
+                } catch (error: Exception) {
+                    Toast.makeText(this@MainActivity, "Não foi possível compartilhar.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
