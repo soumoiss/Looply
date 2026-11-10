@@ -1,6 +1,7 @@
 /* Camada real da interface premium. Sem dados fictícios ou duplicação de autenticação. */
 import { signPeople } from "./profile-api.js";
 import { mountSecretMessages } from "./secret-messages.js";
+import { mountInternalShareDialog } from "./home-reels-send.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMOJIS = Object.freeze(["❤️","😂","😮","😢","🔥","👏"]);
@@ -34,6 +35,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   if (!root || root.__premiumBound) return;
   root.__premiumBound=true;
   const ownId=user.id, isHome=mode!=="external";
+  mountInternalShareDialog(root,client,ownId);
   const scene=element("div","premium-scene");
   scene.innerHTML=(isHome?'<div id="hello"></div><section class="premium-why-now"><div class="h2"><h2>Why Now</h2></div><div data-premium-stories></div></section><div id="extras"></div>':'<div class="h2"><h2>Reels</h2></div>')+
     '<div id="composer" class="cardx"></div><div class="ftool" id="ftool"><div class="chips"><button type="button" class="fc on" data-premium-filter="all" aria-pressed="true">Para você</button><button type="button" class="fc" data-premium-filter="following" aria-pressed="false">Seguindo</button><button type="button" class="fc" data-premium-filter="photo" aria-pressed="false">Fotos</button><button type="button" class="fc" data-premium-filter="video" aria-pressed="false">Vídeos</button><button type="button" class="fc" data-premium-filter="link" aria-pressed="false">Links</button></div><button type="button" class="ib" data-premium-search aria-label="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 5 5"/></svg></button><div class="vt"><button type="button" class="on" data-premium-list aria-label="Lista" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" data-premium-grid aria-label="Mosaico" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button></div></div><label class="srch" id="srch"><span aria-hidden="true">⌕</span><input type="search" id="q" placeholder="Buscar publicações e pessoas" aria-label="Buscar publicações"></label><div id="feed"></div><div id="sent"></div>';
