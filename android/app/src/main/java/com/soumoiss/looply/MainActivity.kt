@@ -459,6 +459,7 @@ class MainActivity : Activity() {
         installInstagramReelAutoplayAdapter()
         ChatAvatarCache.register(this, webView)
         NativeFeedBridge.register(this, webView)
+        NativeCallAuthBridge.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
