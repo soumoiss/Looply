@@ -45,6 +45,6 @@ test("login and splash share the persisted global theme tokens", async () => {
   assert.match(login, /assets\/js\/login\.js/);
   assert.match(loginCss, /var\(--primary\)/);
   assert.match(loginCss, /var\(--surface/);
-  assert.match(theme, /localStorage\.getItem\(THEME_KEY\)/);
+  assert.match(theme, /localStorage\.getItem\(key\)/);
   assert.match(theme, /root\.dataset\.theme/);
 });
