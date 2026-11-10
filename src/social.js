@@ -442,19 +442,29 @@ function postMarkup(post, userId, isAdmin = false) {
   </article>`;
 }
 
-async function loadPosts(client,surface="all") {
-  // Scan pages before filtering so a large collection of external links
-  // cannot hide native posts (or vice versa) behind an arbitrary first page.
+async function loadPosts(client,surface="all",specificIds=null) {
+  // Save collection loads exact authorized IDs, not only the first feed page.
   const posts=[];
   const selection="id,author_id,body,visibility,external_url,created_at,author:profiles!posts_author_id_fkey(id,username,display_name,avatar_path),comments(id,post_id,author_id,parent_comment_id,body,created_at,author:profiles!comments_author_id_fkey(id,username,display_name,avatar_path),media:comment_media(id,storage_path,mime_type,byte_size,created_at)),media:post_media(id,storage_path,kind,mime_type,byte_size,alt_text,created_at)";
-  for(let offset=0;offset<1000&&posts.length<80;offset+=100){
-    const {data,error}=await client.from("posts").select(selection)
-      .order("created_at",{ascending:false}).order("id",{ascending:false})
-      .range(offset,offset+99);
-    if(error)throw error;
-    const batch=data||[];
-    posts.push(...postsForSurface(batch,surface).slice(0,80-posts.length));
-    if(batch.length<100)break;
+  if(Array.isArray(specificIds)){
+    for(let i=0;i<specificIds.length;i+=35){
+      const ids=specificIds.slice(i,i+35);
+      if(!ids.length)continue;
+      const {data,error}=await client.from("posts").select(selection).in("id",ids);
+      if(error)throw error;
+      posts.push(...postsForSurface(data||[],surface));
+    }
+  }else{
+    // Scan pages before filtering so external links cannot displace native posts.
+    for(let offset=0;offset<1000&&posts.length<80;offset+=100){
+      const {data,error}=await client.from("posts").select(selection)
+        .order("created_at",{ascending:false}).order("id",{ascending:false})
+        .range(offset,offset+99);
+      if(error)throw error;
+      const batch=data||[];
+      posts.push(...postsForSurface(batch,surface).slice(0,80-posts.length));
+      if(batch.length<100)break;
+    }
   }
   if (posts.length) {
     const { data: currentUserData } = await client.auth.getUser();
@@ -624,6 +634,24 @@ export async function uploadResumable(client, path, file, onProgress) {
   if (uploadError) throw uploadError;
   if (uploaded?.path !== path) throw new Error("neon_storage_unconfirmed");
   onProgress?.(100);
+}
+
+// Paginated, authorized list of saved publications with the same avatar/media
+// signing as the real feed. Missing/deleted or forbidden posts are not exposed.
+export async function loadSavedSocialPage(client,userId,offset=0,pageSize=24){
+  const start=Math.max(0,Math.floor(offset)),limit=Math.min(48,Math.max(1,Math.floor(pageSize)));
+  const {data:rows,error}=await client.from("post_saves")
+    .select("post_id,created_at").eq("user_id",userId)
+    .order("created_at",{ascending:false}).range(start,start+limit);
+  if(error)throw error;
+  const ids=[...new Set((rows||[]).map(row=>row.post_id).filter(Boolean))];
+  const posts=ids.length?await loadPosts(client,"all",ids):[];
+  const map=new Map(posts.map(post=>[post.id,post]));
+  return {
+    posts:ids.map(id=>map.get(id)).filter(Boolean),
+    nextOffset:start+(rows||[]).length,
+    hasMore:(rows||[]).length>limit
+  };
 }
 
 export async function loadSocialData(client,surface="all") {
@@ -1321,11 +1349,19 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       const external=root.dataset.socialStream==="external" || Boolean(shareButton.closest("[data-post-card]")?.querySelector(".post-external"));
       const url = new URL((external?"reels.html":"home.html")+"#post-" + encodeURIComponent(postId), window.location.href).href;
       try {
-        if (navigator.share) await navigator.share({ title: "Publicação no Looply", url });
-        else if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
-        else window.prompt("Copie o link da publicação", url);
+        // Android APK: WebView lacks navigator.share; bridge opens ACTION_CHOOSER.
+        // Browser: native Web Share API opens the installed-app chooser.
+        if (window.LooplyExternalShare?.postMessage) {
+          window.LooplyExternalShare.postMessage(JSON.stringify({type:"share_url",url,title:"Publicação no Looply"}));
+        } else if (typeof navigator.share === "function") {
+          await navigator.share({title:"Publicação no Looply",url});
+        } else {
+          const status=root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
+          if(status)status.textContent="Compartilhamento externo não disponível neste navegador.";
+          return;
+        }
         const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
-        if (status) status.textContent = "Link pronto para compartilhar.";
+        if (status) status.textContent = "";
       } catch (error) {
         if (error?.name !== "AbortError") {
           const status = root.querySelector('[data-post-status="' + CSS.escape(postId) + '"]');
