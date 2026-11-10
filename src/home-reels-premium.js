@@ -163,11 +163,11 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   const listButton=by(toolbar,"[data-premium-list]");
   const searchPanel=by(scene,"#srch");
   const savedLibrary=mountSavedLibrary({root,client,userId:ownId});
-  const savedButton=makeButton("Salvos","fc premium-library-shortcut","Ver publicações salvas");
+  const savedButton=makeButton("Salvos","ib premium-library-shortcut","Ver publicações salvas");
   savedButton.dataset.premiumSaved="";
   savedButton.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg><span>Salvos</span>';
-  const photoFilter=by(toolbar,'[data-premium-filter="photo"]');
-  if(photoFilter)photoFilter.before(savedButton);else by(toolbar,".chips")?.append(savedButton);
+  const externalSearch=by(toolbar,"[data-premium-search]");
+  if(externalSearch)externalSearch.before(savedButton);else toolbar.append(savedButton);
   savedButton.onclick=()=>void savedLibrary.open();
   by(toolbar,"[data-premium-search]").onclick=()=>{
     searchPanel.classList.toggle("on");
