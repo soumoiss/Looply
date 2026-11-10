@@ -13,7 +13,7 @@ on:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -47,6 +47,14 @@ jobs:
           test -s dist/src/chat-enhancements.js
           test -s dist/assets/css/pages/chat.css
           test -s dist/assets/css/splash.css
+          # Music V6 must be part of the deployed artifact, not only the source tree.
+          test -s dist/musicas.html
+          test -s dist/assets/js/music.js
+          test -s dist/assets/css/pages/music-v6.css
+          test -s dist/src/music-v6-ui.js
+          grep -q 'music-v6.css' dist/musicas.html
+          grep -q 'music-v6-ui.js' dist/assets/js/music.js
+          grep -q 'data-music-v6' dist/assets/js/music.js
       - name: Check out Stories preview branch
         uses: actions/checkout@v5
         with:
