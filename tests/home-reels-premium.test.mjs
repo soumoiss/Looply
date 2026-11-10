@@ -92,10 +92,40 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v49-home-reels-20261110/);
+  assert.match(sw,/looply-shell-v50-home-reels-polish-20261110/);
   assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "assets"\)/);
   assert.match(build,/rtcIceServers: \[\]/);
+});
+
+
+test("regressão v4: dock não pode ser capturado pelo backdrop-filter do cabeçalho",()=>{
+  const css=read("assets/css/pages/home-reels.css");
+  assert.match(css,/v4 — PARIDADE VISUAL MOBILE-FIRST/);
+  assert.match(css,/\.page-header\.gh\{\s*-webkit-backdrop-filter:none!important;backdrop-filter:none!important/);
+  assert.match(css,/\.page-header\.gh > \.page-navigation\{\s*position:fixed!important;top:auto!important/);
+  assert.match(css,/bottom:calc\(9px \+ env\(safe-area-inset-bottom\)\)!important/);
+  assert.match(css,/\.page-header\.gh::before\{[\s\S]{0,200}backdrop-filter/);
+});
+
+test("regressão v4: curtir alterna para descurtir e o teclado não cria recursão de eventos",()=>{
+  const js=read("src/home-reels-premium.js");
+  assert.match(js,/void react\(id,like\.dataset\.premiumEmoji\|\|"❤️"\)/);
+  assert.doesNotMatch(js,/void react\(id,emoji\|\|like\.dataset\.premiumEmoji/);
+  assert.match(js,/track\?\.scrollBy\(\{top:/);
+  assert.doesNotMatch(js,/dispatchEvent\(new KeyboardEvent\("keydown"/);
+});
+
+test("regressão v4: controles e embeds são compactos, responsivos e não criam scroll horizontal",()=>{
+  const css=read("assets/css/pages/home-reels.css"),src=read("src/home-reels-premium.js");
+  assert.match(css,/\.premium-composer \.post-add-button\{[\s\S]{0,230}width:44px!important/);
+  assert.match(css,/\.premium-filters\{[\s\S]{0,200}grid-template-columns:auto auto minmax\(0,1fr\) 44px/);
+  assert.match(css,/\.post-instagram-embed,/);
+  assert.match(css,/\.post-card \.post-external iframe,/);
+  assert.match(css,/\.post-card \.post-interactions\{/);
+  assert.match(css,/\.post-media-grid:has\(> \.post-media:only-child\)/);
+  assert.match(src,/const del=by\(card,"\[data-delete-post\]"\)/);
+  assert.match(src,/const shared=by\(card,"\[data-share-in-app\]"\)/);
 });
