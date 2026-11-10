@@ -65,7 +65,7 @@ test("salvos são persistentes e idempotentes, com rollback visível",()=>{
 });
 
 test("Reels usam progresso real do vídeo, vídeo sem corte, gestos, teclado e som persistido",()=>{
-  const js=read("src/home-reels-premium.js"),viewer=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels-model-v3.css");
+  const js=read("src/home-reels-premium.js"),viewer=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels.css");
   for(const fragment of ["timeupdate","video.currentTime/video.duration","arrowdown","arrowup",
      '"j"','"k"','key===" "', 'key==="l"', 'key==="m"', 'key==="escape"',
      "last<310","premiumViewerSave"])assert.ok(js.includes(fragment),fragment);
@@ -102,7 +102,7 @@ test("service worker e build referenciam os artefatos sem chaves no front",()=>{
 
 
 test("modelo v3: preservar dock de seis destinos separado do cabeçalho",()=>{
-  const css=read("assets/css/pages/home-reels-model-v3.css");
+  const css=read("assets/css/pages/home-reels.css");
   for(const rule of [".gh{",".dock{",".hero-panel{",".stories{",".comp1{",".ftool{",".feed{",".post{",".ph{",".pa{",".lb{",".lnk{",".rv{"])assert.ok(css.includes(rule),rule);
   assert.match(css,/body\.looply-premium \.page-header\.gh \.page-navigation\.dock\{/);
   assert.match(css,/-webkit-backdrop-filter:none!important;backdrop-filter:none!important/);
@@ -132,7 +132,7 @@ test("regressão v4: curtir alterna para descurtir e o teclado não cria recurs�
 });
 
 test("modelo original v3: sem controles nativos expostos nem embeds externos quebrando cards",()=>{
- const css=read("assets/css/pages/home-reels-model-v3.css");
+ const css=read("assets/css/pages/home-reels.css");
  const src=read("src/home-reels-premium.js");
  assert.match(css,/\.post-card \.post-controls\{display:none\}/);
  assert.match(css,/\.post-card \.post-external\{display:none!important\}/);
