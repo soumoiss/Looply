@@ -41,3 +41,29 @@ test("Home and Reels load only the new stylesheet and wire authentic viewer cont
     {encoding:"utf8"});
   assert.equal(checked.status,0,checked.stderr);
 });
+
+
+test("Instagram Reels show 9:16 video window without stretching or cropping the media",()=>{
+  const js=read("src/home-hybrid-reels.js"),css=read("assets/css/pages/home-reels.css");
+  contains(js,'is-instagram-reel-clean');
+  contains(js,'looply-instagram-video-window');
+  contains(js,'if(instagramReel)');
+  contains(css,'.is-instagram-reel-clean .looply-instagram-video-window');
+  contains(css,'aspect-ratio:9/16');
+  contains(css,'overflow:hidden');
+  contains(css,'max-width:none');
+  contains(css,'transform:none');
+  contains(css,'object-fit:contain!important');
+  assert.doesNotMatch(css,/\.is-instagram-reel-clean[^}]*transform:scale\(/);
+});
+test("Reels stop old audio and use provider APIs only when documented",()=>{
+  const js=read("src/home-hybrid-reels.js");
+  for(const value of ['commandEmbeddedPlayer','activeEmbedUrl','"www.tiktok.com"',
+    '"www.youtube-nocookie.com"','type:action','func,args:[]','"unMute"','"play"',
+    'commandEmbeddedPlayer(source.frame,"pause")','source.frame.removeAttribute("src")',
+    'document.addEventListener("visibilitychange",onVisibility)','player.muted=true',
+    "looply-premium-reels-sound-on","audioBlocked"]){contains(js,value);}
+  assert.match(js,/soundOn = true/);
+  assert.match(js,/loadNear\(index\)/);
+  assert.doesNotMatch(js,/host==="www\.instagram\.com" && \["play","pause"\]/);
+});
