@@ -180,6 +180,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     more:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
     bookmark:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4.2L6 21z"/></svg>',
     send:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="m21 3-8.6 18-3.6-7.8L1 9.6 21 3Z"/><path d="m9 13 12-10"/></svg>',
+    share:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M5 13v7h14v-7"/></svg>',
     play:'<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
     heart:'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.8 8.7c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.7 4.7 0 0 1 12 6.3a4.7 4.7 0 0 1 8.8 2.4Z"/></svg>'
   };
@@ -267,7 +268,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     const shared=by(card,"[data-share-in-app]");
     if(shared){shared.innerHTML=ICONS.send;shared.title="Enviar no Looply";shared.setAttribute("aria-label","Enviar publicação no chat do Looply");}
     const out=by(card,"[data-share-post]");
-    if(out){out.innerHTML=ICONS.send;out.title="Compartilhar publicação";out.setAttribute("aria-label","Compartilhar publicação");}
+    if(out){out.innerHTML=ICONS.share;out.title="Compartilhar publicação";out.setAttribute("aria-label","Compartilhar publicação");}
     const reply=by(card,"[data-private-reply]");if(reply)reply.title="Responder em particular";
     const liker=by(card,"[data-toggle-like]");
     if(liker){liker.classList.add("lk");liker.setAttribute("aria-label","Curtir ou reagir; mantenha pressionado para escolher uma reação");}
