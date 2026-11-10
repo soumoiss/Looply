@@ -46,7 +46,7 @@ test("Reels preserve share actions and add persistent save in premium integratio
   assert.match(js,/const actions = \["like", "comment", "external", "chat"\]/);
   const premium=await read("src/home-reels-premium.js");
   assert.match(premium,/v13_set_post_saved/);
-  assert.match(premium,/data\.premiumViewerSave/);
+  assert.match(premium,/save\.dataset\.premiumViewerSave/);
   assert.match(js,/\[data-toggle-like\]/);
   assert.match(js,/\[data-share-post\]/);
   assert.match(js,/\[data-share-in-app\]/);
