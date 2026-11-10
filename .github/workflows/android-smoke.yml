@@ -12,6 +12,7 @@ on:
       - fix/looply-stage6-audit-release-20261030
       - fix/looply-final-audit-20261030
       - integrate/looply-android-six-stages-20261030
+      - feat/android-local-bundled-assets-20261110
     paths:
       - "android/**"
       - "src/**"
