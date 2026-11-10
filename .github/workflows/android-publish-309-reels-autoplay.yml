@@ -90,8 +90,8 @@ jobs:
           gh release download android-v3.0.8-salvos-share-20261110 \
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk' --dir previous-release
-          test -s previous-release/Looply-3.0.9-REELS-AUTOPLAY-ASSINADO.apk
-          old_cert=$("$tools/apksigner" verify --print-certs previous-release/Looply-3.0.9-REELS-AUTOPLAY-ASSINADO.apk |
+          test -s previous-release/Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk
+          old_cert=$("$tools/apksigner" verify --print-certs previous-release/Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
           new_cert=$("$tools/apksigner" verify --print-certs "$apk" |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
@@ -112,7 +112,7 @@ jobs:
           unzip -Z1 "$apk" | grep -Fxq 'assets/assets/css/pages/share-external.css'
           mkdir -p release
           cp "$apk" release/Looply-3.0.9-REELS-AUTOPLAY-ASSINADO.apk
-          (cd release && sha256sum Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk > SHA256SUMS.txt)
+          (cd release && sha256sum Looply-3.0.9-REELS-AUTOPLAY-ASSINADO.apk > SHA256SUMS.txt)
       - name: Publish permanent public GitHub APK
         run: |
           set -euo pipefail
@@ -138,4 +138,4 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
-            --jq '.assets[] | select(.name=="Looply-3.0.8-SALVOS-SHARESHEET-ASSINADO.apk") | select(.size > 1000000) | .browser_download_url' | grep '^https://github.com/'
+            --jq '.assets[] | select(.name=="Looply-3.0.9-REELS-AUTOPLAY-ASSINADO.apk") | select(.size > 1000000) | .browser_download_url' | grep '^https://github.com/'
