@@ -1,5 +1,6 @@
 /* Camada real da interface premium. Sem dados fictícios ou duplicação de autenticação. */
 import { signPeople } from "./profile-api.js";
+import { mountSecretMessages } from "./secret-messages.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMOJIS = Object.freeze(["❤️","😂","😮","😢","🔥","👏"]);
@@ -73,7 +74,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
           const existing=document.querySelector("[data-secret-vip-modal]");
           if(existing){
             existing.querySelector("button")?.focus();
-          }else{notify("Recado indisponível. Atualize a página.",true);}
+          }else{void mountSecretMessages(client,ownId);}
         };
         by(scene,"#extras")?.append(button);
       }).catch(()=>{});
