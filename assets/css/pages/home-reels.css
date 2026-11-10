@@ -725,3 +725,11 @@ body.looply-premium .post-card .post-owner-menu-actions{z-index:30}
 body.looply-premium dialog.premium-actions-sheet[open]{z-index:1800}
 body.looply-premium .premium-actions-sheet .act{min-height:52px}
 body.looply-premium .premium-actions-sheet .act.dg{color:var(--danger)}
+
+
+/* Dados de curtidas e últimas respostas — sem avatares de demonstração. */
+body.looply-premium .post-card .lb .av .fallback{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;font-size:10px;background:var(--lilac);color:var(--primary)}
+body.looply-premium .post-card .lb .stk:empty{display:none}
+body.looply-premium .post-card .lc{display:block;padding:4px 14px 0;line-height:1.4;font-size:13.5px;overflow-wrap:anywhere;color:var(--text)}
+body.looply-premium .post-card .lc b{margin-right:4px;font-weight:750}
+body.looply-premium .post-card .vc{display:block;width:auto;text-align:left;cursor:pointer}
