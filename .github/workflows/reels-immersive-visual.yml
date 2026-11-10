@@ -8,6 +8,7 @@ on:
       - "home.html"
       - "reels.html"
       - "scripts/check-reels-immersive-visual.mjs"
+      - "scripts/check-reels-playback-lifecycle.mjs"
       - "tests/reels-immersive-viewport.test.mjs"
       - ".github/workflows/reels-immersive-visual.yml"
   workflow_dispatch:
@@ -27,7 +28,9 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.56.0
           npx playwright install --with-deps chromium
       - name: Check fullscreen Reel in Android-sized real Chromium layouts
-        run: node scripts/check-reels-immersive-visual.mjs
+        run: |
+          node scripts/check-reels-immersive-visual.mjs
+          node scripts/check-reels-playback-lifecycle.mjs
       - name: Preserve sanitized UI viewport screenshots
         if: always()
         uses: actions/upload-artifact@v4
