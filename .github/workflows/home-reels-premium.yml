@@ -8,7 +8,7 @@ on:
       - "assets/js/reels.js"
       - "src/home-reels-premium.js"
       - "src/home-hybrid-reels.js"
-      - "assets/css/pages/home-reels.css"
+      - "assets/css/pages/home-reels-model-v3.css"
       - "migration/20261110_home_reels_premium.sql"
       - "tests/**"
       - "scripts/check-reels-immersive-visual.mjs"
@@ -33,7 +33,7 @@ jobs:
           test -s dist/home.html
           test -s dist/reels.html
           test -s dist/src/home-reels-premium.js
-          test -s dist/assets/css/pages/home-reels.css
+          test -s dist/assets/css/pages/home-reels-model-v3.css
           ! grep -E 'Simular nova publicação|Modelo: só a aba' dist/src/home-reels-premium.js
   visual:
     runs-on: ubuntu-24.04
