@@ -112,7 +112,7 @@ Deno.serve(async (request: Request) => {
       const postUrl = "https://soumoiss.github.io/Looply/home.html#post-" + encodeURIComponent(postId);
       const messageBody = mode === "private_reply"
         ? replyBody + "\n\nPublicação: " + postUrl
-        : "Publicação compartilhada no Looply: " + postUrl;
+        : (replyBody ? replyBody.slice(0,2000) + "\n\n" : "") + "Publicação compartilhada no Looply: " + postUrl;
       const { error: messageError } = await service.from("chat_messages").insert({
         conversation_id: conversationId,
         sender_id: authData.user.id,
