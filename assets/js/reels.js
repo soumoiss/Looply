@@ -1,4 +1,4 @@
-import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=premium-20261110-v4";
+import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=faithful-20261110";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialFeed, setupSocialRealtime, socialMarkup } from "../../src/social.js?v=smart-storage-20261031";
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
