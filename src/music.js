@@ -186,7 +186,8 @@ function dedicationMarkup(item, userId) {
     ${notes}
     ${senderIsCurrent ? `<button type="button" class="text-button music-dedication-edit-button" data-music-edit-dedication="${escapeHtml(item.id)}">Editar dedicatória</button>` : ""}
     ${musicPlayerMarkup(item)}
-    <section class="music-comments" aria-label="Comentários privados da música">
+    <button type="button" class="music-v6-comment-toggle" data-music-v6-toggle-comments aria-expanded="false" aria-controls="music-comments-${escapeHtml(item.id)}">Comentários <span>${comments.length}</span></button>
+    <section class="music-comments" id="music-comments-${escapeHtml(item.id)}" aria-label="Comentários privados da música" hidden>
       <h4>Comentários <span>${comments.length}</span></h4>
       <div class="music-comment-list">${commentsMarkup}</div>
       <form class="music-comment-form" data-music-comment data-dedication-id="${escapeHtml(item.id)}">
@@ -244,12 +245,12 @@ function musicContent(data, userId) {
     <div class="music-heading"><div><span class="section-kicker">Biblioteca</span><h2 id="musicTitle">Músicas e dedicatórias</h2></div>
       <span class="music-count">${received.length} recebida${received.length === 1 ? "" : "s"} · ${sent.length} enviada${sent.length === 1 ? "" : "s"}</span></div>
     ${personalLibraryMarkup(data)}
-    <section class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
-      <h3 id="musicGeneralCommentsTitle">Comentários gerais</h3>
+    <dialog class="music-general-comments" aria-labelledby="musicGeneralCommentsTitle">
+      <div class="music-v6-comments-head"><h3 id="musicGeneralCommentsTitle">Comentários gerais</h3><button type="button" data-music-v6-comments-close aria-label="Fechar comentários">Fechar</button></div>
       <div class="music-general-comment-list" data-music-general-comment-list>${generalCommentsMarkup(data)}</div>
       <form data-music-general-comment class="music-comment-form"><label for="musicGeneralCommentBody">Comentar na página de músicas</label><textarea id="musicGeneralCommentBody" name="body" maxlength="2000" required placeholder="Escreva um comentário geral"></textarea><button class="text-button" type="submit">Enviar comentário geral</button><span class="form-status" data-status role="status" aria-live="polite"></span></form>
-    </section>
-    <details class="music-composer"><summary>＋ Dedicar uma música</summary>
+    </dialog>
+    <details class="music-composer"><summary>Dedicar música</summary>
       <form data-music-send>
         <div class="field music-recipient-field"><span class="field-label">Para quem é esta música?</span>
           <button type="button" class="music-recipient-open" data-music-open-recipients ${recipientPickerDisabled ? "disabled" : ""}>Escolher destinatários</button>
@@ -322,6 +323,10 @@ async function refreshMusic(root, client, userId, { force = false } = {}) {
   if (!area) return false;
   // Realtime updates must not destroy a user's open editing draft.
   if (!force && area.querySelector("[data-music-dedication-edit-dialog][open]")) return false;
+  // Não apague rascunhos de dedicatórias, comentários ou coleção por eventos realtime.
+  if (!force && area.querySelector(".music-composer[open], .music-general-comments[open]")) return false;
+  if (!force && [...area.querySelectorAll(".music-library-form input:not([type=hidden]), .music-library-form textarea, .music-comment-form textarea")]
+    .some((field) => String(field.value || "").trim())) return false;
   area.setAttribute("aria-busy", "true");
   try {
     const latest = await loadMusicData(client, userId);
@@ -373,7 +378,12 @@ function bindMusicPlayers(root) {
     if (!audio || player.dataset.musicBound === "true") return;
     player.dataset.musicBound = "true";
     ["loadedmetadata", "durationchange", "timeupdate"].forEach((eventName) => audio.addEventListener(eventName, () => updateMusicPlayer(player, audio)));
-    audio.addEventListener("play", () => setMusicPlayerPlaying(player, true));
+    audio.addEventListener("play", () => {
+      root.querySelectorAll("[data-music-audio]").forEach((other) => {
+        if (other !== audio && !other.paused) other.pause();
+      });
+      setMusicPlayerPlaying(player, true);
+    });
     audio.addEventListener("pause", () => setMusicPlayerPlaying(player, false));
     audio.addEventListener("ended", () => {
       setMusicPlayerPlaying(player, false);
