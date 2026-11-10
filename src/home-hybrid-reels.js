@@ -134,10 +134,18 @@ export function openHybridReels(root, startKey) {
   const sync = () => {
     const source = slides[activeIndex], card = source && cardFor(source);
     if (!card) return;
-    const author = by(card, ".post-author");
+    // O skin premium move o autor para .post-header > .post-author-profile.
+    // Buscar somente .post-author fazia a autoria desaparecer em tela cheia.
+    const author = by(card, ".post-header .post-author-profile");
     const creator = by(dialog, "[data-reels-creator]");
     creator.replaceChildren();
-    if (author) creator.append(author.cloneNode(true));
+    if (author) {
+      const wrapper = make("div", "post-author looply-reels-creator-profile");
+      const clone = author.cloneNode(true);
+      clone.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
+      wrapper.append(clone);
+      creator.append(wrapper);
+    }
     const original = by(dialog, "[data-reels-provider-original]");
     const providerSource = card.querySelector(".hybrid-provider-tools a[href]");
     if (original) {

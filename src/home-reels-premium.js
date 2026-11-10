@@ -1,6 +1,7 @@
 /* Camada real da interface premium. Sem dados fictícios ou duplicação de autenticação. */
 import { signPeople } from "./profile-api.js";
 import { mountSecretMessages } from "./secret-messages.js";
+import { mountInternalShareDialog } from "./home-reels-send.js";
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const EMOJIS = Object.freeze(["❤️","😂","😮","😢","🔥","👏"]);
@@ -34,6 +35,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
   if (!root || root.__premiumBound) return;
   root.__premiumBound=true;
   const ownId=user.id, isHome=mode!=="external";
+  mountInternalShareDialog(root,client,ownId);
   const scene=element("div","premium-scene");
   scene.innerHTML=(isHome?'<div id="hello"></div><section class="premium-why-now"><div class="h2"><h2>Why Now</h2></div><div data-premium-stories></div></section><div id="extras"></div>':'<div class="h2"><h2>Reels</h2></div>')+
     '<div id="composer" class="cardx"></div><div class="ftool" id="ftool"><div class="chips"><button type="button" class="fc on" data-premium-filter="all" aria-pressed="true">Para você</button><button type="button" class="fc" data-premium-filter="following" aria-pressed="false">Seguindo</button><button type="button" class="fc" data-premium-filter="photo" aria-pressed="false">Fotos</button><button type="button" class="fc" data-premium-filter="video" aria-pressed="false">Vídeos</button><button type="button" class="fc" data-premium-filter="link" aria-pressed="false">Links</button></div><button type="button" class="ib" data-premium-search aria-label="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 5 5"/></svg></button><div class="vt"><button type="button" class="on" data-premium-list aria-label="Lista" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" data-premium-grid aria-label="Mosaico" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button></div></div><label class="srch" id="srch"><span aria-hidden="true">⌕</span><input type="search" id="q" placeholder="Buscar publicações e pessoas" aria-label="Buscar publicações"></label><div id="feed"></div><div id="sent"></div>';
@@ -85,11 +87,48 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(/^https:\/\//.test(profile?.avatarUrl||"")){
         const img=document.createElement("img");img.src=profile.avatarUrl;img.alt="";img.referrerPolicy="no-referrer";face.replaceChildren(img);
       }
-      head.append(face,element("span","fk",isHome?"No que você está pensando?":"Compartilhar link"),toggle);
+      const prompt=makeButton(isHome?"No que você está pensando?":"Compartilhar link","fk","Criar publicação");
+      prompt.dataset.premiumCompose="";
+      head.append(face,prompt,toggle);
       toggle.className="ci";
       toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m4 17 5-5 4 4 3-3 5 5"/></svg>';
       toggle.setAttribute("aria-label","Criar publicação");
     }
+  }
+  // O dialog fica dentro do formulário real; preserva FormData, uploads e submit.
+  const composeFields=by(composer||root,"[data-composer-fields]");
+  let composeDialog=null;
+  if(composer&&composeFields){
+    composeDialog=document.createElement("dialog");
+    composeDialog.className="premium-compose-dialog";
+    composeDialog.setAttribute("aria-label",isHome?"Nova publicação":"Compartilhar Reel");
+    composeFields.before(composeDialog);
+    composeDialog.append(composeFields);
+    const openCompose=()=>{
+      composeFields.hidden=false;
+      if(!composeDialog.open)composeDialog.showModal();
+      document.body.classList.add("premium-compose-open");
+      by(composer,"[data-toggle-composer]")?.setAttribute("aria-expanded","true");
+    };
+    const closeCompose=()=>{
+      composeFields.hidden=true;
+      if(composeDialog.open)composeDialog.close();
+      document.body.classList.remove("premium-compose-open");
+      document.body.style.overflow="";
+      by(composer,"[data-toggle-composer]")?.setAttribute("aria-expanded","false");
+    };
+    root.addEventListener("click",event=>{
+      const open=event.target.closest("[data-toggle-composer],[data-premium-compose]");
+      if(open){event.preventDefault();event.stopImmediatePropagation();openCompose();return;}
+      if(event.target.closest("[data-close-composer]")){
+        event.preventDefault();event.stopImmediatePropagation();closeCompose();
+      }
+    },true);
+    composeDialog.addEventListener("cancel",event=>{event.preventDefault();closeCompose();});
+    composeDialog.addEventListener("click",event=>{if(event.target===composeDialog)closeCompose();});
+    new MutationObserver(()=>{
+      if(composeFields.hidden&&composeDialog.open)closeCompose();
+    }).observe(composeFields,{attributes:true,attributeFilter:["hidden"]});
   }
   if(feed){feed.classList.add("feed");by(scene,"#feed")?.append(feed);}
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
@@ -152,7 +191,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(r.error)throw r.error;
       saved=new Set((r.data||[]).map(item=>item.post_id));
       for(const card of cards)by(card,"[data-premium-save]")?.setAttribute("aria-pressed",String(saved.has(card.dataset.postCard)));
-    }catch(e){/* Após aplicar a migração, o botão passa a refletir o banco. */}
+    }catch(e){notify("Não foi possível consultar os salvos: "+String(e?.message||"erro de conexão"),true);}
   }
   function decorateMusic(link){
     if(!link || link.hidden || link.tagName!=="A" || link.classList.contains("premium-music"))return;
@@ -376,7 +415,8 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     }catch(error){
       if(before)saved.add(postId);else saved.delete(postId);
       buttons.forEach(b=>b.setAttribute("aria-pressed",String(before)));
-      notify("Não foi possível atualizar os salvos.",true);
+      console.error("Looply save failed",error);
+      notify("Não foi possível salvar: "+String(error?.message||"erro de conexão"),true);
     }finally{pendingSaves.delete(postId);}
   }
   function closePicker(){picker?.remove();picker=null;}
@@ -403,7 +443,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       const id=like.dataset.toggleLike;
       if((suppressed.get(id)||0)>Date.now())return;
       closePicker();const emoji=like.getAttribute("aria-pressed")==="true"?null:"❤️";
-      void react(id,like.dataset.premiumEmoji||"❤️");
+      void react(id,like.getAttribute("aria-pressed")==="true"?(like.dataset.premiumEmoji||"❤️"):"❤️");
       return;
     }
     const liker=event.target.closest("[data-premium-likers]");
@@ -495,7 +535,8 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     }catch(error){
       if(generation===likeGeneration){
         const status=by(dialog,"[data-like-status]");status.replaceChildren();
-        status.append(document.createTextNode("Não foi possível carregar as curtidas. "));
+        console.error("Looply likers failed",error);
+        status.append(document.createTextNode("Não foi possível carregar as curtidas: "+String(error?.message||"erro de conexão")+". "));
         const retry=makeButton("Tentar de novo","btn");retry.onclick=()=>void loadMoreLikes();status.append(retry);
       }
     }finally{if(generation===likeGeneration)likeBusy=false;}

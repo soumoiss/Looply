@@ -61,7 +61,7 @@ test("salvos são persistentes e idempotentes, com rollback visível",()=>{
   assert.match(sql,/ON CONFLICT DO NOTHING/);
   assert.match(js,/v13_set_post_saved/);
   assert.match(js,/if\(before\)saved\.add\(postId\);else saved\.delete\(postId\)/);
-  assert.match(js,/Não foi possível atualizar os salvos/);
+  assert.match(js,/Não foi possível salvar:/);
 });
 
 test("Reels usam progresso real do vídeo, vídeo sem corte, gestos, teclado e som persistido",()=>{
@@ -92,7 +92,7 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
-  assert.match(sw,/looply-shell-v51-home-reels-faithful-20261110/);
+  assert.match(sw,/looply-shell-v52-home-reels-engagement-20261110/);
   assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
@@ -125,7 +125,7 @@ test("modelo v3: componentes reais são transformados em markup do original",()=
 
 test("regressão v4: curtir alterna para descurtir e o teclado não cria recursão de eventos",()=>{
   const js=read("src/home-reels-premium.js");
-  assert.match(js,/void react\(id,like\.dataset\.premiumEmoji\|\|"❤️"\)/);
+  assert.match(js,/void react\(id,like\.getAttribute\("aria-pressed"\)/);
   assert.doesNotMatch(js,/void react\(id,emoji\|\|like\.dataset\.premiumEmoji/);
   assert.match(js,/track\?\.scrollBy\(\{top:/);
   assert.doesNotMatch(js,/dispatchEvent\(new KeyboardEvent\("keydown"/);
@@ -145,4 +145,47 @@ test("modelo original v3: sem controles nativos expostos nem embeds externos que
  assert.match(src,/strip\.append\(logo,body\)/);
  assert.match(src,/if\(caption&&\(media\|\|external\)\)/);
  assert.doesNotMatch(src,/Simular nova publicação/);
+});
+
+
+test("regressão: compositor premium abre dialog real sem remover form ou upload",()=>{
+ const js=read("src/home-reels-premium.js"),css=read("assets/css/pages/home-reels.css");
+ assert.match(js,/composeDialog\.showModal\(\)/);
+ assert.match(js,/composeDialog\.append\(composeFields\)/);
+ assert.match(js,/event\.stopImmediatePropagation\(\);openCompose\(\)/);
+ assert.match(css,/dialog\.premium-compose-dialog\[open\]/);
+ assert.match(css,/dialog\.premium-compose-dialog::backdrop/);
+});
+test("regressão: modal de compartilhamento envia múltiplos usuários com mensagem opcional",()=>{
+ const js=read("src/home-reels-send.js"),css=read("assets/css/pages/home-reels.css");
+ const neon=read("src/neon-production-client.js");
+ assert.match(js,/selected=new Set\(\)/);
+ assert.match(js,/looply-send-grid/);
+ assert.match(js,/data-send-person/);
+ assert.match(js,/data-send-message/);
+ assert.match(js,/mode:"share",targetId:id,postId,body:message\|\|undefined/);
+ assert.match(js,/event\.stopImmediatePropagation\(\)/);
+ assert.match(css,/\.looply-send-grid\{display:grid/);
+ assert.match(neon,/p_message:message/);
+});
+test("regressão: Reels exibe autor depois do reparenting visual do Feed",()=>{
+ const js=read("src/home-hybrid-reels.js");
+ assert.match(js,/\.post-header \.post-author-profile/);
+ assert.match(js,/looply-reels-creator-profile/);
+});
+
+test("produção: RPCs de curtidas/salvos são permitidas no cliente Neon real",()=>{
+ const src=read("src/neon-production-client.js");
+ for(const name of ["v13_post_engagement_page","v13_set_post_reaction","v13_set_post_saved"])
+   assert.ok(src.includes('"'+name+'"'));
+ assert.match(src,/premiumPostRpcNames\.has\(name\) \? premiumPostRpc\(name,args\)/);
+ assert.match(src,/if\(action==="share_post" && body\.mode==="share"\)return premiumSharePost\(options\)/);
+ assert.match(src,/galleryRpc\("v52_share_post"/);
+ const migration=read("migration/20261110_home_reels_share_post.sql");
+ assert.match(migration,/public\.v52_share_post/);
+ assert.match(migration,/public\.v3_can_view_post\(p_post_id\)/);
+ assert.match(migration,/public\.chat_user_blocks/);
+ assert.match(migration,/public\.post_recipients/);
+ assert.match(migration,/public\.v4_create_conversation/);
+ assert.match(migration,/GRANT EXECUTE ON FUNCTION public\.v52_share_post/);
 });
