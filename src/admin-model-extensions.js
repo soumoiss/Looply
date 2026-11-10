@@ -94,8 +94,9 @@ export async function renderAdminExtended(kind,root,ui,offset=0){
  try{
 
  if(kind==='password-reset'){
-  const api=neon.auth?.admin;
-  if(typeof api?.listUsers!=='function'||typeof api?.setUserPassword!=='function')throw Error('Admin Neon Auth indisponível');
+  const api=neon.auth?.getBetterAuthInstance?.()?.admin || neon.auth?.admin;
+  if(typeof api?.listUsers!=='function'||typeof api?.setUserPassword!=='function')
+   throw Error('API administrativa de senha do Neon Auth indisponível');
   const response=await api.listUsers({query:{limit:200}});
   if(response.error)throw Error(response.error.message||'Não foi possível listar as contas');
   const users=response.data?.users;
