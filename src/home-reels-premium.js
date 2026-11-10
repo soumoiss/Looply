@@ -278,16 +278,51 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       block.append(element("b","",authorName),caption);
       summary.after(block); // original model: caption immediately after likes
     }
+    const commentCount=Number(by(card,"[data-toggle-post-comments] span")?.textContent)||0;
+    if(commentCount>1){
+      const moreComments=makeButton("Ver todos os "+commentCount+" comentários","vc","Ver comentários");
+      moreComments.dataset.togglePostComments=postId;
+      dateStamp.before(moreComments);
+    }
+    const latest=all(card,".comment-item").at(-1);
+    const latestText=by(latest||card,"[data-comment-body]")?.textContent?.trim();
+    if(latestText){
+      const latestName=by(latest,".comment-meta strong")?.textContent?.trim()||"";
+      const preview=element("div","lc");preview.append(element("b","",latestName),document.createTextNode(" "+latestText));
+      dateStamp.before(preview);
+    }
     if(card.querySelector("[data-open-reel],[data-open-external-reel]"))card.dataset.hasReel="true";
   }
   root.addEventListener("click",event=>{
     const menu=event.target.closest("[data-premium-menu]");
     if(menu){event.preventDefault();const card=menu.closest("[data-post-card]");if(card)openPostMenu(card);}
   });
+  const previewed=new WeakSet();
+  async function hydratePreviewLikers(card){
+    if(previewed.has(card))return;
+    previewed.add(card);
+    const count=Number(by(card,"[data-premium-like-total]")?.textContent)||0;
+    if(!count)return;
+    try{
+      const payload=await call(client,"v13_post_engagement_page",{
+        p_post_id:card.dataset.postCard,p_offset:0,p_limit:3,p_search:"",p_following_only:false
+      });
+      const profiles=await signPeople(client,Array.isArray(payload?.items)?payload.items:[]);
+      if(!card.isConnected)return;
+      const stack=by(card,"[data-premium-like-avatars]");if(!stack)return;
+      stack.replaceChildren();
+      for(const person of profiles.slice(0,3)){
+        const face=element("span","av");face.style.setProperty("--s","23px");
+        face.append(avatar(person));face.title=person.display_name||person.username||"";
+        stack.append(face);
+      }
+    }catch{ /* A interface não fabrica avatares se a API de curtidas estiver indisponível. */ }
+  }
   function decorateAll(){
     all(root,"[data-post-card]").forEach(decorateCard);
     applyFilters();
     if(isHome)updateReelsStrip();
+    all(root,"[data-post-card]").slice(0,5).forEach(card=>{void hydratePreviewLikers(card);});
   }
   function updateLikeDisplay(postId,like,emoji,count){
     const card=all(root,"[data-post-card]").find(node=>node.dataset.postCard===postId);
