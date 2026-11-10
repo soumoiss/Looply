@@ -52,6 +52,12 @@ jobs:
           test -s dist/assets/js/music.js
           test -s dist/assets/css/pages/music-v6.css
           test -s dist/src/music-v6-ui.js
+          test -s dist/assets/css/pages/global-shell.css
+          grep -Fq "global-shell.css" dist/home.html
+          grep -Fq "global-shell.css" dist/musicas.html
+          grep -Fq "global-shell.css" dist/cartas.html
+          grep -Fq "global-shell.css" dist/chat.html
+          grep -Fq "global-shell.css" dist/galeria.html
           grep -q 'music-v6.css' dist/musicas.html
           grep -q 'music-v6-ui.js' dist/assets/js/music.js
           grep -q 'data-music-v6' dist/assets/js/music.js
