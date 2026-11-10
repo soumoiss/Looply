@@ -1,0 +1,36 @@
+/* Why Now editing controls: additive, scoped to the existing editor. */
+#editor .edit-overlay .overlay-item{touch-action:none;user-select:none;-webkit-user-select:none;will-change:left,top;font-kerning:normal}
+#editor .edit-overlay .overlay-item:focus-visible{outline:2px solid #fff;outline-offset:6px}
+#editor .edit-overlay .overlay-item.active-item{outline:1.5px solid #ffffffdb;outline-offset:5px;border-radius:8px}
+#editor .edit-overlay .overlay-item.sticker-image{display:grid;place-items:center;max-width:88%;line-height:1;filter:drop-shadow(0 4px 8px #0005)}
+#editor .edit-overlay .overlay-item.sticker-image img{width:100%;height:auto;max-height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none}
+#viewer .view-overlay .overlay-item.sticker-image{display:grid;place-items:center;max-width:88%;filter:drop-shadow(0 4px 8px #0005)}
+#viewer .view-overlay .overlay-item.sticker-image img{width:100%;height:auto;object-fit:contain;display:block;pointer-events:none}
+#editor .wn-layer-tools{position:absolute;z-index:13;left:50%;bottom:calc(110px + var(--safeBottom));transform:translateX(-50%);display:flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid #ffffff33;background:#17121bdb;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 10px 35px #0005;border-radius:999px;max-width:calc(100% - 26px);transition:opacity .14s,transform .14s}
+#editor .wn-layer-tools[hidden]{display:none!important}
+#editor .wn-layer-tools button{height:37px;min-width:38px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;color:#fff;font:750 11px/1.1 Manrope,sans-serif;white-space:nowrap;background:transparent}
+#editor .wn-layer-tools button:active{background:#ffffff22}
+#editor .wn-layer-tools button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+#editor .wn-layer-tools button.wn-layer-delete{color:#ffc2cb}
+#editor .wn-layer-tools button.wn-layer-size{min-width:34px;padding:0 7px}
+#editor .wn-layer-tools .wn-layer-color{width:24px;height:24px;min-width:24px;padding:0;border-radius:50%;border:2px solid #fff}
+#editor .wn-layer-tools .wn-layer-color[aria-pressed=true]{outline:2px solid #fff;outline-offset:2px}
+#sheet .wn-sticker-picker .chat-catalog{display:flex;flex-direction:column;min-height:0;gap:10px}
+#sheet .wn-sticker-picker .chat-catalog-tabs{display:flex;gap:7px}
+#sheet .wn-sticker-picker .chat-catalog-tabs button{border:1px solid #e8e2ee;border-radius:999px;padding:9px 16px;background:#f7f4fa;color:#6f6679;font-size:12px;font-weight:750}
+#sheet .wn-sticker-picker .chat-catalog-tabs button[aria-pressed=true]{background:#25202c;color:#fff;border-color:#25202c}
+#sheet .wn-sticker-picker .chat-catalog select,#sheet .wn-sticker-picker .chat-catalog input[type=search]{display:block;width:100%;box-sizing:border-box;border:1px solid #e4dfea;background:#f7f5f9;border-radius:13px;padding:11px 13px;font-size:12px;color:#282333;min-height:42px}
+#sheet .wn-sticker-picker .chat-catalog-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:5px;row-gap:10px;max-height:min(42dvh,345px);overflow-y:auto;overscroll-behavior:contain;padding:5px 0 12px;scrollbar-width:thin}
+#sheet .wn-sticker-picker .chat-catalog-item{min-width:0;position:relative;display:grid;place-items:center;border-radius:13px;background:#f5f2f8;aspect-ratio:1/1;padding:4px}
+#sheet .wn-sticker-picker .chat-catalog-item > button:first-child{display:grid;place-items:center;width:100%;height:100%;padding:5px;min-width:0}
+#sheet .wn-sticker-picker .chat-catalog-item img{object-fit:contain;max-height:100%;max-width:100%;height:100%;width:100%;display:block}
+#sheet .wn-sticker-picker .chat-catalog-item .chat-catalog-favorite{position:absolute;bottom:-2px;right:-3px;background:#fff;border:1px solid #d7cede;border-radius:100%;width:22px;height:22px;color:#ad7b23;font-size:15px;line-height:1}
+#sheet .wn-sticker-picker .chat-catalog-status{font-size:11px;color:#8b8493;min-height:16px;margin:0;line-height:1.3}
+#sheet .wn-sticker-picker .chat-catalog [data-chat-catalog-more]{align-self:center;color:#7554ae;padding:8px 12px;font-size:12px;font-weight:750}
+#sheet .wn-sticker-picker .wn-sticker-import{display:inline-flex;align-items:center;justify-content:center;min-height:42px;border:1px solid #ddd5e4;background:#fff;border-radius:13px;padding:10px 15px;font-size:12px;font-weight:750;color:#3c3150;width:100%}
+#sheet .wn-text-picker .wn-text-preview{min-height:42px;margin:10px 0 0;padding:8px;text-align:center;border-radius:12px;background:#eeeaf2;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+#sheet .wn-text-picker .wn-text-picker-actions{display:flex;gap:9px;margin-top:17px}
+#sheet .wn-text-picker .wn-text-picker-actions .btn{flex:1}
+#editor .wn-layer-hint{position:absolute;bottom:calc(164px + var(--safeBottom));left:50%;transform:translateX(-50%);z-index:7;color:#fff;background:#09080bb5;border:1px solid #ffffff40;font-size:10px;font-weight:750;padding:6px 11px;border-radius:999px;white-space:nowrap;pointer-events:none}
+#editor .wn-layer-hint[hidden]{display:none}
+@media(max-width:360px){#editor .wn-layer-tools{gap:1px;padding:4px}#editor .wn-layer-tools button{min-width:32px;padding:0 7px;font-size:10px}#editor .wn-layer-tools .wn-layer-color{min-width:21px;width:21px;height:21px}}
