@@ -1323,7 +1323,7 @@ export function bindSocialEvents(root, client, getUserId, isAdmin = false) {
       try {
         // Compartilhar externamente SEM copiar link: navegador usa Web Share,
         // WebView Android atualizado abre Intent.ACTION_SEND no sistema.
-        const androidWebView=/Android/i.test(navigator.userAgent||"") && /\\bwv\\b/i.test(navigator.userAgent||"");
+        const androidWebView=/Android/i.test(navigator.userAgent||"") && /\bwv\b/i.test(navigator.userAgent||"");
         if (androidWebView) {
           window.location.assign("looply-share://external?url="+encodeURIComponent(url));
         } else if (typeof navigator.share === "function") {
