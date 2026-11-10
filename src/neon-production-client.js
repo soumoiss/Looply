@@ -410,6 +410,29 @@ async function legacyPageSession() {
   catch (error) { principalCache.delete(token); throw error; }
   return { ...session, user: { ...session.user, id: legacyId, neonAuthId: session.user?.id } };
 }
+// Publicação premium: RPCs explicitamente autorizadas. Identidade apenas do JWT Neon.
+const premiumPostRpcNames = new Set([
+  "v13_post_engagement_page", "v13_set_post_reaction",
+  "v13_set_post_saved", "v14_share_post_to_users"
+]);
+async function premiumPostRpc(name,args) {
+  if(!premiumPostRpcNames.has(name))return blocked();
+  try{
+    const session=await activeSession();
+    if(!session?.access_token)return {data:null,error:{message:"neon_session_required",status:401}};
+    const response=await fetch(config.data+"/rpc/"+name,{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+session.access_token,accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify(args||{})
+    });
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok)return {data:null,error:{
+      message:String(payload?.message||"neon_premium_post_unavailable"),
+      code:String(payload?.code||""),status:response.status
+    }};
+    return {data:payload,error:null};
+  }catch(error){return {data:null,error:{message:String(error?.message||"neon_premium_post_request_failed")}};}
+}
 async function chatFunctionInvoke(name,options) {
   if(name!=="looply-chat")return blocked();
   const body=options?.body||{}, action=String(body.action||"");
@@ -597,7 +620,7 @@ export const looplyClient = Object.freeze({
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   }),
   from: table => createReadQuery(table),
-  rpc: async (name, args) => name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : scheduledLetterRpcNames.has(name) ? scheduledLetterRpc(name,args) : tttRpcNames.has(name) ? tttRpc(name,args) : garticRpcNames.has(name) ? garticRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
+  rpc: async (name, args) => premiumPostRpcNames.has(name) ? premiumPostRpc(name,args) : name === "v10_set_group_cover" ? setGroupCoverRpc(args) : storyEngagementRpcNames.has(name) ? storyEngagementRpc(name,args) : galleryRpcNames.has(name) ? galleryRpc(name,args) : protectedArchiveRpcNames.has(name) ? galleryRpc(name,args) : publicationRpcNames.has(name) ? ownerPublicationRpc(name,args) : scheduledLetterRpcNames.has(name) ? scheduledLetterRpc(name,args) : tttRpcNames.has(name) ? tttRpc(name,args) : garticRpcNames.has(name) ? garticRpc(name,args) : name === "v3_self_is_admin" ? adminRpc(name, args) : name === "create_selected_post" ? selectedPostRpc(name,args) : name === "mark_conversation_read" || name === "mark_conversations_delivered" ? chatReadReceiptRpc(name,args) : cleanupPendingGalleryMedia(name, args),
   functions: Object.freeze({ invoke: (name,options) => name === "looply-admin" ? adminFunctionInvoke(options) : chatFunctionInvoke(name,options) }),
   storage: Object.freeze({ from: storageBucket }),
   channel: realtimeBridge.channel,
