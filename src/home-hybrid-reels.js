@@ -113,6 +113,10 @@ export function openHybridReels(root, startKey) {
       media.addEventListener("click", () => {
         if(media.paused || (media.muted && soundOn)) {
           media.muted=!soundOn;
+          if(!media.muted){
+            by(dialog,"[data-reels-sound]").dataset.audioBlocked="false";
+            status("");
+          }
           void media.play().catch(()=>status("Toque em Som para ativar o áudio."));
         } else media.pause();
       });
@@ -259,8 +263,14 @@ export function openHybridReels(root, startKey) {
       // Keep the visible Reel playing muted rather than leaving a frozen poster.
       if(soundOn && error?.name==="NotAllowedError"){
         player.muted=true;
-        try{await player.play();status("Toque em Som para ativar o áudio.");}
-        catch{status("Toque no vídeo para reproduzir.");}
+        try{
+          await player.play();
+          const sound=by(dialog,"[data-reels-sound]");
+          sound.dataset.audioBlocked="true";
+          sound.textContent="♪ Ativar som";
+          sound.setAttribute("aria-label","Ativar som");
+          status("");
+        }catch{status("Toque no vídeo para reproduzir.");}
       } else status("Toque no vídeo para reproduzir.");
     }
   };
@@ -284,6 +294,7 @@ export function openHybridReels(root, startKey) {
     const soundButton=by(dialog,"[data-reels-sound]");
     const controllableFrame=slides[index].frame && /(?:tiktok\.com|youtube-nocookie\.com)/.test(new URL(slides[index].source).hostname);
     soundButton.hidden=!player&&!controllableFrame;
+    soundButton.dataset.audioBlocked="false";
     soundButton.textContent=soundOn?"♫ Som ligado":"♪ Ativar som";
     soundButton.setAttribute("aria-label",soundOn?"Silenciar som":"Ativar som");
     if(player)void startNative(player);
@@ -381,7 +392,10 @@ export function openHybridReels(root, startKey) {
     if (event.target.closest("[data-reels-close]")) { close(); return; }
     if (event.target.closest("[data-close-reels-comments]")) { by(dialog, "[data-reels-comments]").hidden = true; return; }
     if (event.target.closest("[data-reels-sound]")) {
-      soundOn = !soundOn;
+      const soundControl=by(dialog,"[data-reels-sound]");
+      const wasBlocked=soundControl.dataset.audioBlocked==="true";
+      soundOn=wasBlocked?true:!soundOn;
+      soundControl.dataset.audioBlocked="false";
       try { localStorage.setItem('looply-premium-reels-sound-on',String(soundOn)); } catch {}
       const activeVideo=slides[activeIndex]?.video;
       const activeFrame=slides[activeIndex]?.frame;
