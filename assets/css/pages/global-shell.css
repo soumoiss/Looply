@@ -27,7 +27,7 @@
 .looply-page .page-header[data-site-header] .brand-inline > span:last-child{min-width:0}
 .looply-page .page-header[data-site-header] .brand-inline strong{
   display:block;font-family:"Cabin Sketch",cursive!important;
-  font-weight:400!important;font-size:29px!important;line-height:1!important;
+  font-weight:700!important;font-size:29px!important;line-height:1!important;
   letter-spacing:0!important;color:var(--primary)!important;
 }
 .looply-page .page-header[data-site-header] .brand-inline strong+span{
