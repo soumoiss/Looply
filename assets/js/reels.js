@@ -4,7 +4,7 @@ import { bindSocialEvents, disposeSocialRealtime, loadSocialData, refreshSocialF
 import { bindHomeCommentsSheet } from "../../src/home-comments-sheet.js";
 import { captureIncomingSharedLink, takeIncomingSharedLink } from "../../src/shared-link.js";
 captureIncomingSharedLink();
-await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
+await mountAppPage({page:"reels",render:async({root,client,user,profile,isAdmin})=>{
   root.dataset.socialStream="external";
   const socialData=await loadSocialData(client,"external").catch(error=>({
     people:[],peopleError:error,posts:[],postsError:error
@@ -28,7 +28,7 @@ await mountAppPage({page:"reels",render:async({root,client,user,isAdmin})=>{
       requestAnimationFrame(()=>{input.focus({preventScroll:true});fields.scrollIntoView({block:"start",behavior:"smooth"});});
     }
   }
-  mountPremiumSurface({root, client, user, mode:"external", refresh:()=>root.__looplyRefreshData?.()});
+  mountPremiumSurface({root, client, user, profile, mode:"external", refresh:()=>root.__looplyRefreshData?.()});
   if(location.hash){
     requestAnimationFrame(()=>{
       try{document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({block:"center"});}
