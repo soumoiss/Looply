@@ -128,6 +128,8 @@ export function openHybridReels(root, startKey) {
       media.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
       media.addEventListener("load",()=>{
         if(closed || activeIndex!==index || document.hidden)return;
+        // TikTok/YouTube accept player commands; Instagram owns its player
+        // and does not expose a supported playback-control interface.
         commandEmbeddedPlayer(media,"play");
         if(soundOn)commandEmbeddedPlayer(media,"unMute");
       });
@@ -250,6 +252,8 @@ export function openHybridReels(root, startKey) {
         } else if(source.frame.hasAttribute("src")) {
           commandEmbeddedPlayer(source.frame,"pause");
           source.frame.removeAttribute("src");
+          source.frame.src="about:blank";
+          source.frame.removeAttribute("src");
         }
       }
     });
@@ -278,12 +282,17 @@ export function openHybridReels(root, startKey) {
   const activate = (index) => {
     if (closed || index < 0 || index >= slides.length) return;
     if (activeIndex === index) return;
-    // Stop audio synchronously, before loading/activating the incoming video.
+    // Pause every outgoing source immediately, before starting the next.
+    // Instagram cannot receive pause commands: unload its iframe entirely.
     for(let i=0;i<slides.length;i++){
-      if(i!==index)slides[i].video?.pause();
-      if(i!==index&&slides[i].frame?.hasAttribute("src")) {
-        commandEmbeddedPlayer(slides[i].frame,"pause");
-        slides[i].frame.removeAttribute("src");
+      if(i===index)continue;
+      slides[i].video?.pause();
+      const oldFrame=slides[i].frame;
+      if(oldFrame?.hasAttribute("src")) {
+        commandEmbeddedPlayer(oldFrame,"pause");
+        oldFrame.removeAttribute("src");
+        oldFrame.src="about:blank";
+        oldFrame.removeAttribute("src");
       }
     }
     activeIndex=index;
@@ -350,6 +359,8 @@ export function openHybridReels(root, startKey) {
         source.video?.pause();
         if(source.frame?.hasAttribute("src")){
           commandEmbeddedPlayer(source.frame,"pause");
+          source.frame.removeAttribute("src");
+          source.frame.src="about:blank";
           source.frame.removeAttribute("src");
         }
       });
