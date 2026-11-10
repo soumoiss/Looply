@@ -997,3 +997,12 @@ body.looply-premium .premium-top{z-index:90}
  body.looply-premium .hero-panel,
  body.looply-premium .premium-composer{animation:none!important}
 }
+
+/* Eliminar o scroll horizontal residual causado por decoradores/pseudo-elementos
+   do shell, mesmo quando nenhum elemento DOM excede a viewport. */
+html:has(body.looply-premium){max-width:100%;overflow-x:hidden}
+body.looply-premium{max-width:100%;overflow-x:clip}
+body.looply-premium .container-page{min-width:0;max-width:min(100%,704px)}
+body.looply-premium .page-header.gh{max-width:100%;box-sizing:border-box}
+body.looply-premium .premium-scene,
+body.looply-premium .page-content{box-sizing:border-box;max-width:100%;min-width:0}
