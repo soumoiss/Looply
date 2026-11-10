@@ -78,7 +78,7 @@ test("responsive controls preserve media aspect ratio, safe area and meaningful 
   assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)!important/);
   assert.match(css, /min-height:44px!important/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
-  assert.match(home, /stories-viewer-engagement\.css/);
+  assert.match(home, /home-reels\.css/);
 });
 
 test("chat keeps the concrete story relationship for both conversation participants", () => {
