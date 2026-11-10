@@ -1,6 +1,7 @@
 import { icon } from "./icons.js";
 import { optimizeUploadImage } from "./media-upload-optimizer.js";
 import { cachedSignedUrls } from "./storage-url-cache.js";
+import { publishNativeFeedSnapshot } from "./native-feed-bridge.js";
 import { invokeAdminAction } from "./admin.js";
 import { signProfileAvatars } from "./profiles.js";
 import { validatePublicationInput } from "./publication-validation.js";
@@ -759,6 +760,9 @@ export async function refreshSocialFeed(root, client, userId, isAdmin = false) {
   try {
     const posts = await loadPosts(client,root.dataset.socialStream||"all");
     const currentUserId = userId || (await client.auth.getUser()).data.user?.id;
+    if ((root.dataset.socialStream || "all") === "native") {
+      publishNativeFeedSnapshot(currentUserId, posts);
+    }
     feed.innerHTML = feedMarkup(posts, null, currentUserId, isAdmin);
     root.__looplyRefreshCommentsSheet?.();
     classifyFeedImages(feed);
