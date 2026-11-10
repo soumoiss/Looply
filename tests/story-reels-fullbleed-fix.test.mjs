@@ -62,7 +62,8 @@ test("comment control uses message icon, outside uses two arrows, chat uses pape
 test("immersive viewer stops former provider iframe audio and supports vertical swipe", async () => {
   const js=await read("src/home-hybrid-reels.js");
   assert.match(js,/for \(const item of feedFrames\) item\.frame\.removeAttribute\("src"\)/);
-  assert.match(js,/else if \(source\.frame\.hasAttribute\("src"\)\) source\.frame\.removeAttribute\("src"\)/);
+  assert.match(js,/commandEmbeddedPlayer\(source\.frame,"pause"\)/);
+  assert.match(js,/source\.frame\.removeAttribute\("src"\)/);
   assert.match(js,/IntersectionObserver/);
   assert.match(js,/track\.addEventListener\("scroll"/);
 });
