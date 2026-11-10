@@ -6,7 +6,9 @@ BEGIN;
 
 -- Nunca conceder DELETE irrestrito à API REST. Uma política ALL legada é
 -- permissiva; somente a RPC abaixo pode executar a operação.
-REVOKE DELETE ON TABLE public.music_dedications FROM PUBLIC, anon, authenticated;
+-- In the production Neon project, there is no "anon" PostgreSQL role.
+-- Revoke direct DELETE while keeping per-user RPC deletion available.
+REVOKE DELETE ON TABLE public.music_dedications FROM PUBLIC, authenticated;
 
 CREATE OR REPLACE FUNCTION public.v7_delete_own_music_dedication(p_dedication_id uuid)
 RETURNS TABLE(id uuid)
@@ -30,6 +32,6 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.v7_delete_own_music_dedication(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.v7_delete_own_music_dedication(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.v7_delete_own_music_dedication(uuid) TO authenticated;
 COMMIT;

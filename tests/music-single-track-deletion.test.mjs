@@ -114,7 +114,8 @@ test("sender deletion uses authenticated Neon RPC and verifies that recipient re
 
 test("SQL exposes no direct REST deletion and authenticates sender_id inside a DEFINER RPC", async () => {
   const sql=await source("migration/20261110_music_sender_delete_rpc.sql");
-  assert.match(sql,/REVOKE DELETE ON TABLE public\.music_dedications FROM PUBLIC, anon, authenticated/);
+  assert.match(sql,/REVOKE DELETE ON TABLE public\.music_dedications FROM PUBLIC, authenticated/);
+  assert.doesNotMatch(sql,/FROM PUBLIC, anon/);
   assert.match(sql,/SECURITY DEFINER/);
   assert.match(sql,/d\.sender_id = actor/);
   assert.match(sql,/GRANT EXECUTE ON FUNCTION public\.v7_delete_own_music_dedication/);
