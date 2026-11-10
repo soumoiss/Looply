@@ -85,11 +85,48 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(/^https:\/\//.test(profile?.avatarUrl||"")){
         const img=document.createElement("img");img.src=profile.avatarUrl;img.alt="";img.referrerPolicy="no-referrer";face.replaceChildren(img);
       }
-      head.append(face,element("span","fk",isHome?"No que você está pensando?":"Compartilhar link"),toggle);
+      const prompt=makeButton(isHome?"No que você está pensando?":"Compartilhar link","fk","Criar publicação");
+      prompt.dataset.premiumCompose="";
+      head.append(face,prompt,toggle);
       toggle.className="ci";
       toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m4 17 5-5 4 4 3-3 5 5"/></svg>';
       toggle.setAttribute("aria-label","Criar publicação");
     }
+  }
+  // O dialog fica dentro do formulário real; preserva FormData, uploads e submit.
+  const composeFields=by(composer||root,"[data-composer-fields]");
+  let composeDialog=null;
+  if(composer&&composeFields){
+    composeDialog=document.createElement("dialog");
+    composeDialog.className="premium-compose-dialog";
+    composeDialog.setAttribute("aria-label",isHome?"Nova publicação":"Compartilhar Reel");
+    composeFields.before(composeDialog);
+    composeDialog.append(composeFields);
+    const openCompose=()=>{
+      composeFields.hidden=false;
+      if(!composeDialog.open)composeDialog.showModal();
+      document.body.classList.add("premium-compose-open");
+      by(composer,"[data-toggle-composer]")?.setAttribute("aria-expanded","true");
+    };
+    const closeCompose=()=>{
+      composeFields.hidden=true;
+      if(composeDialog.open)composeDialog.close();
+      document.body.classList.remove("premium-compose-open");
+      document.body.style.overflow="";
+      by(composer,"[data-toggle-composer]")?.setAttribute("aria-expanded","false");
+    };
+    root.addEventListener("click",event=>{
+      const open=event.target.closest("[data-toggle-composer],[data-premium-compose]");
+      if(open){event.preventDefault();event.stopImmediatePropagation();openCompose();return;}
+      if(event.target.closest("[data-close-composer]")){
+        event.preventDefault();event.stopImmediatePropagation();closeCompose();
+      }
+    },true);
+    composeDialog.addEventListener("cancel",event=>{event.preventDefault();closeCompose();});
+    composeDialog.addEventListener("click",event=>{if(event.target===composeDialog)closeCompose();});
+    new MutationObserver(()=>{
+      if(composeFields.hidden&&composeDialog.open)closeCompose();
+    }).observe(composeFields,{attributes:true,attributeFilter:["hidden"]});
   }
   if(feed){feed.classList.add("feed");by(scene,"#feed")?.append(feed);}
   if(socialHeading){socialHeading.hidden=true;scene.append(socialHeading);}
@@ -152,7 +189,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       if(r.error)throw r.error;
       saved=new Set((r.data||[]).map(item=>item.post_id));
       for(const card of cards)by(card,"[data-premium-save]")?.setAttribute("aria-pressed",String(saved.has(card.dataset.postCard)));
-    }catch(e){/* Após aplicar a migração, o botão passa a refletir o banco. */}
+    }catch(e){notify("Não foi possível consultar os salvos: "+String(e?.message||"erro de conexão"),true);}
   }
   function decorateMusic(link){
     if(!link || link.hidden || link.tagName!=="A" || link.classList.contains("premium-music"))return;
@@ -376,7 +413,8 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     }catch(error){
       if(before)saved.add(postId);else saved.delete(postId);
       buttons.forEach(b=>b.setAttribute("aria-pressed",String(before)));
-      notify("Não foi possível atualizar os salvos.",true);
+      console.error("Looply save failed",error);
+      notify("Não foi possível salvar: "+String(error?.message||"erro de conexão"),true);
     }finally{pendingSaves.delete(postId);}
   }
   function closePicker(){picker?.remove();picker=null;}
@@ -403,7 +441,7 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
       const id=like.dataset.toggleLike;
       if((suppressed.get(id)||0)>Date.now())return;
       closePicker();const emoji=like.getAttribute("aria-pressed")==="true"?null:"❤️";
-      void react(id,like.dataset.premiumEmoji||"❤️");
+      void react(id,like.getAttribute("aria-pressed")==="true"?(like.dataset.premiumEmoji||"❤️"):"❤️");
       return;
     }
     const liker=event.target.closest("[data-premium-likers]");
@@ -495,7 +533,8 @@ export function mountPremiumSurface({root,client,user,profile,mode="native",refr
     }catch(error){
       if(generation===likeGeneration){
         const status=by(dialog,"[data-like-status]");status.replaceChildren();
-        status.append(document.createTextNode("Não foi possível carregar as curtidas. "));
+        console.error("Looply likers failed",error);
+        status.append(document.createTextNode("Não foi possível carregar as curtidas: "+String(error?.message||"erro de conexão")+". "));
         const retry=makeButton("Tentar de novo","btn");retry.onclick=()=>void loadMoreLikes();status.append(retry);
       }
     }finally{if(generation===likeGeneration)likeBusy=false;}
