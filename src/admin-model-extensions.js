@@ -22,7 +22,7 @@ export async function adminExtra(action,payload={}){
  return data;
 }
 
-async function adminFinal(action,payload={},endpoint='v48_admin_final_actions'){
+export async function adminFinal(action,payload={},endpoint='v48_admin_final_actions'){
  const session=await activeSession();
  if(!session?.access_token)throw Error('Sessão expirada');
  const response=await fetch(NEON_DATA_API_URL+'/rpc/'+endpoint,{
