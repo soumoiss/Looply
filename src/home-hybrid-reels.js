@@ -29,8 +29,9 @@ function safeSource(video) {
     return ["https:", "blob:"].includes(url.protocol) ? url.href : "";
   } catch { return ""; }
 }
-// Only TikTok and YouTube offer a documented cross-origin player control API.
-// The Instagram iframe never accepts an invented play/pause postMessage contract.
+// TikTok/YouTube provide documented iframe APIs. On Instagram, these messages
+// are handled ONLY by Looply's trusted Android WebView document-start adapter.
+// In an ordinary browser, Instagram's iframe does not expose a playback API.
 export function commandEmbeddedPlayer(frame, action) {
   const raw=frame?.getAttribute("src");
   if(!raw || !frame?.contentWindow) return false;
@@ -45,6 +46,11 @@ export function commandEmbeddedPlayer(frame, action) {
     origin="https://www.youtube-nocookie.com";
     const func={play:"playVideo",pause:"pauseVideo",mute:"mute",unMute:"unMute"}[action];
     payload=JSON.stringify({event:"command",func,args:[]});
+  } else if (host==="www.instagram.com" && ["play","pause","mute","unMute"].includes(action)) {
+    // The Android WebView installs an origin-scoped listener inside the official
+    // Instagram iframe. The browser cannot read or control that cross-origin DOM.
+    origin="https://www.instagram.com";
+    payload={type:"looply:reels-media",action};
   } else return false;
   try {frame.contentWindow.postMessage(payload,origin);return true;} catch {return false;}
 }
@@ -54,7 +60,16 @@ export function activeEmbedUrl(source) {
     if(url.hostname==="www.youtube-nocookie.com"){
       url.searchParams.set("autoplay","1");
       url.searchParams.set("playsinline","1");
+      url.searchParams.set("enablejsapi","1");
+      url.searchParams.set("mute","0");
+      if(typeof location!=="undefined" && /^https?:$/.test(location.protocol))url.searchParams.set("origin",location.origin);
+    }else if(url.hostname==="www.tiktok.com" && /^\/player\/v1\//.test(url.pathname)){
+      url.searchParams.set("autoplay","1");
+      url.searchParams.set("loop","1");
+      url.searchParams.set("force_muted","0");
+      url.searchParams.set("muted","0");
     }
+    // Instagram has no supported autoplay query parameter. Do not fabricate one.
     return url.href;
   }catch{return source;}
 }
@@ -130,8 +145,8 @@ export function openHybridReels(root, startKey) {
         if(closed || activeIndex!==index || document.hidden)return;
         // TikTok/YouTube accept player commands; Instagram owns its player
         // and does not expose a supported playback-control interface.
-        commandEmbeddedPlayer(media,"play");
         if(soundOn)commandEmbeddedPlayer(media,"unMute");
+        commandEmbeddedPlayer(media,"play");
       });
       media.setAttribute("scrolling","no");
       media.referrerPolicy = "strict-origin-when-cross-origin";
@@ -178,9 +193,10 @@ export function openHybridReels(root, startKey) {
     track.append(slide);
     return { ...source, slide, video: source.kind === "video" ? media : null, frame: source.kind === "embed" ? media : null };
   });
+  // Every new Reel session starts with audible playback requested. A sound-toggle
+  // click can mute the CURRENT session, but stale mute preferences cannot disable
+  // autoplay on future visits.
   let activeIndex = -1, soundOn = true, closed = false, scrollTimer = null;
-  // Reels start with sound requested; a previous explicit mute still takes precedence.
-  try { soundOn = localStorage.getItem('looply-premium-reels-sound-on') !== 'false'; } catch {}
   const previousOverflow = document.body.style.overflow;
   const cardFor = source => root.querySelector('[data-post-card="' + CSS.escape(source.postId) + '"]');
   const status = message => { by(dialog, "[data-reels-message]").textContent = message || ""; };
@@ -248,7 +264,7 @@ export function openHybridReels(root, startKey) {
         // Remove the iframe document as soon as the slide becomes inactive.
         if(i===index) {
           if(!source.frame.getAttribute("src"))source.frame.src=activeEmbedUrl(source.source);
-          else {commandEmbeddedPlayer(source.frame,"play");if(soundOn)commandEmbeddedPlayer(source.frame,"unMute");}
+          else {if(soundOn)commandEmbeddedPlayer(source.frame,"unMute");commandEmbeddedPlayer(source.frame,"play");}
         } else if(source.frame.hasAttribute("src")) {
           commandEmbeddedPlayer(source.frame,"pause");
           source.frame.removeAttribute("src");
@@ -302,7 +318,11 @@ export function openHybridReels(root, startKey) {
     by(dialog,"[data-reels-comments]").hidden=true;
     sync();
     const soundButton=by(dialog,"[data-reels-sound]");
-    const controllableFrame=slides[index].frame && /(?:tiktok\.com|youtube-nocookie\.com)/.test(new URL(slides[index].source).hostname);
+    const activeEmbedHost=slides[index].frame ? new URL(slides[index].source).hostname : "";
+    const androidWebView=/Android/i.test(navigator.userAgent||"") && /\bwv\b/i.test(navigator.userAgent||"");
+    const controllableFrame=slides[index].frame &&
+      (/(?:tiktok\.com|youtube-nocookie\.com)$/.test(activeEmbedHost) ||
+       (androidWebView && activeEmbedHost==="www.instagram.com"));
     soundButton.hidden=!player&&!controllableFrame;
     soundButton.dataset.audioBlocked="false";
     soundButton.textContent=soundOn?"♫ Som ligado":"♪ Ativar som";
@@ -347,8 +367,8 @@ export function openHybridReels(root, startKey) {
     const current=slides[activeIndex]?.frame;
     if(!current || event.source!==current.contentWindow || event.origin!=="https://www.tiktok.com")return;
     if(event.data?.["x-tiktok-player"] && event.data?.type==="onPlayerReady") {
-      commandEmbeddedPlayer(current,"play");
       if(soundOn)commandEmbeddedPlayer(current,"unMute");
+      commandEmbeddedPlayer(current,"play");
     }
   };
   window.addEventListener("message",onFrameMessage);
