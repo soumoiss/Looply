@@ -63,7 +63,7 @@ try{
   await page.locator("#edit-overlays .overlay-item").first().click();
   await page.locator("[data-wn-edit]").click();
   await page.locator("#wn-text-value").fill("Texto editado ✨");
-  await page.locator("#wn-text-size").fill("58");
+  await page.evaluate(()=>{const el=document.querySelector("#wn-text-size");el.value="58";el.dispatchEvent(new Event("input",{bubbles:true}));});
   await page.locator("#wn-text-palette button[data-color='#f98fa5']").click();
   await page.locator("#wn-text-save").click();
   const changes=await page.evaluate(()=>({
