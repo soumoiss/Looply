@@ -93,13 +93,114 @@ function openResourceRecord(resource,row){const title=row.subject||row.title||ro
  if(['posts','stories','community_letters','community_gallery_media','youtube_track_comments'].includes(resource)){root.append(makeButton('Excluir',()=>confirmAction(`Excluir ${title}?`,()=>callAction('delete_content',{contentType:kinds[resource],contentId:row.id,confirmDelete:true})),'dg'))}
  });}
 function unavailable(root){root.append(el('div','cnt','Ação indisponível no backend atual'))}
-async function listUsers(root){waiting(root);const payload=await callAction('users_list',{resourceType:'profiles'});const users=Array.isArray(payload?.users)?payload.users:[];
- presentRows(root,users,u=>openView(u.display_name||u.username||'Usuário',body=>{
-  const h=el('div','hd');h.innerHTML=`<div class="av" style="--g1:#7010b0;--g2:#39ff9c">${esc((u.display_name||u.username||'?').slice(0,1))}</div><div><h4>${esc(u.display_name||u.username||'')}</h4><small>@${esc(u.username||'')}</small></div>`;body.append(h);
-  const actions=el('div','bg2');actions.append(makeButton('Editar perfil',()=>openView('Editar perfil',node=>form(node,[{key:'displayName',label:'Nome',value:u.display_name||'',required:true},{key:'bio',label:'Biografia',type:'textarea',value:u.bio||''},{key:'playlistUrl',label:'Playlist',value:u.playlist_url||''}],'Salvar',data=>callAction('user_update_profile',{userId:u.id,...data})))),makeButton(u.suspended?'Restaurar acesso':'Suspender acesso',()=>confirmAction('Alterar acesso de @'+u.username+'?',()=>callAction(u.suspended?'user_restore_access':'user_set_suspended',{userId:u.id})),u.suspended?'':'dg'));body.append(actions);const pre=el('pre','js');pre.textContent=JSON.stringify(cleanRecord(u),null,2);body.append(pre)
- }),{label:'usuários'});
+async function deleteAccount(root,user){
+  waiting(root);
+  const preview=await callAction('user_delete_preview',{userId:user.id});
+  if(preview?.userId!==user.id||preview?.username!==user.username)
+    throw Error('A conta não foi confirmada pelo servidor.');
+  root.replaceChildren();
+  const header=el('h3','sec','Excluir conta definitivamente');
+  const info=el('div','cnt',
+    'A autenticação e todas as sessões serão apagadas. A conta não poderá entrar novamente. '+
+    'Cartas, conversas e outros históricos compartilhados serão preservados com o perfil anonimizado.');
+  const formNode=el('form','frm');
+  const target=el('strong','', '@'+user.username);
+  const label=el('label','f');
+  label.append(el('span',null,'Digite exatamente o username para confirmar:'),target);
+  const input=el('input');input.type='text';input.required=true;
+  input.autocomplete='off';input.spellcheck=false;
+  input.setAttribute('aria-label','Confirme o username da conta');
+  label.append(input);
+  const consent=el('label','f');
+  const check=el('input');check.type='checkbox';check.required=true;
+  consent.append(check,el('span',null,'Entendo que a conta será excluída permanentemente e que os registros compartilhados permanecerão anonimizados.'));
+  const buttons=el('div','bg2'),confirm=makeButton('Excluir conta permanentemente',()=>{},'dg');
+  confirm.type='submit';confirm.disabled=true;
+  const cancel=makeButton('Cancelar',backModal);
+  const status=el('div','cnt');status.setAttribute('role','status');
+  const toggle=()=>{confirm.disabled=input.value.trim()!==user.username||!check.checked};
+  input.addEventListener('input',toggle);check.addEventListener('change',toggle);
+  buttons.append(confirm,cancel);formNode.append(label,consent,buttons,status);
+  formNode.onsubmit=async event=>{
+    event.preventDefault();toggle();if(confirm.disabled)return;
+    confirm.disabled=true;cancel.disabled=true;status.textContent='Excluindo conta…';
+    try{
+      const result=await callAction('user_delete_permanently',{
+        userId:user.id,confirmUsername:input.value.trim(),
+        confirmDelete:true,preserveSharedContent:true
+      });
+      if(result?.deleted!==true||result?.authDeleted!==true||result?.profileAnonymized!==true)
+        throw Error('O servidor não confirmou a exclusão completa da autenticação.');
+      modalStack=[];dialog.close();toast('Conta excluída e acesso revogado');
+      await refreshDashboard();
+    }catch(error){
+      status.textContent=String(error?.message||'Exclusão não confirmada');
+      toast(status.textContent,true);cancel.disabled=false;toggle();
+    }
+  };
+  root.append(header,info,formNode);
 }
-async function createUser(root){form(root,[{key:'username',label:'Username',required:true},{key:'displayName',label:'Nome completo',required:true},{key:'playlistUrl',label:'Playlist do YouTube'},{key:'password',label:'Senha inicial',type:'password'},{key:'confirm',label:'Confirmar senha',type:'password'}],'Cadastrar',async data=>{if(data.password!==data.confirm)throw Error('As senhas não coincidem');if(data.password&&data.password.length<8)throw Error('Backend atual exige senha com ao menos 8 caracteres');return callAction('user_create_with_password',data)})}
+async function listUsers(root){
+  waiting(root);
+  const payload=await callAction('users_list',{resourceType:'profiles'});
+  if(!Array.isArray(payload?.users))throw Error('O servidor não retornou uma lista válida de usuários.');
+  const users=payload.users.filter(u=>u?.id && u?.username&&!/^deleted_[0-9a-f]{20}$/.test(u.username));
+  presentRows(root,users,u=>openView(u.display_name||u.username||'Usuário',body=>{
+    const h=el('div','hd');
+    h.innerHTML='<div class="av" style="--g1:#7010b0;--g2:#39ff9c">'+
+      esc((u.display_name||u.username||'?').slice(0,1))+'</div><div><h4>'+
+      esc(u.display_name||u.username||'')+'</h4><small>@'+esc(u.username||'')+'</small></div>';
+    body.append(h,el('div','cnt',u.suspended?'Acesso suspenso':'Acesso ativo'));
+    const actions=el('div','bg2');
+    actions.append(makeButton('Editar perfil',()=>openView('Editar perfil',node=>
+      form(node,[{key:'displayName',label:'Nome',value:u.display_name||'',required:true},
+        {key:'bio',label:'Biografia',type:'textarea',value:u.bio||''},
+        {key:'playlistUrl',label:'Playlist',value:u.playlist_url||''}],
+        'Salvar',data=>callAction('user_update_profile',{userId:u.id,...data})))));
+    if(String(u.username||'').toLowerCase()!=='peixinho'){
+      actions.append(makeButton(u.suspended?'Restaurar acesso':'Suspender acesso',
+        ()=>confirmAction((u.suspended?'Restaurar':'Suspender')+' @'+u.username+'?',async()=>{
+          const nextSuspended=!u.suspended;
+          const action=nextSuspended?'user_set_suspended':'user_restore_access';
+          const response=await callAction(action,{userId:u.id});
+          if(response?.updated!==true||response?.suspended!==nextSuspended)
+            throw Error('O servidor não confirmou a mudança de acesso.');
+          const check=await callAction('user_delete_preview',{userId:u.id});
+          if(check?.suspended!==nextSuspended)
+            throw Error('A alteração de acesso não persistiu no Neon Auth.');
+          u.suspended=nextSuspended;
+        }),u.suspended?'':'dg'));
+      actions.append(makeButton('Excluir definitivamente',()=>openView(
+        'Excluir @'+u.username,node=>deleteAccount(node,u)),'dg'));
+    }
+    body.append(actions);
+    const pre=el('pre','js');pre.textContent=JSON.stringify(cleanRecord(u),null,2);
+    body.append(pre);
+  }),{label:'usuários'});
+}
+async function createUser(root){
+  form(root,[
+    {key:'username',label:'Username',required:true,minlength:3},
+    {key:'displayName',label:'Nome completo',required:true},
+    {key:'playlistUrl',label:'Playlist do YouTube'},
+    {key:'password',label:'Senha inicial',type:'password'},
+    {key:'confirm',label:'Confirmar senha',type:'password'}
+  ],'Cadastrar',async data=>{
+    data.username=String(data.username||'').trim().toLowerCase();
+    data.displayName=String(data.displayName||'').trim();
+    if(!/^[a-z0-9_]{3,30}$/.test(data.username))
+      throw Error('Username deve ter de 3 a 30 caracteres: letras, números ou _.');
+    if(!data.displayName||data.displayName.length>80)
+      throw Error('Informe um nome de 1 a 80 caracteres.');
+    if(data.password!==data.confirm)throw Error('As senhas não coincidem.');
+    if(data.password&&(data.password.length<8||data.password.length>72))
+      throw Error('A senha precisa ter entre 8 e 72 caracteres.');
+    const result=await callAction('user_create_with_password',data);
+    if(result?.created!==true||!/^[0-9a-f-]{36}$/i.test(String(result.userId||'')))
+      throw Error('A criação da conta não foi confirmada no servidor.');
+    return result;
+  });
+}
 async function listLog(root){waiting(root);const rows=await directRead('looply_admin_letter_access_log');presentRows(root,rows,row=>recordPage('Leitura privada',row),{label:'eventos'})}
 async function listReports(root){waiting(root);const rows=await panelAction('reports_list');presentRows(root,rows,row=>openView('Denúncia',body=>{recordInline(body,row);const actions=el('div','bg2');for(const [label,action] of [['Resolver','reports_resolve'],['Ignorar','reports_ignore']])actions.append(makeButton(label,()=>confirmAction(label+' denúncia?',()=>panelAction(action,{id:row.id}))));body.append(actions)}),{label:'denúncias'})}
 async function words(root){waiting(root);const rows=await panelAction('word_list');const holder=el('div');root.replaceChildren();root.append(makeButton('Adicionar termo',()=>openView('Adicionar termo',b=>form(b,[{key:'term',label:'Termo',required:true}],'Adicionar',data=>panelAction('word_add',data))),'main'),holder);
