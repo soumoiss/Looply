@@ -36,6 +36,9 @@
                 android:resource="@xml/right_now_file_paths" />
         </provider>
         <activity
+            android:name=".NativeFeedActivity"
+            android:exported="false" />
+        <activity
             android:name=".IncomingCallActivity"
             android:exported="false"
             android:showWhenLocked="true"
@@ -69,6 +72,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver
+            android:name=".NativeCallDeclineReceiver"
+            android:exported="false" />
         <service
             android:name=".LooplyMessagingService"
             android:exported="false"

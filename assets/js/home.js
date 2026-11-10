@@ -1,4 +1,5 @@
 import { mountPremiumSurface } from "../../src/home-reels-premium.js?v=reels-clean-20261110";
+import { mountNativeFeedShortcut, publishNativeFeedSnapshot } from "../../src/native-feed-bridge.js";
 import { mountAppPage } from "../../src/page-runtime.js?v=one-session-entry-20261031";
 import { welcomeGreeting } from "../../src/welcome.js";
 import { bindHomeProfilePreview } from "../../src/home-profile-preview.js";
@@ -81,10 +82,12 @@ await mountAppPage({ page: "home", render: async ({ root, client, user, profile,
     : { people: [], peopleError: socialResult.reason, posts: [], postsError: socialResult.reason };
   const stories = storiesResult.status === "fulfilled" ? storiesResult.value : [];
   const storiesError = storiesResult.status === "rejected" ? storiesResult.reason : null;
+  publishNativeFeedSnapshot(user.id, socialData.posts, socialData.postsError);
   root.dataset.socialStream="native";
   root.innerHTML = `${renderWelcome(profile)}${renderGlobalHomeSettings(globalSettings)}${storiesMarkup(
     stories, storiesError, socialData.people, socialData.peopleError, user.id, profile
   )}${socialMarkup(socialData, user.id, isAdmin,"native")}`;
+  mountNativeFeedShortcut(root);
   void mountSecretMessages(client, user.id, isAdmin);
   // Only the Stories area is replaced; Feed, profile and all other modules remain unchanged.
   const whyNow = mountWhyNowStories({ root, client, user, profile, initialStories: stories });

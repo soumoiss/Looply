@@ -35,8 +35,8 @@ android {
         applicationId = "com.looply.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 309
-        versionName = "3.0.9"
+        versionCode = 312
+        versionName = "3.0.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -77,6 +77,7 @@ android {
 dependencies {
     implementation("androidx.webkit:webkit:1.15.0")
     implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
     androidTestImplementation("androidx.test:core:1.6.1")

@@ -119,6 +119,16 @@ class LooplyMessagingService : FirebaseMessagingService() {
             manager.createNotificationChannel(channel)
         }
         fun actionIntent(action: String): PendingIntent {
+            if (action == "decline") {
+                val declineIntent = Intent(this, NativeCallDeclineReceiver::class.java).apply {
+                    this.action = NativeCallDeclineReceiver.ACTION_DECLINE
+                    putExtra("conversationId", conversationId)
+                }
+                return PendingIntent.getBroadcast(
+                    this, (conversationId + "decline").hashCode(), declineIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
             val intent = Intent(this, MainActivity::class.java).apply {
                 this.action = "com.looply.app.CALL_" + action.uppercase()
                 putExtra("looply_route",

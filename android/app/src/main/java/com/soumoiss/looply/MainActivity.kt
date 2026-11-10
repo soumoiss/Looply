@@ -100,7 +100,11 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (wasOffline) {
                     wasOffline = false
-                    loadLooply()
+                    // Preserve the current tab, scroll position and drafts.
+                    // Foreground controllers may refresh data on Android's online event.
+                    if (::webView.isInitialized) webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('online'))", null
+                    )
                 }
             }
         }
@@ -109,9 +113,9 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (!hasInternet()) {
                     wasOffline = true
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet para sincronizar o Looply com suas conversas, publicações e mídias."
+                    // Never cover the bundled app with a blocking offline dialog.
+                    if (::webView.isInitialized) webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('offline'))", null
                     )
                 }
             }
@@ -140,12 +144,12 @@ class MainActivity : Activity() {
 
         val restored = savedInstanceState?.let { webView.restoreState(it) != null } ?: false
         if (!restored) {
-            if (hasInternet()) loadLooply() else {
-                wasOffline = true
-                showError(
-                    "Sem conexão com a internet",
-                    "O Looply precisa de internet para conectar sua conta e sincronizar suas mídias."
-                )
+            // The HTML shell is bundled in the APK via WebViewAssetLoader;
+            // don't prevent it from opening just because the device is offline.
+            wasOffline = !hasInternet()
+            loadLooply()
+            if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
+                startActivity(Intent(this, NativeFeedActivity::class.java))
             }
         }
         handleNotificationRoute(intent)
@@ -197,7 +201,9 @@ class MainActivity : Activity() {
             syncFirebaseTokenToWeb(webView.url)
             if (wasOffline && hasInternet()) {
                 wasOffline = false
-                loadLooply()
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new Event('online'))", null
+                )
             }
         }
     }
@@ -452,6 +458,8 @@ class MainActivity : Activity() {
         // oficial do Instagram nasce. Origem restrita; sem scraping nem downloads.
         installInstagramReelAutoplayAdapter()
         ChatAvatarCache.register(this, webView)
+        NativeFeedBridge.register(this, webView)
+        NativeCallAuthBridge.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -726,6 +734,15 @@ class MainActivity : Activity() {
     }
 
     private fun routeTopLevelUrl(uri: Uri): Boolean {
+        if (uri.scheme.equals("looply-native", ignoreCase = true)) {
+            val from = webView.url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            if (uri.host == "feed" && uri.path.isNullOrEmpty() &&
+                from != null && isTrustedWebOrigin(from) &&
+                from.path?.startsWith("/Looply/") == true) {
+                startActivity(Intent(this, NativeFeedActivity::class.java))
+            }
+            return true
+        }
         // Somente a página principal do Looply pode pedir o seletor nativo.
         // Não expomos JavascriptInterface a iframes de terceiros.
         if (uri.scheme.equals("looply-share", ignoreCase = true)) {
@@ -1012,10 +1029,7 @@ class MainActivity : Activity() {
         if (reloadLocked) return
         reloadLocked = true
         mainHandler.postDelayed({ reloadLocked = false }, 1500L)
-        if (!hasInternet()) {
-            showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.")
-            return
-        }
+        // Always allow reload of packaged local assets even without a connection.
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         webView.stopLoading()
