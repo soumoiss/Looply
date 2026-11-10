@@ -40,6 +40,18 @@ class ShareReceiverActivity : Activity() {
             .build()
     }
 
+    private fun localShareResponse(url: Uri): WebResourceResponse? {
+        if (!url.host.equals(BundledAssetRouter.LEGACY_VIRTUAL_HOST, ignoreCase = true)) {
+            return null
+        }
+        if (!url.scheme.equals("https", ignoreCase = true)) {
+            return BundledAssetRouter.localNotFound()
+        }
+        // A missing local share page or media grant must never cause a
+        // network fetch from GitHub Pages or expose any unrelated file.
+        return assets.shouldInterceptRequest(url) ?: BundledAssetRouter.localNotFound()
+    }
+
     private fun mediaLength(uri: Uri): Long? = try {
         contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
@@ -118,7 +130,7 @@ class ShareReceiverActivity : Activity() {
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
-                assets.shouldInterceptRequest(request.url)
+                localShareResponse(request.url)
 
             override fun onReceivedError(
                 view: WebView, request: WebResourceRequest,
