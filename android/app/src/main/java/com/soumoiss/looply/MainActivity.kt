@@ -47,6 +47,8 @@ import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
 import androidx.core.content.FileProvider
+import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -88,12 +90,7 @@ class MainActivity : Activity() {
         getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
 
-    private val assetLoader by lazy {
-        WebViewAssetLoader.Builder()
-            .setDomain(GITHUB_PAGES_HOST)
-            .addPathHandler("/Looply/", WebViewAssetLoader.AssetsPathHandler(this))
-            .build()
-    }
+    private val assetRouter by lazy { BundledAssetRouter(this) }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -293,8 +290,8 @@ class MainActivity : Activity() {
         val homeButton = Button(this).apply {
             text = "Voltar ao início"
             isAllCaps = false
-            setOnClickListener { if (hasInternet()) loadLooply() else
-                showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.") }
+            // index.html is a packaged asset. The local shell must be usable offline.
+            setOnClickListener { loadLooply() }
         }
         errorPanel.addView(errorTitle)
         errorPanel.addView(errorMessage)
@@ -427,6 +424,18 @@ class MainActivity : Activity() {
     }
 
     private fun configureWebView() {
+        // Service Workers can fetch independently of WebViewClient. Apply the
+        // same local-only rule before any application page is loaded.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)
+        ) {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(
+                object : ServiceWorkerClientCompat() {
+                    override fun shouldInterceptRequest(request: WebResourceRequest) =
+                        assetRouter.intercept(request.url)
+                }
+            )
+        }
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -465,7 +474,7 @@ class MainActivity : Activity() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
-            ) = assetLoader.shouldInterceptRequest(request.url)
+            ) = assetRouter.intercept(request.url)
 
             override fun shouldOverrideUrlLoading(
                 view: WebView,
@@ -790,7 +799,10 @@ class MainActivity : Activity() {
     private fun isTrustedWebOrigin(uri: Uri): Boolean {
         if (!uri.scheme.equals("https", ignoreCase = true)) return false
         val host = uri.host?.lowercase() ?: return false
-        return host == APP_ASSET_HOST || host == GITHUB_PAGES_HOST
+        // The legacy hostname is a VIRTUAL origin for packaged /Looply/ files,
+        // not permission to run unrelated public pages inside this WebView.
+        return host == APP_ASSET_HOST ||
+            (host == GITHUB_PAGES_HOST && uri.path?.startsWith("/Looply/") == true)
     }
 
     private fun launchExternal(uri: Uri) {
