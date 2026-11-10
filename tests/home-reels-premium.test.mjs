@@ -11,7 +11,7 @@ const legacy=["home-hybrid.css","feed-reels-refresh.css","feed-reels-experience.
 test("os dois destinos carregam exclusivamente o novo CSS de página, sem modo antigo",()=>{
   for(const p of pages){
     const html=read(p);
-    assert.match(html,/assets\/css\/pages\/home-reels-model-v3\.css\?v=/);
+    assert.match(html,/assets\/css\/pages\/home-reels\.css\?v=/);
     assert.match(html,/data-site-header/);
     assert.match(html,/src\/theme-bootstrap\.js/);
     for(const old of legacy)assert.ok(!html.includes(old),p+": "+old);
@@ -93,7 +93,7 @@ test("compositor original, live feed, tema e Why Now permanecem ligados aos dado
 test("service worker e build referenciam os artefatos sem chaves no front",()=>{
   const sw=read("sw.js"),build=read("scripts/build.mjs");
   assert.match(sw,/looply-shell-v51-home-reels-faithful-20261110/);
-  assert.match(sw,/home-reels-model-v3\.css/);
+  assert.match(sw,/home-reels\.css/);
   assert.match(sw,/src\/home-reels-premium\.js/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "src"\)/);
   assert.match(build,/await cp\(path\.join\(projectRoot, "assets"\)/);
