@@ -675,6 +675,7 @@ export const looplyClient = Object.freeze({
       try {
         window.LooplyNativeCallAuth?.postMessage(JSON.stringify({type:"clear"}));
         window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"}));
+        window.LooplyNativeChat?.postMessage(JSON.stringify({type:"logout"}));
       } catch {}
       return neon.auth.signOut();
     },
