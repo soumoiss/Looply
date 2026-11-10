@@ -391,3 +391,9 @@ body.looply-admin-premium #gh .brand .mark .circle > svg{
     animation:none!important;
   }
 }
+
+
+/* Contain legacy horizontal overflow without turning the body into a
+   transformed/filtered ancestor of the viewport-fixed six-button dock. */
+html:has(body.looply-page){max-width:100%;overflow-x:clip}
+body.looply-page{max-width:100%;overflow-x:clip}
