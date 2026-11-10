@@ -96,7 +96,7 @@
       const name = document.createElement("span"); name.textContent = own ? (stories.length ? "Seu Why Now" : "Criar agora") : group.name;
       item.append(ring, name);
       item.onclick = () => {
-        if (!stories.length && own) { openCamera(); return; }
+        if (!stories.length && own) { openCreateSourcePicker(); return; }
         const records = stories.filter(st => st.url).map(st => contentRecord(st, group));
         if (records.length) openViewer(records, 0, "home");
       };
@@ -594,7 +594,7 @@
       }
     }
     if (data.type === "open-create") {
-      void openCamera();
+      openCreateSourcePicker();
     }
     if (data.type === "open-story" && data.storyId) {
       for (const group of groups) {
@@ -615,7 +615,7 @@
     }
 
   });
-  window.whyNowOpenCreate=()=>{void openCamera();};
+  window.whyNowOpenCreate=()=>{openCreateSourcePicker();};
   window.whyNowOpenStory=storyId=>{
     for(const group of groups){
       const items=storiesOf(group).filter(st=>st.url);

@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Context
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -19,6 +20,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Message
 import android.provider.Settings
+import android.provider.MediaStore
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -44,12 +46,14 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import android.webkit.URLUtil
+import androidx.core.content.FileProvider
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.util.UUID
+import java.io.File
 
 class MainActivity : Activity() {
     private data class PendingDownload(
@@ -67,6 +71,9 @@ class MainActivity : Activity() {
     private lateinit var errorMessage: TextView
 
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingNativeCaptureKind: String? = null
+    private var nativeCameraOutputUri: Uri? = null
+    private var nativeCameraOutputFile: File? = null
     private var pendingDownload: PendingDownload? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var pendingWebResources: Array<String> = emptyArray()
@@ -569,6 +576,32 @@ class MainActivity : Activity() {
                 fileChooserCallback?.onReceiveValue(null)
                 fileChooserCallback = callback
 
+                // An explicit <input capture="environment"> from Right Now must open
+                // Android's camera app, NOT the gallery/DocumentsUI picker.
+                // Generic file inputs intentionally continue through the existing picker.
+                val accepted = params.acceptTypes.flatMap { it.split(",") }
+                    .map { it.trim().substringBefore(";").lowercase() }
+                val captureKind = if (params.isCaptureEnabled &&
+                    params.mode == FileChooserParams.MODE_OPEN &&
+                    view.url.orEmpty().startsWith(REMOTE_START_URL)) {
+                    when {
+                        accepted.any { it.startsWith("image/") } -> "image"
+                        accepted.any { it.startsWith("video/") } -> "video"
+                        else -> null
+                    }
+                } else null
+                if (captureKind != null) {
+                    if (checkSelfPermission(Manifest.permission.CAMERA) !=
+                        PackageManager.PERMISSION_GRANTED) {
+                        pendingNativeCaptureKind = captureKind
+                        requestPermissions(arrayOf(Manifest.permission.CAMERA),
+                            REQUEST_NATIVE_CAMERA)
+                    } else if (!launchNativeCamera(captureKind)) {
+                        cancelNativeCamera("Não foi possível abrir a câmera do dispositivo.")
+                    }
+                    return true
+                }
+
                 val intents = mutableListOf<Intent>()
                 try {
                     // Android's documented WebView flow: launch createIntent() directly,
@@ -751,6 +784,47 @@ class MainActivity : Activity() {
         }
     }
 
+    // Save a full-resolution photo/video to our own temporary content URI.
+    // The camera app may return RESULT_OK with data == null when EXTRA_OUTPUT is used.
+    private fun launchNativeCamera(kind: String): Boolean {
+        val video = kind == "video"
+        var output: File? = null
+        return try {
+            val directory = File(cacheDir, "right-now-camera").apply { mkdirs() }
+            output = File.createTempFile("right_now_", if (video) ".mp4" else ".jpg", directory)
+            val uri = FileProvider.getUriForFile(this,
+                "${packageName}.fileprovider", output!!)
+            val intent = Intent(if (video) MediaStore.ACTION_VIDEO_CAPTURE
+                else MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                if (video) putExtra(MediaStore.EXTRA_DURATION_LIMIT, 90)
+                clipData = ClipData.newUri(contentResolver, "Right Now", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            nativeCameraOutputUri = uri
+            nativeCameraOutputFile = output
+            startActivityForResult(intent, REQUEST_FILE_CHOOSER)
+            true
+        } catch (error: Exception) {
+            android.util.Log.w("Looply", "Camera intent unavailable", error)
+            output?.delete()
+            nativeCameraOutputUri = null
+            nativeCameraOutputFile = null
+            false
+        }
+    }
+
+    private fun cancelNativeCamera(message: String) {
+        pendingNativeCaptureKind = null
+        nativeCameraOutputFile?.delete()
+        nativeCameraOutputFile = null
+        nativeCameraOutputUri = null
+        fileChooserCallback?.onReceiveValue(null)
+        fileChooserCallback = null
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
     private fun authorizeWebMedia(request: PermissionRequest) {
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
             request.origin.host?.lowercase() != GITHUB_PAGES_HOST ||
@@ -841,6 +915,17 @@ class MainActivity : Activity() {
                     }
                 }
                 pendingWebResources = emptyArray()
+            }
+            REQUEST_NATIVE_CAMERA -> {
+                val kind = pendingNativeCaptureKind
+                pendingNativeCaptureKind = null
+                if (kind != null && grantResults.isNotEmpty() &&
+                    grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                    if (!launchNativeCamera(kind))
+                        cancelNativeCamera("Nenhum aplicativo de câmera compatível foi encontrado.")
+                } else {
+                    cancelNativeCamera("Permita o acesso à câmera para fotografar ou gravar.")
+                }
             }
             REQUEST_DOWNLOAD_STORAGE -> {
                 val download = pendingDownload
@@ -973,7 +1058,18 @@ class MainActivity : Activity() {
         // Clear the callback before delivery so this chooser can never complete twice.
         fileChooserCallback = null
 
-        val selectedUris = if (resultCode == RESULT_OK && data != null) {
+        val capturedUri = nativeCameraOutputUri
+        val capturedFile = nativeCameraOutputFile
+        nativeCameraOutputUri = null
+        nativeCameraOutputFile = null
+        val cameraResult = if (resultCode == RESULT_OK &&
+            capturedUri != null && capturedFile?.length()?.let { it > 0L } == true) {
+            arrayOf(capturedUri)
+        } else null
+
+        val selectedUris = if (cameraResult != null) {
+            cameraResult
+        } else if (resultCode == RESULT_OK && data != null) {
             // Prefer WebView's documented parser, then merge the common provider result
             // forms as a compatibility fallback for OEM file pickers and Photo Picker.
             val uris = linkedSetOf<Uri>()
@@ -993,6 +1089,7 @@ class MainActivity : Activity() {
             null
         }
 
+        if (capturedFile != null && cameraResult == null) capturedFile.delete()
         if (resultCode == RESULT_OK && selectedUris.isNullOrEmpty()) {
             Toast.makeText(
                 this,
@@ -1009,6 +1106,10 @@ class MainActivity : Activity() {
         unregisterNetworkCallback()
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
+        nativeCameraOutputFile?.delete()
+        nativeCameraOutputFile = null
+        nativeCameraOutputUri = null
+        pendingNativeCaptureKind = null
         pendingDownload = null
         pendingWebPermission?.deny()
         pendingWebPermission = null
@@ -1035,5 +1136,6 @@ class MainActivity : Activity() {
         private const val REQUEST_WEB_MEDIA = 702
         private const val REQUEST_DOWNLOAD_STORAGE = 703
         private const val REQUEST_POST_NOTIFICATIONS = 704
+        private const val REQUEST_NATIVE_CAMERA = 705
     }
 }

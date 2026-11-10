@@ -113,7 +113,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     history.replaceState(history.state,"",url.pathname + url.search + url.hash);
   } else requestedStoryId = null;
   function screen(mode) {
-    expanded = ["camera","editor","viewer"].includes(mode);
+    expanded = ["create","camera","editor","viewer"].includes(mode);
     overlay.classList.toggle("why-now-expanded",expanded);
     styleParent.classList.toggle("why-now-screen-open",expanded);
   }
@@ -122,7 +122,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     frame.contentWindow.postMessage({channel:CHANNEL,type,...payload},location.origin);
   }
   function open(type,payload) {
-    screen(type==="open-create"?"camera":"viewer");
+    screen(type==="open-create"?"create":"viewer");
     if (!frameReady) {pendingOpen={type,payload};return;}
     // Same-origin direct entry preserves the user's transient activation for media playback.
     // postMessage is kept as a fallback for startup/deep links.
