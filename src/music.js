@@ -2,7 +2,7 @@ import { icon } from "./icons.js";
 import { signProfileAvatars } from "./profiles.js";
 import { readOwnDedicationForEdit, saveOwnDedicationNote } from "./music-dedication-edit.js";
 import { normalizeStorySong, officialSongPreview, PROVIDER_NAMES, resolveAppleStoryPreview } from "./story-music-catalog.js";
-import { dedicationTrackFromUrl, normalizeDedicationTrack, spotifyTrackFromLink, searchDedicationProvider } from "./music-track-dedications.js";
+import { dedicationTrackFromUrl, normalizeDedicationTrack, searchDedicationProvider } from "./music-track-dedications.js";
 import { deleteOwnDedication } from "./music-dedication-delete.js";
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -317,17 +317,6 @@ function musicContent(data, userId) {
         </div>
         <label for="musicCatalogQuery">Pesquisar música ou artista</label>
         <input id="musicCatalogQuery" type="search" maxlength="70" autocomplete="off" placeholder="Buscar no Apple Music" data-music-catalog-query>
-        <div class="music-spotify-link" data-music-spotify-link hidden>
-          <strong>Colar faixa do Spotify</strong>
-          <label for="musicSpotifyTrackLink">Link da música</label>
-          <input id="musicSpotifyTrackLink" type="url" inputmode="url" maxlength="400" placeholder="https://open.spotify.com/track/..." data-music-spotify-url>
-          <div class="music-form-grid">
-            <label>Título<input type="text" maxlength="110" data-music-spotify-title placeholder="Nome da música"></label>
-            <label>Artista<input type="text" maxlength="100" data-music-spotify-artist placeholder="Artista"></label>
-          </div>
-          <button class="text-button" type="button" data-music-spotify-use>Usar esta faixa</button>
-          <span class="form-status" data-music-spotify-status role="status"></span>
-        </div>
         <p class="music-picker-help" data-music-search-status role="status" aria-live="polite">Digite ao menos duas letras para pesquisar no catálogo.</p>
         <div class="music-picker-results" data-music-search-results></div>
         <div class="music-picker-preview" data-music-search-preview aria-live="polite"></div>
@@ -650,6 +639,8 @@ export function bindMusicEvents(root, client, getUserId) {
     const list = root.querySelector("[data-music-search-results]");
     catalogSongs = [];
     selectedCatalogIndex = -1;
+    const confirm = root.querySelector("[data-music-picker-confirm]");
+    if (confirm) confirm.disabled = true;
     const term = String(query || "").trim();
     renderCatalogResults(catalogSongs);
     const normalized = term.toLocaleLowerCase("pt-BR");
@@ -667,10 +658,10 @@ export function bindMusicEvents(root, client, getUserId) {
         renderCatalogResults(catalogSongs);
         if (status) status.textContent = catalogSongs.length
           ? "Selecione uma música. A prévia, quando disponível, usa o player oficial."
-          : (musicProvider === "spotify" ? "Nenhuma música encontrada. Cole o link de uma faixa Spotify abaixo." : "Nenhuma música encontrada. Tente buscar pelo nome do artista.");
+          : "Nenhuma música encontrada. Tente buscar outro nome ou artista.";
       } catch (error) {
         if (error?.name === "AbortError" || sequence !== catalogSearchSequence) return;
-        if (status) status.textContent = musicProvider === "spotify" ? "Busca Spotify indisponível. Use o link de uma faixa individual abaixo." : "A busca está indisponível agora. Tente novamente em instantes.";
+        if (status) status.textContent = musicProvider === "spotify" ? "Busca do Spotify indisponível. Tente novamente." : "A busca está indisponível agora. Tente novamente.";
         if (list) list.replaceChildren();
       }
     }, 260);
@@ -699,26 +690,9 @@ export function bindMusicEvents(root, client, getUserId) {
       musicProvider = providerButton.dataset.musicProvider === "spotify" ? "spotify" : "apple";
       root.querySelectorAll("[data-music-provider]").forEach(button =>
         button.setAttribute("aria-pressed", String(button === providerButton)));
-      const spotifyLink = root.querySelector("[data-music-spotify-link]");
-      if (spotifyLink) spotifyLink.hidden = musicProvider !== "spotify";
       const query = root.querySelector("[data-music-catalog-query]");
       if (query) query.placeholder = musicProvider === "spotify" ? "Buscar no Spotify" : "Buscar no Apple Music";
       searchCatalog(query?.value || "", ++catalogSearchSequence);
-      return;
-    }
-    const spotifyLinkButton = event.target.closest("[data-music-spotify-use]");
-    if (spotifyLinkButton) {
-      const song = spotifyTrackFromLink(
-        root.querySelector("[data-music-spotify-url]")?.value,
-        root.querySelector("[data-music-spotify-title]")?.value,
-        root.querySelector("[data-music-spotify-artist]")?.value
-      );
-      if (!song) {
-        const status = root.querySelector("[data-music-spotify-status]");
-        if (status) { status.textContent = "Informe um link Spotify de faixa, seu título e artista."; status.dataset.kind = "error"; }
-        return;
-      }
-      applySelectedSong(song);
       return;
     }
     const applePlay = event.target.closest("[data-music-apple-play]");

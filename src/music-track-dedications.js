@@ -35,15 +35,6 @@ export function normalizeDedicationTrack(value) {
   return { ...track, id: parsed.id, url: parsed.url };
 }
 
-export function spotifyTrackFromLink(value, title, artist) {
-  const parsed = dedicationTrackFromUrl(value);
-  if (!parsed || parsed.provider !== "spotify") return null;
-  return normalizeDedicationTrack({
-    provider: "spotify", id: parsed.id, url: parsed.url,
-    title: String(title || "").trim(), artist: String(artist || "").trim()
-  });
-}
-
 export async function searchDedicationProvider(value, provider, client, options = {}) {
   if (provider === "apple") {
     return (await searchAppleMusicPublic(value, options)).map(normalizeDedicationTrack).filter(Boolean);
