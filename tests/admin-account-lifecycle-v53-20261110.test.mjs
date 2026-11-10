@@ -6,6 +6,8 @@ const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const sql=read("migration/20261110_v53_admin_account_lifecycle.sql");
 const bridge=read("src/neon-production-client.js");
 const ui=read("src/admin-model-live.js");
+const gate=read("src/maintenance-gate.js");
+const extended=read("src/admin-model-extensions.js");
 
 test("v53 only permits Peixinho's verified administrator session",()=>{
   assert.match(sql,/auth\.uid\(\) IS NULL OR NOT public\.v3_self_is_admin\(\)/);
@@ -53,4 +55,22 @@ test("frontend routes management actions to safe RPC and verifies server respons
   assert.match(ui,/user_create_with_password/);
   assert.match(ui,/result\?\.created!==true/);
   assert.match(ui,/if\(!Array\.isArray\(payload\?\.users\)\)/);
+});
+
+test("all page controllers check the suspension independently of maintenance",()=>{
+  assert.match(sql,/CREATE OR REPLACE FUNCTION public\.v54_self_account_access/);
+  assert.match(sql,/\x27allowed\x27, EXISTS/);
+  assert.match(sql,/\x27suspended\x27, EXISTS/);
+  assert.match(gate,/\/rpc\/v54_self_account_access/);
+  assert.match(gate,/access\?\.suspended === true/);
+  assert.match(gate,/maintenanceScreen\(suspended \? "suspended" : "maintenance"\)/);
+  assert.match(gate,/title\.textContent = reason === "suspended" \? "Acesso suspenso"/);
+  assert.match(gate,/looplyClient\.auth\.signOut\(\)/);
+  assert.match(sql,/REVOKE ALL ON FUNCTION public\.v54_self_account_access/);
+});
+test("extended admin modules reject server errors and unconfirmed writes",()=>{
+  assert.match(extended,/data\?\.error\|\|data\?\.success===false/);
+  for(const action of ["vip_set","features_set","sessions_revoke","stickers_set","groups_rename","games_finish"])
+    assert.ok(extended.includes(action+":()=>"),action);
+  assert.match(extended,/O Neon não confirmou a alteração administrativa/);
 });
