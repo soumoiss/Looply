@@ -185,7 +185,9 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
         lilac:token("--lilac","#cdb2f3"),
         surface:token("--surface-strong","#fff"),
         text:token("--text","#231e2c"),
-        muted:token("--muted","#8c8197")
+        muted:token("--muted","#8c8197"),
+        fontFamily:token("--looply-font-family","Inter,sans-serif"),
+        fontSize:token("--looply-root-font-size","16px")
       },
       me:{id:user.id,name:String(profile?.display_name||profile?.username||"Você"),avatarUrl:profile?.avatarUrl||""},
       groups:groupActiveStories(records).map(group=>toGroup(group,user.id))
@@ -601,6 +603,8 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
       send("ack",{requestId: message.requestId,error:"A operação não foi confirmada pelo servidor."});
     }
   }
+  const onAppearanceChange=()=>sync();
+  window.addEventListener("looply:appearance-changed",onAppearanceChange);
   window.addEventListener("message", onMessage);
   const visibilityHandler = () => { if (!document.hidden) schedule(); };
   document.addEventListener("visibilitychange", visibilityHandler);
@@ -611,6 +615,7 @@ export function mountWhyNowStories({ root, client, user, profile, initialStories
     .subscribe();
   const unload = () => {
     destroyed = true; clearTimeout(reloadTimer); screen("home");
+    window.removeEventListener("looply:appearance-changed",onAppearanceChange);
     window.removeEventListener("message",onMessage);
     document.removeEventListener("visibilitychange",visibilityHandler);
     void client.removeChannel(channel);
