@@ -100,7 +100,11 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (wasOffline) {
                     wasOffline = false
-                    loadLooply()
+                    // Preserve the current tab, scroll position and drafts.
+                    // Foreground controllers may refresh data on Android's online event.
+                    if (::webView.isInitialized) webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('online'))", null
+                    )
                 }
             }
         }
@@ -109,9 +113,9 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (!hasInternet()) {
                     wasOffline = true
-                    showError(
-                        "Sem conexão com a internet",
-                        "Conecte-se à internet para sincronizar o Looply com suas conversas, publicações e mídias."
+                    // Never cover the bundled app with a blocking offline dialog.
+                    if (::webView.isInitialized) webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('offline'))", null
                     )
                 }
             }
@@ -140,13 +144,10 @@ class MainActivity : Activity() {
 
         val restored = savedInstanceState?.let { webView.restoreState(it) != null } ?: false
         if (!restored) {
-            if (hasInternet()) loadLooply() else {
-                wasOffline = true
-                showError(
-                    "Sem conexão com a internet",
-                    "O Looply precisa de internet para conectar sua conta e sincronizar suas mídias."
-                )
-            }
+            // The HTML shell is bundled in the APK via WebViewAssetLoader;
+            // don't prevent it from opening just because the device is offline.
+            wasOffline = !hasInternet()
+            loadLooply()
         }
         handleNotificationRoute(intent)
     }
@@ -197,7 +198,9 @@ class MainActivity : Activity() {
             syncFirebaseTokenToWeb(webView.url)
             if (wasOffline && hasInternet()) {
                 wasOffline = false
-                loadLooply()
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new Event('online'))", null
+                )
             }
         }
     }
@@ -1012,10 +1015,7 @@ class MainActivity : Activity() {
         if (reloadLocked) return
         reloadLocked = true
         mainHandler.postDelayed({ reloadLocked = false }, 1500L)
-        if (!hasInternet()) {
-            showError("Sem conexão com a internet", "Conecte-se à internet e tente novamente.")
-            return
-        }
+        // Always allow reload of packaged local assets even without a connection.
         errorPanel.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         webView.stopLoading()
