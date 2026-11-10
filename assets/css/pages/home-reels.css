@@ -753,3 +753,14 @@ body.looply-premium .page-header.gh>.page-navigation.dock{
   bottom:calc(10px + env(safe-area-inset-bottom))!important;
   transform:translateX(-50%)!important;max-width:560px!important;
 }
+
+
+/* O avatar do compositor não pode desaparecer se o perfil estiver sem foto. */
+body.looply-premium #composer .post-composer-heading.comp1 .av{
+  display:grid!important;place-items:center!important;color:#fff;
+  background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 40%,var(--lilac)))!important;
+  font-size:18px!important;font-weight:800!important;opacity:1!important;
+}
+body.looply-premium #composer .post-composer-heading.comp1 .av img{
+  width:100%;height:100%;object-fit:cover;border-radius:50%;
+}
