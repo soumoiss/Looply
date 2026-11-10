@@ -492,15 +492,21 @@ async function adminCreateUser(body) {
     // guard concurrency; this preflight catches the common admin form error.
     const sessionBeforeCreate=await activeSession();
     if(!sessionBeforeCreate?.access_token)throw Error("neon_session_required");
-    const existing=await fetch(config.data+"/profiles?"+new URLSearchParams({
-      select:"id",username:"eq."+username,limit:"1"
-    }),{method:"GET",cache:"no-store",headers:{
-      authorization:"Bearer "+sessionBeforeCreate.access_token,accept:"application/json"
-    }});
-    if(!existing.ok)throw Error("admin_username_preflight_unavailable");
-    const existingProfiles=await existing.json();
-    if(!Array.isArray(existingProfiles))throw Error("admin_username_preflight_invalid");
-    if(existingProfiles.length)throw Error("username_already_exists");
+    const availability=await fetch(config.data+"/rpc/v12_admin_action",{
+      method:"POST",cache:"no-store",
+      headers:{authorization:"Bearer "+sessionBeforeCreate.access_token,
+        accept:"application/json","content-type":"application/json"},
+      body:JSON.stringify({p_action:"user_check_availability",
+        p_payload:{username,email,purpose:"Conferir disponibilidade antes de cadastrar usuário"}})
+    });
+    if(!availability.ok)throw Error("admin_username_preflight_unavailable");
+    const available=await availability.json().catch(()=>null);
+    if(!available||typeof available!=="object"
+      ||typeof available.usernameAvailable!=="boolean"
+      ||typeof available.emailAvailable!=="boolean")
+      throw Error("admin_username_preflight_invalid");
+    if(!available.usernameAvailable)throw Error("username_already_exists");
+    if(!available.emailAvailable)throw Error("email_already_exists");
     // The SupabaseAuthAdapter exposes an undefined .admin facade; its own
     // Better Auth instance carries the authenticated browser session and the
     // real Admin plugin. A new unauthenticated createClient() cannot safely
