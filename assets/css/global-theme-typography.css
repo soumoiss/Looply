@@ -191,9 +191,7 @@ html[data-theme] body :is(
   button,input,textarea,select,option,label,legend,summary,
   p,h1,h2,h3,h4,h5,h6,small,strong,b,em,i,blockquote,
   figcaption,caption,td,th,li,a,table,code
-):not(.overlay-item):not(.sticker):not(.sticker-image):not(.emoji-visual)
-:not(.chat-emoji):not(.chat-sticker-item):not(.letter-editor-canvas)
-:not(.letter-preview):not(.letter-paper):not(.media-fill){
+):not(.overlay-item):not(.sticker):not(.sticker-image):not(.emoji-visual):not(.chat-emoji):not(.chat-sticker-item):not(.letter-editor-canvas):not(.letter-preview):not(.letter-paper):not(.media-fill){
   font-family:var(--looply-font-family,Inter,ui-sans-serif,sans-serif)!important;
 }
 /* Preserve recognizable wordmark, monochrome pictograms, image stickers,
