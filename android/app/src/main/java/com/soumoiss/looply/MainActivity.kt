@@ -148,6 +148,9 @@ class MainActivity : Activity() {
             // don't prevent it from opening just because the device is offline.
             wasOffline = !hasInternet()
             loadLooply()
+            if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
+                startActivity(Intent(this, NativeFeedActivity::class.java))
+            }
         }
         handleNotificationRoute(intent)
     }
@@ -455,6 +458,7 @@ class MainActivity : Activity() {
         // oficial do Instagram nasce. Origem restrita; sem scraping nem downloads.
         installInstagramReelAutoplayAdapter()
         ChatAvatarCache.register(this, webView)
+        NativeFeedBridge.register(this, webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -729,6 +733,15 @@ class MainActivity : Activity() {
     }
 
     private fun routeTopLevelUrl(uri: Uri): Boolean {
+        if (uri.scheme.equals("looply-native", ignoreCase = true)) {
+            val from = webView.url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            if (uri.host == "feed" && uri.path.isNullOrEmpty() &&
+                from != null && isTrustedWebOrigin(from) &&
+                from.path?.startsWith("/Looply/") == true) {
+                startActivity(Intent(this, NativeFeedActivity::class.java))
+            }
+            return true
+        }
         // Somente a página principal do Looply pode pedir o seletor nativo.
         // Não expomos JavascriptInterface a iframes de terceiros.
         if (uri.scheme.equals("looply-share", ignoreCase = true)) {
