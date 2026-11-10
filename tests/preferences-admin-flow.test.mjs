@@ -13,11 +13,11 @@ test("new themes and fonts are applied from the profile and the service worker r
     read("sw.js")
   ]);
   for (const value of ["aurora", "coral", "menta", "sunset", "grafite", "syne", "playfair", "fraunces"]) {
-    assert.match(theme, new RegExp(value));
+    assert.match(bootstrap, new RegExp(value));
   }
   assert.match(bootstrap, /grafite/);
-  assert.match(settings, /value="sunset"/);
-  assert.match(settings, /value="syne"/);
+  assert.match(settings, /themeIds\.base/);
+  assert.match(settings, /fontGroups\.expressive/);
   assert.match(css, /--looply-font-family/);
   assert.match(worker, /looply-shell-v(?:1[4-9]|[2-9][0-9])-[a-z0-9-]+/);
   assert.match(worker, /caches\.delete/);
