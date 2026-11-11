@@ -139,7 +139,9 @@ class MainActivity : Activity() {
             !intent.getBooleanExtra(SKIP_NATIVE_OFFLINE, false) &&
             !hasInternet() && NativeFeedStore(this).hasCachedPosts()
         if (nativeOffline) {
-            startActivity(Intent(this, NativeFeedActivity::class.java))
+            startActivity(Intent(this, NativeFeedActivity::class.java).apply {
+                putExtra("looply.native.OFFLINE_ENTRY", true)
+            })
             finish()
             return
         }
