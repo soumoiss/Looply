@@ -34,7 +34,7 @@ test("native registration is authenticated by Neon and does not contain service 
     return !trim.startsWith("*") && !trim.startsWith("//");
   }).join("\n");
   assert.doesNotMatch(executable, /service_account|private_key|NEON_PUSH_DATABASE_URL|refresh_token|password/i);
-  assert.doesNotMatch(job, /WebView|evaluateJavascript|loadUrl\(/);
+  assert.doesNotMatch(executable, /WebView|evaluateJavascript|loadUrl\(/);
 });
 
 test("logout cancels registration and a new Neon session retriggers pending token registration", async () => {
