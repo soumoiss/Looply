@@ -148,7 +148,12 @@ class MainActivity : Activity() {
 
         createLayout()
         configureWebView()
-        requestNotificationPermissionIfNeeded()
+        // A POST_NOTIFICATIONS runtime dialog can pause the foreground camera
+        // test while Chromium acquires its camera/mic streams. Real users still
+        // get the normal permission request. This exception is Debug-only.
+        if (!(BuildConfig.DEBUG && intent.getBooleanExtra(DEBUG_CAMERA_TEST, false))) {
+            requestNotificationPermissionIfNeeded()
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback = OnBackInvokedCallback { handleBack() }
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
