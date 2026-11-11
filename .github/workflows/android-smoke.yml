@@ -14,6 +14,7 @@ on:
       - integrate/looply-android-six-stages-20261030
       - feat/android-local-bundled-assets-20261110
       - feat/android-reliability-315-20261110
+      - feat/android-native-fcm-recovery-316-20261110
     paths:
       - "android/**"
       - "src/**"
