@@ -22,7 +22,9 @@ class BundledAssetRouterTest {
             Uri.parse("https://soumoiss.github.io/Looply/index.html")
         )
         assertNotNull(response)
-        assertEquals(200, response!!.statusCode)
+        // WebResourceResponse created with the legacy constructor can report
+        // statusCode=0 even for successfully served assets. Test the bytes.
+        assertNotNull(response!!.data)
         val content = response.data.bufferedReader().use { it.readText() }
         org.junit.Assert.assertTrue(content.contains("<html", ignoreCase = true) ||
             content.contains("<!doctype", ignoreCase = true))
