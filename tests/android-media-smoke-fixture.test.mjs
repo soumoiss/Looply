@@ -10,7 +10,8 @@ test("Android media acceptance uses a real bundled HTTPS document, not transient
     readFile(new URL("../android/app/src/main/java/com/soumoiss/looply/MainActivity.kt",import.meta.url),"utf8")
   ]);
   assert.match(html,/Looply Android WebView camera and microphone acceptance/);
-  assert.match(activity,/webView\.loadUrl\(REMOTE_START_URL \+ "assets\/test\/android-media-acceptance\.html"\)/);
+  assert.match(activity,/webView\.loadUrl\(DEBUG_CAMERA_FIXTURE_URL\)/);
+  assert.match(activity,/appassets\.androidplatform\.net\/Looply\/assets\/test\/android-media-acceptance\.html/);
   assert.match(activity,/BuildConfig\.DEBUG/);
   assert.match(probe,/putExtra\("looply\.debug\.MEDIA_ACCEPTANCE", true\)/);
   assert.doesNotMatch(probe,/loadDataWithBaseURL/);
