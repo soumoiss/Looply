@@ -144,9 +144,19 @@ class MainActivity : Activity() {
             // The HTML shell is bundled in the APK via WebViewAssetLoader;
             // don't prevent it from opening just because the device is offline.
             wasOffline = !hasInternet()
-            loadLooply()
-            if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
-                startActivity(Intent(this, NativeFeedActivity::class.java))
+            // Explicit, debug-only Android instrumentation fixture. It must be
+            // the FIRST navigation: otherwise the asynchronous auth redirect
+            // from index.html can replace the camera test page with login.html.
+            // This flag is never honored by a signed release build.
+            val debugCameraFixture = BuildConfig.DEBUG &&
+                intent.getBooleanExtra(DEBUG_CAMERA_TEST, false)
+            if (debugCameraFixture) {
+                webView.loadUrl(REMOTE_START_URL + "assets/test/android-media-acceptance.html")
+            } else {
+                loadLooply()
+                if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
+                    startActivity(Intent(this, NativeFeedActivity::class.java))
+                }
             }
         }
         handleNotificationRoute(intent)
@@ -1155,6 +1165,8 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        // Only used by the debug instrumentation APK, never by release.
+        private const val DEBUG_CAMERA_TEST = "looply.debug.MEDIA_ACCEPTANCE"
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
         private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
