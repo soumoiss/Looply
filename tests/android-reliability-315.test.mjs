@@ -8,7 +8,8 @@ test("Android 15 media fixture is the first Debug-only WebView navigation", asyn
   const activity = await read("android/app/src/main/java/com/soumoiss/looply/MainActivity.kt");
   const instrumentation = await read("android/app/src/androidTest/java/com/soumoiss/looply/RealWebViewIntegrationTest.kt");
   assert.match(activity, /BuildConfig\.DEBUG\s*&&\s*intent\.getBooleanExtra\(DEBUG_CAMERA_TEST, false\)/);
-  assert.match(activity, /webView\.loadUrl\(REMOTE_START_URL \+ "assets\/test\/android-media-acceptance\.html"\)/);
+  assert.match(activity, /webView\.loadUrl\(DEBUG_CAMERA_FIXTURE_URL\)/);
+  assert.match(activity, /appassets\.androidplatform\.net\/Looply\/assets\/test\/android-media-acceptance\.html/);
   assert.match(activity, /if \(debugCameraFixture\)\s*\{[\s\S]*?\}\s*else\s*\{\s*loadLooply\(\)/);
   assert.match(instrumentation, /putExtra\("looply\.debug\.MEDIA_ACCEPTANCE", true\)/);
   assert.match(instrumentation, /ActivityScenario\.launch<MainActivity>\(debugIntent\)/);
