@@ -80,15 +80,16 @@ class RealWebViewIntegrationTest {
             context.packageName, Manifest.permission.CAMERA)
         instrumentation.uiAutomation.grantRuntimePermission(
             context.packageName, Manifest.permission.RECORD_AUDIO)
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            // Keep the actual production MainActivity, WebChromeClient and
-            // native CAMERA/MIC permission path. The fixture is a physical
-            // packaged asset served by WebViewAssetLoader on the trusted HTTPS
-            // origin; it has no auth redirect or background navigation.
+        val debugIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra("looply.debug.MEDIA_ACCEPTANCE", true)
+        }
+        ActivityScenario.launch<MainActivity>(debugIntent).use { scenario ->
+            // Exercise the real MainActivity, WebChromeClient and permissions.
+            // Navigate to the bundled fixture first in a Debug APK, before
+            // any index.html auth timers can redirect to a relative login.html.
             scenario.onActivity { activity ->
-                val web = findWebView(activity.window.decorView)
-                assertNotNull("Production MainActivity WebView is missing", web)
-                web!!.loadUrl("https://soumoiss.github.io/Looply/assets/test/android-media-acceptance.html")
+                assertNotNull("Production MainActivity WebView is missing",
+                    findWebView(activity.window.decorView))
             }
             var ready = false
             for (attempt in 0 until 35) {
