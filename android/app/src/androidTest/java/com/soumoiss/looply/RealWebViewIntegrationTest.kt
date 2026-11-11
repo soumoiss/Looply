@@ -155,7 +155,9 @@ class RealWebViewIntegrationTest {
                     ||proof.contains("\\\"state\\\":\\\"empty\\\""))
                     break
             }
-            assertTrue("WebView audio+video MediaRecorder failed: $proof",
+            val diagnosis = eval(scenario,
+                "JSON.stringify({url:location.href,ready:document.readyState,proof:window.__looplyCaptureProof||null})")
+            assertTrue("WebView audio+video MediaRecorder failed: $proof, state=$diagnosis",
                 proof.contains("\\\"state\\\":\\\"ok\\\""))
         }
     }
