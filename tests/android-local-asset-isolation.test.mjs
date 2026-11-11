@@ -8,7 +8,8 @@ test("APK treats GitHub Pages as a virtual origin only, never a network asset fa
   const router = await read("android/app/src/main/java/com/soumoiss/looply/BundledAssetRouter.kt");
   assert.match(router, /WebViewAssetLoader\.AssetsPathHandler\(context\)/);
   assert.match(router, /\.addPathHandler\("\/Looply\/"/);
-  assert.match(router, /return loader\.shouldInterceptRequest\(url\) \?: localNotFound\(\)/);
+  assert.match(router, /val bundled = loader\.shouldInterceptRequest\(url\)/);
+  assert.match(router, /return bundled\?\.takeIf \{ it\.data != null \} \?: localNotFound\(\)/);
   assert.match(router, /404,[\s\S]*"Not Found"/);
   assert.match(router, /"Cache-Control" to "no-store"/);
   assert.match(router, /if \(!url\.host\.equals\(LEGACY_VIRTUAL_HOST/);
