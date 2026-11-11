@@ -317,6 +317,7 @@ export async function mountAppPage({ page, adminOnly = false, render }) {
     if (event === "SIGNED_OUT") {
       try {
         window.LooplyNativeFeed?.postMessage(JSON.stringify({type:"logout"}));
+        window.LooplyNativeChat?.postMessage(JSON.stringify({type:"logout"}));
         window.LooplyNativeCallAuth?.postMessage(JSON.stringify({type:"clear"}));
       } catch {}
     }

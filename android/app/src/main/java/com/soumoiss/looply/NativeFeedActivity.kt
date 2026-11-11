@@ -2,6 +2,7 @@ package com.soumoiss.looply
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
@@ -73,6 +74,19 @@ class NativeFeedActivity : Activity() {
             setTextColor(violet)
         })
         header.addView(titleBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        if (NativeChatStore(this).hasCachedMessages()) {
+            header.addView(TextView(this).apply {
+                text = "Chats"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(violet)
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                contentDescription = "Abrir conversas salvas offline"
+                setOnClickListener {
+                    startActivity(Intent(this@NativeFeedActivity, NativeChatActivity::class.java))
+                }
+            })
+        }
         root.addView(header)
 
         val rows = NativeFeedStore(this).read()

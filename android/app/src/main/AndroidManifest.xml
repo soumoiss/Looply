@@ -39,6 +39,9 @@
             android:name=".NativeFeedActivity"
             android:exported="false" />
         <activity
+            android:name=".NativeChatActivity"
+            android:exported="false" />
+        <activity
             android:name=".IncomingCallActivity"
             android:exported="false"
             android:showWhenLocked="true"

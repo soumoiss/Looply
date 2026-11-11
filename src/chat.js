@@ -1,5 +1,6 @@
 import { icon } from "./icons.js";
 import { requestImmediateMessagePush } from "./chat-push-alert.js";
+import { cacheThreadForNative, mountNativeChatShortcut } from "./native-chat-bridge.js";
 import { premiumChatCardMarkup, parsePremiumChatBody } from "./chat-premium-cards.js";
 import { editGroupCover } from "./group-cover-editor.js";
 import { matchesConversationFilter } from "./chat-filter-logic.js";
@@ -1045,6 +1046,7 @@ async function openConversation(root, client, conversationId, userId) {
   try {
     const { messages, participants, conversation } = await loadThread(client, conversationId);
     if (requestId !== activeThreadRequest || activeConversationId !== conversationId || !root.querySelector("[data-chat-thread]")) return;
+    cacheThreadForNative(userId, conversation, participants, messages);
     await signThreadAvatar(client, participants);
     if (requestId !== activeThreadRequest || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
@@ -1175,6 +1177,7 @@ async function refreshChat(root, client, userId, { keepThread = false } = {}) {
 
     const { messages, participants, conversation } = await loadThread(client, conversationId);
     if (requestId !== refreshSequence || activeConversationId !== conversationId) return;
+    cacheThreadForNative(userId, conversation, participants, messages);
     await signThreadAvatar(client, participants);
     if (requestId !== refreshSequence || activeConversationId !== conversationId) return;
     const peer = peerParticipantFor(participants, userId);
@@ -1275,6 +1278,7 @@ export function measureChatVisualViewport({height,top=0,layoutHeight,baseline,ty
 export function bindChatEvents(root, client, getUserId) {
   bindStickerCatalog(root,client,getUserId);
   root.dataset.chatUserId = getUserId?.() || "";
+  mountNativeChatShortcut(root);
   // Signed avatar URLs may expire or the stored object may be missing. Replace only
   // failed images with the same visual fallback used when no avatar is configured.
   root.addEventListener("error", async (event) => {

@@ -278,7 +278,7 @@ export async function deliverNotifications(env,{
       preview|| (item.source==="admin_event"&&happenedLabel?action+" · "+happenedLabel:action);
     // All other notification kinds retain generic actions without private text.
     const message={token:item.fcm_token,data,
-      android:{priority:["call","message","voice"].includes(kind)?"HIGH":"NORMAL",
+      android:{priority:"HIGH",
         ttl:kind==="call"?"30s":"86400s"}};
     let ok=false;
     try{
