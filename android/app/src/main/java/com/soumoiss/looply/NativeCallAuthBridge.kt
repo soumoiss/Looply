@@ -30,6 +30,7 @@ internal object NativeCallAuthBridge {
             when (payload.optString("type")) {
                 "clear" -> io.execute {
                     NativeCallSessionStore.clear(app)
+                    NativeFcmRecoveryJob.clearOnLogout(app)
                     app.getSharedPreferences("looply_android_device", Context.MODE_PRIVATE)
                         .edit().remove("pending_incoming_call")
                         .remove("pending_incoming_call_at").apply()
@@ -41,7 +42,10 @@ internal object NativeCallAuthBridge {
                     if (!accountPattern.matches(account) ||
                         token.length !in 25..8192 || expiresAt <= 0) return@addWebMessageListener
                     io.execute {
-                        NativeCallSessionStore.save(app, account, token, expiresAt)
+                        if (NativeCallSessionStore.save(app, account, token, expiresAt)) {
+                            // A background token refresh may have preceded login.
+                            NativeFcmRecoveryJob.enqueue(app)
+                        }
                     }
                 }
             }
