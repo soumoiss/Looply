@@ -27,7 +27,12 @@ internal class BundledAssetRouter(context: Context) {
     fun intercept(url: Uri): WebResourceResponse? {
         if (!url.host.equals(LEGACY_VIRTUAL_HOST, ignoreCase = true)) return null
         if (!url.scheme.equals("https", ignoreCase = true)) return localNotFound()
-        return loader.shouldInterceptRequest(url) ?: localNotFound()
+        // AssetsPathHandler may return WebResourceResponse(null, null, null)
+        // for missing files (statusCode 0 in Android's Java API). Translate
+        // that sentinel to a real, explicit HTTP 404 for deterministic tests
+        // and to guarantee no network fallback.
+        val bundled = loader.shouldInterceptRequest(url)
+        return bundled?.takeIf { it.data != null } ?: localNotFound()
     }
 
     companion object {
