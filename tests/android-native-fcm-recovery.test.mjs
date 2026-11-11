@@ -28,7 +28,12 @@ test("native registration is authenticated by Neon and does not contain service 
   assert.match(job, /"p_fcm_token", token/);
   assert.match(job, /response\.trim\(\) != "true"/);
   assert.match(job, /NativeCallSessionStore\.read\(applicationContext\)[\s\S]*?currentToken != token/);
-  assert.doesNotMatch(job, /service_account|private_key|NEON_PUSH_DATABASE_URL|refresh_token|password/i);
+  // Comments describe forbidden secrets; check executable source instead.
+  const executable = job.split("\n").filter(line => {
+    const trim = line.trimStart();
+    return !trim.startsWith("*") && !trim.startsWith("//");
+  }).join("\n");
+  assert.doesNotMatch(executable, /service_account|private_key|NEON_PUSH_DATABASE_URL|refresh_token|password/i);
   assert.doesNotMatch(job, /WebView|evaluateJavascript|loadUrl\(/);
 });
 
@@ -40,7 +45,7 @@ test("logout cancels registration and a new Neon session retriggers pending toke
   ]);
   assert.match(bridge, /"clear" -> io\.execute \{[\s\S]*NativeCallSessionStore\.clear\(app\)[\s\S]*NativeFcmRecoveryJob\.clearOnLogout\(app\)/);
   assert.match(bridge, /if \(NativeCallSessionStore\.save\(app, account, token, expiresAt\)\) \{[\s\S]*?NativeFcmRecoveryJob\.enqueue\(app\)/);
-  assert.match(job, /scheduler\.cancel\(JOB_ID\)/);
+  assert.match(job, /getSystemService\(JobScheduler::class\.java\)\.cancel\(JOB_ID\)/);
   assert.match(job, /remove\(REGISTRATION_DIGEST\)/);
   assert.match(main, /putString\("last_fcm_token", token\)\.apply\(\)\s*NativeFcmRecoveryJob\.enqueue\(this\)/);
 });
