@@ -128,6 +128,22 @@ class MainActivity : Activity() {
             window.isNavigationBarContrastEnforced = false
         }
 
+        // On an offline cold launch with a validated native feed snapshot,
+        // avoid the WebView/Chromium cold start altogether. No login screen,
+        // remote JS or GitHub Pages request is required to read saved posts.
+        // A push deep link or a debug media test must always reach its normal
+        // destination instead of being swallowed by this fast path.
+        val nativeOffline = savedInstanceState == null &&
+            !intent.hasExtra("looply_route") &&
+            !intent.getBooleanExtra(DEBUG_CAMERA_TEST, false) &&
+            !intent.getBooleanExtra(SKIP_NATIVE_OFFLINE, false) &&
+            !hasInternet() && NativeFeedStore(this).hasCachedPosts()
+        if (nativeOffline) {
+            startActivity(Intent(this, NativeFeedActivity::class.java))
+            finish()
+            return
+        }
+
         createLayout()
         configureWebView()
         requestNotificationPermissionIfNeeded()
@@ -154,9 +170,6 @@ class MainActivity : Activity() {
                 webView.loadUrl(REMOTE_START_URL + "assets/test/android-media-acceptance.html")
             } else {
                 loadLooply()
-                if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
-                    startActivity(Intent(this, NativeFeedActivity::class.java))
-                }
             }
         }
         handleNotificationRoute(intent)
@@ -1167,6 +1180,7 @@ class MainActivity : Activity() {
     companion object {
         // Only used by the debug instrumentation APK, never by release.
         private const val DEBUG_CAMERA_TEST = "looply.debug.MEDIA_ACCEPTANCE"
+        private const val SKIP_NATIVE_OFFLINE = "looply.native.SKIP_OFFLINE_READER"
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
         private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"
