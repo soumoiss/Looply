@@ -8,6 +8,7 @@ on:
       - feat/android-native-notification-reply-20261110
       - feat/android-local-bundled-assets-20261110
       - feat/android-reliability-315-20261110
+      - feat/android-native-fcm-recovery-316-20261110
       - codex/android-3.0.1
       - codex/looply-android-fcm-302
       - fix/looply-android-runtime-20261030
@@ -89,8 +90,8 @@ jobs:
           BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)
           printf '%s\n' "$BADGING" | head -n 5
           printf '%s\n' "$BADGING" | grep -Fq "name='com.looply.app'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='315'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.15'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='316'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='3.0.16'"
           printf '%s\n' "$BADGING" | grep -Fq "sdkVersion:'24'"
           printf '%s\n' "$BADGING" | grep -Fq "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
@@ -102,7 +103,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.15-debug-apk
+          name: Looply-3.0.16-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -118,7 +119,7 @@ jobs:
         if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.15-release-unsigned-input
+          name: Looply-3.0.16-release-unsigned-input
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 3
@@ -133,7 +134,7 @@ jobs:
         if: github.ref == 'refs/heads/integrate/looply-android-six-stages-20261030'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.15-android-signing-tools
+          name: Looply-3.0.16-android-signing-tools
           path: signing-tools/
           if-no-files-found: error
           retention-days: 3
@@ -175,7 +176,7 @@ jobs:
         if: steps.release_ready.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: Looply-3.0.15-signed-release
+          name: Looply-3.0.16-signed-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
