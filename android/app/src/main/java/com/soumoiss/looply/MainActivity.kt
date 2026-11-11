@@ -1061,6 +1061,7 @@ class MainActivity : Activity() {
                 ?: preferences.getString("last_fcm_token", null)?.takeIf { it.length in 25..4096 }
                 ?: return@addOnCompleteListener
             preferences.edit().putString("last_fcm_token", token).apply()
+            NativeFcmRecoveryJob.enqueue(this)
             val deviceId = preferences.getString("device_id", null)
                 ?: UUID.randomUUID().toString().also {
                     preferences.edit().putString("device_id", it).apply()

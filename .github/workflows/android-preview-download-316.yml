@@ -1,0 +1,120 @@
+name: Publish Looply Android 3.0.16 experimental public download
+
+on:
+  push:
+    branches:
+      - feat/android-native-fcm-recovery-316-20261110
+    paths:
+      - ".github/workflows/android-preview-download-316.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: looply-android-316-preview-download
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "42936925619"
+      SOURCE_SHA: "5ef41dc6166bc17f71e1381f81f3748e04828e16"
+      EXPECTED_APK_SHA256: "eac8fdaa0f726a53d39ac483f1568a65a6d6ed0a3863318a0e0dd7a672f7d119"
+      SOURCE_ARTIFACT_NAME: "Looply-3.0.16-signed-release"
+      RELEASE_TAG: "android-v3.0.16-preview-download-20261110"
+      APK_NAME: "Looply-3.0.16-FCM-NATIVO-ASSINADO.apk"
+    steps:
+      - name: Confirm successful signed build provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .head_sha)
+          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq .conclusion)
+          test "$actual_sha" = "$SOURCE_SHA"
+          test "$conclusion" = "success"
+          test "$GITHUB_SHA" = "$SOURCE_SHA" || \
+            echo "Publication-workflow commit differs as expected; signed APK provenance remains pinned."
+
+      - name: Retrieve the actual signed Release APK from GitHub Actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release input
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT_NAME" \
+            --dir input
+          test -s input/apk/release/app-release.apk
+          cp input/apk/release/app-release.apk "release/$APK_NAME"
+          printf '%s  %s\n' "$EXPECTED_APK_SHA256" "release/$APK_NAME" | sha256sum -c -
+          test "$(stat -c %s "release/$APK_NAME")" = "37260735"
+          unzip -t "release/$APK_NAME" | tail -1
+          unzip -Z1 "release/$APK_NAME" | grep -Fxq "assets/index.html"
+
+      - name: Produce alternative ZIP and public integrity manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd release
+            zip -q "Looply-3.0.16-APK-ASSINADO.zip" "$APK_NAME"
+            sha256sum "$APK_NAME" "Looply-3.0.16-APK-ASSINADO.zip" > SHA256SUMS.txt
+          )
+          cat > release/INSTRUCOES.txt <<'NOTES'
+          Looply Android 3.0.16 - APK assinado de testes.
+
+          Download publico via GitHub Releases. Nao depende da Biblioteca do ChatGPT.
+          O APK foi extraido do build assinado e aprovado no GitHub Actions.
+          O aplicativo ainda esta em migracao para Android nativo. Chamadas,
+          notificacoes e todos os fluxos nao foram homologados em celulares
+          fisicos. Esta publicacao e experimental e nao altera o site principal.
+
+          Arquivo APK: Looply-3.0.16-FCM-NATIVO-ASSINADO.apk
+          Se o navegador nao aceitar o APK direto, baixe a alternativa ZIP.
+          NOTES
+          cat > release/NOTAS.md <<'NOTES'
+          Looply Android 3.0.16 - versao experimental assinada.
+
+          Esta publicacao disponibiliza uma alternativa de download publico sem
+          depender do sistema de arquivos do ChatGPT. APK Release genuino,
+          compilado no GitHub Actions (run 42936925619), SHA-256 validado.
+          Inclui registro nativo de token FCM em segundo plano e melhorias
+          incrementais de funcionamento offline das versoes anteriores.
+
+          Importante: nao e a versao final 100% nativa. Os fluxos de WebRTC,
+          login em segundo plano e testes em aparelhos fisicos nao estao todos
+          concluidos. Nenhum dado ou codigo do site em producao foi modificado.
+          NOTES
+
+      - name: Publish a public GitHub prerelease with direct APK and ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "release/$APK_NAME" \
+            "release/Looply-3.0.16-APK-ASSINADO.zip" \
+            "release/SHA256SUMS.txt" \
+            "release/INSTRUCOES.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --title "Looply Android 3.0.16 - APK assinado (download publico)" \
+            --notes-file release/NOTAS.md \
+            --prerelease
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            --jq '{html_url,prerelease,assets:[.assets[]|{name,size,digest,browser_download_url}]}'
+
+      - name: Verify APK can be downloaded publicly without a GitHub session
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$APK_NAME"
+          curl --fail --location --retry 4 --retry-delay 4 \
+            --connect-timeout 15 --max-time 240 \
+            "$url" --output "$RUNNER_TEMP/public-apk-verify.apk"
+          printf '%s  %s\n' "$EXPECTED_APK_SHA256" "$RUNNER_TEMP/public-apk-verify.apk" | sha256sum -c -
+          echo "DIRECT_PUBLIC_APK_VERIFIED=$url"

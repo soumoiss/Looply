@@ -78,6 +78,11 @@
         <receiver
             android:name=".NativeInlineReplyReceiver"
             android:exported="false" />
+        <!-- JobScheduler binds with a system-only signature permission. -->
+        <service
+            android:name=".NativeFcmRecoveryJob"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
         <service
             android:name=".LooplyMessagingService"
             android:exported="false"

@@ -22,6 +22,9 @@ class LooplyMessagingService : FirebaseMessagingService() {
         if (token.length in 25..4096) {
             getSharedPreferences("looply_android_device", MODE_PRIVATE).edit()
                 .putString("last_fcm_token", token).apply()
+            // Firebase can rotate the device token while the app is closed.
+            // Re-register it using Neon RPC; do not depend on opening WebView.
+            NativeFcmRecoveryJob.enqueue(this)
         }
     }
 
