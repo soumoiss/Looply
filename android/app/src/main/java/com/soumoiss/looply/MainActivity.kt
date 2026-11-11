@@ -169,7 +169,7 @@ class MainActivity : Activity() {
             val debugCameraFixture = BuildConfig.DEBUG &&
                 intent.getBooleanExtra(DEBUG_CAMERA_TEST, false)
             if (debugCameraFixture) {
-                webView.loadUrl(REMOTE_START_URL + "assets/test/android-media-acceptance.html")
+                webView.loadUrl(DEBUG_CAMERA_FIXTURE_URL)
             } else {
                 loadLooply()
             }
@@ -880,10 +880,15 @@ class MainActivity : Activity() {
     }
 
     private fun authorizeWebMedia(request: PermissionRequest) {
+        val normalOrigin =
+            request.origin.host?.lowercase() == GITHUB_PAGES_HOST &&
+            webView.url.orEmpty().startsWith(REMOTE_START_URL)
+        val isolatedTestOrigin = BuildConfig.DEBUG &&
+            request.origin.host?.lowercase() == APP_ASSET_HOST &&
+            webView.url == DEBUG_CAMERA_FIXTURE_URL
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != GITHUB_PAGES_HOST ||
             request.origin.port !in listOf(-1, 443) ||
-            !webView.url.orEmpty().startsWith(REMOTE_START_URL)
+            (!normalOrigin && !isolatedTestOrigin)
         ) {
             request.deny()
             return
@@ -941,7 +946,8 @@ class MainActivity : Activity() {
                 pendingWebPermission = null
                 if (request == null) return
                 if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED } &&
-                    webView.url.orEmpty().startsWith(REMOTE_START_URL) &&
+                    (webView.url.orEmpty().startsWith(REMOTE_START_URL) ||
+                        (BuildConfig.DEBUG && webView.url == DEBUG_CAMERA_FIXTURE_URL)) &&
                     pendingWebResources.isNotEmpty()
                 ) {
                     request.grant(pendingWebResources)
@@ -1182,6 +1188,8 @@ class MainActivity : Activity() {
     companion object {
         // Only used by the debug instrumentation APK, never by release.
         private const val DEBUG_CAMERA_TEST = "looply.debug.MEDIA_ACCEPTANCE"
+        private const val DEBUG_CAMERA_FIXTURE_URL =
+            "https://appassets.androidplatform.net/Looply/assets/test/android-media-acceptance.html"
         private const val SKIP_NATIVE_OFFLINE = "looply.native.SKIP_OFFLINE_READER"
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
