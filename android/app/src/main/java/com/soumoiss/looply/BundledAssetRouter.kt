@@ -24,7 +24,26 @@ internal class BundledAssetRouter(context: Context) {
         .addPathHandler("/Looply/", WebViewAssetLoader.AssetsPathHandler(context))
         .build()
 
+    // A separate, debug-only origin avoids preexisting Service Workers from
+    // the Looply login shell taking control of the camera test document.
+    private val isolatedTestLoader by lazy {
+        WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
+            .addPathHandler("/Looply/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+    }
+
     fun intercept(url: Uri): WebResourceResponse? {
+        if (url.host.equals("appassets.androidplatform.net", ignoreCase = true) &&
+            BuildConfig.DEBUG) {
+            // Only one fixed local fixture is accepted; never serve or execute
+            // user-controlled resources through this privileged test origin.
+            if (url.scheme != "https" ||
+                url.path != "/Looply/assets/test/android-media-acceptance.html"
+            ) return localNotFound()
+            val fixture = isolatedTestLoader.shouldInterceptRequest(url)
+            return fixture?.takeIf { it.data != null } ?: localNotFound()
+        }
         if (!url.host.equals(LEGACY_VIRTUAL_HOST, ignoreCase = true)) return null
         if (!url.scheme.equals("https", ignoreCase = true)) return localNotFound()
         // AssetsPathHandler may return WebResourceResponse(null, null, null)

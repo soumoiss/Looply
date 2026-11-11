@@ -128,9 +128,32 @@ class MainActivity : Activity() {
             window.isNavigationBarContrastEnforced = false
         }
 
+        // On an offline cold launch with a validated native feed snapshot,
+        // avoid the WebView/Chromium cold start altogether. No login screen,
+        // remote JS or GitHub Pages request is required to read saved posts.
+        // A push deep link or a debug media test must always reach its normal
+        // destination instead of being swallowed by this fast path.
+        val nativeOffline = savedInstanceState == null &&
+            !intent.hasExtra("looply_route") &&
+            !intent.getBooleanExtra(DEBUG_CAMERA_TEST, false) &&
+            !intent.getBooleanExtra(SKIP_NATIVE_OFFLINE, false) &&
+            !hasInternet() && NativeFeedStore(this).hasCachedPosts()
+        if (nativeOffline) {
+            startActivity(Intent(this, NativeFeedActivity::class.java).apply {
+                putExtra("looply.native.OFFLINE_ENTRY", true)
+            })
+            finish()
+            return
+        }
+
         createLayout()
         configureWebView()
-        requestNotificationPermissionIfNeeded()
+        // A POST_NOTIFICATIONS runtime dialog can pause the foreground camera
+        // test while Chromium acquires its camera/mic streams. Real users still
+        // get the normal permission request. This exception is Debug-only.
+        if (!(BuildConfig.DEBUG && intent.getBooleanExtra(DEBUG_CAMERA_TEST, false))) {
+            requestNotificationPermissionIfNeeded()
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             backInvokedCallback = OnBackInvokedCallback { handleBack() }
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
@@ -144,9 +167,16 @@ class MainActivity : Activity() {
             // The HTML shell is bundled in the APK via WebViewAssetLoader;
             // don't prevent it from opening just because the device is offline.
             wasOffline = !hasInternet()
-            loadLooply()
-            if (wasOffline && NativeFeedStore(this).hasCachedPosts()) {
-                startActivity(Intent(this, NativeFeedActivity::class.java))
+            // Explicit, debug-only Android instrumentation fixture. It must be
+            // the FIRST navigation: otherwise the asynchronous auth redirect
+            // from index.html can replace the camera test page with login.html.
+            // This flag is never honored by a signed release build.
+            val debugCameraFixture = BuildConfig.DEBUG &&
+                intent.getBooleanExtra(DEBUG_CAMERA_TEST, false)
+            if (debugCameraFixture) {
+                webView.loadUrl(DEBUG_CAMERA_FIXTURE_URL)
+            } else {
+                loadLooply()
             }
         }
         handleNotificationRoute(intent)
@@ -855,10 +885,15 @@ class MainActivity : Activity() {
     }
 
     private fun authorizeWebMedia(request: PermissionRequest) {
+        val normalOrigin =
+            request.origin.host?.lowercase() == GITHUB_PAGES_HOST &&
+            webView.url.orEmpty().startsWith(REMOTE_START_URL)
+        val isolatedTestOrigin = BuildConfig.DEBUG &&
+            request.origin.host?.lowercase() == APP_ASSET_HOST &&
+            webView.url == DEBUG_CAMERA_FIXTURE_URL
         if (!request.origin.scheme.equals("https", ignoreCase = true) ||
-            request.origin.host?.lowercase() != GITHUB_PAGES_HOST ||
             request.origin.port !in listOf(-1, 443) ||
-            !webView.url.orEmpty().startsWith(REMOTE_START_URL)
+            (!normalOrigin && !isolatedTestOrigin)
         ) {
             request.deny()
             return
@@ -916,7 +951,8 @@ class MainActivity : Activity() {
                 pendingWebPermission = null
                 if (request == null) return
                 if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED } &&
-                    webView.url.orEmpty().startsWith(REMOTE_START_URL) &&
+                    (webView.url.orEmpty().startsWith(REMOTE_START_URL) ||
+                        (BuildConfig.DEBUG && webView.url == DEBUG_CAMERA_FIXTURE_URL)) &&
                     pendingWebResources.isNotEmpty()
                 ) {
                     request.grant(pendingWebResources)
@@ -1155,6 +1191,11 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        // Only used by the debug instrumentation APK, never by release.
+        private const val DEBUG_CAMERA_TEST = "looply.debug.MEDIA_ACCEPTANCE"
+        private const val DEBUG_CAMERA_FIXTURE_URL =
+            "https://appassets.androidplatform.net/Looply/assets/test/android-media-acceptance.html"
+        private const val SKIP_NATIVE_OFFLINE = "looply.native.SKIP_OFFLINE_READER"
         private const val APP_ASSET_HOST = "appassets.androidplatform.net"
         private const val GITHUB_PAGES_HOST = "soumoiss.github.io"
         private const val REMOTE_START_URL = "https://soumoiss.github.io/Looply/"

@@ -18,7 +18,11 @@ test("Android WebView native reload never floats over the Looply settings menu",
 
 test("WebView media permission honors Android runtime and rejects untrusted origins", async () => {
   const activity = await read("android/app/src/main/java/com/soumoiss/looply/MainActivity.kt");
-  assert.match(activity, /request\.origin\.host\?\.lowercase\(\) != GITHUB_PAGES_HOST/);
+  assert.match(activity, /request\.origin\.host\?\.lowercase\(\) == GITHUB_PAGES_HOST/);
+  assert.match(activity, /request\.origin\.host\?\.lowercase\(\) == APP_ASSET_HOST/);
+  assert.match(activity, /BuildConfig\.DEBUG/);
+  assert.match(activity, /webView\.url == DEBUG_CAMERA_FIXTURE_URL/);
+  assert.match(activity, /\(!normalOrigin && !isolatedTestOrigin\)/);
   assert.match(activity, /request\.origin\.port !in listOf\(-1, 443\)/);
   assert.match(activity, /PermissionRequest\.RESOURCE_AUDIO_CAPTURE/);
   assert.match(activity, /Manifest\.permission\.RECORD_AUDIO/);
