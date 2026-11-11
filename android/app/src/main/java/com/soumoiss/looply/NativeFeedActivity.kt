@@ -2,6 +2,7 @@ package com.soumoiss.looply
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
@@ -55,7 +56,7 @@ class NativeFeedActivity : Activity() {
             textSize = 34f
             gravity = Gravity.CENTER
             setTextColor(violet)
-            setOnClickListener { finish() }
+            setOnClickListener { backToLooply() }
             contentDescription = "Voltar ao Looply"
         }
         header.addView(back, LinearLayout.LayoutParams(dp(42), dp(52)))
@@ -122,6 +123,15 @@ class NativeFeedActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
         setContentView(root)
+    }
+
+    private fun backToLooply() {
+        if (intent.getBooleanExtra("looply.native.OFFLINE_ENTRY", false)) {
+            startActivity(Intent(this, MainActivity::class.java).apply {
+                putExtra("looply.native.SKIP_OFFLINE_READER", true)
+            })
+        }
+        finish()
     }
 
     private class FeedAdapter(
