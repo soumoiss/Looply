@@ -76,7 +76,7 @@ jobs:
 
           Arquivo APK: Looply-3.0.16-FCM-NATIVO-ASSINADO.apk
           Se o navegador nao aceitar o APK direto, baixe a alternativa ZIP.
-          NOTEs
+          NOTES
           cat > release/NOTAS.md <<'NOTES'
           Looply Android 3.0.16 - versao experimental assinada.
 
