@@ -141,3 +141,13 @@ const swPath = path.join(outputDirectory, "sw.js");
 const sw = (await readFile(swPath, "utf8")).replace(/looply-shell-v\d+/, `looply-pages-${buildId}`);
 await writeFile(swPath, sw, "utf8");
 console.log(`Original Looply page controllers retained; local assets use build ${buildId}.`);
+
+
+// Isolated historical Supabase contingency; copied AFTER Neon maintenance-gate
+// injection and cache-rewriting. No Neon token is accepted by this read-only
+// archive and no Supabase session is used to access the current Neon database.
+// The former config has a public, publishable key ONLY; never ship secrets.
+await cp(path.join(projectRoot,"contingencia.html"),path.join(outputDirectory,"contingencia.html"));
+await cp(path.join(projectRoot,"config.js"),path.join(outputDirectory,"contingencia-config.js"));
+await readFile(path.join(outputDirectory,"src/contingency-supabase.js"),"utf8");
+console.log("Read-only legacy Supabase archive available without switching the production data backend.");
