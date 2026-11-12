@@ -50,7 +50,7 @@ test("quota safety: keep RLS and suspension, reduce check from 1s to 60s",()=>{
  assert.match(js,/v54_self_account_access/);
  assert.match(js,/await evaluateMaintenanceAccess\(/);
  assert.match(js,/serviceUnavailable \? "service" : "maintenance"/);
- assert.match(js,/response\.status === 402/);
+ assert.match(js,/accessResponse\.status === 402/);
  assert.match(js,/window\.location\.reload\(\)/);
  assert.doesNotMatch(js,/const CHECK_EVERY_MS = 1000/);
  assert.doesNotMatch(js,/sessionStorage\.clear\(|localStorage\.clear\(/);
