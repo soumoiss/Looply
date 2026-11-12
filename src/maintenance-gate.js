@@ -3,7 +3,12 @@ import { evaluateMaintenanceAccess } from "./maintenance-decision.js";
 
 // A single, fail-closed check runs before every production page controller.
 // Postgres remains the authority: client state never grants an ADM bypass.
-const CHECK_EVERY_MS = 1000;
+// Every authenticated page previously polled TWO Neon RPCs every second.
+// On a metered Free plan this can exhaust the 5 GB monthly egress quota.
+// Server-side RLS still enforces access on every actual data request.
+const CHECK_EVERY_MS = 60000;
+const MIN_CHECK_GAP_MS = 5000;
+let lastCheckAt = 0;
 let gatePromise = null;
 let checkInFlight = null;
 let blocked = false;
@@ -28,12 +33,20 @@ function maintenanceScreen(reason = 'maintenance') {
     screen.setAttribute("aria-live", "assertive");
     screen.style.cssText = "position:fixed!important;inset:0!important;width:100%!important;height:100dvh!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:12px!important;background:#fff!important;color:#171717!important;padding:24px!important;text-align:center!important;box-sizing:border-box!important";
     const title = document.createElement("h1");
-    title.textContent = reason === "suspended" ? "Acesso suspenso" : "Em manutenção";
+    title.textContent = reason === "suspended" ? "Acesso suspenso" : reason === "service" ? "Serviço indisponível" : "Em manutenção";
     title.style.cssText = "font:700 clamp(24px,6vw,36px)/1.2 system-ui,sans-serif;margin:0;color:inherit";
     const info = document.createElement("p");
-    info.textContent = reason === "suspended" ? "Esta conta está suspensa." : "Aguarde um tempo.";
+    info.textContent = reason === "suspended" ? "Esta conta está suspensa." : reason === "service" ? "A conexão ao Neon está indisponível. Seus dados não foram apagados." : "Aguarde um tempo.";
     info.style.cssText = "font:400 16px/1.5 system-ui,sans-serif;margin:0;color:inherit";
     screen.append(title, info);
+    if (reason === "service") {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.textContent = "Tentar novamente";
+      retry.style.cssText = "background:var(--primary,#7010b0);color:#fff;border:0;padding:12px 24px;border-radius:14px;font:600 15px system-ui,sans-serif;min-height:44px;cursor:pointer";
+      retry.onclick = () => window.location.reload();
+      screen.append(retry);
+    }
     if (reason === "suspended") {
       const leave = document.createElement("button");
       leave.type = "button";
@@ -97,7 +110,7 @@ async function verifyAccess() {
       accept: "application/json", "content-type": "application/json" },
     body: "{}"
   });
-  if (!accessResponse.ok) throw Error("account_access_status_unavailable");
+  if (!accessResponse.ok) throw Error(accessResponse.status === 402 || accessResponse.status === 412 ? "neon_quota_exceeded" : "account_access_status_unavailable");
   let access = await accessResponse.json();
   if (Array.isArray(access)) access = access.length === 1 ? access[0] : null;
   if (access && typeof access === "object" && Object.hasOwn(access,"v54_self_account_access"))
@@ -116,13 +129,14 @@ async function verifyAccess() {
 async function check() {
   if (checkInFlight) return checkInFlight;
   checkInFlight = (async () => {
-    let allowed = false, suspended = false;
+    let allowed = false, suspended = false, serviceUnavailable = false;
     try { allowed = await verifyAccess(); }
     catch (error) {
       suspended = error?.message === "user_suspended";
-      if (!suspended) console.warn("Looply access authorization unavailable", error?.message || "network");
+      serviceUnavailable = !suspended;
+      if (serviceUnavailable) console.warn("Looply access authorization unavailable", error?.message || "network");
     }
-    if (!allowed) maintenanceScreen(suspended ? "suspended" : "maintenance");
+    if (!allowed) maintenanceScreen(suspended ? "suspended" : serviceUnavailable ? "service" : "maintenance");
     else if (blocked) window.location.reload();
     else document.documentElement.classList.remove("looply-maintenance-pending");
     return allowed && !blocked;
@@ -141,10 +155,17 @@ export function startMaintenanceGate() {
     }
     if (!listenerAttached) {
       listenerAttached = true;
-      window.addEventListener("focus", () => { void check(); });
-      window.addEventListener("pageshow", () => { void check(); });
+      // A single foreground transition can trigger focus, pageshow AND
+      // visibilitychange; coalesce them rather than triple-billing Neon.
+      const recheck = () => {
+        if (document.visibilityState === "hidden" || Date.now() - lastCheckAt < MIN_CHECK_GAP_MS) return;
+        lastCheckAt = Date.now();
+        void check();
+      };
+      window.addEventListener("focus", recheck);
+      window.addEventListener("pageshow", recheck);
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") void check();
+        if (document.visibilityState === "visible") recheck();
       });
     }
     return allowed;
