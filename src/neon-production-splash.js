@@ -20,5 +20,9 @@ else if(problem){
   retry.textContent="Tentar novamente";
   retry.style.cssText="display:block;margin:12px auto;padding:12px 20px;min-height:44px;border:0;border-radius:14px;background:var(--primary,#7010b0);color:white;font:600 15px system-ui,sans-serif";
   retry.addEventListener("click",()=>location.reload());
-  copy.append(message,retry);
+  const archive=document.createElement("a");
+  archive.href="contingencia.html";
+  archive.textContent="Consultar acervo original (Supabase)";
+  archive.style.cssText="display:block;text-align:center;margin:14px auto;color:var(--primary,#7736cc);font:700 14px system-ui,sans-serif";
+  copy.append(message,retry,archive);
 }else location.replace("login.html");
