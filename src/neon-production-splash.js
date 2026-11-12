@@ -8,7 +8,7 @@ const problem=result.status==="rejected" ? result.reason : result.value?.error;
 if(session)location.replace("home.html");
 else if(problem){
   // Auth backend outages do not mean the user explicitly signed out.
-  // Preserve the existing session storage; do not call auth.signOut().
+  // Preserve the existing session storage and never terminate a session here.
   const failure=classifyNeonLoginFailure(problem);
   const copy=document.querySelector(".splash-copy")||document.body;
   const message=document.createElement("p");
