@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f2ff">
+<meta name="robots" content="noindex,nofollow">
+<title>Arquivo original — Looply</title>
+<script src="contingencia-config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;--purple:#7736cc;--dark:#241738;--muted:#7a7188;--line:#e8def5;--bg:#f8f5fd;--surface:#fff;--soft:#f1eafd}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:linear-gradient(155deg,#f5edff 0%,#fcfaff 44%,#f6f1fb 100%);color:var(--dark);font:14px/1.55 Inter,system-ui,-apple-system,sans-serif}
+button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.58;cursor:progress}a{color:var(--purple)}
+.shell{width:min(100%,660px);margin:0 auto;padding:12px 14px calc(45px + env(safe-area-inset-bottom))}
+.header{position:sticky;top:8px;z-index:2;display:flex;align-items:center;gap:12px;padding:9px 14px;min-height:64px;background:#ffffffdd;border:1px solid var(--line);border-radius:22px;box-shadow:0 12px 40px #3f20511a;backdrop-filter:blur(16px)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;text-decoration:none;color:var(--purple)}.ring{display:grid;place-items:center;width:37px;height:37px;border:4px solid currentColor;border-radius:50%;animation:spin 3s linear infinite}.ring svg{width:21px;height:21px}.brand strong{display:block;font:700 29px/1 'Cabin Sketch',cursive}.brand small{display:block;font-size:10px;color:var(--muted)}
+.header .back{margin-left:auto;flex:none;border:1px solid var(--line);border-radius:13px;padding:9px 11px;color:var(--purple);font-weight:700;text-decoration:none;background:#fff}
+main{padding:24px 0 12px}.panel{border-radius:24px;padding:24px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 50px #412a6510}
+h1{font-size:23px;letter-spacing:-.6px;margin:0 0 8px}h2{font-size:17px;letter-spacing:-.3px}.muted{color:var(--muted)}
+.note{padding:10px 12px;border:1px solid #d8c5f5;border-radius:13px;background:#f5eeff;color:#593695;font-weight:650;font-size:12px;margin:12px 0 20px}
+label{display:block;font-weight:750;margin:16px 0 6px}input{width:100%;border:1px solid var(--line);background:#faf8fd;color:var(--dark);outline:none;border-radius:14px;padding:14px;font-size:16px}
+input:focus-visible{border-color:var(--purple);box-shadow:0 0 0 3px #7736cc22}
+.primary{width:100%;min-height:50px;border:0;border-radius:16px;margin-top:20px;background:var(--purple);color:#fff;font-weight:800}
+#contingency-status{min-height:22px;margin:12px 0 0;font-size:13px;color:var(--muted)}#contingency-status[data-kind=error]{color:#b2265b}
+[hidden]{display:none!important}.identity{display:flex;align-items:center;gap:11px;margin:4px 0 14px}.identity span.avatar{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#e6d3fd;color:var(--purple);font-size:20px;font-weight:800}.identity strong{flex:1;min-width:0}.logout{padding:8px 11px;border:1px solid var(--line);border-radius:12px;color:var(--muted);background:#fff;font-weight:700}
+.tabs{display:flex;gap:7px;padding:6px;background:var(--soft);border-radius:17px;overflow-x:auto;scrollbar-width:thin}
+.tabs button{white-space:nowrap;flex:1;min-width:max-content;padding:10px;border:0;border-radius:13px;background:transparent;color:#5d4c77;font-size:12px;font-weight:750}
+.tabs button[aria-selected=true]{background:var(--surface);color:var(--purple);box-shadow:0 4px 14px #3f205114}
+.results{display:grid;gap:11px;margin-top:14px}.entry{background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:0 4px 20px #3f20510b}
+.entry-head{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:space-between;align-items:baseline}.entry-name{font-size:14px}.entry-date{font-size:11px;color:var(--muted)}
+.entry-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;margin:12px 0 0;font-size:13px}
+.entry-link{display:inline-block;margin-top:12px;font-size:12px;font-weight:750;text-decoration:none}
+.empty{text-align:center;padding:26px 10px;color:var(--muted);font-size:13px}
+.footer{text-align:center;font-size:11px;color:var(--muted);margin-top:22px}
+@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ring{animation:none}}
+@media(max-width:400px){.shell{padding:9px 10px 30px}.panel{padding:20px 16px}.tabs button{padding:10px 8px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="header">
+<a class="brand" href="home.html" aria-label="Looply início"><span class="ring" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none"><path d="M50 15A35 35 0 0 1 85 50" stroke="currentColor" stroke-width="5"/></svg></span><span><strong>Looply</strong><small>Acervo original</small></span></a>
+<a class="back" href="login.html">Início</a>
+</header>
+<main>
+<section id="contingency-login" class="panel">
+<h1>Acesso ao acervo</h1>
+<div class="note">Cópia histórica do Supabase · Consulta somente · Não contém as atualizações recentes do Neon</div>
+<form id="contingency-form">
+<label for="contingency-username">Usuário</label>
+<input id="contingency-username" type="text" autocomplete="username" required minlength="3" maxlength="254" placeholder="@usuário">
+<label for="contingency-password">Senha</label>
+<input id="contingency-password" type="password" autocomplete="current-password" required placeholder="Sua senha original">
+<button class="primary" id="login-submit" type="submit">Entrar</button>
+<p id="contingency-status" role="alert" aria-live="polite"></p>
+</form>
+</section>
+<section id="contingency-library" hidden>
+<div class="panel">
+<div class="identity"><span id="contingency-avatar" class="avatar" aria-hidden="true"></span><strong id="contingency-identity"></strong><button class="logout" id="contingency-signout" type="button">Sair</button></div>
+<h1>Acervo original</h1>
+<p class="muted" style="font-size:12px;margin:0 0 14px">Histórico antigo · Somente leitura</p>
+<div class="tabs" role="tablist" aria-label="Coleções">
+<button type="button" role="tab" aria-selected="true" data-tab="feed">Publicações</button>
+<button type="button" role="tab" aria-selected="false" data-tab="chat">Mensagens</button>
+<button type="button" role="tab" aria-selected="false" data-tab="letters">Cartas</button>
+<button type="button" role="tab" aria-selected="false" data-tab="music">Músicas</button>
+</div>
+</div>
+<section id="contingency-results" class="results" aria-live="polite"></section>
+</section>
+</main>
+<footer class="footer">Looply · MoissWorld</footer>
+</div>
+<script type="module" src="src/contingency-supabase.js?v=20261112-archive"></script>
+</body>
+</html>

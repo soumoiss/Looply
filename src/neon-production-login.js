@@ -32,6 +32,12 @@ form?.addEventListener("submit",async ev=>{
      }).catch(()=>{});
    }
    status(failure.message,failure.kind);
+   if(["service_quota","service_unavailable","profile_unavailable"].includes(failure.kind)&&message){
+     const link=document.createElement("a");
+     link.href="contingencia.html";link.textContent="Consultar acervo original (Supabase)";
+     link.style.cssText="display:block;margin-top:12px;font-weight:750;text-decoration:underline";
+     message.append(link);
+   }
    if(failure.kind!=="invalid_credentials")console.warn("Looply login backend unavailable",failure.kind);
    submit.disabled=false;submit.textContent="Avante!";
  }

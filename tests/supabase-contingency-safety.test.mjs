@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync,existsSync} from "node:fs";
+const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+test("acervo antigo isola Supabase sem alterar login atual Neon",()=>{
+ const html=read("contingencia.html"),code=read("src/contingency-supabase.js"),build=read("scripts/build.mjs");
+ assert.match(html,/Acervo original/);
+ assert.match(html,/Somente leitura|Consulta somente/);
+ assert.match(html,/src\/contingency-supabase\.js/);
+ assert.doesNotMatch(html,/maintenance-bootstrap\.js|neon-production-client\.js/);
+ assert.match(code,/storageKey:"looply-contingencia-auth"/);
+ assert.match(code,/authenticateOriginalAccount/);
+ assert.match(code,/client\.auth\.getUser\(\)/);
+ assert.match(code,/\.eq\("id",user\.id\)/);
+ assert.match(code,/\.select\(tabConfig\.fields\)/);
+ assert.doesNotMatch(code,/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.remove\(/);
+ assert.match(build,/copied AFTER Neon maintenance-gate/);
+ assert.match(build,/await cp\(path\.join\(projectRoot,"contingencia\.html"\)/);
+ assert.match(build,/await cp\(path\.join\(projectRoot,"config\.js"\),path\.join\(outputDirectory,"contingencia-config\.js"\)/);
+ assert.ok(existsSync(new URL("../dist/contingencia.html",import.meta.url)));
+ assert.ok(existsSync(new URL("../dist/contingencia-config.js",import.meta.url)));
+ const built=read("dist/contingencia.html");
+ assert.doesNotMatch(built,/maintenance-bootstrap\.js|looply-maintenance-pending/);
+ const prod=read("dist/config.js");
+ assert.doesNotMatch(prod,/supabaseUrl|publishableKey/);
+});
+test("contingência nunca transforma uma senha do Supabase em token Neon",()=>{
+ const login=read("src/neon-production-login.js"),splash=read("src/neon-production-splash.js");
+ assert.match(login,/Consultar acervo original \(Supabase\)/);
+ assert.match(splash,/Consultar acervo original \(Supabase\)/);
+ const code=read("src/contingency-supabase.js");
+ assert.doesNotMatch(code,/NEON_DATA_API_URL|neon\.auth|looplyClient/);
+ assert.doesNotMatch(code,/localStorage\.setItem\(/);
+});

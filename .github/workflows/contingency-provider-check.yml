@@ -1,0 +1,22 @@
+name: Verify fallback auth provider availability
+on:
+  push:
+    branches: [hotfix/supabase-safe-contingency-20261112]
+  pull_request:
+    paths:
+      - scripts/check-contingency-provider.mjs
+      - .github/workflows/contingency-provider-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Probe original Supabase provider and Neon quota
+        run: node scripts/check-contingency-provider.mjs
