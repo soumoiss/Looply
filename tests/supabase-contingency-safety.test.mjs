@@ -14,7 +14,7 @@ test("acervo antigo isola Supabase sem alterar login atual Neon",()=>{
  assert.match(code,/\.eq\("id",user\.id\)/);
  assert.match(code,/\.select\(tabConfig\.fields\)/);
  assert.doesNotMatch(code,/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.remove\(/);
- assert.match(build,/copy.*AFTER Neon maintenance-gate/);
+ assert.match(build,/copied AFTER Neon maintenance-gate/);
  assert.match(build,/await cp\(path\.join\(projectRoot,"contingencia\.html"\)/);
  assert.match(build,/await cp\(path\.join\(projectRoot,"config\.js"\),path\.join\(outputDirectory,"contingencia-config\.js"\)/);
  assert.ok(existsSync(new URL("../dist/contingencia.html",import.meta.url)));
