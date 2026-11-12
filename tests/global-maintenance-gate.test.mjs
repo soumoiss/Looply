@@ -25,12 +25,12 @@ test("maintenance is enforced at the production HTML entrypoint, not only a page
   }
 });
 
-test("maintenance renders only the requested text and checks every second", () => {
+test("maintenance and service outage display separately without constant Neon polling", () => {
   const gate = read("src/maintenance-gate.js");
-  assert.match(gate, /title\.textContent = reason === "suspended" \? "Acesso suspenso" : "Em manutenção"/);
-  assert.match(gate, /info\.textContent = reason === "suspended" \? "Esta conta está suspensa\." : "Aguarde um tempo\."/);
-  assert.match(gate, /const CHECK_EVERY_MS = 1000/);
-  assert.match(gate, /if \(!allowed\) maintenanceScreen\(suspended \? "suspended" : "maintenance"\)/);
+  assert.match(gate, /title\.textContent = reason === "suspended" \? "Acesso suspenso" : reason === "service" \? "Serviço indisponível" : "Em manutenção"/);
+  assert.match(gate, /info\.textContent = reason === "suspended" \? "Esta conta está suspensa\." : reason === "service"/);
+  assert.match(gate, /const CHECK_EVERY_MS = 60000/);
+  assert.match(gate, /if \(!allowed\) maintenanceScreen\(suspended \? "suspended" : serviceUnavailable \? "service" : "maintenance"\)/);
   assert.match(gate, /else if \(blocked\) window\.location\.reload\(\)/);
   assert.match(gate, /await evaluateMaintenanceAccess\(/);
   assert.match(read("src/maintenance-decision.js"), /"looply_maintenance_status"/);
