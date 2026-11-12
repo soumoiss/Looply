@@ -63,7 +63,7 @@ test("all page controllers check the suspension independently of maintenance",()
   assert.match(sql,/\x27suspended\x27, EXISTS/);
   assert.match(gate,/\/rpc\/v54_self_account_access/);
   assert.match(gate,/access\?\.suspended === true/);
-  assert.match(gate,/maintenanceScreen\(suspended \? "suspended" : "maintenance"\)/);
+  assert.match(gate,/maintenanceScreen\(suspended \? "suspended" : serviceUnavailable \? "service" : "maintenance"\)/);
   assert.match(gate,/title\.textContent = reason === "suspended" \? "Acesso suspenso"/);
   assert.match(gate,/looplyClient\.auth\.signOut\(\)/);
   assert.match(sql,/REVOKE ALL ON FUNCTION public\.v54_self_account_access/);
